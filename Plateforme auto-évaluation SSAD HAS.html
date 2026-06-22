@@ -1,0 +1,1894 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EODA Conseil · Plateforme Auto-Évaluation SAD · HAS 2025</title>
+<style>
+  :root {
+    --brun-ancre: #3E2C26;
+    --brun-moyen: #5C3D2E;
+    --terre: #B45A32;
+    --ambre: #D69646;
+    --ivoire: #F0E8DC;
+    --ivoire-light: #FAF3EB;
+    --blanc: #FFFFFF;
+    --rouge-imp: #C0392B;
+    --vert-ok: #27AE60;
+    --gris-mid: #8A7B72;
+    --gris-light: #E8DDD6;
+    --shadow: rgba(62,44,38,0.12);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Trebuchet MS', Arial, sans-serif;
+    background: var(--ivoire-light);
+    color: var(--brun-ancre);
+    min-height: 100vh;
+  }
+
+  /* ── HEADER ── */
+  header {
+    background: var(--brun-ancre);
+    padding: 0;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    box-shadow: 0 3px 12px rgba(0,0,0,0.3);
+  }
+  .header-inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 28px;
+  }
+  .logo-zone {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .logo-icon {
+    width: 42px;
+    height: 42px;
+    flex-shrink: 0;
+  }
+  .brand-name {
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: var(--ivoire);
+    letter-spacing: 0.04em;
+  }
+  .brand-sub {
+    font-size: 0.72rem;
+    color: var(--ambre);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    display: block;
+    margin-top: 1px;
+  }
+  .header-badge {
+    background: var(--terre);
+    color: var(--ivoire);
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+  }
+
+  /* ── NAV TABS ── */
+  .nav-tabs {
+    background: var(--brun-moyen);
+    display: flex;
+    gap: 0;
+    border-top: 1px solid rgba(255,255,255,0.08);
+  }
+  .nav-tab {
+    padding: 10px 22px;
+    color: rgba(240,232,220,0.65);
+    font-size: 0.82rem;
+    cursor: pointer;
+    border-bottom: 3px solid transparent;
+    transition: all 0.2s;
+    font-weight: 500;
+    user-select: none;
+    white-space: nowrap;
+  }
+  .nav-tab:hover { color: var(--ambre); }
+  .nav-tab.active {
+    color: var(--ambre);
+    border-bottom-color: var(--ambre);
+    background: rgba(214,150,70,0.08);
+  }
+
+  /* ── VIEWS ── */
+  .view { display: none; }
+  .view.active { display: block; }
+
+  /* ── HERO / LANDING ── */
+  .hero {
+    background: linear-gradient(135deg, var(--brun-ancre) 0%, var(--brun-moyen) 60%, #7A5040 100%);
+    padding: 60px 40px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+  .hero::before {
+    content: '';
+    position: absolute;
+    top: -60px; right: -60px;
+    width: 300px; height: 300px;
+    border: 60px solid rgba(214,150,70,0.08);
+    border-radius: 50%;
+  }
+  .hero::after {
+    content: '';
+    position: absolute;
+    bottom: -40px; left: -40px;
+    width: 200px; height: 200px;
+    border: 40px solid rgba(180,90,50,0.1);
+    border-radius: 50%;
+  }
+  .hero h1 {
+    color: var(--ivoire);
+    font-size: 2.1rem;
+    font-weight: 700;
+    margin-bottom: 12px;
+    position: relative;
+    z-index: 1;
+  }
+  .hero h1 span { color: var(--ambre); }
+  .hero p {
+    color: rgba(240,232,220,0.78);
+    font-size: 1.05rem;
+    max-width: 680px;
+    margin: 0 auto 32px;
+    line-height: 1.6;
+    position: relative;
+    z-index: 1;
+  }
+  .hero-cards {
+    display: flex;
+    gap: 20px;
+    justify-content: center;
+    flex-wrap: wrap;
+    position: relative;
+    z-index: 1;
+    margin-bottom: 36px;
+  }
+  .hero-card {
+    background: rgba(255,255,255,0.07);
+    border: 1px solid rgba(214,150,70,0.25);
+    border-radius: 12px;
+    padding: 20px 28px;
+    min-width: 180px;
+    text-align: center;
+  }
+  .hero-card-num {
+    font-size: 2.2rem;
+    font-weight: 800;
+    color: var(--ambre);
+    line-height: 1;
+  }
+  .hero-card-label {
+    font-size: 0.78rem;
+    color: rgba(240,232,220,0.7);
+    margin-top: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  .hero-card.imp .hero-card-num { color: #E74C3C; }
+  .btn-start {
+    background: var(--terre);
+    color: var(--ivoire);
+    border: none;
+    padding: 16px 44px;
+    border-radius: 8px;
+    font-size: 1.05rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+    letter-spacing: 0.04em;
+    position: relative;
+    z-index: 1;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+  }
+  .btn-start:hover {
+    background: #C96030;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0,0,0,0.35);
+  }
+
+  /* ── INFO SECTION ── */
+  .info-section {
+    max-width: 960px;
+    margin: 40px auto;
+    padding: 0 28px;
+  }
+  .info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 20px;
+    margin-top: 28px;
+  }
+  .info-card {
+    background: var(--blanc);
+    border-radius: 12px;
+    padding: 24px;
+    border-left: 4px solid var(--terre);
+    box-shadow: 0 2px 10px var(--shadow);
+  }
+  .info-card h3 {
+    color: var(--brun-ancre);
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    margin-bottom: 10px;
+  }
+  .info-card p {
+    color: var(--gris-mid);
+    font-size: 0.88rem;
+    line-height: 1.6;
+  }
+  .section-title {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--brun-ancre);
+    margin-bottom: 6px;
+  }
+  .section-sub {
+    color: var(--gris-mid);
+    font-size: 0.88rem;
+  }
+
+  /* ── CHAPTER SELECTOR ── */
+  .chap-selector {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 32px 28px;
+  }
+  .chap-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 20px;
+    margin-top: 28px;
+  }
+  .chap-card {
+    background: var(--blanc);
+    border-radius: 14px;
+    padding: 28px;
+    cursor: pointer;
+    border: 2px solid transparent;
+    box-shadow: 0 2px 12px var(--shadow);
+    transition: all 0.25s;
+    position: relative;
+    overflow: hidden;
+  }
+  .chap-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 5px;
+  }
+  .chap-card.c1::before { background: var(--ambre); }
+  .chap-card.c2::before { background: var(--terre); }
+  .chap-card.c3::before { background: var(--brun-moyen); }
+  .chap-card:hover {
+    border-color: var(--ambre);
+    transform: translateY(-4px);
+    box-shadow: 0 8px 24px var(--shadow);
+  }
+  .chap-card.started {
+    border-color: var(--vert-ok);
+  }
+  .chap-num {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--gris-mid);
+    margin-bottom: 8px;
+  }
+  .chap-title {
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: var(--brun-ancre);
+    margin-bottom: 6px;
+  }
+  .chap-type {
+    font-size: 0.78rem;
+    color: var(--terre);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 14px;
+  }
+  .chap-meta {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  .chap-meta-item {
+    font-size: 0.8rem;
+    color: var(--gris-mid);
+  }
+  .chap-meta-item strong { color: var(--brun-ancre); }
+  .chap-progress-bar {
+    margin-top: 14px;
+    height: 5px;
+    background: var(--gris-light);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  .chap-progress-fill {
+    height: 100%;
+    background: var(--vert-ok);
+    transition: width 0.4s;
+  }
+  .chap-progress-label {
+    font-size: 0.72rem;
+    color: var(--gris-mid);
+    margin-top: 4px;
+  }
+  .badge-imp {
+    display: inline-block;
+    background: rgba(192,57,43,0.1);
+    color: var(--rouge-imp);
+    border: 1px solid rgba(192,57,43,0.25);
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 0.72rem;
+    font-weight: 600;
+  }
+
+  /* ── EVAL PANEL ── */
+  .eval-container {
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 24px 28px;
+  }
+  .eval-top-bar {
+    background: var(--blanc);
+    border-radius: 12px;
+    padding: 16px 22px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 14px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 10px var(--shadow);
+    border-left: 4px solid var(--terre);
+  }
+  .eval-chapter-title {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--brun-ancre);
+  }
+  .eval-chapter-type {
+    font-size: 0.78rem;
+    color: var(--terre);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  .timer-box {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--ivoire);
+    border-radius: 8px;
+    padding: 10px 18px;
+    border: 1px solid var(--gris-light);
+  }
+  .timer-label { font-size: 0.75rem; color: var(--gris-mid); text-transform: uppercase; letter-spacing: 0.05em; }
+  .timer-value { font-size: 1.4rem; font-weight: 700; color: var(--brun-ancre); font-variant-numeric: tabular-nums; }
+  .timer-estimated { font-size: 0.72rem; color: var(--gris-mid); }
+  .timer-btn {
+    background: none;
+    border: 1px solid var(--gris-light);
+    border-radius: 6px;
+    padding: 6px 12px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    color: var(--brun-ancre);
+    transition: all 0.15s;
+  }
+  .timer-btn:hover { background: var(--gris-light); }
+  .eval-progress-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 22px;
+  }
+  .eval-progress-bar {
+    flex: 1;
+    height: 8px;
+    background: var(--gris-light);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .eval-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--ambre), var(--terre));
+    transition: width 0.3s;
+  }
+  .eval-progress-text {
+    font-size: 0.82rem;
+    color: var(--gris-mid);
+    white-space: nowrap;
+  }
+
+  /* ── THEME BLOCK ── */
+  .theme-block {
+    margin-bottom: 28px;
+  }
+  .theme-header {
+    background: var(--brun-ancre);
+    color: var(--ivoire);
+    padding: 10px 18px;
+    border-radius: 8px 8px 0 0;
+    font-size: 0.82rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .theme-badge {
+    background: rgba(214,150,70,0.25);
+    color: var(--ambre);
+    padding: 2px 10px;
+    border-radius: 12px;
+    font-size: 0.72rem;
+  }
+  .obj-block {
+    background: var(--blanc);
+    border: 1px solid var(--gris-light);
+    border-top: none;
+  }
+  .obj-block:last-child { border-radius: 0 0 8px 8px; }
+  .obj-header {
+    padding: 10px 18px;
+    background: var(--ivoire);
+    border-bottom: 1px solid var(--gris-light);
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--brun-moyen);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    user-select: none;
+  }
+  .obj-header:hover { background: var(--gris-light); }
+  .obj-chevron { transition: transform 0.2s; font-size: 0.7rem; }
+  .obj-chevron.open { transform: rotate(90deg); }
+  .criteria-list { }
+  .criterion-row {
+    padding: 16px 18px;
+    border-bottom: 1px solid var(--gris-light);
+    transition: background 0.15s;
+  }
+  .criterion-row:last-child { border-bottom: none; }
+  .criterion-row:hover { background: var(--ivoire-light); }
+  .criterion-top {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 10px;
+  }
+  .criterion-id {
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: var(--blanc);
+    background: var(--brun-moyen);
+    padding: 3px 8px;
+    border-radius: 4px;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .criterion-id.imp { background: var(--rouge-imp); }
+  .criterion-intitule {
+    font-size: 0.9rem;
+    color: var(--brun-ancre);
+    line-height: 1.5;
+    flex: 1;
+  }
+  .niveau-badge {
+    font-size: 0.68rem;
+    padding: 2px 7px;
+    border-radius: 10px;
+    font-weight: 600;
+    white-space: nowrap;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+  .niveau-badge.imp {
+    background: rgba(192,57,43,0.12);
+    color: var(--rouge-imp);
+    border: 1px solid rgba(192,57,43,0.3);
+  }
+  .niveau-badge.std {
+    background: rgba(39,174,96,0.1);
+    color: #1E8449;
+    border: 1px solid rgba(39,174,96,0.25);
+  }
+
+  /* ── COTATION BUTTONS ── */
+  .cotation-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .cotation-label { font-size: 0.75rem; color: var(--gris-mid); }
+  .cot-btn {
+    border: 2px solid var(--gris-light);
+    background: var(--blanc);
+    padding: 5px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    font-weight: 600;
+    transition: all 0.15s;
+    color: var(--brun-ancre);
+  }
+  .cot-btn:hover { border-color: var(--ambre); }
+  .cot-btn.active-1 { border-color: #C0392B; background: #FDEDEC; color: #C0392B; }
+  .cot-btn.active-2 { border-color: #E67E22; background: #FEF5EC; color: #CA6F1E; }
+  .cot-btn.active-3 { border-color: #27AE60; background: #E9F7EF; color: #1E8449; }
+  .cot-btn.active-4 { border-color: #1A5276; background: #EBF5FB; color: #1A5276; }
+  .cot-btn.active-star { border-color: var(--ambre); background: #FEF9E7; color: #B7770D; }
+  .cot-btn.active-NC { border-color: var(--gris-mid); background: var(--gris-light); color: var(--gris-mid); }
+  .cot-btn.active-RI { border-color: #8E44AD; background: #F5EEF8; color: #7D3C98; }
+  .ee-list {
+    margin-top: 10px;
+    padding: 10px 14px;
+    background: var(--ivoire-light);
+    border-radius: 6px;
+    border-left: 3px solid var(--ambre);
+  }
+  .ee-list-title {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--gris-mid);
+    margin-bottom: 6px;
+  }
+  .ee-item {
+    font-size: 0.8rem;
+    color: var(--brun-ancre);
+    padding: 3px 0;
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+    line-height: 1.4;
+  }
+  .ee-dot { color: var(--ambre); flex-shrink: 0; margin-top: 3px; }
+  .comment-input {
+    margin-top: 10px;
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid var(--gris-light);
+    border-radius: 6px;
+    font-family: inherit;
+    font-size: 0.82rem;
+    color: var(--brun-ancre);
+    background: var(--blanc);
+    resize: vertical;
+    min-height: 54px;
+    transition: border 0.15s;
+  }
+  .comment-input:focus {
+    outline: none;
+    border-color: var(--ambre);
+  }
+  .comment-input::placeholder { color: var(--gris-mid); }
+
+  /* ── ACTION BAR ── */
+  .action-bar {
+    position: sticky;
+    bottom: 0;
+    background: var(--brun-ancre);
+    padding: 14px 28px;
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    justify-content: space-between;
+    box-shadow: 0 -4px 16px rgba(0,0,0,0.25);
+    z-index: 50;
+    flex-wrap: wrap;
+  }
+  .action-bar-left { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .action-bar-score {
+    color: var(--ambre);
+    font-size: 0.9rem;
+    font-weight: 600;
+  }
+  .btn {
+    padding: 10px 22px;
+    border-radius: 7px;
+    font-size: 0.88rem;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    transition: all 0.2s;
+    font-family: inherit;
+  }
+  .btn-primary { background: var(--terre); color: var(--ivoire); }
+  .btn-primary:hover { background: #C96030; }
+  .btn-secondary { background: rgba(255,255,255,0.1); color: var(--ivoire); border: 1px solid rgba(255,255,255,0.2); }
+  .btn-secondary:hover { background: rgba(255,255,255,0.18); }
+  .btn-amber { background: var(--ambre); color: var(--brun-ancre); }
+  .btn-amber:hover { background: #C8882E; }
+
+  /* ── RESULTS VIEW ── */
+  .results-container {
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 32px 28px;
+  }
+  .results-header {
+    background: linear-gradient(135deg, var(--brun-ancre), var(--brun-moyen));
+    border-radius: 14px;
+    padding: 32px;
+    color: var(--ivoire);
+    margin-bottom: 28px;
+    display: flex;
+    align-items: center;
+    gap: 32px;
+    flex-wrap: wrap;
+  }
+  .score-circle {
+    width: 120px;
+    height: 120px;
+    flex-shrink: 0;
+    position: relative;
+  }
+  .score-circle svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+  .score-circle-text {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+  }
+  .score-pct {
+    font-size: 1.7rem;
+    font-weight: 800;
+    color: var(--ambre);
+    line-height: 1;
+  }
+  .score-pct-label {
+    font-size: 0.65rem;
+    color: rgba(240,232,220,0.6);
+    text-transform: uppercase;
+  }
+  .results-meta { flex: 1; min-width: 200px; }
+  .results-meta h2 { font-size: 1.5rem; margin-bottom: 8px; }
+  .results-grade {
+    display: inline-block;
+    font-size: 1rem;
+    font-weight: 700;
+    padding: 6px 16px;
+    border-radius: 20px;
+    margin-bottom: 14px;
+  }
+  .grade-A { background: rgba(39,174,96,0.2); color: #58D68D; border: 1px solid rgba(39,174,96,0.4); }
+  .grade-B { background: rgba(243,156,18,0.2); color: var(--ambre); border: 1px solid rgba(243,156,18,0.4); }
+  .grade-C { background: rgba(231,76,60,0.2); color: #EC7063; border: 1px solid rgba(231,76,60,0.4); }
+  .results-stats {
+    display: flex;
+    gap: 22px;
+    flex-wrap: wrap;
+  }
+  .results-stat { }
+  .results-stat-num { font-size: 1.3rem; font-weight: 700; color: var(--ambre); }
+  .results-stat-label { font-size: 0.72rem; color: rgba(240,232,220,0.6); text-transform: uppercase; letter-spacing: 0.05em; }
+
+  /* ── CHAPTER SCORES ── */
+  .chap-scores {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 16px;
+    margin-bottom: 28px;
+  }
+  .chap-score-card {
+    background: var(--blanc);
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 2px 10px var(--shadow);
+  }
+  .chap-score-card h4 { font-size: 0.85rem; color: var(--brun-ancre); margin-bottom: 4px; }
+  .chap-score-card .chap-type-label { font-size: 0.72rem; color: var(--gris-mid); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 12px; }
+  .score-bar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+  .score-bar-label { font-size: 0.75rem; color: var(--gris-mid); width: 80px; flex-shrink: 0; }
+  .score-bar { flex: 1; height: 8px; background: var(--gris-light); border-radius: 4px; overflow: hidden; }
+  .score-bar-fill { height: 100%; border-radius: 4px; transition: width 0.5s; }
+  .fill-1 { background: #C0392B; }
+  .fill-2 { background: #E67E22; }
+  .fill-3 { background: #27AE60; }
+  .fill-4 { background: #1A5276; }
+  .fill-star { background: var(--ambre); }
+  .score-bar-pct { font-size: 0.75rem; font-weight: 700; color: var(--brun-ancre); width: 35px; text-align: right; }
+
+  /* ── PRIORITY TABLE ── */
+  .priority-section {
+    background: var(--blanc);
+    border-radius: 12px;
+    padding: 24px;
+    box-shadow: 0 2px 10px var(--shadow);
+    margin-bottom: 24px;
+  }
+  .priority-section h3 {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--brun-ancre);
+    margin-bottom: 6px;
+  }
+  .priority-section .sub {
+    font-size: 0.8rem;
+    color: var(--gris-mid);
+    margin-bottom: 18px;
+  }
+  .priority-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.82rem;
+  }
+  .priority-table th {
+    background: var(--ivoire);
+    padding: 10px 12px;
+    text-align: left;
+    font-weight: 700;
+    color: var(--brun-ancre);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-bottom: 2px solid var(--gris-light);
+  }
+  .priority-table td {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--gris-light);
+    vertical-align: top;
+  }
+  .priority-table tr:hover td { background: var(--ivoire-light); }
+  .p-id { font-weight: 700; color: var(--brun-moyen); white-space: nowrap; }
+  .p-id.imp { color: var(--rouge-imp); }
+  .p-cot { padding: 2px 8px; border-radius: 10px; font-weight: 700; font-size: 0.75rem; display: inline-block; }
+  .p-cot.c1 { background: #FDEDEC; color: #C0392B; }
+  .p-cot.c2 { background: #FEF5EC; color: #CA6F1E; }
+  .p-action {
+    font-size: 0.78rem;
+    color: var(--brun-moyen);
+    font-style: italic;
+  }
+
+  /* ── LEGENDE ── */
+  .legende-section {
+    background: var(--blanc);
+    border-radius: 12px;
+    padding: 22px;
+    box-shadow: 0 2px 10px var(--shadow);
+    margin-bottom: 24px;
+  }
+  .legende-section h3 { font-size: 0.95rem; font-weight: 700; color: var(--brun-ancre); margin-bottom: 14px; }
+  .legende-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+  .legende-item { display: flex; gap: 10px; align-items: flex-start; }
+  .leg-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; margin-top: 3px; }
+  .leg-1 { background: #C0392B; }
+  .leg-2 { background: #E67E22; }
+  .leg-3 { background: #27AE60; }
+  .leg-4 { background: #1A5276; }
+  .leg-star { background: var(--ambre); }
+  .leg-NC { background: var(--gris-mid); }
+  .leg-RI { background: #8E44AD; }
+  .leg-text { font-size: 0.82rem; }
+  .leg-text strong { color: var(--brun-ancre); display: block; font-size: 0.85rem; }
+  .leg-text span { color: var(--gris-mid); font-size: 0.78rem; }
+
+  /* ── FOOTER ── */
+  .app-footer {
+    background: var(--brun-ancre);
+    color: rgba(240,232,220,0.5);
+    text-align: center;
+    padding: 18px;
+    font-size: 0.75rem;
+    margin-top: 40px;
+  }
+  .app-footer a { color: var(--ambre); text-decoration: none; }
+
+  /* ── TOOLTIP ── */
+  .info-tip {
+    display: inline-block;
+    width: 16px; height: 16px;
+    background: var(--ambre);
+    color: var(--brun-ancre);
+    border-radius: 50%;
+    text-align: center;
+    line-height: 16px;
+    font-size: 0.65rem;
+    font-weight: 700;
+    cursor: default;
+    flex-shrink: 0;
+  }
+
+  /* ── MODAL ── */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.6);
+    z-index: 200;
+    align-items: center;
+    justify-content: center;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: var(--blanc);
+    border-radius: 14px;
+    padding: 32px;
+    max-width: 540px;
+    width: 90%;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.35);
+  }
+  .modal h3 { font-size: 1.15rem; color: var(--brun-ancre); margin-bottom: 12px; }
+  .modal p { font-size: 0.88rem; color: var(--gris-mid); line-height: 1.6; margin-bottom: 20px; }
+  .modal-btns { display: flex; gap: 12px; justify-content: flex-end; }
+
+  @media (max-width: 600px) {
+    .hero h1 { font-size: 1.5rem; }
+    .header-badge { display: none; }
+    .nav-tab { padding: 8px 12px; font-size: 0.75rem; }
+    .eval-top-bar { flex-direction: column; align-items: flex-start; }
+  }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header>
+  <div class="header-inner">
+    <div class="logo-zone">
+      <svg class="logo-icon" viewBox="0 0 42 42" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="21" cy="21" r="19" stroke="#D69646" stroke-width="2"/>
+        <circle cx="21" cy="21" r="7" stroke="#D69646" stroke-width="2"/>
+        <line x1="21" y1="2" x2="21" y2="10" stroke="#D69646" stroke-width="2" stroke-linecap="round"/>
+        <line x1="21" y1="32" x2="21" y2="40" stroke="#D69646" stroke-width="2" stroke-linecap="round"/>
+        <line x1="2" y1="21" x2="10" y2="21" stroke="#D69646" stroke-width="2" stroke-linecap="round"/>
+        <line x1="32" y1="21" x2="40" y2="21" stroke="#D69646" stroke-width="2" stroke-linecap="round"/>
+        <circle cx="21" cy="21" r="3" fill="#D69646"/>
+      </svg>
+      <div>
+        <div class="brand-name">EODA conseil</div>
+        <span class="brand-sub">Expliquer · Observer · Démontrer · Accompagner</span>
+      </div>
+    </div>
+    <div class="header-badge">Auto-Évaluation HAS · Juillet 2025</div>
+  </div>
+  <nav class="nav-tabs" id="mainNav">
+    <div class="nav-tab active" onclick="showView('home')">🏠 Accueil</div>
+    <div class="nav-tab" onclick="showView('chapters')">📋 Chapitres</div>
+    <div class="nav-tab" id="evalTab" onclick="showView('eval')" style="display:none">✏️ Évaluation</div>
+    <div class="nav-tab" id="resultsTab" onclick="showView('results')">📊 Résultats</div>
+    <div class="nav-tab" onclick="showView('legende')">ℹ️ Cotation</div>
+  </nav>
+</header>
+
+<!-- ═══════════════════════════════════════════════════ VIEW: HOME -->
+<div class="view active" id="view-home">
+  <div class="hero">
+    <h1>Auto-Évaluation Qualité<br><span>SAD · Référentiel HAS 2025</span></h1>
+    <p>Évaluez votre service d'autonomie à domicile sur les 3 chapitres du référentiel HAS. 
+    Identifiez vos points forts, vos axes de progrès et obtenez un plan d'action priorisé.</p>
+    <div class="hero-cards">
+      <div class="hero-card">
+        <div class="hero-card-num">137</div>
+        <div class="hero-card-label">Critères évalués</div>
+      </div>
+      <div class="hero-card">
+        <div class="hero-card-num">295</div>
+        <div class="hero-card-label">Éléments d'évaluation</div>
+      </div>
+      <div class="hero-card imp">
+        <div class="hero-card-num">16</div>
+        <div class="hero-card-label">Critères Impératifs</div>
+      </div>
+      <div class="hero-card">
+        <div class="hero-card-num">1→4★</div>
+        <div class="hero-card-label">Échelle de cotation HAS</div>
+      </div>
+    </div>
+    <button class="btn-start" onclick="showView('chapters')">Démarrer l'auto-évaluation →</button>
+  </div>
+
+  <div class="info-section">
+    <div class="section-title">Comment ça marche ?</div>
+    <div class="section-sub">Trois étapes pour piloter votre démarche qualité</div>
+    <div class="info-grid">
+      <div class="info-card">
+        <h3>1 · Évaluez par chapitre</h3>
+        <p>Parcourez les 3 chapitres Synaé (Accompagné traceur, Traceur ciblé, Audit système). 
+        Cotez chaque élément d'évaluation : 1, 2, 3, 4, ★ (optimisé), NC (non concerné) ou RI (réponse inadaptée, Chapitre 1 uniquement). Un minuteur vous aide à estimer le temps passé.</p>
+      </div>
+      <div class="info-card" style="border-left-color: var(--ambre)">
+        <h3>2 · Consultez les E.E.</h3>
+        <p>Les Éléments d'Évaluation (E.E.) attendus par les évaluateurs HAS sont affichés pour 
+        chaque critère — les mêmes que dans Synaé. Documentez vos preuves directement.</p>
+      </div>
+      <div class="info-card" style="border-left-color: var(--brun-moyen)">
+        <h3>3 · Obtenez votre plan d'action</h3>
+        <p>Visualisez votre score global, les résultats par thématique, et un tableau priorisé 
+        des critères cotés <strong>1 ou 2</strong> — en commençant par les <strong>critères Impératifs ★</strong>.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════ VIEW: CHAPTERS -->
+<div class="view" id="view-chapters">
+  <div class="chap-selector">
+    <div class="section-title">Choisir un chapitre</div>
+    <div class="section-sub">Évaluez chaque chapitre indépendamment. Vos cotations sont sauvegardées automatiquement.</div>
+    <div class="chap-cards" id="chapCards"></div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════ VIEW: EVAL -->
+<div class="view" id="view-eval">
+  <div class="eval-container">
+    <div class="eval-top-bar">
+      <div>
+        <div class="eval-chapter-title" id="evalChapTitle">Chapitre —</div>
+        <div class="eval-chapter-type" id="evalChapType">—</div>
+      </div>
+      <div class="timer-box">
+        <div>
+          <div class="timer-label">Temps écoulé</div>
+          <div class="timer-value" id="timerDisplay">00:00</div>
+          <div class="timer-estimated" id="timerEstimated">estimé : —</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:4px">
+          <button class="timer-btn" id="timerBtn" onclick="toggleTimer()">⏸ Pause</button>
+          <button class="timer-btn" onclick="resetTimer()">↺ Reset</button>
+        </div>
+      </div>
+    </div>
+    <div class="eval-progress-row">
+      <div class="eval-progress-bar"><div class="eval-progress-fill" id="evalProgressFill" style="width:0%"></div></div>
+      <div class="eval-progress-text" id="evalProgressText">0 / 0 cotés</div>
+    </div>
+    <div id="evalContent"></div>
+  </div>
+  <div class="action-bar">
+    <div class="action-bar-left">
+      <button class="btn btn-secondary" onclick="showView('chapters')">← Chapitres</button>
+      <div class="action-bar-score" id="evalLiveScore"></div>
+    </div>
+    <button class="btn btn-amber" onclick="finishChapter()">Terminer ce chapitre →</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════ VIEW: RESULTS -->
+<div class="view" id="view-results">
+  <div class="results-container" id="resultsContent">
+    <div style="text-align:center;padding:60px;color:var(--gris-mid)">
+      <div style="font-size:2rem;margin-bottom:12px">📊</div>
+      <p>Completez au moins un chapitre pour voir vos résultats.</p>
+      <button class="btn btn-primary" onclick="showView('chapters')" style="margin-top:16px">Commencer l'évaluation</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════ VIEW: LEGENDE -->
+<div class="view" id="view-legende">
+  <div style="max-width:860px;margin:0 auto;padding:32px 28px">
+    <div class="section-title">Système de cotation HAS</div>
+    <div class="section-sub" style="margin-bottom:24px">Référentiel juillet 2025 · Manuel d'évaluation ESSMS · Fiche pratique n°7</div>
+    
+    <div class="legende-section">
+      <h3>Les 7 cotations possibles (éléments d'évaluation)</h3>
+      <div class="legende-grid">
+        <div class="legende-item">
+          <div class="leg-dot leg-1"></div>
+          <div class="leg-text"><strong>1 — Pas du tout satisfaisant</strong><span>Le niveau attendu n'est <strong>pas du tout satisfaisant</strong>. Pratiques absentes ou très insuffisantes.</span></div>
+        </div>
+        <div class="legende-item">
+          <div class="leg-dot leg-2"></div>
+          <div class="leg-text"><strong>2 — Plutôt pas satisfaisant</strong><span>Le niveau attendu n'est <strong>plutôt pas satisfaisant</strong>. Des éléments existent mais restent insuffisants.</span></div>
+        </div>
+        <div class="legende-item">
+          <div class="leg-dot leg-3"></div>
+          <div class="leg-text"><strong>3 — Plutôt satisfaisant</strong><span>Le niveau attendu est <strong>plutôt satisfaisant</strong>. Les pratiques sont globalement en place, des axes de progrès mineurs subsistent.</span></div>
+        </div>
+        <div class="legende-item">
+          <div class="leg-dot leg-4"></div>
+          <div class="leg-text"><strong>4 — Tout à fait satisfaisant</strong><span>Le niveau attendu est <strong>tout à fait satisfaisant</strong>. Pratiques robustes, traçables et généralisées.</span></div>
+        </div>
+        <div class="legende-item">
+          <div class="leg-dot leg-star"></div>
+          <div class="leg-text"><strong>★ — Optimisé</strong><span>Le niveau atteint est <strong>optimisé</strong>. Comptabilisé 4/4 dans Synaé. Met en valeur une bonne pratique exemplaire.</span></div>
+        </div>
+        <div class="legende-item">
+          <div class="leg-dot leg-NC"></div>
+          <div class="leg-text"><strong>NC — Non concerné</strong><span>L'ESSMS est <strong>non concerné</strong> par l'(les) élément(s) d'évaluation. <em>Interdit sur les critères Impératifs.</em> Ne compte pas dans le score.</span></div>
+        </div>
+        <div class="legende-item">
+          <div class="leg-dot leg-RI"></div>
+          <div class="leg-text"><strong>RI — Réponse inadaptée</strong><span><strong>Chapitre 1 uniquement.</strong> La personne accompagnée donne une réponse inadaptée malgré les reformulations de l'intervenant. Ne compte pas dans le score.</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="legende-section">
+      <h3>Calcul du score par étapes (système Synaé)</h3>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin-top:12px">
+        <div style="padding:16px;background:var(--ivoire-light);border-radius:8px;border-left:4px solid var(--ambre)">
+          <strong style="color:var(--brun-ancre);display:block;margin-bottom:6px">Étape 1 · E.E.</strong>
+          <p style="font-size:0.8rem;color:var(--gris-mid)">Chaque élément d'évaluation (E.E.) est coté de 1 à 4 (ou ★/NC/RI).</p>
+        </div>
+        <div style="padding:16px;background:var(--ivoire-light);border-radius:8px;border-left:4px solid var(--terre)">
+          <strong style="color:var(--brun-ancre);display:block;margin-bottom:6px">Étape 2 · Critère</strong>
+          <p style="font-size:0.8rem;color:var(--gris-mid)">Moyenne des E.E. cotés (NC et RI exclus). Ramenée à une note entre 1 et 4.</p>
+        </div>
+        <div style="padding:16px;background:var(--ivoire-light);border-radius:8px;border-left:4px solid var(--brun-moyen)">
+          <strong style="color:var(--brun-ancre);display:block;margin-bottom:6px">Étape 3 · Objectif → Thématique → Chapitre</strong>
+          <p style="font-size:0.8rem;color:var(--gris-mid)">À chaque niveau, la cotation est recalculée comme moyenne, toujours ramenée entre 1 et 4.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="legende-section">
+      <h3>Niveau d'exigence des critères</h3>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:12px">
+        <div style="padding:16px;background:var(--ivoire-light);border-radius:8px;border-left:4px solid var(--rouge-imp)">
+          <strong style="color:var(--rouge-imp);display:block;margin-bottom:6px">★ Impératif</strong>
+          <p style="font-size:0.82rem;color:var(--gris-mid);line-height:1.5">16 critères fondamentaux (Chap. 2 et 3). <strong>NC est interdit</strong> sur ces critères — tous leurs E.E. doivent être investigués et cotés. Priorité absolue dans le plan d'action.</p>
+        </div>
+        <div style="padding:16px;background:var(--ivoire-light);border-radius:8px;border-left:4px solid var(--vert-ok)">
+          <strong style="color:#1E8449;display:block;margin-bottom:6px">Standard</strong>
+          <p style="font-size:0.82rem;color:var(--gris-mid);line-height:1.5">Critères attendus dans le cadre d'une démarche qualité continue. NC possible si justifié (contexte d'accompagnement, choix de la personne, missions de l'ESSMS).</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="legende-section">
+      <h3>Les 3 types de traceurs Synaé</h3>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin-top:12px">
+        <div style="padding:16px;background:var(--ivoire-light);border-radius:8px">
+          <strong style="color:var(--brun-ancre);display:block;margin-bottom:4px">Chapitre 1 · Accompagné traceur</strong>
+          <p style="font-size:0.8rem;color:var(--gris-mid)">Évaluation centrée sur la personne accompagnée. La cotation RI est disponible uniquement ici. ~90 min.</p>
+        </div>
+        <div style="padding:16px;background:var(--ivoire-light);border-radius:8px">
+          <strong style="color:var(--brun-ancre);display:block;margin-bottom:4px">Chapitre 2 · Traceur ciblé</strong>
+          <p style="font-size:0.8rem;color:var(--gris-mid)">Évaluation des pratiques professionnelles collectives et individuelles. ~60 min.</p>
+        </div>
+        <div style="padding:16px;background:var(--ivoire-light);border-radius:8px">
+          <strong style="color:var(--brun-ancre);display:block;margin-bottom:4px">Chapitre 3 · Audit système</strong>
+          <p style="font-size:0.8rem;color:var(--gris-mid)">Évaluation de l'organisation, des politiques et de la démarche qualité de l'ESSMS. ~120 min.</p>
+        </div>
+      </div>
+    </div>
+
+    <div style="background:var(--brun-ancre);color:var(--ivoire);border-radius:10px;padding:18px 22px;font-size:0.82rem;line-height:1.6">
+      <strong style="color:var(--ambre)">EODA Conseil</strong> accompagne votre SAD dans la préparation à l'évaluation HAS : 
+      diagnostic, PLAC, formation des équipes, Power BI de suivi des KPI qualité. 
+      <strong style="color:var(--ambre)">Contact :</strong> EODAconseil@outlook.com
+    </div>
+  </div>
+</div>
+
+<!-- CONFIRM MODAL -->
+<div class="modal-overlay" id="confirmModal">
+  <div class="modal">
+    <h3 id="modalTitle">Terminer ce chapitre ?</h3>
+    <p id="modalMsg">Des critères n'ont pas encore été cotés. Souhaitez-vous quand même valider ce chapitre et consulter les résultats partiels ?</p>
+    <div class="modal-btns">
+      <button class="btn btn-secondary" onclick="closeModal()" style="background:var(--gris-light);color:var(--brun-ancre);border:none">Annuler</button>
+      <button class="btn btn-primary" onclick="confirmFinish()">Valider →</button>
+    </div>
+  </div>
+</div>
+
+<footer class="app-footer">
+  Produit par EODA Conseil · Licence d'utilisation interne · Mention d'origine obligatoire à conserver · © 2026 EODA Conseil
+  &nbsp;|&nbsp; Référentiel Manuel d'évaluation de la qualité ESSMS · HAS · Juillet 2025
+</footer>
+
+<script>
+// ══════════════════════════════════════════════════════
+// DATA: All 3 chapters extracted from Synaé grilles
+// ══════════════════════════════════════════════════════
+const GRILLES = {
+  "1": {
+    "name": "La personne",
+    "type": "Accompagné traceur",
+    "duration_minutes": 90,
+    "total_criteria": 59,
+    "imperative_ids": [],
+    "themes": {
+      "BIENTRAITANCE ET ÉTHIQUE": {
+        "Objectif 1.1": [
+          { "id":"1.1.1","intitule":"La personne accompagnée exprime sa perception de la bientraitance.","niveau":"Standard","ee_questions":["E.E. La personne accompagnée est sollicitée pour exprimer sa perception de la bientraitance.","E.E. La personne accompagnée est écoutée et respectée dans cette expression au quotidien."] }
+        ]
+      },
+      "DROITS DE LA PERSONNE ACCOMPAGNÉE": {
+        "Objectif 1.2": [
+          { "id":"1.2.1","intitule":"La personne accompagnée et son entourage sont informés du rôle des professionnels et autres intervenants et peuvent les identifier.","niveau":"Standard","ee_questions":["E.E. La personne et son entourage sont informés du rôle des différents professionnels et autres intervenants qui l'accompagnent.","E.E. La personne accompagnée peut identifier les professionnels et autres intervenants."] },
+          { "id":"1.2.2","intitule":"La personne accompagnée est informée de ses droits et devoirs dans le cadre de la vie collective ou du fonctionnement du service.","niveau":"Standard","ee_questions":["E.E. La personne accompagnée reçoit toutes les informations sur ses droits et devoirs dans le cadre de la vie collective ou du fonctionnement du service.","E.E. La personne accompagnée a reçu les documents et explications associés.","E.E. La personne accompagnée a la possibilité de poser toutes les questions facilitant sa compréhension."] },
+          { "id":"1.2.3","intitule":"La personne accompagnée est systématiquement informée de la possibilité de désigner une personne de confiance pour l'accompagner et l'assister dans ses démarches.","niveau":"Standard","ee_questions":["E.E. La personne accompagnée est systématiquement informée de la possibilité de désigner une personne de confiance.","E.E. La personne accompagnée est informée du rôle de la personne de confiance."] },
+          { "id":"1.2.4","intitule":"La personne a accès aux informations relatives à son accompagnement.","niveau":"Standard","ee_questions":["E.E. La personne a accès aux informations relatives à son accompagnement.","E.E. La personne accompagnée est informée des modalités d'accès à son dossier."] },
+          { "id":"1.2.5","intitule":"La personne peut s'adresser aux professionnels qui l'accompagnent pour être orientée, accompagnée et soutenue dans l'exercice de ses droits individuels.","niveau":"Standard","ee_questions":["E.E. La personne peut s'adresser aux professionnels qui l'accompagnent en cas de besoin pour être orientée dans l'exercice de ses droits individuels.","E.E. La personne peut s'adresser aux professionnels pour être accompagnée et soutenue dans sa démarche."] },
+          { "id":"1.2.6","intitule":"Les professionnels informent la personne accompagnée de ses droits et de leurs modalités d'exercice, ou l'orientent vers le bon interlocuteur.","niveau":"Standard","ee_questions":["E.E. Les professionnels informent la personne accompagnée de ses droits et de leurs modalités d'exercice.","E.E. Les professionnels savent orienter la personne accompagnée vers les personnes ressources."] },
+          { "id":"1.2.7","intitule":"Les professionnels sont régulièrement sensibilisés et/ou formés à la connaissance des droits de la personne accompagnée.","niveau":"Standard","ee_questions":["E.E. Les professionnels sont régulièrement sensibilisés et/ou formés à la connaissance des droits de la personne accompagnée."] }
+        ],
+        "Objectif 1.3": [
+          { "id":"1.3.1","intitule":"La personne accompagnée est associée à la révision des règles de vie collective ou des modalités de fonctionnement du service.","niveau":"Standard","ee_questions":["E.E. La personne accompagnée est associée à la révision des règles de vie collective ou des modalités de fonctionnement du service.","E.E. La personne accompagnée est associée à la révision des outils favorisant leur compréhension."] },
+          { "id":"1.3.2","intitule":"Les professionnels coconstruisent les règles de vie collective ou les modalités de fonctionnement du service dans le respect des droits et libertés de la personne accompagnée.","niveau":"Standard","ee_questions":["E.E. Les professionnels coconstruisent les règles de vie collective ou les modalités de fonctionnement du service avec la personne accompagnée.","E.E. Les professionnels s'assurent que les règles de vie collective ou les modalités de fonctionnement du service respectent les droits et libertés de personne accompagnée."] }
+        ],
+        "Objectif 1.4": [
+          { "id":"1.4.1","intitule":"La personne est assurée que les choix qu'elle exprime sur son cadre de vie ou d'accompagnement sont pris en compte.","niveau":"Standard","ee_questions":["E.E. La personne exprime ses choix sur son cadre de vie ou d'accompagnement.","E.E. Les choix de la personne accompagnée sont pris en compte."] }
+        ]
+      },
+      "EXPRESSION ET PARTICIPATION DE LA PERSONNE ACCOMPAGNÉE": {
+        "Objectif 1.5": [
+          { "id":"1.5.1","intitule":"La personne accompagnée participe aux instances collectives ou à toutes autres formes de participation.","niveau":"Standard","ee_questions":["E.E. La personne accompagnée est impliquée dans les instances collectives, ou autres formes de participation.","E.E. La personne accompagnée connaît ses représentants et peut les solliciter.","E.E. La personne accompagnée est sollicitée pour exprimer sa satisfaction."] },
+          { "id":"1.5.2","intitule":"La personne accompagnée est informée de la suite donnée aux demandes formulées dans le cadre des instances collectives.","niveau":"Standard","ee_questions":["E.E. La personne accompagnée a connaissance des réponses apportées aux questions qu'elle a posées dans le cadre des instances collectives.","E.E. La personne accompagnée a accès au relevé des échanges."] },
+          { "id":"1.5.3","intitule":"Les professionnels facilitent l'accès à la traçabilité des échanges et réponses apportées dans le cadre des instances collectives.","niveau":"Standard","ee_questions":["E.E. Les professionnels facilitent l'accès de la personne accompagnée au contenu des échanges dans les instances collectives.","E.E. Les professionnels connaissent les lieux d'affichage et/ou d'enregistrement des relevés des échanges."] }
+        ],
+        "Objectif 1.6": [
+          { "id":"1.6.1","intitule":"La personne accompagnée est soutenue dans son expression. Le partage de son expérience est favorisé et l'expression de ses préférences prise en compte.","niveau":"Standard","ee_questions":["E.E. La personne accompagnée est soutenue dans son expression.","E.E. La personne accompagnée partage son expérience.","E.E. Ses préférences sont prises en compte."] },
+          { "id":"1.6.2","intitule":"Les professionnels facilitent l'expression de la personne accompagnée grâce à l'utilisation de moyens et outils adaptés.","niveau":"Standard","ee_questions":["E.E. Les professionnels facilitent l'expression de la personne accompagnée.","E.E. Les professionnels utilisent des moyens et outils qui facilitent leur expression."] },
+          { "id":"1.6.3","intitule":"Les professionnels analysent le recueil de l'expression de la personne accompagnée et en tirent les enseignements.","niveau":"Standard","ee_questions":["E.E. Les professionnels analysent le recueil de l'expression de la personne accompagnée.","E.E. Le cas échéant, les professionnels apportent les adaptations nécessaires à l'accompagnement."] }
+        ],
+        "Objectif 1.7": [
+          { "id":"1.7.1","intitule":"La personne accompagnée a la possibilité d'exprimer son consentement éclairé, grâce à une information claire et des moyens adaptés.","niveau":"Standard","ee_questions":["E.E. La personne accompagnée a la possibilité d'exprimer son consentement éclairé.","E.E. La personne accompagnée reçoit des explications claires et adaptées, nécessaires à sa compréhension."] },
+          { "id":"1.7.2","intitule":"Les professionnels recherchent l'adhésion de la personne accompagnée, grâce à une information claire et des moyens adaptés.","niveau":"Standard","ee_questions":["E.E. Les professionnels recherchent l'adhésion de la personne accompagnée.","E.E. Les professionnels apportent à la personne accompagnée des explications claires et adaptées."] },
+          { "id":"1.7.3","intitule":"Les professionnels réinterrogent le refus de la personne tout au long de son accompagnement et recherchent des alternatives avec elle.","niveau":"Standard","ee_questions":["E.E. Les professionnels réinterrogent le refus de la personne tout au long de son accompagnement.","E.E. Les professionnels recherchent des alternatives avec la personne accompagnée."] },
+          { "id":"1.7.4","intitule":"Les professionnels assurent la traçabilité du consentement ou du refus exprimé par la personne accompagnée.","niveau":"Standard","ee_questions":["E.E. Les professionnels formalisent le consentement/refus de la personne accompagnée dans son dossier.","E.E. Les professionnels partagent l'information du consentement/refus de la personne accompagnée."] }
+        ],
+        "Objectif 1.8": [
+          { "id":"1.8.1","intitule":"La personne accompagnée a la possibilité de maintenir ses liens sociaux et d'en créer de nouveaux, dans et hors le service.","niveau":"Standard","ee_questions":["E.E. La personne accompagnée a la possibilité de maintenir ses liens sociaux existants.","E.E. La personne accompagnée a la possibilité de créer de nouveaux liens sociaux."] },
+          { "id":"1.8.2","intitule":"La personne peut s'investir dans la vie sociale et culturelle et participer à des évènements sur le territoire grâce à un accompagnement adapté.","niveau":"Standard","ee_questions":["E.E. La personne accompagnée est encouragée à s'investir dans la vie sociale et culturelle.","E.E. Sa participation est facilitée grâce à un accompagnement adapté.","E.E. La personne accompagnée reçoit des informations lui permettant de faire des choix de participation."] },
+          { "id":"1.8.3","intitule":"Les professionnels informent la personne accompagnée sur l'offre d'activités sportives, socio-culturelles et de loisirs, recueillent ses attentes et respectent ses choix.","niveau":"Standard","ee_questions":["E.E. Les professionnels informent la personne accompagnée sur l'offre d'activités sportives, socio-culturelles et de loisirs.","E.E. Les professionnels recueillent les attentes de la personne accompagnée.","E.E. Les professionnels respectent les choix de la personne accompagnée."] },
+          { "id":"1.8.4","intitule":"Les professionnels identifient et mobilisent les ressources et moyens nécessaires à la mise en place d'activités sportives, socio-culturelles et de loisirs.","niveau":"Standard","ee_questions":["E.E. Les professionnels identifient les ressources et moyens nécessaires.","E.E. Les professionnels mobilisent ces ressources au bénéfice de la personne accompagnée."] },
+          { "id":"1.8.5","intitule":"Les professionnels encouragent le recours à la pair-aidance et autres dispositifs facilitant l'entraide entre les personnes accompagnées.","niveau":"Standard","ee_questions":["E.E. Les professionnels encouragent le recours à la pair-aidance.","E.E. Les professionnels facilitent l'entraide entre les personnes accompagnées."] }
+        ],
+        "Objectif 1.9": [
+          { "id":"1.9.1","intitule":"La personne est accompagnée selon ses besoins et ses souhaits dans sa participation à la vie citoyenne.","niveau":"Standard","ee_questions":["E.E. La personne est accompagnée dans sa participation à la vie citoyenne au regard de ses besoins et souhaits.","E.E. La personne accompagnée bénéficie des informations utiles à l'exercice de la vie citoyenne."] },
+          { "id":"1.9.2","intitule":"Les professionnels utilisent des moyens et des outils adaptés permettant à la personne accompagnée d'exercer sa citoyenneté.","niveau":"Standard","ee_questions":["E.E. Les professionnels facilitent l'exercice de la citoyenneté de la personne accompagnée.","E.E. Les professionnels proposent à la personne accompagnée une éducation à la citoyenneté."] }
+        ]
+      },
+      "COCONSTRUCTION ET PERSONNALISATION DU PROJET D'ACCOMPAGNEMENT": {
+        "Objectif 1.10": [
+          { "id":"1.10.1","intitule":"La personne exprime ses attentes sur son projet d'accompagnement.","niveau":"Standard","ee_questions":["E.E. La personne est sollicitée pour exprimer ses attentes sur son projet d'accompagnement."] },
+          { "id":"1.10.2","intitule":"La personne avec son entourage et les professionnels en équipe, coconstruisent le projet d'accompagnement.","niveau":"Standard","ee_questions":["E.E. La personne et les professionnels en équipe, élaborent conjointement le projet d'accompagnement.","E.E. L'entourage est associé, selon les souhaits de la personne, à la coconstruction de son projet d'accompagnement."] },
+          { "id":"1.10.3","intitule":"Les professionnels évaluent les besoins de la personne pour construire son projet d'accompagnement en utilisant des outils d'évaluations validés.","niveau":"Standard","ee_questions":["E.E. Les professionnels évaluent les besoins de la personne pour élaborer son projet d'accompagnement.","E.E. Les professionnels utilisent des outils validés pour l'évaluation de ses besoins."] },
+          { "id":"1.10.4","intitule":"Les professionnels coconstruisent avec la personne et son entourage son projet d'accompagnement.","niveau":"Standard","ee_questions":["E.E. Les professionnels coconstruisent le projet d'accompagnement avec la personne.","E.E. Les professionnels associent son entourage selon les souhaits de la personne accompagnée."] },
+          { "id":"1.10.5","intitule":"Les professionnels mobilisent les ressources internes et/ou externes et les outils pour mettre en œuvre le projet d'accompagnement.","niveau":"Standard","ee_questions":["E.E. Les professionnels mobilisent les ressources internes et/ou externes nécessaires.","E.E. Les professionnels mobilisent les outils nécessaires à la mise en œuvre du projet d'accompagnement."] },
+          { "id":"1.10.6","intitule":"Les professionnels assurent la traçabilité et réévaluent le projet d'accompagnement avec la personne, chaque fois que nécessaire, et au moins une fois par an.","niveau":"Standard","ee_questions":["E.E. Les professionnels formalisent le projet d'accompagnement de la personne et ses mises à jour.","E.E. Les professionnels réévaluent avec la personne son projet d'accompagnement au minimum une fois par an."] }
+        ],
+        "Objectif 1.11": [
+          { "id":"1.11.1","intitule":"La personne définit avec les professionnels la place de son entourage dans son accompagnement.","niveau":"Standard","ee_questions":["E.E. La personne décide de la place de son entourage dans son accompagnement.","E.E. Le choix fait par la personne accompagnée, sur la place donnée à son entourage, est respecté."] },
+          { "id":"1.11.2","intitule":"Les professionnels informent, orientent et/ou accompagnent l'entourage vers les dispositifs de prévention, de soutien et de répit existants.","niveau":"Standard","ee_questions":["E.E. Les professionnels connaissent les dispositifs de prévention, de soutien et de répit existants.","E.E. Les professionnels informent l'entourage de ces dispositifs.","E.E. Les professionnels orientent et/ou accompagnent l'entourage vers ces dispositifs."] }
+        ]
+      },
+      "ACCOMPAGNEMENT À L'AUTONOMIE": {
+        "Objectif 1.12": [
+          { "id":"1.12.1","intitule":"La personne accompagnée exprime régulièrement ses attentes sur les mesures d'aide et de soutien souhaitées pour favoriser ou préserver son autonomie.","niveau":"Standard","ee_questions":["E.E. La personne accompagnée exprime ses attentes sur les mesures d'aide et de soutien souhaitées pour favoriser son autonomie.","E.E. La personne accompagnée est régulièrement sollicitée pour exprimer ses attentes en vue de préserver son autonomie."] },
+          { "id":"1.12.2","intitule":"Les professionnels évaluent régulièrement les besoins de la personne accompagnée pour favoriser ou préserver son autonomie.","niveau":"Standard","ee_questions":["E.E. Les professionnels évaluent les besoins d'accompagnement de la personne pour favoriser son autonomie.","E.E. Les professionnels réévaluent régulièrement les besoins d'accompagnement de la personne pour préserver son autonomie."] },
+          { "id":"1.12.3","intitule":"Les professionnels repèrent de manière précoce les risques de perte d'autonomie et d'isolement social de la personne accompagnée et alertent les personnes-ressources.","niveau":"Standard","ee_questions":["E.E. Les professionnels alertent les personnes-ressources en cas de risque de perte d'autonomie ou d'isolement social.","E.E. Les professionnels repèrent de manière précoce les risques de perte d'autonomie et d'isolement social."] }
+        ],
+        "Objectif 1.13": [
+          { "id":"1.13.1","intitule":"La personne accompagnée a la possibilité d'exprimer ses attentes en matière de logement ou d'hébergement.","niveau":"Standard","ee_questions":["E.E. La personne accompagnée est sollicitée pour exprimer ses attentes en matière de logement ou d'hébergement.","E.E. Les attentes formulées par la personne accompagnée sont prises en compte."] },
+          { "id":"1.13.2","intitule":"La personne est accompagnée dans ses démarches pour accéder ou se maintenir dans son logement ou hébergement.","niveau":"Standard","ee_questions":["E.E. La personne accompagnée est informée ou conseillée dans ses démarches relatives à son logement.","E.E. La personne peut s'adresser aux professionnels pour être accompagnée dans ses démarches d'accès ou de maintien dans son logement."] },
+          { "id":"1.13.3","intitule":"Les professionnels accompagnent la personne dans sa recherche de logement ou d'hébergement adapté à ses besoins et attentes.","niveau":"Standard","ee_questions":["E.E. Les professionnels prennent en compte les besoins et attentes exprimés par la personne accompagnée dans sa recherche de logement.","E.E. Les professionnels adaptent l'accompagnement de la personne pour sa recherche de logement."] }
+        ]
+      },
+      "ACCOMPAGNEMENT À LA SANTÉ": {
+        "Objectif 1.14": [
+          { "id":"1.14.1","intitule":"La personne accompagnée participe à la définition de ses besoins en matière de prévention et d'éducation à la santé.","niveau":"Standard","ee_questions":["E.E. La personne accompagnée est sollicitée pour exprimer ses attentes en matière de prévention en santé.","E.E. La personne accompagnée est sollicitée pour exprimer ses attentes en matière d'éducation à la santé."] },
+          { "id":"1.14.2","intitule":"Les professionnels évaluent les besoins de la personne accompagnée en matière de prévention et d'éducation à la santé.","niveau":"Standard","ee_questions":["E.E. Les professionnels évaluent les besoins de la personne accompagnée en matière de prévention en santé.","E.E. Les professionnels évaluent les besoins de la personne accompagnée en matière d'éducation à la santé."] },
+          { "id":"1.14.3","intitule":"Les professionnels orientent vers et/ou mettent en œuvre un programme de prévention et d'éducation à la santé adapté à la personne accompagnée.","niveau":"Standard","ee_questions":["E.E. Les professionnels mettent en œuvre un programme de prévention et d'éducation à la santé adapté.","E.E. Les professionnels orientent la personne accompagnée vers un programme de prévention et d'éducation à la santé."] },
+          { "id":"1.14.4","intitule":"Les professionnels facilitent la compréhension des messages de prévention et d'éducation à la santé.","niveau":"Standard","ee_questions":["E.E. Les professionnels adaptent les messages de prévention et d'éducation à la santé.","E.E. Les professionnels s'appuient sur des supports de communication adaptés."] },
+          { "id":"1.14.5","intitule":"Les professionnels organisent l'accompagnement et/ou accompagnent la personne lors des dépistages et des soins de prévention.","niveau":"Standard","ee_questions":["E.E. Les professionnels organisent l'accompagnement de la personne lors des dépistages et des soins de prévention.","E.E. Les professionnels accompagnent la personne lors des dépistages et des soins de prévention."] },
+          { "id":"1.14.6","intitule":"Les professionnels sont régulièrement sensibilisés et/ou formés à la prévention et à l'éducation à la santé.","niveau":"Standard","ee_questions":["E.E. Les professionnels sont régulièrement sensibilisés et/ou formés à la prévention et à l'éducation à la santé."] }
+        ],
+        "Objectif 1.15": [
+          { "id":"1.15.5","intitule":"Les professionnels identifient et/ou évaluent régulièrement les besoins en santé de la personne accompagnée.","niveau":"Standard","ee_questions":["E.E. Les professionnels identifient et/ou évaluent les besoins spécifiques en santé de la personne accompagnée.","E.E. Les professionnels réévaluent les besoins en santé de la personne accompagnée au minimum une fois par an."] },
+          { "id":"1.15.6","intitule":"Les professionnels repèrent de manière précoce les risques en santé pour la personne accompagnée et alertent les personnes-ressources.","niveau":"Standard","ee_questions":["E.E. Les professionnels repèrent de manière précoce les risques en santé pour la personne accompagnée.","E.E. Les professionnels alertent les personnes-ressources en cas de risque en santé."] },
+          { "id":"1.15.10","intitule":"Les professionnels mobilisent les expertises et partenariats du territoire, nécessaires à l'accompagnement à la santé de la personne.","niveau":"Standard","ee_questions":["E.E. Les professionnels connaissent les experts et partenaires du territoire identifiés dans le cadre de l'accompagnement à la santé.","E.E. Les professionnels mobilisent ces experts et partenaires nécessaires à l'accompagnement."] }
+        ],
+        "Objectif 1.16": [
+          { "id":"1.16.1","intitule":"La personne s'exprime sur la manière dont sont prises en charge ses douleurs tout au long de son accompagnement.","niveau":"Standard","ee_questions":["E.E. La personne exprime ses douleurs tout au long de son accompagnement.","E.E. La personne accompagnée estime que ses douleurs sont prises en compte."] },
+          { "id":"1.16.2","intitule":"Les professionnels repèrent et/ou évaluent régulièrement et tracent les douleurs de la personne accompagnée selon des modalités adaptées.","niveau":"Standard","ee_questions":["E.E. Les professionnels repèrent et/ou évaluent régulièrement les douleurs de la personne accompagnée.","E.E. Les professionnels connaissent les manifestations habituelles d'expression des douleurs.","E.E. Les professionnels utilisent des moyens et outils adaptés pour évaluer ces douleurs.","E.E. Les professionnels assurent la traçabilité de ces repérages et/ou évaluations dans le dossier."] },
+          { "id":"1.16.3","intitule":"Les professionnels recueillent, auprès de l'entourage, des informations sur les manifestations habituelles des douleurs chez la personne accompagnée.","niveau":"Standard","ee_questions":["E.E. Les professionnels sollicitent l'entourage pour faciliter le repérage des douleurs.","E.E. Les professionnels prennent en compte les alertes de l'entourage."] },
+          { "id":"1.16.5","intitule":"Les professionnels alertent et/ou mobilisent tous les moyens nécessaires pour soulager la douleur de la personne accompagnée.","niveau":"Standard","ee_questions":["E.E. Les professionnels alertent les personnes-ressources lorsque la personne accompagnée fait part d'une douleur.","E.E. Les professionnels mobilisent tous les moyens nécessaires pour soulager la douleur."] }
+        ]
+      },
+      "CONTINUITÉ ET FLUIDITÉ DES PARCOURS": {
+        "Objectif 1.17": [
+          { "id":"1.17.1","intitule":"La personne est accompagnée pour prévenir les situations de transition ou de rupture dans son parcours.","niveau":"Standard","ee_questions":["E.E. La personne est accompagnée pour prévenir les situations de transition ou de rupture dans son parcours."] },
+          { "id":"1.17.2","intitule":"Les professionnels accompagnent la personne et mobilisent les partenariats nécessaires en cas de situation de rupture concernant son parcours.","niveau":"Standard","ee_questions":["E.E. Les professionnels savent identifier les situations de rupture concernant le parcours de la personne accompagnée.","E.E. Les professionnels accompagnent la personne en cas de situation de rupture dans son parcours.","E.E. Les professionnels connaissent et mobilisent les partenaires pour apporter une aide en cas de rupture."] },
+          { "id":"1.17.3","intitule":"Les professionnels apportent leur(s) expertise(s) en soutien d'autres intervenants dans l'accompagnement de la personne.","niveau":"Standard","ee_questions":["E.E. Les professionnels connaissent les intervenants impliqués dans l'accompagnement de la personne.","E.E. Les professionnels apportent leur(s) expertise(s) en soutien aux autres intervenants."] },
+          { "id":"1.17.4","intitule":"Les professionnels participent aux réunions de coordinations (médico-psycho-sociales) nécessaires à l'accompagnement de la personne.","niveau":"Standard","ee_questions":["E.E. Les professionnels ont identifié les différents réseaux de coordination globale, adaptés à l'accompagnement de la personne.","E.E. Les professionnels participent aux réunions de coordination interdisciplinaires nécessaires."] }
+        ]
+      }
+    }
+  },
+  "2": {
+    "name": "Les professionnels",
+    "type": "Traceur ciblé",
+    "duration_minutes": 60,
+    "total_criteria": 33,
+    "imperative_ids": ["2.2.2","2.2.3","2.2.4","2.2.5","2.2.6","2.2.7"],
+    "themes": {
+      "BIENTRAITANCE ET ÉTHIQUE": {
+        "Objectif 2.1": [
+          { "id":"2.1.1","intitule":"Les professionnels identifient en équipe les questionnements éthiques propres à la personne accompagnée.","niveau":"Standard","ee_questions":["E.E. Les professionnels identifient les questionnements éthiques à partir de situations vécues dans l'accompagnement de la personne.","E.E. Les professionnels partagent en équipe les questionnements éthiques identifiés."] },
+          { "id":"2.1.2","intitule":"Les professionnels associent la personne et son entourage, aux questionnements éthiques, liés à son accompagnement.","niveau":"Standard","ee_questions":["E.E. Les professionnels associent la personne et son entourage aux réflexions éthiques liées à son accompagnement.","E.E. Les professionnels profitent de ces moments de partage pour réinterroger leurs pratiques."] },
+          { "id":"2.1.3","intitule":"Les professionnels sont régulièrement sensibilisés et/ou formés au questionnement éthique.","niveau":"Standard","ee_questions":["E.E. Les professionnels sont régulièrement sensibilisés et/ou formés au questionnement éthique."] },
+          { "id":"2.1.4","intitule":"L'ESSMS organise le questionnement éthique en associant l'ensemble des acteurs et participe à des instances de réflexion éthique sur le territoire.","niveau":"Standard","ee_questions":["E.E. L'ESSMS organise le questionnement éthique en associant l'ensemble des acteurs.","E.E. L'ESSMS participe à des instances de réflexion éthiques sur son territoire."] }
+        ]
+      },
+      "DROITS DE LA PERSONNE ACCOMPAGNÉE": {
+        "Objectif 2.2": [
+          { "id":"2.2.2","intitule":"Les professionnels respectent la dignité et l'intégrité de la personne accompagnée.","niveau":"Impératif","ee_questions":["E.E. Les professionnels connaissent les pratiques qui favorisent le respect de la dignité et de l'intégrité.","E.E. Les professionnels partagent entre eux ces pratiques.","E.E. Les professionnels mettent en œuvre ces bonnes pratiques."] },
+          { "id":"2.2.3","intitule":"Les professionnels respectent la vie privée et l'intimité de la personne accompagnée.","niveau":"Impératif","ee_questions":["E.E. Les professionnels connaissent les pratiques qui favorisent le respect de la vie privée et de l'intimité.","E.E. Les professionnels partagent entre eux ces pratiques.","E.E. Les professionnels mettent en œuvre ces pratiques."] },
+          { "id":"2.2.4","intitule":"Les professionnels respectent la liberté d'opinion, les croyances et la vie spirituelle de la personne accompagnée.","niveau":"Impératif","ee_questions":["E.E. Les professionnels connaissent les pratiques qui favorisent le respect de la liberté d'opinion, des croyances et de la vie spirituelle.","E.E. Les professionnels partagent entre eux ces pratiques.","E.E. Les professionnels mettent en œuvre ces pratiques."] },
+          { "id":"2.2.5","intitule":"Les professionnels respectent le droit à l'image de la personne accompagnée.","niveau":"Impératif","ee_questions":["E.E. Les professionnels recueillent le choix de la personne accompagnée sur son droit à l'image.","E.E. Les professionnels respectent le choix exprimé par la personne accompagnée sur son droit à l'image."] },
+          { "id":"2.2.6","intitule":"L'ESSMS favorise l'exercice des droits et libertés de la personne accompagnée.","niveau":"Impératif","ee_questions":["E.E. L'ESSMS définit, avec les professionnels, les pratiques et les modalités de déploiement favorisant l'exercice des droits de la personne accompagnée.","E.E. L'ESSMS met à disposition des outils permettant la mise en œuvre de ces pratiques."] },
+          { "id":"2.2.7","intitule":"L'ESSMS garantit la confidentialité et la protection des informations et données relatives à la personne accompagnée.","niveau":"Impératif","ee_questions":["E.E. L'ESSMS définit l'organisation et les pratiques qui garantissent la confidentialité et la protection des données.","E.E. L'ESSMS met à disposition des moyens et des outils permettant la mise en œuvre de ces pratiques.","E.E. L'ESSMS forme / sensibilise les professionnels au respect des règles de confidentialité."] }
+        ]
+      },
+      "EXPRESSION ET PARTICIPATION DE LA PERSONNE ACCOMPAGNÉE": {
+        "Objectif 2.3": [
+          { "id":"2.3.1","intitule":"Les professionnels favorisent la préservation et le développement des relations sociales et affectives de la personne accompagnée.","niveau":"Standard","ee_questions":["E.E. Les professionnels favorisent la préservation des relations sociales et affectives.","E.E. Les professionnels favorisent le développement des relations sociales et affectives."] },
+          { "id":"2.3.2","intitule":"Les professionnels soutiennent et/ou orientent la personne accompagnée pour accéder aux services et dispositifs de droit commun.","niveau":"Standard","ee_questions":["E.E. Les professionnels identifient les besoins d'aide ou d'accompagnement de la personne pour accéder aux services de droit commun.","E.E. Les professionnels soutiennent et/ou orientent la personne accompagnée dans leurs démarches."] }
+        ]
+      },
+      "COCONSTRUCTION ET PERSONNALISATION DU PROJET D'ACCOMPAGNEMENT": {
+        "Objectif 2.4": [
+          { "id":"2.4.2","intitule":"Les professionnels adaptent le projet d'accompagnement aux risques liés aux addictions et conduites à risques.","niveau":"Standard","ee_questions":["E.E. Les professionnels évaluent les risques liés aux addictions et conduites à risques.","E.E. Les professionnels coconstruisent en équipe et avec la personne, son projet d'accompagnement au regard des risques identifiés.","E.E. Les professionnels mobilisent tous les moyens nécessaires."] },
+          { "id":"2.4.3","intitule":"Les professionnels adaptent le projet d'accompagnement aux risques liés aux chutes auxquels la personne est confrontée.","niveau":"Standard","ee_questions":["E.E. Les professionnels évaluent les risques de chutes de la personne accompagnée.","E.E. Les professionnels coconstruisent, en équipe et avec la personne, son projet d'accompagnement.","E.E. Les professionnels mobilisent tous les moyens nécessaires."] },
+          { "id":"2.4.4","intitule":"Les professionnels adaptent le projet d'accompagnement aux risques de dénutrition, malnutrition et/ou des troubles de la déglutition.","niveau":"Standard","ee_questions":["E.E. Les professionnels évaluent les risques de dénutrition, de malnutrition et/ou de troubles de la déglutition.","E.E. Les professionnels coconstruisent en équipe et avec la personne son projet d'accompagnement.","E.E. Les professionnels mobilisent tous les moyens nécessaires."] },
+          { "id":"2.4.5","intitule":"Les professionnels adaptent le projet d'accompagnement aux risques liés à la sexualité auxquels la personne est confrontée.","niveau":"Standard","ee_questions":["E.E. Les professionnels évaluent les risques liés à la sexualité pour la personne accompagnée.","E.E. Les professionnels coconstruisent en équipe et avec la personne son projet d'accompagnement.","E.E. Les professionnels mobilisent tous les moyens nécessaires."] },
+          { "id":"2.4.6","intitule":"Les professionnels adaptent le projet d'accompagnement aux risques de harcèlement ou d'abus de faiblesse auxquels la personne est confrontée.","niveau":"Standard","ee_questions":["E.E. Les professionnels évaluent les risques de harcèlement ou d'abus de faiblesse.","E.E. Les professionnels coconstruisent en équipe et avec la personne son projet d'accompagnement.","E.E. Les professionnels mobilisent tous les moyens nécessaires."] },
+          { "id":"2.4.7","intitule":"Les professionnels adaptent le projet d'accompagnement aux risques de radicalisation et/ou de prosélytisme auxquels la personne est confrontée.","niveau":"Standard","ee_questions":["E.E. Les professionnels évaluent les risques de radicalisation et/ou de prosélytisme.","E.E. Les professionnels coconstruisent en équipe et avec la personne son projet d'accompagnement.","E.E. Les professionnels mobilisent tous les moyens nécessaires."] }
+        ]
+      },
+      "ACCOMPAGNEMENT À L'AUTONOMIE": {
+        "Objectif 2.5": [
+          { "id":"2.5.1","intitule":"Les professionnels soutiennent et accompagnent la personne dans le suivi de son parcours scolaire, en étroite collaboration avec les établissements scolaires.","niveau":"Standard","ee_questions":["E.E. Les professionnels soutiennent et accompagnent la personne dans le suivi de son parcours scolaire.","E.E. Les professionnels travaillent en étroite collaboration avec les établissements scolaires."] },
+          { "id":"2.5.2","intitule":"Les professionnels soutiennent et accompagnent la personne dans le suivi de son parcours professionnel en lien avec les partenaires.","niveau":"Standard","ee_questions":["E.E. Les professionnels soutiennent et accompagnent la personne dans le suivi de son parcours professionnel.","E.E. Les professionnels travaillent en lien avec les partenaires."] },
+          { "id":"2.5.3","intitule":"Les professionnels soutiennent et accompagnent la personne dans le développement de ses compétences, la stimulation, le maintien et la valorisation de ses acquis.","niveau":"Standard","ee_questions":["E.E. Les professionnels soutiennent et accompagnent la personne dans le développement de ses compétences.","E.E. Les professionnels soutiennent et accompagnent la personne par la stimulation, le maintien et la valorisation de ses acquis."] }
+        ]
+      },
+      "ACCOMPAGNEMENT À LA SANTÉ": {
+        "Objectif 2.6": [
+          { "id":"2.6.1","intitule":"Les professionnels repèrent et/ou évaluent régulièrement et tracent les besoins d'accompagnement en santé mentale de la personne.","niveau":"Standard","ee_questions":["E.E. Les professionnels repèrent et/ou évaluent régulièrement les besoins d'accompagnement en santé mentale.","E.E. Les professionnels utilisent des moyens et outils adaptés pour évaluer ces besoins.","E.E. Les professionnels assurent la traçabilité de ces repérages et/ou évaluations dans le dossier."] },
+          { "id":"2.6.3","intitule":"Les professionnels alertent et/ou mobilisent tous les moyens nécessaires pour mettre en œuvre le projet d'accompagnement en santé mentale.","niveau":"Standard","ee_questions":["E.E. Les professionnels alertent les personnes-ressources lorsqu'ils repèrent un besoin d'accompagnement en santé mentale.","E.E. Les professionnels mobilisent tous les moyens nécessaires pour mettre en œuvre le projet d'accompagnement."] }
+        ],
+        "Objectif 2.7": [
+          { "id":"2.7.3","intitule":"Les professionnels échangent en équipe pour adapter l'accompagnement au deuil vécu par la personne.","niveau":"Standard","ee_questions":["E.E. Les professionnels repèrent les situations de deuil vécu par la personne accompagnée.","E.E. Les professionnels échangent en équipe pour adapter l'accompagnement au deuil vécu par la personne."] },
+          { "id":"2.7.4","intitule":"Les professionnels mettent en œuvre l'accompagnement de la fin de vie et/ou du deuil de la personne.","niveau":"Standard","ee_questions":["E.E. Les professionnels mobilisent tous les moyens nécessaires pour mettre en œuvre l'accompagnement de la fin de vie et/ou du deuil de la personne."] }
+        ]
+      },
+      "CONTINUITÉ ET FLUIDITÉ DES PARCOURS": {
+        "Objectif 2.8": [
+          { "id":"2.8.1","intitule":"Les professionnels anticipent les situations de crise ou de rupture dans l'accompagnement ou le parcours de la personne.","niveau":"Standard","ee_questions":["E.E. Les professionnels savent repérer les situations de crise ou de rupture dans l'accompagnement ou le parcours de la personne.","E.E. Les professionnels alertent la personne accompagnée et son entourage des risques engendrés."] },
+          { "id":"2.8.2","intitule":"Les professionnels accompagnent les interruptions et les ruptures d'accompagnement de la personne.","niveau":"Standard","ee_questions":["E.E. Les professionnels connaissent la conduite à tenir face aux interruptions et aux ruptures d'accompagnement.","E.E. Les professionnels adaptent le suivi lors des interruptions d'accompagnement.","E.E. Les professionnels proposent des alternatives en cas de rupture d'accompagnement."] },
+          { "id":"2.8.3","intitule":"Les professionnels sont régulièrement sensibilisés et/ou formés au repérage, à la prévention et à la gestion des risques de rupture de parcours.","niveau":"Standard","ee_questions":["E.E. Les professionnels sont régulièrement sensibilisés et/ou formés au repérage, à la prévention, et à la gestion des risques de rupture de parcours."] }
+        ],
+        "Objectif 2.9": [
+          { "id":"2.9.1","intitule":"Les professionnels se coordonnent avec les partenaires du territoire impliqués dans le parcours de la personne accompagnée et partagent les informations nécessaires.","niveau":"Standard","ee_questions":["E.E. Les professionnels connaissent les partenaires du territoire impliqués dans le parcours de la personne accompagnée.","E.E. Les professionnels se coordonnent avec eux.","E.E. Les professionnels partagent avec eux les informations nécessaires à l'accompagnement."] },
+          { "id":"2.9.2","intitule":"Les professionnels informent la personne accompagnée, et son entourage, des alternatives pour la continuité de son parcours.","niveau":"Standard","ee_questions":["E.E. Les professionnels connaissent les alternatives pour assurer la continuité du parcours.","E.E. Les professionnels informent la personne accompagnée et son entourage des alternatives possibles."] },
+          { "id":"2.9.3","intitule":"Les professionnels transmettent toute information nécessaire à la continuité de l'accompagnement de la personne aux professionnels qui prennent le relais.","niveau":"Standard","ee_questions":["E.E. Les professionnels transmettent les informations nécessaires à la continuité de l'accompagnement en amont ou au moment du transfert.","E.E. Les professionnels utilisent des moyens et outils de transmission de l'information adaptés à la situation."] }
+        ],
+        "Objectif 2.10": [
+          { "id":"2.10.1","intitule":"Les professionnels partagent entre eux les informations nécessaires à l'accompagnement de la personne.","niveau":"Standard","ee_questions":["E.E. Les professionnels ont accès aux informations nécessaires à l'accompagnement de la personne.","E.E. Les professionnels partagent entre eux ces informations dans des temps dédiés."] },
+          { "id":"2.10.2","intitule":"Les professionnels respectent les règles de sécurisation des données, des dossiers et des accès.","niveau":"Standard","ee_questions":["E.E. Les professionnels connaissent les règles de sécurisation des données, des dossiers et des accès.","E.E. Les professionnels appliquent ces règles."] }
+        ]
+      }
+    }
+  },
+  "3": {
+    "name": "L'ESSMS",
+    "type": "Audit système",
+    "duration_minutes": 120,
+    "total_criteria": 45,
+    "imperative_ids": ["3.11.1","3.11.2","3.12.1","3.12.2","3.12.3","3.13.1","3.13.2","3.13.3","3.14.1","3.14.2"],
+    "themes": {
+      "BIENTRAITANCE ET ÉTHIQUE": {
+        "Objectif 3.1": [
+          { "id":"3.1.1","intitule":"L'ESSMS définit sa stratégie en matière de bientraitance et en partage une définition commune avec l'ensemble des acteurs.","niveau":"Standard","ee_questions":["E.E. L'ESSMS définit sa stratégie en matière de bientraitance.","E.E. L'ESSMS partage une définition commune de la bientraitance avec l'ensemble des acteurs.","E.E. L'ESSMS requestionne régulièrement sa stratégie en matière de bientraitance."] },
+          { "id":"3.1.2","intitule":"L'ESSMS définit l'organisation et les modalités de déploiement de sa démarche de bientraitance et met à disposition les outils adaptés.","niveau":"Standard","ee_questions":["E.E. L'ESSMS définit l'organisation et les modalités de déploiement de sa démarche de bientraitance.","E.E. L'ESSMS associe l'ensemble des acteurs au déploiement de cette démarche.","E.E. L'ESSMS met à disposition des moyens et des outils permettant son déploiement."] },
+          { "id":"3.1.3","intitule":"L'ESSMS organise des actions de sensibilisation à la bientraitance pour tout nouvel intervenant (partenaire, bénévole,…)","niveau":"Standard","ee_questions":["E.E. L'ESSMS organise des actions de sensibilisation à la bientraitance pour tout nouvel intervenant."] },
+          { "id":"3.1.4","intitule":"Les professionnels sont régulièrement sensibilisés et/ou formés à la bientraitance.","niveau":"Standard","ee_questions":["E.E. Les professionnels sont régulièrement sensibilisés et/ou formés à la bientraitance."] }
+        ]
+      },
+      "DROITS DE LA PERSONNE ACCOMPAGNÉE": {
+        "Objectif 3.2": [
+          { "id":"3.2.1","intitule":"L'ESSMS accompagne les personnes pour qu'elles puissent vivre dans des conditions matérielles et un cadre de vie respectueux de leurs droits fondamentaux.","niveau":"Standard","ee_questions":["E.E. L'ESSMS identifie les besoins des personnes accompagnées pour vivre dans des conditions matérielles et un cadre de vie respectueux de leurs droits fondamentaux.","E.E. L'ESSMS connaît les ressources mobilisables pour aider les personnes accompagnées dans leurs démarches.","E.E. L'ESSMS oriente ou accompagne les personnes dans leurs démarches."] }
+        ]
+      },
+      "COCONSTRUCTION ET PERSONNALISATION DU PROJET D'ACCOMPAGNEMENT": {
+        "Objectif 3.4": [
+          { "id":"3.4.1","intitule":"L'ESSMS met en œuvre une approche inclusive des accompagnements proposés.","niveau":"Standard","ee_questions":["E.E. L'ESSMS s'engage dans une approche inclusive des accompagnements proposés.","E.E. L'ESSMS s'organise pour favoriser la mise en œuvre de cette approche inclusive.","E.E. L'ESSMS partage sa stratégie d'accompagnement dans une approche inclusive avec l'ensemble des parties prenantes."] },
+          { "id":"3.4.2","intitule":"L'ESSMS s'inscrit dans des partenariats pour enrichir son offre d'accompagnement au bénéfice des personnes.","niveau":"Standard","ee_questions":["E.E. L'ESSMS identifie les ressources du territoire et leur capacité à intervenir au bénéfice de l'accompagnement.","E.E. L'ESSMS mobilise les partenaires lui permettant d'enrichir son offre d'accompagnement."] },
+          { "id":"3.4.3","intitule":"L'ESSMS s'inscrit dans des projets communs avec les partenaires du territoire pour renforcer l'offre d'accompagnement.","niveau":"Standard","ee_questions":["E.E. L'ESSMS développe ou s'intègre à des projets communs avec d'autres partenaires du territoire pour renforcer son offre d'accompagnement."] },
+          { "id":"3.4.4","intitule":"L'ESSMS est force de proposition et d'innovation pour améliorer la qualité des accompagnements et les modalités d'intervention.","niveau":"Standard","ee_questions":["E.E. L'ESSMS s'engage dans des actions d'innovation pour améliorer la qualité des accompagnements.","E.E. L'ESSMS valorise ses actions d'innovation auprès des autorités."] },
+          { "id":"3.4.5","intitule":"L'ESSMS développe des actions d'ouverture à et sur son environnement pour favoriser les interactions et partenariats.","niveau":"Standard","ee_questions":["E.E. L'ESSMS mène des actions d'information sur ses activités auprès de son environnement.","E.E. L'ESSMS participe à des évènements sur son territoire.","E.E. L'ESSMS organise des événements ouverts à son environnement pour favoriser les interactions et partenariats."] }
+        ]
+      },
+      "ACCOMPAGNEMENT À L'AUTONOMIE": {
+        "Objectif 3.5": [
+          { "id":"3.5.1","intitule":"L'ESSMS définit sa stratégie de préservation de l'autonomie et de prévention du risque d'isolement des personnes accompagnées et s'assure de sa mise en œuvre.","niveau":"Standard","ee_questions":["E.E. L'ESSMS définit sa stratégie de préservation de l'autonomie et de prévention du risque d'isolement.","E.E. L'ESSMS communique sur les modalités de préservation de l'autonomie et de prévention du risque d'isolement.","E.E. L'ESSMS actualise sa stratégie autant que nécessaire."] },
+          { "id":"3.5.2","intitule":"Les professionnels mettent en œuvre les actions de préservation de l'autonomie et de prévention du risque d'isolement des personnes accompagnées.","niveau":"Standard","ee_questions":["E.E. Les professionnels savent identifier les situations de risque de perte d'autonomie et d'isolement.","E.E. Les professionnels mobilisent les moyens nécessaires mis à leur disposition."] },
+          { "id":"3.5.3","intitule":"Les professionnels sont régulièrement sensibilisés et/ou formés à la préservation de l'autonomie et à la prévention du risque d'isolement.","niveau":"Standard","ee_questions":["E.E. Les professionnels sont régulièrement sensibilisés et/ou formés à la préservation de l'autonomie et à la prévention du risque d'isolement."] }
+        ]
+      },
+      "ACCOMPAGNEMENT À LA SANTÉ": {
+        "Objectif 3.6": [
+          { "id":"3.6.4","intitule":"Les professionnels alertent en cas de risque lié à la prise en charge médicamenteuse, dont la iatrogénie.","niveau":"Standard","ee_questions":["E.E. Les professionnels surveillent les signes de non-observance et de iatrogénie médicamenteuse.","E.E. Les professionnels alertent les personnes-ressources en cas de risque identifié."] }
+        ],
+        "Objectif 3.7": [
+          { "id":"3.7.1","intitule":"L'ESSMS définit sa stratégie de prévention et de maîtrise du risque infectieux et s'assure de sa mise en œuvre.","niveau":"Standard","ee_questions":["E.E. L'ESSMS définit sa stratégie de prévention et de maîtrise du risque infectieux.","E.E. L'ESSMS communique sur les règles d'hygiène et de prévention du risque infectieux.","E.E. L'ESSMS évalue régulièrement le respect des règles d'hygiène et de prévention du risque infectieux.","E.E. L'ESSMS actualise sa stratégie autant que nécessaire."] },
+          { "id":"3.7.2","intitule":"Les professionnels mettent en œuvre les actions de prévention et de gestion du risque infectieux.","niveau":"Standard","ee_questions":["E.E. Les professionnels savent identifier les situations nécessitant une gestion spécifique du risque infectieux.","E.E. Les professionnels mobilisent les moyens nécessaires mis à leur disposition."] },
+          { "id":"3.7.3","intitule":"Les professionnels sont régulièrement sensibilisés et/ou formés à la prévention et à la maîtrise du risque infectieux.","niveau":"Standard","ee_questions":["E.E. Les professionnels sont régulièrement sensibilisés et/ou formés à la prévention et à la maîtrise du risque infectieux."] }
+        ]
+      },
+      "POLITIQUE RESSOURCES HUMAINES": {
+        "Objectif 3.8": [
+          { "id":"3.8.1","intitule":"L'ESSMS définit et déploie sa politique ressources humaines et met en œuvre une démarche de prévention des risques professionnels.","niveau":"Standard","ee_questions":["E.E. L'ESSMS définit sa politique ressources humaines et met en place l'organisation nécessaire pour son déploiement.","E.E. L'ESSMS intègre la démarche de prévention des risques professionnels dans sa politique ressources humaines.","E.E. L'ESSMS assure l'information sur la protection du lanceur d'alerte."] },
+          { "id":"3.8.2","intitule":"L'ESSMS met en œuvre un processus d'accueil et d'intégration des nouveaux professionnels et intervenants.","niveau":"Standard","ee_questions":["E.E. L'ESSMS dispose d'un processus d'accueil et d'intégration des nouveaux professionnels et intervenants.","E.E. L'ESSMS s'assure de sa mise en œuvre."] },
+          { "id":"3.8.3","intitule":"L'ESSMS adapte sa gestion des emplois et des parcours professionnels aux évolutions du secteur et de sa stratégie.","niveau":"Standard","ee_questions":["E.E. L'ESSMS suit les évolutions de son secteur.","E.E. L'ESSMS met en œuvre une Gestion des Emplois et des Parcours Professionnels (GEPP).","E.E. L'ESSMS adapte cette GEPP aux évolutions du secteur et de sa stratégie."] },
+          { "id":"3.8.4","intitule":"L'ESSMS met au service des accompagnements une équipe de professionnels formés et qualifiés.","niveau":"Standard","ee_questions":["E.E. L'ESSMS s'assure de la qualification des professionnels qu'il recrute.","E.E. L'ESSMS identifie les besoins en formation continue des professionnels.","E.E. L'ESSMS met en œuvre son plan de formation."] },
+          { "id":"3.8.5","intitule":"L'ESSMS définit des modalités de travail adaptées pour garantir la sécurité, la continuité et la qualité de l'accompagnement des personnes.","niveau":"Standard","ee_questions":["E.E. L'ESSMS définit les différentes modalités de travail adaptées au public accueilli.","E.E. L'ESSMS organise l'activité des professionnels pour garantir la sécurité, la continuité et la qualité des accompagnements."] },
+          { "id":"3.8.6","intitule":"Les professionnels sont régulièrement sensibilisés et/ou formés aux RBPP, procédures et références spécifiques à leur cadre d'intervention.","niveau":"Standard","ee_questions":["E.E. Les professionnels sont régulièrement sensibilisés et/ou formés aux RBPP, procédures et références spécifiques à leur cadre d'intervention."] }
+        ],
+        "Objectif 3.9": [
+          { "id":"3.9.1","intitule":"L'ESSMS promeut une politique favorisant la qualité de vie au travail (QVCT).","niveau":"Standard","ee_questions":["E.E. L'ESSMS définit une politique de Qualité de Vie et Conditions de Travail (QVCT).","E.E. L'ESSMS identifie les actions nécessaires à sa mise en œuvre.","E.E. L'ESSMS communique sur les actions menées."] },
+          { "id":"3.9.2","intitule":"L'ESSMS favorise la qualité de l'environnement de travail des professionnels.","niveau":"Standard","ee_questions":["E.E. L'ESSMS définit sa stratégie pour favoriser la qualité de l'environnement de travail.","E.E. L'ESSMS met en place des actions et aménagements pour favoriser la qualité de l'environnement de travail."] },
+          { "id":"3.9.3","intitule":"L'ESSMS organise des espaces de discussion et de partage pour les professionnels et des temps de soutien psychologique et/ou éthique.","niveau":"Standard","ee_questions":["E.E. L'ESSMS organise des espaces de discussion et de partage pour les professionnels à fréquence régulière.","E.E. L'ESSMS organise des temps de soutien psychologique et/ou éthique pour les professionnels à fréquence régulière."] }
+        ]
+      },
+      "DÉMARCHE QUALITÉ ET GESTION DES RISQUES": {
+        "Objectif 3.10": [
+          { "id":"3.10.1","intitule":"L'ESSMS définit sa politique qualité et gestion des risques (PDCA).","niveau":"Standard","ee_questions":["E.E. L'ESSMS définit sa politique d'amélioration continue de la qualité et gestion des risques au regard des RBPP.","E.E. L'ESSMS s'inscrit dans des partenariats pouvant lui apporter une expertise et/ou un appui dans sa démarche.","E.E. L'ESSMS communique régulièrement sur sa démarche d'amélioration continue de la qualité et gestion des risques."] },
+          { "id":"3.10.2","intitule":"L'ESSMS met en œuvre sa démarche qualité et gestion des risques (COPIL, SMQ).","niveau":"Standard","ee_questions":["E.E. L'ESSMS met en place une organisation pour assurer le pilotage de sa démarche qualité et gestion des risques.","E.E. L'ESSMS évalue régulièrement sa démarche d'amélioration continue de la qualité et gestion des risques.","E.E. L'ESSMS révise sa démarche autant que nécessaire."] }
+        ],
+        "Objectif 3.11": [
+          { "id":"3.11.1","intitule":"L'ESSMS définit, avec les professionnels, un plan de prévention et de gestion des risques de maltraitance et de violence au bénéfice des personnes accompagnées.","niveau":"Impératif","ee_questions":["E.E. L'ESSMS identifie avec les professionnels les situations à risque pouvant générer des actes de maltraitance et de violence.","E.E. L'ESSMS définit un plan de prévention et de gestion des risques de maltraitance et violence au regard des risques identifiés."] },
+          { "id":"3.11.2","intitule":"L'ESSMS traite les signalements de faits de maltraitance et de violence, et met en place des actions correctives.","niveau":"Impératif","ee_questions":["E.E. L'ESSMS analyse les signalements de maltraitance et de violence.","E.E. L'ESSMS met en place des actions correctives."] },
+          { "id":"3.11.3","intitule":"Les professionnels sont régulièrement sensibilisés et/ou formés à la détection et au signalement de faits de maltraitance et de violence.","niveau":"Standard","ee_questions":["E.E. Les professionnels sont régulièrement sensibilisés et/ou formés à la détection et au signalement de faits de maltraitance et de violence."] }
+        ],
+        "Objectif 3.12": [
+          { "id":"3.12.1","intitule":"L'ESSMS organise le recueil et le traitement des plaintes et des réclamations.","niveau":"Impératif","ee_questions":["E.E. L'ESSMS organise le recueil des plaintes et des réclamations.","E.E. L'ESSMS organise le traitement des plaintes et des réclamations."] },
+          { "id":"3.12.2","intitule":"L'ESSMS communique sur le traitement des plaintes et des réclamations aux parties prenantes.","niveau":"Impératif","ee_questions":["E.E. L'ESSMS communique sur le traitement des réclamations et des plaintes auprès des parties prenantes.","E.E. L'ESSMS assure un retour à la personne à l'origine de la réclamation ou de la plainte."] },
+          { "id":"3.12.3","intitule":"Les professionnels analysent en équipe les plaintes et les réclamations et mettent en place des actions correctives.","niveau":"Impératif","ee_questions":["E.E. Les professionnels analysent les plaintes et les réclamations en équipe.","E.E. Les professionnels mettent en place des actions correctives."] }
+        ],
+        "Objectif 3.13": [
+          { "id":"3.13.1","intitule":"L'ESSMS organise le recueil et le traitement des évènements indésirables (EI/EIG).","niveau":"Impératif","ee_questions":["E.E. L'ESSMS organise le recueil des évènements indésirables.","E.E. L'ESSMS organise le traitement des évènements indésirables."] },
+          { "id":"3.13.2","intitule":"L'ESSMS communique sur le traitement des évènements indésirables auprès des parties prenantes.","niveau":"Impératif","ee_questions":["E.E. L'ESSMS communique sur les évènements indésirables et leur traitement auprès des parties prenantes.","E.E. L'ESSMS signale les évènements indésirables graves (EIG) aux autorités."] },
+          { "id":"3.13.3","intitule":"Les professionnels déclarent et analysent en équipe les évènements indésirables et mettent en place des actions correctives (CREX).","niveau":"Impératif","ee_questions":["E.E. Les professionnels déclarent les évènements indésirables.","E.E. Les professionnels les analysent en équipe.","E.E. Les professionnels mettent en place des actions correctives."] },
+          { "id":"3.13.4","intitule":"Les professionnels sont régulièrement sensibilisés et/ou formés à la gestion des évènements indésirables.","niveau":"Standard","ee_questions":["E.E. Les professionnels sont régulièrement sensibilisés et/ou formés à la gestion des évènements indésirables."] }
+        ],
+        "Objectif 3.14": [
+          { "id":"3.14.1","intitule":"L'ESSMS définit, avec les professionnels, un plan de gestion de crise et de continuité de l'activité (PCA/Plan bleu) et le réactualise régulièrement.","niveau":"Impératif","ee_questions":["E.E. L'ESSMS définit avec les professionnels un plan de gestion de crise et de continuité de l'activité.","E.E. L'ESSMS actualise ce plan autant que nécessaire."] },
+          { "id":"3.14.2","intitule":"L'ESSMS communique son plan de gestion de crise en interne et en externe.","niveau":"Impératif","ee_questions":["E.E. L'ESSMS communique son plan de gestion de crise en interne.","E.E. L'ESSMS communique son plan de gestion de crise en externe."] },
+          { "id":"3.14.3","intitule":"Les professionnels participent aux exercices et aux retours d'expérience partagés, organisés par l'ESSMS.","niveau":"Standard","ee_questions":["E.E. Les professionnels participent aux exercices de simulation de tout ou partie du plan de gestion de crise.","E.E. Les professionnels participent aux retours d'expérience pour améliorer le dispositif."] },
+          { "id":"3.14.4","intitule":"Les professionnels sont régulièrement sensibilisés et/ou formés à la gestion de crise.","niveau":"Standard","ee_questions":["E.E. Les professionnels sont régulièrement sensibilisés et/ou formés à la gestion de crise."] }
+        ],
+        "Objectif 3.15": [
+          { "id":"3.15.1","intitule":"L'ESSMS définit et met en oeuvre sa stratégie d'optimisation des achats et de développement durable.","niveau":"Standard","ee_questions":["E.E. L'ESSMS définit une politique de développement durable.","E.E. L'ESSMS met en place des actions d'optimisation des achats et de lutte contre le gaspillage."] },
+          { "id":"3.15.2","intitule":"L'ESSMS définit et déploie sa stratégie numérique.","niveau":"Standard","ee_questions":["E.E. L'ESSMS formalise une stratégie numérique.","E.E. L'ESSMS met en place des actions permettant le déploiement de cette stratégie.","E.E. L'ESSMS s'assure de la sécurisation des données et des accès."] },
+          { "id":"3.15.3","intitule":"Les professionnels sont régulièrement sensibilisés et/ou formés aux outils numériques.","niveau":"Standard","ee_questions":["E.E. Les professionnels sont régulièrement sensibilisés et/ou formés au bon usage des outils numériques."] }
+        ]
+      }
+    }
+  }
+};
+
+// ══════════════════════════════════════════════════════
+// STATE
+// ══════════════════════════════════════════════════════
+let cotations = {}; // { "1.1.1": "A", ... }
+let comments = {};  // { "1.1.1": "text", ... }
+let activeChap = null;
+let timerInterval = null;
+let timerSeconds = {};
+let timerRunning = false;
+
+// ══════════════════════════════════════════════════════
+// NAVIGATION
+// ══════════════════════════════════════════════════════
+function showView(name) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('view-' + name).classList.add('active');
+  
+  const tabIdx = ['home','chapters','eval','results','legende'].indexOf(name);
+  const tabs = document.querySelectorAll('.nav-tab');
+  if(tabIdx >= 0 && tabs[tabIdx]) tabs[tabIdx].classList.add('active');
+
+  if(name === 'chapters') renderChapCards();
+  if(name === 'results') renderResults();
+}
+
+// ══════════════════════════════════════════════════════
+// CHAPTER CARDS
+// ══════════════════════════════════════════════════════
+function renderChapCards() {
+  const container = document.getElementById('chapCards');
+  container.innerHTML = '';
+  [1,2,3].forEach(cn => {
+    const ch = GRILLES[cn];
+    const allCrit = getAllCriteria(cn);
+    const total = allCrit.length;
+    const done = allCrit.filter(c => cotations[c.id]).length;
+    const pct = total ? Math.round(done/total*100) : 0;
+    const card = document.createElement('div');
+    card.className = `chap-card c${cn}` + (done > 0 ? ' started' : '');
+    const impCount = ch.imperative_ids.length;
+    card.innerHTML = `
+      <div class="chap-num">Chapitre ${cn} · ${ch.type}</div>
+      <div class="chap-title">${cn}. ${ch.name}</div>
+      <div class="chap-type">${ch.type}</div>
+      <div class="chap-meta">
+        <div class="chap-meta-item"><strong>${ch.total_criteria}</strong> critères</div>
+        <div class="chap-meta-item"><strong>~${ch.duration_minutes} min</strong></div>
+        ${impCount > 0 ? `<div class="chap-meta-item"><span class="badge-imp">★ ${impCount} Impératifs</span></div>` : ''}
+      </div>
+      <div class="chap-progress-bar"><div class="chap-progress-fill" style="width:${pct}%"></div></div>
+      <div class="chap-progress-label">${done === 0 ? 'Non démarré' : done === total ? '✓ Complété' : `${done}/${total} cotés (${pct}%)`}</div>
+    `;
+    card.onclick = () => startChapter(cn);
+    container.appendChild(card);
+  });
+}
+
+// ══════════════════════════════════════════════════════
+// GET ALL CRITERIA
+// ══════════════════════════════════════════════════════
+function getAllCriteria(chapNum) {
+  const ch = GRILLES[chapNum];
+  const result = [];
+  Object.entries(ch.themes).forEach(([theme, objs]) => {
+    Object.entries(objs).forEach(([obj, criteria]) => {
+      criteria.forEach(c => result.push({...c, theme, obj}));
+    });
+  });
+  return result;
+}
+
+// ══════════════════════════════════════════════════════
+// START CHAPTER
+// ══════════════════════════════════════════════════════
+function startChapter(chapNum) {
+  activeChap = chapNum;
+  const ch = GRILLES[chapNum];
+  
+  document.getElementById('evalChapTitle').textContent = `Chapitre ${chapNum} · ${ch.name}`;
+  document.getElementById('evalChapType').textContent = ch.type;
+  document.getElementById('timerEstimated').textContent = `estimé : ${ch.duration_minutes} min`;
+  
+  if(!timerSeconds[chapNum]) timerSeconds[chapNum] = 0;
+  updateTimerDisplay();
+  startTimer();
+  
+  document.getElementById('evalTab').style.display = 'flex';
+  renderEval(chapNum);
+  showView('eval');
+}
+
+// ══════════════════════════════════════════════════════
+// RENDER EVAL
+// ══════════════════════════════════════════════════════
+function renderEval(chapNum) {
+  const ch = GRILLES[chapNum];
+  const content = document.getElementById('evalContent');
+  content.innerHTML = '';
+  const isChap1 = (chapNum === 1);
+  
+  Object.entries(ch.themes).forEach(([theme, objs]) => {
+    const allCritInTheme = Object.values(objs).flat();
+    const themeBlock = document.createElement('div');
+    themeBlock.className = 'theme-block';
+    
+    let themeHtml = `
+      <div class="theme-header">
+        ${theme}
+        <span class="theme-badge">${allCritInTheme.length} critères</span>
+      </div>
+    `;
+    
+    Object.entries(objs).forEach(([objId, criteria]) => {
+      themeHtml += `<div class="obj-block">
+        <div class="obj-header" onclick="toggleObj(this)">
+          <span class="obj-chevron open">▶</span>
+          ${objId}
+          <span style="color:var(--gris-mid);font-size:0.75rem">(${criteria.length} critères)</span>
+        </div>
+        <div class="criteria-list">`;
+      
+      criteria.forEach(crit => {
+        const isImp = ch.imperative_ids.includes(crit.id);
+        const curCot = cotations[crit.id] || '';
+        const eeHtml = crit.ee_questions.map(ee => 
+          `<div class="ee-item"><span class="ee-dot">◆</span>${ee}</div>`
+        ).join('');
+        
+        // Build cotation buttons
+        const cotVals = ['1','2','3','4','star','NC'];
+        if(isChap1) cotVals.push('RI');
+        const cotBtns = cotVals.map(v => {
+          const label = v === 'star' ? '★' : (v === 'NC' || v === 'RI') ? v : v + '/4';
+          const activeClass = curCot === v ? ' active-' + v : '';
+          return `<button class="cot-btn${activeClass}" onclick="setCotation('${crit.id}','${v}',this)">${label}</button>`;
+        }).join('');
+        
+        // NC warning for impératives
+        const impWarning = isImp ? `<span style="font-size:0.72rem;color:var(--rouge-imp);margin-left:8px">⚠ NC interdit sur critère Impératif</span>` : '';
+        
+        themeHtml += `<div class="criterion-row" id="row-${crit.id}">
+          <div class="criterion-top">
+            <div class="criterion-id ${isImp ? 'imp' : ''}">${isImp ? '★ ' : ''}${crit.id}</div>
+            <div class="criterion-intitule">${crit.intitule}</div>
+            <div class="niveau-badge ${isImp ? 'imp' : 'std'}">${isImp ? '★ Impératif' : 'Standard'}</div>
+          </div>
+          <div class="cotation-row">
+            <span class="cotation-label">Cotation :</span>
+            ${cotBtns}${impWarning}
+          </div>
+          ${crit.ee_questions.length > 0 ? `
+          <div class="ee-list">
+            <div class="ee-list-title">Éléments d'évaluation attendus (E.E.)</div>
+            ${eeHtml}
+          </div>` : ''}
+          <textarea class="comment-input" placeholder="Commentaire / éléments de preuve consultés…" onchange="setComment('${crit.id}',this.value)">${comments[crit.id]||''}</textarea>
+        </div>`;
+      });
+      
+      themeHtml += `</div></div>`;
+    });
+    
+    themeBlock.innerHTML = themeHtml;
+    content.appendChild(themeBlock);
+  });
+  
+  updateEvalProgress();
+}
+
+function toggleObj(header) {
+  const chevron = header.querySelector('.obj-chevron');
+  const list = header.nextElementSibling;
+  if(list.style.display === 'none') {
+    list.style.display = 'block';
+    chevron.classList.add('open');
+  } else {
+    list.style.display = 'none';
+    chevron.classList.remove('open');
+  }
+}
+
+// ══════════════════════════════════════════════════════
+// COTATION
+// ══════════════════════════════════════════════════════
+function setCotation(critId, val, btn) {
+  cotations[critId] = val;
+  const row = document.getElementById('row-' + critId);
+  if(row) {
+    row.querySelectorAll('.cot-btn').forEach(b => { b.className = 'cot-btn'; });
+    const allVals = ['1','2','3','4','star','NC','RI'];
+    row.querySelectorAll('.cot-btn').forEach((b, i) => {
+      const v = allVals[i];
+      if(v && v === val) b.className = 'cot-btn active-' + v;
+    });
+  }
+  updateEvalProgress();
+}
+
+function setComment(critId, val) {
+  comments[critId] = val;
+}
+
+// ══════════════════════════════════════════════════════
+// PROGRESS
+// ══════════════════════════════════════════════════════
+function updateEvalProgress() {
+  if(!activeChap) return;
+  const all = getAllCriteria(activeChap);
+  const total = all.length;
+  const done = all.filter(c => cotations[c.id]).length;
+  const pct = total ? Math.round(done/total*100) : 0;
+  document.getElementById('evalProgressFill').style.width = pct + '%';
+  document.getElementById('evalProgressText').textContent = `${done} / ${total} cotés`;
+  
+  // Live score (moyenne /4)
+  const scored = all.filter(c => ['1','2','3','4','star'].includes(cotations[c.id]));
+  const scoreVal = scored.reduce((s,c) => s + (COT_SCORE[cotations[c.id]]||0), 0);
+  const avg4 = scored.length ? (scoreVal/scored.length).toFixed(2) : null;
+  document.getElementById('evalLiveScore').textContent = avg4 ? `Score provisoire : ${avg4}/4` : '';
+}
+
+// ══════════════════════════════════════════════════════
+// TIMER
+// ══════════════════════════════════════════════════════
+function startTimer() {
+  if(timerInterval) clearInterval(timerInterval);
+  timerRunning = true;
+  document.getElementById('timerBtn').textContent = '⏸ Pause';
+  timerInterval = setInterval(() => {
+    if(timerRunning && activeChap) {
+      timerSeconds[activeChap] = (timerSeconds[activeChap]||0) + 1;
+      updateTimerDisplay();
+    }
+  }, 1000);
+}
+
+function toggleTimer() {
+  timerRunning = !timerRunning;
+  document.getElementById('timerBtn').textContent = timerRunning ? '⏸ Pause' : '▶ Reprendre';
+}
+
+function resetTimer() {
+  if(activeChap) timerSeconds[activeChap] = 0;
+  updateTimerDisplay();
+}
+
+function updateTimerDisplay() {
+  const s = timerSeconds[activeChap] || 0;
+  const mm = String(Math.floor(s/60)).padStart(2,'0');
+  const ss = String(s%60).padStart(2,'0');
+  document.getElementById('timerDisplay').textContent = `${mm}:${ss}`;
+}
+
+// ══════════════════════════════════════════════════════
+// FINISH
+// ══════════════════════════════════════════════════════
+function finishChapter() {
+  const all = getAllCriteria(activeChap);
+  const done = all.filter(c => cotations[c.id]).length;
+  if(done < all.length) {
+    document.getElementById('modalMsg').textContent = 
+      `${all.length - done} critère(s) n'ont pas encore été cotés sur ${all.length}. Souhaitez-vous valider ce chapitre et consulter les résultats partiels ?`;
+    document.getElementById('confirmModal').classList.add('open');
+  } else {
+    confirmFinish();
+  }
+}
+
+function confirmFinish() {
+  closeModal();
+  timerRunning = false;
+  showView('results');
+}
+
+function closeModal() {
+  document.getElementById('confirmModal').classList.remove('open');
+}
+
+// ══════════════════════════════════════════════════════
+// RESULTS
+// ══════════════════════════════════════════════════════
+const COT_SCORE = { '1':1, '2':2, '3':3, '4':4, 'star':4 }; // star=4, NC/RI excluded
+const COT_COLORS = { '1':'#C0392B', '2':'#E67E22', '3':'#27AE60', '4':'#1A5276', 'star':'#D69646' };
+const COT_LABELS = { '1':'1 — Pas du tout satisfaisant', '2':'2 — Plutôt pas satisfaisant', '3':'3 — Plutôt satisfaisant', '4':'4 — Tout à fait satisfaisant', 'star':'★ Optimisé', 'NC':'Non concerné', 'RI':'Réponse inadaptée' };
+
+function calcScore(critIds) {
+  // Only count 1/2/3/4/star — NC and RI are excluded
+  const scored = critIds.filter(id => cotations[id] && ['1','2','3','4','star'].includes(cotations[id]));
+  if(!scored.length) return null;
+  const total = scored.reduce((s,id) => s + (COT_SCORE[cotations[id]]||0), 0);
+  return Math.round(total / (scored.length * 4) * 100);
+}
+
+function getGrade(pct) {
+  if(pct === null) return {label:'—', cls:''};
+  if(pct >= 87.5) return {label:'Niveau 4 — Tout à fait satisfaisant', cls:'grade-A'};
+  if(pct >= 62.5) return {label:'Niveau 3 — Plutôt satisfaisant', cls:'grade-B'};
+  if(pct >= 37.5) return {label:'Niveau 2 — Plutôt pas satisfaisant', cls:'grade-C'};
+  return {label:'Niveau 1 — Pas du tout satisfaisant', cls:'grade-C'};
+}
+
+function renderResults() {
+  const container = document.getElementById('resultsContent');
+  const allCrit = [...getAllCriteria(1), ...getAllCriteria(2), ...getAllCriteria(3)];
+  const done = allCrit.filter(c => cotations[c.id]).length;
+  
+  if(done === 0) {
+    container.innerHTML = `<div style="text-align:center;padding:60px;color:var(--gris-mid)">
+      <div style="font-size:2rem;margin-bottom:12px">📊</div>
+      <p>Completez au moins un chapitre pour voir vos résultats.</p>
+      <button class="btn btn-primary" onclick="showView('chapters')" style="margin-top:16px">Commencer l'évaluation</button>
+    </div>`;
+    return;
+  }
+
+  const globalIds = allCrit.map(c => c.id);
+  const globalPct = calcScore(globalIds);
+  const grade = getGrade(globalPct);
+  
+  // Chapter data
+  const chapData = [1,2,3].map(cn => {
+    const crit = getAllCriteria(cn);
+    const ids = crit.map(c => c.id);
+    const pct = calcScore(ids);
+    const cotDist = {};
+    ['1','2','3','4','star'].forEach(v => {
+      cotDist[v] = ids.filter(id => cotations[id] === v).length;
+    });
+    cotDist['NC'] = ids.filter(id => cotations[id] === 'NC').length;
+    cotDist['RI'] = ids.filter(id => cotations[id] === 'RI').length;
+    const totalScored = ids.filter(id => ['1','2','3','4','star'].includes(cotations[id])).length;
+    return { cn, pct, cotDist, total: ids.length, totalScored, timerSec: timerSeconds[cn]||0 };
+  });
+
+  // Priority list: cotations 1 and 2
+  const priority = allCrit
+    .filter(c => cotations[c.id] === '1' || cotations[c.id] === '2')
+    .sort((a,b) => {
+      const chapA = parseInt(a.id.split('.')[0]);
+      const chapB = parseInt(b.id.split('.')[0]);
+      const aImp = GRILLES[chapA]?.imperative_ids?.includes(a.id) ? 0 : 1;
+      const bImp = GRILLES[chapB]?.imperative_ids?.includes(b.id) ? 0 : 1;
+      if(aImp !== bImp) return aImp - bImp;
+      // 1 before 2 (worst first)
+      return (cotations[a.id] === '1' ? 0 : 1) - (cotations[b.id] === '1' ? 0 : 1);
+    });
+
+  const actionMap = {
+    '1': {
+      imp: "⚠️ ACTION URGENTE (Impératif) : Dispositif absent ou insuffisant. Désigner un pilote, constituer un groupe de travail, mettre en place sous 30 jours. Documenter et valider en direction.",
+      std: "🔴 ACTION REQUISE : Pratiques non satisfaisantes. Structurer, formaliser et déployer ce process. Inscrire dans le PLAC avec pilote désigné et délai ≤ 60 jours."
+    },
+    '2': {
+      imp: "⚠️ PRIORITÉ HAUTE (Impératif) : Des éléments existent mais restent insuffisants. Renforcer, systématiser et tracer. Plan d'action documenté sous 45 jours.",
+      std: "🟠 AXE DE PROGRÈS : Base existante à consolider. Identifier les E.E. insuffisants, compléter les pratiques et les rendre systématiques. Inscrire dans le PLAC."
+    }
+  };
+
+  function fmtTime(s) {
+    if(!s) return '—';
+    const h = Math.floor(s/3600);
+    const m = Math.floor((s%3600)/60);
+    return h > 0 ? `${h}h${String(m).padStart(2,'0')}` : `${m} min`;
+  }
+  const totalTime = fmtTime(Object.values(timerSeconds).reduce((a,b)=>a+b,0));
+
+  // Score moyenne sur 4
+  const avgOn4 = globalPct !== null ? (globalPct/100*4).toFixed(2) : '—';
+
+  container.innerHTML = `
+    <div class="results-header">
+      <div class="score-circle">
+        <svg viewBox="0 0 120 120">
+          <circle cx="60" cy="60" r="50" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="12"/>
+          <circle cx="60" cy="60" r="50" fill="none" stroke="#D69646" stroke-width="12" 
+            stroke-dasharray="${(globalPct||0)*3.14} 314" stroke-linecap="round"/>
+        </svg>
+        <div class="score-circle-text">
+          <div class="score-pct">${avgOn4}<span style="font-size:0.9rem">/4</span></div>
+          <div class="score-pct-label">score moyen</div>
+        </div>
+      </div>
+      <div class="results-meta">
+        <h2>Résultats Auto-Évaluation SAD</h2>
+        <div class="results-grade ${grade.cls}">${grade.label}</div>
+        <div class="results-stats">
+          <div class="results-stat">
+            <div class="results-stat-num">${done}</div>
+            <div class="results-stat-label">critères cotés</div>
+          </div>
+          <div class="results-stat">
+            <div class="results-stat-num">${allCrit.length - done}</div>
+            <div class="results-stat-label">non cotés</div>
+          </div>
+          <div class="results-stat">
+            <div class="results-stat-num">${priority.length}</div>
+            <div class="results-stat-label">axes prioritaires (1 & 2)</div>
+          </div>
+          <div class="results-stat">
+            <div class="results-stat-num">${totalTime}</div>
+            <div class="results-stat-label">temps total</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="chap-scores">
+      ${chapData.map(({cn, pct, cotDist, total, totalScored, timerSec}) => {
+        const ch = GRILLES[cn];
+        const avg4 = pct !== null ? (pct/100*4).toFixed(2) : null;
+        return `<div class="chap-score-card">
+          <h4>Chapitre ${cn} · ${ch.name}</h4>
+          <div class="chap-type-label">${ch.type} · ${fmtTime(timerSec)}</div>
+          ${avg4 !== null ? `
+          ${['4','3','2','1','star'].map(v => {
+            const cnt = cotDist[v]||0;
+            const pctV = totalScored ? Math.round(cnt/totalScored*100) : 0;
+            const label = v === 'star' ? '★' : v;
+            return `<div class="score-bar-row">
+              <div class="score-bar-label" style="color:${COT_COLORS[v]};font-weight:700">${label} — ${cnt} crit.</div>
+              <div class="score-bar"><div class="score-bar-fill fill-${v}" style="width:${pctV}%"></div></div>
+              <div class="score-bar-pct">${pctV}%</div>
+            </div>`;
+          }).join('')}
+          ${(cotDist['NC']||0) > 0 ? `<div style="font-size:0.75rem;color:var(--gris-mid);margin-top:4px">NC : ${cotDist['NC']} critère(s)</div>` : ''}
+          ${(cotDist['RI']||0) > 0 ? `<div style="font-size:0.75rem;color:#8E44AD;margin-top:2px">RI : ${cotDist['RI']} élément(s)</div>` : ''}
+          <div style="margin-top:10px;padding-top:8px;border-top:1px solid var(--gris-light);font-size:0.8rem;color:var(--gris-mid)">
+            Score moyen : <strong style="color:var(--brun-ancre)">${avg4}/4</strong> · ${totalScored}/${total} cotés
+          </div>
+          ` : `<div style="color:var(--gris-mid);font-size:0.85rem;padding:10px 0">Non démarré</div>`}
+        </div>`;
+      }).join('')}
+    </div>
+
+    ${priority.length > 0 ? `
+    <div class="priority-section">
+      <h3>🎯 Plan d'action prioritaire — Cotations 1 et 2</h3>
+      <div class="sub">Critères Impératifs ★ en premier · Cotation 1 (le plus urgent) avant cotation 2</div>
+      <table class="priority-table">
+        <thead>
+          <tr>
+            <th>Critère</th>
+            <th>Cot.</th>
+            <th>Niveau</th>
+            <th>Intitulé</th>
+            <th>Action recommandée</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${priority.map(c => {
+            const chapNum = parseInt(c.id.split('.')[0]);
+            const isImp = GRILLES[chapNum]?.imperative_ids?.includes(c.id);
+            const cot = cotations[c.id];
+            const action = actionMap[cot][isImp ? 'imp' : 'std'];
+            const cotColor = cot === '1' ? '#C0392B' : '#E67E22';
+            const cotBg = cot === '1' ? '#FDEDEC' : '#FEF5EC';
+            return `<tr>
+              <td class="p-id ${isImp?'imp':''}">${isImp?'★ ':''}${c.id}</td>
+              <td><span class="p-cot" style="background:${cotBg};color:${cotColor};padding:2px 8px;border-radius:10px;font-weight:700;font-size:0.75rem">${cot}/4</span></td>
+              <td><span class="niveau-badge ${isImp?'imp':'std'}" style="font-size:0.68rem">${isImp?'★ Impératif':'Standard'}</span></td>
+              <td style="font-size:0.82rem">${c.intitule}</td>
+              <td class="p-action">${action}</td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>` : done > 0 ? `
+    <div class="priority-section" style="text-align:center;padding:36px">
+      <div style="font-size:2rem;margin-bottom:10px">🏆</div>
+      <h3 style="color:var(--vert-ok)">Aucun critère coté 1 ou 2 !</h3>
+      <p style="color:var(--gris-mid);margin-top:8px">Vos résultats sont satisfaisants sur les critères évalués. Continuez à documenter vos preuves pour l'évaluation HAS.</p>
+    </div>` : ''}
+
+    <div class="legende-section" style="margin-top:24px">
+      <h3>Rappel — Échelle de cotation HAS (éléments d'évaluation)</h3>
+      <div class="legende-grid">
+        <div class="legende-item"><div class="leg-dot leg-1"></div><div class="leg-text"><strong>1 · Pas du tout satisfaisant</strong><span>Pratiques absentes ou très insuffisantes</span></div></div>
+        <div class="legende-item"><div class="leg-dot leg-2"></div><div class="leg-text"><strong>2 · Plutôt pas satisfaisant</strong><span>Éléments existants mais insuffisants</span></div></div>
+        <div class="legende-item"><div class="leg-dot leg-3"></div><div class="leg-text"><strong>3 · Plutôt satisfaisant</strong><span>Pratiques globalement en place</span></div></div>
+        <div class="legende-item"><div class="leg-dot leg-4"></div><div class="leg-text"><strong>4 · Tout à fait satisfaisant</strong><span>Pratiques robustes, traçables, généralisées</span></div></div>
+        <div class="legende-item"><div class="leg-dot leg-star"></div><div class="leg-text"><strong>★ · Optimisé</strong><span>Bonne pratique exemplaire (= 4/4)</span></div></div>
+        <div class="legende-item"><div class="leg-dot leg-NC"></div><div class="leg-text"><strong>NC · Non concerné</strong><span>Non applicable (interdit sur Impératifs)</span></div></div>
+      </div>
+    </div>
+
+    <div style="background:var(--ivoire);border-radius:10px;padding:20px 24px;border:1px solid var(--gris-light);font-size:0.82rem;color:var(--gris-mid);line-height:1.7;margin-top:20px">
+      <strong style="color:var(--brun-ancre)">EODA Conseil</strong> vous accompagne dans la mise en œuvre de votre PLAC, la formation de vos équipes 
+      et la création de votre tableau de bord qualité Power BI. Les résultats ci-dessus peuvent être intégrés à votre 
+      rapport de diagnostic qualité et Plan d'Accompagnement à l'autoévaluation.
+      <br><br>
+      <em>Produit par EODA Conseil · Licence d'utilisation interne · Mention d'origine obligatoire à conserver · © 2026 EODA Conseil</em>
+    </div>
+  `;
+}
+
+// INIT
+renderChapCards();
+</script>
+</body>
+</html>

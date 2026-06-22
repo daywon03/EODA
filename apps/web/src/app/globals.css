@@ -1,0 +1,48 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* CSS custom properties EODA — charte officielle */
+    --brun-ancre: #3E2C26;
+    --brun-moyen: #5C3D2E;
+    --terre: #B45A32;
+    --ambre: #D69646;
+    --ivoire: #F0E8DC;
+    --ivoire-light: #FAF3EB;
+    --shadow: rgba(62, 44, 38, 0.12);
+
+    /* shadcn/ui tokens mappés sur la charte EODA */
+    --background: 40 30% 96%;        /* ivoire-light */
+    --foreground: 15 24% 20%;        /* brun-ancre */
+    --card: 0 0% 100%;
+    --card-foreground: 15 24% 20%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 15 24% 20%;
+    --primary: 22 56% 45%;           /* terre */
+    --primary-foreground: 40 30% 96%;
+    --secondary: 30 26% 28%;         /* brun-moyen */
+    --secondary-foreground: 40 30% 96%;
+    --muted: 30 20% 90%;
+    --muted-foreground: 20 15% 50%;
+    --accent: 38 58% 57%;            /* ambre */
+    --accent-foreground: 15 24% 20%;
+    --destructive: 4 67% 47%;        /* rouge-imp */
+    --destructive-foreground: 0 0% 100%;
+    --border: 30 20% 87%;            /* gris-light */
+    --input: 30 20% 87%;
+    --ring: 22 56% 45%;              /* terre */
+    --radius: 0.5rem;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-ivoire-light text-brun-ancre;
+    font-family: 'Trebuchet MS', 'Segoe UI', Arial, sans-serif;
+  }
+}

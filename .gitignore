@@ -1,0 +1,35 @@
+# dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# build outputs
+.next/
+out/
+dist/
+build/
+
+# env files
+.env
+.env.local
+.env.*.local
+
+# prisma
+packages/database/prisma/migrations/
+
+# misc
+.DS_Store
+*.pem
+*.log
+.turbo/
+
+# TypeScript build info
+*.tsbuildinfo
+
+# editor
+.vscode/
+.idea/
+*.swp
+
+# claude-mem session data (local only)
+.claude/settings.local.json

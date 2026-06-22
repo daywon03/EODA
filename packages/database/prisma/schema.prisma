@@ -1,0 +1,334 @@
+// Schéma Prisma V1 — EODA Conseil
+// Source de vérité : specs/02-architecture-technique.md
+// Ne jamais hardcoder les règles de cotation ici — passer par HasReferentialVersion
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ENUMS
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum UserRole {
+  CABINET_ADMIN
+  CABINET_EVALUATOR
+  CLIENT_USER
+}
+
+enum EstablishmentType {
+  SAD_AIDE
+  SAD_MIXTE
+}
+
+enum CommercialTier {
+  BETA
+  ESSENTIEL
+  PERFORMANCE
+  EXCELLENCE
+}
+
+enum EstablishmentUserRole {
+  DIRECTEUR
+  COORDINATEUR
+  ASSISTANT_QUALITE
+  AUTRE
+}
+
+enum RequirementLevel {
+  IMPERATIF
+  STANDARD
+}
+
+enum ApplicableTo {
+  SAD_AIDE
+  SAD_MIXTE
+  BOTH
+}
+
+enum DocumentCategory {
+  LOI_2002_2
+  FONCTIONNEMENT
+  QUALITE_RISQUES
+  RH
+}
+
+enum DocumentStatus {
+  MISSING
+  UPLOADED
+  ANALYZING
+  INCOMPLETE
+  COMPLIANT
+  EXPIRED
+  NOT_APPLICABLE
+}
+
+enum ExpectedFrequency {
+  ANNUAL
+  BIANNUAL
+  TRIENNIAL
+  ON_DEMAND
+}
+
+enum Rating {
+  R1
+  R2
+  R3
+  R4
+  STAR
+  NC
+  RI
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ORGANISATION
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Tenant {
+  id            String          @id @default(cuid())
+  name          String
+  createdAt     DateTime        @default(now()) @map("created_at")
+  users         User[]
+  establishments Establishment[]
+
+  @@map("tenants")
+}
+
+model User {
+  id           String    @id @default(cuid())
+  tenantId     String?   @map("tenant_id")
+  email        String    @unique
+  name         String
+  passwordHash String    @map("password_hash")
+  role         UserRole  @default(CLIENT_USER)
+  createdAt    DateTime  @default(now()) @map("created_at")
+
+  tenant             Tenant?              @relation(fields: [tenantId], references: [id])
+  establishmentUsers EstablishmentUser[]
+  uploadedVersions   DocumentVersion[]    @relation("UploadedBy")
+  evaluationSessions EvaluationSession[]
+
+  @@map("users")
+}
+
+model Establishment {
+  id                    String            @id @default(cuid())
+  tenantId              String            @map("tenant_id")
+  name                  String
+  finessNumber          String?           @unique @map("finess_number")
+  type                  EstablishmentType
+  address               String?
+  commercialTier        CommercialTier    @default(BETA) @map("commercial_tier")
+  hasEvaluationTargetDate DateTime?       @map("has_evaluation_target_date")
+  createdAt             DateTime          @default(now()) @map("created_at")
+  updatedAt             DateTime          @updatedAt @map("updated_at")
+
+  tenant             Tenant              @relation(fields: [tenantId], references: [id])
+  establishmentUsers EstablishmentUser[]
+  documents          Document[]
+  evaluationSessions EvaluationSession[]
+
+  @@map("establishments")
+}
+
+model EstablishmentUser {
+  userId              String                @map("user_id")
+  establishmentId     String                @map("establishment_id")
+  roleInEstablishment EstablishmentUserRole @map("role_in_establishment")
+
+  user          User          @relation(fields: [userId], references: [id])
+  establishment Establishment @relation(fields: [establishmentId], references: [id])
+
+  @@id([userId, establishmentId])
+  @@map("establishment_users")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// RÉFÉRENTIEL HAS (seed uniquement — jamais modifié manuellement en prod)
+// ─────────────────────────────────────────────────────────────────────────────
+
+model HasReferentialVersion {
+  id            String   @id @default(cuid())
+  label         String   // ex: "Manuel HAS juillet 2025"
+  effectiveDate DateTime @map("effective_date")
+  chapters      Chapter[]
+
+  @@map("has_referential_versions")
+}
+
+model Chapter {
+  id                   String                @id @default(cuid())
+  referentialVersionId String                @map("referential_version_id")
+  number               Int
+  name                 String
+  method               String                // "Accompagné traceur" | "Traceur ciblé" | "Audit système"
+
+  referentialVersion HasReferentialVersion @relation(fields: [referentialVersionId], references: [id])
+  themes             Theme[]
+  evaluationSessions EvaluationSession[]
+
+  @@map("chapters")
+}
+
+model Theme {
+  id        String @id @default(cuid())
+  chapterId String @map("chapter_id")
+  name      String
+
+  chapter    Chapter     @relation(fields: [chapterId], references: [id])
+  objectives Objective[]
+
+  @@map("themes")
+}
+
+model Objective {
+  id            String  @id @default(cuid())
+  themeId       String  @map("theme_id")
+  code          String  // ex: "2.2"
+  weightPercent Float?  @map("weight_percent") // pondération future — lire via ScoringService
+
+  theme    Theme      @relation(fields: [themeId], references: [id])
+  criteria Criterion[]
+
+  @@map("objectives")
+}
+
+model Criterion {
+  id               String           @id @default(cuid())
+  objectiveId      String           @map("objective_id")
+  code             String           @unique // ex: "2.2.7"
+  label            String
+  requirementLevel RequirementLevel @map("requirement_level")
+  applicableTo     ApplicableTo     @map("applicable_to")
+
+  objective          Objective              @relation(fields: [objectiveId], references: [id])
+  evaluationElements EvaluationElement[]
+  documentTypes      DocumentTypeCriterion[]
+
+  @@map("criteria")
+}
+
+model EvaluationElement {
+  id                  String  @id @default(cuid())
+  criterionId         String  @map("criterion_id")
+  originalText        String  @map("original_text")
+  reformulatedText    String? @map("reformulated_text")
+  // true uniquement si chapter.number == 1 — vérifier avant d'autoriser RI dans l'UI
+  allowsRi            Boolean @default(false) @map("allows_ri")
+
+  criterion   Criterion      @relation(fields: [criterionId], references: [id])
+  elementRatings ElementRating[]
+
+  @@map("evaluation_elements")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MODULES 1 & 2 — DOCUMENTS
+// ─────────────────────────────────────────────────────────────────────────────
+
+model DocumentType {
+  id                String            @id @default(cuid())
+  code              String            @unique // ex: "L2002_DIPC", "P13_FICHE_DECLARATION"
+  category          DocumentCategory
+  label             String
+  isConditional     Boolean           @default(false) @map("is_conditional")
+  expectedFrequency ExpectedFrequency? @map("expected_frequency")
+
+  documents DocumentTypeCriterion[]
+  Document  Document[]
+
+  @@map("document_types")
+}
+
+model DocumentTypeCriterion {
+  documentTypeId String @map("document_type_id")
+  criterionId    String @map("criterion_id")
+
+  documentType DocumentType @relation(fields: [documentTypeId], references: [id])
+  criterion    Criterion    @relation(fields: [criterionId], references: [id])
+
+  @@id([documentTypeId, criterionId])
+  @@map("document_type_criteria")
+}
+
+model Document {
+  id                     String         @id @default(cuid())
+  establishmentId        String         @map("establishment_id")
+  documentTypeId         String?        @map("document_type_id")
+  currentVersionId       String?        @unique @map("current_version_id")
+  status                 DocumentStatus @default(MISSING)
+  statusOverriddenByUser Boolean        @default(false) @map("status_overridden_by_user")
+  createdAt              DateTime       @default(now()) @map("created_at")
+  updatedAt              DateTime       @updatedAt @map("updated_at")
+
+  establishment  Establishment    @relation(fields: [establishmentId], references: [id])
+  documentType   DocumentType?    @relation(fields: [documentTypeId], references: [id])
+  currentVersion DocumentVersion? @relation("CurrentVersion", fields: [currentVersionId], references: [id])
+  versions       DocumentVersion[] @relation("AllVersions")
+
+  @@map("documents")
+}
+
+model DocumentVersion {
+  id                          String   @id @default(cuid())
+  documentId                  String   @map("document_id")
+  versionNumber               Int      @map("version_number")
+  fileStorageKey              String   @map("file_storage_key")
+  originalFilename            String   @map("original_filename")
+  uploadedByUserId            String   @map("uploaded_by_user_id")
+  uploadedAt                  DateTime @default(now()) @map("uploaded_at")
+  extractedText               String?  @map("extracted_text")
+  analysisResultJson          Json?    @map("analysis_result_json")
+  regeneratedFromVersionId    String?  @map("regenerated_from_version_id")
+
+  document                Document  @relation("AllVersions", fields: [documentId], references: [id])
+  uploadedBy              User      @relation("UploadedBy", fields: [uploadedByUserId], references: [id])
+  regeneratedFromVersion  DocumentVersion?  @relation("Regeneration", fields: [regeneratedFromVersionId], references: [id])
+  regeneratedVersions     DocumentVersion[] @relation("Regeneration")
+  currentForDocument      Document?         @relation("CurrentVersion")
+
+  @@map("document_versions")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MODULE 3 — AUTO-ÉVALUATION HAS
+// ─────────────────────────────────────────────────────────────────────────────
+
+model EvaluationSession {
+  id                String    @id @default(cuid())
+  establishmentId   String    @map("establishment_id")
+  chapterId         String    @map("chapter_id")
+  startedAt         DateTime  @default(now()) @map("started_at")
+  finishedAt        DateTime? @map("finished_at")
+  durationSeconds   Int?      @map("duration_seconds")
+  performedByUserId String    @map("performed_by_user_id")
+
+  establishment Establishment  @relation(fields: [establishmentId], references: [id])
+  chapter       Chapter        @relation(fields: [chapterId], references: [id])
+  performedBy   User           @relation(fields: [performedByUserId], references: [id])
+  elementRatings ElementRating[]
+
+  @@map("evaluation_sessions")
+}
+
+model ElementRating {
+  id                  String  @id @default(cuid())
+  evaluationSessionId String  @map("evaluation_session_id")
+  evaluationElementId String  @map("evaluation_element_id")
+  rating              Rating
+  comment             String? // preuve consultée
+  suggestedBySystem   Boolean @default(false) @map("suggested_by_system")
+  confirmedByUser     Boolean @default(false) @map("confirmed_by_user")
+  ratedAt             DateTime @default(now()) @map("rated_at")
+
+  evaluationSession EvaluationSession @relation(fields: [evaluationSessionId], references: [id])
+  evaluationElement EvaluationElement @relation(fields: [evaluationElementId], references: [id])
+
+  @@unique([evaluationSessionId, evaluationElementId])
+  @@map("element_ratings")
+}
