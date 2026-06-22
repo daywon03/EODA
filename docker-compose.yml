@@ -1,7 +1,9 @@
+# PostgreSQL local — fallback dev sans connexion Supabase uniquement
+# En usage normal, utiliser le projet Supabase (voir .env.example)
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: eoda_postgres
+    container_name: eoda_postgres_local
     restart: unless-stopped
     ports:
       - "5432:5432"
