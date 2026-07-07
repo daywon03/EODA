@@ -4,9 +4,9 @@ import { InviteClientForm } from "@/components/etablissement/InviteClientForm";
 import { ChecklistCategory } from "@/components/checklist/ChecklistCategory";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import Link from "next/link";
-import { ArrowLeft, Building2, Calendar, Users } from "lucide-react";
+import { ProgressBar } from "@/components/ui/progress-bar";
+import { PageHeader } from "@/components/layout/PageHeader";
+import { Building2, Calendar, Users } from "lucide-react";
 import type { EstablishmentType, DocumentCategory } from "@eoda/database";
 
 const CATEGORY_LABELS: Record<DocumentCategory, string> = {
@@ -53,25 +53,13 @@ export default async function EstablishmentDetailPage({ params }: Props) {
 
   return (
     <div className="space-y-6 max-w-4xl">
-      {/* En-tête */}
-      <div className="flex items-center gap-3">
-        <Button variant="ghost" size="sm" asChild>
-          <Link href="/dashboard/cabinet">
-            <ArrowLeft className="w-4 h-4" />
-            Retour
-          </Link>
-        </Button>
-        <div className="border-l-4 border-terre pl-4 py-0.5">
-          <div className="flex items-center gap-2">
-            <Building2 className="w-5 h-5 text-terre" />
-            <h1 className="text-xl font-bold text-brun-ancre">{establishment.name}</h1>
-            <Badge variant="secondary">{TYPE_LABELS[establishment.type]}</Badge>
-          </div>
-          {establishment.finessNumber && (
-            <p className="text-xs text-gris-mid mt-0.5">FINESS {establishment.finessNumber}</p>
-          )}
-        </div>
-      </div>
+      <PageHeader
+        title={establishment.name}
+        icon={Building2}
+        backHref="/dashboard/cabinet"
+        subtitle={establishment.finessNumber ? `FINESS ${establishment.finessNumber}` : undefined}
+        action={<Badge variant="secondary">{TYPE_LABELS[establishment.type]}</Badge>}
+      />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Infos établissement */}
@@ -142,12 +130,7 @@ export default async function EstablishmentDetailPage({ params }: Props) {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="h-2.5 bg-gris-light rounded-full overflow-hidden">
-            <div
-              className="h-full bg-ambre rounded-full transition-all"
-              style={{ width: `${progressPct}%` }}
-            />
-          </div>
+          <ProgressBar value={progressPct} colorClassName="bg-ambre" />
           <div className="space-y-3">
             {categories.map((cat) => {
               const items = checklist[cat] ?? [];

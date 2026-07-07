@@ -3,8 +3,9 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { listEstablishments } from "@/lib/actions/establishment";
 import { EstablishmentCard } from "@/components/etablissement/EstablishmentCard";
+import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
-import { Plus, Building2 } from "lucide-react";
+import { Plus, Building2, FileText, CalendarClock } from "lucide-react";
 
 export const metadata = { title: "Dashboard Cabinet · EODA Conseil" };
 
@@ -13,34 +14,56 @@ export default async function CabinetDashboardPage() {
   if (!session || session.user.role === "CLIENT_USER") redirect("/login");
 
   const establishments = await listEstablishments();
+  const totalDocuments = establishments.reduce((sum, e) => sum + e._count.documents, 0);
+  const upcomingEvaluations = establishments.filter((e) => e.hasEvaluationTargetDate).length;
+
+  const stats = [
+    { label: "Établissements suivis", value: establishments.length, icon: Building2 },
+    { label: "Documents déposés", value: totalDocuments, icon: FileText },
+    { label: "Évaluations HAS planifiées", value: upcomingEvaluations, icon: CalendarClock },
+  ];
 
   return (
     <div className="space-y-6">
-      <div className="flex items-start justify-between">
-        <div className="border-l-4 border-terre pl-5 py-1">
-          <h1 className="text-2xl font-bold text-brun-ancre">Tableau de bord Cabinet</h1>
-          <p className="text-gris-mid text-sm mt-1">
-            Bienvenue, {session.user.name ?? session.user.email}
-          </p>
+      <PageHeader
+        title="Tableau de bord Cabinet"
+        subtitle={`Bienvenue, ${session.user.name ?? session.user.email}`}
+        action={
+          <Button asChild>
+            <Link href="/dashboard/cabinet/etablissements/nouveau">
+              <Plus className="w-4 h-4" aria-hidden="true" />
+              Nouvel établissement
+            </Link>
+          </Button>
+        }
+      />
+
+      {establishments.length > 0 && (
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {stats.map(({ label, value, icon: Icon }) => (
+            <div key={label} className="bg-white border border-gris-light rounded-xl p-5 flex items-center gap-4">
+              <span className="flex items-center justify-center w-11 h-11 rounded-lg bg-ambre/15 flex-shrink-0">
+                <Icon className="w-5 h-5 text-ambre" aria-hidden="true" />
+              </span>
+              <div>
+                <p className="text-2xl font-bold text-brun-ancre leading-none tabular-nums">{value}</p>
+                <p className="text-xs text-gris-mid mt-1">{label}</p>
+              </div>
+            </div>
+          ))}
         </div>
-        <Button asChild>
-          <Link href="/dashboard/cabinet/etablissements/nouveau">
-            <Plus className="w-4 h-4" />
-            Nouvel établissement
-          </Link>
-        </Button>
-      </div>
+      )}
 
       {establishments.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-20 text-center border-2 border-dashed border-gris-light rounded-xl">
-          <Building2 className="w-12 h-12 text-gris-light mb-4" />
+        <div className="flex flex-col items-center justify-center py-20 text-center border-2 border-dashed border-gris-light rounded-xl bg-white/50">
+          <Building2 className="w-12 h-12 text-gris-light mb-4" aria-hidden="true" />
           <h2 className="text-lg font-semibold text-brun-ancre mb-1">Aucun établissement</h2>
           <p className="text-gris-mid text-sm mb-6">
             Créez votre premier établissement pour commencer.
           </p>
           <Button asChild>
             <Link href="/dashboard/cabinet/etablissements/nouveau">
-              <Plus className="w-4 h-4" />
+              <Plus className="w-4 h-4" aria-hidden="true" />
               Créer ASSAD BENOIT
             </Link>
           </Button>

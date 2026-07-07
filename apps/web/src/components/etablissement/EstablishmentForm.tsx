@@ -75,18 +75,21 @@ export function EstablishmentForm() {
       </div>
 
       {state?.error && (
-        <div className="flex items-center gap-2 text-rouge-imp text-sm bg-rouge-imp/10 rounded-md px-3 py-2">
-          <AlertCircle className="w-4 h-4 flex-shrink-0" />
+        <div
+          role="alert"
+          className="flex items-center gap-2 text-rouge-imp text-sm bg-rouge-imp/10 border border-rouge-imp/20 rounded-md px-3 py-2.5"
+        >
+          <AlertCircle className="w-4 h-4 flex-shrink-0" aria-hidden="true" />
           <span>{state.error}</span>
         </div>
       )}
 
-      <div className="flex gap-3 pt-2">
-        <Button type="submit" disabled={isPending}>
-          {isPending && <Loader2 className="w-4 h-4 animate-spin" />}
-          Créer l'établissement
+      <div className="flex gap-3 pt-2 border-t border-gris-light mt-6">
+        <Button type="submit" disabled={isPending} className="mt-6">
+          {isPending && <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />}
+          Créer l&apos;établissement
         </Button>
-        <Button type="button" variant="outline" asChild>
+        <Button type="button" variant="outline" asChild className="mt-6">
           <Link href="/dashboard/cabinet">Annuler</Link>
         </Button>
       </div>
