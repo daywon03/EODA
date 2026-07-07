@@ -5,42 +5,60 @@
 > établissement, upload). On construit donc les fondations vite et sobrement, puis on
 > accélère sur l'analyse dès qu'elles sont posées — pas l'inverse.
 
-## Jalon 0 — Socle technique (1 à 2 jours de build)
+## Jalon 0 — Socle technique (1 à 2 jours de build) — ✅ FAIT (2026-07-07)
 
-- [ ] Init monorepo pnpm, Next.js 14 App Router, TypeScript strict, Tailwind, shadcn/ui
-- [ ] Prisma + PostgreSQL local (docker-compose pour dev)
-- [ ] Auth.js avec 2 rôles minimum fonctionnels : `CABINET_ADMIN`, `CLIENT_USER`
-- [ ] Déploiement initial sur Scaleway/OVHcloud (environnement de dev/staging) — valider
-  tôt que la contrainte hébergement Europe est tenable techniquement, pas à la fin
-- [ ] CI basique (lint + typecheck + build) avant tout merge
+- [x] Init monorepo pnpm, Next.js 15 App Router, TypeScript strict, Tailwind, shadcn/ui
+- [x] Prisma + PostgreSQL — **écart au plan initial** : au lieu d'un Postgres local via
+  docker-compose comme unique environnement, la BDD réelle est **Prisma Postgres**
+  (managé, région `eu-west-3`), avec un Postgres local en fallback dev uniquement
+  (`docker-compose.yml`, port 5544 en local sur ce poste pour éviter un conflit avec des
+  Postgres natifs déjà installés). Voir `specs/02-architecture-technique.md` §1 pour l'ADR
+  mis à jour et le point de vigilance associé.
+- [x] Auth.js avec 2 rôles minimum fonctionnels : `CABINET_ADMIN`, `CLIENT_USER`
+- [x] Déploiement — **écart au plan initial** : hébergé sur **Prisma Compute** (plateforme
+  de déploiement managée par Prisma, actuellement en beta publique gratuite) plutôt que
+  directement sur Scaleway/OVHcloud. ✅ Région Europe **confirmée et corrigée le
+  2026-07-07** : l'app de production tournait par défaut hors Europe ; redéployée
+  explicitement en `eu-west-3` (Paris) et testée fonctionnelle. Détail dans
+  `specs/02-architecture-technique.md` §1 (note ADR).
+- [x] Environnement staging — base de données **`eoda-staging`** créée en `eu-west-3`,
+  dédiée à la branche `develop`/preview (séparée de la BDD de production), migrée et
+  seedée avec les fixtures de test anonymisées. Auth/URL de preview configurées.
+- [x] CI basique (lint + typecheck + build) — GitHub Actions (`.github/workflows/ci.yml`)
+  + check "Prisma Compute Deploy" à chaque push sur `develop`/`main`
 
-**Definition of done :** un utilisateur Cabinet peut se connecter, un utilisateur Client
-peut se connecter, chacun voit un dashboard vide correspondant à son rôle.
+**Definition of done :** ✅ un utilisateur Cabinet peut se connecter, un utilisateur Client
+peut se connecter, chacun voit un dashboard correspondant à son rôle (vérifié en conditions
+réelles avec les comptes de test `cabinet@eoda-test.local` / `client@eoda-test.local`).
 
-## Jalon 1 — Établissement + Espace client minimal (Module 2, socle)
+## Jalon 1 — Établissement + Espace client minimal (Module 2, socle) — ✅ FAIT (2026-07-07)
 
-- [ ] CRUD Établissement côté Cabinet (créer ASSAD BENOIT comme premier établissement réel)
-- [ ] Invitation d'un utilisateur Client rattaché à un établissement
-- [ ] Seed de `DocumentType` depuis `context/03-documents-obligatoires.md` (script unique,
-  source de vérité = ce fichier markdown, pas une saisie manuelle redondante)
-- [ ] Affichage de la checklist des documents attendus (sans encore l'upload réel — juste
-  la liste avec statut `MISSING` partout)
+- [x] CRUD Établissement côté Cabinet (création établissement fonctionnelle ; ASSAD BENOIT
+  à créer comme premier établissement réel lors de l'onboarding, fixtures de test
+  actuellement anonymisées)
+- [x] Invitation d'un utilisateur Client rattaché à un établissement (mot de passe
+  temporaire généré, affiché une seule fois)
+- [x] Seed de `DocumentType` depuis `context/03-documents-obligatoires.md`
+- [x] Affichage de la checklist des documents attendus par catégorie, avec statuts
 
-**Definition of done :** Sandrine crée ASSAD BENOIT, invite Tania Leborgne, qui se connecte
-et voit la checklist complète des documents attendus, vide.
+**Definition of done :** ✅ vérifié fonctionnellement (création établissement, invitation,
+connexion client, affichage checklist complète).
 
-## Jalon 2 — Upload + catégorisation (Module 2, complet)
+## Jalon 2 — Upload + catégorisation (Module 2, complet) — ✅ FAIT (2026-07-07)
 
-- [ ] Upload de fichier (PDF/DOCX) vers le stockage S3-compatible
-- [ ] `DocumentCategorizationService` — suggestion automatique de type, avec correction
-  manuelle possible
-- [ ] Statut passe à `UPLOADED` dès dépôt
-- [ ] Gestion de versions (un document peut être redéposé, garde l'historique)
-- [ ] Tableau de bord établissement : % checklist complétée, vue par catégorie
+- [x] Upload de fichier (PDF/DOCX) — port/adapter storage (`file-storage-port.ts`) avec
+  implémentations `LocalFsStorageAdapter` (dev, actif par défaut) et `S3StorageAdapter`
+  (Scaleway/OVHcloud, code prêt). ⚠️ **Point ouvert** : le bucket S3 réel Scaleway/OVHcloud
+  n'est pas encore configuré/connecté (`S3_*` vides dans `.env.example`) — LocalFs sert de
+  fallback tant que ce n'est pas fait ; à faire avant tout stockage de vrais documents
+  clients en production.
+- [x] `DocumentCategorizationService` — suggestion automatique de type
+- [x] Statut passe à `UPLOADED` dès dépôt
+- [x] Gestion de versions (versioning implémenté, historique conservé)
+- [x] Tableau de bord établissement : % checklist complétée, vue par catégorie
 
-**Definition of done :** Tania dépose le vrai livret d'accueil ASSAD BENOIT, le système le
-catégorise correctement en `L2002_LIVRET_ACCUEIL`, le statut passe à `UPLOADED`, Sandrine
-le voit apparaître dans son propre dashboard.
+**Definition of done :** testé avec des fixtures de test (voir point ouvert stockage
+ci-dessus avant un vrai document ASSAD BENOIT en production).
 
 ## Jalon 3 — Analyse documentaire automatisée (Module 1 — la priorité business)
 
