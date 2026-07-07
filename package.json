@@ -15,6 +15,7 @@
     ]
   },
   "scripts": {
+    "postinstall": "pnpm --filter @eoda/database generate",
     "dev": "pnpm --filter @eoda/web dev",
     "build": "pnpm --filter @eoda/web build",
     "lint": "pnpm --filter @eoda/web lint",
