@@ -3,6 +3,7 @@ import type { NextAuthConfig } from "next-auth";
 import type { UserRole } from "@eoda/database";
 
 export const authConfig: NextAuthConfig = {
+  trustHost: true,
   session: { strategy: "jwt" },
   pages: { signIn: "/login" },
   providers: [],

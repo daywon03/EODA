@@ -96,6 +96,7 @@ export default async function ClientDashboardPage() {
               title={CATEGORY_LABELS[cat]}
               items={items}
               defaultOpen={DEFAULT_OPEN.includes(cat)}
+              establishmentId={establishment.id}
             />
           );
         })}

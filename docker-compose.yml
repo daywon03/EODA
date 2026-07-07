@@ -1,5 +1,5 @@
-# PostgreSQL local — fallback dev sans connexion Supabase uniquement
-# En usage normal, utiliser le projet Supabase (voir .env.example)
+# PostgreSQL local — fallback dev sans connexion à la base Prisma Postgres
+# En usage normal, utiliser la base Prisma Postgres du projet (voir .env.example)
 services:
   postgres:
     image: postgres:16-alpine

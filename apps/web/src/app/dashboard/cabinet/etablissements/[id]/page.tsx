@@ -1,11 +1,20 @@
 import { getEstablishment } from "@/lib/actions/establishment";
+import { getEstablishmentChecklist } from "@/lib/actions/checklist";
 import { InviteClientForm } from "@/components/etablissement/InviteClientForm";
+import { ChecklistCategory } from "@/components/checklist/ChecklistCategory";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { ArrowLeft, Building2, Calendar, Users } from "lucide-react";
-import type { EstablishmentType } from "@eoda/database";
+import type { EstablishmentType, DocumentCategory } from "@eoda/database";
+
+const CATEGORY_LABELS: Record<DocumentCategory, string> = {
+  LOI_2002_2: "Documents loi 2002-2 (droits des personnes accompagnées)",
+  FONCTIONNEMENT: "Fonctionnement de la structure",
+  QUALITE_RISQUES: "Démarche qualité et gestion des risques",
+  RH: "Ressources humaines",
+};
 
 const TYPE_LABELS: Record<EstablishmentType, string> = {
   SAD_AIDE: "SAD Aide",
@@ -30,6 +39,17 @@ export async function generateMetadata({ params }: Props) {
 export default async function EstablishmentDetailPage({ params }: Props) {
   const { id } = await params;
   const establishment = await getEstablishment(id);
+  const checklist = await getEstablishmentChecklist(id);
+
+  const categories = Object.keys(CATEGORY_LABELS) as DocumentCategory[];
+  const allItems = Object.values(checklist).flat();
+  const totalItems = allItems.length;
+  const missingCount = allItems.filter((i) => i.status === "MISSING").length;
+  const compliantCount = allItems.filter((i) => i.status === "COMPLIANT").length;
+  const uploadedCount = allItems.filter((i) =>
+    ["UPLOADED", "ANALYZING", "INCOMPLETE", "COMPLIANT", "EXPIRED"].includes(i.status)
+  ).length;
+  const progressPct = totalItems > 0 ? Math.round((uploadedCount / totalItems) * 100) : 0;
 
   return (
     <div className="space-y-6 max-w-4xl">
@@ -112,6 +132,31 @@ export default async function EstablishmentDetailPage({ params }: Props) {
           )}
         </Card>
       </div>
+
+      {/* Checklist documentaire */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Checklist documentaire</CardTitle>
+          <CardDescription>
+            {compliantCount} conforme{compliantCount > 1 ? "s" : ""} · {uploadedCount} / {totalItems} déposé{uploadedCount > 1 ? "s" : ""} · {missingCount} manquant{missingCount > 1 ? "s" : ""}
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="h-2.5 bg-gris-light rounded-full overflow-hidden">
+            <div
+              className="h-full bg-ambre rounded-full transition-all"
+              style={{ width: `${progressPct}%` }}
+            />
+          </div>
+          <div className="space-y-3">
+            {categories.map((cat) => {
+              const items = checklist[cat] ?? [];
+              if (items.length === 0) return null;
+              return <ChecklistCategory key={cat} title={CATEGORY_LABELS[cat]} items={items} />;
+            })}
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Invitation */}
       <Card>

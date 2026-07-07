@@ -10,18 +10,24 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "next": "^15.3.3",
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0",
-    "next-auth": "^5.0.0-beta.28",
-    "bcryptjs": "^2.4.3",
+    "@aws-sdk/client-s3": "^3.1080.0",
+    "@aws-sdk/s3-request-presigner": "^3.1080.0",
     "@eoda/database": "workspace:*",
+    "@prisma/client": "^5.22.0",
+    "@radix-ui/react-label": "^2.1.1",
+    "@radix-ui/react-slot": "^1.1.1",
+    "bcryptjs": "^2.4.3",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "tailwind-merge": "^2.6.0",
     "lucide-react": "^0.469.0",
-    "@radix-ui/react-label": "^2.1.1",
-    "@radix-ui/react-slot": "^1.1.1"
+    "mammoth": "^1.12.0",
+    "next": "^15.3.3",
+    "next-auth": "^5.0.0-beta.28",
+    "pdf-parse": "^2.4.5",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "styled-jsx": "^5.1.6",
+    "tailwind-merge": "^2.6.0"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",

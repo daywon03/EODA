@@ -14,8 +14,8 @@ build/
 .env.local
 .env.*.local
 
-# prisma
-packages/database/prisma/migrations/
+# stockage fichiers dev (fallback local sans S3 configuré)
+apps/web/.local-storage/
 
 # misc
 .DS_Store
@@ -33,3 +33,4 @@ packages/database/prisma/migrations/
 
 # claude-mem session data (local only)
 .claude/settings.local.json
+.prisma/

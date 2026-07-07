@@ -6,7 +6,13 @@
     "pnpm": ">=10"
   },
   "pnpm": {
-    "onlyBuiltDependencies": ["@prisma/client", "@prisma/engines", "esbuild", "sharp", "prisma"]
+    "onlyBuiltDependencies": [
+      "@prisma/client",
+      "@prisma/engines",
+      "esbuild",
+      "sharp",
+      "prisma"
+    ]
   },
   "scripts": {
     "dev": "pnpm --filter @eoda/web dev",
@@ -18,5 +24,8 @@
     "db:migrate:deploy": "pnpm --filter @eoda/database migrate:deploy",
     "db:seed": "pnpm --filter @eoda/database seed",
     "db:studio": "pnpm --filter @eoda/database studio"
+  },
+  "devDependencies": {
+    "@prisma/compute-sdk": "^0.32.0"
   }
 }

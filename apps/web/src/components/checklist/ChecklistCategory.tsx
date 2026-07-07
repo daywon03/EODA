@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronRight, FileText } from "lucide-react";
 import { StatusBadge } from "./StatusBadge";
+import { DocumentUploadButton } from "./DocumentUploadButton";
 import type { ChecklistItem } from "@/lib/actions/checklist";
 import type { DocumentStatus } from "@eoda/database";
 
@@ -10,6 +11,7 @@ type Props = {
   title: string;
   items: ChecklistItem[];
   defaultOpen?: boolean;
+  establishmentId?: string;
 };
 
 const STATUS_ORDER: DocumentStatus[] = [
@@ -20,7 +22,7 @@ function statusScore(s: DocumentStatus): number {
   return STATUS_ORDER.indexOf(s);
 }
 
-export function ChecklistCategory({ title, items, defaultOpen = false }: Props) {
+export function ChecklistCategory({ title, items, defaultOpen = false, establishmentId }: Props) {
   const [open, setOpen] = useState(defaultOpen);
 
   const missing = items.filter((i) => i.status === "MISSING").length;
@@ -67,9 +69,23 @@ export function ChecklistCategory({ title, items, defaultOpen = false }: Props) 
                 {item.expectedFrequency === "ANNUAL" && (
                   <p className="text-xs text-ambre mt-0.5">Fréquence annuelle attendue</p>
                 )}
+                {item.currentVersion && (
+                  <p className="flex items-center gap-1 text-xs text-gris-mid mt-1">
+                    <FileText className="w-3 h-3 flex-shrink-0" />
+                    <span className="truncate">
+                      {item.currentVersion.originalFilename} · v{item.currentVersion.versionNumber}
+                    </span>
+                  </p>
+                )}
               </div>
-              <div className="flex-shrink-0 mt-0.5">
+              <div className="flex flex-col items-end gap-2 flex-shrink-0">
                 <StatusBadge status={item.status} />
+                {establishmentId && (
+                  <DocumentUploadButton
+                    establishmentId={establishmentId}
+                    documentTypeId={item.documentTypeId}
+                  />
+                )}
               </div>
             </li>
           ))}

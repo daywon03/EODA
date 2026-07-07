@@ -7,7 +7,7 @@ on:
     branches: [main]
 
 env:
-  # CI utilise PostgreSQL local — Supabase pour dev/prod (voir .env.example)
+  # CI utilise PostgreSQL local — Prisma Postgres pour dev/prod (voir .env.example)
   DATABASE_URL: postgresql://eoda:eoda_dev@localhost:5432/eoda_test?pgbouncer=true&connection_limit=1
   DIRECT_URL: postgresql://eoda:eoda_dev@localhost:5432/eoda_test
   AUTH_SECRET: ci-test-secret-not-for-production

@@ -3,13 +3,14 @@
 // Ne jamais hardcoder les règles de cotation ici — passer par HasReferentialVersion
 
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "debian-openssl-3.0.x", "linux-musl-openssl-3.0.x"]
 }
 
 datasource db {
   provider  = "postgresql"
-  url       = env("DATABASE_URL")   // Transaction pooler Supabase (port 6543) — requêtes runtime
-  directUrl = env("DIRECT_URL")     // Connexion directe (port 5432) — migrations uniquement
+  url       = env("DATABASE_URL")   // Pooler Prisma Postgres — requêtes runtime
+  directUrl = env("DIRECT_URL")     // Connexion directe — migrations uniquement
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -272,6 +273,7 @@ model Document {
   currentVersion DocumentVersion? @relation("CurrentVersion", fields: [currentVersionId], references: [id])
   versions       DocumentVersion[] @relation("AllVersions")
 
+  @@unique([establishmentId, documentTypeId])
   @@map("documents")
 }
 

@@ -6,15 +6,75 @@ import { redirect } from "next/navigation";
 import type { DocumentCategory, DocumentStatus } from "@eoda/database";
 
 export type ChecklistItem = {
+  documentTypeId: string;
   code: string;
   label: string;
   isConditional: boolean;
   expectedFrequency: string | null;
   status: DocumentStatus;
   documentId: string | null;
+  currentVersion: {
+    id: string;
+    versionNumber: number;
+    originalFilename: string;
+    uploadedAt: Date;
+  } | null;
 };
 
 export type ChecklistByCategory = Record<DocumentCategory, ChecklistItem[]>;
+
+async function buildChecklist(establishmentId: string): Promise<ChecklistByCategory> {
+  // Tous les types de documents
+  const allTypes = await prisma.documentType.findMany({
+    orderBy: [{ category: "asc" }, { code: "asc" }],
+  });
+
+  // Documents existants pour cet établissement, avec la version courante
+  const existingDocs = await prisma.document.findMany({
+    where: { establishmentId },
+    select: {
+      id: true,
+      documentTypeId: true,
+      status: true,
+      currentVersion: {
+        select: { id: true, versionNumber: true, originalFilename: true, uploadedAt: true },
+      },
+    },
+  });
+
+  const docByTypeId = new Map(existingDocs.map((d) => [d.documentTypeId, d]));
+
+  const checklist: Partial<ChecklistByCategory> = {};
+
+  for (const dt of allTypes) {
+    const doc = docByTypeId.get(dt.id);
+
+    let status: DocumentStatus;
+    if (doc) {
+      status = doc.status;
+    } else if (dt.isConditional) {
+      status = "NOT_APPLICABLE";
+    } else {
+      status = "MISSING";
+    }
+
+    const item: ChecklistItem = {
+      documentTypeId: dt.id,
+      code: dt.code,
+      label: dt.label,
+      isConditional: dt.isConditional,
+      expectedFrequency: dt.expectedFrequency,
+      status,
+      documentId: doc?.id ?? null,
+      currentVersion: doc?.currentVersion ?? null,
+    };
+
+    if (!checklist[dt.category]) checklist[dt.category] = [];
+    checklist[dt.category]!.push(item);
+  }
+
+  return checklist as ChecklistByCategory;
+}
 
 export async function getClientChecklist(): Promise<{
   establishment: { id: string; name: string; type: string } | null;
@@ -34,47 +94,16 @@ export async function getClientChecklist(): Promise<{
   }
 
   const { establishment } = establishmentUser;
+  const checklist = await buildChecklist(establishment.id);
 
-  // Tous les types de documents
-  const allTypes = await prisma.documentType.findMany({
-    orderBy: [{ category: "asc" }, { code: "asc" }],
-  });
+  return { establishment, checklist };
+}
 
-  // Documents existants pour cet établissement
-  const existingDocs = await prisma.document.findMany({
-    where: { establishmentId: establishment.id },
-    select: { id: true, documentTypeId: true, status: true },
-  });
+export async function getEstablishmentChecklist(
+  establishmentId: string
+): Promise<ChecklistByCategory> {
+  const session = await auth();
+  if (!session || session.user.role === "CLIENT_USER") redirect("/login");
 
-  const docByTypeId = new Map(existingDocs.map((d) => [d.documentTypeId, d]));
-
-  // Construire la checklist par catégorie
-  const checklist: Partial<ChecklistByCategory> = {};
-
-  for (const dt of allTypes) {
-    const doc = dt.id ? docByTypeId.get(dt.id) : undefined;
-
-    let status: DocumentStatus;
-    if (doc) {
-      status = doc.status;
-    } else if (dt.isConditional) {
-      status = "NOT_APPLICABLE";
-    } else {
-      status = "MISSING";
-    }
-
-    const item: ChecklistItem = {
-      code: dt.code,
-      label: dt.label,
-      isConditional: dt.isConditional,
-      expectedFrequency: dt.expectedFrequency,
-      status,
-      documentId: doc?.id ?? null,
-    };
-
-    if (!checklist[dt.category]) checklist[dt.category] = [];
-    checklist[dt.category]!.push(item);
-  }
-
-  return { establishment, checklist: checklist as ChecklistByCategory };
+  return buildChecklist(establishmentId);
 }

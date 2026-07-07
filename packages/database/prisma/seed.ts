@@ -1,12 +1,13 @@
 // Seed de développement — données anonymisées + référentiel DocumentType
 // Ne jamais committer de vraies données clients (ASSAD BENOIT, etc.)
 import { PrismaClient, DocumentCategory, ExpectedFrequency } from "@prisma/client";
-import { createHash } from "crypto";
+import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
 
+// bcrypt — doit rester cohérent avec la vérification dans apps/web/src/auth.ts
 function hashPassword(password: string): string {
-  return createHash("sha256").update(password + "eoda_seed_salt").digest("hex");
+  return bcrypt.hashSync(password, 10);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -299,7 +300,7 @@ async function main() {
   // Utilisateurs de test (anonymes)
   await prisma.user.upsert({
     where: { email: "cabinet@eoda-test.local" },
-    update: {},
+    update: { passwordHash: hashPassword("Test1234!") },
     create: {
       email: "cabinet@eoda-test.local",
       name: "Admin Cabinet (test)",
@@ -311,7 +312,7 @@ async function main() {
 
   await prisma.user.upsert({
     where: { email: "client@eoda-test.local" },
-    update: {},
+    update: { passwordHash: hashPassword("Test1234!") },
     create: {
       email: "client@eoda-test.local",
       name: "Utilisateur Client (test)",
