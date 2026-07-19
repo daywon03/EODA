@@ -60,44 +60,60 @@ connexion client, affichage checklist complète).
 **Definition of done :** testé avec des fixtures de test (voir point ouvert stockage
 ci-dessus avant un vrai document ASSAD BENOIT en production).
 
-## Jalon 3 — Analyse documentaire automatisée (Module 1 — la priorité business)
+## Jalon 3 — Analyse documentaire automatisée (Module 1) — ✅ FAIT (2026-07-19), fusionné avec le Jalon 4
 
-- [ ] Pipeline d'extraction de texte (pdf-parse, mammoth)
-- [ ] `LLMAnalysisPort` + `AnthropicLLMAdapter`
-- [ ] `DocumentAnalysisService` : prompt structuré référentiel HAS + contenu document →
-  résultat JSON (manques, suggestions)
-- [ ] Étape d'anonymisation/avertissement avant envoi au LLM (cf. contrainte RGPD)
-- [ ] `DocumentStatusService` : calcul automatique du statut (`INCOMPLETE` / `COMPLIANT` /
-  `EXPIRED`)
-- [ ] Affichage des manques + suggestions dans l'UI, en langage clair
-- [ ] Job asynchrone (BullMQ/Redis ou équivalent) pour ne pas bloquer l'upload pendant
-  l'analyse — statut `ANALYZING` visible pendant le traitement
-- [ ] Bouton "Régénérer une version corrigée" → nouvelle `DocumentVersion`
+> Décision prise en session : Jalons 3 et 4 ont été fusionnés en un seul pipeline plutôt que
+> construits séquentiellement — un seul appel LLM par document à l'upload produit un JSON
+> stocké dans `DocumentVersion.analysisResultJson`, qui alimente à la fois le statut de
+> conformité (ce Jalon) et les suggestions de pré-cotation (Jalon 4), pour éviter un second
+> appel LLM coûteux. Voir `context/07-outil-pilotage-missions.md` et le plan de session pour
+> le détail des décisions.
 
-**Definition of done :** sur un vrai document ASSAD BENOIT (ex : `Critère_3_12_1.docx` ou
-le `DIPEC_ASSAD_BENOIT_2025.docx`), le système détecte au moins un manque réel et propose
-une suggestion de correction cohérente avec les attendus HAS du critère rattaché.
+- [x] Pipeline d'extraction de texte (pdf-parse, mammoth) — déjà fait au Jalon 2
+- [x] `LLMAnalysisPort` + `AnthropicAnalysisAdapter` (+ `StubAnalysisAdapter` en dev tant que
+  `ANTHROPIC_API_KEY` n'est pas configuré — jamais de blocage de l'upload)
+- [x] `DocumentStatusService` : calcul du statut (`COMPLIANT` / `INCOMPLETE`) depuis le JSON
+  d'analyse
+- [x] Étape d'anonymisation best-effort (email/téléphone/NIR) avant tout envoi au LLM
+  (`anonymization-service.ts`)
+- [ ] `EXPIRED` (périmé selon fréquence attendue) — pas encore branché, dépend des alertes
+  documents périmés (roadmap process métier, phase ultérieure)
+- [ ] Affichage détaillé des manques + suggestions dans l'UI espace client (le JSON est
+  stocké et le statut dérivé, mais pas encore affiché en détail côté client)
+- [x] Pas de file Redis/BullMQ — simplification volontaire : analyse synchrone dans l'action
+  d'upload (timeout borné), statut `ANALYZING` affiché pendant le traitement
+- [ ] Bouton "Régénérer une version corrigée" → nouvelle `DocumentVersion` — **non fait**,
+  gap connu (nécessite sa propre génération DOCX, pas juste l'analyse)
 
-> ⚠️ C'est le jalon le plus risqué techniquement (qualité de l'analyse LLM, fiabilité des
-> suggestions). Prévoir une phase de calibration du prompt avec Sandrine sur 5 à 10
-> documents réels d'ASSAD BENOIT avant de considérer ce jalon "fini" — la qualité perçue
-> de ce module conditionne l'adoption de toute la plateforme.
+**Definition of done partielle :** le pipeline fonctionne de bout en bout (vérifié par script
+direct + `StubAnalysisAdapter`) ; **calibration du prompt sur de vrais documents ASSAD
+BENOIT avec `ANTHROPIC_API_KEY` configurée reste à faire** avant mise en usage réel — la
+qualité perçue de ce module conditionne l'adoption de toute la plateforme.
 
-## Jalon 4 — Auto-évaluation HAS (Module 3)
+## Jalon 4 — Auto-évaluation HAS (Module 3) — ✅ FAIT (2026-07-19)
 
-- [ ] Seed du référentiel complet (`Chapter`, `Theme`, `Objective`, `Criterion`,
-  `EvaluationElement`) depuis les grilles Synaé déjà extraites (137 critères / 295 E.E.,
-  cf. `context/05-prototype-existant.md`)
-- [ ] `ScoringService` (calcul de moyenne avec exclusion NC/RI, ★=4)
-- [ ] UI de cotation par chapitre, avec garde-fous (RI Chapitre 1 uniquement, avertissement
-  NC sur impératif)
-- [ ] Minuteur de session
-- [ ] Tableau de résultats par chapitre + global
-- [ ] `PreRatingSuggestionService` — pont avec les statuts documents du Module 1
-- [ ] Export structuré (CSV/Excel) des cotations — format à valider avec Sandrine
+- [x] Seed du référentiel complet (`Chapter`, `Theme`, `Objective`, `Criterion`,
+  `EvaluationElement`) depuis les grilles Synaé réelles (138 critères / 295 E.E., vérifié
+  exactement contre `context/02-referentiel-has.md` §4 — 6 impératifs Chapitre 2, 10
+  Chapitre 3). Fichiers source non committés (`.claude/context/Documents/`, cf. `.gitignore`
+  — nom de fichier référence le vrai client ASSAD BENOIT, CLAUDE.md §7)
+- [x] `ScoringService` (calcul de moyenne avec exclusion NC/RI, ★=4, point d'extension
+  pondération par objectif non hardcodé)
+- [x] UI de cotation par chapitre (`/dashboard/cabinet/etablissements/[id]/evaluation`), avec
+  garde-fous (RI Chapitre 1 uniquement, avertissement NC sur impératif), filtrée par offre
+  (Essentielle = critères impératifs uniquement, via `OfferScopeService`)
+- [x] Minuteur de session
+- [x] Tableau de résultats par chapitre + critères impératifs à risque mis en évidence
+- [x] `PreRatingSuggestionService` — pont avec les statuts documents du Module 1, suggestion
+  virtuelle jamais persistée sans confirmation humaine
+- [ ] Export structuré (CSV/Excel) des cotations — format à valider avec Sandrine, **pas
+  encore fait**
+- [ ] Critère 3.6.2 (17ᵉ impératif, SAD Mixte) absent des grilles source (spécifiques SAD
+  Aide) — support SAD Mixte complet en attente d'une grille Mixte fournie séparément
 
-**Definition of done :** Sandrine cote le Chapitre 3 complet pour ASSAD BENOIT, voit les
-critères impératifs à risque mis en évidence, et exporte un fichier exploitable.
+**Definition of done partielle :** cotation d'un chapitre complet vérifiée (script direct +
+rendu HTTP authentifié) ; **export structuré et calibration avec Sandrine restent à faire**
+avant mise en usage réel.
 
 ## Jalon 5 — Durcissement avant mise en usage réel
 
