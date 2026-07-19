@@ -6,6 +6,7 @@ import { StatusBadge } from "./StatusBadge";
 import { DocumentUploadButton } from "./DocumentUploadButton";
 import { DocumentDownloadLink } from "./DocumentDownloadLink";
 import { DocumentPreviewLink } from "./DocumentPreviewLink";
+import { MissingDocumentJustification } from "./MissingDocumentJustification";
 import type { ChecklistItem } from "@/lib/actions/checklist";
 import type { DocumentStatus } from "@eoda/database";
 
@@ -89,6 +90,14 @@ export function ChecklistCategory({ title, items, defaultOpen = false, establish
                     <DocumentPreviewLink documentVersionId={item.currentVersion.id} />
                     <DocumentDownloadLink documentVersionId={item.currentVersion.id} />
                   </div>
+                )}
+                {!item.currentVersion && establishmentId && (
+                  <MissingDocumentJustification
+                    establishmentId={establishmentId}
+                    documentTypeId={item.documentTypeId}
+                    status={item.status}
+                    missingJustification={item.missingJustification}
+                  />
                 )}
               </div>
               <div className="flex sm:flex-col items-center sm:items-end gap-2 flex-shrink-0">

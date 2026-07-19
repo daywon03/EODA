@@ -317,6 +317,9 @@ model Document {
   currentVersionId       String?        @unique @map("current_version_id")
   status                 DocumentStatus @default(MISSING)
   statusOverriddenByUser Boolean        @default(false) @map("status_overridden_by_user")
+  // Réponse Oui/Non + commentaire libre quand le document n'est pas encore déposé —
+  // utilisable comme élément de preuve pour la cotation (Module 3). cf. plan Phase 0.
+  missingJustification   String?        @map("missing_justification")
   createdAt              DateTime       @default(now()) @map("created_at")
   updatedAt              DateTime       @updatedAt @map("updated_at")
 
@@ -472,6 +475,9 @@ model Prospect {
   envisagedFormule     CommercialTier?    @map("envisaged_formule")
   estimatedAmountEuros Int?               @map("estimated_amount_euros")
   firstContactDate     DateTime           @map("first_contact_date")
+  // Évaluation des besoins (Phase 0 — étape "Évaluation des besoins" de la prospection) —
+  // notes qualitatives ; `estimatedAmountEuros` ci-dessus sert de niveau financier.
+  needsAssessmentNotes String?            @map("needs_assessment_notes")
   notes                String?
   // Renseigné manuellement une fois le devis signé et l'établissement créé —
   // pas d'auto-création de l'Establishment depuis un prospect (hors scope).

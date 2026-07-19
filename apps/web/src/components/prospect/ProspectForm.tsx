@@ -21,6 +21,7 @@ type ProspectInitialValues = {
   envisagedFormule: CommercialTier | null;
   estimatedAmountEuros: number | null;
   firstContactDate: Date;
+  needsAssessmentNotes: string | null;
   notes: string | null;
 };
 
@@ -110,7 +111,7 @@ export function ProspectForm({ prospect }: Props) {
           </Select>
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="estimatedAmountEuros">Montant estimé (€)</Label>
+          <Label htmlFor="estimatedAmountEuros">Niveau financier / montant estimé (€)</Label>
           <Input
             id="estimatedAmountEuros"
             name="estimatedAmountEuros"
@@ -133,6 +134,19 @@ export function ProspectForm({ prospect }: Props) {
             disabled={isPending}
           />
         </div>
+      </div>
+
+      <div className="space-y-1.5">
+        <Label htmlFor="needsAssessmentNotes">Évaluation des besoins</Label>
+        <textarea
+          id="needsAssessmentNotes"
+          name="needsAssessmentNotes"
+          rows={3}
+          placeholder="Besoins exprimés lors de l'échange de prospection (périmètre attendu, contraintes, échéance...)"
+          defaultValue={prospect?.needsAssessmentNotes ?? undefined}
+          disabled={isPending}
+          className="flex w-full rounded-md border border-gris-light bg-white px-3 py-2 text-base sm:text-sm text-brun-ancre transition-colors placeholder:text-gris-mid focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terre focus-visible:ring-offset-2 focus-visible:border-terre disabled:cursor-not-allowed disabled:opacity-50"
+        />
       </div>
 
       <div className="space-y-1.5">

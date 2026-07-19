@@ -23,6 +23,7 @@ function parseProspectInput(formData: FormData): { error: string } | {
   envisagedFormule: "BETA" | "ESSENTIEL" | "PERFORMANCE" | "EXCELLENCE" | null;
   estimatedAmountEuros: number | null;
   firstContactDate: Date;
+  needsAssessmentNotes: string | null;
   notes: string | null;
 } {
   const structureName = (formData.get("structureName") as string | null)?.trim();
@@ -61,6 +62,7 @@ function parseProspectInput(formData: FormData): { error: string } | {
       : null,
     estimatedAmountEuros: estimatedAmountRaw ? Number(estimatedAmountRaw) : null,
     firstContactDate: new Date(firstContactDateRaw),
+    needsAssessmentNotes: (formData.get("needsAssessmentNotes") as string | null)?.trim() || null,
     notes: (formData.get("notes") as string | null)?.trim() || null,
   };
 }

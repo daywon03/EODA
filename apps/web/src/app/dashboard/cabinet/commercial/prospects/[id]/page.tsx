@@ -69,6 +69,13 @@ export default async function ProspectDetailPage({ params }: Props) {
             )}
           </div>
 
+          {prospect.needsAssessmentNotes && (
+            <div className="border-t border-gris-light pt-3">
+              <p className="text-xs text-gris-mid uppercase tracking-wide mb-1">Évaluation des besoins</p>
+              <p className="text-sm text-brun-ancre whitespace-pre-wrap">{prospect.needsAssessmentNotes}</p>
+            </div>
+          )}
+
           {prospect.notes && (
             <div className="border-t border-gris-light pt-3">
               <p className="text-xs text-gris-mid uppercase tracking-wide mb-1">Notes</p>

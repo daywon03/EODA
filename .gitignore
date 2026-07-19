@@ -34,3 +34,8 @@ apps/web/.local-storage/
 # claude-mem session data (local only)
 .claude/settings.local.json
 .prisma/
+
+# Fichiers sources contenant le nom d'un vrai client (ASSAD BENOIT) — jamais committés,
+# cf. CLAUDE.md §7. Utilisés en local uniquement pour extraire le contenu générique du
+# référentiel HAS vers les scripts de seed.
+.claude/context/Documents/

@@ -160,7 +160,17 @@ export default async function EstablishmentDetailPage({ params }: Props) {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <ProgressBar value={progressPct} colorClassName="bg-ambre" />
+          <div className="space-y-1">
+            <div className="flex items-center justify-between text-xs text-gris-mid">
+              <span>Taux de dépôt documentaire</span>
+              <span className="tabular-nums">{progressPct}%</span>
+            </div>
+            <ProgressBar value={progressPct} colorClassName="bg-ambre" />
+            <p className="text-xs text-gris-mid">
+              % de documents fournis par le client — pas un taux de conformité (voir le
+              détail par document ci-dessous).
+            </p>
+          </div>
           <div className="space-y-3">
             {categories.map((cat) => {
               const items = checklist[cat] ?? [];

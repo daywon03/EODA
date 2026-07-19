@@ -109,6 +109,42 @@ export async function uploadDocument(formData: FormData): Promise<UploadDocument
   return { success: true, documentTypeId };
 }
 
+// Réponse Oui/Non + commentaire libre pour un document pas encore déposé —
+// "Non" (ne concerne pas l'établissement) bascule le statut en NOT_APPLICABLE ;
+// "Oui" (concerne l'établissement mais pas encore fourni) garde MISSING. Le
+// commentaire est conservé dans les deux cas comme élément de preuve exploitable
+// en cotation (Module 3).
+export async function respondToMissingDocument(
+  establishmentId: string,
+  documentTypeId: string,
+  applies: boolean,
+  comment: string | null
+): Promise<{ error: string } | null> {
+  await requireEstablishmentAccess(establishmentId);
+
+  const documentType = await prisma.documentType.findUnique({ where: { id: documentTypeId } });
+  if (!documentType) return { error: "Type de document invalide." };
+
+  const trimmedComment = comment?.trim() || null;
+  const status = applies ? "MISSING" : "NOT_APPLICABLE";
+
+  await prisma.document.upsert({
+    where: { establishmentId_documentTypeId: { establishmentId, documentTypeId } },
+    update: { status, missingJustification: trimmedComment, statusOverriddenByUser: !applies },
+    create: {
+      establishmentId,
+      documentTypeId,
+      status,
+      missingJustification: trimmedComment,
+      statusOverriddenByUser: !applies,
+    },
+  });
+
+  revalidatePath("/dashboard/client");
+  revalidatePath(`/dashboard/cabinet/etablissements/${establishmentId}`);
+  return null;
+}
+
 async function getAuthorizedDocumentVersion(documentVersionId: string) {
   const session = await auth();
   if (!session) redirect("/login");

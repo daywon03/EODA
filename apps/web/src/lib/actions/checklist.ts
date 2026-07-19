@@ -13,6 +13,7 @@ export type ChecklistItem = {
   expectedFrequency: string | null;
   status: DocumentStatus;
   documentId: string | null;
+  missingJustification: string | null;
   currentVersion: {
     id: string;
     versionNumber: number;
@@ -36,6 +37,7 @@ async function buildChecklist(establishmentId: string): Promise<ChecklistByCateg
       id: true,
       documentTypeId: true,
       status: true,
+      missingJustification: true,
       currentVersion: {
         select: { id: true, versionNumber: true, originalFilename: true, uploadedAt: true },
       },
@@ -66,6 +68,7 @@ async function buildChecklist(establishmentId: string): Promise<ChecklistByCateg
       expectedFrequency: dt.expectedFrequency,
       status,
       documentId: doc?.id ?? null,
+      missingJustification: doc?.missingJustification ?? null,
       currentVersion: doc?.currentVersion ?? null,
     };
 
