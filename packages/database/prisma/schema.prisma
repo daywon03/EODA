@@ -232,11 +232,13 @@ model Chapter {
 model Theme {
   id        String @id @default(cuid())
   chapterId String @map("chapter_id")
+  code      String // ex: "3.1" — clé stable pour le seed idempotent (colonne "ID Thématique")
   name      String
 
   chapter    Chapter     @relation(fields: [chapterId], references: [id])
   objectives Objective[]
 
+  @@unique([chapterId, code])
   @@map("themes")
 }
 
@@ -249,6 +251,7 @@ model Objective {
   theme    Theme      @relation(fields: [themeId], references: [id])
   criteria Criterion[]
 
+  @@unique([themeId, code])
   @@map("objectives")
 }
 
@@ -274,6 +277,9 @@ model EvaluationElement {
   reformulatedText    String? @map("reformulated_text")
   // true uniquement si chapter.number == 1 — vérifier avant d'autoriser RI dans l'UI
   allowsRi            Boolean @default(false) @map("allows_ri")
+  // UUID stable de la colonne "ID Question" des grilles Synaé source — permet un seed
+  // idempotent (upsert) plutôt que de dupliquer les E.E. à chaque re-seed.
+  sourceQuestionId    String? @unique @map("source_question_id")
 
   criterion   Criterion      @relation(fields: [criterionId], references: [id])
   elementRatings ElementRating[]

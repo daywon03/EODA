@@ -6,7 +6,10 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { extractText } from "@/lib/services/text-extraction-service";
 import { suggestDocumentType } from "@/lib/services/document-categorization-service";
+import { anonymizeText } from "@/lib/services/anonymization-service";
+import { deriveDocumentStatus } from "@/lib/services/document-status-service";
 import { getFileStoragePort } from "@/lib/storage";
+import { getLLMAnalysisPort } from "@/lib/llm";
 
 const ALLOWED_MIME_TYPES = new Set([
   "application/pdf",
@@ -100,8 +103,36 @@ export async function uploadDocument(formData: FormData): Promise<UploadDocument
 
   await prisma.document.update({
     where: { id: document.id },
-    data: { currentVersionId: version.id, status: "UPLOADED", statusOverriddenByUser: false },
+    data: { currentVersionId: version.id, status: "ANALYZING", statusOverriddenByUser: false },
   });
+
+  // Analyse IA synchrone (un seul appel LLM par document, cf. plan Phase 2) — jamais
+  // bloquante : en cas d'échec, le document reste UPLOADED plutôt que de faire échouer
+  // tout l'upload.
+  try {
+    const linkedCriteria = await prisma.documentTypeCriterion.findMany({
+      where: { documentTypeId },
+      include: { criterion: { select: { label: true } } },
+    });
+
+    const analysis = await getLLMAnalysisPort().analyze({
+      documentTypeLabel: documentType.label,
+      extractedText: anonymizeText(extractedText ?? ""),
+      linkedCriteriaLabels: linkedCriteria.map((c) => c.criterion.label),
+    });
+
+    await prisma.documentVersion.update({
+      where: { id: version.id },
+      data: { analysisResultJson: analysis as unknown as object },
+    });
+    await prisma.document.update({
+      where: { id: document.id },
+      data: { status: deriveDocumentStatus(analysis) },
+    });
+  } catch (err) {
+    console.error("Analyse documentaire IA échouée — document laissé en UPLOADED :", err);
+    await prisma.document.update({ where: { id: document.id }, data: { status: "UPLOADED" } });
+  }
 
   revalidatePath("/dashboard/client");
   revalidatePath(`/dashboard/cabinet/etablissements/${establishmentId}`);

@@ -8,6 +8,7 @@ import {
   MissionChecklistScope,
 } from "@prisma/client";
 import bcrypt from "bcryptjs";
+import { seedHasReferential } from "./seed-has-referential";
 
 const prisma = new PrismaClient();
 
@@ -491,6 +492,9 @@ async function main() {
       create: { code: item.code, scope: item.scope, label: item.label, order: item.order },
     });
   }
+
+  console.log("Seeding référentiel HAS (Chapter/Theme/Objective/Criterion/EvaluationElement)…");
+  await seedHasReferential(prisma);
 
   console.log("Seed completed ✓");
 }

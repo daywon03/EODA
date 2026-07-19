@@ -151,6 +151,22 @@ export default async function EstablishmentDetailPage({ params }: Props) {
         <MissionSummaryCard establishmentId={establishment.id} mission={null} />
       )}
 
+      {mission && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Auto-évaluation HAS</CardTitle>
+            <CardDescription>Cotation des critères par chapitre (1/2/3/4/★/NC/RI)</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button size="sm" asChild>
+              <Link href={`/dashboard/cabinet/etablissements/${establishment.id}/evaluation`}>
+                Ouvrir l&apos;auto-évaluation
+              </Link>
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Checklist documentaire */}
       <Card>
         <CardHeader>
