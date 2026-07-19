@@ -5,7 +5,7 @@ import {
   GetObjectCommand,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-import type { FileStoragePort } from "./file-storage-port";
+import type { FileStoragePort, SignedUrlOptions } from "./file-storage-port";
 
 // Implémentation S3-compatible, hébergement Europe (Scaleway Object Storage
 // ou OVHcloud Object Storage) — jamais un bucket US par défaut.
@@ -43,10 +43,19 @@ export class S3StorageAdapter implements FileStoragePort {
     );
   }
 
-  async getSignedDownloadUrl(key: string, expiresInSeconds = 300): Promise<string> {
+  async getSignedDownloadUrl(key: string, options: SignedUrlOptions = {}): Promise<string> {
+    const { expiresInSeconds = 300, disposition = "attachment", filename } = options;
+    const responseContentDisposition = filename
+      ? `${disposition}; filename="${encodeURIComponent(filename)}"`
+      : disposition;
+
     return getSignedUrl(
       this.client,
-      new GetObjectCommand({ Bucket: this.bucket, Key: key }),
+      new GetObjectCommand({
+        Bucket: this.bucket,
+        Key: key,
+        ResponseContentDisposition: responseContentDisposition,
+      }),
       { expiresIn: expiresInSeconds }
     );
   }

@@ -1,6 +1,6 @@
 import { mkdir, writeFile, unlink } from "node:fs/promises";
 import path from "node:path";
-import type { FileStoragePort } from "./file-storage-port";
+import type { FileStoragePort, SignedUrlOptions } from "./file-storage-port";
 
 // Fallback dev uniquement, tant qu'aucun bucket S3-compatible n'est configuré
 // (voir .env.example). Ne jamais utiliser en production — pas de chiffrement
@@ -14,8 +14,11 @@ export class LocalFsStorageAdapter implements FileStoragePort {
     await writeFile(filePath, content);
   }
 
-  async getSignedDownloadUrl(key: string): Promise<string> {
-    return `/api/local-storage/${key.split("/").map(encodeURIComponent).join("/")}`;
+  async getSignedDownloadUrl(key: string, options: SignedUrlOptions = {}): Promise<string> {
+    const { disposition = "attachment", filename } = options;
+    const query = new URLSearchParams({ disposition });
+    if (filename) query.set("filename", filename);
+    return `/api/local-storage/${key.split("/").map(encodeURIComponent).join("/")}?${query.toString()}`;
   }
 
   async delete(key: string): Promise<void> {

@@ -109,7 +109,7 @@ export async function uploadDocument(formData: FormData): Promise<UploadDocument
   return { success: true, documentTypeId };
 }
 
-export async function getDocumentDownloadUrl(documentVersionId: string): Promise<string | null> {
+async function getAuthorizedDocumentVersion(documentVersionId: string) {
   const session = await auth();
   if (!session) redirect("/login");
 
@@ -131,6 +131,49 @@ export async function getDocumentDownloadUrl(documentVersionId: string): Promise
     if (!link) return null;
   }
 
+  return version;
+}
+
+export async function getDocumentDownloadUrl(documentVersionId: string): Promise<string | null> {
+  const version = await getAuthorizedDocumentVersion(documentVersionId);
+  if (!version) return null;
+
   const storage = getFileStoragePort();
-  return storage.getSignedDownloadUrl(version.fileStorageKey);
+  return storage.getSignedDownloadUrl(version.fileStorageKey, {
+    disposition: "attachment",
+    filename: version.originalFilename,
+  });
+}
+
+// Un navigateur ne sait afficher nativement qu'un PDF — un .docx est toujours
+// proposé au téléchargement par le système, quel que soit le Content-Disposition.
+// Pour les .docx, l'aperçu affiche donc le texte déjà extrait à l'upload
+// (mammoth, cf. text-extraction-service) plutôt que le fichier brut.
+export type DocumentPreviewData =
+  | { kind: "pdf"; url: string; filename: string }
+  | { kind: "text"; text: string; filename: string }
+  | { kind: "unavailable"; filename: string };
+
+export async function getDocumentPreviewData(
+  documentVersionId: string
+): Promise<DocumentPreviewData | null> {
+  const version = await getAuthorizedDocumentVersion(documentVersionId);
+  if (!version) return null;
+
+  const isPdf = version.originalFilename.toLowerCase().endsWith(".pdf");
+
+  if (isPdf) {
+    const storage = getFileStoragePort();
+    const url = await storage.getSignedDownloadUrl(version.fileStorageKey, {
+      disposition: "inline",
+      filename: version.originalFilename,
+    });
+    return { kind: "pdf", url, filename: version.originalFilename };
+  }
+
+  if (version.extractedText) {
+    return { kind: "text", text: version.extractedText, filename: version.originalFilename };
+  }
+
+  return { kind: "unavailable", filename: version.originalFilename };
 }

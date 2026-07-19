@@ -17,6 +17,15 @@ const badgeVariants = cva(
         expired: "border-transparent bg-orange-100 text-orange-700",
         imperatif: "border-rouge-imp/40 bg-rouge-imp/10 text-rouge-imp",
         outline: "text-brun-ancre border-gris-light",
+        // Statuts prospect (ProspectStatus) / devis (DevisStatus) — cf.
+        // context/07-outil-pilotage-missions.md §5.1 et §6.3
+        nouveau: "border-transparent bg-gris-light text-brun-ancre",
+        rdv: "border-transparent bg-ambre/20 text-brun-moyen",
+        devisEnvoye: "border-transparent bg-terre/15 text-terre",
+        negociation: "border-transparent bg-ambre/20 text-brun-moyen",
+        signe: "border-transparent bg-vert-ok/15 text-vert-ok",
+        perdu: "border-transparent bg-rouge-imp/15 text-rouge-imp",
+        brouillon: "text-brun-ancre border-gris-light",
       },
     },
     defaultVariants: { variant: "default" },

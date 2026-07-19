@@ -28,6 +28,45 @@ enum EstablishmentType {
   SAD_MIXTE
 }
 
+enum ProspectStatus {
+  NOUVEAU
+  RDV
+  DEVIS_ENVOYE
+  NEGOCIATION
+  SIGNE
+  PERDU
+}
+
+enum ProspectType {
+  ASSOCIATION
+  PRIVE
+  PUBLIC
+}
+
+enum AcquisitionChannel {
+  BOUCHE_A_OREILLE
+  REFERENCEMENT_UNA
+  EMAILING
+  REFERENCEMENT_GOOGLE
+  LINKEDIN
+  AUTRE
+}
+
+enum DevisStatus {
+  BROUILLON
+  ENVOYE
+  SIGNE
+  REFUSE
+}
+
+enum MissionChecklistScope {
+  DIAGNOSTIC
+  FONDATIONS
+  DEPLOIEMENT
+  CONSOLIDATION
+  PREPARATION_FINALE
+}
+
 enum CommercialTier {
   BETA
   ESSENTIEL
@@ -98,6 +137,14 @@ model Tenant {
   users         User[]
   establishments Establishment[]
 
+  catalogueFormules CatalogueFormule[]
+  catalogueOptions  CatalogueOption[]
+  billingSettings   BillingSettings?
+  devisCounters     DevisCounter[]
+  prospects         Prospect[]
+  devis             Devis[]
+  missions          Mission[]
+
   @@map("tenants")
 }
 
@@ -125,6 +172,9 @@ model Establishment {
   finessNumber          String?           @unique @map("finess_number")
   type                  EstablishmentType
   address               String?
+  // Historique/affichage uniquement — non éditable via l'UI. La formule qui fait
+  // autorité pour le périmètre d'accompagnement réellement contracté est
+  // Mission.formule (cf. section PIPELINE COMMERCIAL / SUIVI DE MISSION plus bas).
   commercialTier        CommercialTier    @default(BETA) @map("commercial_tier")
   hasEvaluationTargetDate DateTime?       @map("has_evaluation_target_date")
   createdAt             DateTime          @default(now()) @map("created_at")
@@ -134,6 +184,8 @@ model Establishment {
   establishmentUsers EstablishmentUser[]
   documents          Document[]
   evaluationSessions EvaluationSession[]
+  prospect           Prospect?
+  mission            Mission?
 
   @@map("establishments")
 }
@@ -334,4 +386,226 @@ model ElementRating {
 
   @@unique([evaluationSessionId, evaluationElementId])
   @@map("element_ratings")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PIPELINE COMMERCIAL — Prospects, Devis, Catalogue (CABINET_ADMIN uniquement)
+// Hors périmètre : suivi de mission (checklist diagnostic + 4 phases) — cf.
+// context/07-outil-pilotage-missions.md §7, non traité dans cette itération.
+// Montants stockés en euros entiers (Int) — pas de tarification fractionnaire
+// dans le catalogue actuel, cf. context/07-outil-pilotage-missions.md §4.
+// ─────────────────────────────────────────────────────────────────────────────
+
+model CatalogueFormule {
+  id           String         @id @default(cuid())
+  tenantId     String         @map("tenant_id")
+  formule      CommercialTier
+  label        String
+  priceEuros   Int            @map("price_euros")
+  modulesLabel String?        @map("modules_label")
+  description  String?
+  active       Boolean        @default(true)
+  createdAt    DateTime       @default(now()) @map("created_at")
+  updatedAt    DateTime       @updatedAt @map("updated_at")
+
+  tenant Tenant  @relation(fields: [tenantId], references: [id])
+  devis  Devis[]
+
+  @@unique([tenantId, formule])
+  @@map("catalogue_formules")
+}
+
+model CatalogueOption {
+  id         String   @id @default(cuid())
+  tenantId   String   @map("tenant_id")
+  code       String
+  label      String
+  priceEuros Int      @map("price_euros")
+  active     Boolean  @default(true)
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  tenant       Tenant        @relation(fields: [tenantId], references: [id])
+  devisOptions DevisOption[]
+
+  @@unique([tenantId, code])
+  @@map("catalogue_options")
+}
+
+model BillingSettings {
+  id                    String   @id @default(cuid())
+  tenantId              String   @unique @map("tenant_id")
+  defaultDepositPercent Int      @default(30) @map("default_deposit_percent")
+  defaultValidityDays   Int      @default(30) @map("default_validity_days")
+  updatedAt             DateTime @updatedAt @map("updated_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@map("billing_settings")
+}
+
+// Compteur annuel de numérotation devis (DEVIS-AAAA-NNN) — une ligne par
+// (tenant, année), incrémentée uniquement à la création d'un devis, jamais
+// à sa modification. cf. context/07-outil-pilotage-missions.md §6.2
+model DevisCounter {
+  id       String @id @default(cuid())
+  tenantId String @map("tenant_id")
+  year     Int
+  value    Int    @default(0)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@unique([tenantId, year])
+  @@map("devis_counters")
+}
+
+model Prospect {
+  id                   String             @id @default(cuid())
+  tenantId             String             @map("tenant_id")
+  structureName        String             @map("structure_name")
+  structureType        ProspectType       @map("structure_type")
+  contactName          String?            @map("contact_name")
+  contactPhone         String?            @map("contact_phone")
+  contactEmail         String?            @map("contact_email")
+  channel              AcquisitionChannel
+  status               ProspectStatus     @default(NOUVEAU)
+  envisagedFormule     CommercialTier?    @map("envisaged_formule")
+  estimatedAmountEuros Int?               @map("estimated_amount_euros")
+  firstContactDate     DateTime           @map("first_contact_date")
+  notes                String?
+  // Renseigné manuellement une fois le devis signé et l'établissement créé —
+  // pas d'auto-création de l'Establishment depuis un prospect (hors scope).
+  establishmentId      String?            @unique @map("establishment_id")
+  createdAt            DateTime           @default(now()) @map("created_at")
+  updatedAt            DateTime           @updatedAt @map("updated_at")
+
+  tenant        Tenant         @relation(fields: [tenantId], references: [id])
+  establishment Establishment? @relation(fields: [establishmentId], references: [id])
+  devis         Devis[]
+
+  @@map("prospects")
+}
+
+model Devis {
+  id         String      @id @default(cuid())
+  tenantId   String      @map("tenant_id")
+  prospectId String      @map("prospect_id")
+  number     String      @unique
+  status     DevisStatus @default(BROUILLON)
+
+  catalogueFormuleId String @map("catalogue_formule_id")
+  // Snapshots — figent le libellé/prix de la formule au moment de la création
+  // pour qu'une évolution ultérieure du catalogue ne change jamais un devis existant.
+  formuleLabelSnapshot      String @map("formule_label_snapshot")
+  formulePriceSnapshotEuros Int    @map("formule_price_snapshot_euros")
+
+  depositPercent   Int      @map("deposit_percent")
+  installmentCount Int      @map("installment_count")
+  validityDays     Int      @map("validity_days")
+  validUntil       DateTime @map("valid_until")
+
+  // Montants calculés côté serveur à la création (cf. devis-calculation-service) —
+  // jamais recalculés à la lecture ni côté client.
+  totalAmountEuros       Int @map("total_amount_euros")
+  depositAmountEuros     Int @map("deposit_amount_euros")
+  balanceAmountEuros     Int @map("balance_amount_euros")
+  installmentAmountEuros Int @map("installment_amount_euros")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  tenant           Tenant           @relation(fields: [tenantId], references: [id])
+  prospect         Prospect         @relation(fields: [prospectId], references: [id])
+  catalogueFormule CatalogueFormule @relation(fields: [catalogueFormuleId], references: [id])
+  options          DevisOption[]
+
+  @@map("devis")
+}
+
+// Ligne d'option cochée sur un devis — snapshot prix/libellé, cf. Devis ci-dessus.
+model DevisOption {
+  id                 String @id @default(cuid())
+  devisId            String @map("devis_id")
+  catalogueOptionId  String @map("catalogue_option_id")
+  labelSnapshot      String @map("label_snapshot")
+  priceSnapshotEuros Int    @map("price_snapshot_euros")
+
+  devis           Devis           @relation(fields: [devisId], references: [id])
+  catalogueOption CatalogueOption @relation(fields: [catalogueOptionId], references: [id])
+
+  @@unique([devisId, catalogueOptionId])
+  @@map("devis_options")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SUIVI DE MISSION — checklist diagnostic (12 items) + 4 phases d'accompagnement
+// (3+4+4+4 items). cf. context/07-outil-pilotage-missions.md §7.
+// Accessible à CABINET_ADMIN et CABINET_EVALUATOR (requireCabinetSession) —
+// contrairement au reste du pipeline commercial (prospects/devis/catalogue), qui
+// reste réservé à CABINET_ADMIN : ceci est du suivi opérationnel d'accompagnement,
+// pas de la donnée financière.
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Référentiel fixe de la méthodologie EODA (27 items) — global, non cloisonné par
+// tenant, seedé une seule fois (idem DocumentType), non modifiable via l'UI dans
+// cette itération. cf. §7.1-§7.2.
+model MissionChecklistItem {
+  id    String                @id @default(cuid())
+  code  String                @unique
+  scope MissionChecklistScope
+  label String
+  order Int
+
+  statuses MissionChecklistItemStatus[]
+
+  @@map("mission_checklist_items")
+}
+
+// Une mission par établissement — enregistrement du périmètre commercial
+// effectivement contracté (formule + gratuit) et de la progression de
+// l'accompagnement. La formule ici fait autorité pour le calcul de scope
+// Excellence (§7.3) — Establishment.commercialTier reste inchangé.
+model Mission {
+  id              String         @id @default(cuid())
+  tenantId        String         @map("tenant_id")
+  establishmentId String         @unique @map("establishment_id")
+  formule         CommercialTier
+  // Bêta-test gratuit — cf. §7.5 : accorde le périmètre Excellence complet
+  // indépendamment de `formule` (condition OR, jamais écrasée par formule).
+  gratuit         Boolean        @default(false)
+
+  fondationsStartDate        DateTime? @map("fondations_start_date")
+  fondationsEndDate          DateTime? @map("fondations_end_date")
+  deploiementStartDate       DateTime? @map("deploiement_start_date")
+  deploiementEndDate         DateTime? @map("deploiement_end_date")
+  consolidationStartDate     DateTime? @map("consolidation_start_date")
+  consolidationEndDate       DateTime? @map("consolidation_end_date")
+  preparationFinaleStartDate DateTime? @map("preparation_finale_start_date")
+  preparationFinaleEndDate   DateTime? @map("preparation_finale_end_date")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  tenant        Tenant                       @relation(fields: [tenantId], references: [id])
+  establishment Establishment                @relation(fields: [establishmentId], references: [id])
+  itemStatuses  MissionChecklistItemStatus[]
+
+  @@map("missions")
+}
+
+// Case cochée pour un item donné d'une mission donnée. Absence de ligne = non
+// coché (même idiome que Document/DocumentType : pas de ligne créée tant que
+// l'item n'a jamais été touché).
+model MissionChecklistItemStatus {
+  id          String    @id @default(cuid())
+  missionId   String    @map("mission_id")
+  itemId      String    @map("item_id")
+  completed   Boolean   @default(false)
+  completedAt DateTime? @map("completed_at")
+
+  mission Mission              @relation(fields: [missionId], references: [id])
+  item    MissionChecklistItem @relation(fields: [itemId], references: [id])
+
+  @@unique([missionId, itemId])
+  @@map("mission_checklist_item_statuses")
 }

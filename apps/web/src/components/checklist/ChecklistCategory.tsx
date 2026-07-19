@@ -4,6 +4,8 @@ import { useState } from "react";
 import { ChevronDown, FileText } from "lucide-react";
 import { StatusBadge } from "./StatusBadge";
 import { DocumentUploadButton } from "./DocumentUploadButton";
+import { DocumentDownloadLink } from "./DocumentDownloadLink";
+import { DocumentPreviewLink } from "./DocumentPreviewLink";
 import type { ChecklistItem } from "@/lib/actions/checklist";
 import type { DocumentStatus } from "@eoda/database";
 
@@ -77,12 +79,16 @@ export function ChecklistCategory({ title, items, defaultOpen = false, establish
                   <p className="text-xs text-ambre mt-0.5">Fréquence annuelle attendue</p>
                 )}
                 {item.currentVersion && (
-                  <p className="flex items-center gap-1 text-xs text-gris-mid mt-1">
-                    <FileText className="w-3 h-3 flex-shrink-0" aria-hidden="true" />
-                    <span className="truncate">
-                      {item.currentVersion.originalFilename} · v{item.currentVersion.versionNumber}
-                    </span>
-                  </p>
+                  <div className="flex items-center gap-2 mt-1">
+                    <p className="flex items-center gap-1 text-xs text-gris-mid min-w-0">
+                      <FileText className="w-3 h-3 flex-shrink-0" aria-hidden="true" />
+                      <span className="truncate">
+                        {item.currentVersion.originalFilename} · v{item.currentVersion.versionNumber}
+                      </span>
+                    </p>
+                    <DocumentPreviewLink documentVersionId={item.currentVersion.id} />
+                    <DocumentDownloadLink documentVersionId={item.currentVersion.id} />
+                  </div>
                 )}
               </div>
               <div className="flex sm:flex-col items-center sm:items-end gap-2 flex-shrink-0">

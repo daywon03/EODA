@@ -6,8 +6,10 @@
 ## 1. Contexte métier (à connaître avant tout)
 
 **Qui :** Sandrine Regina, fondatrice d'EODA Conseil (auto-entreprise), consultante qualité
-ESSMS et évaluatrice HAS certifiée (formation Cabinet Amplea, COFRAC). ~20 ans d'expérience
-qualité international (Orange Business), ITIL, Power BI.
+ESSMS, formée à la méthodologie HAS (Cabinet Amplea, organisme accrédité COFRAC). ~20 ans
+d'expérience qualité international (Orange Business), ITIL, Power BI. **Damon BA**
+(l'utilisateur de Claude Code sur ce projet) est le programmeur, concepteur des outils
+internes et externes d'EODA — cf. `context/06-mode-operatoire-eoda.md` §Gouvernance.
 
 **Quoi :** EODA accompagne les **SAD** (Services Autonomie à Domicile — un type d'ESSMS)
 dans leur préparation à l'**évaluation qualité HAS** (Haute Autorité de Santé), obligatoire
@@ -22,7 +24,7 @@ Eure-et-Loir (28). 120+ SAD en Seine-Saint-Denis seuls programmés en évaluatio
 **Le problème business à résoudre par cette plateforme :**
 Sandrine perd un temps considérable à comparer manuellement les documents qu'un client lui
 envoie (PDF/Word) aux exigences documentaires du référentiel HAS, à relancer par email pour
-les pièces manquantes, et à coter à la main les 157 critères des grilles Synaé. Cette
+les pièces manquantes, et à coter à la main les 137 critères des grilles Synaé. Cette
 plateforme doit absorber ce travail répétitif et faire gagner du temps, **pas** remplacer le
 jugement professionnel de l'évaluatrice — elle prépare et accélère, elle ne décide pas.
 
@@ -54,9 +56,11 @@ Le détail fonctionnel complet de chaque module est dans `specs/01-mvp-v1.md`.
 | 3 | `context/03-documents-obligatoires.md` | La checklist documentaire loi 2002-2 + HAS, catégorisée — **input direct du module 1** |
 | 4 | `context/04-charte-eoda.md` | Identité visuelle (couleurs, typo, logo, conventions de nommage fichiers) |
 | 5 | `context/05-prototype-existant.md` | Ce qui existe déjà (HTML statique auto-éval) et pourquoi on le réécrit proprement |
-| 6 | `specs/01-mvp-v1.md` | Spécification fonctionnelle détaillée des 3 modules V1 |
-| 7 | `specs/02-architecture-technique.md` | Stack, schéma BDD, architecture, ADRs |
-| 8 | `specs/03-roadmap-developpement.md` | Ordre de build, jalons, definition of done |
+| 6 | `context/06-mode-operatoire-eoda.md` | Mode opératoire humain : contrôle croisé documentaire (matrice, champs critiques, détection d'écarts) + déroulé complet de la mission ASSAD BENOIT (8 phases, gouvernance, vigilances juridiques) — process métier, complémentaire aux fichiers ci-dessus qui documentent les règles produit |
+| 7 | `context/07-outil-pilotage-missions.md` | Pipeline commercial (prospects, devis, catalogue, KPI — `/dashboard/cabinet/commercial`, CABINET_ADMIN uniquement) et suivi de mission (checklist diagnostic 12 items + 4 phases — `/dashboard/cabinet/etablissements/[id]/mission`, CABINET_ADMIN + CABINET_EVALUATOR) sont tous deux implémentés dans la plateforme |
+| 8 | `specs/01-mvp-v1.md` | Spécification fonctionnelle détaillée des 3 modules V1 |
+| 9 | `specs/02-architecture-technique.md` | Stack, schéma BDD, architecture, ADRs |
+| 10 | `specs/03-roadmap-developpement.md` | Ordre de build, jalons, definition of done |
 
 **Règle :** avant de générer du code touchant au métier HAS (cotation, critères, documents
 obligatoires), Claude Code doit relire `context/02-referentiel-has.md` et
@@ -121,3 +125,17 @@ Le référentiel HAS a des règles précises (NC interdit sur impératifs, RI un
   de préparation/conseil.
 - Ne pas committer de vraies données clients (ASSAD BENOIT) dans des fixtures de test — créer
   des fixtures anonymisées génériques.
+- Le pipeline commercial (prospects/devis/catalogue/KPI, décrit dans
+  `context/07-outil-pilotage-missions.md`) est intégré à la plateforme depuis le module
+  `/dashboard/cabinet/commercial`, réservé au rôle `CABINET_ADMIN` uniquement (jamais
+  `CABINET_EVALUATOR` ni `CLIENT_USER`). Ces données restent malgré tout strictement internes :
+  ne jamais les exposer sur une route accessible à un `CLIENT_USER`, ni les inclure dans un
+  livrable/export destiné à un client.
+- Le suivi de mission (checklist diagnostic 12 items + 4 phases d'accompagnement, §7 du même
+  fichier) est également intégré, sous `/dashboard/cabinet/etablissements/[id]/mission` —
+  accessible à `CABINET_ADMIN` **et** `CABINET_EVALUATOR` (contrairement au pipeline commercial
+  ci-dessus) car c'est du suivi opérationnel d'accompagnement, pas de la donnée financière. La
+  formule contractuelle qui gouverne le périmètre d'une mission (§7.3 — verrouillage
+  Consolidation/Préparation finale hors Excellence ou bêta-test gratuit) vit sur `Mission.formule`,
+  pas sur `Establishment.commercialTier` (resté hardcodé `BETA`, affichage/historique
+  uniquement) — ne jamais dupliquer cette décision sur les deux modèles.

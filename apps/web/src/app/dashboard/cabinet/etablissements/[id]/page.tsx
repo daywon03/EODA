@@ -1,12 +1,17 @@
 import { getEstablishment } from "@/lib/actions/establishment";
 import { getEstablishmentChecklist } from "@/lib/actions/checklist";
+import { getMission } from "@/lib/actions/mission";
 import { InviteClientForm } from "@/components/etablissement/InviteClientForm";
+import { DeleteEstablishmentButton } from "@/components/etablissement/DeleteEstablishmentButton";
 import { ChecklistCategory } from "@/components/checklist/ChecklistCategory";
+import { MissionSummaryCard } from "@/components/mission/MissionSummaryCard";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { ProgressBar } from "@/components/ui/progress-bar";
 import { PageHeader } from "@/components/layout/PageHeader";
-import { Building2, Calendar, Users } from "lucide-react";
+import { Building2, Calendar, Pencil, Users } from "lucide-react";
+import Link from "next/link";
 import type { EstablishmentType, DocumentCategory } from "@eoda/database";
 
 const CATEGORY_LABELS: Record<DocumentCategory, string> = {
@@ -40,6 +45,7 @@ export default async function EstablishmentDetailPage({ params }: Props) {
   const { id } = await params;
   const establishment = await getEstablishment(id);
   const checklist = await getEstablishmentChecklist(id);
+  const mission = await getMission(id);
 
   const categories = Object.keys(CATEGORY_LABELS) as DocumentCategory[];
   const allItems = Object.values(checklist).flat();
@@ -58,7 +64,21 @@ export default async function EstablishmentDetailPage({ params }: Props) {
         icon={Building2}
         backHref="/dashboard/cabinet"
         subtitle={establishment.finessNumber ? `FINESS ${establishment.finessNumber}` : undefined}
-        action={<Badge variant="secondary">{TYPE_LABELS[establishment.type]}</Badge>}
+        action={
+          <div className="flex items-center gap-2">
+            <Badge variant="secondary">{TYPE_LABELS[establishment.type]}</Badge>
+            <Button variant="outline" size="sm" asChild>
+              <Link href={`/dashboard/cabinet/etablissements/${establishment.id}/modifier`}>
+                <Pencil className="w-3.5 h-3.5" aria-hidden="true" />
+                Modifier
+              </Link>
+            </Button>
+            <DeleteEstablishmentButton
+              establishmentId={establishment.id}
+              establishmentName={establishment.name}
+            />
+          </div>
+        }
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -121,6 +141,16 @@ export default async function EstablishmentDetailPage({ params }: Props) {
         </Card>
       </div>
 
+      {/* Suivi de mission */}
+      {mission ? (
+        <MissionSummaryCard
+          establishmentId={establishment.id}
+          mission={{ formule: mission.formule, gratuit: mission.gratuit, globalPct: mission.progress.globalPct }}
+        />
+      ) : (
+        <MissionSummaryCard establishmentId={establishment.id} mission={null} />
+      )}
+
       {/* Checklist documentaire */}
       <Card>
         <CardHeader>
@@ -135,7 +165,14 @@ export default async function EstablishmentDetailPage({ params }: Props) {
             {categories.map((cat) => {
               const items = checklist[cat] ?? [];
               if (items.length === 0) return null;
-              return <ChecklistCategory key={cat} title={CATEGORY_LABELS[cat]} items={items} />;
+              return (
+                <ChecklistCategory
+                  key={cat}
+                  title={CATEGORY_LABELS[cat]}
+                  items={items}
+                  establishmentId={establishment.id}
+                />
+              );
             })}
           </div>
         </CardContent>

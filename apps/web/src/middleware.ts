@@ -43,6 +43,15 @@ export default auth((req) => {
     }
   }
 
+  // Pipeline commercial (prospects/devis/catalogue) — réservé à CABINET_ADMIN,
+  // même un CABINET_EVALUATOR légitimement connecté n'y a pas accès.
+  const ADMIN_ONLY_PREFIXES = ["/dashboard/cabinet/commercial", "/imprimer/devis"];
+  if (isLoggedIn && ADMIN_ONLY_PREFIXES.some((p) => nextUrl.pathname.startsWith(p))) {
+    if (session.user.role !== "CABINET_ADMIN") {
+      return NextResponse.redirect(new URL("/dashboard/cabinet", nextUrl));
+    }
+  }
+
   return NextResponse.next();
 });
 

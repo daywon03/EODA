@@ -1,6 +1,12 @@
 // Seed de développement — données anonymisées + référentiel DocumentType
 // Ne jamais committer de vraies données clients (ASSAD BENOIT, etc.)
-import { PrismaClient, DocumentCategory, ExpectedFrequency } from "@prisma/client";
+import {
+  PrismaClient,
+  DocumentCategory,
+  ExpectedFrequency,
+  CommercialTier,
+  MissionChecklistScope,
+} from "@prisma/client";
 import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
@@ -287,6 +293,104 @@ const DOCUMENT_TYPES: DocTypeSeed[] = [
   },
 ];
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Catalogue commercial — source : context/07-outil-pilotage-missions.md §4
+// Script unique et idempotent — ne pas dupliquer cette liste ailleurs
+// ─────────────────────────────────────────────────────────────────────────────
+
+type FormuleSeed = {
+  formule: CommercialTier;
+  label: string;
+  priceEuros: number;
+  modulesLabel: string;
+  description: string;
+};
+
+const CATALOGUE_FORMULES: FormuleSeed[] = [
+  {
+    formule: "ESSENTIEL",
+    label: "Essentiel",
+    priceEuros: 2500,
+    modulesLabel: "M1 · M2",
+    description: "Diagnostic & cadrage + plan d'action",
+  },
+  {
+    formule: "PERFORMANCE",
+    label: "Performance",
+    priceEuros: 6500,
+    modulesLabel: "M1 · M2 · M3 · M4",
+    description: "Diagnostic, plan d'action, déploiement des outils et accompagnement terrain",
+  },
+  {
+    formule: "EXCELLENCE",
+    label: "Excellence",
+    priceEuros: 12000,
+    modulesLabel: "M1 à M5",
+    description: "Accompagnement complet jusqu'au pilotage par KPI",
+  },
+];
+
+type OptionSeed = { code: string; label: string; priceEuros: number };
+
+const CATALOGUE_OPTIONS: OptionSeed[] = [
+  { code: "JOURNEE_SUPP_VISITE", label: "Journée supplémentaire de visite sur site", priceEuros: 800 },
+  { code: "FORMATION_EQUIPE", label: "Formation équipe (½ journée)", priceEuros: 600 },
+  { code: "REGISTRE_EI_EIG", label: "Registre plaintes/réclamations EI-EIG personnalisé", priceEuros: 450 },
+  { code: "REUNION_PAC_SUPP", label: "Réunion de restitution PAC supplémentaire", priceEuros: 350 },
+  { code: "TABLEAU_KPI_POWERBI", label: "Tableau de bord KPI Power BI sur mesure", priceEuros: 900 },
+];
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Référentiel de suivi de mission — source : context/07-outil-pilotage-missions.md §7.1-§7.2
+// Script unique et idempotent — ne pas dupliquer cette liste ailleurs
+// ─────────────────────────────────────────────────────────────────────────────
+
+type MissionChecklistItemSeed = {
+  code: string;
+  scope: MissionChecklistScope;
+  label: string;
+  order: number;
+};
+
+const MISSION_CHECKLIST_ITEMS: MissionChecklistItemSeed[] = [
+  // Diagnostic initial — 12 items
+  { code: "DIAG_01", scope: "DIAGNOSTIC", order: 1, label: "Réunion de cadrage (validation besoins, planning)" },
+  { code: "DIAG_02", scope: "DIAGNOSTIC", order: 2, label: "Recueil documentaire" },
+  { code: "DIAG_03", scope: "DIAGNOSTIC", order: 3, label: "Validation du planning de visite" },
+  { code: "DIAG_04", scope: "DIAGNOSTIC", order: 4, label: "Réunion d'ouverture (revue du planning)" },
+  { code: "DIAG_05", scope: "DIAGNOSTIC", order: 5, label: "Visite du site (affichage, organisation)" },
+  { code: "DIAG_06", scope: "DIAGNOSTIC", order: 6, label: "Entretiens méthode HAS — critères impératifs" },
+  { code: "DIAG_07", scope: "DIAGNOSTIC", order: 7, label: "Réunion de bilan de visite (axes forts / écarts / axes de progrès)" },
+  { code: "DIAG_08", scope: "DIAGNOSTIC", order: 8, label: "Cotation des critères" },
+  { code: "DIAG_09", scope: "DIAGNOSTIC", order: 9, label: "Vérification des documents loi 2002-2" },
+  { code: "DIAG_10", scope: "DIAGNOSTIC", order: 10, label: "Rédaction du rapport diagnostic" },
+  { code: "DIAG_11", scope: "DIAGNOSTIC", order: 11, label: "Création du PAC (plan d'action)" },
+  { code: "DIAG_12", scope: "DIAGNOSTIC", order: 12, label: "Réunion distancielle — restitution du PAC" },
+
+  // Phase 1 — Fondations (toutes formules)
+  { code: "F1", scope: "FONDATIONS", order: 1, label: "PDCA co-construit" },
+  { code: "F2", scope: "FONDATIONS", order: 2, label: "Pack documentaire P1-P5" },
+  { code: "F3", scope: "FONDATIONS", order: 3, label: "Registres/tableaux de suivi" },
+
+  // Phase 2 — Déploiement (toutes formules)
+  { code: "D1", scope: "DEPLOIEMENT", order: 1, label: "Ateliers de sensibilisation" },
+  { code: "D2", scope: "DEPLOIEMENT", order: 2, label: "Formation gouvernance" },
+  { code: "D3", scope: "DEPLOIEMENT", order: 3, label: "Mise en œuvre opérationnelle" },
+  { code: "D4", scope: "DEPLOIEMENT", order: 4, label: "Traçabilité des actions" },
+
+  // Phase 3 — Consolidation (réservée Excellence / bêta-test gratuit)
+  { code: "C1", scope: "CONSOLIDATION", order: 1, label: "Reporting KPI Power BI" },
+  { code: "C2", scope: "CONSOLIDATION", order: 2, label: "Revue mi-parcours" },
+  { code: "C3", scope: "CONSOLIDATION", order: 3, label: "Ajustement du plan d'actions" },
+  { code: "C4", scope: "CONSOLIDATION", order: 4, label: "Analyse EI/plaintes" },
+
+  // Phase 4 — Préparation finale (réservée Excellence / bêta-test gratuit)
+  { code: "P1", scope: "PREPARATION_FINALE", order: 1, label: "Simulation de visite" },
+  { code: "P2", scope: "PREPARATION_FINALE", order: 2, label: "Entraînement aux 3 méthodes d'entretien" },
+  { code: "P3", scope: "PREPARATION_FINALE", order: 3, label: "Bilan final" },
+  { code: "P4", scope: "PREPARATION_FINALE", order: 4, label: "Rapport de recommandations" },
+];
+
 async function main() {
   console.log("Seeding database…");
 
@@ -339,6 +443,52 @@ async function main() {
         isConditional: dt.isConditional ?? false,
         expectedFrequency: dt.expectedFrequency ?? null,
       },
+    });
+  }
+
+  // Seed du catalogue commercial — source de vérité : context/07-outil-pilotage-missions.md §4
+  console.log(`Seeding ${CATALOGUE_FORMULES.length} CatalogueFormule…`);
+  for (const f of CATALOGUE_FORMULES) {
+    await prisma.catalogueFormule.upsert({
+      where: { tenantId_formule: { tenantId: tenant.id, formule: f.formule } },
+      update: {
+        label: f.label,
+        priceEuros: f.priceEuros,
+        modulesLabel: f.modulesLabel,
+        description: f.description,
+      },
+      create: {
+        tenantId: tenant.id,
+        formule: f.formule,
+        label: f.label,
+        priceEuros: f.priceEuros,
+        modulesLabel: f.modulesLabel,
+        description: f.description,
+      },
+    });
+  }
+
+  console.log(`Seeding ${CATALOGUE_OPTIONS.length} CatalogueOption…`);
+  for (const o of CATALOGUE_OPTIONS) {
+    await prisma.catalogueOption.upsert({
+      where: { tenantId_code: { tenantId: tenant.id, code: o.code } },
+      update: { label: o.label, priceEuros: o.priceEuros },
+      create: { tenantId: tenant.id, code: o.code, label: o.label, priceEuros: o.priceEuros },
+    });
+  }
+
+  await prisma.billingSettings.upsert({
+    where: { tenantId: tenant.id },
+    update: {},
+    create: { tenantId: tenant.id, defaultDepositPercent: 30, defaultValidityDays: 30 },
+  });
+
+  console.log(`Seeding ${MISSION_CHECKLIST_ITEMS.length} MissionChecklistItem…`);
+  for (const item of MISSION_CHECKLIST_ITEMS) {
+    await prisma.missionChecklistItem.upsert({
+      where: { code: item.code },
+      update: { scope: item.scope, label: item.label, order: item.order },
+      create: { code: item.code, scope: item.scope, label: item.label, order: item.order },
     });
   }
 
