@@ -1,6 +1,7 @@
 import type { LLMAnalysisPort } from "./llm-analysis-port";
 import { AnthropicAnalysisAdapter } from "./anthropic-analysis-adapter";
 import { StubAnalysisAdapter } from "./stub-analysis-adapter";
+import { getEnv } from "@/lib/config/env";
 
 let cached: LLMAnalysisPort | null = null;
 
@@ -9,17 +10,17 @@ let cached: LLMAnalysisPort | null = null;
 export function getLLMAnalysisPort(): LLMAnalysisPort {
   if (cached) return cached;
 
-  const { ANTHROPIC_API_KEY, ANTHROPIC_MODEL } = process.env;
+  const env = getEnv();
 
-  if (ANTHROPIC_API_KEY) {
+  if (env.anthropic) {
     cached = new AnthropicAnalysisAdapter({
-      apiKey: ANTHROPIC_API_KEY,
-      ...(ANTHROPIC_MODEL && { model: ANTHROPIC_MODEL }),
+      apiKey: env.anthropic.apiKey,
+      ...(env.anthropic.model && { model: env.anthropic.model }),
     });
     return cached;
   }
 
-  if (process.env.NODE_ENV === "production") {
+  if (env.isProduction) {
     throw new Error("Analyse documentaire non configurée : ANTHROPIC_API_KEY requis en production.");
   }
 

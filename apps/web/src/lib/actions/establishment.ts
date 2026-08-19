@@ -1,48 +1,68 @@
 "use server";
 
-import { prisma, type Prisma } from "@eoda/database";
+import { prisma, type Prisma, EstablishmentType } from "@eoda/database";
 import { redirect, notFound } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { requireCabinetSession } from "@/lib/auth/guards";
+import { requireCabinetSession, requireEstablishmentInTenant } from "@/lib/auth/guards";
+import { recordAuditEvent } from "@/lib/services/audit-log-service";
+import {
+  firstError,
+  optionalDate,
+  optionalString,
+  requiredEnum,
+  requiredString,
+} from "@/lib/validation/form-parsers";
 
 function parseEstablishmentInput(formData: FormData): { error: string } | {
   name: string;
-  type: "SAD_AIDE" | "SAD_MIXTE";
+  type: EstablishmentType;
   finessNumber: string | null;
   address: string | null;
   hasEvaluationTargetDate: Date | null;
 } {
-  const name = (formData.get("name") as string | null)?.trim();
-  const type = formData.get("type") as "SAD_AIDE" | "SAD_MIXTE" | null;
+  const name = requiredString(formData, "name", "Le nom de l'établissement", 200);
+  const type = requiredEnum(formData, "type", "Le type de SAD", EstablishmentType);
+  // FINESS = 9 chiffres. Validé ici plutôt que laissé libre : c'est la clé
+  // d'identification de l'ESSMS auprès de la HAS, une saisie approximative se
+  // retrouverait dans un livrable.
+  const finessNumber = optionalString(formData, "finessNumber", "Le numéro FINESS", 20);
+  const address = optionalString(formData, "address", "L'adresse", 300);
+  const hasEvaluationTargetDate = optionalDate(
+    formData,
+    "hasEvaluationTargetDate",
+    "La date d'évaluation visée"
+  );
 
-  if (!name) return { error: "Le nom de l'établissement est obligatoire." };
-  if (!type) return { error: "Le type de SAD est obligatoire." };
+  const error = firstError(name, type, finessNumber, address, hasEvaluationTargetDate);
+  if (error) return { error };
+  if (!name.ok || !type.ok || !finessNumber.ok || !address.ok || !hasEvaluationTargetDate.ok) {
+    return { error: "Formulaire invalide." };
+  }
 
-  const finessNumber = (formData.get("finessNumber") as string | null)?.trim() || null;
-  const address = (formData.get("address") as string | null)?.trim() || null;
-  const targetDateRaw = formData.get("hasEvaluationTargetDate") as string | null;
-  const hasEvaluationTargetDate = targetDateRaw ? new Date(targetDateRaw) : null;
+  if (finessNumber.value && !/^\d{9}$/.test(finessNumber.value)) {
+    return { error: "Le numéro FINESS doit comporter exactement 9 chiffres." };
+  }
 
-  return { name, type, finessNumber, address, hasEvaluationTargetDate };
+  return {
+    name: name.value,
+    type: type.value,
+    finessNumber: finessNumber.value,
+    address: address.value,
+    hasEvaluationTargetDate: hasEvaluationTargetDate.value,
+  };
 }
 
 export async function createEstablishment(
   _prevState: { error: string } | null,
   formData: FormData
 ): Promise<{ error: string } | null> {
-  const session = await requireCabinetSession();
-
-  const user = await prisma.user.findUniqueOrThrow({
-    where: { id: session.user.id },
-    select: { tenantId: true },
-  });
-  if (!user.tenantId) return { error: "Utilisateur Cabinet sans tenant." };
+  const { tenantId } = await requireCabinetSession();
 
   const parsed = parseEstablishmentInput(formData);
   if ("error" in parsed) return parsed;
 
   const establishment = await prisma.establishment.create({
-    data: { ...parsed, tenantId: user.tenantId, commercialTier: "BETA" },
+    data: { ...parsed, tenantId, commercialTier: "BETA" },
   });
 
   revalidatePath("/dashboard/cabinet");
@@ -54,18 +74,7 @@ export async function updateEstablishment(
   _prevState: { error: string } | null,
   formData: FormData
 ): Promise<{ error: string } | null> {
-  const session = await requireCabinetSession();
-
-  const user = await prisma.user.findUniqueOrThrow({
-    where: { id: session.user.id },
-    select: { tenantId: true },
-  });
-
-  const where: Prisma.EstablishmentWhereInput = { id };
-  if (user.tenantId) where.tenantId = user.tenantId;
-
-  const existing = await prisma.establishment.findFirst({ where });
-  if (!existing) notFound();
+  await requireEstablishmentInTenant(id);
 
   const parsed = parseEstablishmentInput(formData);
   if ("error" in parsed) return parsed;
@@ -81,18 +90,7 @@ export async function updateEstablishment(
 }
 
 export async function deleteEstablishment(id: string): Promise<{ error: string } | void> {
-  const session = await requireCabinetSession();
-
-  const user = await prisma.user.findUniqueOrThrow({
-    where: { id: session.user.id },
-    select: { tenantId: true },
-  });
-
-  const where: Prisma.EstablishmentWhereInput = { id };
-  if (user.tenantId) where.tenantId = user.tenantId;
-
-  const existing = await prisma.establishment.findFirst({ where });
-  if (!existing) notFound();
+  const { session, userId } = await requireEstablishmentInTenant(id);
 
   await prisma.$transaction(async (tx) => {
     await tx.elementRating.deleteMany({
@@ -111,22 +109,24 @@ export async function deleteEstablishment(id: string): Promise<{ error: string }
     await tx.establishment.delete({ where: { id } });
   });
 
+  // Journalisé après coup, hors transaction : la trace de suppression ne doit pas
+  // être annulée avec la transaction si celle-ci échoue, ni la faire échouer.
+  await recordAuditEvent({
+    action: "ESTABLISHMENT_DELETED",
+    actorUserId: userId,
+    actorRole: session.user.role,
+    establishmentId: id,
+  });
+
   revalidatePath("/dashboard/cabinet");
   redirect("/dashboard/cabinet");
 }
 
 export async function listEstablishments() {
-  const session = await requireCabinetSession();
-
-  const user = await prisma.user.findUniqueOrThrow({
-    where: { id: session.user.id },
-    select: { tenantId: true },
-  });
-
-  if (!user.tenantId) return [];
+  const { tenantId } = await requireCabinetSession();
 
   return prisma.establishment.findMany({
-    where: { tenantId: user.tenantId },
+    where: { tenantId },
     orderBy: { createdAt: "desc" },
     include: { _count: { select: { documents: true } } },
   });
@@ -141,18 +141,10 @@ export type EstablishmentWithUsers = Prisma.EstablishmentGetPayload<{
 }>;
 
 export async function getEstablishment(id: string): Promise<EstablishmentWithUsers> {
-  const session = await requireCabinetSession();
-
-  const user = await prisma.user.findUniqueOrThrow({
-    where: { id: session.user.id },
-    select: { tenantId: true },
-  });
-
-  const where: Prisma.EstablishmentWhereInput = { id };
-  if (user.tenantId) where.tenantId = user.tenantId;
+  const { tenantId } = await requireCabinetSession();
 
   const establishment = await prisma.establishment.findFirst({
-    where,
+    where: { id, tenantId },
     include: {
       establishmentUsers: {
         include: { user: { select: { id: true, name: true, email: true, role: true } } },
@@ -160,6 +152,8 @@ export async function getEstablishment(id: string): Promise<EstablishmentWithUse
     },
   });
 
+  // notFound() et non redirect() — ne jamais révéler qu'un identifiant existe dans
+  // un autre tenant.
   if (!establishment) notFound();
   return establishment;
 }

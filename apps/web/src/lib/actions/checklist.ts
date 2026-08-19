@@ -1,8 +1,7 @@
 "use server";
 
 import { prisma } from "@eoda/database";
-import { auth } from "@/auth";
-import { redirect } from "next/navigation";
+import { requireClientEstablishment, requireEstablishmentInTenant } from "@/lib/auth/guards";
 import type { DocumentCategory, DocumentStatus } from "@eoda/database";
 
 export type ChecklistItem = {
@@ -83,20 +82,14 @@ export async function getClientChecklist(): Promise<{
   establishment: { id: string; name: string; type: string } | null;
   checklist: ChecklistByCategory;
 }> {
-  const session = await auth();
-  if (!session || session.user.role !== "CLIENT_USER") redirect("/login");
+  // L'établissement est résolu depuis le lien EstablishmentUser de la session, pas
+  // depuis un identifiant fourni par la requête : non falsifiable par construction.
+  const { establishment } = await requireClientEstablishment();
 
-  // Trouver l'établissement lié au client (premier si plusieurs)
-  const establishmentUser = await prisma.establishmentUser.findFirst({
-    where: { userId: session.user.id },
-    include: { establishment: { select: { id: true, name: true, type: true } } },
-  });
-
-  if (!establishmentUser) {
+  if (!establishment) {
     return { establishment: null, checklist: {} as ChecklistByCategory };
   }
 
-  const { establishment } = establishmentUser;
   const checklist = await buildChecklist(establishment.id);
 
   return { establishment, checklist };
@@ -105,8 +98,10 @@ export async function getClientChecklist(): Promise<{
 export async function getEstablishmentChecklist(
   establishmentId: string
 ): Promise<ChecklistByCategory> {
-  const session = await auth();
-  if (!session || session.user.role === "CLIENT_USER") redirect("/login");
+  // Vérifie l'appartenance de l'établissement au tenant de l'appelant — sans ce
+  // contrôle, un utilisateur Cabinet lisait la checklist de n'importe quel
+  // établissement, tous tenants confondus.
+  await requireEstablishmentInTenant(establishmentId);
 
   return buildChecklist(establishmentId);
 }

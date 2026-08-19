@@ -1,35 +1,19 @@
 "use server";
 
 import { prisma } from "@eoda/database";
-import { auth } from "@/auth";
-import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import { requireEstablishmentAccess, tryEstablishmentAccess } from "@/lib/auth/guards";
 import { extractText } from "@/lib/services/text-extraction-service";
 import { suggestDocumentType } from "@/lib/services/document-categorization-service";
-import { anonymizeText } from "@/lib/services/anonymization-service";
-import { deriveDocumentStatus } from "@/lib/services/document-status-service";
+import { ingestDocumentVersion } from "@/lib/services/document-ingestion-service";
+import { recordAuditEvent } from "@/lib/services/audit-log-service";
+import { validateUploadedFile } from "@/lib/security/upload-validation-service";
 import { getFileStoragePort } from "@/lib/storage";
 import { getLLMAnalysisPort } from "@/lib/llm";
 
-const ALLOWED_MIME_TYPES = new Set([
-  "application/pdf",
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-]);
-const MAX_FILE_SIZE_BYTES = 20 * 1024 * 1024;
-
-async function requireEstablishmentAccess(establishmentId: string) {
-  const session = await auth();
-  if (!session) redirect("/login");
-
-  if (session.user.role === "CLIENT_USER") {
-    const link = await prisma.establishmentUser.findUnique({
-      where: { userId_establishmentId: { userId: session.user.id, establishmentId } },
-    });
-    if (!link) redirect("/login");
-  }
-
-  return session;
-}
+// Cette action reste volontairement mince : autorisation → validation → délégation
+// au service d'ingestion → invalidation de cache. La séquence métier (versioning,
+// stockage, analyse) vit dans document-ingestion-service.ts.
 
 export type DocumentTypeCandidate = { id: string; label: string; category: string };
 
@@ -37,25 +21,35 @@ export type UploadDocumentResult =
   | { success: true; documentTypeId: string }
   | { error: string; needsManualType?: true; candidates?: DocumentTypeCandidate[] };
 
+function revalidateDocumentViews(establishmentId: string): void {
+  revalidatePath("/dashboard/client");
+  revalidatePath(`/dashboard/cabinet/etablissements/${establishmentId}`);
+}
+
 export async function uploadDocument(formData: FormData): Promise<UploadDocumentResult> {
-  const establishmentId = formData.get("establishmentId") as string | null;
-  if (!establishmentId) return { error: "Établissement manquant." };
-
-  const session = await requireEstablishmentAccess(establishmentId);
-
-  const file = formData.get("file") as File | null;
-  if (!file || file.size === 0) return { error: "Aucun fichier sélectionné." };
-  if (file.size > MAX_FILE_SIZE_BYTES) {
-    return { error: "Fichier trop volumineux (20 Mo maximum)." };
+  const establishmentId = formData.get("establishmentId");
+  if (typeof establishmentId !== "string" || establishmentId.length === 0) {
+    return { error: "Établissement manquant." };
   }
-  if (!ALLOWED_MIME_TYPES.has(file.type)) {
-    return { error: "Format non supporté — seuls les fichiers PDF et DOCX sont acceptés." };
-  }
+
+  // Autorisation avant toute lecture du fichier : ne jamais dépenser de l'I/O ni de
+  // l'extraction de texte pour un appelant non habilité sur cet établissement.
+  const access = await requireEstablishmentAccess(establishmentId);
+
+  const file = formData.get("file");
+  if (!(file instanceof File)) return { error: "Aucun fichier sélectionné." };
 
   const buffer = Buffer.from(await file.arrayBuffer());
-  const extractedText = await extractText(buffer, file.type);
 
-  let documentTypeId = (formData.get("documentTypeId") as string | null) || null;
+  // Le type réel est déterminé par la signature binaire, jamais par `file.type`
+  // (valeur fournie par le client, donc falsifiable).
+  const validation = validateUploadedFile(buffer, file.size);
+  if (!validation.ok) return { error: validation.error };
+
+  const extractedText = await extractText(buffer, validation.contentType);
+
+  const requestedTypeId = formData.get("documentTypeId");
+  let documentTypeId = typeof requestedTypeId === "string" && requestedTypeId ? requestedTypeId : null;
 
   if (!documentTypeId) {
     const allTypes = await prisma.documentType.findMany({
@@ -75,69 +69,32 @@ export async function uploadDocument(formData: FormData): Promise<UploadDocument
   const documentType = await prisma.documentType.findUnique({ where: { id: documentTypeId } });
   if (!documentType) return { error: "Type de document invalide." };
 
-  const document = await prisma.document.upsert({
-    where: { establishmentId_documentTypeId: { establishmentId, documentTypeId } },
-    update: {},
-    create: { establishmentId, documentTypeId, status: "MISSING" },
-    include: {
-      versions: { select: { versionNumber: true }, orderBy: { versionNumber: "desc" }, take: 1 },
-    },
-  });
-
-  const nextVersionNumber = (document.versions[0]?.versionNumber ?? 0) + 1;
-  const storageKey = `${establishmentId}/${documentTypeId}/v${nextVersionNumber}-${Date.now()}-${file.name}`;
-
-  const storage = getFileStoragePort();
-  await storage.upload(storageKey, buffer, file.type);
-
-  const version = await prisma.documentVersion.create({
-    data: {
-      documentId: document.id,
-      versionNumber: nextVersionNumber,
-      fileStorageKey: storageKey,
+  const result = await ingestDocumentVersion(
+    {
+      establishmentId,
+      documentTypeId: documentType.id,
+      documentTypeLabel: documentType.label,
+      content: buffer,
+      contentType: validation.contentType,
       originalFilename: file.name,
-      uploadedByUserId: session.user.id,
+      uploadedByUserId: access.userId,
       extractedText,
     },
+    { storage: getFileStoragePort(), llm: getLLMAnalysisPort() }
+  );
+
+  await recordAuditEvent({
+    action: "DOCUMENT_UPLOADED",
+    actorUserId: access.userId,
+    actorRole: access.session.user.role,
+    establishmentId,
+    targetId: result.documentVersionId,
+    detail: documentType.code,
   });
 
-  await prisma.document.update({
-    where: { id: document.id },
-    data: { currentVersionId: version.id, status: "ANALYZING", statusOverriddenByUser: false },
-  });
+  revalidateDocumentViews(establishmentId);
 
-  // Analyse IA synchrone (un seul appel LLM par document, cf. plan Phase 2) — jamais
-  // bloquante : en cas d'échec, le document reste UPLOADED plutôt que de faire échouer
-  // tout l'upload.
-  try {
-    const linkedCriteria = await prisma.documentTypeCriterion.findMany({
-      where: { documentTypeId },
-      include: { criterion: { select: { label: true } } },
-    });
-
-    const analysis = await getLLMAnalysisPort().analyze({
-      documentTypeLabel: documentType.label,
-      extractedText: anonymizeText(extractedText ?? ""),
-      linkedCriteriaLabels: linkedCriteria.map((c) => c.criterion.label),
-    });
-
-    await prisma.documentVersion.update({
-      where: { id: version.id },
-      data: { analysisResultJson: analysis as unknown as object },
-    });
-    await prisma.document.update({
-      where: { id: document.id },
-      data: { status: deriveDocumentStatus(analysis) },
-    });
-  } catch (err) {
-    console.error("Analyse documentaire IA échouée — document laissé en UPLOADED :", err);
-    await prisma.document.update({ where: { id: document.id }, data: { status: "UPLOADED" } });
-  }
-
-  revalidatePath("/dashboard/client");
-  revalidatePath(`/dashboard/cabinet/etablissements/${establishmentId}`);
-
-  return { success: true, documentTypeId };
+  return { success: true, documentTypeId: documentType.id };
 }
 
 // Réponse Oui/Non + commentaire libre pour un document pas encore déposé —
@@ -145,18 +102,20 @@ export async function uploadDocument(formData: FormData): Promise<UploadDocument
 // "Oui" (concerne l'établissement mais pas encore fourni) garde MISSING. Le
 // commentaire est conservé dans les deux cas comme élément de preuve exploitable
 // en cotation (Module 3).
+const MAX_JUSTIFICATION_LENGTH = 2000;
+
 export async function respondToMissingDocument(
   establishmentId: string,
   documentTypeId: string,
   applies: boolean,
   comment: string | null
 ): Promise<{ error: string } | null> {
-  await requireEstablishmentAccess(establishmentId);
+  const access = await requireEstablishmentAccess(establishmentId);
 
   const documentType = await prisma.documentType.findUnique({ where: { id: documentTypeId } });
   if (!documentType) return { error: "Type de document invalide." };
 
-  const trimmedComment = comment?.trim() || null;
+  const trimmedComment = comment?.trim().slice(0, MAX_JUSTIFICATION_LENGTH) || null;
   const status = applies ? "MISSING" : "NOT_APPLICABLE";
 
   await prisma.document.upsert({
@@ -171,42 +130,53 @@ export async function respondToMissingDocument(
     },
   });
 
-  revalidatePath("/dashboard/client");
-  revalidatePath(`/dashboard/cabinet/etablissements/${establishmentId}`);
+  await recordAuditEvent({
+    action: "DOCUMENT_STATUS_ANSWERED",
+    actorUserId: access.userId,
+    actorRole: access.session.user.role,
+    establishmentId,
+    targetId: documentType.id,
+    detail: `${documentType.code} → ${status}`,
+  });
+
+  revalidateDocumentViews(establishmentId);
   return null;
 }
 
+// Résout une version de document en vérifiant l'habilitation sur SON établissement
+// (et non sur un identifiant fourni par l'appelant) — c'est ce qui empêche de
+// deviner un `documentVersionId` appartenant à un autre établissement.
 async function getAuthorizedDocumentVersion(documentVersionId: string) {
-  const session = await auth();
-  if (!session) redirect("/login");
+  if (typeof documentVersionId !== "string" || documentVersionId.length === 0) return null;
 
   const version = await prisma.documentVersion.findUnique({
     where: { id: documentVersionId },
-    include: { document: { select: { establishmentId: true } } },
+    include: { document: { select: { establishmentId: true, documentType: { select: { code: true } } } } },
   });
   if (!version) return null;
 
-  if (session.user.role === "CLIENT_USER") {
-    const link = await prisma.establishmentUser.findUnique({
-      where: {
-        userId_establishmentId: {
-          userId: session.user.id,
-          establishmentId: version.document.establishmentId,
-        },
-      },
-    });
-    if (!link) return null;
-  }
+  const access = await tryEstablishmentAccess(version.document.establishmentId);
+  if (!access) return null;
 
-  return version;
+  return { version, access };
 }
 
 export async function getDocumentDownloadUrl(documentVersionId: string): Promise<string | null> {
-  const version = await getAuthorizedDocumentVersion(documentVersionId);
-  if (!version) return null;
+  const authorized = await getAuthorizedDocumentVersion(documentVersionId);
+  if (!authorized) return null;
 
-  const storage = getFileStoragePort();
-  return storage.getSignedDownloadUrl(version.fileStorageKey, {
+  const { version, access } = authorized;
+
+  await recordAuditEvent({
+    action: "DOCUMENT_DOWNLOADED",
+    actorUserId: access.userId,
+    actorRole: access.session.user.role,
+    establishmentId: version.document.establishmentId,
+    targetId: version.id,
+    detail: version.document.documentType?.code ?? null,
+  });
+
+  return getFileStoragePort().getSignedDownloadUrl(version.fileStorageKey, {
     disposition: "attachment",
     filename: version.originalFilename,
   });
@@ -224,14 +194,24 @@ export type DocumentPreviewData =
 export async function getDocumentPreviewData(
   documentVersionId: string
 ): Promise<DocumentPreviewData | null> {
-  const version = await getAuthorizedDocumentVersion(documentVersionId);
-  if (!version) return null;
+  const authorized = await getAuthorizedDocumentVersion(documentVersionId);
+  if (!authorized) return null;
+
+  const { version, access } = authorized;
+
+  await recordAuditEvent({
+    action: "DOCUMENT_PREVIEWED",
+    actorUserId: access.userId,
+    actorRole: access.session.user.role,
+    establishmentId: version.document.establishmentId,
+    targetId: version.id,
+    detail: version.document.documentType?.code ?? null,
+  });
 
   const isPdf = version.originalFilename.toLowerCase().endsWith(".pdf");
 
   if (isPdf) {
-    const storage = getFileStoragePort();
-    const url = await storage.getSignedDownloadUrl(version.fileStorageKey, {
+    const url = await getFileStoragePort().getSignedDownloadUrl(version.fileStorageKey, {
       disposition: "inline",
       filename: version.originalFilename,
     });

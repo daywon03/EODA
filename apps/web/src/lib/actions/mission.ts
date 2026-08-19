@@ -1,19 +1,26 @@
 "use server";
 
-import { prisma, type CommercialTier, type MissionChecklistScope } from "@eoda/database";
-import { requireCabinetSession } from "@/lib/auth/guards";
+import { prisma, CommercialTier, type MissionChecklistScope } from "@eoda/database";
+import { requireCabinetSession, requireEstablishmentInTenant } from "@/lib/auth/guards";
 import { notFound } from "next/navigation";
+import { requiredEnum } from "@/lib/validation/form-parsers";
 import { revalidatePath } from "next/cache";
 import { computeMissionProgress, isScopeApplicable, type MissionProgress } from "@/lib/services/mission-progress-service";
 
-async function requireTenantId(): Promise<{ session: Awaited<ReturnType<typeof requireCabinetSession>>; tenantId: string }> {
-  const session = await requireCabinetSession();
-  const user = await prisma.user.findUniqueOrThrow({
-    where: { id: session.user.id },
-    select: { tenantId: true },
+// Plus de résolution de tenant locale : requireCabinetSession() la fait déjà et
+// refuse un compte Cabinet sans tenant (fail-closed, cf. lib/auth/guards.ts).
+
+// Vérifie qu'une formule reçue est bien active au catalogue du tenant — un
+// identifiant de formule n'est pas une donnée de confiance même dans un <select>.
+async function assertFormuleAvailable(
+  tenantId: string,
+  formule: CommercialTier
+): Promise<boolean> {
+  const available = await prisma.catalogueFormule.findFirst({
+    where: { tenantId, formule, active: true },
+    select: { id: true },
   });
-  if (!user.tenantId) notFound();
-  return { session, tenantId: user.tenantId };
+  return available !== null;
 }
 
 function missionPaths(establishmentId: string) {
@@ -28,7 +35,7 @@ function missionPaths(establishmentId: string) {
 // reste réservée à CABINET_ADMIN) : un CABINET_EVALUATOR doit pouvoir voir les
 // prix pour choisir l'offre à la création d'une mission.
 export async function listFormulesForMissionSetup() {
-  const { tenantId } = await requireTenantId();
+  const { tenantId } = await requireCabinetSession();
 
   return prisma.catalogueFormule.findMany({
     where: { tenantId, active: true },
@@ -41,30 +48,22 @@ export async function createMission(
   _prevState: { error: string } | null,
   formData: FormData
 ): Promise<{ error: string } | null> {
-  const { tenantId } = await requireTenantId();
-
-  const establishment = await prisma.establishment.findFirst({
-    where: { id: establishmentId, tenantId },
-  });
-  if (!establishment) notFound();
+  const { tenantId } = await requireEstablishmentInTenant(establishmentId);
 
   const existing = await prisma.mission.findUnique({ where: { establishmentId } });
   if (existing) return { error: "Une mission existe déjà pour cet établissement." };
 
-  const formule = formData.get("formule") as CommercialTier | null;
+  const formule = requiredEnum(formData, "formule", "La formule", CommercialTier);
+  if (!formule.ok) return { error: formule.error };
   const gratuit = formData.get("gratuit") === "on";
 
-  if (!formule) return { error: "La formule est obligatoire." };
-
-  const availableFormules = await prisma.catalogueFormule.findMany({
-    where: { tenantId, active: true },
-    select: { formule: true },
-  });
-  if (!availableFormules.some((f) => f.formule === formule)) {
+  if (!(await assertFormuleAvailable(tenantId, formule.value))) {
     return { error: "Cette formule n'est pas disponible dans le catalogue." };
   }
 
-  await prisma.mission.create({ data: { tenantId, establishmentId, formule, gratuit } });
+  await prisma.mission.create({
+    data: { tenantId, establishmentId, formule: formule.value, gratuit },
+  });
 
   for (const path of missionPaths(establishmentId)) revalidatePath(path);
   return null;
@@ -75,28 +74,26 @@ export async function updateMissionScope(
   _prevState: { error: string } | null,
   formData: FormData
 ): Promise<{ error: string } | null> {
-  const { tenantId } = await requireTenantId();
+  const { tenantId } = await requireCabinetSession();
 
   const mission = await prisma.mission.findFirst({ where: { id: missionId, tenantId } });
   if (!mission) notFound();
 
-  const formule = formData.get("formule") as CommercialTier | null;
+  const formule = requiredEnum(formData, "formule", "La formule", CommercialTier);
+  if (!formule.ok) return { error: formule.error };
   const gratuit = formData.get("gratuit") === "on";
 
-  if (!formule) return { error: "La formule est obligatoire." };
-
-  const availableFormules = await prisma.catalogueFormule.findMany({
-    where: { tenantId, active: true },
-    select: { formule: true },
-  });
-  if (!availableFormules.some((f) => f.formule === formule)) {
+  if (!(await assertFormuleAvailable(tenantId, formule.value))) {
     return { error: "Cette formule n'est pas disponible dans le catalogue." };
   }
 
   // Ne touche jamais aux statuts de checklist déjà cochés — une régression
   // Excellence → Essentiel masque seulement les phases hors scope, sans
   // détruire la progression déjà enregistrée (cf. plan §7 edge cases).
-  await prisma.mission.update({ where: { id: missionId }, data: { formule, gratuit } });
+  await prisma.mission.update({
+    where: { id: missionId },
+    data: { formule: formule.value, gratuit },
+  });
 
   for (const path of missionPaths(mission.establishmentId)) revalidatePath(path);
   return null;
@@ -107,7 +104,7 @@ export async function toggleChecklistItem(
   itemCode: string,
   completed: boolean
 ): Promise<{ error: string } | null> {
-  const { tenantId } = await requireTenantId();
+  const { tenantId } = await requireCabinetSession();
 
   const mission = await prisma.mission.findFirst({ where: { id: missionId, tenantId } });
   if (!mission) notFound();
@@ -145,7 +142,12 @@ export async function updatePhaseDates(
   startDate: string | null,
   endDate: string | null
 ): Promise<{ error: string } | null> {
-  const { tenantId } = await requireTenantId();
+  const { tenantId } = await requireCabinetSession();
+
+  // `phase` est un argument d'action serveur, donc une entrée non fiable : sans
+  // ce contrôle, une valeur inconnue produit `fields === undefined` et un accès
+  // sur undefined.
+  if (!(phase in PHASE_DATE_FIELDS)) return { error: "Phase inconnue." };
 
   const mission = await prisma.mission.findFirst({ where: { id: missionId, tenantId } });
   if (!mission) notFound();
@@ -180,7 +182,7 @@ export type MissionWithProgress = {
 };
 
 export async function getMission(establishmentId: string): Promise<MissionWithProgress | null> {
-  const { tenantId } = await requireTenantId();
+  const { tenantId } = await requireCabinetSession();
 
   const mission = await prisma.mission.findFirst({
     where: { establishmentId, tenantId },

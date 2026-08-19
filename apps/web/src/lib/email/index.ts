@@ -1,6 +1,7 @@
 import type { EmailPort } from "./email-port";
 import { ResendEmailAdapter } from "./resend-email-adapter";
 import { ConsoleEmailAdapter } from "./console-email-adapter";
+import { getEnv } from "@/lib/config/env";
 
 let cached: EmailPort | null = null;
 
@@ -9,14 +10,14 @@ let cached: EmailPort | null = null;
 export function getEmailPort(): EmailPort {
   if (cached) return cached;
 
-  const { RESEND_API_KEY, RESEND_FROM_EMAIL } = process.env;
+  const env = getEnv();
 
-  if (RESEND_API_KEY && RESEND_FROM_EMAIL) {
-    cached = new ResendEmailAdapter({ apiKey: RESEND_API_KEY, from: RESEND_FROM_EMAIL });
+  if (env.resend) {
+    cached = new ResendEmailAdapter(env.resend);
     return cached;
   }
 
-  if (process.env.NODE_ENV === "production") {
+  if (env.isProduction) {
     throw new Error(
       "Envoi d'email non configuré : RESEND_API_KEY/RESEND_FROM_EMAIL requis en production."
     );

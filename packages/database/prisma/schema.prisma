@@ -621,3 +621,46 @@ model MissionChecklistItemStatus {
   @@unique([missionId, itemId])
   @@map("mission_checklist_item_statuses")
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// JOURNAL D'AUDIT — traçabilité des accès aux données sensibles
+// cf. specs/03-roadmap-developpement.md Jalon 5 et specs/02-architecture-technique.md §Sécurité
+//
+// Données de santé/social : il faut pouvoir répondre à « qui a consulté ou déposé
+// quel document, et quand ». Table volontairement en append-only, SANS clé
+// étrangère vers User/Establishment : un journal d'audit ne doit pas être effacé
+// en cascade avec l'objet qu'il documente (la suppression d'un établissement est
+// précisément un événement dont on veut garder la trace). Les identifiants sont
+// donc conservés comme valeurs, pas comme relations.
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum AuditAction {
+  DOCUMENT_UPLOADED
+  DOCUMENT_DOWNLOADED
+  DOCUMENT_PREVIEWED
+  DOCUMENT_STATUS_ANSWERED
+  CLIENT_USER_INVITED
+  ESTABLISHMENT_DELETED
+  LOGIN_FAILED
+  LOGIN_RATE_LIMITED
+}
+
+model AuditLogEntry {
+  id              String      @id @default(cuid())
+  occurredAt      DateTime    @default(now()) @map("occurred_at")
+  action          AuditAction
+  // null pour un événement non authentifié (échec de connexion sur un email inconnu).
+  actorUserId     String?     @map("actor_user_id")
+  actorRole       String?     @map("actor_role")
+  establishmentId String?     @map("establishment_id")
+  // Identifiant de l'objet visé (DocumentVersion, User invité…) — jamais une donnée
+  // personnelle, uniquement une clé technique.
+  targetId        String?     @map("target_id")
+  // Contexte court et non nominatif (nom de type de document, motif de refus).
+  detail          String?
+
+  @@index([establishmentId, occurredAt])
+  @@index([actorUserId, occurredAt])
+  @@index([action, occurredAt])
+  @@map("audit_log_entries")
+}

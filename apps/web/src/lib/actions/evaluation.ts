@@ -1,8 +1,9 @@
 "use server";
 
-import { prisma, type Rating } from "@eoda/database";
-import { requireCabinetSession } from "@/lib/auth/guards";
+import { prisma, Rating } from "@eoda/database";
+import { requireCabinetSession, requireEstablishmentInTenant } from "@/lib/auth/guards";
 import { notFound } from "next/navigation";
+import { isEnumValue } from "@/lib/validation/form-parsers";
 import { revalidatePath } from "next/cache";
 import { getOfferScope } from "@/lib/services/offer-scope-service";
 import {
@@ -14,21 +15,27 @@ import {
 import { shouldSuggestCompliance } from "@/lib/services/pre-rating-suggestion-service";
 import type { DocumentStatus } from "@eoda/database";
 
-async function requireEstablishmentInTenant(establishmentId: string) {
-  const session = await requireCabinetSession();
+// L'autorisation (session Cabinet + appartenance de l'établissement au tenant) est
+// entièrement portée par lib/auth/guards.ts — cf. le helper local supprimé ici, qui
+// retombait sur une requête non filtrée quand l'utilisateur n'avait pas de tenant.
 
-  const user = await prisma.user.findUniqueOrThrow({
-    where: { id: session.user.id },
-    select: { tenantId: true },
+// Vérifie qu'une session d'évaluation appartient bien à un établissement du tenant
+// de l'appelant. Indispensable pour toute action qui ne reçoit qu'un `sessionId` :
+// sans ce contrôle, un identifiant deviné permet de coter l'établissement d'un
+// autre cabinet.
+async function requireEvaluationSessionInTenant(evaluationSessionId: string) {
+  const { tenantId, session } = await requireCabinetSession();
+
+  const evaluationSession = await prisma.evaluationSession.findFirst({
+    where: { id: evaluationSessionId, establishment: { tenantId } },
+    include: { chapter: true },
   });
+  if (!evaluationSession) notFound();
 
-  const establishment = await prisma.establishment.findFirst({
-    where: user.tenantId ? { id: establishmentId, tenantId: user.tenantId } : { id: establishmentId },
-  });
-  if (!establishment) notFound();
-
-  return { session, establishment };
+  return { evaluationSession, session, tenantId };
 }
+
+const MAX_RATING_COMMENT_LENGTH = 4000;
 
 function evaluationPaths(establishmentId: string, chapterNumber?: number) {
   const paths = [`/dashboard/cabinet/etablissements/${establishmentId}/evaluation`];
@@ -40,7 +47,12 @@ export async function startOrResumeEvaluationSession(
   establishmentId: string,
   chapterId: string
 ): Promise<{ sessionId: string; startedAt: Date }> {
-  const { session } = await requireEstablishmentInTenant(establishmentId);
+  const { userId } = await requireEstablishmentInTenant(establishmentId);
+
+  // Le chapitre doit exister dans le référentiel — un identifiant arbitraire ne doit
+  // pas produire une session orpheline (erreur de contrainte technique côté client).
+  const chapter = await prisma.chapter.findUnique({ where: { id: chapterId }, select: { id: true } });
+  if (!chapter) notFound();
 
   const existing = await prisma.evaluationSession.findFirst({
     where: { establishmentId, chapterId, finishedAt: null },
@@ -49,7 +61,7 @@ export async function startOrResumeEvaluationSession(
   if (existing) return { sessionId: existing.id, startedAt: existing.startedAt };
 
   const created = await prisma.evaluationSession.create({
-    data: { establishmentId, chapterId, performedByUserId: session.user.id },
+    data: { establishmentId, chapterId, performedByUserId: userId },
   });
   return { sessionId: created.id, startedAt: created.startedAt };
 }
@@ -60,13 +72,9 @@ export async function rateElement(
   rating: Rating,
   comment: string | null
 ): Promise<{ error: string; warning?: string } | { warning?: string }> {
-  await requireCabinetSession();
+  if (!isEnumValue(rating, Rating)) return { error: "Cotation invalide." };
 
-  const evaluationSession = await prisma.evaluationSession.findUnique({
-    where: { id: sessionId },
-    include: { chapter: true },
-  });
-  if (!evaluationSession) notFound();
+  const { evaluationSession } = await requireEvaluationSessionInTenant(sessionId);
 
   const element = await prisma.evaluationElement.findUnique({
     where: { id: evaluationElementId },
@@ -81,14 +89,18 @@ export async function rateElement(
   );
   if (!check.allowed) return { error: check.warning ?? "Cotation non autorisée." };
 
+  // Commentaire = preuve consultée, saisi à chaud pendant l'entretien : borné pour
+  // éviter qu'un champ libre serve de vecteur de saturation du stockage.
+  const boundedComment = comment?.slice(0, MAX_RATING_COMMENT_LENGTH) ?? null;
+
   await prisma.elementRating.upsert({
     where: { evaluationSessionId_evaluationElementId: { evaluationSessionId: sessionId, evaluationElementId } },
-    update: { rating, comment, confirmedByUser: true, suggestedBySystem: false },
+    update: { rating, comment: boundedComment, confirmedByUser: true, suggestedBySystem: false },
     create: {
       evaluationSessionId: sessionId,
       evaluationElementId,
       rating,
-      comment,
+      comment: boundedComment,
       confirmedByUser: true,
     },
   });
@@ -98,10 +110,7 @@ export async function rateElement(
 }
 
 export async function finishEvaluationSession(sessionId: string): Promise<void> {
-  await requireCabinetSession();
-
-  const evaluationSession = await prisma.evaluationSession.findUnique({ where: { id: sessionId } });
-  if (!evaluationSession) notFound();
+  const { evaluationSession } = await requireEvaluationSessionInTenant(sessionId);
 
   const durationSeconds = Math.round((Date.now() - evaluationSession.startedAt.getTime()) / 1000);
 
