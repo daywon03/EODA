@@ -15,7 +15,7 @@ env:
 
 jobs:
   ci:
-    name: Lint · Typecheck · Build
+    name: Secrets · Typecheck · Lint · Tests · Build
     runs-on: ubuntu-latest
 
     services:
@@ -36,6 +36,20 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          # Historique complet — gitleaks analyse les commits, pas seulement l'arbre.
+          fetch-depth: 0
+
+      # Analyse de secrets AVANT tout le reste : un secret commité doit être signalé
+      # même si le reste du pipeline échoue. Binaire installé directement plutôt que
+      # via l'action officielle, qui exige une clé de licence pour une organisation.
+      - name: Détection de secrets (gitleaks)
+        run: |
+          GITLEAKS_VERSION=8.24.0
+          curl -sSfL -o /tmp/gitleaks.tar.gz \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          tar -xzf /tmp/gitleaks.tar.gz -C /tmp gitleaks
+          /tmp/gitleaks detect --source . --redact --no-banner --exit-code 1
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -51,6 +65,11 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # Échoue sur une vulnérabilité haute ou critique. Pas de `|| true` : une étape
+      # de qualité qui ne peut pas échouer transforme la CI en théâtre.
+      - name: Audit des dépendances
+        run: pnpm audit --audit-level high
+
       - name: Generate Prisma client
         run: pnpm db:generate
 
@@ -62,6 +81,11 @@ jobs:
 
       - name: Lint
         run: pnpm lint
+
+      # Tests unitaires des services purs — moteur de cotation HAS, périmètre des
+      # offres, validation des fichiers déposés, parseurs d'entrée. Aucune BDD requise.
+      - name: Tests
+        run: pnpm test
 
       - name: Build
         run: pnpm build
