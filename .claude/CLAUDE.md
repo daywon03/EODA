@@ -3,6 +3,45 @@
 > Fichier lu automatiquement par Claude Code au démarrage de chaque session.
 > Source de vérité unique sur le projet, la stack et les règles de développement.
 
+## 0. À FAIRE AVANT TOUTE CHOSE — conventions d'ingénierie
+
+**Avant d'écrire une ligne de code, avant même de raisonner sur une solution technique,
+charge la skill `engineering-conventions`** (`Skill(engineering-conventions)`).
+
+Elle contient les règles indépendantes de la stack : sécurité non négociable (`S1`-`S10`),
+anti-duplication, typage strict, tests, et surtout la **Règle zéro** — une règle qu'aucune
+machine ne vérifie n'est pas une règle, c'est un souhait. Ces règles **prévalent sur toute
+préférence de style**, et sur la sécurité elles prévalent sur les conventions locales du dépôt.
+
+Elles sont **cumulatives** avec les §5 (SOLID), §5 bis (sécurité) et §6 (contraintes) de ce
+fichier, jamais en remplacement. En cas de contradiction : le dépôt gagne sur le style, la
+skill gagne sur la sécurité et la correction.
+
+### État de la chaîne d'application dans ce dépôt (vérifié le 2026-08-19)
+
+Ce tableau est le contrat mécanique. **Si tu ajoutes une règle, ajoute la ligne qui la
+vérifie** — sinon elle n'existe pas.
+
+| Règle | Contrôle mécanique | Où |
+|---|---|---|
+| Pas d'opération asynchrone non attendue | `no-floating-promises`, `no-misused-promises`, `await-thenable` en **error** | `apps/web/.eslintrc.json` (type-aware, `parserOptions.project`) |
+| Pas d'échappatoire au typage | `no-explicit-any` en **error** | idem |
+| Pas de journalisation sauvage | `no-console` en **error** (`error`/`warn` autorisés) | idem |
+| `process.env` lu à un seul endroit | `no-restricted-syntax` en **error** | idem — seule exception : `lib/config/env.ts` |
+| Contrat de types respecté | `tsc --noEmit` sur **les deux** packages | `pnpm typecheck` (`pnpm -r --if-present`) |
+| Couverture minimale | seuils qui **font échouer** la commande | `apps/web/vitest.config.mts` — 80 % lignes/fonctions/instructions, 75 % branches |
+| Aucun secret commité | `gitleaks` en pre-commit **et** en CI (historique complet) | `.githooks/pre-commit` + `.github/workflows/ci.yml` |
+| Hooks installés par le dépôt | `git config core.hooksPath .githooks` posé par le `postinstall` | `package.json` |
+| Dépendances vulnérables | `pnpm audit --audit-level high` **sans `\|\| true`** | CI |
+| CI qui dit la vérité | aucun `continue-on-error`, aucun masquage d'échec | CI |
+
+**Dette acceptée, avec justification écrite** : `xlsx` (GHSA-4r6h-8v6p-xvw6,
+GHSA-5pgg-2g8v-p4x9) n'a pas de version corrigée publiée sur npm. Utilisé uniquement par
+`packages/database/prisma/seed-has-referential.ts`, un script de seed exécuté à la main sur
+les grilles Synaé locales de Sandrine — jamais dans le chemin d'exécution de l'application,
+jamais sur un fichier provenant d'un tiers. Exception déclarée explicitement dans
+`pnpm.auditConfig.ignoreGhsas`, pas en abaissant le seuil global d'audit.
+
 ## 1. Contexte métier (à connaître avant tout)
 
 **Qui :** Sandrine Regina, fondatrice d'EODA Conseil (auto-entreprise), consultante qualité
@@ -57,7 +96,7 @@ Le détail fonctionnel complet de chaque module est dans `specs/01-mvp-v1.md`.
 | 4 | `context/04-charte-eoda.md` | Identité visuelle (couleurs, typo, logo, conventions de nommage fichiers) |
 | 5 | `context/05-prototype-existant.md` | Ce qui existe déjà (HTML statique auto-éval) et pourquoi on le réécrit proprement |
 | 6 | `context/06-mode-operatoire-eoda.md` | Mode opératoire humain : contrôle croisé documentaire (matrice, champs critiques, détection d'écarts) + déroulé complet de la mission ASSAD BENOIT (8 phases, gouvernance, vigilances juridiques) — process métier, complémentaire aux fichiers ci-dessus qui documentent les règles produit |
-| 7 | `context/07-outil-pilotage-missions.md` | Pipeline commercial (prospects, devis, catalogue, KPI — `/dashboard/cabinet/commercial`, CABINET_ADMIN uniquement) et suivi de mission (checklist diagnostic 12 items + 4 phases — `/dashboard/cabinet/etablissements/[id]/mission`, CABINET_ADMIN + CABINET_EVALUATOR) sont tous deux implémentés dans la plateforme |
+| 7 | `context/07-outil-pilotage-missions.md` | Pipeline commercial (prospects, devis, catalogue, KPI — `/dashboard/cabinet/commercial`, CABINET_ADMIN uniquement) et suivi de mission (checklist diagnostic 12 items + 4 phases — `/dashboard/cabinet/etablissements/[id]/mission`, CABINET_ADMIN + CABINET_EVALUATOR) sont tous deux implémentés dans la plateforme. **§12 = refonte des offres décidée au call du 16/08/2026 (prix, périmètres, portails), pas encore implémentée — elle remplace le §4 : lire §12 avant de toucher au catalogue, aux offres ou aux portails.** |
 | 8 | `specs/01-mvp-v1.md` | Spécification fonctionnelle détaillée des 3 modules V1 |
 | 9 | `specs/02-architecture-technique.md` | Stack, schéma BDD, architecture, ADRs |
 | 10 | `specs/03-roadmap-developpement.md` | Ordre de build, jalons, definition of done |
@@ -101,6 +140,29 @@ Le référentiel HAS a des règles précises (NC interdit sur impératifs, RI un
 - **Évolutivité explicitement préparée** (ne pas construire maintenant, mais ne rien faire
   qui l'empêche) : gestion EI/EIG, registre plaintes/réclamations, reporting KPI/Power BI,
   multi-cabinet (si EODA recrute), export Synaé
+
+## 5 bis. Sécurité — règles à appliquer sans exception
+
+Détail complet et état d'avancement : `specs/02-architecture-technique.md` §4.
+
+- 🔐 **Une seule couche d'autorisation** : `apps/web/src/lib/auth/guards.ts`. Ne **jamais**
+  réécrire un contrôle d'accès dans une action serveur, ni recopier une garde localement.
+  C'est ainsi qu'on obtient des divergences (une action qui vérifie le tenant, une autre qui
+  l'oublie) et donc des IDOR — c'est exactement ce que l'audit du 2026-08-19 a trouvé.
+- 🔐 **Un identifiant reçu par une action serveur est une entrée non fiable.** Un
+  `establishmentId`, `missionId`, `sessionId`, `documentVersionId` vient d'une route HTTP
+  publique, pas de l'UI. Toute action qui en reçoit un doit vérifier son appartenance
+  (`requireEstablishmentInTenant`, `requireEstablishmentAccess`), pas seulement la session.
+- 🔐 **Fail-closed.** Le motif `if (user.tenantId) where.tenantId = user.tenantId` est
+  interdit : un filtre omis rend la requête globale. Pas de tenant ⇒ pas d'accès.
+- 🔐 **`notFound()` et jamais `redirect()`** sur un objet hors périmètre — ne pas révéler
+  qu'un identifiant existe dans un autre tenant.
+- 🔐 **Pas de cast d'enum sur une entrée** : `formData.get("x") as "A" | "B"` ne valide rien
+  à l'exécution. Passer par `lib/validation/form-parsers.ts`.
+- 🔐 **Fichier déposé** : type déterminé par signature binaire (jamais `File.type`), nom
+  d'origine jamais concaténé dans une clé de stockage (`lib/security/upload-validation-service.ts`).
+- 📋 **Journaliser tout accès à un document** (`recordAuditEvent`) — secteur médico-social,
+  traçabilité attendue. Jamais de donnée personnelle dans le champ `detail`.
 
 ## 6. Contraintes non négociables
 

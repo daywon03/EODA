@@ -115,10 +115,35 @@ qualité perçue de ce module conditionne l'adoption de toute la plateforme.
 rendu HTTP authentifié) ; **export structuré et calibration avec Sandrine restent à faire**
 avant mise en usage réel.
 
-## Jalon 5 — Durcissement avant mise en usage réel
+## Jalon 5 — Durcissement avant mise en usage réel — 🟡 EN COURS (2026-08-19)
 
-- [ ] Revue sécurité (cloisonnement établissement testé avec 2 comptes différents)
-- [ ] Logs d'audit minimaux sur accès documents
+- [x] **Revue sécurité — faite, écarts corrigés.** Le cloisonnement client fonctionnait, mais
+  le cloisonnement **par tenant côté Cabinet** était absent ou défaillant sur plusieurs
+  actions : dépôt/aperçu/téléchargement de document, checklist d'établissement, invitation
+  d'un utilisateur client, cotation et clôture de session d'évaluation. Plus un motif
+  fail-open (`if (user.tenantId) where.tenantId = …`) qui rendait la requête globale pour un
+  compte Cabinet sans tenant. Corrigé par une couche d'autorisation unique
+  (`lib/auth/guards.ts`) que toute action doit désormais traverser — détail complet dans
+  `specs/02-architecture-technique.md` §4.
+- [x] **Logs d'audit sur accès documents** — modèle `AuditLogEntry` + `audit-log-service.ts`
+  (dépôt, téléchargement, aperçu, réponse document manquant, invitation client, suppression
+  d'établissement, échec de connexion, blocage de tentatives). Migration
+  `20260819120000_audit_log` — à appliquer avec `pnpm db:migrate:deploy`.
+- [x] **Durcissement transverse** : validation réelle des entrées (plus de cast d'enum non
+  vérifié), détection du type de fichier par signature binaire, assainissement de la clé de
+  stockage (traversée de chemin), en-têtes de sécurité + CSP, limitation de débit sur le
+  login, session ramenée à 8 h, révocation immédiate sur rôle/compte supprimé.
+- [x] **Tests unitaires** (`pnpm test`, 70 tests) sur les services purs, exécutés en CI :
+  règles de cotation HAS, périmètre des offres, avancement de mission, validation des dépôts,
+  parseurs d'entrée.
+- [ ] **Chiffrement at-rest / bucket S3 réel** — toujours non connecté (`S3_*` vides). Reste
+  le point bloquant n°1 avant de déposer un vrai document client en production.
+- [ ] **CSP à nonce** — la CSP actuelle conserve `script-src 'unsafe-inline'`, requis par le
+  script d'amorçage de Next.js App Router.
+- [ ] **Compteur de limitation partagé** (Redis ou table Postgres) si l'app passe à plusieurs
+  instances — l'adaptateur mémoire actuel se contourne en réparti.
+- [ ] **Rétention du journal d'audit** — durée de conservation à arrêter avec Sandrine.
+- [ ] **Rotation du mot de passe temporaire** à la première connexion d'un compte client.
 - [ ] Tests de charge basiques sur le pipeline d'analyse (un upload simultané de plusieurs
   documents ne doit pas planter le job queue)
 - [ ] Vérification réelle du format d'export attendu par Synaé (point ouvert — voir

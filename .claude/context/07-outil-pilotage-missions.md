@@ -290,6 +290,100 @@ variables CSS de couleur (`--brun-ancre`, `--terre`, `--ambre`, etc.), même pol
 charte si ce module devait être repris dans une interface future — le rendu visuel est
 déjà conforme.
 
+## 12. Refonte des offres — décisions du call du 16 août 2026 ⚠️ NON IMPLÉMENTÉ
+
+> Source : call Sandrine × Damon du dimanche 16 août 2026 (4 h 15).
+> **Ces décisions remplacent le §4 ci-dessus**, qui reste la référence du prototype v02.
+> Elles ne sont **pas encore** dans la plateforme : le catalogue seedé porte toujours les
+> prix du §4.1 (2 500 / 6 500 / 12 000 €). Sandrine doit d'abord envoyer l'offre commerciale
+> mise à jour (slides 4, 7 et options) — c'est l'action qui débloque cette implémentation.
+
+### 12.1 Les trois offres, redéfinies
+
+| | Essentiel | Performance | Excellence |
+|---|---|---|---|
+| Périmètre audit | **16 critères impératifs** + 7 documents loi 2002-2 | + les 141 critères standards (= 157) | idem 157 |
+| Visite sur site | ½ journée | 2 jours (évaluation simulée) | idem + **2ᵉ session** après mise en conformité |
+| Documentaire | aucun traitement | **analyse + mise en conformité seulement** | + **création** (procédures, registres, CR, affiches) |
+| Suivi | aucun (mise en œuvre autonome) | 3 journées d'ateliers (suivi de conformité documentaire) | + **réunion hebdo 2 h** de suivi du PAC, pas à pas |
+| Reporting | conformité référentielle HAS seule | idem | + **KPI Excel / Power BI** |
+| Durée | 2-4 semaines | **3 mois** (M1-M3) | **10 mois** (ni 12 ni 18) |
+| Prix | **à partir de 5 000 €** | **à partir de 6 500 €** | **15 000 €** |
+
+Livrables communs aux trois offres : **rapport de diagnostic** (Word) + **plan d'action /
+PAC** (Excel). Formule de vente retenue pour l'outillage documentaire :
+*« upload, analyse, diagnostic, plan d'action et mise en conformité »*.
+
+Ligne de démarcation Performance / Excellence, à respecter dans le code : **Performance
+modifie l'existant, Excellence crée du nouveau.** Une procédure, un registre, un compte rendu
+de réunion, une affiche de sensibilisation relèvent de la création → hors Performance.
+
+### 12.2 Options à la carte (jamais incluses dans une formule)
+
+| Option | Prix décidé |
+|---|---|
+| Création / mise à jour documentaire à l'unité | **200 € HT par document** (~20 documents identifiés) |
+| Quiz de sensibilisation (Kahoot) | option, **dans aucune formule** |
+| Documents de sensibilisation (affiche A4, communication interne) | option |
+| Tableau de bord des 24 KPI qualité | option |
+| Abonnement portail EODA + veille réglementaire HAS | **400 €/mois**, dégressif selon l'offre souscrite, **engagement 1 an renouvelable** |
+
+La **hotline** est retirée de l'offre pour l'instant (idée conservée, non chiffrée).
+
+### 12.3 Deux règles de gouvernance produit
+
+1. **Prix « à partir de » partout, jamais un prix fixe.** C'est **Sandrine** qui coche les
+   options pendant la réunion d'évaluation des besoins, ce qui génère le devis — le client ne
+   s'auto-configure pas.
+2. **Le client n'appuie jamais lui-même sur « générer ».** Il dépose ; Sandrine déclenche,
+   vérifie, valide, puis le document devient visible. Décision explicite et assumée : si le
+   client voyait la génération comme automatique, la facturation d'un accompagnement humain
+   ne se justifierait plus.
+
+### 12.4 Architecture des portails — précision qui contredit l'implémentation actuelle
+
+- **Portail interne (suivi de mission)** = to-do list de Sandrine **+ reflet en compteurs** du
+  portail client (X documents déposés / X analysés / X modifiés / X conformes).
+  **Aucun dépôt de document.** L'implémentation actuelle permet le dépôt depuis la checklist
+  documentaire du suivi de mission — à retirer.
+- **Portail client externe (mise en conformité)** = seul endroit de dépôt, par le client
+  **et** par Sandrine (elle garde un droit d'écriture pour les clients peu à l'aise avec
+  l'informatique).
+- **Parcours à verrouiller en priorité** : prospection → devis → contrat → création de la
+  fiche client **avec sélection de l'offre et des options** → ce choix **génère le profil
+  client externe** avec seulement les checklists et tâches propres à l'offre → dépôt client →
+  reflet dans le portail interne.
+- **Les 12 items du diagnostic doivent être filtrés par offre.** Aujourd'hui
+  `isScopeApplicable()` ne filtre que Consolidation et Préparation finale (§7.3) : les 12
+  items du diagnostic s'affichent quelle que soit la formule. En Essentiel, Sandrine attend
+  seulement : réunion de cadrage, recueil documentaire, visite, diagnostic sur les 16
+  impératifs, vérification loi 2002-2, rapport de diagnostic, création du PAC.
+
+### 12.5 Fonctionnalités demandées sur le call, non encore développées
+
+- **Page « plan d'action » dans la plateforme** : chaque ligne d'action porte soit un bouton
+  de génération (comprise dans l'offre), soit un paywall / une demande de devis (option).
+  C'est le livrable que Sandrine attend de Damon, avec la règle : *« tout ce qui est comme le
+  3.13 doit être une option »*.
+- **Module sensibilisation** : la plateforme génère le **PDF de questions** ciblé sur les
+  critères faibles, renvoie vers **Kahoot** (pas de moteur de quiz maison), et réimporte les
+  statistiques comme élément de preuve.
+- **Guide / centre d'aide dans l'application**, utilisable comme support de formation le
+  22 septembre et pour l'autonomie sur les nouveaux arrivants du client.
+- **Relances automatiques** (email / message) des clients qui ne fournissent pas.
+- **Fin de mission (RGPD)** : couper l'accès, **conserver** les données en historique ; ou
+  laisser la bibliothèque accessible en lecture si le client prend l'abonnement.
+- **Export Excel des cotations** compatible Synaé, avec saisie à chaud pendant les entretiens
+  (déjà identifié comme gap au Jalon 4).
+
+### 12.6 Calendrier arrêté
+
+- Formation ASSAD BENOIT : **22 au 30 septembre 2026** (et non août — ils sont en congés).
+- Réunion d'avance de phase avec le client : entre le **8 et le 18 septembre**.
+- Vidéo de témoignage à tourner **après** la présentation de l'outil, pas en fin de journée.
+- Objectif stratégique : que ASSAD parle d'EODA à la fédération **UNA** à sa réunion
+  mensuelle → référencement → un gros client dès janvier 2027.
+
 ---
 
 *Fichier généré à partir de `20260621_DOC_EODA_Pilotage-Missions-Documentation_v02_Interne.docx`
