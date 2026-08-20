@@ -4,6 +4,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ProspectStatusBadge } from "./ProspectStatusBadge";
 import type { ProspectStatus, ProspectType } from "@eoda/database";
+import { formatEuros } from "@/lib/services/price-format-service";
 
 type Props = {
   id: string;
@@ -57,7 +58,7 @@ export function ProspectCard({
           <div className="flex items-center gap-3 text-xs text-gris-mid mt-auto pt-2 border-t border-gris-light">
             {estimatedAmountEuros != null && (
               <span className="font-medium text-brun-ancre">
-                {estimatedAmountEuros.toLocaleString("fr-FR")} €
+                {formatEuros(estimatedAmountEuros)}
               </span>
             )}
             <span className="flex items-center gap-1">

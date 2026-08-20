@@ -124,7 +124,7 @@ solde              = montant total − montant acompte
 montant par échéance = arrondi(solde / nombre d'échéances)
 ```
 
-- **Taux d'acompte par défaut** : 30 % à la commande — paramétrable globalement
+- **Taux d'acompte par défaut** : 40 % à la commande (CGP plaquette v10 §06 ; 30 % dans la v02) — paramétrable globalement
   (Catalogue → Paramètres de facturation) et modifiable par devis.
 - **Nombre d'échéances pour le solde** : configurable de 1 à 6.
 - **Validité du devis** : 30 jours par défaut à partir de la date de création — la date
@@ -290,13 +290,41 @@ variables CSS de couleur (`--brun-ancre`, `--terre`, `--ambre`, etc.), même pol
 charte si ce module devait être repris dans une interface future — le rendu visuel est
 déjà conforme.
 
-## 12. Refonte des offres — décisions du call du 16 août 2026 ⚠️ NON IMPLÉMENTÉ
+## 12. Refonte des offres — décisions du call du 16 août 2026 ⚠️ PARTIELLEMENT IMPLÉMENTÉ
 
-> Source : call Sandrine × Damon du dimanche 16 août 2026 (4 h 15).
+> Source : call Sandrine × Damon du dimanche 16 août 2026 (4 h 15),
+> [transcription Fathom](https://fathom.video/calls/786436116). **Chaque décision ci-dessous
+> porte le lien horodaté qui permet de la vérifier sans réécouter le call.** Corrigé le
+> 19/08/2026 après relecture intégrale de la transcription : plusieurs points du §12 initial
+> étaient des versions rétractées en cours de call (prix Essentiel, ligne de démarcation
+> Performance / Excellence, coupure d'accès en fin de mission, interdiction de dépôt).
+>
 > **Ces décisions remplacent le §4 ci-dessus**, qui reste la référence du prototype v02.
-> Elles ne sont **pas encore** dans la plateforme : le catalogue seedé porte toujours les
-> prix du §4.1 (2 500 / 6 500 / 12 000 €). Sandrine doit d'abord envoyer l'offre commerciale
-> mise à jour (slides 4, 7 et options) — c'est l'action qui débloque cette implémentation.
+>
+> **Source de vérité tarifaire depuis le 18/08/2026 : `.claude/context/08-offre-commerciale-v10.md` §04**
+> (plaquette envoyée par Sandrine, postérieure au call). Elle **prévaut sur les prix du §12.1
+> ci-dessous** partout où les deux divergent. Les divergences call ↔ v10 encore ouvertes sont
+> listées au §12.2.
+>
+> **Dépendance bloquante levée** : le §12 conditionnait la suite à l'envoi par Sandrine de
+> l'offre commerciale mise à jour. La plaquette v10 est dans le dépôt
+> (`.claude/context/08-offre-commerciale-v10.md`) — plus rien n'est en attente de sa part sur ce point.
+>
+> **Implémenté** : §12.1 et §12.2 (catalogue) — prix des formules 2 500 / 6 500 / 15 000 €,
+> libellés de modules, les 10 options à la carte de la plaquette v10 avec leur unité de
+> tarification (`PricingUnit` : forfait / heure / jour / document / support / mois),
+> fourchettes de prix, quantité minimale facturable, acompte par défaut à 40 % (CGP v10 §06),
+> et affichage systématique « À partir de … » via
+> `apps/web/src/lib/services/price-format-service.ts`.
+>
+> **Non implémenté** : §12.4 (architecture des portails, filtrage des 12 items du diagnostic
+> par offre) et §12.5 (états de fin de mission, page plan d'action, module sensibilisation,
+> centre d'aide, relances, export Synaé).
+>
+> **Non représentable en l'état dans le catalogue** (aucun champ ne les porte, ils restent
+> à traiter à la main dans le devis) : la remise « Forfait multi-docs (3+) : -10 % », le pack
+> « 10 supports + banque de quiz 3 niveaux à partir de 3 500 € » et la dégressivité de
+> l'abonnement portail selon l'offre souscrite (-10 % / -30 %, cf. §12.2).
 
 ### 12.1 Les trois offres, redéfinies
 
@@ -308,25 +336,52 @@ déjà conforme.
 | Suivi | aucun (mise en œuvre autonome) | 3 journées d'ateliers (suivi de conformité documentaire) | + **réunion hebdo 2 h** de suivi du PAC, pas à pas |
 | Reporting | conformité référentielle HAS seule | idem | + **KPI Excel / Power BI** |
 | Durée | 2-4 semaines | **3 mois** (M1-M3) | **10 mois** (ni 12 ni 18) |
-| Prix | **à partir de 5 000 €** | **à partir de 6 500 €** | **15 000 €** |
+| Prix | **à partir de 2 500 €** | **à partir de 6 500 €** | **15 000 €** |
 
 Livrables communs aux trois offres : **rapport de diagnostic** (Word) + **plan d'action /
 PAC** (Excel). Formule de vente retenue pour l'outillage documentaire :
 *« upload, analyse, diagnostic, plan d'action et mise en conformité »*.
 
-Ligne de démarcation Performance / Excellence, à respecter dans le code : **Performance
-modifie l'existant, Excellence crée du nouveau.** Une procédure, un registre, un compte rendu
-de réunion, une affiche de sensibilisation relèvent de la création → hors Performance.
+**Prix Essentiel — correction.** Le §12 annonçait « à partir de 5 000 € » : c'est une
+confusion avec un autre poste. Tous les « 5 000 € » du call désignent la **licence annuelle du
+portail** (5 000 € ÷ 12 ≈ la ligne d'abonnement à 400 €/mois) —
+[3:26:14](https://fathom.video/calls/786436116?timestamp=12374),
+[3:38:10](https://fathom.video/calls/786436116?timestamp=13090). Essentiel a été chiffrée en
+séance à « 2 500 minimum » (1 000 € rapport d'écart + 1 000 € plan d'action) —
+[1:44:28](https://fathom.video/calls/786436116?timestamp=6268),
+[3:16:21](https://fathom.video/calls/786436116?timestamp=11781). La plaquette v10 (18/08,
+postérieure au call) retient 2 500 €, et c'est ce qui est aujourd'hui en base.
+
+**Ligne de démarcation Performance / Excellence — ⚠️ DÉCISION OUVERTE, ne pas coder.** La règle
+« Performance modifie l'existant, Excellence crée du nouveau » est bien énoncée en milieu de
+call ([2:47:34](https://fathom.video/calls/786436116?timestamp=10054)), mais **renversée dans
+les quatre dernières minutes** — et c'est ce renversement qui produit le prix de 15 000 € :
+*« pour moi, tout ça, c'est compris dans l'offre Excellence »*
+([4:39:39](https://fathom.video/calls/786436116?timestamp=16779)), *« Je la mets à 15 000 et
+tout ça, tu le comprends dedans »*
+([4:39:49](https://fathom.video/calls/786436116?timestamp=16789)). Le critère de tri opérant
+n'est donc pas créer / modifier mais : **la ligne est-elle rattachée à une procédure issue d'un
+critère impératif ?** Sandrine demande explicitement à Damon de proposer le tri **ligne par
+ligne** ([4:36:18](https://fathom.video/calls/786436116?timestamp=16578)) — l'arbitrage final
+lui revient.
 
 ### 12.2 Options à la carte (jamais incluses dans une formule)
 
-| Option | Prix décidé |
-|---|---|
-| Création / mise à jour documentaire à l'unité | **200 € HT par document** (~20 documents identifiés) |
-| Quiz de sensibilisation (Kahoot) | option, **dans aucune formule** |
-| Documents de sensibilisation (affiche A4, communication interne) | option |
-| Tableau de bord des 24 KPI qualité | option |
-| Abonnement portail EODA + veille réglementaire HAS | **400 €/mois**, dégressif selon l'offre souscrite, **engagement 1 an renouvelable** |
+| Option | Prix décidé au call | Plaquette v10 (18/08) |
+|---|---|---|
+| Création / mise à jour documentaire à l'unité | **200 € HT par document** (~20 documents identifiés) — le tarif horaire est explicitement **rejeté** en séance ([4:14:56](https://fathom.video/calls/786436116?timestamp=15296) → [4:17:00](https://fathom.video/calls/786436116?timestamp=15420)) | « 95 à 120 € / h (mini. 2 h) · forfait multi-docs (3+) : -10 % » — **divergence, à retrancher avec Sandrine** |
+| Quiz de sensibilisation (Kahoot) | option, **dans aucune formule** | idem (inclus dans la ligne « outils de sensibilisation ») |
+| Documents de sensibilisation (affiche A4, communication interne) | option | à partir de 300 € / support |
+| Tableau de bord des 24 KPI qualité | option | idem |
+| Abonnement portail EODA + veille réglementaire HAS | **400 €/mois**, **engagement 1 an**, dégressivité chiffrée : **-10 % en Performance, -30 % en Excellence** ([3:44:02](https://fathom.video/calls/786436116?timestamp=13442)) | « à partir de 400 € (dégressif selon l'abonnement) » — le taux n'y figure pas ; **le calcul doit vivre dans l'outil** |
+
+**Trois lignes de la plaquette v10 n'ont jamais été prononcées pendant le call** — ce sont des
+ajouts postérieurs de Sandrine, à valider comme tels et non comme des décisions du 16/08 :
+procédure clé en main à partir de **250 € / procédure**, pack **10 supports + banque de quiz
+3 niveaux à partir de 3 500 €**, audit de conformité flash à partir de **800 € / jour**.
+
+**Visite Essentiel** : le call retient **½ journée** ([3:51:43](https://fathom.video/calls/786436116?timestamp=13903)), la plaquette v10
+annonce **1 journée** (§Essentiel, M1). Divergence à trancher — le §12.1 ci-dessus reflète le call.
 
 La **hotline** est retirée de l'offre pour l'instant (idée conservée, non chiffrée).
 
@@ -343,9 +398,14 @@ La **hotline** est retirée de l'offre pour l'instant (idée conservée, non chi
 ### 12.4 Architecture des portails — précision qui contredit l'implémentation actuelle
 
 - **Portail interne (suivi de mission)** = to-do list de Sandrine **+ reflet en compteurs** du
-  portail client (X documents déposés / X analysés / X modifiés / X conformes).
-  **Aucun dépôt de document.** L'implémentation actuelle permet le dépôt depuis la checklist
-  documentaire du suivi de mission — à retirer.
+  portail client. Les quatre compteurs, tels que dictés : **documents déposés / documents
+  analysés par l'IA / documents modifiés / documents conformes**
+  ([00:56:13](https://fathom.video/calls/786436116?timestamp=3373)).
+  **Pas de dépôt de document *dans ce portail-là*** — la règle porte sur le portail de suivi,
+  pas sur le portail client : *« Oui, mais dans le portail opérationnel, pas dans mon portail
+  de suivi à moi »* ([1:02:51](https://fathom.video/calls/786436116?timestamp=3771)). Sandrine **conserve** son droit de dépôt dans le
+  portail client opérationnel (cf. point suivant). L'implémentation actuelle permet le dépôt
+  depuis la checklist documentaire du suivi de mission — c'est ce dépôt-là qui est à retirer.
 - **Portail client externe (mise en conformité)** = seul endroit de dépôt, par le client
   **et** par Sandrine (elle garde un droit d'écriture pour les clients peu à l'aise avec
   l'informatique).
@@ -371,12 +431,52 @@ La **hotline** est retirée de l'offre pour l'instant (idée conservée, non chi
 - **Guide / centre d'aide dans l'application**, utilisable comme support de formation le
   22 septembre et pour l'autonomie sur les nouveaux arrivants du client.
 - **Relances automatiques** (email / message) des clients qui ne fournissent pas.
-- **Fin de mission (RGPD)** : couper l'accès, **conserver** les données en historique ; ou
-  laisser la bibliothèque accessible en lecture si le client prend l'abonnement.
+- **Fin de mission (RGPD) — ⚠️ la version « on coupe l'accès » est rétractée.** Prononcée à
+  [3:20:58](https://fathom.video/calls/786436116?timestamp=12058), rectifiée dans la foulée, puis renversée explicitement à
+  [3:35:00](https://fathom.video/calls/786436116?timestamp=12900) : *« à la fin de l'accompagnement, on ne coupe pas leur accès. Ils auront
+  accès à la bibliothèque des documents générés, mais nous leur préconisons de s'abonner. »*
+  Trois états à modéliser, **sans suppression définitive des données** :
+  1. **mission active** — dépôt + génération ouverts ;
+  2. **bibliothèque abonnée** — lecture seule, **une seule version** conservée, dépôt bloqué,
+     **alerte de mise à jour au 5ᵉ mois** ([3:30:23](https://fathom.video/calls/786436116?timestamp=12623)) ;
+  3. **accès révoqué** — rétention côté cabinet, zéro accès client.
 - **Export Excel des cotations** compatible Synaé, avec saisie à chaud pendant les entretiens
   (déjà identifié comme gap au Jalon 4).
 
-### 12.6 Calendrier arrêté
+### 12.6 Décisions du call absentes du §12 initial
+
+- **Génération de contrat + avenant obligatoire** pour toute option souscrite hors contrat
+  initial ([00:37:34](https://fathom.video/calls/786436116?timestamp=2254), [1:13:54](https://fathom.video/calls/786436116?timestamp=4434)).
+- **Deux parcours d'achat d'option**, sélectionnés selon la **forme juridique** du client :
+  paywall direct (paiement en ligne) ou demande → alerte interne → devis → déblocage
+  ([3:09:53](https://fathom.video/calls/786436116?timestamp=11393), [3:09:33](https://fathom.video/calls/786436116?timestamp=11373)).
+- **Abonnement** = engagement **1 an à reconduction tacite** ([4:09:00](https://fathom.video/calls/786436116?timestamp=14940)).
+- **Veille HAS** = automatisation email + newsletter in-app ([3:38:18](https://fathom.video/calls/786436116?timestamp=13098)) ; une mise à
+  jour du référentiel HAS déclenche **soit une régénération gratuite, soit une option payante**
+  ([3:36:01](https://fathom.video/calls/786436116?timestamp=12961)).
+- **PAC** : schéma de colonnes **imposé**, et **seuls les critères cotés < 4 génèrent une
+  action** ([2:07:28](https://fathom.video/calls/786436116?timestamp=7648), [2:26:51](https://fathom.video/calls/786436116?timestamp=8811)). Deux modes de génération, dont un mode
+  **« table rase »** ([3:14:42](https://fathom.video/calls/786436116?timestamp=11682)).
+- **Reporting minimal de conformité pour toutes les offres**, les **24 KPI restant en option**
+  ([2:51:33](https://fathom.video/calls/786436116?timestamp=10293), [2:53:13](https://fathom.video/calls/786436116?timestamp=10393)).
+- **2ᵉ session d'auto-évaluation** en Excellence, **comparable à la première**
+  ([3:54:12](https://fathom.video/calls/786436116?timestamp=14052)).
+- **Répartition des 16 impératifs** : **10 au chapitre 3, 6 au chapitre 2, aucun au chapitre 1**
+  ([2:08:50](https://fathom.video/calls/786436116?timestamp=7730)).
+
+### 12.7 Points ouverts (aucune décision au 16/08)
+
+- **Règle finale inclus / option du PAC** — non tranchée (cf. §12.1, tri ligne par ligne à
+  proposer par Damon).
+- **Qui déclenche l'analyse en offre Essentiel** : deux versions contradictoires dans le même
+  call — client autonome ([00:15:17](https://fathom.video/calls/786436116?timestamp=917)) vs Sandrine ([1:09:58](https://fathom.video/calls/786436116?timestamp=4198)).
+- **Rapport de diagnostic unique ou par chapitre** ([2:12:43](https://fathom.video/calls/786436116?timestamp=7963)).
+- **Format d'import Synaé** : jamais spécifié.
+- **Délais, cadence et condition d'arrêt des relances** : jamais spécifiés.
+- **Co-édition simultanée d'un document** : question posée, restée sans réponse
+  ([00:51:00](https://fathom.video/calls/786436116?timestamp=3060)).
+
+### 12.8 Calendrier arrêté
 
 - Formation ASSAD BENOIT : **22 au 30 septembre 2026** (et non août — ils sont en congés).
 - Réunion d'avance de phase avec le client : entre le **8 et le 18 septembre**.

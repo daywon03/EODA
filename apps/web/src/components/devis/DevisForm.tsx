@@ -2,17 +2,28 @@
 
 import { useActionState, useMemo, useState } from "react";
 import { createDevis } from "@/lib/actions/devis";
-import { computeDevisAmounts } from "@/lib/services/devis-calculation-service";
+import {
+  computeDevisAmounts,
+  optionCommittedAmountEuros,
+} from "@/lib/services/devis-calculation-service";
+import { formatEuros, formatStartingPrice } from "@/lib/services/price-format-service";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { AlertCircle, Loader2 } from "lucide-react";
 import Link from "next/link";
-import type { CommercialTier } from "@eoda/database";
+import type { CommercialTier, PricingUnit } from "@eoda/database";
 
 type FormuleOption = { formule: CommercialTier; label: string; priceEuros: number };
-type CatalogueOptionItem = { id: string; label: string; priceEuros: number };
+type CatalogueOptionItem = {
+  id: string;
+  label: string;
+  priceEuros: number;
+  pricingUnit: PricingUnit;
+  priceMaxEuros: number | null;
+  minQuantity: number | null;
+};
 
 type Props = {
   prospectId: string;
@@ -31,9 +42,11 @@ export function DevisForm({ prospectId, formules, options, defaultDepositPercent
 
   const preview = useMemo(() => {
     const formulePrice = formules.find((f) => f.formule === formule)?.priceEuros ?? 0;
+    // Une option tarifée à l'heure ou au mois entre au devis pour son engagement
+    // minimal (2 h, 12 mois), pas pour son prix unitaire — cf. optionCommittedAmountEuros.
     const optionPrices = options
       .filter((o) => selectedOptionIds.includes(o.id))
-      .map((o) => o.priceEuros);
+      .map(optionCommittedAmountEuros);
     return computeDevisAmounts({
       formulePriceEuros: formulePrice,
       optionPricesEuros: optionPrices,
@@ -64,7 +77,7 @@ export function DevisForm({ prospectId, formules, options, defaultDepositPercent
         >
           {formules.map((f) => (
             <option key={f.formule} value={f.formule}>
-              {f.label} — {f.priceEuros.toLocaleString("fr-FR")} €
+              {f.label} — {formatStartingPrice({ priceEuros: f.priceEuros })}
             </option>
           ))}
         </Select>
@@ -84,7 +97,7 @@ export function DevisForm({ prospectId, formules, options, defaultDepositPercent
                 disabled={isPending}
                 className="accent-terre"
               />
-              {o.label} <span className="text-gris-mid">— {o.priceEuros.toLocaleString("fr-FR")} €</span>
+              {o.label} <span className="text-gris-mid">— {formatStartingPrice(o)}</span>
             </label>
           ))}
         </div>
@@ -133,19 +146,21 @@ export function DevisForm({ prospectId, formules, options, defaultDepositPercent
       <div className="bg-ivoire rounded-lg p-4 space-y-1.5 text-sm">
         <div className="flex justify-between">
           <span className="text-gris-mid">Montant total</span>
-          <span className="font-semibold text-brun-ancre">{preview.totalAmountEuros.toLocaleString("fr-FR")} €</span>
+          <span className="font-semibold text-brun-ancre">
+            {formatStartingPrice({ priceEuros: preview.totalAmountEuros })}
+          </span>
         </div>
         <div className="flex justify-between">
           <span className="text-gris-mid">Acompte</span>
-          <span className="font-semibold text-brun-ancre">{preview.depositAmountEuros.toLocaleString("fr-FR")} €</span>
+          <span className="font-semibold text-brun-ancre">{formatEuros(preview.depositAmountEuros)}</span>
         </div>
         <div className="flex justify-between">
           <span className="text-gris-mid">Solde</span>
-          <span className="font-semibold text-brun-ancre">{preview.balanceAmountEuros.toLocaleString("fr-FR")} €</span>
+          <span className="font-semibold text-brun-ancre">{formatEuros(preview.balanceAmountEuros)}</span>
         </div>
         <div className="flex justify-between">
           <span className="text-gris-mid">Par échéance</span>
-          <span className="font-semibold text-brun-ancre">{preview.installmentAmountEuros.toLocaleString("fr-FR")} €</span>
+          <span className="font-semibold text-brun-ancre">{formatEuros(preview.installmentAmountEuros)}</span>
         </div>
       </div>
 

@@ -1,5 +1,6 @@
 import { Label } from "@/components/ui/label";
 import type { CommercialTier } from "@eoda/database";
+import { formatStartingPrice } from "@/lib/services/price-format-service";
 
 type FormuleOption = { formule: CommercialTier; label: string; priceEuros: number };
 
@@ -35,7 +36,9 @@ export function FormuleOfferPicker({ formules, defaultFormule, defaultGratuit, d
                 />
                 {f.label}
               </span>
-              <span className="text-gris-mid tabular-nums">{f.priceEuros.toLocaleString("fr-FR")} €</span>
+              <span className="text-gris-mid tabular-nums">
+                {formatStartingPrice({ priceEuros: f.priceEuros })}
+              </span>
             </label>
           ))}
         </div>

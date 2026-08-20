@@ -3,6 +3,7 @@ import {
   computeDevisAmounts,
   computeValidUntil,
   nextProspectStatusForDevisTransition,
+  optionCommittedAmountEuros,
 } from "./devis-calculation-service";
 import {
   computeConversionRatePercent,
@@ -18,6 +19,43 @@ import {
 // Règles de référence : .claude/context/07-outil-pilotage-missions.md §6.1-§6.3 et §8.
 // Ce sont des calculs facturés au client et des indicateurs de pilotage : le coût d'un
 // défaut y est direct, d'où la priorité de couverture.
+
+// Offre v10 §04 : une option n'est plus forcément un forfait. Le devis retient
+// l'engagement minimal, jamais la borne haute d'une fourchette (prix « à partir de »).
+describe("optionCommittedAmountEuros — options tarifées à l'unité (offre v10 §04)", () => {
+  it("retient le prix tel quel pour un forfait sans minimum", () => {
+    expect(optionCommittedAmountEuros({ priceEuros: 800 })).toBe(800);
+    expect(optionCommittedAmountEuros({ priceEuros: 1200, minQuantity: null })).toBe(1200);
+  });
+
+  it("multiplie par la quantité minimale : mise à jour documentaire 95 €/h, mini. 2 h", () => {
+    expect(optionCommittedAmountEuros({ priceEuros: 95, minQuantity: 2 })).toBe(190);
+  });
+
+  it("engage 12 mois sur l'abonnement portail + veille à 400 €/mois", () => {
+    expect(optionCommittedAmountEuros({ priceEuros: 400, minQuantity: 12 })).toBe(4800);
+  });
+
+  it("traite une quantité minimale de 1 ou 0 comme une unité", () => {
+    expect(optionCommittedAmountEuros({ priceEuros: 250, minQuantity: 1 })).toBe(250);
+    expect(optionCommittedAmountEuros({ priceEuros: 250, minQuantity: 0 })).toBe(250);
+  });
+
+  it("porte le minimum d'engagement dans le total du devis", () => {
+    const amounts = computeDevisAmounts({
+      formulePriceEuros: 15000,
+      optionPricesEuros: [
+        optionCommittedAmountEuros({ priceEuros: 95, minQuantity: 2 }),
+        optionCommittedAmountEuros({ priceEuros: 400, minQuantity: 12 }),
+      ],
+      depositPercent: 40,
+      installmentCount: 1,
+    });
+    expect(amounts.totalAmountEuros).toBe(19990);
+    expect(amounts.depositAmountEuros).toBe(7996);
+    expect(amounts.balanceAmountEuros).toBe(11994);
+  });
+});
 
 describe("computeDevisAmounts — §6.1", () => {
   it("additionne le prix de la formule et les options", () => {

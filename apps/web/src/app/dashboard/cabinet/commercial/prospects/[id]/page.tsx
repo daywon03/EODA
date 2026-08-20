@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { ProspectStatusSelect } from "@/components/prospect/ProspectStatusSelect";
 import { DeleteProspectButton } from "@/components/prospect/DeleteProspectButton";
 import { DevisCard } from "@/components/devis/DevisCard";
+import { formatEuros } from "@/lib/services/price-format-service";
 import { Pencil, Plus, Phone, Mail } from "lucide-react";
 
 type Props = { params: Promise<{ id: string }> };
@@ -65,7 +66,7 @@ export default async function ProspectDetailPage({ params }: Props) {
               </p>
             )}
             {prospect.estimatedAmountEuros != null && (
-              <p><span className="text-gris-mid">Montant estimé : </span>{prospect.estimatedAmountEuros.toLocaleString("fr-FR")} €</p>
+              <p><span className="text-gris-mid">Montant estimé : </span>{formatEuros(prospect.estimatedAmountEuros)}</p>
             )}
           </div>
 

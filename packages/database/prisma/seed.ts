@@ -6,6 +6,7 @@ import {
   ExpectedFrequency,
   CommercialTier,
   MissionChecklistScope,
+  PricingUnit,
 } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import { seedHasReferential } from "./seed-has-referential";
@@ -295,7 +296,10 @@ const DOCUMENT_TYPES: DocTypeSeed[] = [
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Catalogue commercial — source : context/07-outil-pilotage-missions.md §4
+// Catalogue commercial — source de vérité : .claude/context/08-offre-commerciale-v10.md §04
+// (plaquette du 18/08/2026, postérieure au call du 16/08 : elle prévaut sur les
+// prix de context/07-outil-pilotage-missions.md §12.1).
+// Tous les montants sont des prix « à partir de » HT (§12.3) — jamais fixes.
 // Script unique et idempotent — ne pas dupliquer cette liste ailleurs
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -312,33 +316,98 @@ const CATALOGUE_FORMULES: FormuleSeed[] = [
     formule: "ESSENTIEL",
     label: "Essentiel",
     priceEuros: 2500,
-    modulesLabel: "M1 · M2",
-    description: "Diagnostic & cadrage + plan d'action",
+    modulesLabel: "M1 (critères impératifs)",
+    description:
+      "Diagnostic des 16 critères impératifs (1 journée) + analyse documentaire loi 2002-2 + rapport de diagnostic avec plan d'action à appliquer en autonomie — 2 à 4 semaines",
   },
   {
     formule: "PERFORMANCE",
     label: "Performance",
     priceEuros: 6500,
-    modulesLabel: "M1 · M2 · M3 · M4",
-    description: "Diagnostic, plan d'action, déploiement des outils et accompagnement terrain",
+    modulesLabel: "M1 complet · M2 · M3",
+    description:
+      "Tout Essentiel + les 141 critères standards (2 jours) + M2 analyse documentaire et mise en conformité (PLAC) + M3 3 journées d'atelier de validation documentaire — 3 mois",
   },
   {
     formule: "EXCELLENCE",
     label: "Excellence",
-    priceEuros: 12000,
-    modulesLabel: "M1 à M5",
-    description: "Accompagnement complet jusqu'au pilotage par KPI",
+    priceEuros: 15000,
+    modulesLabel: "M1 · M2 · M3 · M4 · M5-M6 · M7 · M8 · M10",
+    description:
+      "Tout Performance + M4 réunions hebdomadaires de suivi du PAC + M5-M6 création documentaire (procédures, registres) + M7 reporting Excel/Power BI + M8 5 jours d'atelier en présentiel + M10 nouvelle session d'auto-évaluation — 10 mois",
   },
 ];
 
-type OptionSeed = { code: string; label: string; priceEuros: number };
+// `pricingUnit` par défaut FORFAIT, `priceMaxEuros` pour une fourchette, `minQuantity`
+// pour un minimum facturable exprimé dans l'unité (2 h, 12 mois d'engagement).
+type OptionSeed = {
+  code: string;
+  label: string;
+  priceEuros: number;
+  pricingUnit?: PricingUnit;
+  priceMaxEuros?: number;
+  minQuantity?: number;
+};
 
 const CATALOGUE_OPTIONS: OptionSeed[] = [
-  { code: "JOURNEE_SUPP_VISITE", label: "Journée supplémentaire de visite sur site", priceEuros: 800 },
-  { code: "FORMATION_EQUIPE", label: "Formation équipe (½ journée)", priceEuros: 600 },
-  { code: "REGISTRE_EI_EIG", label: "Registre plaintes/réclamations EI-EIG personnalisé", priceEuros: 450 },
-  { code: "REUNION_PAC_SUPP", label: "Réunion de restitution PAC supplémentaire", priceEuros: 350 },
-  { code: "TABLEAU_KPI_POWERBI", label: "Tableau de bord KPI Power BI sur mesure", priceEuros: 900 },
+  {
+    code: "AUDIT_FLASH",
+    label: "Audit de conformité flash (critères impératifs uniquement) — 1 jour",
+    priceEuros: 800,
+  },
+  {
+    code: "PROCEDURE_CLE_EN_MAIN",
+    label: "Procédure clé en main (EI, plaintes, maltraitance, continuité…)",
+    priceEuros: 250,
+    pricingUnit: "DOCUMENT",
+  },
+  {
+    code: "TABLEAU_BORD_KPI",
+    label: "Tableau de bord Excel ou Power BI (24 KPI qualité)",
+    priceEuros: 1200,
+  },
+  {
+    code: "SIMULATION_VISITE",
+    label: "Simulation de visite évaluateurs (entretiens + grille de préparation) — 2 jours",
+    priceEuros: 1500,
+  },
+  {
+    code: "PLAN_ACTIONS_ATC",
+    label: "Accompagnement rédaction plan d'actions ATC",
+    priceEuros: 500,
+  },
+  {
+    code: "REVUE_ANNUELLE_PDCA",
+    label: "Revue annuelle du plan d'actions PDCA — 0,5 jour",
+    priceEuros: 750,
+  },
+  {
+    code: "DIAGNOSTIC_RGPD",
+    label: "Diagnostic RGPD & protection des données (SAD / ESSMS) — 1 jour",
+    priceEuros: 1000,
+  },
+  {
+    // Engagement d'un an minimum → minQuantity = 12 mois.
+    code: "VEILLE_PORTAIL_EODA",
+    label: "Veille réglementaire HAS + accès portail EODA (engagement 1 an minimum)",
+    priceEuros: 400,
+    pricingUnit: "MOIS",
+    minQuantity: 12,
+  },
+  {
+    code: "MAJ_DOCUMENTAIRE_HORAIRE",
+    label: "Mise à jour documentaire à la carte",
+    priceEuros: 95,
+    pricingUnit: "HEURE",
+    priceMaxEuros: 120,
+    minQuantity: 2,
+  },
+  {
+    code: "OUTILS_SENSIBILISATION",
+    label: "Outils de sensibilisation (supports, documents de réunions, quiz)",
+    priceEuros: 300,
+    pricingUnit: "SUPPORT",
+  },
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -447,7 +516,7 @@ async function main() {
     });
   }
 
-  // Seed du catalogue commercial — source de vérité : context/07-outil-pilotage-missions.md §4
+  // Seed du catalogue commercial — source de vérité : .claude/context/08-offre-commerciale-v10.md §04
   console.log(`Seeding ${CATALOGUE_FORMULES.length} CatalogueFormule…`);
   for (const f of CATALOGUE_FORMULES) {
     await prisma.catalogueFormule.upsert({
@@ -473,15 +542,50 @@ async function main() {
   for (const o of CATALOGUE_OPTIONS) {
     await prisma.catalogueOption.upsert({
       where: { tenantId_code: { tenantId: tenant.id, code: o.code } },
-      update: { label: o.label, priceEuros: o.priceEuros },
-      create: { tenantId: tenant.id, code: o.code, label: o.label, priceEuros: o.priceEuros },
+      update: {
+        label: o.label,
+        priceEuros: o.priceEuros,
+        pricingUnit: o.pricingUnit ?? "FORFAIT",
+        priceMaxEuros: o.priceMaxEuros ?? null,
+        minQuantity: o.minQuantity ?? null,
+      },
+      create: {
+        tenantId: tenant.id,
+        code: o.code,
+        label: o.label,
+        priceEuros: o.priceEuros,
+        pricingUnit: o.pricingUnit ?? "FORFAIT",
+        priceMaxEuros: o.priceMaxEuros ?? null,
+        minQuantity: o.minQuantity ?? null,
+      },
     });
+  }
+
+  // Retrait du catalogue des options des versions antérieures de la plaquette : elles
+  // restent en base (des lignes de devis les référencent) mais ne sont plus proposées.
+  // Sans cela, un re-seed laisse cohabiter l'ancien et le nouveau catalogue, et une
+  // option retirée reste sélectionnable sur un devis client.
+  const retired = await prisma.catalogueOption.updateMany({
+    where: {
+      tenantId: tenant.id,
+      active: true,
+      code: { notIn: CATALOGUE_OPTIONS.map((o) => o.code) },
+    },
+    data: { active: false },
+  });
+  if (retired.count > 0) {
+    console.log(`  ${retired.count} option(s) hors plaquette v10 désactivée(s)`);
   }
 
   await prisma.billingSettings.upsert({
     where: { tenantId: tenant.id },
     update: {},
-    create: { tenantId: tenant.id, defaultDepositPercent: 30, defaultValidityDays: 30 },
+    // Acompte 40 % à la commande — CGP v10 §06. `update: {}` volontaire : un taux
+    // ajusté à la main dans Catalogue → Réglages de facturation n'est pas écrasé par
+    // un re-seed. La migration 20260819180000_catalogue_v10 ne fait pas de backfill
+    // non plus : un tenant déjà réglé à 30 % garde 30 % tant qu'il ne le change pas
+    // lui-même dans l'UI.
+    create: { tenantId: tenant.id, defaultDepositPercent: 40, defaultValidityDays: 30 },
   });
 
   console.log(`Seeding ${MISSION_CHECKLIST_ITEMS.length} MissionChecklistItem…`);

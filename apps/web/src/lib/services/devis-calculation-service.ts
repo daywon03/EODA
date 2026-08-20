@@ -10,6 +10,21 @@ export type DevisAmountsInput = {
   installmentCount: number;
 };
 
+// Montant d'engagement minimal d'une option, dans sa devise de facturation.
+// Depuis l'offre v10, une option n'est plus forcément un forfait : elle peut être
+// tarifée à l'heure avec un minimum de 2 h, ou au mois avec un engagement d'un an.
+// Le devis retient ce minimum — c'est le seul montant réellement engagé à la
+// signature ; tout dépassement se facture ensuite à la consommation.
+// `priceMaxEuros` (borne haute d'une fourchette) n'entre jamais dans le total :
+// le devis est un « à partir de » (context/07-outil-pilotage-missions.md §12.3).
+export function optionCommittedAmountEuros(option: {
+  priceEuros: number;
+  minQuantity?: number | null;
+}): number {
+  const quantity = option.minQuantity && option.minQuantity > 1 ? option.minQuantity : 1;
+  return option.priceEuros * quantity;
+}
+
 export type DevisAmounts = {
   totalAmountEuros: number;
   depositAmountEuros: number;

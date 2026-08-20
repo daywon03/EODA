@@ -1,4 +1,14 @@
-type DevisOptionLine = { labelSnapshot: string; priceSnapshotEuros: number };
+import type { PricingUnit } from "@eoda/database";
+import { formatEuros, formatStartingPrice } from "@/lib/services/price-format-service";
+import { optionCommittedAmountEuros } from "@/lib/services/devis-calculation-service";
+
+type DevisOptionLine = {
+  labelSnapshot: string;
+  priceSnapshotEuros: number;
+  pricingUnitSnapshot: PricingUnit;
+  priceMaxSnapshotEuros: number | null;
+  minQuantitySnapshot: number | null;
+};
 
 type Props = {
   number: string;
@@ -61,41 +71,69 @@ export function DevisSummaryPrintable({
         <tbody>
           <tr className="border-b border-gris-light/60">
             <td className="py-2">Formule {formuleLabelSnapshot}</td>
-            <td className="py-2 text-right tabular-nums">{formulePriceSnapshotEuros.toLocaleString("fr-FR")} €</td>
+            <td className="py-2 text-right tabular-nums">
+              {formatStartingPrice({ priceEuros: formulePriceSnapshotEuros })}
+            </td>
           </tr>
-          {options.map((o, i) => (
-            <tr key={i} className="border-b border-gris-light/60">
-              <td className="py-2">{o.labelSnapshot}</td>
-              <td className="py-2 text-right tabular-nums">{o.priceSnapshotEuros.toLocaleString("fr-FR")} €</td>
-            </tr>
-          ))}
+          {options.map((o, i) => {
+            // Une option à l'unité (95 €/h, mini. 2 h) affiche son tarif unitaire, mais
+            // n'entre au total que pour son engagement minimal. Sans ce montant, les
+            // lignes visibles ne s'additionnent pas au total visible — sur un document
+            // qu'un prospect peut tenir pour contractuel, c'est inacceptable.
+            const committed = optionCommittedAmountEuros({
+              priceEuros: o.priceSnapshotEuros,
+              minQuantity: o.minQuantitySnapshot,
+            });
+            const unitLabel = formatStartingPrice({
+              priceEuros: o.priceSnapshotEuros,
+              pricingUnit: o.pricingUnitSnapshot,
+              priceMaxEuros: o.priceMaxSnapshotEuros,
+              minQuantity: o.minQuantitySnapshot,
+            });
+            const isMetered = o.pricingUnitSnapshot !== "FORFAIT";
+
+            return (
+              <tr key={i} className="border-b border-gris-light/60">
+                <td className="py-2">
+                  {o.labelSnapshot}
+                  {isMetered ? (
+                    <span className="block text-xs text-gris-mid">{unitLabel}</span>
+                  ) : null}
+                </td>
+                <td className="py-2 text-right tabular-nums">
+                  {isMetered ? formatEuros(committed) : unitLabel}
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
 
       <div className="space-y-1 text-sm ml-auto max-w-xs">
         <div className="flex justify-between font-semibold text-base border-t border-gris-light pt-2">
           <span>Total</span>
-          <span className="tabular-nums">{totalAmountEuros.toLocaleString("fr-FR")} €</span>
+          <span className="tabular-nums">{formatStartingPrice({ priceEuros: totalAmountEuros })}</span>
         </div>
         <div className="flex justify-between">
           <span className="text-gris-mid">Acompte ({depositPercent}%)</span>
-          <span className="tabular-nums">{depositAmountEuros.toLocaleString("fr-FR")} €</span>
+          <span className="tabular-nums">{formatEuros(depositAmountEuros)}</span>
         </div>
         <div className="flex justify-between">
           <span className="text-gris-mid">Solde</span>
-          <span className="tabular-nums">{balanceAmountEuros.toLocaleString("fr-FR")} €</span>
+          <span className="tabular-nums">{formatEuros(balanceAmountEuros)}</span>
         </div>
         <div className="flex justify-between">
           <span className="text-gris-mid">
             {installmentCount} échéance{installmentCount > 1 ? "s" : ""} de
           </span>
-          <span className="tabular-nums">{installmentAmountEuros.toLocaleString("fr-FR")} €</span>
+          <span className="tabular-nums">{formatEuros(installmentAmountEuros)}</span>
         </div>
       </div>
 
       <p className="text-xs text-gris-mid border-t border-gris-light pt-4">
-        Devis établi par EODA Conseil — préparation à l'évaluation qualité HAS. Prestation de conseil,
-        ne constitue pas une évaluation HAS officielle.
+        Tarifs indicatifs HT « à partir de » · TVA non applicable, art. 293 B du CGI · acompte à la
+        commande, solde à la livraison des livrables. Devis établi par EODA Conseil — préparation à
+        l'évaluation qualité HAS. Prestation de conseil, ne constitue pas une évaluation HAS officielle.
       </p>
     </div>
   );

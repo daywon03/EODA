@@ -1,7 +1,8 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { upsertCatalogueFormule } from "@/lib/actions/catalogue";
+import { formatStartingPrice } from "@/lib/services/price-format-service";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,6 +11,9 @@ import type { CatalogueFormule } from "@eoda/database";
 
 export function CatalogueFormuleForm({ formule }: { formule: CatalogueFormule }) {
   const [state, formAction, isPending] = useActionState(upsertCatalogueFormule, null);
+  // Aperçu de ce que le client lira : une formule s'annonce toujours « à partir de »
+  // (context/07-outil-pilotage-missions.md §12.3).
+  const [priceEuros, setPriceEuros] = useState(formule.priceEuros);
 
   return (
     <form action={formAction} className="border border-gris-light rounded-xl p-4 space-y-3">
@@ -21,7 +25,18 @@ export function CatalogueFormuleForm({ formule }: { formule: CatalogueFormule })
         </div>
         <div className="space-y-1">
           <Label htmlFor={`price-${formule.id}`}>Prix (€)</Label>
-          <Input id={`price-${formule.id}`} name="priceEuros" type="number" min={0} defaultValue={formule.priceEuros} disabled={isPending} />
+          <Input
+            id={`price-${formule.id}`}
+            name="priceEuros"
+            type="number"
+            min={0}
+            value={priceEuros}
+            onChange={(e) => setPriceEuros(Number(e.target.value))}
+            disabled={isPending}
+          />
+          <p className="text-xs text-gris-mid">
+            Affiché au client : <span className="text-brun-ancre">{formatStartingPrice({ priceEuros })}</span>
+          </p>
         </div>
         <div className="space-y-1">
           <Label htmlFor={`modules-${formule.id}`}>Modules</Label>

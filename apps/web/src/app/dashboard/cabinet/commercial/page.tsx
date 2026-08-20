@@ -4,6 +4,7 @@ import { PageHeader } from "@/components/layout/PageHeader";
 import { KpiCard } from "@/components/kpi/KpiCard";
 import { BreakdownList } from "@/components/kpi/BreakdownList";
 import { PROSPECT_STATUS_LABELS } from "@/components/prospect/ProspectStatusBadge";
+import { formatEuros } from "@/lib/services/price-format-service";
 import {
   computeConversionRatePercent,
   computeSignedRevenueEuros,
@@ -29,8 +30,8 @@ export default async function CommercialDashboardPage() {
   const stats = [
     { label: "Devis émis", value: String(devisList.length), icon: Briefcase },
     { label: "Taux de conversion", value: `${conversionRate}%`, icon: TrendingUp },
-    { label: "Pipeline pondéré", value: `${weightedPipeline.toLocaleString("fr-FR")} €`, icon: Target },
-    { label: "CA signé cumulé", value: `${signedRevenue.toLocaleString("fr-FR")} €`, icon: Euro },
+    { label: "Pipeline pondéré", value: formatEuros(weightedPipeline), icon: Target },
+    { label: "CA signé cumulé", value: formatEuros(signedRevenue), icon: Euro },
   ];
 
   return (

@@ -3,6 +3,7 @@ import { ChevronRight, FileText } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { DevisStatusBadge } from "./DevisStatusBadge";
 import type { DevisStatus } from "@eoda/database";
+import { formatStartingPrice } from "@/lib/services/price-format-service";
 
 type Props = {
   id: string;
@@ -35,7 +36,7 @@ export function DevisCard({ id, number, status, formuleLabelSnapshot, totalAmoun
           </div>
           <div className="flex items-center gap-3 flex-shrink-0">
             <span className="text-sm font-semibold text-brun-ancre tabular-nums">
-              {totalAmountEuros.toLocaleString("fr-FR")} €
+              {formatStartingPrice({ priceEuros: totalAmountEuros })}
             </span>
             <DevisStatusBadge status={status} />
             <ChevronRight className="w-4 h-4 text-gris-mid" aria-hidden="true" />

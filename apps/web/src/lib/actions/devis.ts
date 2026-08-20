@@ -8,11 +8,15 @@ import {
   computeDevisAmounts,
   computeValidUntil,
   nextProspectStatusForDevisTransition,
+  optionCommittedAmountEuros,
 } from "@/lib/services/devis-calculation-service";
 import { generateDevisNumber } from "@/lib/services/devis-numbering-service";
 
 const DEVIS_LIST_PATH = "/dashboard/cabinet/commercial/devis";
 const PROSPECT_LIST_PATH = "/dashboard/cabinet/commercial/prospects";
+// Repli si le champ n'est pas transmis — même valeur que BillingSettings.defaultDepositPercent
+// (CGP v10 §06 : acompte de 40 % à la commande).
+const DEFAULT_DEPOSIT_PERCENT = 40;
 
 type ParsedDevisInput = {
   prospectId: string;
@@ -33,7 +37,8 @@ function parseDevisInput(formData: FormData): { error: string } | ParsedDevisInp
   if (!prospectId) return { error: "Prospect manquant." };
   if (!formule) return { error: "La formule est obligatoire." };
 
-  const depositPercent = depositPercentRaw ? Number(depositPercentRaw) : 30;
+  // 40 % = acompte à la commande des CGP v10 §06, aligné sur BillingSettings.
+  const depositPercent = depositPercentRaw ? Number(depositPercentRaw) : DEFAULT_DEPOSIT_PERCENT;
   const installmentCount = installmentCountRaw ? Number(installmentCountRaw) : 1;
   const validityDays = validityDaysRaw ? Number(validityDaysRaw) : 30;
 
@@ -74,7 +79,7 @@ export async function createDevis(
 
   const amounts = computeDevisAmounts({
     formulePriceEuros: catalogueFormule.priceEuros,
-    optionPricesEuros: options.map((o) => o.priceEuros),
+    optionPricesEuros: options.map(optionCommittedAmountEuros),
     depositPercent: parsed.depositPercent,
     installmentCount: parsed.installmentCount,
   });
@@ -104,6 +109,9 @@ export async function createDevis(
             catalogueOptionId: o.id,
             labelSnapshot: o.label,
             priceSnapshotEuros: o.priceEuros,
+            pricingUnitSnapshot: o.pricingUnit,
+            priceMaxSnapshotEuros: o.priceMaxEuros,
+            minQuantitySnapshot: o.minQuantity,
           })),
         },
       },
@@ -142,7 +150,7 @@ export async function updateDevis(
 
   const amounts = computeDevisAmounts({
     formulePriceEuros: catalogueFormule.priceEuros,
-    optionPricesEuros: options.map((o) => o.priceEuros),
+    optionPricesEuros: options.map(optionCommittedAmountEuros),
     depositPercent: parsed.depositPercent,
     installmentCount: parsed.installmentCount,
   });
@@ -167,6 +175,9 @@ export async function updateDevis(
             catalogueOptionId: o.id,
             labelSnapshot: o.label,
             priceSnapshotEuros: o.priceEuros,
+            pricingUnitSnapshot: o.pricingUnit,
+            priceMaxSnapshotEuros: o.priceMaxEuros,
+            minQuantitySnapshot: o.minQuantity,
           })),
         },
       },

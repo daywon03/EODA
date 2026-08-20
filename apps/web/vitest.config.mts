@@ -32,6 +32,7 @@ export default defineConfig({
         "src/lib/services/anonymization-service.ts",
         "src/lib/services/document-categorization-service.ts",
         "src/lib/services/devis-calculation-service.ts",
+        "src/lib/services/price-format-service.ts",
         "src/lib/services/commercial-kpi-service.ts",
         "src/lib/security/upload-validation-service.ts",
         "src/lib/security/in-memory-rate-limiter.ts",

@@ -74,6 +74,19 @@ enum CommercialTier {
   EXCELLENCE
 }
 
+// Unité de tarification d'une prestation à la carte — offre commerciale v10 §04.
+// Tous les prix du catalogue sont des prix « à partir de » (règle de gouvernance
+// produit, context/07-outil-pilotage-missions.md §12.3) : l'unité ne change pas ce
+// statut, elle indique seulement à quoi le montant se rapporte.
+enum PricingUnit {
+  FORFAIT // montant global pour la prestation (ex. audit flash 1 jour)
+  HEURE // ex. mise à jour documentaire 95 à 120 € / h
+  JOUR
+  DOCUMENT // ex. procédure clé en main 250 € / procédure
+  SUPPORT // ex. outil de sensibilisation 300 € / support
+  MOIS // abonnement récurrent, ex. portail + veille 400 € / mois
+}
+
 enum EstablishmentUserRole {
   DIRECTEUR
   COORDINATEUR
@@ -425,14 +438,21 @@ model CatalogueFormule {
 }
 
 model CatalogueOption {
-  id         String   @id @default(cuid())
-  tenantId   String   @map("tenant_id")
-  code       String
-  label      String
-  priceEuros Int      @map("price_euros")
-  active     Boolean  @default(true)
-  createdAt  DateTime @default(now()) @map("created_at")
-  updatedAt  DateTime @updatedAt @map("updated_at")
+  id       String @id @default(cuid())
+  tenantId String @map("tenant_id")
+  code     String
+  label    String
+  // Borne basse du prix « à partir de » — toujours exprimée dans l'unité `pricingUnit`.
+  priceEuros Int         @map("price_euros")
+  pricingUnit PricingUnit @default(FORFAIT) @map("pricing_unit")
+  // Borne haute d'une fourchette (ex. « 95 à 120 € / h »). null = pas de fourchette.
+  priceMaxEuros Int? @map("price_max_euros")
+  // Quantité minimale facturable, dans l'unité ci-dessus : 2 pour « mini. 2 h »,
+  // 12 pour un abonnement mensuel à engagement d'un an. null = pas de minimum.
+  minQuantity Int?     @map("min_quantity")
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
 
   tenant       Tenant        @relation(fields: [tenantId], references: [id])
   devisOptions DevisOption[]
@@ -444,7 +464,8 @@ model CatalogueOption {
 model BillingSettings {
   id                    String   @id @default(cuid())
   tenantId              String   @unique @map("tenant_id")
-  defaultDepositPercent Int      @default(30) @map("default_deposit_percent")
+  // 40 % à la commande — CGP de l'offre commerciale v10 §06 (auparavant 30 %).
+  defaultDepositPercent Int      @default(40) @map("default_deposit_percent")
   defaultValidityDays   Int      @default(30) @map("default_validity_days")
   updatedAt             DateTime @updatedAt @map("updated_at")
 
@@ -541,6 +562,11 @@ model DevisOption {
   catalogueOptionId  String @map("catalogue_option_id")
   labelSnapshot      String @map("label_snapshot")
   priceSnapshotEuros Int    @map("price_snapshot_euros")
+  // L'unité, la borne haute et le minimum font partie du prix : sans eux, une ligne
+  // « 95 € » d'un devis imprimé en 2027 ne veut plus rien dire. Snapshotés comme le prix.
+  pricingUnitSnapshot   PricingUnit @default(FORFAIT) @map("pricing_unit_snapshot")
+  priceMaxSnapshotEuros Int?        @map("price_max_snapshot_euros")
+  minQuantitySnapshot   Int?        @map("min_quantity_snapshot")
 
   devis           Devis           @relation(fields: [devisId], references: [id])
   catalogueOption CatalogueOption @relation(fields: [catalogueOptionId], references: [id])

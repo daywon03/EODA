@@ -7,6 +7,10 @@ import { Card, CardContent } from "@/components/ui/card";
 
 export const metadata = { title: "Nouveau devis · EODA Conseil" };
 
+// Repli si aucun réglage de facturation n'a encore été enregistré — acompte de 40 %
+// à la commande, CGP de l'offre commerciale v10 §06.
+const DEFAULT_DEPOSIT_PERCENT = 40;
+
 type Props = { searchParams: Promise<{ prospectId?: string }> };
 
 export default async function NouveauDevisPage({ searchParams }: Props) {
@@ -20,7 +24,14 @@ export default async function NouveauDevisPage({ searchParams }: Props) {
     .map((f) => ({ formule: f.formule, label: f.label, priceEuros: f.priceEuros }));
   const options = catalogue.options
     .filter((o) => o.active)
-    .map((o) => ({ id: o.id, label: o.label, priceEuros: o.priceEuros }));
+    .map((o) => ({
+      id: o.id,
+      label: o.label,
+      priceEuros: o.priceEuros,
+      pricingUnit: o.pricingUnit,
+      priceMaxEuros: o.priceMaxEuros,
+      minQuantity: o.minQuantity,
+    }));
 
   return (
     <div className="space-y-6 max-w-2xl">
@@ -35,7 +46,7 @@ export default async function NouveauDevisPage({ searchParams }: Props) {
             prospectId={prospectId}
             formules={formules}
             options={options}
-            defaultDepositPercent={catalogue.billingSettings?.defaultDepositPercent ?? 30}
+            defaultDepositPercent={catalogue.billingSettings?.defaultDepositPercent ?? DEFAULT_DEPOSIT_PERCENT}
             defaultValidityDays={catalogue.billingSettings?.defaultValidityDays ?? 30}
           />
         </CardContent>
