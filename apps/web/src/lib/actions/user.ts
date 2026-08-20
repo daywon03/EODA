@@ -1,7 +1,6 @@
 "use server";
 
 import { prisma, EstablishmentUserRole } from "@eoda/database";
-import { revalidatePath } from "next/cache";
 import { requireEstablishmentInTenant } from "@/lib/auth/guards";
 import { recordAuditEvent } from "@/lib/services/audit-log-service";
 import { firstError, requiredEmail, requiredEnum, requiredString } from "@/lib/validation/form-parsers";
@@ -81,7 +80,13 @@ export async function inviteClientUser(formData: FormData): Promise<InviteClient
     detail: roleInEstablishment.value,
   });
 
-  revalidatePath(`/dashboard/cabinet/etablissements/${establishmentId}`);
+  // PAS de revalidatePath ici, volontairement — et vérifié en pilotant l'application.
+  // La revalidation rejoue le rendu serveur de la fiche et remplace l'arbre : l'état
+  // du composant client est perdu, donc le panneau qui affiche le mot de passe
+  // temporaire. Observé précisément : le compte était créé, l'interlocuteur
+  // apparaissait dans la liste, et Sandrine ne voyait jamais le mot de passe — qui
+  // n'est affiché qu'une fois et n'est stocké nulle part. La liste est rafraîchie par
+  // le composant (router.refresh()) quand elle ferme le panneau, mot de passe copié.
 
   // Mot de passe temporaire retourné en clair — affiché une seule fois, jamais
   // stocké ni journalisé (il n'apparaît volontairement pas dans l'audit ci-dessus).

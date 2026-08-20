@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { inviteClientUser } from "@/lib/actions/user";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,6 +23,7 @@ type ErrorResult = { error: string };
 type Result = SuccessResult | ErrorResult;
 
 export function InviteClientForm({ establishmentId, defaultEmail, defaultName }: Props) {
+  const router = useRouter();
   const [result, setResult] = useState<Result | null>(null);
   const [copied, setCopied] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -83,7 +85,16 @@ export function InviteClientForm({ establishmentId, defaultEmail, defaultName }:
             Ce mot de passe ne sera plus affiché. Copiez-le avant de fermer.
           </p>
         </div>
-        <Button variant="outline" onClick={() => setResult(null)}>
+        <Button
+          variant="outline"
+          onClick={() => {
+            // Rafraîchissement différé : la liste des interlocuteurs ne se met à jour
+            // qu'ici, une fois le mot de passe lu. Le faire dans l'action effacerait
+            // le panneau avant que Sandrine ait pu le copier.
+            setResult(null);
+            router.refresh();
+          }}
+        >
           Inviter un autre interlocuteur
         </Button>
       </div>

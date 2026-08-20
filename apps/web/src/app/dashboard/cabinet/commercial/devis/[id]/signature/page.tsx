@@ -73,12 +73,38 @@ export default async function SignatureDevisPage({ params }: Props) {
               contactName={context.contactName}
               existingEstablishmentId={context.existingEstablishmentId}
             />
+          ) : context.status === "SIGNE" && context.existingEstablishmentId ? (
+            // Conversion déjà faite. Observé en pilotant l'application : juste après
+            // une signature réussie, cet écran affichait « ce devis n'est pas signable ».
+            // Sandrine venait de signer et lisait un refus — elle en aurait conclu à un
+            // échec et aurait recommencé. On confirme, et on donne la suite.
+            <div className="space-y-4">
+              <p className="text-sm font-semibold text-brun-ancre">
+                Signature enregistrée — la fiche client et la mission existent.
+              </p>
+              <p className="text-sm text-gris-mid">
+                Prochaine étape : inviter l&apos;interlocuteur du client depuis sa fiche. Il
+                recevra un mot de passe temporaire qu&apos;il devra changer à sa première
+                connexion.
+              </p>
+              <div className="flex gap-3">
+                <Button asChild>
+                  <Link href={`/dashboard/cabinet/etablissements/${context.existingEstablishmentId}`}>
+                    Ouvrir la fiche client
+                  </Link>
+                </Button>
+                <Button variant="outline" asChild>
+                  <Link href={`/dashboard/cabinet/commercial/devis/${id}`}>
+                    Revenir au devis
+                  </Link>
+                </Button>
+              </div>
+            </div>
           ) : (
             <div className="space-y-4">
               <p className="text-sm text-brun-ancre">
                 Ce devis n&apos;est pas signable : seul un devis au statut Envoyé peut
-                l&apos;être. Un devis déjà signé ne se signe pas une seconde fois — sa fiche
-                client et sa mission existent déjà.
+                l&apos;être.
               </p>
               <Button variant="outline" asChild>
                 <Link href={`/dashboard/cabinet/commercial/devis/${id}`}>
