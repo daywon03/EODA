@@ -62,6 +62,11 @@ export async function inviteClientUser(formData: FormData): Promise<InviteClient
         name: name.value,
         passwordHash,
         role: "CLIENT_USER",
+        // Explicite bien que ce soit aussi le défaut du schéma : le mot de passe
+        // ci-dessous est transmis de vive voix ou par messagerie, il ne doit pas
+        // survivre à la première connexion (cf. specs/02-architecture-technique.md §4.10).
+        mustChangePassword: true,
+        passwordChangedAt: null,
       },
     });
 
@@ -89,6 +94,8 @@ export async function inviteClientUser(formData: FormData): Promise<InviteClient
 
   // Mot de passe temporaire retourné en clair — affiché une seule fois, jamais
   // stocké ni journalisé (il n'apparaît volontairement pas dans l'audit ci-dessus).
+  // Il ne vaut que pour la première connexion : le compte est créé avec
+  // `mustChangePassword`, la plateforme exige une rotation avant tout autre accès.
   return {
     success: true,
     tempPassword,

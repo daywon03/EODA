@@ -32,6 +32,9 @@ vérifie** — sinon elle n'existe pas.
 | Couverture minimale | seuils qui **font échouer** la commande | `apps/web/vitest.config.mts` — 80 % lignes/fonctions/instructions, 75 % branches |
 | Aucun secret commité | `gitleaks` en pre-commit **et** en CI (historique complet) | `.githooks/pre-commit` + `.github/workflows/ci.yml` |
 | Hooks installés par le dépôt | `git config core.hooksPath .githooks` posé par le `postinstall` | `package.json` |
+| Manifeste de migrations à jour | test qui compare `EXPECTED_MIGRATIONS` au dossier `prisma/migrations` | `apps/web/src/lib/db/migration-manifest.test.ts` |
+| Configuration de production complète | contrôle au démarrage qui **sort en code 1** | `apps/web/src/instrumentation.ts` + `lib/config/production-profile.ts` |
+| Migrations appliquées au déploiement | `migrate deploy` dans `build.command` | `prisma.compute.ts` |
 | Dépendances vulnérables | `pnpm audit --audit-level high` **sans `\|\| true`** | CI |
 | CI qui dit la vérité | aucun `continue-on-error`, aucun masquage d'échec | CI |
 

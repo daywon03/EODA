@@ -31,6 +31,12 @@ export type AppEnv = {
   directUrl: string;
   authSecret: string;
 
+  // URL publique de l'application, utilisée par Auth.js pour construire les URLs de
+  // callback derrière le reverse proxy de l'hébergeur. Optionnelle au socle (Auth.js
+  // sait s'en passer en local grâce à `trustHost`), mais EXIGÉE par le profil de
+  // production — cf. production-profile.ts.
+  nextAuthUrl: string | null;
+
   // Stockage fichiers S3-compatible, hébergé Europe. Absent = repli disque local
   // (développement uniquement) ; getFileStoragePort() refuse ce repli en production.
   s3: {
@@ -124,6 +130,7 @@ export function getEnv(): AppEnv {
   );
 
   const anthropicApiKey = process.env.ANTHROPIC_API_KEY?.trim() || null;
+  const nextAuthUrl = process.env.NEXTAUTH_URL?.trim() || null;
 
   if (problems.length > 0) throw new ConfigurationError(problems);
 
@@ -133,6 +140,7 @@ export function getEnv(): AppEnv {
     databaseUrl,
     directUrl,
     authSecret,
+    nextAuthUrl,
     s3: s3Group
       ? {
           endpoint: s3Group.S3_ENDPOINT!,
@@ -158,4 +166,17 @@ export function getEnv(): AppEnv {
 // stockage local de développement) sans exiger toute la configuration.
 export function isProductionRuntime(): boolean {
   return process.env.NODE_ENV === "production";
+}
+
+// `next build` s'exécute avec NODE_ENV=production : sans ce discriminant, la
+// validation du profil de production échouerait sur une machine de CI qui n'a
+// légitimement aucun secret. Next.js positionne NEXT_PHASE pendant le build.
+export function isBuildPhase(): boolean {
+  return process.env.NEXT_PHASE === "phase-production-build";
+}
+
+// `register()` d'instrumentation.ts est appelé une fois par runtime (Node.js ET Edge).
+// Les contrôles de démarrage lisent la base : ils n'ont de sens que côté Node.
+export function isNodeRuntime(): boolean {
+  return process.env.NEXT_RUNTIME === "nodejs";
 }

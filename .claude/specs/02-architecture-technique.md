@@ -421,8 +421,7 @@ Jamais de donnée personnelle dans `detail` (codes de type de document, motifs t
 - [ ] **Compteur de débit partagé** si l'application passe à plusieurs instances (§4.5).
 - [ ] **Purge/rétention du journal d'audit** — durée de conservation à arrêter avec Sandrine
   (RGPD : la traçabilité doit être bornée, pas éternelle).
-- [ ] **Rotation du mot de passe temporaire** — rien n'oblige aujourd'hui un client à changer
-  le mot de passe affiché une seule fois à la création de son compte.
+- [x] **Rotation du mot de passe temporaire** — faite, cf. §4.10.
 - [x] **Chaîne d'application mécanique des règles** — lint type-aware (`no-floating-promises`
   & co. en error), `no-console`, `no-explicit-any`, interdiction de lire `process.env` hors du
   module de configuration, seuils de couverture qui font échouer la commande, gitleaks en
@@ -433,6 +432,81 @@ Jamais de donnée personnelle dans `detail` (codes de type de document, motifs t
   **critique** ; corrigé (`next-auth` 5.0.0-beta.32, `next` 15.5.23), transitives réglées par
   `pnpm.overrides`. Seule exception restante : `xlsx`, sans version corrigée publiée, déclarée
   nominativement dans `pnpm.auditConfig.ignoreGhsas` avec justification (cf. `CLAUDE.md` §0).
+
+### 4.10 Rotation du mot de passe ✅ (2026-08-20)
+
+Le défaut fermé : `inviteClientUser` générait un mot de passe temporaire de 16 caractères,
+l'affichait une fois, et c'était le mot de passe du compte **pour toujours**. Un compte remis
+en septembre gardait un secret transmis de vive voix ou dans une fenêtre de discussion.
+
+- `User.mustChangePassword` (défaut **`true`** — fail-closed) et `User.passwordChangedAt`,
+  migration écrite à la main `20260820120000_password_rotation` avec backfill : les comptes
+  Cabinet existants sont exemptés (ils ont choisi leur mot de passe), les `CLIENT_USER`
+  existants sont marqués comme devant tourner — c'est précisément le trou qu'on ferme.
+- **Enforcement dans la couche d'autorisation, pas dans les pages.** `lib/auth/guards.ts`
+  relisait déjà rôle et tenant en base à chaque contrôle ; il relit maintenant aussi ces deux
+  colonnes. Un compte marqué n'atteint **aucune** route authentifiée hors
+  `/changer-mot-de-passe`. Le middleware porte le même contrôle en version grossière (jeton,
+  Edge, sans base) pour couvrir les routes qui ne passent pas par une garde.
+- **Invalidation des sessions concurrentes — réellement, malgré une stratégie JWT.** Le jeton
+  porte `authAt`, posé une seule fois à la connexion et conservé par Auth.js lors des
+  réémissions sur activité. Une session dont `authAt` est antérieur à `passwordChangedAt`
+  appartient à l'avant du changement : les gardes la refusent, y compris sur un autre
+  appareil. C'est la seule invalidation possible sans table de sessions, et elle est fiable
+  parce que `authAt` — contrairement à `iat` — ne bouge pas au rafraîchissement.
+- **Déconnexion par route handler** (`/deconnexion`), jamais par `redirect("/login")` depuis
+  une garde : un composant serveur ne peut pas supprimer un cookie, et rediriger en laissant
+  le cookie posé produit une boucle middleware ⇄ garde.
+- Politique : 12 caractères minimum, plafond à 72 **octets** (au-delà bcrypt tronque
+  silencieusement), mot de passe courant exigé, réutilisation refusée, bcrypt coût 12 —
+  identique à `auth.ts`. Longueur plutôt que composition (ANSSI / NIST SP 800-63B).
+- Limitation de débit dédiée (5 / 15 min sur `(IP, userId)`) : l'action est un oracle de
+  vérification du mot de passe courant pour une session volée. Compteur mutualisé avec la
+  connexion via `lib/security/attempt-throttle.ts`.
+- Journal d'audit : `PASSWORD_CHANGED`, `PASSWORD_CHANGE_FAILED`,
+  `PASSWORD_CHANGE_RATE_LIMITED`. Aucun mot de passe, aucune donnée personnelle dans `detail`
+  (vérifié par test).
+
+### 4.11 Validation de la configuration au démarrage ✅ (2026-08-20)
+
+Le défaut fermé : `getEnv()` valide paresseusement, et trois refus indépendants
+(`lib/storage/index.ts`, `lib/llm/index.ts`, `lib/email/index.ts`) décidaient chacun au
+premier appel réel si le service était utilisable. Un déploiement sans `S3_*` démarrait vert,
+servait les pages, et n'échouait qu'au premier dépôt de document — devant le client.
+
+- `src/instrumentation.ts` (`register()`, une fois par démarrage, runtime Node uniquement)
+  appelle `lib/config/startup-check.ts`.
+- En production : `S3_*` complet, `ANTHROPIC_API_KEY`, `NEXTAUTH_URL` en `https://`,
+  `AUTH_SECRET` ≥ 32 caractères. Tous les problèmes sont rapportés d'un coup, puis
+  `process.exit(1)`.
+  **Pourquoi sortir plutôt que lever** : vérifié sur l'artefact standalone, une exception
+  levée depuis `register()` laisse Next.js annoncer « Ready » puis échouer en
+  `unhandledRejection` — un processus à moitié vivant, c'est-à-dire exactement l'état qu'on
+  veut éviter.
+- Le profil de production est une **fonction pure** (`lib/config/production-profile.ts`),
+  testée sans toucher à `process.env`.
+- Le développement n'est pas dégradé : le repli disque local et l'adaptateur stub continuent
+  de fonctionner à l'identique. La validation du profil ne s'applique qu'en production, et
+  est désactivée pendant `next build` (qui tourne avec `NODE_ENV=production` sur une machine
+  de CI sans secrets — discriminée par `NEXT_PHASE`).
+
+### 4.12 Migrations appliquées au déploiement ✅ (2026-08-20)
+
+- `pnpm db:migrate:deploy` ne tournait que dans la CI, contre une base jetable. Rien
+  n'appliquait les migrations à la vraie base : c'était une étape manuelle que personne
+  n'avait écrite.
+- La détection automatique de schéma du SDK Prisma Compute (`detectAppSchema`) descend depuis
+  `root` (`apps/web`) et ne trouve donc **pas** `packages/database/prisma/schema.prisma`. Le
+  contrat `ComputeAppConfig` n'expose ni hook `prebuild` ni hook `release` : `build.command`
+  est le seul point d'accroche. `prisma.compute.ts` y enchaîne `generate`,
+  `migrate deploy`, `next build`. Un déploiement dont la migration échoue échoue au build.
+- Au démarrage, l'application compare le manifeste `EXPECTED_MIGRATIONS`
+  (`packages/database/src/migrations.ts`) à la table `_prisma_migrations` et **journalise une
+  erreur unique et complète** si le schéma est en retard ou incohérent. Non bloquant
+  volontairement : une base injoignable une fraction de seconde ne doit pas empêcher
+  l'instance de se lever, et une base « en avance » (retour arrière applicatif) est légitime.
+- La duplication entre le manifeste et le dossier `prisma/migrations` est tenue
+  mécaniquement par `apps/web/src/lib/db/migration-manifest.test.ts` (règle zéro).
 
 ## 5. Préparation explicite de l'évolutivité (sans la construire maintenant)
 

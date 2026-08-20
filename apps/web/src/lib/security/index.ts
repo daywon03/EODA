@@ -1,4 +1,4 @@
-import type { RateLimiterPort } from "./rate-limiter-port";
+import type { RateLimiterPort, RateLimitPolicy } from "./rate-limiter-port";
 import { InMemoryRateLimiter } from "./in-memory-rate-limiter";
 
 let cached: RateLimiterPort | null = null;
@@ -15,6 +15,17 @@ export function getRateLimiter(): RateLimiterPort {
 
 // Politique de limitation de l'authentification. Volontairement centralisée ici
 // plutôt que dupliquée dans l'action de login : une seule valeur à ajuster.
-export const LOGIN_RATE_LIMIT = { limit: 10, windowSeconds: 15 * 60 } as const;
+export const LOGIN_RATE_LIMIT: RateLimitPolicy = { limit: 10, windowSeconds: 15 * 60 };
 
-export type { RateLimiterPort, RateLimitDecision, RateLimitState } from "./rate-limiter-port";
+// Changement de mot de passe : plus strict que la connexion. L'action exige le mot
+// de passe courant, donc elle est un oracle de vérification de mot de passe pour une
+// session volée — 5 essais par quart d'heure suffisent à un utilisateur légitime et
+// ferment le bourrage.
+export const PASSWORD_CHANGE_RATE_LIMIT: RateLimitPolicy = { limit: 5, windowSeconds: 15 * 60 };
+
+export type {
+  RateLimiterPort,
+  RateLimitDecision,
+  RateLimitPolicy,
+  RateLimitState,
+} from "./rate-limiter-port";

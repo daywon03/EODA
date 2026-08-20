@@ -143,7 +143,19 @@ avant mise en usage réel.
 - [ ] **Compteur de limitation partagé** (Redis ou table Postgres) si l'app passe à plusieurs
   instances — l'adaptateur mémoire actuel se contourne en réparti.
 - [ ] **Rétention du journal d'audit** — durée de conservation à arrêter avec Sandrine.
-- [ ] **Rotation du mot de passe temporaire** à la première connexion d'un compte client.
+- [x] **Rotation du mot de passe temporaire** à la première connexion d'un compte client —
+  `User.mustChangePassword` / `passwordChangedAt`, page `/changer-mot-de-passe`, enforcement
+  dans `lib/auth/guards.ts` + middleware, invalidation des sessions ouvertes avant le
+  changement. Migration `20260820120000_password_rotation` — à appliquer avec
+  `pnpm db:migrate:deploy`. Détail : `specs/02-architecture-technique.md` §4.10.
+- [x] **Configuration validée au démarrage** — `src/instrumentation.ts` refuse de démarrer
+  (sortie code 1) une instance de production sans `S3_*`, `ANTHROPIC_API_KEY` ou
+  `NEXTAUTH_URL`. Fin du déploiement « vert » qui explose au premier dépôt de document.
+  Détail : §4.11.
+- [x] **Migrations appliquées au déploiement** — `prisma.compute.ts` enchaîne
+  `migrate deploy` puis `next build` dans `build.command` (seul point d'accroche exposé par
+  le SDK) ; l'application journalise une erreur unique au démarrage si le schéma est en
+  retard. Checklist de mise en production dans `README.md`. Détail : §4.12.
 - [ ] Tests de charge basiques sur le pipeline d'analyse (un upload simultané de plusieurs
   documents ne doit pas planter le job queue)
 - [ ] Vérification réelle du format d'export attendu par Synaé (point ouvert — voir

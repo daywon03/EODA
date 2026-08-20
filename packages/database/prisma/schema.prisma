@@ -170,6 +170,15 @@ model User {
   role         UserRole  @default(CLIENT_USER)
   createdAt    DateTime  @default(now()) @map("created_at")
 
+  // Rotation du mot de passe. Un compte client est créé avec un mot de passe
+  // temporaire affiché une seule fois : tant que ce drapeau est vrai, la couche
+  // d'autorisation (lib/auth/guards.ts) n'ouvre aucune autre route que la page de
+  // changement. Voir specs/02-architecture-technique.md §4.10.
+  mustChangePassword Boolean  @default(true) @map("must_change_password")
+  // Sert aussi d'horodatage de révocation : toute session ouverte AVANT cette date
+  // est refusée par les gardes (invalidation des sessions concurrentes).
+  passwordChangedAt  DateTime? @map("password_changed_at")
+
   tenant             Tenant?              @relation(fields: [tenantId], references: [id])
   establishmentUsers EstablishmentUser[]
   uploadedVersions   DocumentVersion[]    @relation("UploadedBy")
@@ -675,6 +684,9 @@ enum AuditAction {
   ESTABLISHMENT_DELETED
   LOGIN_FAILED
   LOGIN_RATE_LIMITED
+  PASSWORD_CHANGED
+  PASSWORD_CHANGE_FAILED
+  PASSWORD_CHANGE_RATE_LIMITED
 }
 
 model AuditLogEntry {

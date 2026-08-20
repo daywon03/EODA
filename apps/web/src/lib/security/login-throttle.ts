@@ -1,5 +1,5 @@
 import { getRateLimiter, LOGIN_RATE_LIMIT } from "./index";
-import { recordAuditEvent } from "@/lib/services/audit-log-service";
+import { consumeThrottledAttempt } from "./attempt-throttle";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // LIMITATION DE DÉBIT DE L'AUTHENTIFICATION
@@ -31,17 +31,11 @@ export function loginThrottleKey(ip: string, email: string): string {
 // Consomme une tentative. Appelé UNE SEULE FOIS par tentative réelle, depuis
 // `authorize()`. Retourne false quand la tentative doit être refusée.
 export async function consumeLoginAttempt(key: string): Promise<boolean> {
-  const decision = await getRateLimiter().consume(key, LOGIN_RATE_LIMIT);
-
-  if (!decision.allowed) {
-    await recordAuditEvent({
-      action: "LOGIN_RATE_LIMITED",
-      detail: `tentatives dépassées (${LOGIN_RATE_LIMIT.limit} / ${LOGIN_RATE_LIMIT.windowSeconds}s)`,
-    });
-    return false;
-  }
-
-  return true;
+  return consumeThrottledAttempt({
+    key,
+    policy: LOGIN_RATE_LIMIT,
+    auditAction: "LOGIN_RATE_LIMITED",
+  });
 }
 
 // Lecture sans consommation — permet à l'action serveur d'afficher un message précis

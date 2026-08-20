@@ -2,6 +2,7 @@ import { prisma, type UserRole } from "@eoda/database";
 import type { Session } from "next-auth";
 import { auth } from "@/auth";
 import { redirect, notFound } from "next/navigation";
+import { PASSWORD_ROTATION_PATH, SIGN_OUT_PATH } from "./routes";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // COUCHE D'AUTORISATION UNIQUE — fail-closed par construction
@@ -51,12 +52,57 @@ async function requireSession(): Promise<Session> {
 //   - le tenant n'est pas dans le jeton, il doit de toute façon être résolu.
 // Le coût est une requête indexée sur clé primaire, négligeable devant les
 // requêtes métier qui suivent.
-async function resolveUser(userId: string): Promise<{ role: UserRole; tenantId: string | null } | null> {
+type ResolvedUser = {
+  role: UserRole;
+  tenantId: string | null;
+  mustChangePassword: boolean;
+  passwordChangedAt: Date | null;
+};
+
+async function resolveUser(userId: string): Promise<ResolvedUser | null> {
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { role: true, tenantId: true },
+    select: {
+      role: true,
+      tenantId: true,
+      mustChangePassword: true,
+      passwordChangedAt: true,
+    },
   });
   return user ?? null;
+}
+
+// ── Rotation du mot de passe ─────────────────────────────────────────────────
+// Deux contrôles, portés ici et nulle part ailleurs (une vérification recopiée dans
+// une page est une vérification qu'une autre page oubliera) :
+//
+//  1. Session périmée. `authAt` est l'heure de connexion, figée dans le jeton. Si le
+//     mot de passe a été changé APRÈS, cette session appartient à l'avant : elle est
+//     refusée, y compris ouverte sur un autre appareil. C'est la seule invalidation
+//     de session possible avec une stratégie JWT sans table de sessions — elle est
+//     réelle parce que `authAt` ne bouge pas quand Auth.js réémet le jeton.
+//  2. Rotation due. Tant que `mustChangePassword` est vrai en base, aucune route
+//     authentifiée n'est servie hormis la page de rotation elle-même.
+//
+// La déconnexion passe par /deconnexion (route handler) et jamais par redirect(
+// "/login") : le cookie de session est encore posé, le middleware renverrait
+// aussitôt vers le tableau de bord et on boucherait indéfiniment.
+export function isSessionStale(session: Session, user: ResolvedUser): boolean {
+  if (!user.passwordChangedAt) return false;
+  // Jeton émis avant l'introduction de la revendication : rien à comparer.
+  if (session.user.authAt === null) return false;
+  return session.user.authAt < user.passwordChangedAt.getTime();
+}
+
+// Contrôles communs à TOUTES les gardes redirigeantes. `allowRotationPending` est
+// réservé à la garde de la page de rotation elle-même.
+function enforcePasswordRotation(
+  session: Session,
+  user: ResolvedUser,
+  options: { allowRotationPending: boolean }
+): void {
+  if (isSessionStale(session, user)) redirect(SIGN_OUT_PATH);
+  if (user.mustChangePassword && !options.allowRotationPending) redirect(PASSWORD_ROTATION_PATH);
 }
 
 // Garde commun à tout l'espace Cabinet (établissements, suivi de mission, évaluation) —
@@ -71,6 +117,7 @@ export async function requireCabinetSession(): Promise<CabinetContext> {
 
   const user = await resolveUser(session.user.id);
   if (!user) redirect("/login");
+  enforcePasswordRotation(session, user, { allowRotationPending: false });
   if (user.role === "CLIENT_USER") redirect("/dashboard/client");
   if (!user.tenantId) redirect("/login");
 
@@ -85,6 +132,7 @@ export async function requireCabinetAdminSession(): Promise<CabinetContext> {
 
   const user = await resolveUser(session.user.id);
   if (!user) redirect("/login");
+  enforcePasswordRotation(session, user, { allowRotationPending: false });
   if (user.role !== "CABINET_ADMIN") redirect("/dashboard/cabinet");
   if (!user.tenantId) redirect("/dashboard/cabinet");
 
@@ -125,6 +173,7 @@ export async function requireEstablishmentAccess(
 
   const user = await resolveUser(userId);
   if (!user) redirect("/login");
+  enforcePasswordRotation(session, user, { allowRotationPending: false });
 
   if (user.role === "CLIENT_USER") {
     const link = await prisma.establishmentUser.findUnique({
@@ -159,6 +208,9 @@ export async function tryEstablishmentAccess(
 
   const user = await resolveUser(userId);
   if (!user) return null;
+  // Variante non redirigeante : une rotation due ou une session périmée se traduit
+  // par un refus sec, jamais par une navigation (l'appelant est un composant client).
+  if (user.mustChangePassword || isSessionStale(session, user)) return null;
 
   if (user.role === "CLIENT_USER") {
     const link = await prisma.establishmentUser.findUnique({
@@ -189,6 +241,7 @@ export async function requireClientEstablishment(): Promise<{
 
   const user = await resolveUser(session.user.id);
   if (!user) redirect("/login");
+  enforcePasswordRotation(session, user, { allowRotationPending: false });
   if (user.role !== "CLIENT_USER") redirect("/dashboard/cabinet");
 
   const link = await prisma.establishmentUser.findFirst({
@@ -200,5 +253,28 @@ export async function requireClientEstablishment(): Promise<{
     session,
     userId: session.user.id,
     establishment: link?.establishment ?? null,
+  };
+}
+
+// Garde de la page de changement de mot de passe — et d'elle seule. C'est la seule
+// route authentifiée accessible à un compte dont la rotation est due : sans cette
+// exception, l'utilisateur serait renvoyé vers la page depuis la page elle-même.
+// Une session périmée reste refusée (on ne change pas un mot de passe depuis une
+// session ouverte avant le dernier changement).
+export async function requirePasswordRotationSession(): Promise<{
+  session: Session;
+  userId: string;
+  mustChangePassword: boolean;
+}> {
+  const session = await requireSession();
+
+  const user = await resolveUser(session.user.id);
+  if (!user) redirect("/login");
+  enforcePasswordRotation(session, user, { allowRotationPending: true });
+
+  return {
+    session,
+    userId: session.user.id,
+    mustChangePassword: user.mustChangePassword,
   };
 }

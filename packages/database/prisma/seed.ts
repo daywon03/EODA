@@ -479,27 +479,37 @@ async function main() {
     create: { id: "tenant-eoda-conseil", name: "EODA Conseil" },
   });
 
-  // Utilisateurs de test (anonymes)
+  // Utilisateurs de test (anonymes). `mustChangePassword: false` est explicite :
+  // le défaut du schéma est `true` (fail-closed — tout compte réel doit tourner son
+  // mot de passe à la première connexion), mais ces deux comptes sont des fixtures
+  // de développement à identifiants publiquement connus, jamais remises à un client.
+  const seedPasswordRotation = {
+    mustChangePassword: false,
+    passwordChangedAt: new Date(),
+  };
+
   await prisma.user.upsert({
     where: { email: "cabinet@eoda-test.local" },
-    update: { passwordHash: hashPassword("Test1234!") },
+    update: { passwordHash: hashPassword("Test1234!"), ...seedPasswordRotation },
     create: {
       email: "cabinet@eoda-test.local",
       name: "Admin Cabinet (test)",
       passwordHash: hashPassword("Test1234!"),
       role: "CABINET_ADMIN",
       tenantId: tenant.id,
+      ...seedPasswordRotation,
     },
   });
 
   await prisma.user.upsert({
     where: { email: "client@eoda-test.local" },
-    update: { passwordHash: hashPassword("Test1234!") },
+    update: { passwordHash: hashPassword("Test1234!"), ...seedPasswordRotation },
     create: {
       email: "client@eoda-test.local",
       name: "Utilisateur Client (test)",
       passwordHash: hashPassword("Test1234!"),
       role: "CLIENT_USER",
+      ...seedPasswordRotation,
     },
   });
 

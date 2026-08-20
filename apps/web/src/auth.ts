@@ -67,7 +67,16 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         // complet. Le rôle qui sert à AUTORISER est de toute façon relu en base à
         // chaque contrôle (cf. lib/auth/guards.ts) ; celui du jeton ne sert qu'au
         // routage grossier dans le middleware, qui tourne en Edge et n'a pas la base.
-        return { id: user.id, email: user.email, name: user.name, role: user.role };
+        return {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          role: user.role,
+          // Porté dans le jeton pour que le middleware (Edge, sans base) puisse
+          // router vers la page de rotation dès la première requête. L'autorisation
+          // réelle reste faite en base par lib/auth/guards.ts.
+          mustChangePassword: user.mustChangePassword,
+        };
       },
     }),
   ],

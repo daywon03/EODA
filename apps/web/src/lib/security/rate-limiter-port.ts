@@ -6,6 +6,11 @@
 // Prisma Postgres) sans toucher le code appelant, dès que l'application tourne sur
 // plusieurs instances.
 
+// Politique de limitation : combien de tentatives, sur quelle fenêtre. Type nommé
+// pour pouvoir être passé de bout en bout (cf. attempt-throttle.ts) plutôt que
+// réécrit en littéral à chaque appel.
+export type RateLimitPolicy = { limit: number; windowSeconds: number };
+
 export type RateLimitDecision = {
   allowed: boolean;
   // Nombre de tentatives restantes avant blocage — utile pour un message utilisateur.
@@ -22,10 +27,10 @@ export type RateLimitState = {
 export interface RateLimiterPort {
   // Enregistre une tentative pour `key` et indique si elle est autorisée.
   // Idempotence non garantie : chaque appel compte pour une tentative.
-  consume(key: string, options: { limit: number; windowSeconds: number }): Promise<RateLimitDecision>;
+  consume(key: string, options: RateLimitPolicy): Promise<RateLimitDecision>;
   // Lit l'état sans consommer de tentative — permet d'afficher un message précis à
   // l'utilisateur sans fausser le comptage.
-  peek(key: string, options: { limit: number; windowSeconds: number }): Promise<RateLimitState>;
+  peek(key: string, options: RateLimitPolicy): Promise<RateLimitState>;
   // Remet le compteur à zéro — appelé après une authentification réussie, pour
   // qu'un utilisateur légitime ne reste pas pénalisé par ses erreurs de frappe.
   reset(key: string): Promise<void>;
