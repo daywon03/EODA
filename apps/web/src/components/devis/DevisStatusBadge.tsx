@@ -6,13 +6,18 @@ export const DEVIS_STATUS_LABELS: Record<DevisStatus, string> = {
   ENVOYE: "Envoyé",
   SIGNE: "Signé",
   REFUSE: "Refusé",
+  ANNULE: "Annulé",
 };
 
-const DEVIS_STATUS_VARIANTS: Record<DevisStatus, "brouillon" | "devisEnvoye" | "signe" | "perdu"> = {
+const DEVIS_STATUS_VARIANTS: Record<
+  DevisStatus,
+  "brouillon" | "devisEnvoye" | "signe" | "perdu" | "annule"
+> = {
   BROUILLON: "brouillon",
   ENVOYE: "devisEnvoye",
   SIGNE: "signe",
   REFUSE: "perdu",
+  ANNULE: "annule",
 };
 
 export function DevisStatusBadge({ status }: { status: DevisStatus }) {

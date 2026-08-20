@@ -5,7 +5,7 @@ import { requireCabinetSession, requireEstablishmentInTenant } from "@/lib/auth/
 import { notFound } from "next/navigation";
 import { isEnumValue } from "@/lib/validation/form-parsers";
 import { revalidatePath } from "next/cache";
-import { getOfferScope } from "@/lib/services/offer-scope-service";
+import { getOfferScope, isCriterionLevelCovered } from "@/lib/services/offer-scope-service";
 import {
   computeCriterionScore,
   computeWeightedAverage,
@@ -36,6 +36,11 @@ async function requireEvaluationSessionInTenant(evaluationSessionId: string) {
 }
 
 const MAX_RATING_COMMENT_LENGTH = 4000;
+
+// Message unique de refus de périmètre — ne révèle ni l'offre souscrite, ni ce que
+// couvriraient les autres offres.
+const OUT_OF_SCOPE_ERROR =
+  "Ce critère n'entre pas dans le périmètre de l'offre souscrite pour cet établissement.";
 
 function evaluationPaths(establishmentId: string, chapterNumber?: number) {
   const paths = [`/dashboard/cabinet/etablissements/${establishmentId}/evaluation`];
@@ -81,6 +86,21 @@ export async function rateElement(
     include: { criterion: true },
   });
   if (!element) notFound();
+
+  // Le périmètre de critères de l'offre s'applique à l'ÉCRITURE comme à la lecture.
+  // getEvaluationChapter() n'affiche que les impératifs en Essentiel, mais
+  // `evaluationElementId` vient d'une route HTTP publique, pas de l'UI : sans ce
+  // contrôle, un élément d'un critère standard resterait cotable hors périmètre.
+  // Sans mission, rien n'est contracté — même règle qu'à la lecture, où l'écran
+  // renvoie missionRequired : la cotation est alors refusée.
+  const mission = await prisma.mission.findUnique({
+    where: { establishmentId: evaluationSession.establishmentId },
+    select: { formule: true, gratuit: true },
+  });
+  if (!mission) return { error: OUT_OF_SCOPE_ERROR };
+  if (!isCriterionLevelCovered(mission.formule, mission.gratuit, element.criterion.requirementLevel)) {
+    return { error: OUT_OF_SCOPE_ERROR };
+  }
 
   const check: RatingAllowedResult = isRatingAllowed(
     rating,

@@ -4,6 +4,7 @@ import {
   getCoveredDocumentCategories,
   getEffectiveTier,
   getOfferScope,
+  isCriterionLevelCovered,
   isDocumentCategoryCovered,
 } from "./offer-scope-service";
 
@@ -99,5 +100,22 @@ describe("catégories documentaires couvertes — §12.1", () => {
 
   it("ouvre les quatre catégories à un Essentiel en bêta-test gratuit", () => {
     expect(getCoveredDocumentCategories("ESSENTIEL", true)).toHaveLength(4);
+  });
+});
+
+describe("périmètre de critères cotables — §12.1", () => {
+  it("refuse un critère standard à l'Essentiel payant", () => {
+    expect(isCriterionLevelCovered("ESSENTIEL", false, "STANDARD")).toBe(false);
+  });
+
+  it("accepte un critère impératif à l'Essentiel payant", () => {
+    expect(isCriterionLevelCovered("ESSENTIEL", false, "IMPERATIF")).toBe(true);
+  });
+
+  it("ouvre les 157 critères dès Performance, en Excellence et en bêta-test gratuit", () => {
+    for (const formule of ["PERFORMANCE", "EXCELLENCE", "BETA"] as const) {
+      expect(isCriterionLevelCovered(formule, false, "STANDARD")).toBe(true);
+    }
+    expect(isCriterionLevelCovered("ESSENTIEL", true, "STANDARD")).toBe(true);
   });
 });

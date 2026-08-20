@@ -202,6 +202,13 @@ Détail complet et état d'avancement : `specs/02-architecture-technique.md` §4
   `CABINET_EVALUATOR` ni `CLIENT_USER`). Ces données restent malgré tout strictement internes :
   ne jamais les exposer sur une route accessible à un `CLIENT_USER`, ni les inclure dans un
   livrable/export destiné à un client.
+  **Exception décidée le 20/08/2026 (Damon), à ne pas « corriger » :** un client voit, sur son
+  portail, **son propre contrat** — offre souscrite, options souscrites, montant signé, acompte,
+  solde — **et** les options non souscrites avec leur prix « à partir de », qui sont la base du
+  paywall du §12.6. Ce qui reste interdit : le catalogue interne dans son ensemble, les données
+  d'un autre client, le pipeline de prospection, les devis non signés d'autrui, les KPI
+  commerciaux. La règle §12.3 tient toujours : le client demande, **Sandrine déclenche** — voir
+  une option et son prix n'est pas la même chose que se l'auto-attribuer.
 - Le suivi de mission (checklist diagnostic 12 items + 4 phases d'accompagnement, §7 du même
   fichier) est également intégré, sous `/dashboard/cabinet/etablissements/[id]/mission` —
   accessible à `CABINET_ADMIN` **et** `CABINET_EVALUATOR` (contrairement au pipeline commercial

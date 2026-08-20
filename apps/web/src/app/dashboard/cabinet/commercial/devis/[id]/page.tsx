@@ -1,11 +1,14 @@
+import Link from "next/link";
 import { getDevis } from "@/lib/actions/devis";
+import { isDevisDeletable, isDevisEditable } from "@/lib/services/devis-transition-service";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { DevisStatusBadge } from "@/components/devis/DevisStatusBadge";
 import { DevisStatusActions } from "@/components/devis/DevisStatusActions";
 import { DevisSummaryPrintable } from "@/components/devis/DevisSummaryPrintable";
-import { Printer } from "lucide-react";
+import { DeleteDevisButton } from "@/components/devis/DeleteDevisButton";
+import { Pencil, Printer } from "lucide-react";
 
 type Props = { params: Promise<{ id: string }> };
 
@@ -22,6 +25,17 @@ export default async function DevisDetailPage({ params }: Props) {
         action={
           <div className="flex items-center gap-2">
             <DevisStatusBadge status={devis.status} />
+            {isDevisEditable(devis.status) && (
+              <Button variant="outline" size="sm" asChild>
+                <Link href={`/dashboard/cabinet/commercial/devis/${id}/modifier`}>
+                  <Pencil className="w-3.5 h-3.5" aria-hidden="true" />
+                  Corriger
+                </Link>
+              </Button>
+            )}
+            {isDevisDeletable(devis.status) && (
+              <DeleteDevisButton devisId={id} number={devis.number} />
+            )}
             <Button variant="outline" size="sm" asChild>
               <a href={`/imprimer/devis/${id}`} target="_blank" rel="noopener noreferrer">
                 <Printer className="w-3.5 h-3.5" aria-hidden="true" />
@@ -33,6 +47,14 @@ export default async function DevisDetailPage({ params }: Props) {
       />
 
       <DevisStatusActions devisId={id} status={devis.status} />
+
+      {devis.status === "ANNULE" && (
+        <p className="text-sm text-gris-mid border-l-4 border-gris-light pl-3">
+          Ce devis est annulé. Son numéro reste réservé dans la série annuelle — une série
+          commerciale numérotée ne comporte pas de trou — et il n&apos;entre plus dans aucun
+          indicateur du pipeline.
+        </p>
+      )}
 
       <Card>
         <CardContent className="pt-6">

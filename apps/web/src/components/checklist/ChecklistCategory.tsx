@@ -7,6 +7,7 @@ import { DocumentUploadButton } from "./DocumentUploadButton";
 import { DocumentDownloadLink } from "./DocumentDownloadLink";
 import { DocumentPreviewLink } from "./DocumentPreviewLink";
 import { MissingDocumentJustification } from "./MissingDocumentJustification";
+import { DeleteDocumentVersionButton } from "./DeleteDocumentVersionButton";
 import type { ChecklistItem } from "@/lib/actions/checklist";
 import type { DocumentStatus } from "@eoda/database";
 
@@ -15,6 +16,10 @@ type Props = {
   items: ChecklistItem[];
   defaultOpen?: boolean;
   establishmentId?: string;
+  // Réservé à l'espace Cabinet : la suppression d'une version déposée n'est pas
+  // offerte au portail client. L'action serveur refait le contrôle de toute façon —
+  // ce drapeau ne fait que ne pas proposer un bouton qui serait refusé.
+  canManageVersions?: boolean;
 };
 
 const STATUS_ORDER: DocumentStatus[] = [
@@ -25,7 +30,13 @@ function statusScore(s: DocumentStatus): number {
   return STATUS_ORDER.indexOf(s);
 }
 
-export function ChecklistCategory({ title, items, defaultOpen = false, establishmentId }: Props) {
+export function ChecklistCategory({
+  title,
+  items,
+  defaultOpen = false,
+  establishmentId,
+  canManageVersions = false,
+}: Props) {
   const [open, setOpen] = useState(defaultOpen);
 
   const missing = items.filter((i) => i.status === "MISSING").length;
@@ -89,14 +100,21 @@ export function ChecklistCategory({ title, items, defaultOpen = false, establish
                     </p>
                     <DocumentPreviewLink documentVersionId={item.currentVersion.id} />
                     <DocumentDownloadLink documentVersionId={item.currentVersion.id} />
+                    {canManageVersions && (
+                      <DeleteDocumentVersionButton
+                        documentVersionId={item.currentVersion.id}
+                        filename={item.currentVersion.originalFilename}
+                      />
+                    )}
                   </div>
                 )}
-                {!item.currentVersion && establishmentId && (
+                {establishmentId && (
                   <MissingDocumentJustification
                     establishmentId={establishmentId}
                     documentTypeId={item.documentTypeId}
                     status={item.status}
                     missingJustification={item.missingJustification}
+                    hasVersion={item.currentVersion !== null}
                   />
                 )}
               </div>

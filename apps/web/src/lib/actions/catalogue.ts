@@ -2,7 +2,9 @@
 
 import { prisma, CommercialTier, PricingUnit } from "@eoda/database";
 import { requireCabinetAdminSession } from "@/lib/auth/guards";
+import { notFound } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import { recordAuditEvent } from "@/lib/services/audit-log-service";
 import {
   firstError,
   optionalInt,
@@ -110,12 +112,80 @@ export async function upsertCatalogueOption(
   return null;
 }
 
-export async function toggleCatalogueOptionActive(id: string, active: boolean): Promise<void> {
-  const { tenantId } = await requireCabinetAdminSession();
+// ── Retrait / remise en vente d'une ligne de catalogue ───────────────────────
+//
+// Retirer une ligne ne la supprime pas : les devis qui la référencent doivent
+// rester lisibles. Ils le sont par construction — chaque devis fige un snapshot
+// du libellé et du prix (`formuleLabelSnapshot`, `DevisOption.labelSnapshot`), et
+// les relations `catalogueFormule` / `catalogueOption` ne filtrent jamais sur
+// `active`. Seuls les sélecteurs (page « nouveau devis ») et les actions d'écriture
+// (`resolveDevisLines`) filtrent `active: true` : une ligne retirée disparaît des
+// listes déroulantes et refuse d'être vendue, y compris si son identifiant est
+// réinjecté à la main dans la requête.
+//
+// `active` arrive en argument d'action serveur : on le valide comme n'importe
+// quelle entrée, un `boolean` TypeScript ne garantit rien à l'exécution.
+function parseActiveFlag(active: unknown): { error: string } | { value: boolean } {
+  if (typeof active !== "boolean") return { error: "État de disponibilité invalide." };
+  return { value: active };
+}
 
-  await prisma.catalogueOption.updateMany({ where: { id, tenantId }, data: { active } });
+async function recordCatalogueToggle(
+  userId: string,
+  active: boolean,
+  targetId: string,
+  detail: string
+): Promise<void> {
+  await recordAuditEvent({
+    action: active ? "CATALOGUE_ITEM_RESTORED" : "CATALOGUE_ITEM_RETIRED",
+    actorUserId: userId,
+    actorRole: "CABINET_ADMIN",
+    targetId,
+    // Code de la ligne de catalogue / nom de la formule : clé technique, jamais
+    // une donnée personnelle.
+    detail,
+  });
+}
+
+export async function toggleCatalogueOptionActive(
+  id: string,
+  active: boolean
+): Promise<{ error: string } | null> {
+  const { userId, tenantId } = await requireCabinetAdminSession();
+
+  const parsed = parseActiveFlag(active);
+  if ("error" in parsed) return parsed;
+
+  // findFirst + update plutôt qu'updateMany : sans lecture préalable, un
+  // identifiant appartenant à un autre tenant renvoyait « 0 ligne modifiée » et
+  // un succès silencieux. notFound() ne révèle pas qu'il existe ailleurs.
+  const option = await prisma.catalogueOption.findFirst({ where: { id, tenantId } });
+  if (!option) notFound();
+
+  await prisma.catalogueOption.update({ where: { id }, data: { active: parsed.value } });
+  await recordCatalogueToggle(userId, parsed.value, id, option.code);
 
   revalidatePath(CATALOGUE_PATH);
+  return null;
+}
+
+export async function toggleCatalogueFormuleActive(
+  id: string,
+  active: boolean
+): Promise<{ error: string } | null> {
+  const { userId, tenantId } = await requireCabinetAdminSession();
+
+  const parsed = parseActiveFlag(active);
+  if ("error" in parsed) return parsed;
+
+  const formule = await prisma.catalogueFormule.findFirst({ where: { id, tenantId } });
+  if (!formule) notFound();
+
+  await prisma.catalogueFormule.update({ where: { id }, data: { active: parsed.value } });
+  await recordCatalogueToggle(userId, parsed.value, id, formule.formule);
+
+  revalidatePath(CATALOGUE_PATH);
+  return null;
 }
 
 export async function updateBillingSettings(

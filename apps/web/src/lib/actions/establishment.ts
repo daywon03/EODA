@@ -92,7 +92,9 @@ export async function updateEstablishment(
 export async function deleteEstablishment(id: string): Promise<{ error: string } | void> {
   const { session, userId } = await requireEstablishmentInTenant(id);
 
-  await prisma.$transaction(async (tx) => {
+  // Comptes clients supprimés avec l'établissement — calculés DANS la transaction,
+  // journalisés après elle.
+  const deletedUserIds = await prisma.$transaction(async (tx) => {
     await tx.elementRating.deleteMany({
       where: { evaluationSession: { establishmentId: id } },
     });
@@ -103,10 +105,46 @@ export async function deleteEstablishment(id: string): Promise<{ error: string }
     });
     await tx.documentVersion.deleteMany({ where: { document: { establishmentId: id } } });
     await tx.document.deleteMany({ where: { establishmentId: id } });
+
+    // ── Comptes orphelins ────────────────────────────────────────────────────
+    // Jusqu'ici, seuls les liens EstablishmentUser étaient supprimés : les lignes
+    // `users` survivaient, et un compte client d'un établissement disparu POUVAIT
+    // ENCORE S'AUTHENTIFIER. C'est une fuite d'accès, pas un résidu cosmétique.
+    // Un compte encore rattaché à un autre établissement est évidemment conservé ;
+    // seul le CLIENT_USER qui ne l'est plus à rien est supprimé, dans la même
+    // transaction que l'établissement — les deux relations qui le référencent
+    // (DocumentVersion.uploadedBy, EvaluationSession) viennent d'être effacées.
+    const linkedUserIds = (
+      await tx.establishmentUser.findMany({ where: { establishmentId: id }, select: { userId: true } })
+    ).map((link) => link.userId);
+
     await tx.establishmentUser.deleteMany({ where: { establishmentId: id } });
+
+    let orphanIds: string[] = [];
+    if (linkedUserIds.length > 0) {
+      const stillLinked = new Set(
+        (
+          await tx.establishmentUser.findMany({
+            where: { userId: { in: linkedUserIds } },
+            select: { userId: true },
+          })
+        ).map((link) => link.userId)
+      );
+      const clientAccounts = await tx.user.findMany({
+        where: { id: { in: linkedUserIds }, role: "CLIENT_USER" },
+        select: { id: true },
+      });
+      orphanIds = clientAccounts.map((u) => u.id).filter((userId) => !stillLinked.has(userId));
+      if (orphanIds.length > 0) {
+        await tx.user.deleteMany({ where: { id: { in: orphanIds } } });
+      }
+    }
+
     await tx.missionChecklistItemStatus.deleteMany({ where: { mission: { establishmentId: id } } });
     await tx.mission.deleteMany({ where: { establishmentId: id } });
     await tx.establishment.delete({ where: { id } });
+
+    return orphanIds;
   });
 
   // Journalisé après coup, hors transaction : la trace de suppression ne doit pas
@@ -116,7 +154,20 @@ export async function deleteEstablishment(id: string): Promise<{ error: string }
     actorUserId: userId,
     actorRole: session.user.role,
     establishmentId: id,
+    detail: `${deletedUserIds.length} compte(s) client supprimé(s)`,
   });
+
+  // Une ligne par compte supprimé : le journal doit permettre de répondre « quel
+  // accès a disparu, quand », pas seulement « un établissement a été supprimé ».
+  for (const deletedUserId of deletedUserIds) {
+    await recordAuditEvent({
+      action: "USER_DELETED_WITH_ESTABLISHMENT",
+      actorUserId: userId,
+      actorRole: session.user.role,
+      establishmentId: id,
+      targetId: deletedUserId,
+    });
+  }
 
   revalidatePath("/dashboard/cabinet");
   redirect("/dashboard/cabinet");
@@ -135,7 +186,9 @@ export async function listEstablishments() {
 export type EstablishmentWithUsers = Prisma.EstablishmentGetPayload<{
   include: {
     establishmentUsers: {
-      include: { user: { select: { id: true; name: true; email: true; role: true } } };
+      include: {
+        user: { select: { id: true; name: true; email: true; role: true; isActive: true } };
+      };
     };
   };
 }>;
@@ -147,7 +200,9 @@ export async function getEstablishment(id: string): Promise<EstablishmentWithUse
     where: { id, tenantId },
     include: {
       establishmentUsers: {
-        include: { user: { select: { id: true, name: true, email: true, role: true } } },
+        include: {
+          user: { select: { id: true, name: true, email: true, role: true, isActive: true } },
+        },
       },
     },
   });

@@ -7,13 +7,11 @@ import {
 } from "./devis-calculation-service";
 import {
   computeConversionRatePercent,
+  computeIssuedDevisCount,
   computeSignedRevenueEuros,
   computeWeightedPipelineEuros,
-  groupProspectsByStatus,
-  groupProspectsByStructureType,
   groupSignedDevisByFormule,
   type KpiDevis,
-  type KpiProspect,
 } from "./commercial-kpi-service";
 
 // Règles de référence : .claude/context/07-outil-pilotage-missions.md §6.1-§6.3 et §8.
@@ -194,28 +192,47 @@ describe("KPI commerciaux — §8", () => {
     });
   });
 
-  const prospects: KpiProspect[] = [
-    { status: "NOUVEAU", structureType: "ASSOCIATION" },
-    { status: "SIGNE", structureType: "ASSOCIATION" },
-    { status: "PERDU", structureType: "PRIVE" },
+  it("compte les devis émis sans les annulés", () => {
+    expect(computeIssuedDevisCount(list)).toBe(4);
+    expect(computeIssuedDevisCount([...list, devis("ANNULE", 9000, "EXCELLENCE", "SIGNE")])).toBe(4);
+  });
+});
+
+// Régression : un devis annulé conserve sa ligne et son numéro en base, mais ne
+// doit alimenter AUCUN indicateur. Sans ce filtre, une annulation de devis signé
+// laissait son montant dans le « CA signé » — une erreur invisible à l'œil.
+describe("KPI commerciaux — exclusion des devis annulés", () => {
+  const withCancelled: KpiDevis[] = [
+    devis("SIGNE", 15000, "EXCELLENCE", "SIGNE"),
+    devis("ANNULE", 15000, "EXCELLENCE", "SIGNE"),
+    devis("ANNULE", 6500, "PERFORMANCE", "NEGOCIATION"),
   ];
 
-  it("répartit les prospects par type de structure, en initialisant tous les compteurs", () => {
-    expect(groupProspectsByStructureType(prospects)).toEqual({
-      ASSOCIATION: 2,
-      PRIVE: 1,
-      PUBLIC: 0,
-    });
+  it("ne compte pas un devis annulé dans le CA signé", () => {
+    expect(computeSignedRevenueEuros(withCancelled)).toBe(15000);
   });
 
-  it("répartit les prospects par statut de kanban, en initialisant toutes les colonnes", () => {
-    expect(groupProspectsByStatus(prospects)).toEqual({
-      NOUVEAU: 1,
-      RDV: 0,
-      DEVIS_ENVOYE: 0,
-      NEGOCIATION: 0,
-      SIGNE: 1,
-      PERDU: 1,
+  it("ne compte pas un devis annulé dans le pipeline pondéré, même via le statut du prospect", () => {
+    // Le second terme du pipeline filtre sur le prospect en NEGOCIATION : sans
+    // exclusion du devis annulé, 6500 × 0,60 = 3900 seraient comptés.
+    expect(computeWeightedPipelineEuros(withCancelled)).toBe(0);
+  });
+
+  it("exclut les devis annulés du dénominateur du taux de conversion", () => {
+    // 1 signé sur 1 devis actif = 100 %, et non 1 sur 3.
+    expect(computeConversionRatePercent(withCancelled)).toBe(100);
+  });
+
+  it("renvoie 0 % quand tous les devis sont annulés, sans diviser par zéro", () => {
+    expect(computeConversionRatePercent([devis("ANNULE", 15000, "EXCELLENCE", "SIGNE")])).toBe(0);
+  });
+
+  it("ne compte pas un devis annulé dans la répartition par formule", () => {
+    expect(groupSignedDevisByFormule(withCancelled)).toEqual({
+      BETA: 0,
+      ESSENTIEL: 0,
+      PERFORMANCE: 0,
+      EXCELLENCE: 1,
     });
   });
 });

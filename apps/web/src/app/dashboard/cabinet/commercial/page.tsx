@@ -1,5 +1,5 @@
-import { listProspects } from "@/lib/actions/prospect";
-import { listDevis } from "@/lib/actions/devis";
+import { getProspectKpiCounts } from "@/lib/actions/prospect";
+import { listDevisForKpi } from "@/lib/actions/devis";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { KpiCard } from "@/components/kpi/KpiCard";
 import { BreakdownList } from "@/components/kpi/BreakdownList";
@@ -7,10 +7,9 @@ import { PROSPECT_STATUS_LABELS } from "@/components/prospect/ProspectStatusBadg
 import { formatEuros } from "@/lib/services/price-format-service";
 import {
   computeConversionRatePercent,
+  computeIssuedDevisCount,
   computeSignedRevenueEuros,
   computeWeightedPipelineEuros,
-  groupProspectsByStatus,
-  groupProspectsByStructureType,
 } from "@/lib/services/commercial-kpi-service";
 import { Briefcase, TrendingUp, Euro, Target } from "lucide-react";
 
@@ -19,16 +18,22 @@ export const metadata = { title: "Pipeline commercial · EODA Conseil" };
 const STRUCTURE_TYPE_LABELS = { ASSOCIATION: "Association", PRIVE: "Privé", PUBLIC: "Public" } as const;
 
 export default async function CommercialDashboardPage() {
-  const [prospects, devisList] = await Promise.all([listProspects(), listDevis()]);
+  // Les répartitions prospects sont comptées en base (groupBy) et non en chargeant
+  // la table pour la compter en mémoire ; les devis sont lus en projection étroite
+  // (4 scalaires) — un KPI calculé sur une page serait faux, il n'est donc pas paginé.
+  const [{ byStatus, byStructureType }, devisList] = await Promise.all([
+    getProspectKpiCounts(),
+    listDevisForKpi(),
+  ]);
 
   const conversionRate = computeConversionRatePercent(devisList);
   const weightedPipeline = computeWeightedPipelineEuros(devisList);
   const signedRevenue = computeSignedRevenueEuros(devisList);
-  const byStatus = groupProspectsByStatus(prospects);
-  const byStructureType = groupProspectsByStructureType(prospects);
 
   const stats = [
-    { label: "Devis émis", value: String(devisList.length), icon: Briefcase },
+    // Devis annulés exclus partout : ils conservent leur numéro mais sortent des
+    // indicateurs (cf. commercial-kpi-service).
+    { label: "Devis émis", value: String(computeIssuedDevisCount(devisList)), icon: Briefcase },
     { label: "Taux de conversion", value: `${conversionRate}%`, icon: TrendingUp },
     { label: "Pipeline pondéré", value: formatEuros(weightedPipeline), icon: Target },
     { label: "CA signé cumulé", value: formatEuros(signedRevenue), icon: Euro },

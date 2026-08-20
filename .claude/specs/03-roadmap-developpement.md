@@ -133,9 +133,10 @@ avant mise en usage réel.
   vérifié), détection du type de fichier par signature binaire, assainissement de la clé de
   stockage (traversée de chemin), en-têtes de sécurité + CSP, limitation de débit sur le
   login, session ramenée à 8 h, révocation immédiate sur rôle/compte supprimé.
-- [x] **Tests unitaires** (`pnpm test`, 70 tests) sur les services purs, exécutés en CI :
-  règles de cotation HAS, périmètre des offres, avancement de mission, validation des dépôts,
-  parseurs d'entrée.
+- [x] **Tests unitaires** (`pnpm test`, 216 tests au 20/08/2026) sur les services purs et les
+  refus des actions serveur, exécutés en CI : règles de cotation HAS, périmètre des offres,
+  avancement de mission, validation des dépôts, parseurs d'entrée, formatage des prix,
+  politique de mot de passe, gardes d'autorisation, profil de configuration de production.
 - [ ] **Chiffrement at-rest / bucket S3 réel** — toujours non connecté (`S3_*` vides). Reste
   le point bloquant n°1 avant de déposer un vrai document client en production.
 - [ ] **CSP à nonce** — la CSP actuelle conserve `script-src 'unsafe-inline'`, requis par le
@@ -182,3 +183,37 @@ avant mise en usage réel.
    déjà ~30 documents attendus (toutes catégories confondues) ; vérifier que l'UI de
    checklist reste lisible à cette échelle (prévoir des catégories repliables dès le
    Jalon 1, pas comme une optimisation tardive).
+
+## Jalon 6 — Refonte des offres (call du 16/08/2026) — 🟡 EN COURS (2026-08-20)
+
+Source : `context/07-outil-pilotage-missions.md` §12 (corrigé le 20/08 contre le transcript
+Fathom) et `context/08-offre-commerciale-v10.md` (plaquette du 18/08, source de vérité
+tarifaire).
+
+- [x] **Catalogue aligné sur la plaquette v10** — 2 500 / 6 500 / 15 000 € « à partir de »,
+  acompte 40 %, 10 options avec unité de tarification (forfait, heure, document, support,
+  mois), fourchettes et engagement minimal. Migration `20260819180000_catalogue_v10`.
+- [x] **Périmètre par offre appliqué aux deux portails** — `MissionChecklistItem.minFormule`
+  porte la règle en base ; `offer-scope-service` est la seule couche qui répond « cette
+  formule couvre-t-elle ceci ? » (critères, items de mission, catégories de documents) ;
+  refus côté serveur sur les mutations, pas seulement à l'affichage. Migration
+  `20260820090000_mission_checklist_min_formule`.
+- [x] **Compteurs miroir** sur le suivi de mission (déposés / analysés / modifiés / conformes),
+  sans aucun dépôt dans ce portail.
+- [ ] **Page « plan d'action »** (§12.5) — bouton de génération si l'offre couvre la ligne,
+  paywall / demande de devis sinon. **Bloqué** : nécessite le fichier PAC de Sandrine et le
+  tri ligne par ligne inclus/option qu'elle a demandé à Damon de proposer
+  ([4:36:18](https://fathom.video/calls/786436116?timestamp=16578)). Le critère de tri n'est
+  pas « création vs modification » — cette règle est renversée en fin de call (§12.1).
+- [ ] **Génération de contrat + avenant** pour toute option hors contrat (§12.6).
+- [ ] **Deux parcours d'achat d'option** — paywall direct ou demande → alerte interne → devis
+  → déblocage, selon la forme juridique du client (§12.6).
+- [ ] **Abonnement portail** — 400 €/mois, engagement 1 an à reconduction tacite, dégressivité
+  -10 % Performance / -30 % Excellence à calculer dans l'outil (§12.2).
+- [ ] **Module sensibilisation** — génération du PDF de questions ciblé sur les critères
+  faibles, renvoi vers Kahoot, réimport des statistiques (§12.5). Pas de moteur de quiz maison.
+- [ ] **Relances automatiques** — délais, cadence et condition d'arrêt jamais spécifiés (§12.7).
+- [ ] **Fin de mission** — trois états à modéliser : mission active / bibliothèque abonnée en
+  lecture seule / accès révoqué. Aucune suppression dure (§12.5).
+- [ ] **Export Excel compatible Synaé** — format d'import réel toujours inconnu (§12.7,
+  risque n°1 ci-dessous).

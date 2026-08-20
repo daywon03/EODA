@@ -5,7 +5,7 @@ import { listEstablishments } from "@/lib/actions/establishment";
 import { EstablishmentCard } from "@/components/etablissement/EstablishmentCard";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
-import { Plus, Building2, FileText, CalendarClock } from "lucide-react";
+import { Plus, Building2, FileText, CalendarClock, ScrollText } from "lucide-react";
 
 export const metadata = { title: "Dashboard Cabinet · EODA Conseil" };
 
@@ -29,12 +29,22 @@ export default async function CabinetDashboardPage() {
         title="Tableau de bord Cabinet"
         subtitle={`Bienvenue, ${session.user.name ?? session.user.email}`}
         action={
-          <Button asChild>
-            <Link href="/dashboard/cabinet/etablissements/nouveau">
-              <Plus className="w-4 h-4" aria-hidden="true" />
-              Nouvel établissement
-            </Link>
-          </Button>
+          <div className="flex items-center gap-2">
+            {/* Le journal d'audit vit ici plutôt que dans la navigation principale :
+                c'est un écran de contrôle, consulté ponctuellement, pas un module. */}
+            <Button variant="outline" asChild>
+              <Link href="/dashboard/cabinet/journal">
+                <ScrollText className="w-4 h-4" aria-hidden="true" />
+                Journal d&apos;audit
+              </Link>
+            </Button>
+            <Button asChild>
+              <Link href="/dashboard/cabinet/etablissements/nouveau">
+                <Plus className="w-4 h-4" aria-hidden="true" />
+                Nouvel établissement
+              </Link>
+            </Button>
+          </div>
         }
       />
 

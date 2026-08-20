@@ -32,4 +32,6 @@ export const EXPECTED_MIGRATIONS: readonly string[] = [
   "20260819180000_catalogue_v10",
   "20260820090000_mission_checklist_min_formule",
   "20260820120000_password_rotation",
+  "20260820150000_devis_cancellation",
+  "20260820160000_user_deactivation_and_audit_actions",
 ] as const;

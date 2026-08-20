@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useMemo, useState } from "react";
-import { createDevis } from "@/lib/actions/devis";
+import { createDevis, updateDevis } from "@/lib/actions/devis";
 import {
   computeDevisAmounts,
   optionCommittedAmountEuros,
@@ -25,20 +25,60 @@ type CatalogueOptionItem = {
   minQuantity: number | null;
 };
 
+// Valeurs d'un devis existant à corriger. Absentes = création.
+// Seul un BROUILLON arrive ici : la route de modification refuse les autres, et
+// `updateDevis` le revérifie côté serveur.
+type DevisDraft = {
+  id: string;
+  formule: CommercialTier;
+  optionIds: string[];
+  depositPercent: number;
+  installmentCount: number;
+  validityDays: number;
+};
+
 type Props = {
   prospectId: string;
   formules: FormuleOption[];
   options: CatalogueOptionItem[];
   defaultDepositPercent: number;
   defaultValidityDays: number;
+  draft?: DevisDraft;
+  // Lignes du brouillon qui ne sont plus au catalogue (formule ou prestation
+  // retirée depuis la création). Affichées explicitement : elles disparaîtront à
+  // l'enregistrement, et une disparition silencieuse serait pire que le retrait.
+  retiredLines?: string[];
 };
 
-export function DevisForm({ prospectId, formules, options, defaultDepositPercent, defaultValidityDays }: Props) {
-  const [state, formAction, isPending] = useActionState(createDevis, null);
-  const [formule, setFormule] = useState<CommercialTier | "">(formules[0]?.formule ?? "");
-  const [selectedOptionIds, setSelectedOptionIds] = useState<string[]>([]);
-  const [depositPercent, setDepositPercent] = useState(defaultDepositPercent);
-  const [installmentCount, setInstallmentCount] = useState(1);
+export function DevisForm({
+  prospectId,
+  formules,
+  options,
+  defaultDepositPercent,
+  defaultValidityDays,
+  draft,
+  retiredLines = [],
+}: Props) {
+  // `updateDevis` prend l'identifiant en premier argument : on le lie ici plutôt
+  // que de le poster en champ caché — un identifiant lié n'est pas réécrivable
+  // depuis le navigateur.
+  const [state, formAction, isPending] = useActionState(
+    draft ? updateDevis.bind(null, draft.id) : createDevis,
+    null
+  );
+  // Repli sur la première formule active si celle du brouillon a été retirée du
+  // catalogue entre-temps : le <select> ne peut pas porter une valeur absente de
+  // ses options.
+  const draftFormuleStillSellable =
+    draft !== undefined && formules.some((f) => f.formule === draft.formule);
+  const [formule, setFormule] = useState<CommercialTier | "">(
+    (draftFormuleStillSellable ? draft?.formule : undefined) ?? formules[0]?.formule ?? ""
+  );
+  const [selectedOptionIds, setSelectedOptionIds] = useState<string[]>(
+    (draft?.optionIds ?? []).filter((id) => options.some((o) => o.id === id))
+  );
+  const [depositPercent, setDepositPercent] = useState(draft?.depositPercent ?? defaultDepositPercent);
+  const [installmentCount, setInstallmentCount] = useState(draft?.installmentCount ?? 1);
 
   const preview = useMemo(() => {
     const formulePrice = formules.find((f) => f.formule === formule)?.priceEuros ?? 0;
@@ -137,7 +177,8 @@ export function DevisForm({ prospectId, formules, options, defaultDepositPercent
             name="validityDays"
             type="number"
             min={1}
-            defaultValue={defaultValidityDays}
+            max={365}
+            defaultValue={draft?.validityDays ?? defaultValidityDays}
             disabled={isPending}
           />
         </div>
@@ -164,6 +205,19 @@ export function DevisForm({ prospectId, formules, options, defaultDepositPercent
         </div>
       </div>
 
+      {retiredLines.length > 0 && (
+        <div
+          role="status"
+          className="flex items-start gap-2 text-sm text-brun-moyen bg-ambre/15 border border-ambre/30 rounded-md px-3 py-2.5"
+        >
+          <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5 text-ambre" aria-hidden="true" />
+          <span>
+            Retirées du catalogue depuis la création de ce brouillon, ces lignes ne seront pas
+            conservées à l&apos;enregistrement : {retiredLines.join(", ")}.
+          </span>
+        </div>
+      )}
+
       {state?.error && (
         <div
           role="alert"
@@ -177,10 +231,18 @@ export function DevisForm({ prospectId, formules, options, defaultDepositPercent
       <div className="flex gap-3 pt-2 border-t border-gris-light mt-6">
         <Button type="submit" disabled={isPending} className="mt-6">
           {isPending && <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />}
-          Créer le devis
+          {draft ? "Enregistrer les corrections" : "Créer le devis"}
         </Button>
         <Button type="button" variant="outline" asChild className="mt-6">
-          <Link href={`/dashboard/cabinet/commercial/prospects/${prospectId}`}>Annuler</Link>
+          <Link
+            href={
+              draft
+                ? `/dashboard/cabinet/commercial/devis/${draft.id}`
+                : `/dashboard/cabinet/commercial/prospects/${prospectId}`
+            }
+          >
+            Annuler
+          </Link>
         </Button>
       </div>
     </form>

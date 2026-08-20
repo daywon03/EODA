@@ -1,7 +1,8 @@
+import Link from "next/link";
 import { auth } from "@/auth";
 import { logoutAction } from "@/lib/auth-actions";
 import { Button } from "@/components/ui/button";
-import { LogOut } from "lucide-react";
+import { Info, LogOut } from "lucide-react";
 
 // SVG logo officiel EODA — context/04-charte-eoda.md
 function EodaLogo() {
@@ -52,6 +53,21 @@ export async function AppHeader() {
             <span className="text-gris-light text-sm hidden md:block truncate max-w-[180px]">
               {session.user?.name ?? session.user?.email}
             </span>
+            {/* Point d'entrée unique du centre d'aide — ouvert aux trois rôles, jamais
+                conditionné à l'offre (context/07-outil-pilotage-missions.md §12.5).
+                Bouton à icône seule : le libellé accessible est obligatoire. */}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-ivoire hover:text-ambre hover:bg-white/10"
+              title="Aide et guide d'utilisation"
+              asChild
+            >
+              <Link href="/dashboard/aide" aria-label="Aide et guide d'utilisation">
+                <Info className="w-4 h-4" aria-hidden="true" />
+              </Link>
+            </Button>
+
             <form action={logoutAction}>
               <Button
                 type="submit"

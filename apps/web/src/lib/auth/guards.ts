@@ -55,6 +55,7 @@ async function requireSession(): Promise<Session> {
 type ResolvedUser = {
   role: UserRole;
   tenantId: string | null;
+  isActive: boolean;
   mustChangePassword: boolean;
   passwordChangedAt: Date | null;
 };
@@ -65,6 +66,7 @@ async function resolveUser(userId: string): Promise<ResolvedUser | null> {
     select: {
       role: true,
       tenantId: true,
+      isActive: true,
       mustChangePassword: true,
       passwordChangedAt: true,
     },
@@ -94,13 +96,25 @@ export function isSessionStale(session: Session, user: ResolvedUser): boolean {
   return session.user.authAt < user.passwordChangedAt.getTime();
 }
 
+// ── Révocation d'un compte ───────────────────────────────────────────────────
+// Un compte désactivé (départ d'un salarié de la structure cliente, suspension) est
+// refusé ICI, dans la couche d'autorisation, et pas seulement à la connexion : une
+// session déjà ouverte au moment de la désactivation doit cesser de servir à la
+// requête suivante, exactement comme un compte supprimé ou rétrogradé (§4.1
+// « révocation immédiate »). Le masquer d'une liste ne révoque rien.
+export function isAccountRevoked(user: ResolvedUser): boolean {
+  return !user.isActive;
+}
+
 // Contrôles communs à TOUTES les gardes redirigeantes. `allowRotationPending` est
-// réservé à la garde de la page de rotation elle-même.
-function enforcePasswordRotation(
+// réservé à la garde de la page de rotation elle-même — un compte désactivé, lui,
+// n'est exempté par rien : il ne peut même pas changer son mot de passe.
+function enforceAccountState(
   session: Session,
   user: ResolvedUser,
   options: { allowRotationPending: boolean }
 ): void {
+  if (isAccountRevoked(user)) redirect(SIGN_OUT_PATH);
   if (isSessionStale(session, user)) redirect(SIGN_OUT_PATH);
   if (user.mustChangePassword && !options.allowRotationPending) redirect(PASSWORD_ROTATION_PATH);
 }
@@ -117,7 +131,7 @@ export async function requireCabinetSession(): Promise<CabinetContext> {
 
   const user = await resolveUser(session.user.id);
   if (!user) redirect("/login");
-  enforcePasswordRotation(session, user, { allowRotationPending: false });
+  enforceAccountState(session, user, { allowRotationPending: false });
   if (user.role === "CLIENT_USER") redirect("/dashboard/client");
   if (!user.tenantId) redirect("/login");
 
@@ -132,7 +146,7 @@ export async function requireCabinetAdminSession(): Promise<CabinetContext> {
 
   const user = await resolveUser(session.user.id);
   if (!user) redirect("/login");
-  enforcePasswordRotation(session, user, { allowRotationPending: false });
+  enforceAccountState(session, user, { allowRotationPending: false });
   if (user.role !== "CABINET_ADMIN") redirect("/dashboard/cabinet");
   if (!user.tenantId) redirect("/dashboard/cabinet");
 
@@ -173,7 +187,7 @@ export async function requireEstablishmentAccess(
 
   const user = await resolveUser(userId);
   if (!user) redirect("/login");
-  enforcePasswordRotation(session, user, { allowRotationPending: false });
+  enforceAccountState(session, user, { allowRotationPending: false });
 
   if (user.role === "CLIENT_USER") {
     const link = await prisma.establishmentUser.findUnique({
@@ -208,9 +222,12 @@ export async function tryEstablishmentAccess(
 
   const user = await resolveUser(userId);
   if (!user) return null;
-  // Variante non redirigeante : une rotation due ou une session périmée se traduit
-  // par un refus sec, jamais par une navigation (l'appelant est un composant client).
-  if (user.mustChangePassword || isSessionStale(session, user)) return null;
+  // Variante non redirigeante : un compte désactivé, une rotation due ou une session
+  // périmée se traduisent par un refus sec, jamais par une navigation (l'appelant est
+  // un composant client).
+  if (isAccountRevoked(user) || user.mustChangePassword || isSessionStale(session, user)) {
+    return null;
+  }
 
   if (user.role === "CLIENT_USER") {
     const link = await prisma.establishmentUser.findUnique({
@@ -241,7 +258,7 @@ export async function requireClientEstablishment(): Promise<{
 
   const user = await resolveUser(session.user.id);
   if (!user) redirect("/login");
-  enforcePasswordRotation(session, user, { allowRotationPending: false });
+  enforceAccountState(session, user, { allowRotationPending: false });
   if (user.role !== "CLIENT_USER") redirect("/dashboard/cabinet");
 
   const link = await prisma.establishmentUser.findFirst({
@@ -270,11 +287,32 @@ export async function requirePasswordRotationSession(): Promise<{
 
   const user = await resolveUser(session.user.id);
   if (!user) redirect("/login");
-  enforcePasswordRotation(session, user, { allowRotationPending: true });
+  enforceAccountState(session, user, { allowRotationPending: true });
 
   return {
     session,
     userId: session.user.id,
     mustChangePassword: user.mustChangePassword,
   };
+}
+
+// Garde du centre d'aide. Le guide n'est PAS conditionné à l'offre souscrite —
+// « le système de prise en main, ce sera pour tout le monde dans tous les cas »
+// (call du 16/08/2026, context/07-outil-pilotage-missions.md §12.5) : les trois
+// rôles y accèdent. Ce qui change, c'est le CONTENU visible, et il est filtré à
+// partir du rôle relu ici en base — jamais d'un rôle envoyé par le navigateur ni
+// lu dans le seul jeton (un compte rétrogradé perdrait sinon l'accès aux articles
+// Cabinet seulement à l'expiration de sa session).
+export async function requireHelpAudience(): Promise<{
+  session: Session;
+  userId: string;
+  role: UserRole;
+}> {
+  const session = await requireSession();
+
+  const user = await resolveUser(session.user.id);
+  if (!user) redirect("/login");
+  enforceAccountState(session, user, { allowRotationPending: false });
+
+  return { session, userId: session.user.id, role: user.role };
 }

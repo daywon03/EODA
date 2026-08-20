@@ -1,5 +1,5 @@
 import { DocumentCategory } from "@prisma/client";
-import type { CommercialTier } from "@eoda/database";
+import type { CommercialTier, RequirementLevel } from "@eoda/database";
 
 // Couche UNIQUE de périmétrage par offre commerciale — source de vérité pour ce
 // qui est coté, ce qui est corrigé, quelles catégories documentaires sont suivies
@@ -88,6 +88,20 @@ export function coversMinFormule(
 ): boolean {
   const required = getEffectiveTier(minFormule);
   return TIER_RANK[getEffectiveTier(formule, gratuit)] >= TIER_RANK[required];
+}
+
+// Un critère de ce niveau d'exigence est-il coté par l'offre ? Même règle que le
+// filtre de lecture de getEvaluationChapter() : en Essentiel, seuls les critères
+// impératifs sont dans le périmètre. Écrite ici pour que la LECTURE et l'ÉCRITURE
+// partagent la décision — une règle de périmètre recopiée dans une action est une
+// règle que l'autre action oubliera (D1).
+export function isCriterionLevelCovered(
+  formule: CommercialTier,
+  gratuit: boolean,
+  requirementLevel: RequirementLevel
+): boolean {
+  if (getOfferScope(formule, gratuit).criteriaScope === "ALL") return true;
+  return requirementLevel === "IMPERATIF";
 }
 
 export function getCoveredDocumentCategories(

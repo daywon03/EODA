@@ -66,6 +66,7 @@ function dbUser(overrides: Record<string, unknown> = {}) {
   return {
     role: "CABINET_ADMIN",
     tenantId: "tenant-1",
+    isActive: true,
     mustChangePassword: false,
     passwordChangedAt: BEFORE_LOGIN,
     ...overrides,
@@ -145,10 +146,45 @@ describe("isSessionStale", () => {
     const user = {
       role: "CABINET_ADMIN" as const,
       tenantId: "tenant-1",
+      isActive: true,
       mustChangePassword: false,
       passwordChangedAt: AFTER_LOGIN,
     };
     expect(isSessionStale(session() as never, user)).toBe(true);
     expect(isSessionStale(session(AFTER_LOGIN.getTime() + 1) as never, user)).toBe(false);
+  });
+});
+
+// Cas de REFUS de la révocation de compte (D7). Un compte désactivé doit être refusé
+// PAR LA COUCHE D'AUTORISATION, pas seulement à la connexion : sinon une session
+// ouverte au moment de la désactivation continue de servir jusqu'à son expiration
+// (8 h), ce qui n'est pas une révocation.
+describe("compte désactivé", () => {
+  it("déconnecte un compte Cabinet désactivé", async () => {
+    prismaMock.user.findUnique.mockResolvedValue(dbUser({ isActive: false }));
+
+    await expect(requireCabinetSession()).rejects.toThrow("REDIRECT:/deconnexion");
+  });
+
+  it("refuse une action portant un identifiant d'établissement, avant toute lecture métier", async () => {
+    prismaMock.user.findUnique.mockResolvedValue(dbUser({ isActive: false }));
+
+    await expect(requireEstablishmentAccess("etab-1")).rejects.toThrow("REDIRECT:/deconnexion");
+    expect(prismaMock.establishment.findFirst).not.toHaveBeenCalled();
+  });
+
+  it("refuse un compte client désactivé sur la variante non redirigeante", async () => {
+    prismaMock.user.findUnique.mockResolvedValue(dbUser({ role: "CLIENT_USER", isActive: false }));
+
+    await expect(tryEstablishmentAccess("etab-1")).resolves.toBeNull();
+    expect(prismaMock.establishmentUser.findUnique).not.toHaveBeenCalled();
+  });
+
+  it("ne laisse même pas changer son mot de passe — la désactivation n'a aucune exemption", async () => {
+    prismaMock.user.findUnique.mockResolvedValue(
+      dbUser({ isActive: false, mustChangePassword: true })
+    );
+
+    await expect(requirePasswordRotationSession()).rejects.toThrow("REDIRECT:/deconnexion");
   });
 });

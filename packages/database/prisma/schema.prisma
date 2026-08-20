@@ -57,6 +57,19 @@ enum DevisStatus {
   ENVOYE
   SIGNE
   REFUSE
+  // Devis annulé APRÈS émission (envoyé ou signé). La ligne et son numéro sont
+  // conservés : la série DEVIS-AAAA-NNN est une numérotation commerciale, elle ne
+  // doit jamais comporter de trou. Un brouillon, lui, se supprime réellement —
+  // rien de commercial ne s'est produit et son numéro n'a jamais circulé.
+  //
+  // Pourquoi une valeur d'enum plutôt qu'une colonne `annulled_at` : le statut est
+  // le seul champ sur lequel toute l'application branche déjà (badge, transitions,
+  // filtres KPI). Un horodatage parallèle créerait une seconde source de vérité que
+  // chaque `status === "SIGNE"` existant ignorerait en silence — un devis annulé
+  // continuerait de gonfler le CA signé. Avec une valeur d'enum, les `Record<DevisStatus, …>`
+  // du dépôt cessent de compiler tant que le nouveau cas n'est pas traité :
+  // le compilateur devient le contrôle mécanique (règle zéro).
+  ANNULE
 }
 
 enum MissionChecklistScope {
@@ -178,6 +191,13 @@ model User {
   // Sert aussi d'horodatage de révocation : toute session ouverte AVANT cette date
   // est refusée par les gardes (invalidation des sessions concurrentes).
   passwordChangedAt  DateTime? @map("password_changed_at")
+
+  // Révocation d'un compte sans le supprimer (départ d'un salarié de la structure
+  // cliente, suspension d'accès). Un compte inactif est refusé À LA CONNEXION et à
+  // chaque contrôle d'autorisation (lib/auth/guards.ts) — jamais seulement masqué
+  // dans une liste. Réversible : la réactivation repose le drapeau.
+  isActive           Boolean   @default(true) @map("is_active")
+  deactivatedAt      DateTime? @map("deactivated_at")
 
   tenant             Tenant?              @relation(fields: [tenantId], references: [id])
   establishmentUsers EstablishmentUser[]
@@ -687,6 +707,25 @@ enum AuditAction {
   PASSWORD_CHANGED
   PASSWORD_CHANGE_FAILED
   PASSWORD_CHANGE_RATE_LIMITED
+  // Opérations destructrices du module commercial (CABINET_ADMIN uniquement).
+  // `targetId` = identifiant du devis / de la ligne de catalogue, `detail` = son
+  // numéro ou son code : clés techniques, jamais une donnée personnelle.
+  DEVIS_DELETED
+  DEVIS_CANCELLED
+  CATALOGUE_ITEM_RETIRED
+  CATALOGUE_ITEM_RESTORED
+  // Révocation d'accès et cycle de vie d'un compte (audit CRUD du 20/08/2026).
+  // `targetId` = identifiant technique du compte visé, jamais son email ni son nom.
+  CLIENT_USER_UNLINKED
+  CLIENT_USER_UPDATED
+  USER_DEACTIVATED
+  USER_REACTIVATED
+  USER_DELETED_WITH_ESTABLISHMENT
+  PASSWORD_RESET_BY_ADMIN
+  LOGIN_REFUSED_INACTIVE
+  // Cycle de vie d'une version de document
+  DOCUMENT_VERSION_DELETED
+  DOCUMENT_JUSTIFICATION_UPDATED
 }
 
 model AuditLogEntry {
@@ -706,5 +745,9 @@ model AuditLogEntry {
   @@index([establishmentId, occurredAt])
   @@index([actorUserId, occurredAt])
   @@index([action, occurredAt])
+  // Consultation par défaut : tout le périmètre, du plus récent au plus ancien,
+  // paginée. Les index composites ci-dessus commencent par une colonne de filtre et
+  // ne servent pas ce tri.
+  @@index([occurredAt])
   @@map("audit_log_entries")
 }

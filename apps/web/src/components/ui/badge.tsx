@@ -26,6 +26,9 @@ const badgeVariants = cva(
         signe: "border-transparent bg-vert-ok/15 text-vert-ok",
         perdu: "border-transparent bg-rouge-imp/15 text-rouge-imp",
         brouillon: "text-brun-ancre border-gris-light",
+        // Devis annulé : gris barré-neutre, volontairement distinct du rouge
+        // « refusé » — un refus vient du prospect, une annulation du cabinet.
+        annule: "border-transparent bg-gris-light text-gris-mid line-through",
       },
     },
     defaultVariants: { variant: "default" },

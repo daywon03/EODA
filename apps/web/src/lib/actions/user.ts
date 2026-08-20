@@ -2,19 +2,10 @@
 
 import { prisma, EstablishmentUserRole } from "@eoda/database";
 import { revalidatePath } from "next/cache";
-import bcrypt from "bcryptjs";
-import { randomBytes } from "crypto";
 import { requireEstablishmentInTenant } from "@/lib/auth/guards";
 import { recordAuditEvent } from "@/lib/services/audit-log-service";
 import { firstError, requiredEmail, requiredEnum, requiredString } from "@/lib/validation/form-parsers";
-
-const BCRYPT_COST = 12;
-
-function generateTempPassword(): string {
-  // 16 caractères issus de 12 octets aléatoires cryptographiques — affiché une
-  // seule fois à l'utilisateur Cabinet, jamais stocké en clair.
-  return randomBytes(12).toString("base64url").slice(0, 16);
-}
+import { generateTemporaryPassword, hashPassword } from "@/lib/security/password-hashing";
 
 export type InviteClientUserResult =
   | { success: true; tempPassword: string; userName: string; userEmail: string }
@@ -49,8 +40,8 @@ export async function inviteClientUser(formData: FormData): Promise<InviteClient
   const existing = await prisma.user.findUnique({ where: { email: email.value } });
   if (existing) return { error: "Un compte existe déjà pour cette adresse email." };
 
-  const tempPassword = generateTempPassword();
-  const passwordHash = await bcrypt.hash(tempPassword, BCRYPT_COST);
+  const tempPassword = generateTemporaryPassword();
+  const passwordHash = await hashPassword(tempPassword);
 
   // Création du compte et du rattachement dans la même transaction : un User
   // CLIENT_USER sans lien EstablishmentUser serait un compte qui peut se connecter

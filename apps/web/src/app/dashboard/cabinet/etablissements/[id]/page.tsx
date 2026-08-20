@@ -2,6 +2,7 @@ import { getEstablishment } from "@/lib/actions/establishment";
 import { getEstablishmentChecklist } from "@/lib/actions/checklist";
 import { getMission } from "@/lib/actions/mission";
 import { InviteClientForm } from "@/components/etablissement/InviteClientForm";
+import { ClientUserRow } from "@/components/etablissement/ClientUserRow";
 import { DeleteEstablishmentButton } from "@/components/etablissement/DeleteEstablishmentButton";
 import { ChecklistCategory } from "@/components/checklist/ChecklistCategory";
 import { MissionSummaryCard } from "@/components/mission/MissionSummaryCard";
@@ -24,13 +25,6 @@ const CATEGORY_LABELS: Record<DocumentCategory, string> = {
 const TYPE_LABELS: Record<EstablishmentType, string> = {
   SAD_AIDE: "SAD Aide",
   SAD_MIXTE: "SAD Mixte",
-};
-
-const ROLE_LABELS: Record<string, string> = {
-  DIRECTEUR: "Directeur / Directrice",
-  COORDINATEUR: "Coordinateur / Coordinatrice",
-  ASSISTANT_QUALITE: "Assistant(e) qualité",
-  AUTRE: "Autre",
 };
 
 type Props = { params: Promise<{ id: string }> };
@@ -125,15 +119,19 @@ export default async function EstablishmentDetailPage({ params }: Props) {
           </CardHeader>
           {establishment.establishmentUsers.length > 0 && (
             <CardContent>
-              <ul className="space-y-2">
+              <ul className="divide-y divide-gris-light">
                 {establishment.establishmentUsers.map(({ user, roleInEstablishment }) => (
-                  <li key={user.id} className="flex items-center justify-between text-sm">
-                    <div>
-                      <p className="font-medium text-brun-ancre">{user.name}</p>
-                      <p className="text-gris-mid text-xs">{user.email}</p>
-                    </div>
-                    <Badge variant="outline">{ROLE_LABELS[roleInEstablishment] ?? roleInEstablishment}</Badge>
-                  </li>
+                  <ClientUserRow
+                    key={user.id}
+                    establishmentId={establishment.id}
+                    user={{
+                      id: user.id,
+                      name: user.name,
+                      email: user.email,
+                      isActive: user.isActive,
+                    }}
+                    roleInEstablishment={roleInEstablishment}
+                  />
                 ))}
               </ul>
             </CardContent>
@@ -197,6 +195,7 @@ export default async function EstablishmentDetailPage({ params }: Props) {
                   title={CATEGORY_LABELS[cat]}
                   items={items}
                   establishmentId={establishment.id}
+                  canManageVersions
                 />
               );
             })}

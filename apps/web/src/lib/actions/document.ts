@@ -2,7 +2,11 @@
 
 import { prisma } from "@eoda/database";
 import { revalidatePath } from "next/cache";
-import { requireEstablishmentAccess, tryEstablishmentAccess } from "@/lib/auth/guards";
+import {
+  requireEstablishmentAccess,
+  requireEstablishmentInTenant,
+  tryEstablishmentAccess,
+} from "@/lib/auth/guards";
 import { extractText } from "@/lib/services/text-extraction-service";
 import { suggestDocumentType } from "@/lib/services/document-categorization-service";
 import { ingestDocumentVersion } from "@/lib/services/document-ingestion-service";
@@ -178,6 +182,50 @@ export async function respondToMissingDocument(
   return null;
 }
 
+// ── Correction de la justification « document manquant » ─────────────────────
+// La justification n'était éditable QUE tant qu'aucune version n'existait : une
+// erreur de saisie devenait définitive au premier dépôt. Cette action la corrige
+// sans jamais toucher au statut — c'est ce qui la distingue de
+// respondToMissingDocument() ci-dessus, qui, lui, arbitre MISSING/NOT_APPLICABLE.
+// Les fusionner rendrait possible de repasser un document déposé en NOT_APPLICABLE
+// par un simple commentaire.
+export async function updateMissingJustification(
+  establishmentId: string,
+  documentTypeId: string,
+  comment: string | null
+): Promise<{ error: string } | null> {
+  const access = await requireEstablishmentAccess(establishmentId);
+
+  const documentType = await prisma.documentType.findUnique({ where: { id: documentTypeId } });
+  if (!documentType) return { error: "Type de document invalide." };
+
+  if (!(await isCategoryCoveredForEstablishment(establishmentId, documentType.category))) {
+    return { error: OUT_OF_OFFER_ERROR };
+  }
+
+  const trimmedComment = comment?.trim().slice(0, MAX_JUSTIFICATION_LENGTH) || null;
+
+  await prisma.document.upsert({
+    where: { establishmentId_documentTypeId: { establishmentId, documentTypeId } },
+    update: { missingJustification: trimmedComment },
+    // Aucune ligne encore : le commentaire précède le dépôt, le document reste
+    // manquant. On ne fabrique surtout pas un statut à partir d'un commentaire.
+    create: { establishmentId, documentTypeId, status: "MISSING", missingJustification: trimmedComment },
+  });
+
+  await recordAuditEvent({
+    action: "DOCUMENT_JUSTIFICATION_UPDATED",
+    actorUserId: access.userId,
+    actorRole: access.session.user.role,
+    establishmentId,
+    targetId: documentType.id,
+    detail: documentType.code,
+  });
+
+  revalidateDocumentViews(establishmentId);
+  return null;
+}
+
 // Résout une version de document en vérifiant l'habilitation sur SON établissement
 // (et non sur un identifiant fourni par l'appelant) — c'est ce qui empêche de
 // deviner un `documentVersionId` appartenant à un autre établissement.
@@ -258,4 +306,111 @@ export async function getDocumentPreviewData(
   }
 
   return { kind: "unavailable", filename: version.originalFilename };
+}
+
+
+// ── Suppression d'une version de document ────────────────────────────────────
+// Un fichier déposé sur le mauvais établissement — donc le document d'un AUTRE
+// client — ne pouvait qu'être enterré sous une nouvelle version, et l'objet restait
+// dans le stockage. Sur des données de santé/social, c'est un défaut RGPD.
+//
+// Réservé au CABINET (requireEstablishmentInTenant) : un client peut déposer et
+// consulter, il ne décide pas de l'effacement d'une pièce du dossier de sa propre
+// structure. La suppression est définitive et non annulable.
+//
+// ORDRE : l'objet de stockage D'ABORD, la ligne ENSUITE.
+//   - stockage supprimé, base en échec  → une ligne pointe un objet absent : anomalie
+//     visible, réparable, et surtout aucune donnée client ne survit ;
+//   - base supprimée, stockage en échec → le fichier reste dans le bucket sans plus
+//     aucune trace pour le retrouver : c'est précisément le défaut qu'on corrige.
+// Un échec de suppression de l'objet interrompt donc l'opération et rend une erreur ;
+// la ligne n'est jamais effacée « quand même ».
+export async function deleteDocumentVersion(
+  documentVersionId: string
+): Promise<{ error: string } | null> {
+  if (typeof documentVersionId !== "string" || documentVersionId.length === 0) {
+    return { error: "Version de document invalide." };
+  }
+
+  const version = await prisma.documentVersion.findUnique({
+    where: { id: documentVersionId },
+    include: {
+      document: {
+        select: {
+          id: true,
+          establishmentId: true,
+          currentVersionId: true,
+          documentType: { select: { code: true } },
+        },
+      },
+    },
+  });
+  if (!version) return { error: "Version de document introuvable." };
+
+  // L'identifiant vient d'une route HTTP publique : l'habilitation porte sur
+  // l'établissement PROPRIÉTAIRE de la version, jamais sur un identifiant fourni.
+  // notFound() est déclenché par la garde si la version appartient à un autre tenant.
+  const { session, userId } = await requireEstablishmentInTenant(version.document.establishmentId);
+
+  try {
+    await getFileStoragePort().delete(version.fileStorageKey);
+  } catch (error) {
+    console.error("Suppression de l'objet de stockage échouée — ligne conservée :", error);
+    return {
+      error:
+        "Le fichier n'a pas pu être supprimé du stockage. Rien n'a été effacé : réessayez, et signalez l'incident si l'erreur persiste.",
+    };
+  }
+
+  await prisma.$transaction(async (tx) => {
+    // Versions régénérées à partir de celle-ci : le lien de filiation est coupé
+    // plutôt que de faire échouer la suppression sur une contrainte de clé étrangère.
+    await tx.documentVersion.updateMany({
+      where: { regeneratedFromVersionId: version.id },
+      data: { regeneratedFromVersionId: null },
+    });
+
+    if (version.document.currentVersionId === version.id) {
+      const previous = await tx.documentVersion.findFirst({
+        where: { documentId: version.documentId, id: { not: version.id } },
+        orderBy: { versionNumber: "desc" },
+        select: { id: true },
+      });
+
+      await tx.document.update({
+        where: { id: version.documentId },
+        data: previous
+          ? {
+              currentVersionId: previous.id,
+              // Le statut décrivait l'analyse de la version supprimée. La version
+              // remise en courant redevient « déposée » : un fichier est bien là,
+              // sa conformité n'est plus établie tant qu'elle n'est pas réanalysée.
+              status: "UPLOADED",
+              statusOverriddenByUser: false,
+            }
+          : {
+              // Dernière version supprimée : le document redevient MANQUANT. Le laisser
+              // COMPLIANT sans aucun fichier produirait une checklist qui ment, et un
+              // critère HAS coté sur une preuve inexistante.
+              currentVersionId: null,
+              status: "MISSING",
+              statusOverriddenByUser: false,
+            },
+      });
+    }
+
+    await tx.documentVersion.delete({ where: { id: version.id } });
+  });
+
+  await recordAuditEvent({
+    action: "DOCUMENT_VERSION_DELETED",
+    actorUserId: userId,
+    actorRole: session.user.role,
+    establishmentId: version.document.establishmentId,
+    targetId: version.id,
+    detail: version.document.documentType?.code ?? null,
+  });
+
+  revalidateDocumentViews(version.document.establishmentId);
+  return null;
 }

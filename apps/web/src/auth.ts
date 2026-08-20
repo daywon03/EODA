@@ -59,6 +59,22 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           return null;
         }
 
+        // Compte désactivé : refusé APRÈS la comparaison bcrypt, jamais avant. Un
+        // refus anticipé répondrait plus vite que pour un compte actif — la
+        // différence de latence distinguerait « compte désactivé » de « mot de passe
+        // faux », c'est-à-dire exactement l'oracle que DUMMY_HASH évite plus haut.
+        // La révocation est portée en double : ici pour la connexion, et dans
+        // lib/auth/guards.ts pour les sessions déjà ouvertes.
+        if (!user.isActive) {
+          await recordAuditEvent({
+            action: "LOGIN_REFUSED_INACTIVE",
+            actorUserId: user.id,
+            actorRole: user.role,
+            detail: "compte désactivé",
+          });
+          return null;
+        }
+
         // Succès : le compteur repart de zéro pour que les erreurs de frappe d'un
         // utilisateur légitime ne s'accumulent pas jusqu'au blocage.
         await resetLoginThrottle(throttleKey);

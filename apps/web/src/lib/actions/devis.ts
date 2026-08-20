@@ -1,6 +1,6 @@
 "use server";
 
-import { prisma, type Prisma, type DevisStatus } from "@eoda/database";
+import { prisma, CommercialTier, DevisStatus, type Prisma } from "@eoda/database";
 import { requireCabinetAdminSession } from "@/lib/auth/guards";
 import { redirect, notFound } from "next/navigation";
 import { revalidatePath } from "next/cache";
@@ -10,17 +10,31 @@ import {
   nextProspectStatusForDevisTransition,
   optionCommittedAmountEuros,
 } from "@/lib/services/devis-calculation-service";
+import {
+  canTransitionDevis,
+  isDevisDeletable,
+  isDevisEditable,
+} from "@/lib/services/devis-transition-service";
 import { generateDevisNumber } from "@/lib/services/devis-numbering-service";
+import { recordAuditEvent } from "@/lib/services/audit-log-service";
+import {
+  firstError,
+  isEnumValue,
+  requiredEnum,
+  requiredInt,
+} from "@/lib/validation/form-parsers";
+import { DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE } from "@/lib/services/pagination-service";
 
 const DEVIS_LIST_PATH = "/dashboard/cabinet/commercial/devis";
 const PROSPECT_LIST_PATH = "/dashboard/cabinet/commercial/prospects";
+const COMMERCIAL_DASHBOARD_PATH = "/dashboard/cabinet/commercial";
 // Repli si le champ n'est pas transmis — même valeur que BillingSettings.defaultDepositPercent
 // (CGP v10 §06 : acompte de 40 % à la commande).
 const DEFAULT_DEPOSIT_PERCENT = 40;
 
 type ParsedDevisInput = {
   prospectId: string;
-  formule: "ESSENTIEL" | "PERFORMANCE" | "EXCELLENCE";
+  formule: CommercialTier;
   optionIds: string[];
   depositPercent: number;
   installmentCount: number;
@@ -28,30 +42,76 @@ type ParsedDevisInput = {
 };
 
 function parseDevisInput(formData: FormData): { error: string } | ParsedDevisInput {
-  const prospectId = formData.get("prospectId") as string | null;
-  const formule = formData.get("formule") as "ESSENTIEL" | "PERFORMANCE" | "EXCELLENCE" | null;
-  const depositPercentRaw = (formData.get("depositPercent") as string | null)?.trim();
-  const installmentCountRaw = (formData.get("installmentCount") as string | null)?.trim();
-  const validityDaysRaw = (formData.get("validityDays") as string | null)?.trim();
-
+  // Parseurs typés plutôt que casts : une action serveur est une route HTTP
+  // publique, `formData.get("formule") as CommercialTier` ne valide rien à
+  // l'exécution (CLAUDE.md §5 bis).
+  const prospectIdParsed = formData.get("prospectId");
+  const prospectId = typeof prospectIdParsed === "string" ? prospectIdParsed.trim() : "";
   if (!prospectId) return { error: "Prospect manquant." };
-  if (!formule) return { error: "La formule est obligatoire." };
 
-  // 40 % = acompte à la commande des CGP v10 §06, aligné sur BillingSettings.
-  const depositPercent = depositPercentRaw ? Number(depositPercentRaw) : DEFAULT_DEPOSIT_PERCENT;
-  const installmentCount = installmentCountRaw ? Number(installmentCountRaw) : 1;
-  const validityDays = validityDaysRaw ? Number(validityDaysRaw) : 30;
+  const formule = requiredEnum(formData, "formule", "La formule", CommercialTier);
+  const depositPercent = requiredInt(formData, "depositPercent", "Le taux d'acompte", {
+    min: 0,
+    max: 100,
+    defaultValue: DEFAULT_DEPOSIT_PERCENT,
+  });
+  const installmentCount = requiredInt(formData, "installmentCount", "Le nombre d'échéances", {
+    min: 1,
+    max: 6,
+    defaultValue: 1,
+  });
+  const validityDays = requiredInt(formData, "validityDays", "La durée de validité", {
+    min: 1,
+    max: 365,
+    defaultValue: 30,
+  });
 
-  if (installmentCount < 1 || installmentCount > 6) {
-    return { error: "Le nombre d'échéances doit être compris entre 1 et 6." };
+  const error = firstError(formule, depositPercent, installmentCount, validityDays);
+  if (error) return { error };
+  if (!formule.ok || !depositPercent.ok || !installmentCount.ok || !validityDays.ok) {
+    return { error: "Saisie invalide." };
   }
-  if (depositPercent < 0 || depositPercent > 100) {
-    return { error: "Le taux d'acompte doit être compris entre 0 et 100." };
+
+  // `getAll` peut renvoyer des File : on ne garde que les chaînes non vides.
+  const optionIds = formData
+    .getAll("optionIds")
+    .filter((value): value is string => typeof value === "string" && value.length > 0);
+
+  return {
+    prospectId,
+    formule: formule.value,
+    optionIds,
+    depositPercent: depositPercent.value,
+    installmentCount: installmentCount.value,
+    validityDays: validityDays.value,
+  };
+}
+
+// Charge la formule et les options du catalogue et recalcule les montants côté
+// serveur. Partagé par la création et la modification (D1 — la même règle écrite
+// deux fois est la même règle corrigée une fois sur deux).
+async function resolveDevisLines(tenantId: string, parsed: ParsedDevisInput) {
+  const catalogueFormule = await prisma.catalogueFormule.findFirst({
+    where: { tenantId, formule: parsed.formule, active: true },
+  });
+  if (!catalogueFormule) {
+    return { error: "Formule introuvable ou retirée du catalogue." as const };
   }
 
-  const optionIds = formData.getAll("optionIds") as string[];
+  // `active: true` : une prestation retirée du catalogue n'est plus vendable, même
+  // si son identifiant est réinjecté à la main dans la requête.
+  const options = await prisma.catalogueOption.findMany({
+    where: { tenantId, id: { in: parsed.optionIds }, active: true },
+  });
 
-  return { prospectId, formule, optionIds, depositPercent, installmentCount, validityDays };
+  const amounts = computeDevisAmounts({
+    formulePriceEuros: catalogueFormule.priceEuros,
+    optionPricesEuros: options.map(optionCommittedAmountEuros),
+    depositPercent: parsed.depositPercent,
+    installmentCount: parsed.installmentCount,
+  });
+
+  return { catalogueFormule, options, amounts };
 }
 
 export async function createDevis(
@@ -68,21 +128,8 @@ export async function createDevis(
   });
   if (!prospect) notFound();
 
-  const catalogueFormule = await prisma.catalogueFormule.findFirst({
-    where: { tenantId, formule: parsed.formule, active: true },
-  });
-  if (!catalogueFormule) return { error: "Formule introuvable dans le catalogue." };
-
-  const options = await prisma.catalogueOption.findMany({
-    where: { tenantId, id: { in: parsed.optionIds }, active: true },
-  });
-
-  const amounts = computeDevisAmounts({
-    formulePriceEuros: catalogueFormule.priceEuros,
-    optionPricesEuros: options.map(optionCommittedAmountEuros),
-    depositPercent: parsed.depositPercent,
-    installmentCount: parsed.installmentCount,
-  });
+  const lines = await resolveDevisLines(tenantId, parsed);
+  if ("error" in lines) return { error: lines.error };
 
   const now = new Date();
   const validUntil = computeValidUntil(now, parsed.validityDays);
@@ -96,16 +143,16 @@ export async function createDevis(
         tenantId,
         prospectId: parsed.prospectId,
         number,
-        catalogueFormuleId: catalogueFormule.id,
-        formuleLabelSnapshot: catalogueFormule.label,
-        formulePriceSnapshotEuros: catalogueFormule.priceEuros,
+        catalogueFormuleId: lines.catalogueFormule.id,
+        formuleLabelSnapshot: lines.catalogueFormule.label,
+        formulePriceSnapshotEuros: lines.catalogueFormule.priceEuros,
         depositPercent: parsed.depositPercent,
         installmentCount: parsed.installmentCount,
         validityDays: parsed.validityDays,
         validUntil,
-        ...amounts,
+        ...lines.amounts,
         options: {
-          create: options.map((o) => ({
+          create: lines.options.map((o) => ({
             catalogueOptionId: o.id,
             labelSnapshot: o.label,
             priceSnapshotEuros: o.priceEuros,
@@ -132,29 +179,18 @@ export async function updateDevis(
 
   const existing = await prisma.devis.findFirst({ where: { id, tenantId } });
   if (!existing) notFound();
-  if (existing.status !== "BROUILLON") {
+  if (!isDevisEditable(existing.status)) {
     return { error: "Seul un devis au statut Brouillon peut être modifié." };
   }
 
   const parsed = parseDevisInput(formData);
   if ("error" in parsed) return parsed;
 
-  const catalogueFormule = await prisma.catalogueFormule.findFirst({
-    where: { tenantId, formule: parsed.formule, active: true },
-  });
-  if (!catalogueFormule) return { error: "Formule introuvable dans le catalogue." };
+  const lines = await resolveDevisLines(tenantId, parsed);
+  if ("error" in lines) return { error: lines.error };
 
-  const options = await prisma.catalogueOption.findMany({
-    where: { tenantId, id: { in: parsed.optionIds }, active: true },
-  });
-
-  const amounts = computeDevisAmounts({
-    formulePriceEuros: catalogueFormule.priceEuros,
-    optionPricesEuros: options.map(optionCommittedAmountEuros),
-    depositPercent: parsed.depositPercent,
-    installmentCount: parsed.installmentCount,
-  });
-
+  // La validité court depuis la création, pas depuis la correction : le numéro et
+  // la date d'émission du devis ne changent pas quand on rectifie un brouillon.
   const validUntil = computeValidUntil(existing.createdAt, parsed.validityDays);
 
   await prisma.$transaction(async (tx) => {
@@ -162,16 +198,16 @@ export async function updateDevis(
     await tx.devis.update({
       where: { id },
       data: {
-        catalogueFormuleId: catalogueFormule.id,
-        formuleLabelSnapshot: catalogueFormule.label,
-        formulePriceSnapshotEuros: catalogueFormule.priceEuros,
+        catalogueFormuleId: lines.catalogueFormule.id,
+        formuleLabelSnapshot: lines.catalogueFormule.label,
+        formulePriceSnapshotEuros: lines.catalogueFormule.priceEuros,
         depositPercent: parsed.depositPercent,
         installmentCount: parsed.installmentCount,
         validityDays: parsed.validityDays,
         validUntil,
-        ...amounts,
+        ...lines.amounts,
         options: {
-          create: options.map((o) => ({
+          create: lines.options.map((o) => ({
             catalogueOptionId: o.id,
             labelSnapshot: o.label,
             priceSnapshotEuros: o.priceEuros,
@@ -189,18 +225,37 @@ export async function updateDevis(
   redirect(`${DEVIS_LIST_PATH}/${id}`);
 }
 
-export async function changeDevisStatus(id: string, status: DevisStatus): Promise<{ error: string } | null> {
-  const { tenantId } = await requireCabinetAdminSession();
+export async function changeDevisStatus(
+  id: string,
+  status: DevisStatus
+): Promise<{ error: string } | null> {
+  const { userId, tenantId } = await requireCabinetAdminSession();
 
-  await prisma.$transaction(async (tx) => {
+  // `status` est un argument d'action serveur : il vient d'une route HTTP publique,
+  // pas de la table de transitions du composant client. Sans cette vérification,
+  // un appel direct pouvait poser n'importe quelle valeur d'enum, y compris
+  // ramener un devis signé en brouillon (constat N4 de l'audit).
+  if (!isEnumValue(status, DevisStatus)) {
+    return { error: "Statut de devis invalide." };
+  }
+
+  const changed = await prisma.$transaction(async (tx) => {
     const devis = await tx.devis.findFirst({
       where: { id, tenantId },
       include: { prospect: { select: { id: true, status: true } } },
     });
     if (!devis) notFound();
 
+    if (!canTransitionDevis(devis.status, status)) {
+      return { error: "Cette transition de statut n'est pas autorisée." as const };
+    }
+
     await tx.devis.update({ where: { id }, data: { status } });
 
+    // Une annulation ne rétrograde PAS le prospect (la fonction renvoie null pour
+    // ANNULE) : le prospect a pu signer un autre devis, et deviner son statut
+    // commercial à partir d'une correction de saisie serait une décision métier
+    // que l'outil n'a pas à prendre à la place de Sandrine.
     const nextProspectStatus = nextProspectStatusForDevisTransition(status, devis.prospect.status);
     if (nextProspectStatus) {
       await tx.prospect.update({
@@ -208,21 +263,133 @@ export async function changeDevisStatus(id: string, status: DevisStatus): Promis
         data: { status: nextProspectStatus },
       });
     }
+
+    return { number: devis.number };
   });
+
+  if ("error" in changed) return { error: changed.error };
+
+  // L'annulation est irréversible et retire le devis de tous les indicateurs :
+  // elle se trace. `detail` = le numéro du devis, clé technique, jamais une
+  // donnée personnelle.
+  if (status === "ANNULE") {
+    await recordAuditEvent({
+      action: "DEVIS_CANCELLED",
+      actorUserId: userId,
+      actorRole: "CABINET_ADMIN",
+      targetId: id,
+      detail: changed.number,
+    });
+  }
 
   revalidatePath(DEVIS_LIST_PATH);
   revalidatePath(`${DEVIS_LIST_PATH}/${id}`);
   revalidatePath(PROSPECT_LIST_PATH);
+  revalidatePath(COMMERCIAL_DASHBOARD_PATH);
   return null;
 }
 
-export async function listDevis() {
+// Suppression RÉELLE, réservée au brouillon. Un brouillon n'a jamais été émis :
+// son numéro n'a circulé nulle part, rien de contractuel ne s'y rattache. Un devis
+// émis, lui, ne se supprime jamais — il s'annule (`changeDevisStatus(..., "ANNULE")`),
+// pour que la série DEVIS-AAAA-NNN reste sans trou.
+export async function deleteDevis(id: string): Promise<{ error: string } | void> {
+  const { userId, tenantId } = await requireCabinetAdminSession();
+
+  const devis = await prisma.devis.findFirst({ where: { id, tenantId } });
+  if (!devis) notFound();
+
+  if (!isDevisDeletable(devis.status)) {
+    return {
+      error: "Un devis déjà émis ne se supprime pas : annulez-le pour conserver son numéro.",
+    };
+  }
+
+  const prospectId = devis.prospectId;
+
+  await prisma.$transaction(async (tx) => {
+    await tx.devisOption.deleteMany({ where: { devisId: id } });
+    await tx.devis.delete({ where: { id } });
+  });
+
+  await recordAuditEvent({
+    action: "DEVIS_DELETED",
+    actorUserId: userId,
+    actorRole: "CABINET_ADMIN",
+    targetId: id,
+    detail: devis.number,
+  });
+
+  revalidatePath(DEVIS_LIST_PATH);
+  revalidatePath(`${PROSPECT_LIST_PATH}/${prospectId}`);
+  revalidatePath(COMMERCIAL_DASHBOARD_PATH);
+  redirect(`${PROSPECT_LIST_PATH}/${prospectId}`);
+}
+
+export type DevisListPage = {
+  items: {
+    id: string;
+    number: string;
+    status: DevisStatus;
+    formuleLabelSnapshot: string;
+    totalAmountEuros: number;
+    prospectStructureName: string;
+  }[];
+  totalCount: number;
+};
+
+// Liste bornée. `pageSize` est déjà replafonné par `parsePageSize`, mais on
+// reborne ici : cette fonction est une action serveur, appelable directement.
+export async function listDevis(pageSize: number = DEFAULT_PAGE_SIZE): Promise<DevisListPage> {
+  const { tenantId } = await requireCabinetAdminSession();
+  const take = Math.min(Math.max(Math.trunc(pageSize) || DEFAULT_PAGE_SIZE, 1), MAX_PAGE_SIZE);
+
+  const [rows, totalCount] = await Promise.all([
+    prisma.devis.findMany({
+      where: { tenantId },
+      orderBy: { createdAt: "desc" },
+      take,
+      // Projection explicite : la liste n'a besoin ni des montants d'acompte ni des
+      // options. Une entité renvoyée telle quelle fuit à la première colonne ajoutée.
+      select: {
+        id: true,
+        number: true,
+        status: true,
+        formuleLabelSnapshot: true,
+        totalAmountEuros: true,
+        prospect: { select: { structureName: true } },
+      },
+    }),
+    prisma.devis.count({ where: { tenantId } }),
+  ]);
+
+  return {
+    items: rows.map((d) => ({
+      id: d.id,
+      number: d.number,
+      status: d.status,
+      formuleLabelSnapshot: d.formuleLabelSnapshot,
+      totalAmountEuros: d.totalAmountEuros,
+      prospectStructureName: d.prospect.structureName,
+    })),
+    totalCount,
+  };
+}
+
+// Chargement dédié aux KPI : quatre scalaires par devis, sans les includes de la
+// page de liste. Volontairement non paginé — un indicateur calculé sur une page
+// serait faux. La projection étroite est ce qui rend ce chargement tenable.
+export async function listDevisForKpi() {
   const { tenantId } = await requireCabinetAdminSession();
 
   return prisma.devis.findMany({
     where: { tenantId },
-    orderBy: { createdAt: "desc" },
-    include: { prospect: true, catalogueFormule: true },
+    select: {
+      status: true,
+      totalAmountEuros: true,
+      catalogueFormule: { select: { formule: true } },
+      prospect: { select: { status: true } },
+    },
   });
 }
 

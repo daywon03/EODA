@@ -328,9 +328,18 @@ déjà conforme.
 > de suivi, calculés par `mission-document-counters-service.ts`, en lecture seule (aucun dépôt
 > sur ce portail-là — le dépôt reste sur la fiche établissement, où Sandrine garde l'écriture).
 >
+> **Implémenté le 20/08/2026** : §12.5 — **centre d'aide / guide dans l'application**
+> (`/dashboard/aide`, accessible par l'icône d'information de l'en-tête authentifié). Ouvert aux
+> trois rôles sans condition d'offre ; le contenu est filtré par rôle via la garde
+> `requireHelpAudience()` de `apps/web/src/lib/auth/guards.ts` et la couche unique
+> `apps/web/src/lib/services/help-content-service.ts`. Les articles vivent dans des fichiers
+> versionnés typés (`apps/web/src/content/aide/`), jamais en base ni en dur dans du JSX : corriger
+> une phrase n'exige qu'une édition de contenu. Les articles du pipeline commercial sont réservés
+> à `CABINET_ADMIN` et ne sont jamais envoyés au navigateur d'un autre rôle.
+>
 > **Non implémenté** : le reste du §12.4 (génération du profil client externe à la sélection de
 > l'offre, parcours prospection → devis → contrat verrouillé) et §12.5 (états de fin de mission,
-> page plan d'action, module sensibilisation, centre d'aide, relances, export Synaé).
+> page plan d'action, module sensibilisation, relances, export Synaé).
 >
 > **Non représentable en l'état dans le catalogue** (aucun champ ne les porte, ils restent
 > à traiter à la main dans le devis) : la remise « Forfait multi-docs (3+) : -10 % », le pack
@@ -448,7 +457,8 @@ La **hotline** est retirée de l'offre pour l'instant (idée conservée, non chi
   critères faibles, renvoie vers **Kahoot** (pas de moteur de quiz maison), et réimporte les
   statistiques comme élément de preuve.
 - **Guide / centre d'aide dans l'application**, utilisable comme support de formation le
-  22 septembre et pour l'autonomie sur les nouveaux arrivants du client.
+  22 septembre et pour l'autonomie sur les nouveaux arrivants du client. ✅ *Fait le 20/08/2026*
+  (`/dashboard/aide`, contenu dans `apps/web/src/content/aide/`).
 - **Relances automatiques** (email / message) des clients qui ne fournissent pas.
 - **Fin de mission (RGPD) — ⚠️ la version « on coupe l'accès » est rétractée.** Prononcée à
   [3:20:58](https://fathom.video/calls/786436116?timestamp=12058), rectifiée dans la foulée, puis renversée explicitement à

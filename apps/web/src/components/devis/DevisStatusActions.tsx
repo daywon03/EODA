@@ -2,31 +2,44 @@
 
 import { useState, useTransition } from "react";
 import { changeDevisStatus } from "@/lib/actions/devis";
+import { DEVIS_ALLOWED_TRANSITIONS } from "@/lib/services/devis-transition-service";
 import { Button } from "@/components/ui/button";
-import { AlertCircle, Loader2, Send, CheckCircle2, XCircle } from "lucide-react";
+import { AlertCircle, Ban, Loader2, Send, CheckCircle2, XCircle } from "lucide-react";
 import type { DevisStatus } from "@eoda/database";
 
-const NEXT_STATUSES: Record<DevisStatus, { status: DevisStatus; label: string; icon: typeof Send }[]> = {
-  BROUILLON: [
-    { status: "ENVOYE", label: "Marquer comme envoyé", icon: Send },
-    { status: "REFUSE", label: "Marquer comme refusé", icon: XCircle },
-  ],
-  ENVOYE: [
-    { status: "SIGNE", label: "Marquer comme signé", icon: CheckCircle2 },
-    { status: "REFUSE", label: "Marquer comme refusé", icon: XCircle },
-  ],
-  SIGNE: [],
-  REFUSE: [],
+// Libellés et icônes de chaque cible de transition. La liste des transitions
+// AUTORISÉES, elle, n'est plus écrite ici : elle vient de
+// `lib/services/devis-transition-service.ts`, que l'action serveur applique aussi.
+// Une table de transitions qui ne vit que dans un composant client n'est pas un
+// contrôle — c'est une suggestion (constat N4 de l'audit).
+const TRANSITION_UI: Record<
+  DevisStatus,
+  { label: string; icon: typeof Send; variant: "outline" | "destructive"; confirm?: string }
+> = {
+  BROUILLON: { label: "Repasser en brouillon", icon: Send, variant: "outline" },
+  ENVOYE: { label: "Marquer comme envoyé", icon: Send, variant: "outline" },
+  SIGNE: { label: "Marquer comme signé", icon: CheckCircle2, variant: "outline" },
+  REFUSE: { label: "Marquer comme refusé", icon: XCircle, variant: "outline" },
+  ANNULE: {
+    label: "Annuler le devis",
+    icon: Ban,
+    variant: "destructive",
+    confirm:
+      "Annuler ce devis ? Il conserve son numéro dans la série annuelle mais sort définitivement des indicateurs commerciaux. Cette opération est irréversible.",
+  },
 };
 
 export function DevisStatusActions({ devisId, status }: { devisId: string; status: DevisStatus }) {
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
-  const nextStatuses = NEXT_STATUSES[status];
+  const nextStatuses = DEVIS_ALLOWED_TRANSITIONS[status];
 
   if (nextStatuses.length === 0) return null;
 
   function handleClick(nextStatus: DevisStatus) {
+    const { confirm } = TRANSITION_UI[nextStatus];
+    if (confirm && !window.confirm(confirm)) return;
+
     setError(null);
     startTransition(async () => {
       const result = await changeDevisStatus(devisId, nextStatus);
@@ -37,16 +50,26 @@ export function DevisStatusActions({ devisId, status }: { devisId: string; statu
   return (
     <div className="flex flex-col gap-2">
       <div className="flex flex-wrap gap-2">
-        {nextStatuses.map(({ status: next, label, icon: Icon }) => (
-          <Button key={next} type="button" size="sm" variant="outline" disabled={isPending} onClick={() => handleClick(next)}>
-            {isPending ? (
-              <Loader2 className="w-3.5 h-3.5 animate-spin" aria-hidden="true" />
-            ) : (
-              <Icon className="w-3.5 h-3.5" aria-hidden="true" />
-            )}
-            {label}
-          </Button>
-        ))}
+        {nextStatuses.map((next) => {
+          const { label, icon: Icon, variant } = TRANSITION_UI[next];
+          return (
+            <Button
+              key={next}
+              type="button"
+              size="sm"
+              variant={variant}
+              disabled={isPending}
+              onClick={() => handleClick(next)}
+            >
+              {isPending ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" aria-hidden="true" />
+              ) : (
+                <Icon className="w-3.5 h-3.5" aria-hidden="true" />
+              )}
+              {label}
+            </Button>
+          );
+        })}
       </div>
       {error && (
         <p role="alert" className="flex items-center gap-1 text-xs text-rouge-imp">

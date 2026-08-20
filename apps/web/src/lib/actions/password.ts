@@ -9,10 +9,7 @@ import { consumeThrottledAttempt } from "@/lib/security/attempt-throttle";
 import { clientIpFromHeaders } from "@/lib/security/login-throttle";
 import { PASSWORD_CHANGE_RATE_LIMIT } from "@/lib/security";
 import { validateNewPassword } from "@/lib/security/password-policy";
-
-// Coût bcrypt identique à celui de auth.ts et de l'invitation client : une empreinte
-// posée ici doit être exactement aussi chère à casser que celle qu'elle remplace.
-const BCRYPT_COST = 12;
+import { hashPassword } from "@/lib/security/password-hashing";
 
 // Message unique pour tout refus lié au mot de passe courant — ne jamais distinguer
 // « mot de passe faux » de « compte introuvable », même derrière une session valide.
@@ -80,7 +77,7 @@ export async function changePasswordAction(formData: FormData): Promise<ChangePa
   await prisma.user.update({
     where: { id: userId },
     data: {
-      passwordHash: await bcrypt.hash(newPassword, BCRYPT_COST),
+      passwordHash: await hashPassword(newPassword),
       mustChangePassword: false,
       passwordChangedAt: new Date(),
     },

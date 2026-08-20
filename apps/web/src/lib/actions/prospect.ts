@@ -1,9 +1,10 @@
 "use server";
 
-import { prisma, type Prisma, type ProspectStatus } from "@eoda/database";
+import { prisma, type Prisma, type ProspectStatus, type ProspectType } from "@eoda/database";
 import { requireCabinetAdminSession } from "@/lib/auth/guards";
 import { redirect, notFound } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import { DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE } from "@/lib/services/pagination-service";
 
 const PROSPECT_LIST_PATH = "/dashboard/cabinet/commercial/prospects";
 
@@ -132,14 +133,109 @@ export async function deleteProspect(id: string): Promise<{ error: string } | vo
   redirect(PROSPECT_LIST_PATH);
 }
 
-export async function listProspects() {
+export type ProspectCardItem = {
+  id: string;
+  structureName: string;
+  structureType: ProspectType;
+  status: ProspectStatus;
+  contactName: string | null;
+  estimatedAmountEuros: number | null;
+  devisCount: number;
+};
+
+export type ProspectBoardPage = {
+  items: ProspectCardItem[];
+  // Effectif RÉEL de chaque colonne, calculé en base — pas la longueur de la page
+  // affichée. Sans ça, le compteur du Kanban mentirait dès la première troncature.
+  totalByStatus: Record<ProspectStatus, number>;
+  totalCount: number;
+};
+
+const PROSPECT_STATUSES: readonly ProspectStatus[] = [
+  "NOUVEAU",
+  "RDV",
+  "DEVIS_ENVOYE",
+  "NEGOCIATION",
+  "SIGNE",
+  "PERDU",
+];
+
+// Kanban borné : `perColumn` prospects au plus PAR COLONNE, jamais la table
+// entière. Le Kanban sérialise sa liste vers un composant client — une lecture non
+// bornée y coûte deux fois (requête + payload React). Six requêtes indexées
+// bornées valent mieux qu'un `findMany` sans `take`.
+export async function listProspectBoard(
+  perColumn: number = DEFAULT_PAGE_SIZE
+): Promise<ProspectBoardPage> {
+  const { tenantId } = await requireCabinetAdminSession();
+  const take = Math.min(Math.max(Math.trunc(perColumn) || DEFAULT_PAGE_SIZE, 1), MAX_PAGE_SIZE);
+
+  const [columns, counts] = await Promise.all([
+    Promise.all(
+      PROSPECT_STATUSES.map((status) =>
+        prisma.prospect.findMany({
+          where: { tenantId, status },
+          orderBy: { createdAt: "desc" },
+          take,
+          select: {
+            id: true,
+            structureName: true,
+            structureType: true,
+            status: true,
+            contactName: true,
+            estimatedAmountEuros: true,
+            _count: { select: { devis: true } },
+          },
+        })
+      )
+    ),
+    prisma.prospect.groupBy({ by: ["status"], where: { tenantId }, _count: { _all: true } }),
+  ]);
+
+  const totalByStatus = emptyStatusCounts();
+  for (const row of counts) totalByStatus[row.status] = row._count._all;
+
+  return {
+    items: columns.flat().map((p) => ({
+      id: p.id,
+      structureName: p.structureName,
+      structureType: p.structureType,
+      status: p.status,
+      contactName: p.contactName,
+      estimatedAmountEuros: p.estimatedAmountEuros,
+      devisCount: p._count.devis,
+    })),
+    totalByStatus,
+    totalCount: Object.values(totalByStatus).reduce((sum, n) => sum + n, 0),
+  };
+}
+
+function emptyStatusCounts(): Record<ProspectStatus, number> {
+  return { NOUVEAU: 0, RDV: 0, DEVIS_ENVOYE: 0, NEGOCIATION: 0, SIGNE: 0, PERDU: 0 };
+}
+
+// Agrégats du tableau de bord : comptés en base plutôt qu'en chargeant toutes les
+// lignes pour les compter en mémoire. Un KPI calculé sur une page serait faux, et
+// un KPI calculé sur une table entière chargée en RAM ne passe pas l'échelle — le
+// `groupBy` répond aux deux.
+export async function getProspectKpiCounts(): Promise<{
+  byStatus: Record<ProspectStatus, number>;
+  byStructureType: Record<ProspectType, number>;
+}> {
   const { tenantId } = await requireCabinetAdminSession();
 
-  return prisma.prospect.findMany({
-    where: { tenantId },
-    orderBy: { createdAt: "desc" },
-    include: { _count: { select: { devis: true } } },
-  });
+  const [statusRows, typeRows] = await Promise.all([
+    prisma.prospect.groupBy({ by: ["status"], where: { tenantId }, _count: { _all: true } }),
+    prisma.prospect.groupBy({ by: ["structureType"], where: { tenantId }, _count: { _all: true } }),
+  ]);
+
+  const byStatus = emptyStatusCounts();
+  for (const row of statusRows) byStatus[row.status] = row._count._all;
+
+  const byStructureType: Record<ProspectType, number> = { ASSOCIATION: 0, PRIVE: 0, PUBLIC: 0 };
+  for (const row of typeRows) byStructureType[row.structureType] = row._count._all;
+
+  return { byStatus, byStructureType };
 }
 
 export type ProspectWithDevis = Prisma.ProspectGetPayload<{
