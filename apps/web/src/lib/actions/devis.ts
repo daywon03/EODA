@@ -16,10 +16,12 @@ import {
   isDevisEditable,
 } from "@/lib/services/devis-transition-service";
 import { generateDevisNumber } from "@/lib/services/devis-numbering-service";
+import { isConversionTransition } from "@/lib/services/conversion-service";
 import { recordAuditEvent } from "@/lib/services/audit-log-service";
 import {
   firstError,
   isEnumValue,
+  optionalString,
   requiredEnum,
   requiredInt,
 } from "@/lib/validation/form-parsers";
@@ -39,6 +41,10 @@ type ParsedDevisInput = {
   depositPercent: number;
   installmentCount: number;
   validityDays: number;
+  // Saisi pendant la réunion d'évaluation des besoins, en même temps que l'offre et
+  // les options (§12.3). `undefined` = le champ n'était pas au formulaire (écran de
+  // correction d'un brouillon) : on ne touche alors pas aux notes du prospect.
+  needsAssessmentNotes: string | null | undefined;
 };
 
 function parseDevisInput(formData: FormData): { error: string } | ParsedDevisInput {
@@ -66,9 +72,29 @@ function parseDevisInput(formData: FormData): { error: string } | ParsedDevisInp
     defaultValue: 30,
   });
 
-  const error = firstError(formule, depositPercent, installmentCount, validityDays);
+  const hasNotesField = formData.has("needsAssessmentNotes");
+  const needsAssessmentNotes = optionalString(
+    formData,
+    "needsAssessmentNotes",
+    "Les notes d'évaluation des besoins",
+    4000
+  );
+
+  const error = firstError(
+    formule,
+    depositPercent,
+    installmentCount,
+    validityDays,
+    needsAssessmentNotes
+  );
   if (error) return { error };
-  if (!formule.ok || !depositPercent.ok || !installmentCount.ok || !validityDays.ok) {
+  if (
+    !formule.ok ||
+    !depositPercent.ok ||
+    !installmentCount.ok ||
+    !validityDays.ok ||
+    !needsAssessmentNotes.ok
+  ) {
     return { error: "Saisie invalide." };
   }
 
@@ -84,6 +110,7 @@ function parseDevisInput(formData: FormData): { error: string } | ParsedDevisInp
     depositPercent: depositPercent.value,
     installmentCount: installmentCount.value,
     validityDays: validityDays.value,
+    needsAssessmentNotes: hasNotesField ? needsAssessmentNotes.value : undefined,
   };
 }
 
@@ -137,6 +164,17 @@ export async function createDevis(
 
   const devis = await prisma.$transaction(async (tx) => {
     const number = await generateDevisNumber(tx, tenantId, year);
+
+    // Écran d'évaluation des besoins : les notes prises pendant l'appel sont
+    // enregistrées dans la même transaction que le devis qu'elles justifient. Le
+    // formulaire de correction d'un brouillon ne porte pas ce champ et ne les
+    // écrase donc pas.
+    if (parsed.needsAssessmentNotes !== undefined) {
+      await tx.prospect.update({
+        where: { id: parsed.prospectId },
+        data: { needsAssessmentNotes: parsed.needsAssessmentNotes },
+      });
+    }
 
     return tx.devis.create({
       data: {
@@ -237,6 +275,18 @@ export async function changeDevisStatus(
   // ramener un devis signé en brouillon (constat N4 de l'audit).
   if (!isEnumValue(status, DevisStatus)) {
     return { error: "Statut de devis invalide." };
+  }
+
+  // La signature ne passe PAS par ici. C'est la seule transition qui produit des
+  // effets hors du module commercial — fiche établissement, mission, périmètre
+  // ouvert au client (§12.4) — et elle exige une information que cette action ne
+  // possède pas : le type de SAD, qui n'est dérivable d'aucune donnée du prospect.
+  // Signer sans créer le profil était exactement la charnière manuelle du parcours.
+  if (isConversionTransition(status)) {
+    return {
+      error:
+        "La signature se confirme depuis l'écran de signature du devis : elle crée la fiche client et son profil.",
+    };
   }
 
   const changed = await prisma.$transaction(async (tx) => {

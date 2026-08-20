@@ -8,13 +8,20 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { AlertCircle, CheckCircle2, Copy, Loader2, UserPlus } from "lucide-react";
 
-type Props = { establishmentId: string };
+// `defaultEmail` / `defaultName` : pré-remplissage depuis le contact du prospect à
+// la fin du parcours de conversion. Ce sont des VALEURS PAR DÉFAUT — Sandrine les
+// corrige si l'interlocuteur du portail n'est pas celui du démarchage.
+type Props = {
+  establishmentId: string;
+  defaultEmail?: string | null;
+  defaultName?: string | null;
+};
 
 type SuccessResult = { success: true; tempPassword: string; userName: string; userEmail: string };
 type ErrorResult = { error: string };
 type Result = SuccessResult | ErrorResult;
 
-export function InviteClientForm({ establishmentId }: Props) {
+export function InviteClientForm({ establishmentId, defaultEmail, defaultName }: Props) {
   const [result, setResult] = useState<Result | null>(null);
   const [copied, setCopied] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -88,11 +95,26 @@ export function InviteClientForm({ establishmentId }: Props) {
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-1.5">
           <Label htmlFor="name">Nom complet</Label>
-          <Input id="name" name="name" placeholder="Prénom Nom" required disabled={isPending} />
+          <Input
+            id="name"
+            name="name"
+            placeholder="Prénom Nom"
+            defaultValue={defaultName ?? ""}
+            required
+            disabled={isPending}
+          />
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="email">Adresse email</Label>
-          <Input id="email" name="email" type="email" placeholder="prenom.nom@structure.fr" required disabled={isPending} />
+          <Input
+            id="email"
+            name="email"
+            type="email"
+            placeholder="prenom.nom@structure.fr"
+            defaultValue={defaultEmail ?? ""}
+            required
+            disabled={isPending}
+          />
         </div>
       </div>
       <div className="space-y-1.5">

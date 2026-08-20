@@ -39,6 +39,7 @@ export default defineConfig({
         "src/lib/services/commercial-kpi-service.ts",
         "src/lib/services/help-content-service.ts",
         "src/lib/services/client-contract-service.ts",
+        "src/lib/services/conversion-service.ts",
         "src/lib/config/production-profile.ts",
         "src/lib/db/migration-status.ts",
         "src/lib/security/password-policy.ts",

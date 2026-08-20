@@ -8,7 +8,7 @@ import { ProspectStatusSelect } from "@/components/prospect/ProspectStatusSelect
 import { DeleteProspectButton } from "@/components/prospect/DeleteProspectButton";
 import { DevisCard } from "@/components/devis/DevisCard";
 import { formatEuros } from "@/lib/services/price-format-service";
-import { Pencil, Plus, Phone, Mail } from "lucide-react";
+import { ClipboardList, Pencil, Plus, Phone, Mail } from "lucide-react";
 
 type Props = { params: Promise<{ id: string }> };
 
@@ -89,12 +89,23 @@ export default async function ProspectDetailPage({ params }: Props) {
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <h2 className="text-base font-semibold text-brun-ancre">Devis</h2>
-          <Button asChild size="sm">
-            <Link href={`/dashboard/cabinet/commercial/devis/nouveau?prospectId=${id}`}>
-              <Plus className="w-3.5 h-3.5" aria-hidden="true" />
-              Nouveau devis
-            </Link>
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            {/* Parcours normal (§12.3) : l'offre et les options se cochent en séance,
+                pendant la réunion d'évaluation des besoins. L'accès direct au devis
+                reste là pour les cas où l'évaluation a déjà eu lieu. */}
+            <Button asChild size="sm">
+              <Link href={`/dashboard/cabinet/commercial/prospects/${id}/evaluation-besoins`}>
+                <ClipboardList className="w-3.5 h-3.5" aria-hidden="true" />
+                Évaluation des besoins
+              </Link>
+            </Button>
+            <Button asChild size="sm" variant="outline">
+              <Link href={`/dashboard/cabinet/commercial/devis/nouveau?prospectId=${id}`}>
+                <Plus className="w-3.5 h-3.5" aria-hidden="true" />
+                Nouveau devis
+              </Link>
+            </Button>
+          </div>
         </div>
 
         {prospect.devis.length === 0 ? (

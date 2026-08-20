@@ -354,17 +354,44 @@ déjà conforme.
 > Sandrine traite la file depuis `/dashboard/cabinet/commercial` (`CABINET_ADMIN` uniquement).
 > Exception de cloisonnement correspondante inscrite dans `.claude/CLAUDE.md` §7.
 >
-> **⚠️ Limite connue, non contournée** : il n'existe **aucun lien direct `Establishment → Devis`**.
+> **Implémenté le 20/08/2026** : §12.4 — **parcours de conversion prospection → devis →
+> contrat → fiche client → profil**, « le parcours à verrouiller en priorité ». Deux écrans et
+> une transaction :
+> `/dashboard/cabinet/commercial/prospects/[id]/evaluation-besoins` (réunion d'évaluation des
+> besoins, utilisable en direct pendant l'appel : offre en cartes, options cochables, notes de
+> séance, total « à partir de » qui suit, un seul envoi → le devis) puis
+> `/dashboard/cabinet/commercial/devis/[id]/signature` (la signature crée, **en une
+> transaction**, l'`Establishment` si le prospect n'en a pas, le lien `Prospect.establishmentId`,
+> la `Mission` portant la formule du devis, et les lignes `MissionOption` — migration
+> `20260820210000_prospect_conversion`). Le profil client n'est pas un nouveau mécanisme :
+> c'est la bonne Mission, dont `offer-scope-service` dérive déjà checklists documentaires,
+> items de suivi et périmètre de critères. `EstablishmentType` (SAD_AIDE / SAD_MIXTE) est
+> **demandé**, jamais déduit de `ProspectType` (forme juridique) — et cocher SAD mixte affiche
+> l'avertissement du **17ᵉ impératif 3.6.2** (circuit du médicament), absent des grilles Synaé
+> seedées (gap Jalon 4). L'invitation du client (`inviteClientUser`, mot de passe temporaire +
+> rotation obligatoire) est proposée en fin de parcours, pré-remplie depuis
+> `Prospect.contactEmail`, et **facultative**. `changeDevisStatus` refuse désormais la cible
+> `SIGNE` : signer sans créer le profil était précisément la charnière manuelle du parcours.
+> Idempotence portée par les contraintes de base (`prospects_establishment_id_key`,
+> `missions_establishment_id_key`, `mission_options_mission_id_catalogue_option_id_key`) et par
+> la table de transitions (SIGNE n'est pas atteignable depuis SIGNE), jamais réimplémentée en
+> TypeScript.
+>
+> **⚠️ Limite connue, atténuée le 20/08/2026** : il n'existe toujours **aucun lien direct
+> `Establishment → Devis`**.
 > Un `Devis` pend d'un `Prospect`, et seul `Prospect.establishmentId` (renseigné **à la main** à la
 > signature, cf. §6) referme la boucle. Conséquences assumées : un établissement sans prospect
 > rattaché, ou dont le prospect n'a aucun devis `SIGNE`, n'affiche **aucun montant** ; plusieurs
 > devis `SIGNE` sur le même prospect n'en affichent **aucun** non plus (état `AMBIGUOUS` —
 > deviner lequel fait contrat reviendrait à inventer un contrat). Le périmètre d'accompagnement,
-> lui, reste toujours lisible : il vient de `Mission.formule`, pas du devis.
+> lui, reste toujours lisible : il vient de `Mission.formule`, pas du devis. Depuis la
+> conversion, `Mission.sourceDevisId` conserve **quel** devis a produit la mission (trace, pas
+> source de vérité), et les options souscrites vivent sur `MissionOption` :
+> `client-contract-service.resolveSubscribedOptions()` les y lit en priorité et ne retombe sur
+> les snapshots du devis que pour les missions créées avant cette bascule.
 >
-> **Non implémenté** : le reste du §12.4 (génération du profil client externe à la sélection de
-> l'offre, parcours prospection → devis → contrat verrouillé) et §12.5 (états de fin de mission,
-> page plan d'action, module sensibilisation, relances, export Synaé).
+> **Non implémenté** : §12.5 (états de fin de mission, page plan d'action, module
+> sensibilisation, relances automatiques, export Synaé).
 >
 > **Non représentable en l'état dans le catalogue** (aucun champ ne les porte, ils restent
 > à traiter à la main dans le devis) : la remise « Forfait multi-docs (3+) : -10 % », le pack
@@ -457,7 +484,9 @@ La **hotline** est retirée de l'offre pour l'instant (idée conservée, non chi
 - **Parcours à verrouiller en priorité** : prospection → devis → contrat → création de la
   fiche client **avec sélection de l'offre et des options** → ce choix **génère le profil
   client externe** avec seulement les checklists et tâches propres à l'offre → dépôt client →
-  reflet dans le portail interne.
+  reflet dans le portail interne. ✅ *Fait le 20/08/2026* — écran d'évaluation des besoins
+  (`prospects/[id]/evaluation-besoins`) et écran de signature (`devis/[id]/signature`), qui
+  crée fiche + mission + options en une transaction. Voir l'en-tête du §12.
 - **Les 12 items du diagnostic doivent être filtrés par offre.** ✅ *Fait le 20/08/2026.* En
   Essentiel, Sandrine attend seulement : réunion de cadrage, recueil documentaire, visite,
   diagnostic sur les 16 impératifs, vérification loi 2002-2, rapport de diagnostic, création

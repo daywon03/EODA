@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint . --max-warnings 0",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run --coverage"
+    "test": "vitest run --coverage",
+    "verify:prod-config": "tsx scripts/verify-production-config.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.112.3",
@@ -45,6 +46,7 @@
     "postcss": "^8.5.0",
     "tailwindcss": "^3.4.17",
     "typescript": "^5.7.0",
-    "vitest": "^4.1.11"
+    "vitest": "^4.1.11",
+    "tsx": "^4.19.2"
   }
 }

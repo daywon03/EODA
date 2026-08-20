@@ -1,5 +1,11 @@
 import { EXPECTED_MIGRATIONS } from "@eoda/database";
-import { getEnv, isBuildPhase, isProductionRuntime, type AppEnv } from "./env";
+import {
+  getEnv,
+  isBuildPhase,
+  isProductionRuntime,
+  isServerlessRuntime,
+  type AppEnv,
+} from "./env";
 import { productionConfigProblems, productionConfigWarnings } from "./production-profile";
 import {
   describeMigrationStatus,
@@ -32,7 +38,14 @@ function formatProblems(problems: string[]): string {
 // l'état qu'on cherche à éviter. Sortir fait voir à l'orchestrateur un démarrage
 // échoué, donc aucun trafic routé vers l'instance.
 function refuseToStartInProduction(problems: string[]): never {
-  console.error(formatProblems(problems));
+  const message = formatProblems(problems);
+  console.error(message);
+  // Serveur long : sortir est la seule façon de ne router aucun trafic.
+  // Fonction éphémère (Vercel) : il n'y a pas de démarrage à refuser — sortir tuerait
+  // l'invocation courante et se rejouerait à chaque requête sans jamais bloquer le
+  // déploiement. On lève, la requête échoue en 500, et c'est le contrôle de BUILD
+  // (`pnpm verify:prod-config`) qui doit empêcher un tel déploiement d'exister.
+  if (isServerlessRuntime()) throw new Error(message);
   process.exit(1);
 }
 
@@ -47,7 +60,7 @@ function resolveEnv(): AppEnv {
     // unhandledRejection et laisse un processus à moitié vivant. La seule façon de
     // refuser réellement de servir est de sortir. `isProductionRuntime()` ne
     // déclenche aucune validation, il lit juste NODE_ENV.
-    if (isProductionRuntime()) process.exit(1);
+    if (isProductionRuntime() && !isServerlessRuntime()) process.exit(1);
     throw error;
   }
 }

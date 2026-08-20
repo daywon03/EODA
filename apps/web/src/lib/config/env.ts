@@ -180,3 +180,13 @@ export function isBuildPhase(): boolean {
 export function isNodeRuntime(): boolean {
   return process.env.NEXT_RUNTIME === "nodejs";
 }
+
+// Vercel et consorts exécutent chaque requête dans une fonction éphémère : il n'y a
+// pas de « démarrage du serveur » qu'on puisse refuser. `process.exit(1)` y tuerait
+// l'invocation en cours et se rejouerait à chaque requête, sans jamais empêcher le
+// déploiement. Sur ce type d'hébergement, la configuration se juge AU BUILD
+// (`pnpm verify:prod-config`, enchaîné dans la commande de build) et l'exécution se
+// contente d'échouer bruyamment. Cf. README §Déploiement.
+export function isServerlessRuntime(): boolean {
+  return process.env.VERCEL === "1" || process.env.NETLIFY === "true";
+}

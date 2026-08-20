@@ -38,7 +38,8 @@
     "db:migrate:dev": "pnpm --filter @eoda/database migrate:dev",
     "db:migrate:deploy": "pnpm --filter @eoda/database migrate:deploy",
     "db:seed": "pnpm --filter @eoda/database seed",
-    "db:studio": "pnpm --filter @eoda/database studio"
+    "db:studio": "pnpm --filter @eoda/database studio",
+    "verify:prod-config": "pnpm --filter @eoda/web verify:prod-config"
   },
   "devDependencies": {
     "@prisma/compute-sdk": "^0.32.0"

@@ -109,6 +109,51 @@ comme shadow database : la base de développement partagée a été effacée ain
 Seules `prisma validate`, `prisma migrate status` et `prisma migrate deploy` sont autorisées.
 Les migrations sont écrites **à la main** dans `packages/database/prisma/migrations/`.
 
+## Déploiement sur Vercel
+
+`vercel.json` à la racine porte la configuration. Deux réglages à faire une fois dans le
+projet Vercel :
+
+1. **Root Directory** : laisser la racine du dépôt (pas `apps/web`) — la commande de build
+   est un enchaînement pnpm workspace qui a besoin de `packages/database`.
+2. **Variables d'environnement** (Production *et* Preview) : `DATABASE_URL`, `DIRECT_URL`,
+   `AUTH_SECRET`, `NEXTAUTH_URL`, `S3_ENDPOINT`, `S3_REGION`, `S3_BUCKET`,
+   `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `ANTHROPIC_API_KEY`. Les deux variables
+   Resend sont facultatives (avertissement, pas blocage).
+
+### Ordre de la commande de build, et pourquoi
+
+```
+pnpm db:generate && pnpm verify:prod-config && pnpm db:migrate:deploy && pnpm --filter @eoda/web build
+```
+
+- `verify:prod-config` **avant** la migration : inutile de migrer une base pour un
+  déploiement qui n'aboutira pas. Une variable manquante fait échouer le build, donc
+  aucune URL n'est publiée — c'est le seul moment où l'on peut encore refuser.
+- `migrate deploy` **jamais** `migrate dev` ni `migrate diff` (cf. `CLAUDE.md` §7).
+- Une migration en échec fait échouer le build, avant qu'aucun trafic ne soit routé.
+
+### Région
+
+`regions: ["cdg1"]` (Paris). Les fonctions s'exécutent en France, la base Prisma Postgres
+est en `eu-west-3`, et le bucket S3 doit être européen. **À vérifier avant d'y mettre de
+vraies données** : Vercel reste une société américaine, et l'hébergement des données de
+santé/social est une contrainte non négociable du projet (`CLAUDE.md` §6, qui nomme
+Scaleway ou OVHcloud). Le choix de Vercel est une décision produit, pas une conformité
+acquise.
+
+### Ce qui change par rapport à un serveur long
+
+- **Le refus au démarrage n'existe pas en *serverless*.** Une fonction éphémère n'a pas de
+  démarrage à refuser : `process.exit(1)` y tuerait l'invocation en cours et se rejouerait
+  à chaque requête. Sur Vercel, `runStartupChecks()` lève au lieu de sortir, et c'est
+  `verify:prod-config` au build qui empêche réellement le déploiement incomplet.
+- **La limitation de débit sur la connexion devient poreuse.** L'adaptateur est en mémoire
+  du processus (`lib/security/in-memory-rate-limiter.ts`) : chaque instance a son propre
+  compteur, et un démarrage à froid le remet à zéro. Le quota effectif contre la force
+  brute est donc multiplié par le nombre d'instances. **À remplacer par un compteur
+  partagé (table Postgres ou Redis) avant d'ouvrir la plateforme à de vrais comptes.**
+
 ## Comptes et mots de passe
 
 Un compte client est créé par `inviteClientUser` avec un mot de passe temporaire affiché une

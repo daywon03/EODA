@@ -497,6 +497,7 @@ model CatalogueOption {
 
   tenant         Tenant                @relation(fields: [tenantId], references: [id])
   devisOptions   DevisOption[]
+  missionOptions MissionOption[]
   clientRequests ClientOptionRequest[]
 
   @@unique([tenantId, code])
@@ -548,8 +549,12 @@ model Prospect {
   // notes qualitatives ; `estimatedAmountEuros` ci-dessus sert de niveau financier.
   needsAssessmentNotes String?            @map("needs_assessment_notes")
   notes                String?
-  // Renseigné manuellement une fois le devis signé et l'établissement créé —
-  // pas d'auto-création de l'Establishment depuis un prospect (hors scope).
+  // Renseigné par la CONVERSION à la signature (lib/actions/conversion.ts) : passer
+  // un devis à SIGNE crée l'Establishment s'il n'existe pas, pose ce lien, et crée
+  // la Mission qui porte le périmètre. Plus de saisie manuelle — c'était la charnière
+  // manuelle du parcours §12.4 (« le parcours à verrouiller en priorité »).
+  // @unique : c'est CETTE contrainte qui interdit qu'un même établissement soit
+  // rattaché à deux prospects, et donc qu'une double conversion en fabrique un second.
   establishmentId      String?            @unique @map("establishment_id")
   createdAt            DateTime           @default(now()) @map("created_at")
   updatedAt            DateTime           @updatedAt @map("updated_at")
@@ -593,6 +598,7 @@ model Devis {
   prospect         Prospect         @relation(fields: [prospectId], references: [id])
   catalogueFormule CatalogueFormule @relation(fields: [catalogueFormuleId], references: [id])
   options          DevisOption[]
+  missions         Mission[]
 
   @@map("devis")
 }
@@ -709,11 +715,52 @@ model Mission {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
+  // Devis qui a produit cette mission à la signature. Trace, jamais source de
+  // vérité : le périmètre reste porté par `formule` + `gratuit` ci-dessus
+  // (CLAUDE.md §7 — la décision contractuelle vit sur Mission). Nullable : les
+  // missions créées à la main avant la conversion automatique n'en ont pas.
+  sourceDevisId String? @map("source_devis_id")
+
   tenant        Tenant                       @relation(fields: [tenantId], references: [id])
   establishment Establishment                @relation(fields: [establishmentId], references: [id])
+  sourceDevis   Devis?                       @relation(fields: [sourceDevisId], references: [id])
   itemStatuses  MissionChecklistItemStatus[]
+  options       MissionOption[]
 
   @@map("missions")
+}
+
+// Option souscrite, portée par la MISSION. Le devis reste le document commercial
+// (il fait contrat et ne se réécrit jamais) ; la mission, elle, est ce qui gouverne
+// le périmètre réellement ouvert au client — CLAUDE.md §7 : la décision
+// contractuelle vit sur Mission, jamais sur Establishment.commercialTier. Sans
+// cette table, le périmètre d'options n'était lisible qu'en remontant
+// Establishment → Prospect → Devis, un chemin qui casse dès qu'un établissement
+// n'a pas de prospect (limite connue du §12.6).
+//
+// Les colonnes sont des SNAPSHOTS, recopiés depuis le devis à la signature : une
+// évolution du catalogue ne doit pas réécrire un périmètre déjà contracté.
+model MissionOption {
+  id                String @id @default(cuid())
+  missionId         String @map("mission_id")
+  catalogueOptionId String @map("catalogue_option_id")
+
+  labelSnapshot         String      @map("label_snapshot")
+  priceSnapshotEuros    Int         @map("price_snapshot_euros")
+  pricingUnitSnapshot   PricingUnit @default(FORFAIT) @map("pricing_unit_snapshot")
+  priceMaxSnapshotEuros Int?        @map("price_max_snapshot_euros")
+  minQuantitySnapshot   Int?        @map("min_quantity_snapshot")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  mission         Mission         @relation(fields: [missionId], references: [id])
+  catalogueOption CatalogueOption @relation(fields: [catalogueOptionId], references: [id])
+
+  // Contrainte qui rend la conversion IDEMPOTENTE côté options : rejouer la
+  // signature ne peut pas doubler une ligne. Le code s'appuie dessus
+  // (`createMany({ skipDuplicates: true })`), il ne la réimplémente pas.
+  @@unique([missionId, catalogueOptionId])
+  @@map("mission_options")
 }
 
 // Case cochée pour un item donné d'une mission donnée. Absence de ligne = non
@@ -777,6 +824,10 @@ enum AuditAction {
   // `targetId` = identifiant de la ligne de catalogue visée, `detail` = son code.
   OPTION_QUOTE_REQUESTED
   OPTION_REQUEST_HANDLED
+  // Signature d'un devis → création de la fiche client et du profil (§12.4).
+  // `targetId` = identifiant du devis signé, `detail` = son numéro et la formule
+  // ouverte : deux clés techniques, jamais une donnée nominative.
+  PROSPECT_CONVERTED
   // Cycle de vie d'une version de document
   DOCUMENT_VERSION_DELETED
   DOCUMENT_JUSTIFICATION_UPDATED

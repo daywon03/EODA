@@ -224,4 +224,13 @@ Détail complet et état d'avancement : `specs/02-architecture-technique.md` §4
   formule contractuelle qui gouverne le périmètre d'une mission (§7.3 — verrouillage
   Consolidation/Préparation finale hors Excellence ou bêta-test gratuit) vit sur `Mission.formule`,
   pas sur `Establishment.commercialTier` (resté hardcodé `BETA`, affichage/historique
-  uniquement) — ne jamais dupliquer cette décision sur les deux modèles.
+  uniquement) — ne jamais dupliquer cette décision sur les deux modèles. **Corollaire depuis le
+  20/08/2026** : les options souscrites vivent elles aussi sur la mission (`MissionOption`,
+  peuplée à la signature par `lib/actions/conversion.ts`). Les `DevisOption` restent le
+  **document commercial** — ils font contrat et ne se réécrivent jamais — et servent de repli
+  de lecture pour les missions antérieures à cette bascule.
+- Ne pas faire passer un devis à `SIGNE` par `changeDevisStatus` : la signature est la seule
+  transition qui produit des effets hors du module commercial (fiche établissement, mission,
+  périmètre ouvert au client) et passe par `convertDevisToClient` (`lib/actions/conversion.ts`),
+  en une transaction. `EstablishmentType` (SAD_AIDE / SAD_MIXTE) y est **demandé**, jamais
+  déduit de `ProspectType` (ASSOCIATION / PRIVE / PUBLIC) : ce sont deux dimensions distinctes.

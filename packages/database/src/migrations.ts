@@ -35,4 +35,5 @@ export const EXPECTED_MIGRATIONS: readonly string[] = [
   "20260820150000_devis_cancellation",
   "20260820160000_user_deactivation_and_audit_actions",
   "20260820180000_client_option_request",
+  "20260820210000_prospect_conversion",
 ] as const;

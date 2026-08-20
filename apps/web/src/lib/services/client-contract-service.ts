@@ -36,6 +36,29 @@ export type SubscribedOption = {
   minQuantitySnapshot: number | null;
 };
 
+// Options réellement souscrites : la MISSION fait foi, le devis n'est qu'un repli.
+//
+// Pourquoi cet ordre. Le devis est le document COMMERCIAL — il fait contrat, ses
+// snapshots ne se réécrivent jamais. Mais ce qui gouverne le périmètre ouvert au
+// client, c'est la mission (CLAUDE.md §7 : la décision contractuelle vit sur
+// Mission, jamais sur Establishment.commercialTier). Lire les options sur le devis
+// obligeait à remonter Establishment → Prospect → Devis, un chemin qui n'existe pas
+// pour un établissement sans prospect rattaché, et qui devient ambigu dès qu'un
+// prospect a deux devis signés.
+//
+// Le repli n'est pas une commodité : une mission créée AVANT cette bascule ne porte
+// aucune ligne d'option, et son client doit continuer de voir ce qu'il a acheté. Un
+// tableau de mission vide signifie donc « pas encore migré », pas « rien souscrit ».
+// La distinction est indécidable ici et c'est assumé : aucune mission convertie
+// depuis un devis ne peut avoir zéro option si le devis en portait.
+export function resolveSubscribedOptions(input: {
+  missionOptions: readonly SubscribedOption[];
+  devisOptions: readonly SubscribedOption[];
+}): SubscribedOption[] {
+  if (input.missionOptions.length > 0) return [...input.missionOptions];
+  return [...input.devisOptions];
+}
+
 // Ligne de catalogue proposable au client. `priceEuros` est une BORNE BASSE, à
 // rendre exclusivement via formatStartingPrice() du price-format-service.
 export type CatalogueOptionRow = {

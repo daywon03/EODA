@@ -4,6 +4,7 @@ import {
   isOptionSubscribed,
   listAvailableOptions,
   resolveContractDevis,
+  resolveSubscribedOptions,
   summariseDocumentObligations,
   type CatalogueOptionRow,
   type ClientDevis,
@@ -198,5 +199,48 @@ describe("documentProgressPercent", () => {
       { status: "COMPLIANT", missingJustification: null },
     ]);
     expect(documentProgressPercent(summary)).toBe(50);
+  });
+});
+
+// La bascule des options souscrites du devis vers la mission. Ce qui est protégé
+// ici : un client dont la mission n'a pas encore de lignes d'options (créée avant
+// la conversion automatique) ne doit pas voir son contrat se vider.
+describe("resolveSubscribedOptions", () => {
+  function option(id: string, label: string): SubscribedOption {
+    return {
+      catalogueOptionId: id,
+      labelSnapshot: label,
+      priceSnapshotEuros: 300,
+      pricingUnitSnapshot: "FORFAIT",
+      priceMaxSnapshotEuros: null,
+      minQuantitySnapshot: null,
+    };
+  }
+
+  it("retient les options de la MISSION quand elle en porte", () => {
+    const resolved = resolveSubscribedOptions({
+      missionOptions: [option("opt-a", "Depuis la mission")],
+      devisOptions: [option("opt-b", "Depuis le devis")],
+    });
+    expect(resolved.map((o) => o.catalogueOptionId)).toEqual(["opt-a"]);
+  });
+
+  it("retombe sur les snapshots du devis pour une mission antérieure à la bascule", () => {
+    const resolved = resolveSubscribedOptions({
+      missionOptions: [],
+      devisOptions: [option("opt-b", "Depuis le devis")],
+    });
+    expect(resolved.map((o) => o.catalogueOptionId)).toEqual(["opt-b"]);
+  });
+
+  it("rend un tableau vide quand ni la mission ni le devis ne portent d'option", () => {
+    expect(resolveSubscribedOptions({ missionOptions: [], devisOptions: [] })).toEqual([]);
+  });
+
+  it("ne rend jamais le tableau reçu, pour qu'un appelant ne puisse pas le muter", () => {
+    const missionOptions = [option("opt-a", "Depuis la mission")];
+    const resolved = resolveSubscribedOptions({ missionOptions, devisOptions: [] });
+    expect(resolved).not.toBe(missionOptions);
+    expect(resolved).toEqual(missionOptions);
   });
 });

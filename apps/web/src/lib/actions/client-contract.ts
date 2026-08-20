@@ -13,6 +13,7 @@ import {
   isOptionSubscribed,
   listAvailableOptions,
   resolveContractDevis,
+  resolveSubscribedOptions,
   summariseDocumentObligations,
   type AvailableOption,
   type ContractResolution,
@@ -104,6 +105,25 @@ async function resolveClientContractContext(): Promise<{
     where: { id: establishment.id },
     select: {
       tenantId: true,
+      // Options souscrites portées par la MISSION — source de vérité depuis la
+      // conversion à la signature (CLAUDE.md §7 : la décision contractuelle vit sur
+      // Mission). Les snapshots du devis restent le repli pour les missions créées
+      // avant cette bascule, cf. resolveSubscribedOptions().
+      mission: {
+        select: {
+          options: {
+            select: {
+              catalogueOptionId: true,
+              labelSnapshot: true,
+              priceSnapshotEuros: true,
+              pricingUnitSnapshot: true,
+              priceMaxSnapshotEuros: true,
+              minQuantitySnapshot: true,
+            },
+            orderBy: { labelSnapshot: "asc" },
+          },
+        },
+      },
       prospect: {
         select: {
           devis: {
@@ -139,7 +159,13 @@ async function resolveClientContractContext(): Promise<{
   if (!record) return null;
 
   const contract = resolveContractDevis(record.prospect?.devis ?? []);
-  const subscribedOptions = contract.kind === "RESOLVED" ? [...contract.devis.options] : [];
+  // Le devis reste le document commercial — il fait contrat, ses montants sont
+  // fermes et ne se réécrivent jamais. Mais le PÉRIMÈTRE ouvert vient de la mission,
+  // qui existe même quand le chemin Establishment → Prospect → Devis n'existe pas.
+  const subscribedOptions = resolveSubscribedOptions({
+    missionOptions: record.mission?.options ?? [],
+    devisOptions: contract.kind === "RESOLVED" ? contract.devis.options : [],
+  });
 
   return {
     establishment: { id: establishment.id, name: establishment.name },
