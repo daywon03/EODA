@@ -38,9 +38,16 @@ export default defineConfig({
         "src/lib/services/price-format-service.ts",
         "src/lib/services/commercial-kpi-service.ts",
         "src/lib/services/help-content-service.ts",
+        "src/lib/services/client-contract-service.ts",
         "src/lib/config/production-profile.ts",
         "src/lib/db/migration-status.ts",
         "src/lib/security/password-policy.ts",
+        "src/lib/security/password-hashing.ts",
+        "src/lib/security/attempt-throttle.ts",
+        // La couche d'autorisation est le module dont un défaut coûte le plus cher
+        // du dépôt (CLAUDE.md §5 bis : une seule couche, traversée par toute action).
+        // La laisser hors mesure revenait à ne pas mesurer ce qui compte le plus.
+        "src/lib/auth/guards.ts",
         "src/lib/security/upload-validation-service.ts",
         "src/lib/security/in-memory-rate-limiter.ts",
         "src/lib/security/login-throttle.ts",

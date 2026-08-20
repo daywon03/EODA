@@ -1,5 +1,7 @@
 import { getProspectKpiCounts } from "@/lib/actions/prospect";
 import { listDevisForKpi } from "@/lib/actions/devis";
+import { listPendingOptionRequests } from "@/lib/actions/option-request";
+import { OptionRequestQueue } from "@/components/devis/OptionRequestQueue";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { KpiCard } from "@/components/kpi/KpiCard";
 import { BreakdownList } from "@/components/kpi/BreakdownList";
@@ -21,9 +23,12 @@ export default async function CommercialDashboardPage() {
   // Les répartitions prospects sont comptées en base (groupBy) et non en chargeant
   // la table pour la compter en mémoire ; les devis sont lus en projection étroite
   // (4 scalaires) — un KPI calculé sur une page serait faux, il n'est donc pas paginé.
-  const [{ byStatus, byStructureType }, devisList] = await Promise.all([
+  const [{ byStatus, byStructureType }, devisList, optionRequests] = await Promise.all([
     getProspectKpiCounts(),
     listDevisForKpi(),
+    // Demandes d'options émises depuis les portails clients (§12.3) — la
+    // contrepartie interne du paywall « Mon accompagnement ».
+    listPendingOptionRequests(),
   ]);
 
   const conversionRate = computeConversionRatePercent(devisList);
@@ -48,6 +53,8 @@ export default async function CommercialDashboardPage() {
           <KpiCard key={label} label={label} value={value} icon={icon} />
         ))}
       </div>
+
+      <OptionRequestQueue requests={optionRequests} />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <BreakdownList

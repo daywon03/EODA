@@ -3,6 +3,10 @@ import { ChecklistCategory } from "@/components/checklist/ChecklistCategory";
 import { ProgressBar } from "@/components/ui/progress-bar";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Building2, AlertTriangle, ShieldAlert, CheckCircle2, Clock } from "lucide-react";
+import {
+  documentProgressPercent,
+  summariseDocumentObligations,
+} from "@/lib/services/client-contract-service";
 import type { DocumentCategory } from "@eoda/database";
 
 export const metadata = { title: "Espace Client · EODA Conseil" };
@@ -42,12 +46,15 @@ export default async function ClientDashboardPage() {
   }
 
   const categories = Object.keys(CATEGORY_LABELS) as DocumentCategory[];
-  const allItems = Object.values(checklist).flat();
-  const totalItems = allItems.length;
-  const missingCount = allItems.filter((i) => i.status === "MISSING").length;
-  const compliantCount = allItems.filter((i) => i.status === "COMPLIANT").length;
+  // Comptage délégué au service partagé avec « Mon accompagnement » : les deux
+  // pages du portail affichent les mêmes nombres, elles ne peuvent pas les
+  // recalculer chacune de son côté sans finir par diverger (D1).
+  const summary = summariseDocumentObligations(Object.values(checklist).flat());
+  const totalItems = summary.total;
+  const missingCount = summary.toDeposit + summary.justified;
+  const compliantCount = summary.compliant;
   const otherCount = totalItems - missingCount - compliantCount;
-  const progressPct = totalItems > 0 ? Math.round((compliantCount / totalItems) * 100) : 0;
+  const progressPct = documentProgressPercent(summary);
 
   const stats = [
     { label: "Manquants", value: missingCount, icon: AlertTriangle, color: "text-rouge-imp bg-rouge-imp/10" },

@@ -136,7 +136,18 @@ export async function deleteEstablishment(id: string): Promise<{ error: string }
       });
       orphanIds = clientAccounts.map((u) => u.id).filter((userId) => !stillLinked.has(userId));
       if (orphanIds.length > 0) {
-        await tx.user.deleteMany({ where: { id: { in: orphanIds } } });
+        // Désactivation et non suppression. Supprimer la ligne `users` fermait bien
+        // l'accès, mais emportait avec elle la lisibilité du journal d'audit : les
+        // entrées de ce compte ne correspondaient plus ni à un établissement du
+        // périmètre ni à un acteur connu, donc plus personne ne pouvait répondre à
+        // « qui a consulté les documents de l'établissement fermé l'an dernier ? ».
+        // C'est précisément l'exigence de traçabilité du secteur médico-social
+        // (CLAUDE.md §5 bis). Un compte désactivé est refusé à la connexion et par
+        // toutes les gardes — l'accès est fermé aussi sûrement, la trace subsiste.
+        await tx.user.updateMany({
+          where: { id: { in: orphanIds } },
+          data: { isActive: false, deactivatedAt: new Date() },
+        });
       }
     }
 

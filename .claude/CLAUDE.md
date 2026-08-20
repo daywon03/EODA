@@ -209,6 +209,14 @@ Détail complet et état d'avancement : `specs/02-architecture-technique.md` §4
   d'un autre client, le pipeline de prospection, les devis non signés d'autrui, les KPI
   commerciaux. La règle §12.3 tient toujours : le client demande, **Sandrine déclenche** — voir
   une option et son prix n'est pas la même chose que se l'auto-attribuer.
+  **Implémenté** dans `/dashboard/client/accompagnement` (lecture :
+  `lib/actions/client-contract.ts`, règles pures : `lib/services/client-contract-service.ts`,
+  file côté cabinet : `lib/actions/option-request.ts`). Deux natures de prix y coexistent et ne
+  doivent jamais être rendues pareil : les montants du devis signé sont **fermes**
+  (`formatEuros` / `formatPriceWithUnit`), les prix du catalogue sont des **« à partir de »**
+  (`formatStartingPrice`). Il n'existe **pas** de lien direct `Establishment → Devis` : la
+  résolution passe par `Prospect.establishmentId`, et sans devis `SIGNE` unique **aucun montant
+  n'est affiché** — ne jamais « réparer » ça par un rapprochement de noms.
 - Le suivi de mission (checklist diagnostic 12 items + 4 phases d'accompagnement, §7 du même
   fichier) est également intégré, sous `/dashboard/cabinet/etablissements/[id]/mission` —
   accessible à `CABINET_ADMIN` **et** `CABINET_EVALUATOR` (contrairement au pipeline commercial

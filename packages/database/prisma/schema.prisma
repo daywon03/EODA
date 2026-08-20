@@ -100,6 +100,15 @@ enum PricingUnit {
   MOIS // abonnement récurrent, ex. portail + veille 400 € / mois
 }
 
+// Cycle de vie d'une demande de devis d'option émise depuis le portail client.
+// Règle §12.3 : le client DEMANDE, Sandrine déclenche. Aucun statut ici ne débloque
+// quoi que ce soit — le déblocage passe par un devis puis un avenant (§12.6).
+enum OptionRequestStatus {
+  DEMANDEE
+  TRAITEE
+  REFUSEE
+}
+
 enum EstablishmentUserRole {
   DIRECTEUR
   COORDINATEUR
@@ -170,6 +179,7 @@ model Tenant {
   prospects         Prospect[]
   devis             Devis[]
   missions          Mission[]
+  optionRequests    ClientOptionRequest[]
 
   @@map("tenants")
 }
@@ -203,6 +213,7 @@ model User {
   establishmentUsers EstablishmentUser[]
   uploadedVersions   DocumentVersion[]    @relation("UploadedBy")
   evaluationSessions EvaluationSession[]
+  optionRequests     ClientOptionRequest[] @relation("RequestedBy")
 
   @@map("users")
 }
@@ -228,6 +239,7 @@ model Establishment {
   evaluationSessions EvaluationSession[]
   prospect           Prospect?
   mission            Mission?
+  optionRequests     ClientOptionRequest[]
 
   @@map("establishments")
 }
@@ -483,8 +495,9 @@ model CatalogueOption {
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
-  tenant       Tenant        @relation(fields: [tenantId], references: [id])
-  devisOptions DevisOption[]
+  tenant         Tenant                @relation(fields: [tenantId], references: [id])
+  devisOptions   DevisOption[]
+  clientRequests ClientOptionRequest[]
 
   @@unique([tenantId, code])
   @@map("catalogue_options")
@@ -602,6 +615,43 @@ model DevisOption {
 
   @@unique([devisId, catalogueOptionId])
   @@map("devis_options")
+}
+
+// Demande de devis pour une option NON souscrite, émise depuis le portail client
+// (« Mon accompagnement »). C'est la trace interne du parcours §12.3 : le client
+// demande, Sandrine déclenche. Rien ici n'ouvre un droit ni ne débloque une
+// fonctionnalité — le déblocage passe par un devis puis un avenant (§12.6).
+//
+// Pourquoi une table plutôt qu'un simple événement d'audit : une demande a un
+// cycle de vie (à traiter → traitée / refusée) et doit être listable et
+// actionnable côté Cabinet. Le journal d'audit, lui, est en écriture seule et ne
+// se corrige pas — les deux sont écrits, ils ne se remplacent pas.
+model ClientOptionRequest {
+  id                String              @id @default(cuid())
+  tenantId          String              @map("tenant_id")
+  establishmentId   String              @map("establishment_id")
+  catalogueOptionId String              @map("catalogue_option_id")
+  // Auteur de la demande — sert au Cabinet à savoir qui rappeler. Jamais affiché
+  // à un autre client : la ligne est lue filtrée par établissement.
+  requestedByUserId String              @map("requested_by_user_id")
+  status            OptionRequestStatus @default(DEMANDEE)
+  // Message libre du client (contexte, volumétrie souhaitée). Borné côté parseur.
+  message           String?
+  createdAt         DateTime            @default(now()) @map("created_at")
+  updatedAt         DateTime            @updatedAt @map("updated_at")
+  handledAt         DateTime?           @map("handled_at")
+
+  tenant          Tenant          @relation(fields: [tenantId], references: [id])
+  establishment   Establishment   @relation(fields: [establishmentId], references: [id])
+  catalogueOption CatalogueOption @relation(fields: [catalogueOptionId], references: [id])
+  requestedBy     User            @relation("RequestedBy", fields: [requestedByUserId], references: [id])
+
+  // File d'attente du Cabinet : les demandes à traiter d'un tenant, du plus ancien
+  // au plus récent.
+  @@index([tenantId, status, createdAt])
+  // Détection d'un doublon en attente pour un couple (établissement, option).
+  @@index([establishmentId, catalogueOptionId, status])
+  @@map("client_option_requests")
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -723,6 +773,10 @@ enum AuditAction {
   USER_DELETED_WITH_ESTABLISHMENT
   PASSWORD_RESET_BY_ADMIN
   LOGIN_REFUSED_INACTIVE
+  // Demande de devis d'option depuis le portail client (§12.3 / §12.6).
+  // `targetId` = identifiant de la ligne de catalogue visée, `detail` = son code.
+  OPTION_QUOTE_REQUESTED
+  OPTION_REQUEST_HANDLED
   // Cycle de vie d'une version de document
   DOCUMENT_VERSION_DELETED
   DOCUMENT_JUSTIFICATION_UPDATED

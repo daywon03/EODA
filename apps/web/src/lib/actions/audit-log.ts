@@ -90,10 +90,17 @@ export async function listAuditLog(query: AuditLogQuery): Promise<AuditLogPage> 
   });
   const userIds = users.map((u) => u.id);
 
+  // L'appartenance se juge d'abord sur l'établissement, et sur l'acteur seulement
+  // quand l'entrée n'en porte aucun. Le disjoint « acteur connu » non conditionné
+  // rendait visible une entrée portant l'établissement d'un AUTRE tenant dès lors
+  // que son acteur appartenait au mien. Inatteignable aujourd'hui — `inviteClientUser`
+  // refuse un email déjà pris, donc aucun compte n'est rattaché à deux tenants —
+  // mais le multi-cabinet prévu en §5 l'activerait, et une fuite de journal se
+  // découvre après coup.
   const scope: Prisma.AuditLogEntryWhereInput = {
     OR: [
       { establishmentId: { in: establishmentIds } },
-      { actorUserId: { in: userIds } },
+      { establishmentId: null, actorUserId: { in: userIds } },
       { establishmentId: null, actorUserId: null },
     ],
   };

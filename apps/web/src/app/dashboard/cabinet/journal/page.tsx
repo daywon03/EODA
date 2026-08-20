@@ -38,6 +38,8 @@ const ACTION_LABELS: Record<AuditAction, string> = {
   DEVIS_CANCELLED: "Devis annulé",
   CATALOGUE_ITEM_RETIRED: "Ligne de catalogue retirée",
   CATALOGUE_ITEM_RESTORED: "Ligne de catalogue restaurée",
+  OPTION_QUOTE_REQUESTED: "Demande de devis d'option (client)",
+  OPTION_REQUEST_HANDLED: "Demande d'option traitée",
 };
 
 const ROLE_LABELS: Record<string, string> = {

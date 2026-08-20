@@ -337,6 +337,31 @@ déjà conforme.
 > une phrase n'exige qu'une édition de contenu. Les articles du pipeline commercial sont réservés
 > à `CABINET_ADMIN` et ne sont jamais envoyés au navigateur d'un autre rôle.
 >
+> **Implémenté le 20/08/2026** : première moitié du §12.6 — **portail client « Mon
+> accompagnement »** (`/dashboard/client/accompagnement`, second onglet du portail client).
+> Le client y voit **son** contrat : offre souscrite (résolue depuis `Mission.formule`, jamais
+> `Establishment.commercialTier`), modules inclus, options souscrites au prix **ferme** figé sur
+> son devis, et ses montants signés (total, acompte, solde, échéances). En face, la contrepartie
+> documentaire : pièces à déposer, pièces commentées en attente d'arbitrage, pièces en revue,
+> pièces conformes — comptées par `client-contract-service.summariseDocumentObligations()`, à
+> partir du chemin de chargement partagé `lib/actions/checklist.ts`, plus les quatre compteurs
+> §12.4 via la lecture partagée `lib/db/read-mission-document-counters.ts` (le suivi de mission
+> et le portail client lisent désormais la MÊME requête).
+> Les options **non souscrites** y figurent au prix « à partir de » (`formatStartingPrice`) : c'est
+> la base du paywall. Conformément au §12.3, chacune porte une action **« demander un devis »** qui
+> dépose une ligne `ClientOptionRequest` (migration `20260820180000_client_option_request`) et un
+> événement d'audit `OPTION_QUOTE_REQUESTED` — **aucun paiement, aucun déblocage automatique**.
+> Sandrine traite la file depuis `/dashboard/cabinet/commercial` (`CABINET_ADMIN` uniquement).
+> Exception de cloisonnement correspondante inscrite dans `.claude/CLAUDE.md` §7.
+>
+> **⚠️ Limite connue, non contournée** : il n'existe **aucun lien direct `Establishment → Devis`**.
+> Un `Devis` pend d'un `Prospect`, et seul `Prospect.establishmentId` (renseigné **à la main** à la
+> signature, cf. §6) referme la boucle. Conséquences assumées : un établissement sans prospect
+> rattaché, ou dont le prospect n'a aucun devis `SIGNE`, n'affiche **aucun montant** ; plusieurs
+> devis `SIGNE` sur le même prospect n'en affichent **aucun** non plus (état `AMBIGUOUS` —
+> deviner lequel fait contrat reviendrait à inventer un contrat). Le périmètre d'accompagnement,
+> lui, reste toujours lisible : il vient de `Mission.formule`, pas du devis.
+>
 > **Non implémenté** : le reste du §12.4 (génération du profil client externe à la sélection de
 > l'offre, parcours prospection → devis → contrat verrouillé) et §12.5 (états de fin de mission,
 > page plan d'action, module sensibilisation, relances, export Synaé).

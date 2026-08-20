@@ -10,11 +10,8 @@ import {
   isChecklistItemApplicable,
   type MissionProgress,
 } from "@/lib/services/mission-progress-service";
-import { getCoveredDocumentCategories } from "@/lib/services/offer-scope-service";
-import {
-  computeMissionDocumentCounters,
-  type MissionDocumentCounters,
-} from "@/lib/services/mission-document-counters-service";
+import { readMissionDocumentCounters } from "@/lib/db/read-mission-document-counters";
+import type { MissionDocumentCounters } from "@/lib/services/mission-document-counters-service";
 
 // Plus de résolution de tenant locale : requireCabinetSession() la fait déjà et
 // refuse un compte Cabinet sans tenant (fail-closed, cf. lib/auth/guards.ts).
@@ -265,23 +262,8 @@ export async function getMissionDocumentCounters(
   const mission = await prisma.mission.findFirst({ where: { establishmentId, tenantId } });
   if (!mission) return null;
 
-  const documents = await prisma.document.findMany({
-    where: {
-      establishmentId,
-      documentType: { category: { in: [...getCoveredDocumentCategories(mission.formule, mission.gratuit)] } },
-    },
-    select: {
-      status: true,
-      versions: { select: { analysisResultJson: true, regeneratedFromVersionId: true } },
-    },
-  });
-
-  return computeMissionDocumentCounters(
-    documents.map((d) => ({
-      status: d.status,
-      versionCount: d.versions.length,
-      hasAnalyzedVersion: d.versions.some((v) => v.analysisResultJson !== null),
-      hasRegeneratedVersion: d.versions.some((v) => v.regeneratedFromVersionId !== null),
-    }))
-  );
+  // Lecture partagée avec le portail client (« Mon accompagnement ») — les deux
+  // portails affichent les MÊMES compteurs, ils ne peuvent pas les calculer
+  // séparément sans finir par diverger (D1).
+  return readMissionDocumentCounters(establishmentId, mission.formule, mission.gratuit);
 }
