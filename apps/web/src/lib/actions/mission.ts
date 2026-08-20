@@ -5,7 +5,16 @@ import { requireCabinetSession, requireEstablishmentInTenant } from "@/lib/auth/
 import { notFound } from "next/navigation";
 import { requiredEnum } from "@/lib/validation/form-parsers";
 import { revalidatePath } from "next/cache";
-import { computeMissionProgress, isScopeApplicable, type MissionProgress } from "@/lib/services/mission-progress-service";
+import {
+  computeMissionProgress,
+  isChecklistItemApplicable,
+  type MissionProgress,
+} from "@/lib/services/mission-progress-service";
+import { getCoveredDocumentCategories } from "@/lib/services/offer-scope-service";
+import {
+  computeMissionDocumentCounters,
+  type MissionDocumentCounters,
+} from "@/lib/services/mission-document-counters-service";
 
 // Plus de résolution de tenant locale : requireCabinetSession() la fait déjà et
 // refuse un compte Cabinet sans tenant (fail-closed, cf. lib/auth/guards.ts).
@@ -112,8 +121,11 @@ export async function toggleChecklistItem(
   const item = await prisma.missionChecklistItem.findUnique({ where: { code: itemCode } });
   if (!item) notFound();
 
-  if (!isScopeApplicable(item.scope, mission.formule, mission.gratuit)) {
-    return { error: "Cette phase n'est pas disponible pour le périmètre de cette mission." };
+  // Garde serveur : un item hors offre (phase réservée OU item de diagnostic non
+  // couvert, §12.4) n'est pas cochable. L'attribut `disabled` de l'UI ne prouve
+  // rien — cette action est une route HTTP publique.
+  if (!isChecklistItemApplicable(item.minFormule, mission.formule, mission.gratuit)) {
+    return { error: "Cet item n'est pas disponible pour le périmètre de cette mission." };
   }
 
   await prisma.missionChecklistItemStatus.upsert({
@@ -177,7 +189,14 @@ export type MissionWithProgress = {
   consolidationEndDate: Date | null;
   preparationFinaleStartDate: Date | null;
   preparationFinaleEndDate: Date | null;
-  items: { code: string; scope: MissionChecklistScope; label: string; order: number; completed: boolean }[];
+  items: {
+    code: string;
+    scope: MissionChecklistScope;
+    label: string;
+    order: number;
+    completed: boolean;
+    applicable: boolean;
+  }[];
   progress: MissionProgress;
 };
 
@@ -202,10 +221,17 @@ export async function getMission(establishmentId: string): Promise<MissionWithPr
     label: ci.label,
     order: ci.order,
     completed: completedByItemId.get(ci.id) ?? false,
+    // Visible mais verrouillé quand l'offre ne le couvre pas : Sandrine doit voir
+    // ce qu'un passage à l'offre supérieure débloquerait (§12.4).
+    applicable: isChecklistItemApplicable(ci.minFormule, mission.formule, mission.gratuit),
   }));
 
   const progress = computeMissionProgress(
-    items.map((i) => ({ scope: i.scope, completed: i.completed })),
+    catalogItems.map((ci) => ({
+      scope: ci.scope,
+      minFormule: ci.minFormule,
+      completed: completedByItemId.get(ci.id) ?? false,
+    })),
     mission.formule,
     mission.gratuit
   );
@@ -225,4 +251,37 @@ export async function getMission(establishmentId: string): Promise<MissionWithPr
     items,
     progress,
   };
+}
+
+// Reflet en compteurs du portail client dans le portail interne de suivi — §12.4.
+// Lecture seule : cette page ne propose aucun dépôt, le dépôt reste sur le portail
+// client opérationnel. Le périmètre documentaire suit l'offre de la mission
+// (Mission.formule + gratuit), jamais Establishment.commercialTier.
+export async function getMissionDocumentCounters(
+  establishmentId: string
+): Promise<MissionDocumentCounters | null> {
+  const { tenantId } = await requireEstablishmentInTenant(establishmentId);
+
+  const mission = await prisma.mission.findFirst({ where: { establishmentId, tenantId } });
+  if (!mission) return null;
+
+  const documents = await prisma.document.findMany({
+    where: {
+      establishmentId,
+      documentType: { category: { in: [...getCoveredDocumentCategories(mission.formule, mission.gratuit)] } },
+    },
+    select: {
+      status: true,
+      versions: { select: { analysisResultJson: true, regeneratedFromVersionId: true } },
+    },
+  });
+
+  return computeMissionDocumentCounters(
+    documents.map((d) => ({
+      status: d.status,
+      versionCount: d.versions.length,
+      hasAnalyzedVersion: d.versions.some((v) => v.analysisResultJson !== null),
+      hasRegeneratedVersion: d.versions.some((v) => v.regeneratedFromVersionId !== null),
+    }))
+  );
 }

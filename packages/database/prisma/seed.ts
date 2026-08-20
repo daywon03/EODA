@@ -420,17 +420,25 @@ type MissionChecklistItemSeed = {
   scope: MissionChecklistScope;
   label: string;
   order: number;
+  // Offre minimale qui couvre l'item — §12.4. Omis = ESSENTIEL (couvert par toutes
+  // les formules). Doit rester aligné sur le backfill de la migration
+  // 20260820090000_mission_checklist_min_formule, qui porte la justification
+  // détaillée de chaque item hors Essentiel.
+  minFormule?: CommercialTier;
 };
 
 const MISSION_CHECKLIST_ITEMS: MissionChecklistItemSeed[] = [
   // Diagnostic initial — 12 items
   { code: "DIAG_01", scope: "DIAGNOSTIC", order: 1, label: "Réunion de cadrage (validation besoins, planning)" },
   { code: "DIAG_02", scope: "DIAGNOSTIC", order: 2, label: "Recueil documentaire" },
-  { code: "DIAG_03", scope: "DIAGNOSTIC", order: 3, label: "Validation du planning de visite" },
-  { code: "DIAG_04", scope: "DIAGNOSTIC", order: 4, label: "Réunion d'ouverture (revue du planning)" },
+  { code: "DIAG_03", scope: "DIAGNOSTIC", order: 3, label: "Validation du planning de visite", minFormule: "PERFORMANCE" },
+  { code: "DIAG_04", scope: "DIAGNOSTIC", order: 4, label: "Réunion d'ouverture (revue du planning)", minFormule: "PERFORMANCE" },
   { code: "DIAG_05", scope: "DIAGNOSTIC", order: 5, label: "Visite du site (affichage, organisation)" },
   { code: "DIAG_06", scope: "DIAGNOSTIC", order: 6, label: "Entretiens méthode HAS — critères impératifs" },
-  { code: "DIAG_07", scope: "DIAGNOSTIC", order: 7, label: "Réunion de bilan de visite (axes forts / écarts / axes de progrès)" },
+  { code: "DIAG_07", scope: "DIAGNOSTIC", order: 7, label: "Réunion de bilan de visite (axes forts / écarts / axes de progrès)", minFormule: "PERFORMANCE" },
+  // DIAG_08 reste ESSENTIEL : l'offre Essentiel EST la cotation des 16 impératifs.
+  // C'est le périmètre de critères qui varie (offer-scope-service.criteriaScope),
+  // pas la présence de l'item.
   { code: "DIAG_08", scope: "DIAGNOSTIC", order: 8, label: "Cotation des critères" },
   { code: "DIAG_09", scope: "DIAGNOSTIC", order: 9, label: "Vérification des documents loi 2002-2" },
   { code: "DIAG_10", scope: "DIAGNOSTIC", order: 10, label: "Rédaction du rapport diagnostic" },
@@ -449,16 +457,16 @@ const MISSION_CHECKLIST_ITEMS: MissionChecklistItemSeed[] = [
   { code: "D4", scope: "DEPLOIEMENT", order: 4, label: "Traçabilité des actions" },
 
   // Phase 3 — Consolidation (réservée Excellence / bêta-test gratuit)
-  { code: "C1", scope: "CONSOLIDATION", order: 1, label: "Reporting KPI Power BI" },
-  { code: "C2", scope: "CONSOLIDATION", order: 2, label: "Revue mi-parcours" },
-  { code: "C3", scope: "CONSOLIDATION", order: 3, label: "Ajustement du plan d'actions" },
-  { code: "C4", scope: "CONSOLIDATION", order: 4, label: "Analyse EI/plaintes" },
+  { code: "C1", scope: "CONSOLIDATION", order: 1, label: "Reporting KPI Power BI", minFormule: "EXCELLENCE" },
+  { code: "C2", scope: "CONSOLIDATION", order: 2, label: "Revue mi-parcours", minFormule: "EXCELLENCE" },
+  { code: "C3", scope: "CONSOLIDATION", order: 3, label: "Ajustement du plan d'actions", minFormule: "EXCELLENCE" },
+  { code: "C4", scope: "CONSOLIDATION", order: 4, label: "Analyse EI/plaintes", minFormule: "EXCELLENCE" },
 
   // Phase 4 — Préparation finale (réservée Excellence / bêta-test gratuit)
-  { code: "P1", scope: "PREPARATION_FINALE", order: 1, label: "Simulation de visite" },
-  { code: "P2", scope: "PREPARATION_FINALE", order: 2, label: "Entraînement aux 3 méthodes d'entretien" },
-  { code: "P3", scope: "PREPARATION_FINALE", order: 3, label: "Bilan final" },
-  { code: "P4", scope: "PREPARATION_FINALE", order: 4, label: "Rapport de recommandations" },
+  { code: "P1", scope: "PREPARATION_FINALE", order: 1, label: "Simulation de visite", minFormule: "EXCELLENCE" },
+  { code: "P2", scope: "PREPARATION_FINALE", order: 2, label: "Entraînement aux 3 méthodes d'entretien", minFormule: "EXCELLENCE" },
+  { code: "P3", scope: "PREPARATION_FINALE", order: 3, label: "Bilan final", minFormule: "EXCELLENCE" },
+  { code: "P4", scope: "PREPARATION_FINALE", order: 4, label: "Rapport de recommandations", minFormule: "EXCELLENCE" },
 ];
 
 async function main() {
@@ -592,8 +600,19 @@ async function main() {
   for (const item of MISSION_CHECKLIST_ITEMS) {
     await prisma.missionChecklistItem.upsert({
       where: { code: item.code },
-      update: { scope: item.scope, label: item.label, order: item.order },
-      create: { code: item.code, scope: item.scope, label: item.label, order: item.order },
+      update: {
+        scope: item.scope,
+        label: item.label,
+        order: item.order,
+        minFormule: item.minFormule ?? "ESSENTIEL",
+      },
+      create: {
+        code: item.code,
+        scope: item.scope,
+        label: item.label,
+        order: item.order,
+        minFormule: item.minFormule ?? "ESSENTIEL",
+      },
     });
   }
 

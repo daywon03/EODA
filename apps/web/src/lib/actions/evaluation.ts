@@ -183,7 +183,9 @@ export async function getEvaluationChapter(
     };
   }
 
-  const offerScope = getOfferScope(mission.formule);
+  // `gratuit` fait partie du périmètre (§7.5) : une mission bêta-test gratuite reçoit
+  // l'Excellence complète, y compris sur les critères cotables.
+  const offerScope = getOfferScope(mission.formule, mission.gratuit);
 
   const chapter = await prisma.chapter.findFirst({
     where: { number: chapterNumber },

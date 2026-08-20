@@ -1,5 +1,9 @@
 import { getEstablishment } from "@/lib/actions/establishment";
-import { getMission, listFormulesForMissionSetup } from "@/lib/actions/mission";
+import {
+  getMission,
+  getMissionDocumentCounters,
+  listFormulesForMissionSetup,
+} from "@/lib/actions/mission";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CreateMissionForm } from "@/components/mission/CreateMissionForm";
@@ -7,6 +11,7 @@ import { MissionScopeEditor } from "@/components/mission/MissionScopeEditor";
 import { MissionProgressSummary } from "@/components/mission/MissionProgressSummary";
 import { DiagnosticChecklistSection } from "@/components/mission/DiagnosticChecklistSection";
 import { PhaseChecklistSection } from "@/components/mission/PhaseChecklistSection";
+import { MissionDocumentCounters } from "@/components/mission/MissionDocumentCounters";
 import type { MissionChecklistScope } from "@eoda/database";
 
 type Props = { params: Promise<{ id: string }> };
@@ -37,10 +42,11 @@ const PHASE_DATE_FIELDS: Record<
 
 export default async function MissionPage({ params }: Props) {
   const { id } = await params;
-  const [establishment, mission, formules] = await Promise.all([
+  const [establishment, mission, formules, documentCounters] = await Promise.all([
     getEstablishment(id),
     getMission(id),
     listFormulesForMissionSetup(),
+    getMissionDocumentCounters(id),
   ]);
 
   return (
@@ -67,6 +73,8 @@ export default async function MissionPage({ params }: Props) {
             phasesPct={mission.progress.phasesPct}
             globalPct={mission.progress.globalPct}
           />
+
+          {documentCounters && <MissionDocumentCounters counters={documentCounters} />}
 
           <Card>
             <CardHeader>
@@ -101,7 +109,6 @@ export default async function MissionPage({ params }: Props) {
                   label={PHASE_LABELS[phase]}
                   items={mission.items.filter((i) => i.scope === phase)}
                   pct={mission.progress.phasePcts[phase] ?? 0}
-                  applicable={phase in mission.progress.phasePcts}
                   startDate={mission[PHASE_DATE_FIELDS[phase].start]}
                   endDate={mission[PHASE_DATE_FIELDS[phase].end]}
                 />

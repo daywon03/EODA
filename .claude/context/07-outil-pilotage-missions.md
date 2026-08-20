@@ -317,9 +317,20 @@ déjà conforme.
 > et affichage systématique « À partir de … » via
 > `apps/web/src/lib/services/price-format-service.ts`.
 >
-> **Non implémenté** : §12.4 (architecture des portails, filtrage des 12 items du diagnostic
-> par offre) et §12.5 (états de fin de mission, page plan d'action, module sensibilisation,
-> centre d'aide, relances, export Synaé).
+> **Implémenté le 20/08/2026** : §12.4 — filtrage des items de checklist par offre
+> (`MissionChecklistItem.minFormule`, migration `20260820090000_mission_checklist_min_formule`),
+> arbitré par la couche unique `apps/web/src/lib/services/offer-scope-service.ts` (ordre des
+> offres, catégories documentaires, périmètre de critères) ; items hors offre **visibles mais
+> verrouillés** dans le suivi de mission, refus côté serveur dans `toggleChecklistItem()` ;
+> checklist documentaire réduite à `LOI_2002_2` en Essentiel, filtrée dans le chemin de
+> chargement partagé `lib/actions/checklist.ts` (portail client **et** fiche établissement) ;
+> les quatre compteurs miroir (déposés / analysés par l'IA / modifiés / conformes) sur la page
+> de suivi, calculés par `mission-document-counters-service.ts`, en lecture seule (aucun dépôt
+> sur ce portail-là — le dépôt reste sur la fiche établissement, où Sandrine garde l'écriture).
+>
+> **Non implémenté** : le reste du §12.4 (génération du profil client externe à la sélection de
+> l'offre, parcours prospection → devis → contrat verrouillé) et §12.5 (états de fin de mission,
+> page plan d'action, module sensibilisation, centre d'aide, relances, export Synaé).
 >
 > **Non représentable en l'état dans le catalogue** (aucun champ ne les porte, ils restent
 > à traiter à la main dans le devis) : la remise « Forfait multi-docs (3+) : -10 % », le pack
@@ -413,11 +424,19 @@ La **hotline** est retirée de l'offre pour l'instant (idée conservée, non chi
   fiche client **avec sélection de l'offre et des options** → ce choix **génère le profil
   client externe** avec seulement les checklists et tâches propres à l'offre → dépôt client →
   reflet dans le portail interne.
-- **Les 12 items du diagnostic doivent être filtrés par offre.** Aujourd'hui
-  `isScopeApplicable()` ne filtre que Consolidation et Préparation finale (§7.3) : les 12
-  items du diagnostic s'affichent quelle que soit la formule. En Essentiel, Sandrine attend
-  seulement : réunion de cadrage, recueil documentaire, visite, diagnostic sur les 16
-  impératifs, vérification loi 2002-2, rapport de diagnostic, création du PAC.
+- **Les 12 items du diagnostic doivent être filtrés par offre.** ✅ *Fait le 20/08/2026.* En
+  Essentiel, Sandrine attend seulement : réunion de cadrage, recueil documentaire, visite,
+  diagnostic sur les 16 impératifs, vérification loi 2002-2, rapport de diagnostic, création
+  du PAC et sa restitution. *(« et sa restitution » = plaquette v10 §03, Phase 1 « Diagnostic
+  & cadrage **(Essentiel + Performance)** · M1 » : « Réunion de restitution avec la
+  gouvernance » — d'où `DIAG_12` laissé à `min_formule = ESSENTIEL`.)* Restent hors Essentiel `DIAG_03` (validation du planning de
+  visite), `DIAG_04` (réunion d'ouverture) et `DIAG_07` (réunion de bilan de visite) — les
+  trois items du protocole de visite longue que la ½ journée Essentiel ne comporte pas.
+  **`DIAG_08` « Cotation des critères » reste couvert par l'Essentiel** : cette offre *est* la
+  cotation des 16 impératifs (plaquette v10 §04). Ce n'est pas l'item qui est réservé mais son
+  périmètre de critères, porté par `offer-scope-service.criteriaScope`. La règle vit désormais
+  sur la colonne `min_formule` du référentiel, plus dans un ensemble codé en dur du service de
+  progression.
 
 ### 12.5 Fonctionnalités demandées sur le call, non encore développées
 
@@ -475,6 +494,15 @@ La **hotline** est retirée de l'offre pour l'instant (idée conservée, non chi
 - **Délais, cadence et condition d'arrêt des relances** : jamais spécifiés.
 - **Co-édition simultanée d'un document** : question posée, restée sans réponse
   ([00:51:00](https://fathom.video/calls/786436116?timestamp=3060)).
+- **Documents orphelins après une rétrogradation d'offre** — question ouverte pour Sandrine,
+  soulevée par l'implémentation du §12.4, aucune décision prise, rien de construit. Le
+  périmètre documentaire suit `Mission.formule` : après un passage Excellence → Essentiel,
+  les documents déjà déposés dans les catégories qui sortent du périmètre (FONCTIONNEMENT,
+  QUALITE_RISQUES, RH) disparaissent simplement des deux portails — ils restent en base, mais
+  plus rien ne les signale, ni côté client ni côté cabinet. Trois options à arbitrer :
+  (a) les laisser invisibles (comportement actuel) ; (b) les afficher en lecture seule avec
+  une mention « hors offre actuelle » ; (c) bloquer la rétrogradation tant que des documents
+  hors nouveau périmètre existent. Question à poser avant la première rétrogradation réelle.
 
 ### 12.8 Calendrier arrêté
 

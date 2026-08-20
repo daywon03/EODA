@@ -26,6 +26,7 @@ export default defineConfig({
       include: [
         "src/lib/services/scoring-service.ts",
         "src/lib/services/mission-progress-service.ts",
+        "src/lib/services/mission-document-counters-service.ts",
         "src/lib/services/offer-scope-service.ts",
         "src/lib/services/document-status-service.ts",
         "src/lib/services/pre-rating-suggestion-service.ts",

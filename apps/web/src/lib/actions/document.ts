@@ -8,12 +8,23 @@ import { suggestDocumentType } from "@/lib/services/document-categorization-serv
 import { ingestDocumentVersion } from "@/lib/services/document-ingestion-service";
 import { recordAuditEvent } from "@/lib/services/audit-log-service";
 import { validateUploadedFile } from "@/lib/security/upload-validation-service";
+import {
+  getEstablishmentCoveredCategories,
+  isCategoryCoveredForEstablishment,
+} from "@/lib/services/establishment-offer-service";
 import { getFileStoragePort } from "@/lib/storage";
 import { getLLMAnalysisPort } from "@/lib/llm";
 
 // Cette action reste volontairement mince : autorisation → validation → délégation
 // au service d'ingestion → invalidation de cache. La séquence métier (versioning,
 // stockage, analyse) vit dans document-ingestion-service.ts.
+
+// Une catégorie documentaire hors offre est REFUSÉE, jamais « acceptée sans
+// analyse » : accepter le fichier stockerait une donnée client et brûlerait un
+// appel LLM pour un livrable qui n'a pas été souscrit. Le message ne révèle ni
+// prix ni contenu des autres offres.
+const OUT_OF_OFFER_ERROR =
+  "Ce document n'entre pas dans le périmètre de l'offre souscrite pour cet établissement.";
 
 export type DocumentTypeCandidate = { id: string; label: string; category: string };
 
@@ -36,6 +47,14 @@ export async function uploadDocument(formData: FormData): Promise<UploadDocument
   // l'extraction de texte pour un appelant non habilité sur cet établissement.
   const access = await requireEstablishmentAccess(establishmentId);
 
+  // Périmètre documentaire de l'offre contractée, résolu juste après la garde et
+  // AVANT toute écriture : il filtre les candidats à la détection automatique et
+  // arbitre le refus final. `null` = aucune mission, donc aucun périmètre contracté
+  // ⇒ on ne bloque pas (état d'avant-vente, exactement la règle de buildChecklist
+  // dans checklist.ts — les deux DOIVENT s'accorder, sinon le parcours d'avant-vente
+  // affiche une checklist qu'aucun dépôt ne peut honorer).
+  const coveredCategories = await getEstablishmentCoveredCategories(establishmentId);
+
   const file = formData.get("file");
   if (!(file instanceof File)) return { error: "Aucun fichier sélectionné." };
 
@@ -52,7 +71,10 @@ export async function uploadDocument(formData: FormData): Promise<UploadDocument
   let documentTypeId = typeof requestedTypeId === "string" && requestedTypeId ? requestedTypeId : null;
 
   if (!documentTypeId) {
+    // Restreint au périmètre de l'offre : sans ce filtre, la liste de candidats
+    // renvoyée à l'UI énumérerait des types de documents que l'offre exclut.
     const allTypes = await prisma.documentType.findMany({
+      where: coveredCategories ? { category: { in: [...coveredCategories] } } : {},
       select: { id: true, code: true, label: true, category: true },
     });
     const suggestion = suggestDocumentType(allTypes, file.name, extractedText);
@@ -68,6 +90,13 @@ export async function uploadDocument(formData: FormData): Promise<UploadDocument
 
   const documentType = await prisma.documentType.findUnique({ where: { id: documentTypeId } });
   if (!documentType) return { error: "Type de document invalide." };
+
+  // Refus AVANT ingestion : rien n'est stocké, aucune analyse n'est déclenchée.
+  // `documentTypeId` peut venir du formulaire (entrée non fiable) : le contrôle
+  // porte sur la catégorie réellement lue en base, pas sur ce qui a été envoyé.
+  if (coveredCategories && !coveredCategories.includes(documentType.category)) {
+    return { error: OUT_OF_OFFER_ERROR };
+  }
 
   const result = await ingestDocumentVersion(
     {
@@ -114,6 +143,12 @@ export async function respondToMissingDocument(
 
   const documentType = await prisma.documentType.findUnique({ where: { id: documentTypeId } });
   if (!documentType) return { error: "Type de document invalide." };
+
+  // Même arbitrage que pour le dépôt : un document hors offre n'a pas à recevoir de
+  // réponse Oui/Non, il n'est pas attendu. Sans mission, on ne bloque pas (avant-vente).
+  if (!(await isCategoryCoveredForEstablishment(establishmentId, documentType.category))) {
+    return { error: OUT_OF_OFFER_ERROR };
+  }
 
   const trimmedComment = comment?.trim().slice(0, MAX_JUSTIFICATION_LENGTH) || null;
   const status = applies ? "MISSING" : "NOT_APPLICABLE";

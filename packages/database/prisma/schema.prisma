@@ -593,6 +593,12 @@ model MissionChecklistItem {
   scope MissionChecklistScope
   label String
   order Int
+  // Offre minimale qui couvre cet item — c'est LE référentiel du filtrage par
+  // offre (context/07-outil-pilotage-missions.md §12.4). Aucun code d'item n'est
+  // codé en dur dans un service : la règle se change en base, pas en TypeScript.
+  // ESSENTIEL = couvert par toutes les formules. BETA (bêta-test gratuit) reçoit
+  // le périmètre EXCELLENCE, cf. offer-scope-service.getEffectiveTier().
+  minFormule CommercialTier @default(ESSENTIEL) @map("min_formule")
 
   statuses MissionChecklistItemStatus[]
 

@@ -185,6 +185,12 @@ Détail complet et état d'avancement : `specs/02-architecture-technique.md` §4
   applicables à tous les types d'ESSMS) — toujours préciser le périmètre.
 - Ne pas présenter la plateforme comme un outil d'évaluation HAS officiel — c'est un outil
   de préparation/conseil.
+- **Ne jamais passer `DATABASE_URL` (ni `DIRECT_URL`) comme `--shadow-database-url`.** Prisma
+  *détruit et rejoue* la base désignée comme shadow database. `prisma migrate diff
+  --shadow-database-url "$DATABASE_URL"` a effacé la base de développement partagée le
+  19/08/2026 (tenant, comptes, catalogue, tout). Utiliser `SHADOW_DATABASE_URL`, qui doit
+  pointer une base jetable — cf. `.env.example`. Pour vérifier une migration sans base
+  jetable : `prisma validate` + relecture du SQL, jamais `migrate diff` sur la vraie base.
 - Ne pas committer de vraies données clients (ASSAD BENOIT) dans des fixtures de test — créer
   des fixtures anonymisées génériques.
 - Le pipeline commercial (prospects/devis/catalogue/KPI, décrit dans

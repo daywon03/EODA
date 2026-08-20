@@ -2,6 +2,7 @@
 
 import { prisma } from "@eoda/database";
 import { requireClientEstablishment, requireEstablishmentInTenant } from "@/lib/auth/guards";
+import { getEstablishmentCoveredCategories } from "@/lib/services/establishment-offer-service";
 import type { DocumentCategory, DocumentStatus } from "@eoda/database";
 
 export type ChecklistItem = {
@@ -23,9 +24,17 @@ export type ChecklistItem = {
 
 export type ChecklistByCategory = Record<DocumentCategory, ChecklistItem[]>;
 
+// Chemin de chargement PARTAGÉ par le portail client et la fiche établissement du
+// cabinet : les deux rendent ChecklistCategory et doivent filtrer à l'identique.
 async function buildChecklist(establishmentId: string): Promise<ChecklistByCategory> {
-  // Tous les types de documents
+  // Périmètre de l'offre contractée (null = pas de mission ⇒ avant-vente, checklist
+  // complète). Résolu par establishment-offer-service, la MÊME couche que celle qui
+  // arbitre les dépôts dans document.ts — affichage et mutations ne peuvent pas diverger.
+  const covered = await getEstablishmentCoveredCategories(establishmentId);
+
+  // Types de documents attendus, restreints au périmètre de l'offre.
   const allTypes = await prisma.documentType.findMany({
+    where: covered ? { category: { in: [...covered] } } : {},
     orderBy: [{ category: "asc" }, { code: "asc" }],
   });
 
