@@ -40,3 +40,9 @@ apps/web/.local-storage/
 # cf. CLAUDE.md §7. Utilisés en local uniquement pour extraire le contenu générique du
 # référentiel HAS vers les scripts de seed.
 .claude/context/Documents/
+# Ajouté par `vercel link` : identifiants du projet Vercel, propres à cette machine.
+.vercel
+
+# Le motif `.env.local` ne couvre PAS `.env.local.bak` ni `.env.local.old`. Une copie
+# de sauvegarde du fichier de secrets serait donc committable. Fermé explicitement.
+.env.local.*
