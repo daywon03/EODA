@@ -141,8 +141,17 @@ avant mise en usage réel.
   le point bloquant n°1 avant de déposer un vrai document client en production.
 - [ ] **CSP à nonce** — la CSP actuelle conserve `script-src 'unsafe-inline'`, requis par le
   script d'amorçage de Next.js App Router.
-- [ ] **Compteur de limitation partagé** (Redis ou table Postgres) si l'app passe à plusieurs
-  instances — l'adaptateur mémoire actuel se contourne en réparti.
+- [x] **Compteur de limitation partagé** (table Postgres) — fait le 21/08/2026 avec la bascule
+  du déploiement sur Vercel, où le compteur mémoire ne protégeait plus de rien (une instance
+  par invocation, remise à zéro au démarrage à froid). `PostgresRateLimiter`
+  (`lib/security/postgres-rate-limiter.ts`) derrière le `RateLimiterPort` existant, frontière
+  SQL isolée dans `prisma-rate-limit-store.ts`, arithmétique de fenêtre pure dans
+  `rate-limit-window.ts`. Sélection automatique en serverless ou en production, compteur
+  mémoire conservé en développement et dans les tests. Atomicité par
+  `INSERT … ON CONFLICT DO UPDATE … RETURNING` (verrou de ligne PostgreSQL), purge des lignes
+  échues greffée en CTE sur 2 % des écritures, **fail-closed** en cas de base injoignable.
+  Politique inchangée (10 / 15 min connexion, 5 / 15 min mot de passe). Migration
+  `20260821100000_rate_limit_counters` — à appliquer avec `pnpm db:migrate:deploy`.
 - [ ] **Rétention du journal d'audit** — durée de conservation à arrêter avec Sandrine.
 - [x] **Rotation du mot de passe temporaire** à la première connexion d'un compte client —
   `User.mustChangePassword` / `passwordChangedAt`, page `/changer-mot-de-passe`, enforcement

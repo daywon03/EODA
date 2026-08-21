@@ -92,9 +92,9 @@ export async function updateEstablishment(
 export async function deleteEstablishment(id: string): Promise<{ error: string } | void> {
   const { session, userId } = await requireEstablishmentInTenant(id);
 
-  // Comptes clients supprimés avec l'établissement — calculés DANS la transaction,
-  // journalisés après elle.
-  const deletedUserIds = await prisma.$transaction(async (tx) => {
+  // Comptes clients devenus orphelins — désactivés (jamais supprimés, la piste
+  // d'audit doit survivre), calculés DANS la transaction, journalisés après elle.
+  const deactivatedUserIds = await prisma.$transaction(async (tx) => {
     await tx.elementRating.deleteMany({
       where: { evaluationSession: { establishmentId: id } },
     });
@@ -111,9 +111,8 @@ export async function deleteEstablishment(id: string): Promise<{ error: string }
     // `users` survivaient, et un compte client d'un établissement disparu POUVAIT
     // ENCORE S'AUTHENTIFIER. C'est une fuite d'accès, pas un résidu cosmétique.
     // Un compte encore rattaché à un autre établissement est évidemment conservé ;
-    // seul le CLIENT_USER qui ne l'est plus à rien est supprimé, dans la même
-    // transaction que l'établissement — les deux relations qui le référencent
-    // (DocumentVersion.uploadedBy, EvaluationSession) viennent d'être effacées.
+    // seul le CLIENT_USER qui ne l'est plus à rien est désactivé, dans la même
+    // transaction que l'établissement.
     const linkedUserIds = (
       await tx.establishmentUser.findMany({ where: { establishmentId: id }, select: { userId: true } })
     ).map((link) => link.userId);
@@ -151,8 +150,11 @@ export async function deleteEstablishment(id: string): Promise<{ error: string }
       }
     }
 
-    await tx.missionChecklistItemStatus.deleteMany({ where: { mission: { establishmentId: id } } });
-    await tx.mission.deleteMany({ where: { establishmentId: id } });
+    // La mission, ses options souscrites, ses statuts de checklist et les demandes
+    // d'option du client tombent par CASCADE déclarée dans le schéma ; le prospect
+    // est détaché par SET NULL et garde son historique commercial. Migration
+    // 20260821090000_establishment_delete_cascade — cette transaction n'a plus à
+    // énumérer ces tables, et une relation ajoutée demain ne la fera plus échouer.
     await tx.establishment.delete({ where: { id } });
 
     return orphanIds;
@@ -165,18 +167,18 @@ export async function deleteEstablishment(id: string): Promise<{ error: string }
     actorUserId: userId,
     actorRole: session.user.role,
     establishmentId: id,
-    detail: `${deletedUserIds.length} compte(s) client supprimé(s)`,
+    detail: `${deactivatedUserIds.length} compte(s) client désactivé(s)`,
   });
 
-  // Une ligne par compte supprimé : le journal doit permettre de répondre « quel
+  // Une ligne par compte désactivé : le journal doit permettre de répondre « quel
   // accès a disparu, quand », pas seulement « un établissement a été supprimé ».
-  for (const deletedUserId of deletedUserIds) {
+  for (const deactivatedUserId of deactivatedUserIds) {
     await recordAuditEvent({
       action: "USER_DELETED_WITH_ESTABLISHMENT",
       actorUserId: userId,
       actorRole: session.user.role,
       establishmentId: id,
-      targetId: deletedUserId,
+      targetId: deactivatedUserId,
     });
   }
 

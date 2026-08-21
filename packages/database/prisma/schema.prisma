@@ -560,7 +560,10 @@ model Prospect {
   updatedAt            DateTime           @updatedAt @map("updated_at")
 
   tenant        Tenant         @relation(fields: [tenantId], references: [id])
-  establishment Establishment? @relation(fields: [establishmentId], references: [id])
+  // SetNull et non Cascade : supprimer une fiche client ne doit pas effacer
+  // l'historique commercial (prospect, devis signés, chiffre d'affaires). Le
+  // prospect survit, simplement détaché.
+  establishment Establishment? @relation(fields: [establishmentId], references: [id], onDelete: SetNull)
   devis         Devis[]
 
   @@map("prospects")
@@ -648,7 +651,8 @@ model ClientOptionRequest {
   handledAt         DateTime?           @map("handled_at")
 
   tenant          Tenant          @relation(fields: [tenantId], references: [id])
-  establishment   Establishment   @relation(fields: [establishmentId], references: [id])
+  // Cascade : une demande d'option est attachée à l'établissement qui la formule.
+  establishment   Establishment   @relation(fields: [establishmentId], references: [id], onDelete: Cascade)
   catalogueOption CatalogueOption @relation(fields: [catalogueOptionId], references: [id])
   requestedBy     User            @relation("RequestedBy", fields: [requestedByUserId], references: [id])
 
@@ -722,7 +726,8 @@ model Mission {
   sourceDevisId String? @map("source_devis_id")
 
   tenant        Tenant                       @relation(fields: [tenantId], references: [id])
-  establishment Establishment                @relation(fields: [establishmentId], references: [id])
+  // Cascade : une mission n'existe que par son établissement.
+  establishment Establishment                @relation(fields: [establishmentId], references: [id], onDelete: Cascade)
   sourceDevis   Devis?                       @relation(fields: [sourceDevisId], references: [id])
   itemStatuses  MissionChecklistItemStatus[]
   options       MissionOption[]
@@ -753,7 +758,11 @@ model MissionOption {
 
   createdAt DateTime @default(now()) @map("created_at")
 
-  mission         Mission         @relation(fields: [missionId], references: [id])
+  // Cascade : une option souscrite n'existe que par sa mission. Sans cette règle
+  // portée par la BASE, chaque nouvelle relation oblige à penser à la supprimer à la
+  // main dans deleteEstablishment — et celle-ci avait justement été oubliée, faisant
+  // échouer toute suppression d'établissement converti (P2003).
+  mission         Mission         @relation(fields: [missionId], references: [id], onDelete: Cascade)
   catalogueOption CatalogueOption @relation(fields: [catalogueOptionId], references: [id])
 
   // Contrainte qui rend la conversion IDEMPOTENTE côté options : rejouer la
@@ -773,7 +782,8 @@ model MissionChecklistItemStatus {
   completed   Boolean   @default(false)
   completedAt DateTime? @map("completed_at")
 
-  mission Mission              @relation(fields: [missionId], references: [id])
+  // Cascade : un statut de checklist n'a pas de vie hors de sa mission.
+  mission Mission              @relation(fields: [missionId], references: [id], onDelete: Cascade)
   item    MissionChecklistItem @relation(fields: [itemId], references: [id])
 
   @@unique([missionId, itemId])
@@ -855,4 +865,34 @@ model AuditLogEntry {
   // ne servent pas ce tri.
   @@index([occurredAt])
   @@map("audit_log_entries")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// COMPTEUR DE LIMITATION DE DÉBIT PARTAGÉ
+//
+// Ajouté le 21/08/2026 avec la bascule du déploiement sur Vercel. En serverless,
+// un compteur en mémoire de processus ne protège de rien : chaque invocation peut
+// tomber sur une autre instance et un démarrage à froid le remet à zéro. Le
+// compteur vit donc dans la seule ressource partagée par toutes les instances.
+//
+// Une ligne par clé (`login:<ip>:<email>`), fenêtre fixe ancrée sur la première
+// tentative. L'écriture passe par un `INSERT … ON CONFLICT DO UPDATE … RETURNING`
+// écrit à la main (`apps/web/src/lib/security/prisma-rate-limit-store.ts`) : c'est
+// lui qui rend l'incrément atomique sous concurrence. Prisma sert ici à la
+// lecture (`peek`) et à l'effacement (`reset`) uniquement.
+//
+// Table sans données personnelles au sens strict, mais la clé contient une IP et
+// un email : elle est purgée en continu (lignes échues supprimées
+// opportunistement à l'écriture), jamais conservée au-delà de la fenêtre.
+// ─────────────────────────────────────────────────────────────────────────────
+model RateLimitCounter {
+  // La clé applicative EST la clé primaire : c'est ce qui donne au `ON CONFLICT`
+  // l'index unique dont il a besoin, sans colonne technique en plus.
+  key       String   @id
+  count     Int      @default(0)
+  expiresAt DateTime @map("expires_at")
+
+  // Sert la purge des lignes échues (DELETE … WHERE expires_at <= now).
+  @@index([expiresAt])
+  @@map("rate_limit_counters")
 }

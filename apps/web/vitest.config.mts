@@ -51,6 +51,12 @@ export default defineConfig({
         "src/lib/auth/guards.ts",
         "src/lib/security/upload-validation-service.ts",
         "src/lib/security/in-memory-rate-limiter.ts",
+        // Compteur de limitation partagé (Vercel/serverless) : arithmétique de la
+        // fenêtre et décision de l'adaptateur. La frontière SQL
+        // (prisma-rate-limit-store.ts) reste hors mesure — elle ne contient pas de
+        // décision, seulement l'instruction atomique, invérifiable sans base réelle.
+        "src/lib/security/rate-limit-window.ts",
+        "src/lib/security/postgres-rate-limiter.ts",
         "src/lib/security/login-throttle.ts",
         "src/lib/validation/form-parsers.ts",
       ],

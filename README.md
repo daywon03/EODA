@@ -148,11 +148,24 @@ acquise.
   démarrage à refuser : `process.exit(1)` y tuerait l'invocation en cours et se rejouerait
   à chaque requête. Sur Vercel, `runStartupChecks()` lève au lieu de sortir, et c'est
   `verify:prod-config` au build qui empêche réellement le déploiement incomplet.
-- **La limitation de débit sur la connexion devient poreuse.** L'adaptateur est en mémoire
-  du processus (`lib/security/in-memory-rate-limiter.ts`) : chaque instance a son propre
-  compteur, et un démarrage à froid le remet à zéro. Le quota effectif contre la force
-  brute est donc multiplié par le nombre d'instances. **À remplacer par un compteur
-  partagé (table Postgres ou Redis) avant d'ouvrir la plateforme à de vrais comptes.**
+- **La limitation de débit sur la connexion passe par un compteur partagé.** L'adaptateur
+  en mémoire du processus (`lib/security/in-memory-rate-limiter.ts`) ne protégeait de rien
+  ici : chaque instance avait son propre compteur et un démarrage à froid le remettait à
+  zéro, donc le quota effectif contre la force brute était multiplié par le nombre
+  d'instances. Le compteur vit désormais dans la base, la seule ressource commune à toutes
+  les instances — table `rate_limit_counters`, migration
+  `20260821100000_rate_limit_counters`.
+
+  Ce qu'il faut savoir sur son comportement :
+
+  | Point | Ce qui se passe |
+  |---|---|
+  | Sélection de l'adaptateur | `getRateLimiter()` prend le compteur Postgres dès que `VERCEL=1`/`NETLIFY=true` ou `NODE_ENV=production` ; sinon le compteur mémoire (développement et tests — pas d'aller-retour base, aucun écart visible pour les appelants, c'est l'intérêt du port) |
+  | Politique | Inchangée : 10 tentatives / 15 min sur la connexion, 5 / 15 min sur le changement de mot de passe. Fenêtre fixe ancrée sur la première tentative |
+  | Concurrence | Un seul `INSERT … ON CONFLICT ("key") DO UPDATE … RETURNING` : PostgreSQL verrouille la ligne en conflit, deux requêtes simultanées sont sérialisées, aucun incrément n'est perdu. Pas de lecture préalable — un read-then-write serait précisément la course à fermer |
+  | `peek` | Lecture seule, ne consomme aucun créneau (le provider d'authentification s'en sert pour composer son message) |
+  | Purge | Les lignes échues sont supprimées opportunistement, greffées en CTE sur 2 % des écritures, via l'index `rate_limit_counters_expires_at_idx`. Pas de cron |
+  | **Base injoignable** | **La tentative est REFUSÉE** (fail-closed). Un garde-fou anti-force-brute qui s'ouvre en panne offre à l'attaquant une stratégie évidente : saturer la base puis bourrer les mots de passe. Seule exception, `reset` après une authentification déjà réussie, dont l'échec est absorbé — le compteur expirera seul |
 
 ## Comptes et mots de passe
 
