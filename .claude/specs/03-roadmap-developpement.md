@@ -137,8 +137,13 @@ avant mise en usage réel.
   refus des actions serveur, exécutés en CI : règles de cotation HAS, périmètre des offres,
   avancement de mission, validation des dépôts, parseurs d'entrée, formatage des prix,
   politique de mot de passe, gardes d'autorisation, profil de configuration de production.
-- [ ] **Chiffrement at-rest / bucket S3 réel** — toujours non connecté (`S3_*` vides). Reste
-  le point bloquant n°1 avant de déposer un vrai document client en production.
+- [ ] **Chiffrement at-rest / bucket S3 réel — cible retenue : Supabase Storage** (même
+  projet Supabase que la base, donc même région `aws-0-eu-west-1`, décision du 21/08/2026).
+  Il manque exactement deux choses : **créer le bucket** et **générer une clé d'accès S3**,
+  d'où découlent les cinq variables `S3_ENDPOINT`, `S3_REGION`, `S3_BUCKET`,
+  `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` (aucune n'existe aujourd'hui). Le code est prêt
+  (`S3StorageAdapter`) ; le chiffrement at-rest est à confirmer côté Supabase. Reste le point
+  bloquant n°1 avant de déposer un vrai document client en production.
 - [ ] **CSP à nonce** — la CSP actuelle conserve `script-src 'unsafe-inline'`, requis par le
   script d'amorçage de Next.js App Router.
 - [x] **Compteur de limitation partagé** (table Postgres) — fait le 21/08/2026 avec la bascule

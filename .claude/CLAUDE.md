@@ -115,15 +115,26 @@ Le référentiel HAS a des règles précises (NC interdit sur impératifs, RI un
 - **Frontend :** Next.js 14+ (App Router), TypeScript strict, Tailwind CSS, shadcn/ui
 - **Backend :** API Routes Next.js (puis extraction possible en service séparé si besoin),
   Node.js 20+
-- **Base de données :** PostgreSQL (hébergement Europe — voir contrainte RGPD), Prisma ORM
-- **Stockage fichiers :** S3-compatible **hébergé en Europe** (Scaleway Object Storage ou
-  OVHcloud Object Storage) — jamais AWS us-east par défaut
+- **Base de données :** **Supabase PostgreSQL**, région `aws-0-eu-west-1` (Irlande), Prisma ORM
+  — remplace Prisma Postgres depuis le 21/08/2026
+- **Stockage fichiers :** **Supabase Storage** (S3-compatible, même projet que la BDD, donc
+  même région Europe) — jamais AWS us-east par défaut. *Pas encore provisionné : ni bucket ni
+  clé d'accès, donc aucune variable `S3_*` — le repli disque local reste actif.*
 - **Auth :** Auth.js (NextAuth) — comptes Cabinet (Sandrine + futurs collaborateurs) et
   comptes Client (un par établissement)
 - **Analyse documentaire :** extraction texte (pdf-parse / mammoth pour docx) +
   appel LLM (Anthropic Claude API) avec prompt structuré contre le référentiel HAS
-- **Hébergement :** Scaleway ou OVHcloud (France) — contrainte non-négociable, données
-  sensibles (santé/social, mineurs d'âge possibles dans le public accompagné)
+- **Hébergement app :** **Vercel**, région `cdg1` (Paris) — `vercel.json` à la racine ;
+  remplace Prisma Compute (`prisma.compute.ts` est du legacy) depuis le 21/08/2026.
+  Écart assumé par rapport au §6 qui nomme Scaleway/OVHcloud : la contrainte qui compte est
+  l'hébergement **en Europe**, satisfaite par Vercel `cdg1` et Supabase `eu-west-1`. Vercel et
+  Supabase restent des sociétés américaines — décision produit de Damon, pas une conformité
+  acquise (détail : `specs/02-architecture-technique.md` §1, note ADR).
+- **Environnement :** **une seule source de vérité**, le `.env.local` de la racine.
+  `apps/web/.env.local` et `packages/database/.env` sont des **liens symboliques** vers lui.
+  Ne jamais les recréer en fichiers réels : le 21/08/2026, trois fichiers décrivaient deux
+  bases différentes et l'application tournait silencieusement sur une autre base que celle
+  décrite par la documentation.
 - **Monorepo :** structure simple `apps/web` + `packages/` partagés si besoin, gérée au
   pnpm workspace — pas de sur-ingénierie en V1
 

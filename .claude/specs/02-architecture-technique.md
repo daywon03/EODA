@@ -12,36 +12,42 @@
 | File d'attente / jobs asynchrones | **BullMQ + Redis** (ou Inngest si on veut du serverless managé) | L'analyse documentaire (extraction + appel LLM) ne doit pas bloquer la requête HTTP d'upload — job asynchrone obligatoire dès le départ |
 | Extraction de texte | `pdf-parse` (PDF), `mammoth` (DOCX) | Légers, suffisants pour du texte natif ; OCR avancé explicitement hors V1 |
 | Analyse IA | **Anthropic Claude API**, appelée via une interface `LLMAnalysisPort` (jamais le SDK directement dans le code métier) | Permet de changer de fournisseur sans toucher au métier (Dependency Inversion) |
-| Hébergement app | **Prisma Compute** *(écart au plan initial, voir note ADR ci-dessous)* | Déploiement managé, intégré au monorepo (`prisma.compute.ts`), CI/CD automatique sur push |
-| Hébergement BDD | **Prisma Postgres, région `eu-west-3`** *(écart au plan initial : Postgres managé plutôt que self-hosted Scaleway/OVHcloud)* | Contrainte Europe respectée (région confirmée) ; migrations Prisma inchangées |
-| Stockage fichiers (réel) | **Scaleway ou OVHcloud (France)** — code prêt (`S3StorageAdapter`), pas encore connecté en prod (voir `specs/03-roadmap-developpement.md` Jalon 2) | Contrainte Europe + données de santé/social |
+| Hébergement app | **Vercel, région `cdg1` (Paris)** *(écart au plan initial, voir note ADR ci-dessous)* | Déploiement piloté par `vercel.json` à la racine (commande de build workspace) ; remplace Prisma Compute depuis le 21/08/2026 |
+| Hébergement BDD | **Supabase PostgreSQL, région `aws-0-eu-west-1` (Irlande)** *(écart au plan initial : Postgres managé plutôt que self-hosted Scaleway/OVHcloud)* | Contrainte Europe respectée ; remplace Prisma Postgres (`pooled.db.prisma.io`, `eu-west-3`) depuis le 21/08/2026 — les 13 migrations et le seed y sont appliqués, parcours d'onboarding vérifié de bout en bout ; migrations Prisma inchangées |
+| Stockage fichiers (réel) | **Supabase Storage (S3-compatible, même projet que la BDD)** — code prêt (`S3StorageAdapter`), pas encore provisionné : aucune variable `S3_*` n'existe (voir `specs/03-roadmap-developpement.md` Jalon 5) | Contrainte Europe + données de santé/social ; base et documents chez un même fournisseur européen |
 | Monorepo | `pnpm` workspace, structure simple (`apps/web`, `packages/database`, `packages/has-referential`) | Pas de sur-ingénierie ; juste assez de séparation pour isoler le référentiel HAS comme package réutilisable |
 
-### Note ADR — écart d'hébergement par rapport au plan initial (2026-07-07)
+### Note ADR — écart d'hébergement par rapport au plan initial (mis à jour 2026-08-21)
 
 Le plan initial prévoyait un hébergement self-managed Scaleway/OVHcloud pour l'app **et**
-la BDD dès le Jalon 0. En pratique, le build a été fait avec **Prisma Postgres** (BDD
-managée) et **Prisma Compute** (hébergement app, actuellement en beta publique gratuite) —
-plus rapide à mettre en place pour valider le socle technique tôt. Le stockage fichiers
-(S3-compatible) reste prévu sur Scaleway/OVHcloud conformément au plan initial, mais n'est
-pas encore branché en prod (LocalFs en fallback).
+la BDD dès le Jalon 0. Le socle a d'abord été construit sur **Prisma Postgres** + **Prisma
+Compute** (2026-07-07), plus rapide à mettre en place pour valider l'architecture tôt.
+Depuis le **21/08/2026**, décision de Damon : la BDD est **Supabase PostgreSQL**
+(`aws-0-eu-west-1`, Irlande) et l'app est déployée sur **Vercel** (`cdg1`, Paris).
+`prisma.compute.ts` est désormais du legacy.
 
-✅ **Point de vigilance résolu (2026-07-07)** : la région de calcul Prisma Compute était
-initialement hors Europe par défaut (région US) pour l'app de production — corrigé en
-redéployant explicitement l'app avec `--region eu-west-3` (Paris). Vérifié fonctionnel
-(connexion testée en conditions réelles après migration). Prisma Compute propose les
-régions Europe `eu-west-3` (Paris) et `eu-central-1` (Frankfurt) via le flag `--region` du
-CLI (`prisma-cli app deploy --region eu-west-3`) — à repréciser explicitement à chaque
-nouvelle app créée sur ce projet, car **une app existante garde sa région, impossible à
-changer sans redéployer une nouvelle instance**.
+`CLAUDE.md` §6 nomme Scaleway ou OVHcloud comme contrainte non négociable. La contrainte qui
+compte réellement est l'**hébergement en Europe** : Supabase `eu-west-1` (Irlande) et Vercel
+`cdg1` (Paris) la satisfont sur la localisation des données et du calcul. Vercel et Supabase
+restent des sociétés américaines ; c'est une décision produit de Damon, pas une conformité
+acquise, et elle est à réexaminer avant de traiter de vraies données clients en volume.
 
-- Production (`main`) : app + BDD (`Primary database`) confirmées `eu-west-3`.
-- Preview (`develop`) : app + nouvelle BDD dédiée `eoda-staging` confirmées `eu-west-3`.
-- ⚠️ Reste en base une ancienne BDD `develop` orpheline en région `us-east-1`
-  (`db_cmrafju13018xyuez4mwbtljl`, créée automatiquement à la création de la branche, jamais
-  câblée à aucune variable d'environnement) — non supprimée par prudence (action
-  destructive), à nettoyer manuellement via le dashboard Prisma ou
-  `prisma-cli database remove` après confirmation qu'elle est bien inutilisée.
+**Pourquoi Supabase Storage pour les fichiers** : la base et les documents vivent chez le
+même fournisseur, dans le même projet et la même région, ce qui évite un troisième
+fournisseur à auditer. Non provisionné à ce jour — aucun bucket, aucune clé d'accès S3, donc
+les cinq variables `S3_*` sont absentes et le point bloquant stockage reste ouvert.
+
+**Piège rencontré le 21/08/2026 — à ne pas reproduire** : `apps/web/.env.local` et
+`packages/database/.env` décrivaient chacun une base différente de celle du `.env.local`
+racine ; l'application tournait silencieusement sur une autre base que celle que la
+documentation décrivait. Les deux fichiers sont maintenant des **liens symboliques** vers le
+`.env.local` de la racine — une seule source de vérité, jamais de divergence.
+
+**Reliquats Prisma à nettoyer** : les bases Prisma Postgres (`Primary database`,
+`eoda-staging` en `eu-west-3`, et l'ancienne base `develop` orpheline en `us-east-1`,
+`db_cmrafju13018xyuez4mwbtljl`) ne sont plus câblées à aucune variable d'environnement. À
+supprimer manuellement via le dashboard Prisma après confirmation qu'elles sont inutilisées
+(action destructive).
 
 ### Pourquoi pas une stack "no-code" ou un simple SaaS Airtable-like ?
 
@@ -414,8 +420,8 @@ Jamais de donnée personnelle dans `detail` (codes de type de document, motifs t
 
 ### 4.9 Reste à faire
 
-- [ ] **Chiffrement at-rest du bucket** — à activer côté Scaleway/OVHcloud ; le bucket réel
-  n'est toujours pas connecté (`S3_*` vides), donc rien de sensible ne doit être déposé en
+- [ ] **Chiffrement at-rest du bucket** — à activer côté Supabase Storage ; le bucket réel
+  n'est toujours pas provisionné (`S3_*` absentes), donc rien de sensible ne doit être déposé en
   production avant.
 - [ ] **CSP à nonce** (cf. §4.6).
 - [ ] **Compteur de débit partagé** si l'application passe à plusieurs instances (§4.5).
@@ -507,6 +513,8 @@ servait les pages, et n'échouait qu'au premier dépôt de document — devant l
   l'instance de se lever, et une base « en avance » (retour arrière applicatif) est légitime.
 - La duplication entre le manifeste et le dossier `prisma/migrations` est tenue
   mécaniquement par `apps/web/src/lib/db/migration-manifest.test.ts` (règle zéro).
+- *(Depuis le 21/08/2026, c'est la commande de build de `vercel.json` qui porte cet
+  enchaînement ; `prisma.compute.ts` est conservé en legacy.)*
 
 ## 5. Préparation explicite de l'évolutivité (sans la construire maintenant)
 

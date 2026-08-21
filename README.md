@@ -9,7 +9,7 @@ Documentation projet : `.claude/CLAUDE.md` (règles), `.claude/context/` (métie
 ## Prérequis
 
 - Node.js ≥ 20, pnpm ≥ 10
-- Une base PostgreSQL (Prisma Postgres, région Europe)
+- Une base PostgreSQL (Supabase PostgreSQL, région `aws-0-eu-west-1` — Irlande)
 
 ## Démarrage local
 
@@ -20,6 +20,11 @@ pnpm db:migrate:deploy          # applique les migrations
 pnpm db:seed                    # jeu de données de démonstration anonymisé
 pnpm dev
 ```
+
+Un seul fichier d'environnement fait foi : le `.env.local` de la racine.
+`apps/web/.env.local` et `packages/database/.env` sont des **liens symboliques** vers lui —
+ne jamais les remplacer par de vrais fichiers, c'est ainsi que l'application s'est retrouvée
+à tourner sur une autre base que celle décrite par la documentation (21/08/2026).
 
 En développement, trois services ont un repli local **volontaire** : le stockage fichiers
 écrit sur disque (`apps/web/.local-storage`), l'analyse documentaire utilise un adaptateur
@@ -61,9 +66,14 @@ Requis en production, sans quoi l'instance refuse de démarrer :
 Avertissement non bloquant : `RESEND_API_KEY` / `RESEND_FROM_EMAIL` absents ⇒ les emails sont
 journalisés au lieu d'être envoyés.
 
-## Déploiement en production (Prisma Compute)
+## Déploiement en production — legacy (Prisma Compute)
 
-Le déploiement est **manuel** : `prisma app deploy`, piloté par `prisma.compute.ts`.
+⚠️ **Section legacy.** Depuis le 21/08/2026, le déploiement documenté est **Vercel** (voir
+« Déploiement sur Vercel » plus bas). `prisma.compute.ts` n'est plus la cible : il est
+conservé comme repli, et la séquence de migration manuelle de l'étape 6 reste valable quel
+que soit l'hébergeur.
+
+Le déploiement était **manuel** : `prisma app deploy`, piloté par `prisma.compute.ts`.
 
 Les migrations sont désormais appliquées par le déploiement lui-même : `prisma.compute.ts`
 définit `build.command`, qui enchaîne `prisma generate`, `prisma migrate deploy`, puis
@@ -135,12 +145,14 @@ pnpm db:generate && pnpm verify:prod-config && pnpm db:migrate:deploy && pnpm --
 
 ### Région
 
-`regions: ["cdg1"]` (Paris). Les fonctions s'exécutent en France, la base Prisma Postgres
-est en `eu-west-3`, et le bucket S3 doit être européen. **À vérifier avant d'y mettre de
+`regions: ["cdg1"]` (Paris). Les fonctions s'exécutent en France, la base Supabase
+PostgreSQL est en `aws-0-eu-west-1` (Irlande), et le bucket Supabase Storage sera dans le
+même projet, donc la même région. **À vérifier avant d'y mettre de
 vraies données** : Vercel reste une société américaine, et l'hébergement des données de
 santé/social est une contrainte non négociable du projet (`CLAUDE.md` §6, qui nomme
-Scaleway ou OVHcloud). Le choix de Vercel est une décision produit, pas une conformité
-acquise.
+Scaleway ou OVHcloud). Supabase est également une société américaine. La contrainte qui
+compte réellement — données et calcul en Europe — est satisfaite ; le choix de Vercel et
+Supabase est une décision produit de Damon, pas une conformité acquise.
 
 ### Ce qui change par rapport à un serveur long
 
