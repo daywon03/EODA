@@ -7,9 +7,9 @@ import {
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import type { FileStoragePort, SignedUrlOptions } from "./file-storage-port";
 
-// Implémentation S3-compatible, hébergement Europe (Scaleway Object Storage
-// ou OVHcloud Object Storage) — jamais un bucket US par défaut.
-// cf. .claude/context/... et specs/02-architecture-technique.md §1.
+// Implémentation S3-compatible, hébergement Europe — jamais un bucket US par
+// défaut. Fournisseur retenu le 21/08/2026 : Supabase Storage, même projet que la
+// base (cf. specs/02-architecture-technique.md §1).
 export class S3StorageAdapter implements FileStoragePort {
   private readonly client: S3Client;
   private readonly bucket: string;
@@ -25,6 +25,13 @@ export class S3StorageAdapter implements FileStoragePort {
     this.client = new S3Client({
       endpoint: options.endpoint,
       region: options.region,
+      // Adressage par chemin (`https://hôte/bucket/clé`) et non par sous-domaine
+      // (`https://bucket.hôte/clé`). Le SDK AWS choisit le second par défaut, que
+      // Supabase Storage — comme la plupart des implémentations S3-compatibles
+      // auto-hébergées — ne sert pas : chaque envoi partirait sur un domaine
+      // inexistant. Scaleway et OVHcloud acceptent les deux, donc ce réglage ne
+      // ferme aucune porte si le fournisseur change.
+      forcePathStyle: true,
       credentials: {
         accessKeyId: options.accessKeyId,
         secretAccessKey: options.secretAccessKey,
