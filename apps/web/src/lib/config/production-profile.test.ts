@@ -35,10 +35,12 @@ describe("productionConfigProblems", () => {
     expect(problems[0]).toContain("S3_ENDPOINT");
   });
 
-  it("refuse l'absence de clé Anthropic — l'adaptateur stub ne produit aucune analyse", () => {
-    const problems = productionConfigProblems({ ...COMPLETE, anthropic: null });
-    expect(problems).toHaveLength(1);
-    expect(problems[0]).toContain("ANTHROPIC_API_KEY");
+  // Décision du 21/08/2026 : l'absence de clé Anthropic n'est PLUS un refus. Ce test
+  // ne disparaît pas, il change de camp — sinon rien n'empêcherait de la remettre
+  // bloquante par inadvertance, ni de constater que le déploiement redevient
+  // impossible sans que personne n'ait décidé quoi que ce soit.
+  it("n'empêche PLUS le déploiement quand la clé Anthropic est absente", () => {
+    expect(productionConfigProblems({ ...COMPLETE, anthropic: null })).toEqual([]);
   });
 
   it("refuse l'absence de NEXTAUTH_URL", () => {
@@ -70,7 +72,8 @@ describe("productionConfigProblems", () => {
       nextAuthUrl: null,
       authSecret: "court",
     });
-    expect(problems).toHaveLength(4);
+    // 3 et non 4 : la clé Anthropic manquante est désormais un avertissement.
+    expect(problems).toHaveLength(3);
   });
 });
 
@@ -83,5 +86,20 @@ describe("productionConfigWarnings", () => {
     const warnings = productionConfigWarnings({ ...COMPLETE, resend: null });
     expect(warnings).toHaveLength(1);
     expect(warnings[0]).toContain("RESEND_API_KEY");
+    // L'avertissement doit dire que l'envoi ÉCHOUE, pas qu'il est journalisé :
+    // `getEmailPort()` lève en production, il n'y a pas de repli console.
+    expect(warnings[0]).toContain("ÉCHOUERA");
+  });
+
+  it("avertit sans bloquer quand la clé Anthropic est absente, en nommant la conséquence", () => {
+    const warnings = productionConfigWarnings({ ...COMPLETE, anthropic: null });
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0]).toContain("ANTHROPIC_API_KEY");
+    expect(warnings[0]).toContain("AUCUNE analyse");
+  });
+
+  it("cumule les avertissements sans en perdre", () => {
+    const warnings = productionConfigWarnings({ ...COMPLETE, anthropic: null, resend: null });
+    expect(warnings).toHaveLength(2);
   });
 });

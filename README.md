@@ -60,11 +60,18 @@ Requis en production, sans quoi l'instance refuse de démarrer :
 | `DATABASE_URL`, `DIRECT_URL` | Socle, requis dans tous les environnements |
 | `AUTH_SECRET` (≥ 32 caractères) | Signature/chiffrement du cookie de session |
 | `S3_ENDPOINT`, `S3_REGION`, `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | Le repli disque local ne survit pas à un redéploiement |
-| `ANTHROPIC_API_KEY` | Sans elle, l'analyse documentaire est un stub qui n'analyse rien |
 | `NEXTAUTH_URL` (https://…) | Auth.js construit ses URLs de callback derrière le reverse proxy |
 
-Avertissement non bloquant : `RESEND_API_KEY` / `RESEND_FROM_EMAIL` absents ⇒ les emails sont
-journalisés au lieu d'être envoyés.
+La frontière bloquant / avertissement n'est pas « important / accessoire », c'est : **le repli
+trahit-il silencieusement ?** Le disque local perd les documents au redéploiement sans rien
+dire — bloquant. Un stub qui rend un résultat vide se voit — avertissement.
+
+Avertissements non bloquants :
+
+| Variable(s) absente(s) | Conséquence |
+|---|---|
+| `ANTHROPIC_API_KEY` | L'analyse documentaire ne produit **aucune** analyse (stub). Le dépôt de documents fonctionne, la détection des manques face au référentiel HAS non. Non bloquant depuis le 21/08/2026 pour ouvrir l'espace client avant le module 1 — **ne pas présenter ce module à un client dans cet état.** |
+| `RESEND_API_KEY`, `RESEND_FROM_EMAIL` | Toute invitation client ou relance **échoue** en production : `getEmailPort()` lève, il n'y a pas de repli console hors développement. Le SMTP intégré de Supabase ne remplace pas Resend — il ne sert que les emails de Supabase Auth, que ce projet n'utilise pas (l'auth est Auth.js sur notre table `User`). |
 
 ## Déploiement en production — legacy (Prisma Compute)
 
@@ -128,8 +135,9 @@ projet Vercel :
    est un enchaînement pnpm workspace qui a besoin de `packages/database`.
 2. **Variables d'environnement** (Production *et* Preview) : `DATABASE_URL`, `DIRECT_URL`,
    `AUTH_SECRET`, `NEXTAUTH_URL`, `S3_ENDPOINT`, `S3_REGION`, `S3_BUCKET`,
-   `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `ANTHROPIC_API_KEY`. Les deux variables
-   Resend sont facultatives (avertissement, pas blocage).
+   `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`. `ANTHROPIC_API_KEY` et les deux variables
+   Resend sont facultatives (avertissement, pas blocage) — voir le tableau des
+   avertissements plus haut pour ce qu'on perd en les omettant.
 
 ### Ordre de la commande de build, et pourquoi
 
