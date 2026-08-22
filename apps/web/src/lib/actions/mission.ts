@@ -1,10 +1,21 @@
 "use server";
 
-import { prisma, CommercialTier, type MissionChecklistScope } from "@eoda/database";
+import {
+  prisma,
+  CommercialTier,
+  type CatalogueOption,
+  type MissionChecklistScope,
+} from "@eoda/database";
 import { requireCabinetSession, requireEstablishmentInTenant } from "@/lib/auth/guards";
 import { notFound } from "next/navigation";
 import { requiredEnum } from "@/lib/validation/form-parsers";
 import { revalidatePath } from "next/cache";
+import { recordAuditEvent } from "@/lib/services/audit-log-service";
+import {
+  reconcileMissionOptions,
+  summariseMissionScopeForAudit,
+  toMissionOptionSnapshotsFromCatalogue,
+} from "@/lib/services/mission-option-service";
 import {
   computeMissionProgress,
   isChecklistItemApplicable,
@@ -29,6 +40,41 @@ async function assertFormuleAvailable(
   return available !== null;
 }
 
+// Résout les options cochées en lignes de catalogue RÉELLES du tenant appelant.
+//
+// Trois choses se jouent ici, et aucune n'est décorative :
+//   - un identifiant d'option vient d'un formulaire, donc d'une route HTTP publique :
+//     son appartenance au tenant est vérifiée en base, jamais supposée depuis le
+//     `<select>` qui l'a affiché ;
+//   - une option retirée du catalogue (`active: false`) ne peut plus être souscrite ;
+//   - le PRIX est relu en base. Le formulaire ne transporte que des identifiants :
+//     un montant posté par le client serait une entrée non fiable sur une donnée qui
+//     finit affichée au client comme un prix.
+//
+// Retourne null si un seul identifiant ne correspond pas — refus global plutôt que
+// silencieux partiel : enregistrer 2 options sur 3 sans le dire est pire qu'échouer.
+async function resolveSelectedOptions(
+  tenantId: string,
+  optionIds: readonly string[]
+): Promise<CatalogueOption[] | null> {
+  const unique = [...new Set(optionIds)];
+  if (unique.length === 0) return [];
+
+  const options = await prisma.catalogueOption.findMany({
+    where: { id: { in: unique }, tenantId, active: true },
+  });
+
+  return options.length === unique.length ? options : null;
+}
+
+// Les cases cochées d'un même nom arrivent en valeurs multiples. `getAll` plutôt que
+// `get` : avec `get`, une seule option sur N serait enregistrée, en silence.
+function selectedOptionIds(formData: FormData): string[] {
+  return formData
+    .getAll("optionIds")
+    .filter((value): value is string => typeof value === "string" && value.length > 0);
+}
+
 function missionPaths(establishmentId: string) {
   return [
     `/dashboard/cabinet/etablissements/${establishmentId}`,
@@ -49,12 +95,24 @@ export async function listFormulesForMissionSetup() {
   });
 }
 
+// Options actives du catalogue, pour le choix du périmètre d'une mission. Même
+// raisonnement que listFormulesForMissionSetup() : lecture seule ouverte aux deux
+// rôles Cabinet, alors que l'ÉDITION du catalogue reste CABINET_ADMIN.
+export async function listOptionsForMissionSetup(): Promise<CatalogueOption[]> {
+  const { tenantId } = await requireCabinetSession();
+
+  return prisma.catalogueOption.findMany({
+    where: { tenantId, active: true },
+    orderBy: { priceEuros: "asc" },
+  });
+}
+
 export async function createMission(
   establishmentId: string,
   _prevState: { error: string } | null,
   formData: FormData
 ): Promise<{ error: string } | null> {
-  const { tenantId } = await requireEstablishmentInTenant(establishmentId);
+  const { tenantId, userId } = await requireEstablishmentInTenant(establishmentId);
 
   const existing = await prisma.mission.findUnique({ where: { establishmentId } });
   if (existing) return { error: "Une mission existe déjà pour cet établissement." };
@@ -67,11 +125,40 @@ export async function createMission(
     return { error: "Cette formule n'est pas disponible dans le catalogue." };
   }
 
-  await prisma.mission.create({
-    data: { tenantId, establishmentId, formule: formule.value, gratuit },
+  const options = await resolveSelectedOptions(tenantId, selectedOptionIds(formData));
+  if (options === null) {
+    return { error: "Une des options choisies n'est plus disponible au catalogue." };
+  }
+  const snapshots = toMissionOptionSnapshotsFromCatalogue(options);
+
+  // Mission et options dans la MÊME transaction : une mission créée sans ses options
+  // ouvrirait un périmètre faux au client jusqu'à ce que quelqu'un s'en aperçoive.
+  const mission = await prisma.$transaction(async (tx) => {
+    const created = await tx.mission.create({
+      data: { tenantId, establishmentId, formule: formule.value, gratuit },
+    });
+    if (snapshots.length > 0) {
+      await tx.missionOption.createMany({
+        data: snapshots.map((snapshot) => ({ missionId: created.id, ...snapshot })),
+      });
+    }
+    return created;
+  });
+
+  await recordAuditEvent({
+    action: "MISSION_SCOPE_UPDATED",
+    actorUserId: userId,
+    establishmentId,
+    targetId: mission.id,
+    detail: summariseMissionScopeForAudit({
+      formule: formule.value,
+      gratuit,
+      optionCount: snapshots.length,
+    }),
   });
 
   for (const path of missionPaths(establishmentId)) revalidatePath(path);
+  revalidatePath("/dashboard/client/accompagnement");
   return null;
 }
 
@@ -80,9 +167,12 @@ export async function updateMissionScope(
   _prevState: { error: string } | null,
   formData: FormData
 ): Promise<{ error: string } | null> {
-  const { tenantId } = await requireCabinetSession();
+  const { tenantId, userId } = await requireCabinetSession();
 
-  const mission = await prisma.mission.findFirst({ where: { id: missionId, tenantId } });
+  const mission = await prisma.mission.findFirst({
+    where: { id: missionId, tenantId },
+    include: { options: { select: { catalogueOptionId: true, priceIsFirm: true } } },
+  });
   if (!mission) notFound();
 
   const formule = requiredEnum(formData, "formule", "La formule", CommercialTier);
@@ -93,15 +183,67 @@ export async function updateMissionScope(
     return { error: "Cette formule n'est pas disponible dans le catalogue." };
   }
 
-  // Ne touche jamais aux statuts de checklist déjà cochés — une régression
-  // Excellence → Essentiel masque seulement les phases hors scope, sans
-  // détruire la progression déjà enregistrée (cf. plan §7 edge cases).
-  await prisma.mission.update({
-    where: { id: missionId },
-    data: { formule: formule.value, gratuit },
+  const selected = selectedOptionIds(formData);
+  const reconciliation = reconcileMissionOptions({
+    current: mission.options.map((option) => option.catalogueOptionId),
+    selected,
+  });
+
+  // Une option issue d'un devis SIGNÉ ne se retire pas depuis cet écran. Le devis
+  // fait contrat : la retirer du périmètre fermerait au client un accès qu'il a payé,
+  // sans trace côté commercial. La correction passe par un avenant, dans le module
+  // devis — c'est-à-dire là où le client est engagé.
+  const firmByOptionId = new Map(
+    mission.options.map((option) => [option.catalogueOptionId, option.priceIsFirm])
+  );
+  if (reconciliation.toRemove.some((id) => firmByOptionId.get(id) === true)) {
+    return {
+      error:
+        "Une option issue d'un devis signé ne peut pas être retirée ici. Passer par un avenant.",
+    };
+  }
+
+  const added = await resolveSelectedOptions(tenantId, reconciliation.toAdd);
+  if (added === null) {
+    return { error: "Une des options choisies n'est plus disponible au catalogue." };
+  }
+  const snapshots = toMissionOptionSnapshotsFromCatalogue(added);
+
+  await prisma.$transaction(async (tx) => {
+    // Ne touche jamais aux statuts de checklist déjà cochés — une régression
+    // Excellence → Essentiel masque seulement les phases hors scope, sans
+    // détruire la progression déjà enregistrée (cf. plan §7 edge cases).
+    await tx.mission.update({
+      where: { id: missionId },
+      data: { formule: formule.value, gratuit },
+    });
+
+    if (reconciliation.toRemove.length > 0) {
+      await tx.missionOption.deleteMany({
+        where: { missionId, catalogueOptionId: { in: reconciliation.toRemove } },
+      });
+    }
+    if (snapshots.length > 0) {
+      await tx.missionOption.createMany({
+        data: snapshots.map((snapshot) => ({ missionId, ...snapshot })),
+      });
+    }
+  });
+
+  await recordAuditEvent({
+    action: "MISSION_SCOPE_UPDATED",
+    actorUserId: userId,
+    establishmentId: mission.establishmentId,
+    targetId: missionId,
+    detail: summariseMissionScopeForAudit({
+      formule: formule.value,
+      gratuit,
+      optionCount: reconciliation.unchanged.length + snapshots.length,
+    }),
   });
 
   for (const path of missionPaths(mission.establishmentId)) revalidatePath(path);
+  revalidatePath("/dashboard/client/accompagnement");
   return null;
 }
 
@@ -194,6 +336,13 @@ export type MissionWithProgress = {
     completed: boolean;
     applicable: boolean;
   }[];
+  // Options rattachées au périmètre. `priceIsFirm` distingue celles qui viennent
+  // d'un devis signé (verrouillées ici) de celles rattachées à la main.
+  options: {
+    catalogueOptionId: string;
+    labelSnapshot: string;
+    priceIsFirm: boolean;
+  }[];
   progress: MissionProgress;
 };
 
@@ -202,7 +351,13 @@ export async function getMission(establishmentId: string): Promise<MissionWithPr
 
   const mission = await prisma.mission.findFirst({
     where: { establishmentId, tenantId },
-    include: { itemStatuses: true },
+    include: {
+      itemStatuses: true,
+      options: {
+        select: { catalogueOptionId: true, labelSnapshot: true, priceIsFirm: true },
+        orderBy: { labelSnapshot: "asc" },
+      },
+    },
   });
   if (!mission) return null;
 
@@ -246,6 +401,7 @@ export async function getMission(establishmentId: string): Promise<MissionWithPr
     preparationFinaleStartDate: mission.preparationFinaleStartDate,
     preparationFinaleEndDate: mission.preparationFinaleEndDate,
     items,
+    options: mission.options,
     progress,
   };
 }

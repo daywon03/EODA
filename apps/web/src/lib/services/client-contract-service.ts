@@ -34,7 +34,25 @@ export type SubscribedOption = {
   pricingUnitSnapshot: PricingUnit;
   priceMaxSnapshotEuros: number | null;
   minQuantitySnapshot: number | null;
+  // Le montant ci-dessus fait-il contrat ?
+  //
+  // true  — il vient d'un devis signé : montant FERME, rendu via formatPriceWithUnit.
+  // false — l'option a été rattachée au périmètre par le cabinet sans devis ; le
+  //         montant est recopié du catalogue, donc un « à partir de », et doit être
+  //         rendu via formatStartingPrice.
+  //
+  // Porté par la donnée et non par le composant : c'est la seule façon d'empêcher
+  // une vue de présenter une estimation comme un engagement (CLAUDE.md §7).
+  priceIsFirm: boolean;
 };
+
+// Un devis signé est par construction un engagement ferme : les options lues sur le
+// devis n'ont pas de drapeau en base, il est posé ici, à la frontière.
+export function toFirmSubscribedOption(
+  option: Omit<SubscribedOption, "priceIsFirm">
+): SubscribedOption {
+  return { ...option, priceIsFirm: true };
+}
 
 // Options réellement souscrites : la MISSION fait foi, le devis n'est qu'un repli.
 //
@@ -95,7 +113,10 @@ export type ClientDevis = {
   depositAmountEuros: number;
   balanceAmountEuros: number;
   installmentAmountEuros: number;
-  options: readonly SubscribedOption[];
+  // Sans `priceIsFirm` : une ligne de devis n'en porte pas en base, et n'en a pas
+  // besoin — un devis signé est ferme par construction. Le drapeau est posé à la
+  // lecture par toFirmSubscribedOption(). Le type dit donc la vérité de la table.
+  options: readonly Omit<SubscribedOption, "priceIsFirm">[];
 };
 
 // Résultat de la résolution du contrat. Trois issues, toutes explicites — pas de

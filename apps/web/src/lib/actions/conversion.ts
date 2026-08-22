@@ -246,7 +246,16 @@ export async function convertDevisToClient(
       //    l'absence de doublon, y compris sous concurrence.
       if (missionOptions.length > 0) {
         await tx.missionOption.createMany({
-          data: missionOptions.map((option) => ({ missionId: mission.id, ...option })),
+          // `priceIsFirm: true` posé explicitement, alors que c'est le défaut en base :
+          // ce chemin-ci recopie un devis SIGNÉ, ses montants font contrat. Le
+          // rattachement manuel côté mission pose `false` (prix catalogue, « à partir
+          // de »). Écrire les deux noir sur blanc évite qu'un futur changement de
+          // défaut requalifie silencieusement des estimations en engagements.
+          data: missionOptions.map((option) => ({
+            missionId: mission.id,
+            ...option,
+            priceIsFirm: true,
+          })),
           skipDuplicates: true,
         });
       }

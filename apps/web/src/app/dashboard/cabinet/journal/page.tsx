@@ -41,6 +41,7 @@ const ACTION_LABELS: Record<AuditAction, string> = {
   OPTION_QUOTE_REQUESTED: "Demande de devis d'option (client)",
   OPTION_REQUEST_HANDLED: "Demande d'option traitée",
   PROSPECT_CONVERTED: "Devis signé — fiche client et profil créés",
+  MISSION_SCOPE_UPDATED: "Périmètre de mission modifié (offre, options)",
 };
 
 const ROLE_LABELS: Record<string, string> = {

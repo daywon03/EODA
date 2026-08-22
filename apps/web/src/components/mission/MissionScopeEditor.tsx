@@ -3,24 +3,35 @@
 import { useActionState } from "react";
 import { updateMissionScope } from "@/lib/actions/mission";
 import { FormuleOfferPicker } from "./FormuleOfferPicker";
+import { MissionOptionsPicker } from "./MissionOptionsPicker";
 import { Button } from "@/components/ui/button";
 import { AlertCircle, Loader2 } from "lucide-react";
-import type { CatalogueFormule, CommercialTier } from "@eoda/database";
+import type { CatalogueFormule, CatalogueOption, CommercialTier } from "@eoda/database";
 
 type Props = {
   missionId: string;
   formules: CatalogueFormule[];
+  options: CatalogueOption[];
   currentFormule: CommercialTier;
   currentGratuit: boolean;
+  subscribedOptions: { catalogueOptionId: string; priceIsFirm: boolean }[];
 };
 
-export function MissionScopeEditor({ missionId, formules, currentFormule, currentGratuit }: Props) {
+export function MissionScopeEditor({
+  missionId,
+  formules,
+  options,
+  currentFormule,
+  currentGratuit,
+  subscribedOptions,
+}: Props) {
   const action = updateMissionScope.bind(null, missionId);
   const [state, formAction, isPending] = useActionState(action, null);
 
   return (
     <form action={formAction} className="space-y-4">
       <FormuleOfferPicker formules={formules} defaultFormule={currentFormule} defaultGratuit={currentGratuit} />
+      <MissionOptionsPicker options={options} subscribed={subscribedOptions} />
 
       {state?.error && (
         <div

@@ -390,6 +390,22 @@ déjà conforme.
 > `client-contract-service.resolveSubscribedOptions()` les y lit en priorité et ne retombe sur
 > les snapshots du devis que pour les missions créées avant cette bascule.
 >
+> **Complété le 22/08/2026 — options rattachables sans devis.** Le périmètre d'une mission
+> ne se choisissait qu'à la signature d'un devis : un établissement créé directement par le
+> cabinet (le bêta-test ASSAD BENOIT, notamment) ne pouvait avoir **aucune** option, et
+> l'écran de suivi de mission ne proposait que la formule. Le cabinet coche désormais les
+> prestations à la carte à la création de la mission comme à la mise à jour du périmètre.
+> Deux règles qui ne se négocient pas :
+> - `MissionOption.priceIsFirm` porte la **nature** du montant. Option venue d'un devis
+>   signé ⇒ `true`, montant ferme, rendu `formatPriceWithUnit`. Option rattachée à la main
+>   ⇒ `false`, le montant est recopié du catalogue donc un « à partir de », rendu
+>   `formatStartingPrice`. Sans ce drapeau, le portail client annonçait une estimation
+>   comme un engagement contractuel.
+> - Une option `priceIsFirm` ne peut **pas** être retirée depuis l'écran de mission : elle
+>   a été payée, la retirer fermerait un accès sans trace côté commercial. Correction par
+>   avenant, dans le module devis. Contrôle porté par l'action serveur, la case verrouillée
+>   de l'UI n'en est que le reflet.
+>
 > **Non implémenté** : §12.5 (états de fin de mission, page plan d'action, module
 > sensibilisation, relances automatiques, export Synaé).
 >

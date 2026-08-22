@@ -3,6 +3,7 @@ import {
   getMission,
   getMissionDocumentCounters,
   listFormulesForMissionSetup,
+  listOptionsForMissionSetup,
 } from "@/lib/actions/mission";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -42,10 +43,11 @@ const PHASE_DATE_FIELDS: Record<
 
 export default async function MissionPage({ params }: Props) {
   const { id } = await params;
-  const [establishment, mission, formules, documentCounters] = await Promise.all([
+  const [establishment, mission, formules, options, documentCounters] = await Promise.all([
     getEstablishment(id),
     getMission(id),
     listFormulesForMissionSetup(),
+    listOptionsForMissionSetup(),
     getMissionDocumentCounters(id),
   ]);
 
@@ -63,7 +65,7 @@ export default async function MissionPage({ params }: Props) {
             <CardTitle className="text-base">Démarrer le suivi</CardTitle>
           </CardHeader>
           <CardContent>
-            <CreateMissionForm establishmentId={id} formules={formules} />
+            <CreateMissionForm establishmentId={id} formules={formules} options={options} />
           </CardContent>
         </Card>
       ) : (
@@ -84,8 +86,10 @@ export default async function MissionPage({ params }: Props) {
               <MissionScopeEditor
                 missionId={mission.id}
                 formules={formules}
+                options={options}
                 currentFormule={mission.formule}
                 currentGratuit={mission.gratuit}
+                subscribedOptions={mission.options}
               />
             </CardContent>
           </Card>

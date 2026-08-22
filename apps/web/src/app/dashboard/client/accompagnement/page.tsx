@@ -232,7 +232,11 @@ export default async function ClientAccompagnementPage() {
         <SectionTitle
           icon={Sparkles}
           title="Vos prestations à la carte"
-          hint="Options figées à la signature — le prix indiqué est celui de votre devis."
+          hint={
+            subscribedOptions.every((option) => option.priceIsFirm)
+              ? "Options figées à la signature — le prix indiqué est celui de votre devis."
+              : "Certaines options ont été ajoutées à votre accompagnement hors devis : leur prix est indicatif tant qu'un devis ne l'a pas figé."
+          }
         />
 
         {subscribedOptions.length > 0 ? (
@@ -243,8 +247,20 @@ export default async function ClientAccompagnementPage() {
                 className="flex flex-wrap items-center justify-between gap-3 py-3 first:pt-0 last:pb-0"
               >
                 <span className="text-sm text-brun-ancre">{option.labelSnapshot}</span>
-                <span className="text-sm font-semibold text-brun-ancre tabular-nums whitespace-nowrap">
-                  {formatPriceWithUnit({
+                {/* Deux natures de prix, deux rendus. Une option rattachée au
+                    périmètre sans devis porte un prix de CATALOGUE, donc un
+                    « à partir de » : l'afficher comme un montant ferme reviendrait
+                    à annoncer au client un engagement qui n'existe pas
+                    (CLAUDE.md §7). Le choix suit le drapeau porté par la donnée,
+                    jamais une déduction faite ici. */}
+                <span
+                  className={
+                    option.priceIsFirm
+                      ? "text-sm font-semibold text-brun-ancre tabular-nums whitespace-nowrap"
+                      : "text-sm text-gris-mid tabular-nums whitespace-nowrap"
+                  }
+                >
+                  {(option.priceIsFirm ? formatPriceWithUnit : formatStartingPrice)({
                     priceEuros: option.priceSnapshotEuros,
                     pricingUnit: option.pricingUnitSnapshot,
                     priceMaxEuros: option.priceMaxSnapshotEuros,

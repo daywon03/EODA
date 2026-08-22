@@ -756,6 +756,19 @@ model MissionOption {
   priceMaxSnapshotEuros Int?        @map("price_max_snapshot_euros")
   minQuantitySnapshot   Int?        @map("min_quantity_snapshot")
 
+  // Nature du montant ci-dessus, et non un détail d'affichage.
+  //
+  // true  — l'option vient d'un devis SIGNÉ : le montant est FERME, il fait contrat.
+  // false — l'option a été rattachée à la main par le cabinet au périmètre de la
+  //         mission, sans devis. Le montant est alors recopié du catalogue, où il
+  //         est un « à partir de » : l'afficher comme ferme reviendrait à inventer
+  //         un contrat côté portail client (CLAUDE.md §7 — les deux natures de prix
+  //         ne doivent jamais être rendues pareil).
+  //
+  // Défaut `true` volontaire : toutes les lignes existantes proviennent de
+  // convertDevisToClient, donc d'un devis signé. La migration n'a rien à recalculer.
+  priceIsFirm Boolean @default(true) @map("price_is_firm")
+
   createdAt DateTime @default(now()) @map("created_at")
 
   // Cascade : une option souscrite n'existe que par sa mission. Sans cette règle
@@ -838,6 +851,10 @@ enum AuditAction {
   // `targetId` = identifiant du devis signé, `detail` = son numéro et la formule
   // ouverte : deux clés techniques, jamais une donnée nominative.
   PROSPECT_CONVERTED
+  // Périmètre d'une mission modifié à la main par le cabinet (formule, options),
+  // hors signature de devis. `targetId` = identifiant de la mission, `detail` =
+  // la formule et le nombre d'options : des clés techniques, jamais un nom.
+  MISSION_SCOPE_UPDATED
   // Cycle de vie d'une version de document
   DOCUMENT_VERSION_DELETED
   DOCUMENT_JUSTIFICATION_UPDATED

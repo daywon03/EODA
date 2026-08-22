@@ -3,19 +3,25 @@
 import { useActionState } from "react";
 import { createMission } from "@/lib/actions/mission";
 import { FormuleOfferPicker } from "./FormuleOfferPicker";
+import { MissionOptionsPicker } from "./MissionOptionsPicker";
 import { Button } from "@/components/ui/button";
 import { AlertCircle, Loader2 } from "lucide-react";
-import type { CatalogueFormule } from "@eoda/database";
+import type { CatalogueFormule, CatalogueOption } from "@eoda/database";
 
-type Props = { establishmentId: string; formules: CatalogueFormule[] };
+type Props = {
+  establishmentId: string;
+  formules: CatalogueFormule[];
+  options: CatalogueOption[];
+};
 
-export function CreateMissionForm({ establishmentId, formules }: Props) {
+export function CreateMissionForm({ establishmentId, formules, options }: Props) {
   const action = createMission.bind(null, establishmentId);
   const [state, formAction, isPending] = useActionState(action, null);
 
   return (
     <form action={formAction} className="space-y-5">
       <FormuleOfferPicker formules={formules} />
+      <MissionOptionsPicker options={options} />
 
       {state?.error && (
         <div

@@ -14,6 +14,7 @@ import {
   listAvailableOptions,
   resolveContractDevis,
   resolveSubscribedOptions,
+  toFirmSubscribedOption,
   summariseDocumentObligations,
   type AvailableOption,
   type ContractResolution,
@@ -119,6 +120,9 @@ async function resolveClientContractContext(): Promise<{
               pricingUnitSnapshot: true,
               priceMaxSnapshotEuros: true,
               minQuantitySnapshot: true,
+              // Une option rattachée à la main au périmètre (sans devis) porte un
+              // prix de catalogue, donc un « à partir de » : la vue doit le savoir.
+              priceIsFirm: true,
             },
             orderBy: { labelSnapshot: "asc" },
           },
@@ -164,7 +168,10 @@ async function resolveClientContractContext(): Promise<{
   // qui existe même quand le chemin Establishment → Prospect → Devis n'existe pas.
   const subscribedOptions = resolveSubscribedOptions({
     missionOptions: record.mission?.options ?? [],
-    devisOptions: contract.kind === "RESOLVED" ? contract.devis.options : [],
+    // Les lignes du devis n'ont pas de drapeau en base : un devis signé est ferme
+    // par construction, le marquage se fait ici, à la frontière de lecture.
+    devisOptions:
+      contract.kind === "RESOLVED" ? contract.devis.options.map(toFirmSubscribedOption) : [],
   });
 
   return {

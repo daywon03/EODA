@@ -55,6 +55,7 @@ function subscribed(catalogueOptionId: string): SubscribedOption {
     pricingUnitSnapshot: "FORFAIT",
     priceMaxSnapshotEuros: null,
     minQuantitySnapshot: null,
+    priceIsFirm: true,
   };
 }
 
@@ -206,7 +207,7 @@ describe("documentProgressPercent", () => {
 // ici : un client dont la mission n'a pas encore de lignes d'options (créée avant
 // la conversion automatique) ne doit pas voir son contrat se vider.
 describe("resolveSubscribedOptions", () => {
-  function option(id: string, label: string): SubscribedOption {
+  function option(id: string, label: string, priceIsFirm = true): SubscribedOption {
     return {
       catalogueOptionId: id,
       labelSnapshot: label,
@@ -214,6 +215,7 @@ describe("resolveSubscribedOptions", () => {
       pricingUnitSnapshot: "FORFAIT",
       priceMaxSnapshotEuros: null,
       minQuantitySnapshot: null,
+      priceIsFirm,
     };
   }
 

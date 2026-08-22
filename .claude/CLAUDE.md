@@ -242,6 +242,15 @@ Détail complet et état d'avancement : `specs/02-architecture-technique.md` §4
   peuplée à la signature par `lib/actions/conversion.ts`). Les `DevisOption` restent le
   **document commercial** — ils font contrat et ne se réécrivent jamais — et servent de repli
   de lecture pour les missions antérieures à cette bascule.
+  **Complété le 22/08/2026** : le cabinet peut aussi rattacher une option **à la main** au
+  périmètre d'une mission, depuis `/dashboard/cabinet/etablissements/[id]/mission` — le cas
+  d'un établissement créé directement, sans devis (le bêta-test, notamment), qui n'avait
+  jusque-là aucun moyen d'avoir des options. D'où `MissionOption.priceIsFirm`, qui n'est pas
+  cosmétique : `true` = montant issu d'un devis signé, il fait contrat et l'option **ne peut
+  pas être retirée depuis cet écran** (avenant obligatoire) ; `false` = montant recopié du
+  catalogue, donc un « à partir de », rendu comme tel côté portail client. Ne jamais fusionner
+  les deux chemins de création « puisque c'est le même objet » : ils n'ont pas la même valeur
+  juridique. Règles pures dans `lib/services/mission-option-service.ts`.
 - Ne pas faire passer un devis à `SIGNE` par `changeDevisStatus` : la signature est la seule
   transition qui produit des effets hors du module commercial (fiche établissement, mission,
   périmètre ouvert au client) et passe par `convertDevisToClient` (`lib/actions/conversion.ts`),

@@ -38,4 +38,5 @@ export const EXPECTED_MIGRATIONS: readonly string[] = [
   "20260820210000_prospect_conversion",
   "20260821090000_establishment_delete_cascade",
   "20260821100000_rate_limit_counters",
+  "20260822220000_mission_option_price_nature",
 ] as const;
