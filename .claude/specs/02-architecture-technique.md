@@ -319,6 +319,15 @@ Un `establishmentId`, un `missionId`, un `sessionId` d'évaluation ou un `docume
 reçu en argument d'action est une **entrée non fiable** : une action serveur est une route
 HTTP publique, pas un appel interne protégé par l'UI.
 
+**Couverture de test (2026-08-22).** Ces invariants sont désormais adossés à des cas de refus
+plutôt qu'à la relecture — `guards.test.ts` est passé de 3 gardes couvertes sur 8 (43 % des
+instructions) à la totalité des gardes exportées, 100 % des lignes. La règle zéro s'applique
+ici plus qu'ailleurs : une régression IDOR sur ce fichier serait passée en CI verte. Chaque
+garde porte au minimum le cas non authentifié, le cas non autorisé et le cas hors périmètre,
+et les tests affirment la **destination** du refus (`/deconnexion`, `notFound()`, `/login`),
+pas seulement qu'un refus a eu lieu — c'est la destination qui distingue une révocation
+d'une simple redirection, et `notFound()` d'une fuite d'existence.
+
 ### 4.2 Validation des entrées — `lib/validation/form-parsers.ts` ✅
 
 Les casts `formData.get("x") as "A" | "B"` ne valident rien à l'exécution. Tout champ passe
@@ -351,9 +360,28 @@ En production les fichiers sont servis par URL signée S3 (expiration 300 s).
   Or `POST /api/auth/callback/credentials` est une route publique joignable directement —
   13 tentatives en `curl` passaient sans jamais être comptées. Le contrôle appartient au
   point où **tous** les chemins convergent, jamais à l'interface qui l'appelle.
-  Politique : 10 tentatives / 15 min sur le couple `(IP, email)`, via `RateLimiterPort`.
+  Politique : **deux compteurs**, via `RateLimiterPort`, tous deux consommés par le même
+  appel `consumeLoginAttempt({ ip, email })` — l'API prend l'identité et jamais une clé
+  déjà construite, pour qu'aucun appelant ne puisse n'en viser qu'un.
   Vérifié de bout en bout : après dépassement, **le bon mot de passe est refusé aussi** ;
   et une autre IP se connecte normalement (pas de déni de service sur un compte nominatif).
+
+  | Compteur | Politique | Ferme |
+  |---|---|---|
+  | `(IP, email)` | 10 / 15 min | le bourrage de mots de passe sur **un** compte |
+  | `IP` seule | 30 / 15 min | le **balayage** sur beaucoup de comptes |
+
+  ⚠️ **Second défaut, trouvé et corrigé le 2026-08-22** : le compteur du couple laissait
+  passer intégralement le balayage (« password spraying ») — changer d'email remettait son
+  compteur à zéro, donc une IP pouvait essayer 10 mots de passe par compte, sur autant de
+  comptes qu'elle voulait. Nos adresses de connexion étant des adresses de contact
+  publiques (annuaire FINESS), c'était le scénario le plus réaliste. Le plafond par IP est
+  volontairement large (30) : une IP peut être le NAT d'une association entière, et une
+  limite serrée y deviendrait un déni de service. Invariant à ne pas « simplifier » : une
+  connexion réussie remet à zéro le compteur du couple, **jamais celui de l'IP** — sinon un
+  attaquant détenant un seul compte valide s'en sert comme bouton de remise à zéro entre
+  deux séries. Verrouillé par `lib/security/login-throttle.test.ts` (les trois tests de
+  balayage échouent si l'on retire le compteur par IP).
 - **Pas d'énumération de comptes** : message d'erreur unique, et comparaison bcrypt contre
   une empreinte factice de même coût quand l'email est inconnu — sinon la différence de
   latence distingue « compte inexistant » de « mot de passe faux », malgré un message

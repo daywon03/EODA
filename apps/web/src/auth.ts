@@ -7,7 +7,6 @@ import { authConfig } from "./auth.config";
 import {
   clientIpFromHeaders,
   consumeLoginAttempt,
-  loginThrottleKey,
   resetLoginThrottle,
 } from "@/lib/security/login-throttle";
 import { recordAuditEvent } from "@/lib/services/audit-log-service";
@@ -37,8 +36,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const password = credentials?.password as string | undefined;
         if (!email || !password) return null;
 
-        const throttleKey = loginThrottleKey(clientIpFromHeaders(request.headers), email);
-        if (!(await consumeLoginAttempt(throttleKey))) return null;
+        const identity = { ip: clientIpFromHeaders(request.headers), email };
+        if (!(await consumeLoginAttempt(identity))) return null;
 
         const user = await prisma.user.findUnique({ where: { email } });
 
@@ -77,7 +76,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
         // Succès : le compteur repart de zéro pour que les erreurs de frappe d'un
         // utilisateur légitime ne s'accumulent pas jusqu'au blocage.
-        await resetLoginThrottle(throttleKey);
+        await resetLoginThrottle(identity);
 
         // Le jeton ne porte que l'identifiant et le rôle — jamais l'objet utilisateur
         // complet. Le rôle qui sert à AUTORISER est de toute façon relu en base à

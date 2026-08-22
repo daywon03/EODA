@@ -6,7 +6,6 @@ import { AuthError } from "next-auth";
 import { redirect } from "next/navigation";
 import {
   clientIpFromHeaders,
-  loginThrottleKey,
   peekLoginThrottle,
 } from "@/lib/security/login-throttle";
 
@@ -31,8 +30,10 @@ export async function loginAction(formData: FormData) {
     if (error instanceof AuthError) {
       // Lecture sans consommation : distinguer « identifiants faux » de « trop de
       // tentatives » côté message, sans fausser le comptage fait par authorize().
-      const key = loginThrottleKey(clientIpFromHeaders(await headers()), email);
-      const throttle = await peekLoginThrottle(key);
+      const throttle = await peekLoginThrottle({
+        ip: clientIpFromHeaders(await headers()),
+        email,
+      });
 
       if (throttle.blocked) {
         const minutes = Math.ceil(throttle.retryAfterSeconds / 60);

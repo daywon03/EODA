@@ -39,7 +39,11 @@ vi.mock("next/navigation", () => ({
 
 const {
   requireCabinetSession,
+  requireCabinetAdminSession,
+  requireClientEstablishment,
   requireEstablishmentAccess,
+  requireEstablishmentInTenant,
+  requireHelpAudience,
   requirePasswordRotationSession,
   tryEstablishmentAccess,
   isSessionStale,
@@ -186,5 +190,241 @@ describe("compte désactivé", () => {
     );
 
     await expect(requirePasswordRotationSession()).rejects.toThrow("REDIRECT:/deconnexion");
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Cas de REFUS des gardes qui n'en avaient aucun (D7). Ce fichier ne couvrait que
+// trois des huit gardes exportées : la rotation, la révocation et l'accès à un
+// établissement. Les cinq autres portent pourtant les invariants les plus coûteux à
+// casser — cloisonnement par tenant, réserve du commercial au seul CABINET_ADMIN,
+// fail-closed sur un compte sans tenant. Une régression IDOR sur ces chemins serait
+// passée sans faire rougir la CI, ce qui revient à ne pas avoir la règle du tout.
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("requireCabinetAdminSession — réserve du pipeline commercial", () => {
+  it("refuse un CABINET_EVALUATOR, même parfaitement légitime par ailleurs", async () => {
+    // Le rôle est relu EN BASE : le jeton, lui, annonce CABINET_ADMIN (cf. session()).
+    // C'est exactement le scénario d'un compte rétrogradé dont la session court encore.
+    prismaMock.user.findUnique.mockResolvedValue(dbUser({ role: "CABINET_EVALUATOR" }));
+
+    await expect(requireCabinetAdminSession()).rejects.toThrow("REDIRECT:/dashboard/cabinet");
+  });
+
+  it("refuse un CLIENT_USER", async () => {
+    prismaMock.user.findUnique.mockResolvedValue(dbUser({ role: "CLIENT_USER", tenantId: null }));
+
+    await expect(requireCabinetAdminSession()).rejects.toThrow("REDIRECT:/dashboard/cabinet");
+  });
+
+  it("refuse un CABINET_ADMIN sans tenant plutôt que de lui ouvrir un accès non filtré", async () => {
+    // Fail-closed (CLAUDE.md §5 bis) : pas de tenant ⇒ pas d'accès. Le laisser passer
+    // rendrait chaque requête suivante globale, donc inter-clients.
+    prismaMock.user.findUnique.mockResolvedValue(dbUser({ tenantId: null }));
+
+    await expect(requireCabinetAdminSession()).rejects.toThrow("REDIRECT:/dashboard/cabinet");
+  });
+
+  it("refuse un compte désactivé avant même de regarder son rôle", async () => {
+    prismaMock.user.findUnique.mockResolvedValue(dbUser({ isActive: false }));
+
+    await expect(requireCabinetAdminSession()).rejects.toThrow("REDIRECT:/deconnexion");
+  });
+
+  it("laisse passer un CABINET_ADMIN et résout son tenant", async () => {
+    prismaMock.user.findUnique.mockResolvedValue(dbUser());
+
+    await expect(requireCabinetAdminSession()).resolves.toMatchObject({
+      userId: "user-1",
+      tenantId: "tenant-1",
+    });
+  });
+});
+
+describe("requireEstablishmentInTenant — cloisonnement inter-tenants (IDOR)", () => {
+  it("filtre la lecture sur le tenant de l'appelant, pas sur le seul identifiant reçu", async () => {
+    prismaMock.user.findUnique.mockResolvedValue(dbUser());
+
+    await requireEstablishmentInTenant("etab-1");
+
+    // Le `where` doit porter les DEUX clauses. Un filtre `tenantId` omis rendrait la
+    // requête globale : l'établissement d'un autre cabinet serait résolu normalement.
+    expect(prismaMock.establishment.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: "etab-1", tenantId: "tenant-1" } })
+    );
+  });
+
+  it("répond introuvable — et non « interdit » — sur un établissement d'un autre tenant", async () => {
+    // notFound() et jamais redirect() : un 403 confirmerait que l'identifiant existe
+    // ailleurs, ce qui suffit à énumérer le portefeuille clients d'un concurrent.
+    prismaMock.user.findUnique.mockResolvedValue(dbUser());
+    prismaMock.establishment.findFirst.mockResolvedValue(null);
+
+    await expect(requireEstablishmentInTenant("etab-dun-autre")).rejects.toBeInstanceOf(
+      NotFoundError
+    );
+  });
+
+  it("refuse un CLIENT_USER, qui n'a rien à faire sur une garde Cabinet", async () => {
+    prismaMock.user.findUnique.mockResolvedValue(dbUser({ role: "CLIENT_USER", tenantId: null }));
+
+    await expect(requireEstablishmentInTenant("etab-1")).rejects.toThrow(
+      "REDIRECT:/dashboard/client"
+    );
+    expect(prismaMock.establishment.findFirst).not.toHaveBeenCalled();
+  });
+});
+
+describe("requireEstablishmentAccess — cloisonnement côté client", () => {
+  it("refuse un CLIENT_USER sans lien vers l'établissement demandé", async () => {
+    // Le cloisonnement client ne vient pas du tenant mais du lien EstablishmentUser.
+    prismaMock.user.findUnique.mockResolvedValue(dbUser({ role: "CLIENT_USER", tenantId: null }));
+    prismaMock.establishmentUser.findUnique.mockResolvedValue(null);
+
+    await expect(requireEstablishmentAccess("etab-dun-autre")).rejects.toBeInstanceOf(NotFoundError);
+  });
+
+  it("résout le lien sur le couple (utilisateur, établissement), jamais sur l'établissement seul", async () => {
+    prismaMock.user.findUnique.mockResolvedValue(dbUser({ role: "CLIENT_USER", tenantId: null }));
+
+    await requireEstablishmentAccess("etab-1");
+
+    expect(prismaMock.establishmentUser.findUnique).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { userId_establishmentId: { userId: "user-1", establishmentId: "etab-1" } },
+      })
+    );
+  });
+
+  it("laisse passer un compte Cabinet sur un établissement de son tenant", async () => {
+    prismaMock.user.findUnique.mockResolvedValue(dbUser());
+
+    await expect(requireEstablishmentAccess("etab-1")).resolves.toMatchObject({
+      establishmentId: "etab-1",
+      isClient: false,
+    });
+  });
+
+  it("refuse un compte Cabinet orphelin de tenant sans jamais interroger les établissements", async () => {
+    prismaMock.user.findUnique.mockResolvedValue(dbUser({ tenantId: null }));
+
+    await expect(requireEstablishmentAccess("etab-1")).rejects.toThrow("REDIRECT:/login");
+    expect(prismaMock.establishment.findFirst).not.toHaveBeenCalled();
+  });
+});
+
+describe("tryEstablishmentAccess — refus sec, sans navigation", () => {
+  it("refuse en l'absence de session", async () => {
+    authMock.mockResolvedValue(null);
+
+    await expect(tryEstablishmentAccess("etab-1")).resolves.toBeNull();
+    expect(prismaMock.user.findUnique).not.toHaveBeenCalled();
+  });
+
+  it("refuse un établissement hors tenant", async () => {
+    prismaMock.user.findUnique.mockResolvedValue(dbUser());
+    prismaMock.establishment.findFirst.mockResolvedValue(null);
+
+    await expect(tryEstablishmentAccess("etab-dun-autre")).resolves.toBeNull();
+  });
+
+  it("refuse un compte Cabinet sans tenant", async () => {
+    prismaMock.user.findUnique.mockResolvedValue(dbUser({ tenantId: null }));
+
+    await expect(tryEstablishmentAccess("etab-1")).resolves.toBeNull();
+  });
+
+  it("laisse passer un CLIENT_USER lié à l'établissement", async () => {
+    prismaMock.user.findUnique.mockResolvedValue(dbUser({ role: "CLIENT_USER", tenantId: null }));
+
+    await expect(tryEstablishmentAccess("etab-1")).resolves.toMatchObject({ isClient: true });
+  });
+
+  it("refuse un CLIENT_USER sans lien", async () => {
+    prismaMock.user.findUnique.mockResolvedValue(dbUser({ role: "CLIENT_USER", tenantId: null }));
+    prismaMock.establishmentUser.findUnique.mockResolvedValue(null);
+
+    await expect(tryEstablishmentAccess("etab-dun-autre")).resolves.toBeNull();
+  });
+});
+
+describe("requireClientEstablishment — l'établissement vient du lien, pas de la requête", () => {
+  it("refuse un compte Cabinet", async () => {
+    prismaMock.user.findUnique.mockResolvedValue(dbUser());
+
+    await expect(requireClientEstablishment()).rejects.toThrow("REDIRECT:/dashboard/cabinet");
+  });
+
+  it("résout l'établissement à partir du seul identifiant de session", async () => {
+    // Aucun identifiant d'établissement n'est accepté en entrée : il n'y a donc rien
+    // à falsifier depuis le navigateur.
+    prismaMock.user.findUnique.mockResolvedValue(dbUser({ role: "CLIENT_USER", tenantId: null }));
+    prismaMock.establishmentUser.findFirst.mockResolvedValue({
+      establishment: { id: "etab-1", name: "SAD de démonstration", type: "SAD_MIXTE" },
+    });
+
+    await expect(requireClientEstablishment()).resolves.toMatchObject({
+      establishment: { id: "etab-1" },
+    });
+    expect(prismaMock.establishmentUser.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { userId: "user-1" } })
+    );
+  });
+
+  it("renvoie un établissement nul — et non une erreur — pour un client pas encore rattaché", async () => {
+    prismaMock.user.findUnique.mockResolvedValue(dbUser({ role: "CLIENT_USER", tenantId: null }));
+    prismaMock.establishmentUser.findFirst.mockResolvedValue(null);
+
+    await expect(requireClientEstablishment()).resolves.toMatchObject({ establishment: null });
+  });
+
+  it("refuse un compte client désactivé", async () => {
+    prismaMock.user.findUnique.mockResolvedValue(
+      dbUser({ role: "CLIENT_USER", tenantId: null, isActive: false })
+    );
+
+    await expect(requireClientEstablishment()).rejects.toThrow("REDIRECT:/deconnexion");
+  });
+});
+
+describe("requireHelpAudience — ouverte aux trois rôles, mais pas aux comptes révoqués", () => {
+  it.each(["CABINET_ADMIN", "CABINET_EVALUATOR", "CLIENT_USER"] as const)(
+    "laisse passer %s et renvoie le rôle relu en base",
+    async (role) => {
+      prismaMock.user.findUnique.mockResolvedValue(dbUser({ role }));
+
+      await expect(requireHelpAudience()).resolves.toMatchObject({ role });
+    }
+  );
+
+  it("renvoie le rôle de la BASE et non celui du jeton, pour un compte rétrogradé", async () => {
+    // Le jeton annonce CABINET_ADMIN ; la base dit CLIENT_USER. Le filtrage du contenu
+    // du centre d'aide doit suivre la base, sinon la rétrogradation ne prend effet
+    // qu'à l'expiration de la session (8 h).
+    prismaMock.user.findUnique.mockResolvedValue(dbUser({ role: "CLIENT_USER", tenantId: null }));
+
+    await expect(requireHelpAudience()).resolves.toMatchObject({ role: "CLIENT_USER" });
+  });
+
+  it("refuse un compte désactivé", async () => {
+    prismaMock.user.findUnique.mockResolvedValue(dbUser({ isActive: false }));
+
+    await expect(requireHelpAudience()).rejects.toThrow("REDIRECT:/deconnexion");
+  });
+});
+
+describe("absence de session et compte supprimé", () => {
+  it("renvoie vers la connexion quand aucune session n'est ouverte", async () => {
+    authMock.mockResolvedValue(null);
+
+    await expect(requireCabinetSession()).rejects.toThrow("REDIRECT:/login");
+  });
+
+  it("renvoie vers la connexion quand la session désigne un compte supprimé en base", async () => {
+    // Le jeton reste valide 8 h après la suppression du compte : sans cette relecture,
+    // il continuerait à ouvrir des portes.
+    prismaMock.user.findUnique.mockResolvedValue(null);
+
+    await expect(requireCabinetSession()).rejects.toThrow("REDIRECT:/login");
   });
 });

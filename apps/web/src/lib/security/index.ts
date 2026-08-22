@@ -37,6 +37,20 @@ export function getRateLimiter(): RateLimiterPort {
 // plutôt que dupliquée dans l'action de login : une seule valeur à ajuster.
 export const LOGIN_RATE_LIMIT: RateLimitPolicy = { limit: 10, windowSeconds: 15 * 60 };
 
+// Second compteur, sur l'IP SEULE. LOGIN_RATE_LIMIT ci-dessus est indexé sur le couple
+// (IP, email) : il ferme le bourrage de mots de passe sur un compte donné, mais laisse
+// passer le balayage — une même IP peut essayer 10 mots de passe sur contact@sad-a.fr,
+// puis 10 sur contact@sad-b.fr, indéfiniment, sans jamais toucher un plafond. Or c'est
+// l'attaque la plus probable ici : les adresses de nos comptes clients sont publiques
+// (annuaire FINESS), et un mot de passe faible réutilisé sur un compte parmi cent suffit.
+//
+// Plafond volontairement large : une IP peut être le NAT d'une association entière, et
+// une limite serrée deviendrait un déni de service sur toute la structure. 30 tentatives
+// par quart d'heure restent hors d'atteinte d'un usage légitime (la session dure 8 h,
+// personne ne se reconnecte trente fois dans la même heure) tout en ramenant un balayage
+// à 120 essais par heure et par IP, soit un coût prohibitif.
+export const LOGIN_IP_RATE_LIMIT: RateLimitPolicy = { limit: 30, windowSeconds: 15 * 60 };
+
 // Changement de mot de passe : plus strict que la connexion. L'action exige le mot
 // de passe courant, donc elle est un oracle de vérification de mot de passe pour une
 // session volée — 5 essais par quart d'heure suffisent à un utilisateur légitime et
