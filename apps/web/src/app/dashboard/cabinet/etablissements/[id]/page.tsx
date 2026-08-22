@@ -1,12 +1,18 @@
 import { getEstablishment } from "@/lib/actions/establishment";
 import { getEstablishmentChecklist } from "@/lib/actions/checklist";
+import { getMission } from "@/lib/actions/mission";
 import { InviteClientForm } from "@/components/etablissement/InviteClientForm";
+import { ClientUserRow } from "@/components/etablissement/ClientUserRow";
+import { DeleteEstablishmentButton } from "@/components/etablissement/DeleteEstablishmentButton";
 import { ChecklistCategory } from "@/components/checklist/ChecklistCategory";
+import { MissionSummaryCard } from "@/components/mission/MissionSummaryCard";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ProgressBar } from "@/components/ui/progress-bar";
+import { PageHeader } from "@/components/layout/PageHeader";
+import { Building2, Calendar, Pencil, Users } from "lucide-react";
 import Link from "next/link";
-import { ArrowLeft, Building2, Calendar, Users } from "lucide-react";
 import type { EstablishmentType, DocumentCategory } from "@eoda/database";
 
 const CATEGORY_LABELS: Record<DocumentCategory, string> = {
@@ -21,13 +27,6 @@ const TYPE_LABELS: Record<EstablishmentType, string> = {
   SAD_MIXTE: "SAD Mixte",
 };
 
-const ROLE_LABELS: Record<string, string> = {
-  DIRECTEUR: "Directeur / Directrice",
-  COORDINATEUR: "Coordinateur / Coordinatrice",
-  ASSISTANT_QUALITE: "Assistant(e) qualité",
-  AUTRE: "Autre",
-};
-
 type Props = { params: Promise<{ id: string }> };
 
 export async function generateMetadata({ params }: Props) {
@@ -40,6 +39,7 @@ export default async function EstablishmentDetailPage({ params }: Props) {
   const { id } = await params;
   const establishment = await getEstablishment(id);
   const checklist = await getEstablishmentChecklist(id);
+  const mission = await getMission(id);
 
   const categories = Object.keys(CATEGORY_LABELS) as DocumentCategory[];
   const allItems = Object.values(checklist).flat();
@@ -53,25 +53,27 @@ export default async function EstablishmentDetailPage({ params }: Props) {
 
   return (
     <div className="space-y-6 max-w-4xl">
-      {/* En-tête */}
-      <div className="flex items-center gap-3">
-        <Button variant="ghost" size="sm" asChild>
-          <Link href="/dashboard/cabinet">
-            <ArrowLeft className="w-4 h-4" />
-            Retour
-          </Link>
-        </Button>
-        <div className="border-l-4 border-terre pl-4 py-0.5">
+      <PageHeader
+        title={establishment.name}
+        icon={Building2}
+        backHref="/dashboard/cabinet"
+        subtitle={establishment.finessNumber ? `FINESS ${establishment.finessNumber}` : undefined}
+        action={
           <div className="flex items-center gap-2">
-            <Building2 className="w-5 h-5 text-terre" />
-            <h1 className="text-xl font-bold text-brun-ancre">{establishment.name}</h1>
             <Badge variant="secondary">{TYPE_LABELS[establishment.type]}</Badge>
+            <Button variant="outline" size="sm" asChild>
+              <Link href={`/dashboard/cabinet/etablissements/${establishment.id}/modifier`}>
+                <Pencil className="w-3.5 h-3.5" aria-hidden="true" />
+                Modifier
+              </Link>
+            </Button>
+            <DeleteEstablishmentButton
+              establishmentId={establishment.id}
+              establishmentName={establishment.name}
+            />
           </div>
-          {establishment.finessNumber && (
-            <p className="text-xs text-gris-mid mt-0.5">FINESS {establishment.finessNumber}</p>
-          )}
-        </div>
-      </div>
+        }
+      />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Infos établissement */}
@@ -117,21 +119,51 @@ export default async function EstablishmentDetailPage({ params }: Props) {
           </CardHeader>
           {establishment.establishmentUsers.length > 0 && (
             <CardContent>
-              <ul className="space-y-2">
+              <ul className="divide-y divide-gris-light">
                 {establishment.establishmentUsers.map(({ user, roleInEstablishment }) => (
-                  <li key={user.id} className="flex items-center justify-between text-sm">
-                    <div>
-                      <p className="font-medium text-brun-ancre">{user.name}</p>
-                      <p className="text-gris-mid text-xs">{user.email}</p>
-                    </div>
-                    <Badge variant="outline">{ROLE_LABELS[roleInEstablishment] ?? roleInEstablishment}</Badge>
-                  </li>
+                  <ClientUserRow
+                    key={user.id}
+                    establishmentId={establishment.id}
+                    user={{
+                      id: user.id,
+                      name: user.name,
+                      email: user.email,
+                      isActive: user.isActive,
+                    }}
+                    roleInEstablishment={roleInEstablishment}
+                  />
                 ))}
               </ul>
             </CardContent>
           )}
         </Card>
       </div>
+
+      {/* Suivi de mission */}
+      {mission ? (
+        <MissionSummaryCard
+          establishmentId={establishment.id}
+          mission={{ formule: mission.formule, gratuit: mission.gratuit, globalPct: mission.progress.globalPct }}
+        />
+      ) : (
+        <MissionSummaryCard establishmentId={establishment.id} mission={null} />
+      )}
+
+      {mission && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Auto-évaluation HAS</CardTitle>
+            <CardDescription>Cotation des critères par chapitre (1/2/3/4/★/NC/RI)</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button size="sm" asChild>
+              <Link href={`/dashboard/cabinet/etablissements/${establishment.id}/evaluation`}>
+                Ouvrir l&apos;auto-évaluation
+              </Link>
+            </Button>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Checklist documentaire */}
       <Card>
@@ -142,17 +174,30 @@ export default async function EstablishmentDetailPage({ params }: Props) {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="h-2.5 bg-gris-light rounded-full overflow-hidden">
-            <div
-              className="h-full bg-ambre rounded-full transition-all"
-              style={{ width: `${progressPct}%` }}
-            />
+          <div className="space-y-1">
+            <div className="flex items-center justify-between text-xs text-gris-mid">
+              <span>Taux de dépôt documentaire</span>
+              <span className="tabular-nums">{progressPct}%</span>
+            </div>
+            <ProgressBar value={progressPct} colorClassName="bg-ambre" />
+            <p className="text-xs text-gris-mid">
+              % de documents fournis par le client — pas un taux de conformité (voir le
+              détail par document ci-dessous).
+            </p>
           </div>
           <div className="space-y-3">
             {categories.map((cat) => {
               const items = checklist[cat] ?? [];
               if (items.length === 0) return null;
-              return <ChecklistCategory key={cat} title={CATEGORY_LABELS[cat]} items={items} />;
+              return (
+                <ChecklistCategory
+                  key={cat}
+                  title={CATEGORY_LABELS[cat]}
+                  items={items}
+                  establishmentId={establishment.id}
+                  canManageVersions
+                />
+              );
             })}
           </div>
         </CardContent>

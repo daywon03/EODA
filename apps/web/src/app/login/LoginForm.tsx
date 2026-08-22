@@ -50,13 +50,16 @@ export function LoginForm() {
       </div>
 
       {error && (
-        <div className="flex items-center gap-2 text-rouge-imp text-sm bg-rouge-imp/10 rounded-md px-3 py-2">
-          <AlertCircle className="w-4 h-4 flex-shrink-0" />
+        <div
+          role="alert"
+          className="flex items-center gap-2 text-rouge-imp text-sm bg-rouge-imp/10 border border-rouge-imp/20 rounded-md px-3 py-2.5"
+        >
+          <AlertCircle className="w-4 h-4 flex-shrink-0" aria-hidden="true" />
           <span>{error}</span>
         </div>
       )}
 
-      <Button type="submit" className="w-full mt-2" disabled={isPending}>
+      <Button type="submit" size="lg" className="w-full mt-2" disabled={isPending}>
         {isPending ? (
           <>
             <Loader2 className="w-4 h-4 animate-spin" />

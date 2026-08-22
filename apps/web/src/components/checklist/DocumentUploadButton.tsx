@@ -45,13 +45,18 @@ export function DocumentUploadButton({ establishmentId, documentTypeId }: Props)
         size="sm"
         disabled={isPending}
         onClick={() => inputRef.current?.click()}
+        aria-label={isPending ? "Dépôt en cours" : "Déposer un document"}
       >
-        {isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
+        {isPending ? (
+          <Loader2 className="w-3.5 h-3.5 animate-spin" aria-hidden="true" />
+        ) : (
+          <Upload className="w-3.5 h-3.5" aria-hidden="true" />
+        )}
         Déposer
       </Button>
       {error && (
-        <p className="flex items-center gap-1 text-xs text-rouge-imp max-w-[220px] text-right">
-          <AlertCircle className="w-3 h-3 flex-shrink-0" />
+        <p role="alert" className="flex items-center gap-1 text-xs text-rouge-imp max-w-[220px] text-right">
+          <AlertCircle className="w-3 h-3 flex-shrink-0" aria-hidden="true" />
           {error}
         </p>
       )}

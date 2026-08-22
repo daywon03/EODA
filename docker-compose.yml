@@ -6,7 +6,7 @@ services:
     container_name: eoda_postgres_local
     restart: unless-stopped
     ports:
-      - "5432:5432"
+      - "5544:5432"
     environment:
       POSTGRES_USER: eoda
       POSTGRES_PASSWORD: eoda_dev

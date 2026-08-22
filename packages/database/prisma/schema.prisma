@@ -28,11 +28,85 @@ enum EstablishmentType {
   SAD_MIXTE
 }
 
+enum ProspectStatus {
+  NOUVEAU
+  RDV
+  DEVIS_ENVOYE
+  NEGOCIATION
+  SIGNE
+  PERDU
+}
+
+enum ProspectType {
+  ASSOCIATION
+  PRIVE
+  PUBLIC
+}
+
+enum AcquisitionChannel {
+  BOUCHE_A_OREILLE
+  REFERENCEMENT_UNA
+  EMAILING
+  REFERENCEMENT_GOOGLE
+  LINKEDIN
+  AUTRE
+}
+
+enum DevisStatus {
+  BROUILLON
+  ENVOYE
+  SIGNE
+  REFUSE
+  // Devis annulé APRÈS émission (envoyé ou signé). La ligne et son numéro sont
+  // conservés : la série DEVIS-AAAA-NNN est une numérotation commerciale, elle ne
+  // doit jamais comporter de trou. Un brouillon, lui, se supprime réellement —
+  // rien de commercial ne s'est produit et son numéro n'a jamais circulé.
+  //
+  // Pourquoi une valeur d'enum plutôt qu'une colonne `annulled_at` : le statut est
+  // le seul champ sur lequel toute l'application branche déjà (badge, transitions,
+  // filtres KPI). Un horodatage parallèle créerait une seconde source de vérité que
+  // chaque `status === "SIGNE"` existant ignorerait en silence — un devis annulé
+  // continuerait de gonfler le CA signé. Avec une valeur d'enum, les `Record<DevisStatus, …>`
+  // du dépôt cessent de compiler tant que le nouveau cas n'est pas traité :
+  // le compilateur devient le contrôle mécanique (règle zéro).
+  ANNULE
+}
+
+enum MissionChecklistScope {
+  DIAGNOSTIC
+  FONDATIONS
+  DEPLOIEMENT
+  CONSOLIDATION
+  PREPARATION_FINALE
+}
+
 enum CommercialTier {
   BETA
   ESSENTIEL
   PERFORMANCE
   EXCELLENCE
+}
+
+// Unité de tarification d'une prestation à la carte — offre commerciale v10 §04.
+// Tous les prix du catalogue sont des prix « à partir de » (règle de gouvernance
+// produit, context/07-outil-pilotage-missions.md §12.3) : l'unité ne change pas ce
+// statut, elle indique seulement à quoi le montant se rapporte.
+enum PricingUnit {
+  FORFAIT // montant global pour la prestation (ex. audit flash 1 jour)
+  HEURE // ex. mise à jour documentaire 95 à 120 € / h
+  JOUR
+  DOCUMENT // ex. procédure clé en main 250 € / procédure
+  SUPPORT // ex. outil de sensibilisation 300 € / support
+  MOIS // abonnement récurrent, ex. portail + veille 400 € / mois
+}
+
+// Cycle de vie d'une demande de devis d'option émise depuis le portail client.
+// Règle §12.3 : le client DEMANDE, Sandrine déclenche. Aucun statut ici ne débloque
+// quoi que ce soit — le déblocage passe par un devis puis un avenant (§12.6).
+enum OptionRequestStatus {
+  DEMANDEE
+  TRAITEE
+  REFUSEE
 }
 
 enum EstablishmentUserRole {
@@ -98,6 +172,15 @@ model Tenant {
   users         User[]
   establishments Establishment[]
 
+  catalogueFormules CatalogueFormule[]
+  catalogueOptions  CatalogueOption[]
+  billingSettings   BillingSettings?
+  devisCounters     DevisCounter[]
+  prospects         Prospect[]
+  devis             Devis[]
+  missions          Mission[]
+  optionRequests    ClientOptionRequest[]
+
   @@map("tenants")
 }
 
@@ -110,10 +193,27 @@ model User {
   role         UserRole  @default(CLIENT_USER)
   createdAt    DateTime  @default(now()) @map("created_at")
 
+  // Rotation du mot de passe. Un compte client est créé avec un mot de passe
+  // temporaire affiché une seule fois : tant que ce drapeau est vrai, la couche
+  // d'autorisation (lib/auth/guards.ts) n'ouvre aucune autre route que la page de
+  // changement. Voir specs/02-architecture-technique.md §4.10.
+  mustChangePassword Boolean  @default(true) @map("must_change_password")
+  // Sert aussi d'horodatage de révocation : toute session ouverte AVANT cette date
+  // est refusée par les gardes (invalidation des sessions concurrentes).
+  passwordChangedAt  DateTime? @map("password_changed_at")
+
+  // Révocation d'un compte sans le supprimer (départ d'un salarié de la structure
+  // cliente, suspension d'accès). Un compte inactif est refusé À LA CONNEXION et à
+  // chaque contrôle d'autorisation (lib/auth/guards.ts) — jamais seulement masqué
+  // dans une liste. Réversible : la réactivation repose le drapeau.
+  isActive           Boolean   @default(true) @map("is_active")
+  deactivatedAt      DateTime? @map("deactivated_at")
+
   tenant             Tenant?              @relation(fields: [tenantId], references: [id])
   establishmentUsers EstablishmentUser[]
   uploadedVersions   DocumentVersion[]    @relation("UploadedBy")
   evaluationSessions EvaluationSession[]
+  optionRequests     ClientOptionRequest[] @relation("RequestedBy")
 
   @@map("users")
 }
@@ -125,6 +225,9 @@ model Establishment {
   finessNumber          String?           @unique @map("finess_number")
   type                  EstablishmentType
   address               String?
+  // Historique/affichage uniquement — non éditable via l'UI. La formule qui fait
+  // autorité pour le périmètre d'accompagnement réellement contracté est
+  // Mission.formule (cf. section PIPELINE COMMERCIAL / SUIVI DE MISSION plus bas).
   commercialTier        CommercialTier    @default(BETA) @map("commercial_tier")
   hasEvaluationTargetDate DateTime?       @map("has_evaluation_target_date")
   createdAt             DateTime          @default(now()) @map("created_at")
@@ -134,6 +237,9 @@ model Establishment {
   establishmentUsers EstablishmentUser[]
   documents          Document[]
   evaluationSessions EvaluationSession[]
+  prospect           Prospect?
+  mission            Mission?
+  optionRequests     ClientOptionRequest[]
 
   @@map("establishments")
 }
@@ -180,11 +286,13 @@ model Chapter {
 model Theme {
   id        String @id @default(cuid())
   chapterId String @map("chapter_id")
+  code      String // ex: "3.1" — clé stable pour le seed idempotent (colonne "ID Thématique")
   name      String
 
   chapter    Chapter     @relation(fields: [chapterId], references: [id])
   objectives Objective[]
 
+  @@unique([chapterId, code])
   @@map("themes")
 }
 
@@ -197,6 +305,7 @@ model Objective {
   theme    Theme      @relation(fields: [themeId], references: [id])
   criteria Criterion[]
 
+  @@unique([themeId, code])
   @@map("objectives")
 }
 
@@ -222,6 +331,9 @@ model EvaluationElement {
   reformulatedText    String? @map("reformulated_text")
   // true uniquement si chapter.number == 1 — vérifier avant d'autoriser RI dans l'UI
   allowsRi            Boolean @default(false) @map("allows_ri")
+  // UUID stable de la colonne "ID Question" des grilles Synaé source — permet un seed
+  // idempotent (upsert) plutôt que de dupliquer les E.E. à chaque re-seed.
+  sourceQuestionId    String? @unique @map("source_question_id")
 
   criterion   Criterion      @relation(fields: [criterionId], references: [id])
   elementRatings ElementRating[]
@@ -265,6 +377,9 @@ model Document {
   currentVersionId       String?        @unique @map("current_version_id")
   status                 DocumentStatus @default(MISSING)
   statusOverriddenByUser Boolean        @default(false) @map("status_overridden_by_user")
+  // Réponse Oui/Non + commentaire libre quand le document n'est pas encore déposé —
+  // utilisable comme élément de preuve pour la cotation (Module 3). cf. plan Phase 0.
+  missingJustification   String?        @map("missing_justification")
   createdAt              DateTime       @default(now()) @map("created_at")
   updatedAt              DateTime       @updatedAt @map("updated_at")
 
@@ -334,4 +449,467 @@ model ElementRating {
 
   @@unique([evaluationSessionId, evaluationElementId])
   @@map("element_ratings")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PIPELINE COMMERCIAL — Prospects, Devis, Catalogue (CABINET_ADMIN uniquement)
+// Hors périmètre : suivi de mission (checklist diagnostic + 4 phases) — cf.
+// context/07-outil-pilotage-missions.md §7, non traité dans cette itération.
+// Montants stockés en euros entiers (Int) — pas de tarification fractionnaire
+// dans le catalogue actuel, cf. context/07-outil-pilotage-missions.md §4.
+// ─────────────────────────────────────────────────────────────────────────────
+
+model CatalogueFormule {
+  id           String         @id @default(cuid())
+  tenantId     String         @map("tenant_id")
+  formule      CommercialTier
+  label        String
+  priceEuros   Int            @map("price_euros")
+  modulesLabel String?        @map("modules_label")
+  description  String?
+  active       Boolean        @default(true)
+  createdAt    DateTime       @default(now()) @map("created_at")
+  updatedAt    DateTime       @updatedAt @map("updated_at")
+
+  tenant Tenant  @relation(fields: [tenantId], references: [id])
+  devis  Devis[]
+
+  @@unique([tenantId, formule])
+  @@map("catalogue_formules")
+}
+
+model CatalogueOption {
+  id       String @id @default(cuid())
+  tenantId String @map("tenant_id")
+  code     String
+  label    String
+  // Borne basse du prix « à partir de » — toujours exprimée dans l'unité `pricingUnit`.
+  priceEuros Int         @map("price_euros")
+  pricingUnit PricingUnit @default(FORFAIT) @map("pricing_unit")
+  // Borne haute d'une fourchette (ex. « 95 à 120 € / h »). null = pas de fourchette.
+  priceMaxEuros Int? @map("price_max_euros")
+  // Quantité minimale facturable, dans l'unité ci-dessus : 2 pour « mini. 2 h »,
+  // 12 pour un abonnement mensuel à engagement d'un an. null = pas de minimum.
+  minQuantity Int?     @map("min_quantity")
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  tenant         Tenant                @relation(fields: [tenantId], references: [id])
+  devisOptions   DevisOption[]
+  missionOptions MissionOption[]
+  clientRequests ClientOptionRequest[]
+
+  @@unique([tenantId, code])
+  @@map("catalogue_options")
+}
+
+model BillingSettings {
+  id                    String   @id @default(cuid())
+  tenantId              String   @unique @map("tenant_id")
+  // 40 % à la commande — CGP de l'offre commerciale v10 §06 (auparavant 30 %).
+  defaultDepositPercent Int      @default(40) @map("default_deposit_percent")
+  defaultValidityDays   Int      @default(30) @map("default_validity_days")
+  updatedAt             DateTime @updatedAt @map("updated_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@map("billing_settings")
+}
+
+// Compteur annuel de numérotation devis (DEVIS-AAAA-NNN) — une ligne par
+// (tenant, année), incrémentée uniquement à la création d'un devis, jamais
+// à sa modification. cf. context/07-outil-pilotage-missions.md §6.2
+model DevisCounter {
+  id       String @id @default(cuid())
+  tenantId String @map("tenant_id")
+  year     Int
+  value    Int    @default(0)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@unique([tenantId, year])
+  @@map("devis_counters")
+}
+
+model Prospect {
+  id                   String             @id @default(cuid())
+  tenantId             String             @map("tenant_id")
+  structureName        String             @map("structure_name")
+  structureType        ProspectType       @map("structure_type")
+  contactName          String?            @map("contact_name")
+  contactPhone         String?            @map("contact_phone")
+  contactEmail         String?            @map("contact_email")
+  channel              AcquisitionChannel
+  status               ProspectStatus     @default(NOUVEAU)
+  envisagedFormule     CommercialTier?    @map("envisaged_formule")
+  estimatedAmountEuros Int?               @map("estimated_amount_euros")
+  firstContactDate     DateTime           @map("first_contact_date")
+  // Évaluation des besoins (Phase 0 — étape "Évaluation des besoins" de la prospection) —
+  // notes qualitatives ; `estimatedAmountEuros` ci-dessus sert de niveau financier.
+  needsAssessmentNotes String?            @map("needs_assessment_notes")
+  notes                String?
+  // Renseigné par la CONVERSION à la signature (lib/actions/conversion.ts) : passer
+  // un devis à SIGNE crée l'Establishment s'il n'existe pas, pose ce lien, et crée
+  // la Mission qui porte le périmètre. Plus de saisie manuelle — c'était la charnière
+  // manuelle du parcours §12.4 (« le parcours à verrouiller en priorité »).
+  // @unique : c'est CETTE contrainte qui interdit qu'un même établissement soit
+  // rattaché à deux prospects, et donc qu'une double conversion en fabrique un second.
+  establishmentId      String?            @unique @map("establishment_id")
+  createdAt            DateTime           @default(now()) @map("created_at")
+  updatedAt            DateTime           @updatedAt @map("updated_at")
+
+  tenant        Tenant         @relation(fields: [tenantId], references: [id])
+  // SetNull et non Cascade : supprimer une fiche client ne doit pas effacer
+  // l'historique commercial (prospect, devis signés, chiffre d'affaires). Le
+  // prospect survit, simplement détaché.
+  establishment Establishment? @relation(fields: [establishmentId], references: [id], onDelete: SetNull)
+  devis         Devis[]
+
+  @@map("prospects")
+}
+
+model Devis {
+  id         String      @id @default(cuid())
+  tenantId   String      @map("tenant_id")
+  prospectId String      @map("prospect_id")
+  number     String      @unique
+  status     DevisStatus @default(BROUILLON)
+
+  catalogueFormuleId String @map("catalogue_formule_id")
+  // Snapshots — figent le libellé/prix de la formule au moment de la création
+  // pour qu'une évolution ultérieure du catalogue ne change jamais un devis existant.
+  formuleLabelSnapshot      String @map("formule_label_snapshot")
+  formulePriceSnapshotEuros Int    @map("formule_price_snapshot_euros")
+
+  depositPercent   Int      @map("deposit_percent")
+  installmentCount Int      @map("installment_count")
+  validityDays     Int      @map("validity_days")
+  validUntil       DateTime @map("valid_until")
+
+  // Montants calculés côté serveur à la création (cf. devis-calculation-service) —
+  // jamais recalculés à la lecture ni côté client.
+  totalAmountEuros       Int @map("total_amount_euros")
+  depositAmountEuros     Int @map("deposit_amount_euros")
+  balanceAmountEuros     Int @map("balance_amount_euros")
+  installmentAmountEuros Int @map("installment_amount_euros")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  tenant           Tenant           @relation(fields: [tenantId], references: [id])
+  prospect         Prospect         @relation(fields: [prospectId], references: [id])
+  catalogueFormule CatalogueFormule @relation(fields: [catalogueFormuleId], references: [id])
+  options          DevisOption[]
+  missions         Mission[]
+
+  @@map("devis")
+}
+
+// Ligne d'option cochée sur un devis — snapshot prix/libellé, cf. Devis ci-dessus.
+model DevisOption {
+  id                 String @id @default(cuid())
+  devisId            String @map("devis_id")
+  catalogueOptionId  String @map("catalogue_option_id")
+  labelSnapshot      String @map("label_snapshot")
+  priceSnapshotEuros Int    @map("price_snapshot_euros")
+  // L'unité, la borne haute et le minimum font partie du prix : sans eux, une ligne
+  // « 95 € » d'un devis imprimé en 2027 ne veut plus rien dire. Snapshotés comme le prix.
+  pricingUnitSnapshot   PricingUnit @default(FORFAIT) @map("pricing_unit_snapshot")
+  priceMaxSnapshotEuros Int?        @map("price_max_snapshot_euros")
+  minQuantitySnapshot   Int?        @map("min_quantity_snapshot")
+
+  devis           Devis           @relation(fields: [devisId], references: [id])
+  catalogueOption CatalogueOption @relation(fields: [catalogueOptionId], references: [id])
+
+  @@unique([devisId, catalogueOptionId])
+  @@map("devis_options")
+}
+
+// Demande de devis pour une option NON souscrite, émise depuis le portail client
+// (« Mon accompagnement »). C'est la trace interne du parcours §12.3 : le client
+// demande, Sandrine déclenche. Rien ici n'ouvre un droit ni ne débloque une
+// fonctionnalité — le déblocage passe par un devis puis un avenant (§12.6).
+//
+// Pourquoi une table plutôt qu'un simple événement d'audit : une demande a un
+// cycle de vie (à traiter → traitée / refusée) et doit être listable et
+// actionnable côté Cabinet. Le journal d'audit, lui, est en écriture seule et ne
+// se corrige pas — les deux sont écrits, ils ne se remplacent pas.
+model ClientOptionRequest {
+  id                String              @id @default(cuid())
+  tenantId          String              @map("tenant_id")
+  establishmentId   String              @map("establishment_id")
+  catalogueOptionId String              @map("catalogue_option_id")
+  // Auteur de la demande — sert au Cabinet à savoir qui rappeler. Jamais affiché
+  // à un autre client : la ligne est lue filtrée par établissement.
+  requestedByUserId String              @map("requested_by_user_id")
+  status            OptionRequestStatus @default(DEMANDEE)
+  // Message libre du client (contexte, volumétrie souhaitée). Borné côté parseur.
+  message           String?
+  createdAt         DateTime            @default(now()) @map("created_at")
+  updatedAt         DateTime            @updatedAt @map("updated_at")
+  handledAt         DateTime?           @map("handled_at")
+
+  tenant          Tenant          @relation(fields: [tenantId], references: [id])
+  // Cascade : une demande d'option est attachée à l'établissement qui la formule.
+  establishment   Establishment   @relation(fields: [establishmentId], references: [id], onDelete: Cascade)
+  catalogueOption CatalogueOption @relation(fields: [catalogueOptionId], references: [id])
+  requestedBy     User            @relation("RequestedBy", fields: [requestedByUserId], references: [id])
+
+  // File d'attente du Cabinet : les demandes à traiter d'un tenant, du plus ancien
+  // au plus récent.
+  @@index([tenantId, status, createdAt])
+  // Détection d'un doublon en attente pour un couple (établissement, option).
+  @@index([establishmentId, catalogueOptionId, status])
+  @@map("client_option_requests")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SUIVI DE MISSION — checklist diagnostic (12 items) + 4 phases d'accompagnement
+// (3+4+4+4 items). cf. context/07-outil-pilotage-missions.md §7.
+// Accessible à CABINET_ADMIN et CABINET_EVALUATOR (requireCabinetSession) —
+// contrairement au reste du pipeline commercial (prospects/devis/catalogue), qui
+// reste réservé à CABINET_ADMIN : ceci est du suivi opérationnel d'accompagnement,
+// pas de la donnée financière.
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Référentiel fixe de la méthodologie EODA (27 items) — global, non cloisonné par
+// tenant, seedé une seule fois (idem DocumentType), non modifiable via l'UI dans
+// cette itération. cf. §7.1-§7.2.
+model MissionChecklistItem {
+  id    String                @id @default(cuid())
+  code  String                @unique
+  scope MissionChecklistScope
+  label String
+  order Int
+  // Offre minimale qui couvre cet item — c'est LE référentiel du filtrage par
+  // offre (context/07-outil-pilotage-missions.md §12.4). Aucun code d'item n'est
+  // codé en dur dans un service : la règle se change en base, pas en TypeScript.
+  // ESSENTIEL = couvert par toutes les formules. BETA (bêta-test gratuit) reçoit
+  // le périmètre EXCELLENCE, cf. offer-scope-service.getEffectiveTier().
+  minFormule CommercialTier @default(ESSENTIEL) @map("min_formule")
+
+  statuses MissionChecklistItemStatus[]
+
+  @@map("mission_checklist_items")
+}
+
+// Une mission par établissement — enregistrement du périmètre commercial
+// effectivement contracté (formule + gratuit) et de la progression de
+// l'accompagnement. La formule ici fait autorité pour le calcul de scope
+// Excellence (§7.3) — Establishment.commercialTier reste inchangé.
+model Mission {
+  id              String         @id @default(cuid())
+  tenantId        String         @map("tenant_id")
+  establishmentId String         @unique @map("establishment_id")
+  formule         CommercialTier
+  // Bêta-test gratuit — cf. §7.5 : accorde le périmètre Excellence complet
+  // indépendamment de `formule` (condition OR, jamais écrasée par formule).
+  gratuit         Boolean        @default(false)
+
+  fondationsStartDate        DateTime? @map("fondations_start_date")
+  fondationsEndDate          DateTime? @map("fondations_end_date")
+  deploiementStartDate       DateTime? @map("deploiement_start_date")
+  deploiementEndDate         DateTime? @map("deploiement_end_date")
+  consolidationStartDate     DateTime? @map("consolidation_start_date")
+  consolidationEndDate       DateTime? @map("consolidation_end_date")
+  preparationFinaleStartDate DateTime? @map("preparation_finale_start_date")
+  preparationFinaleEndDate   DateTime? @map("preparation_finale_end_date")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Devis qui a produit cette mission à la signature. Trace, jamais source de
+  // vérité : le périmètre reste porté par `formule` + `gratuit` ci-dessus
+  // (CLAUDE.md §7 — la décision contractuelle vit sur Mission). Nullable : les
+  // missions créées à la main avant la conversion automatique n'en ont pas.
+  sourceDevisId String? @map("source_devis_id")
+
+  tenant        Tenant                       @relation(fields: [tenantId], references: [id])
+  // Cascade : une mission n'existe que par son établissement.
+  establishment Establishment                @relation(fields: [establishmentId], references: [id], onDelete: Cascade)
+  sourceDevis   Devis?                       @relation(fields: [sourceDevisId], references: [id])
+  itemStatuses  MissionChecklistItemStatus[]
+  options       MissionOption[]
+
+  @@map("missions")
+}
+
+// Option souscrite, portée par la MISSION. Le devis reste le document commercial
+// (il fait contrat et ne se réécrit jamais) ; la mission, elle, est ce qui gouverne
+// le périmètre réellement ouvert au client — CLAUDE.md §7 : la décision
+// contractuelle vit sur Mission, jamais sur Establishment.commercialTier. Sans
+// cette table, le périmètre d'options n'était lisible qu'en remontant
+// Establishment → Prospect → Devis, un chemin qui casse dès qu'un établissement
+// n'a pas de prospect (limite connue du §12.6).
+//
+// Les colonnes sont des SNAPSHOTS, recopiés depuis le devis à la signature : une
+// évolution du catalogue ne doit pas réécrire un périmètre déjà contracté.
+model MissionOption {
+  id                String @id @default(cuid())
+  missionId         String @map("mission_id")
+  catalogueOptionId String @map("catalogue_option_id")
+
+  labelSnapshot         String      @map("label_snapshot")
+  priceSnapshotEuros    Int         @map("price_snapshot_euros")
+  pricingUnitSnapshot   PricingUnit @default(FORFAIT) @map("pricing_unit_snapshot")
+  priceMaxSnapshotEuros Int?        @map("price_max_snapshot_euros")
+  minQuantitySnapshot   Int?        @map("min_quantity_snapshot")
+
+  // Nature du montant ci-dessus, et non un détail d'affichage.
+  //
+  // true  — l'option vient d'un devis SIGNÉ : le montant est FERME, il fait contrat.
+  // false — l'option a été rattachée à la main par le cabinet au périmètre de la
+  //         mission, sans devis. Le montant est alors recopié du catalogue, où il
+  //         est un « à partir de » : l'afficher comme ferme reviendrait à inventer
+  //         un contrat côté portail client (CLAUDE.md §7 — les deux natures de prix
+  //         ne doivent jamais être rendues pareil).
+  //
+  // Défaut `true` volontaire : toutes les lignes existantes proviennent de
+  // convertDevisToClient, donc d'un devis signé. La migration n'a rien à recalculer.
+  priceIsFirm Boolean @default(true) @map("price_is_firm")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Cascade : une option souscrite n'existe que par sa mission. Sans cette règle
+  // portée par la BASE, chaque nouvelle relation oblige à penser à la supprimer à la
+  // main dans deleteEstablishment — et celle-ci avait justement été oubliée, faisant
+  // échouer toute suppression d'établissement converti (P2003).
+  mission         Mission         @relation(fields: [missionId], references: [id], onDelete: Cascade)
+  catalogueOption CatalogueOption @relation(fields: [catalogueOptionId], references: [id])
+
+  // Contrainte qui rend la conversion IDEMPOTENTE côté options : rejouer la
+  // signature ne peut pas doubler une ligne. Le code s'appuie dessus
+  // (`createMany({ skipDuplicates: true })`), il ne la réimplémente pas.
+  @@unique([missionId, catalogueOptionId])
+  @@map("mission_options")
+}
+
+// Case cochée pour un item donné d'une mission donnée. Absence de ligne = non
+// coché (même idiome que Document/DocumentType : pas de ligne créée tant que
+// l'item n'a jamais été touché).
+model MissionChecklistItemStatus {
+  id          String    @id @default(cuid())
+  missionId   String    @map("mission_id")
+  itemId      String    @map("item_id")
+  completed   Boolean   @default(false)
+  completedAt DateTime? @map("completed_at")
+
+  // Cascade : un statut de checklist n'a pas de vie hors de sa mission.
+  mission Mission              @relation(fields: [missionId], references: [id], onDelete: Cascade)
+  item    MissionChecklistItem @relation(fields: [itemId], references: [id])
+
+  @@unique([missionId, itemId])
+  @@map("mission_checklist_item_statuses")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// JOURNAL D'AUDIT — traçabilité des accès aux données sensibles
+// cf. specs/03-roadmap-developpement.md Jalon 5 et specs/02-architecture-technique.md §Sécurité
+//
+// Données de santé/social : il faut pouvoir répondre à « qui a consulté ou déposé
+// quel document, et quand ». Table volontairement en append-only, SANS clé
+// étrangère vers User/Establishment : un journal d'audit ne doit pas être effacé
+// en cascade avec l'objet qu'il documente (la suppression d'un établissement est
+// précisément un événement dont on veut garder la trace). Les identifiants sont
+// donc conservés comme valeurs, pas comme relations.
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum AuditAction {
+  DOCUMENT_UPLOADED
+  DOCUMENT_DOWNLOADED
+  DOCUMENT_PREVIEWED
+  DOCUMENT_STATUS_ANSWERED
+  CLIENT_USER_INVITED
+  ESTABLISHMENT_DELETED
+  LOGIN_FAILED
+  LOGIN_RATE_LIMITED
+  PASSWORD_CHANGED
+  PASSWORD_CHANGE_FAILED
+  PASSWORD_CHANGE_RATE_LIMITED
+  // Opérations destructrices du module commercial (CABINET_ADMIN uniquement).
+  // `targetId` = identifiant du devis / de la ligne de catalogue, `detail` = son
+  // numéro ou son code : clés techniques, jamais une donnée personnelle.
+  DEVIS_DELETED
+  DEVIS_CANCELLED
+  CATALOGUE_ITEM_RETIRED
+  CATALOGUE_ITEM_RESTORED
+  // Révocation d'accès et cycle de vie d'un compte (audit CRUD du 20/08/2026).
+  // `targetId` = identifiant technique du compte visé, jamais son email ni son nom.
+  CLIENT_USER_UNLINKED
+  CLIENT_USER_UPDATED
+  USER_DEACTIVATED
+  USER_REACTIVATED
+  USER_DELETED_WITH_ESTABLISHMENT
+  PASSWORD_RESET_BY_ADMIN
+  LOGIN_REFUSED_INACTIVE
+  // Demande de devis d'option depuis le portail client (§12.3 / §12.6).
+  // `targetId` = identifiant de la ligne de catalogue visée, `detail` = son code.
+  OPTION_QUOTE_REQUESTED
+  OPTION_REQUEST_HANDLED
+  // Signature d'un devis → création de la fiche client et du profil (§12.4).
+  // `targetId` = identifiant du devis signé, `detail` = son numéro et la formule
+  // ouverte : deux clés techniques, jamais une donnée nominative.
+  PROSPECT_CONVERTED
+  // Périmètre d'une mission modifié à la main par le cabinet (formule, options),
+  // hors signature de devis. `targetId` = identifiant de la mission, `detail` =
+  // la formule et le nombre d'options : des clés techniques, jamais un nom.
+  MISSION_SCOPE_UPDATED
+  // Cycle de vie d'une version de document
+  DOCUMENT_VERSION_DELETED
+  DOCUMENT_JUSTIFICATION_UPDATED
+}
+
+model AuditLogEntry {
+  id              String      @id @default(cuid())
+  occurredAt      DateTime    @default(now()) @map("occurred_at")
+  action          AuditAction
+  // null pour un événement non authentifié (échec de connexion sur un email inconnu).
+  actorUserId     String?     @map("actor_user_id")
+  actorRole       String?     @map("actor_role")
+  establishmentId String?     @map("establishment_id")
+  // Identifiant de l'objet visé (DocumentVersion, User invité…) — jamais une donnée
+  // personnelle, uniquement une clé technique.
+  targetId        String?     @map("target_id")
+  // Contexte court et non nominatif (nom de type de document, motif de refus).
+  detail          String?
+
+  @@index([establishmentId, occurredAt])
+  @@index([actorUserId, occurredAt])
+  @@index([action, occurredAt])
+  // Consultation par défaut : tout le périmètre, du plus récent au plus ancien,
+  // paginée. Les index composites ci-dessus commencent par une colonne de filtre et
+  // ne servent pas ce tri.
+  @@index([occurredAt])
+  @@map("audit_log_entries")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// COMPTEUR DE LIMITATION DE DÉBIT PARTAGÉ
+//
+// Ajouté le 21/08/2026 avec la bascule du déploiement sur Vercel. En serverless,
+// un compteur en mémoire de processus ne protège de rien : chaque invocation peut
+// tomber sur une autre instance et un démarrage à froid le remet à zéro. Le
+// compteur vit donc dans la seule ressource partagée par toutes les instances.
+//
+// Une ligne par clé (`login:<ip>:<email>`), fenêtre fixe ancrée sur la première
+// tentative. L'écriture passe par un `INSERT … ON CONFLICT DO UPDATE … RETURNING`
+// écrit à la main (`apps/web/src/lib/security/prisma-rate-limit-store.ts`) : c'est
+// lui qui rend l'incrément atomique sous concurrence. Prisma sert ici à la
+// lecture (`peek`) et à l'effacement (`reset`) uniquement.
+//
+// Table sans données personnelles au sens strict, mais la clé contient une IP et
+// un email : elle est purgée en continu (lignes échues supprimées
+// opportunistement à l'écriture), jamais conservée au-delà de la fenêtre.
+// ─────────────────────────────────────────────────────────────────────────────
+model RateLimitCounter {
+  // La clé applicative EST la clé primaire : c'est ce qui donne au `ON CONFLICT`
+  // l'index unique dont il a besoin, sans colonne technique en plus.
+  key       String   @id
+  count     Int      @default(0)
+  expiresAt DateTime @map("expires_at")
+
+  // Sert la purge des lignes échues (DELETE … WHERE expires_at <= now).
+  @@index([expiresAt])
+  @@map("rate_limit_counters")
 }

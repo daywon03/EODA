@@ -1,6 +1,7 @@
 import type { FileStoragePort } from "./file-storage-port";
 import { S3StorageAdapter } from "./s3-storage-adapter";
 import { LocalFsStorageAdapter } from "./local-fs-storage-adapter";
+import { getEnv } from "@/lib/config/env";
 
 let cached: FileStoragePort | null = null;
 
@@ -9,21 +10,14 @@ let cached: FileStoragePort | null = null;
 export function getFileStoragePort(): FileStoragePort {
   if (cached) return cached;
 
-  const { S3_ENDPOINT, S3_REGION, S3_BUCKET, S3_ACCESS_KEY_ID, S3_SECRET_ACCESS_KEY } =
-    process.env;
+  const env = getEnv();
 
-  if (S3_ENDPOINT && S3_REGION && S3_BUCKET && S3_ACCESS_KEY_ID && S3_SECRET_ACCESS_KEY) {
-    cached = new S3StorageAdapter({
-      endpoint: S3_ENDPOINT,
-      region: S3_REGION,
-      bucket: S3_BUCKET,
-      accessKeyId: S3_ACCESS_KEY_ID,
-      secretAccessKey: S3_SECRET_ACCESS_KEY,
-    });
+  if (env.s3) {
+    cached = new S3StorageAdapter(env.s3);
     return cached;
   }
 
-  if (process.env.NODE_ENV === "production") {
+  if (env.isProduction) {
     throw new Error(
       "Stockage fichiers non configuré : S3_ENDPOINT/S3_REGION/S3_BUCKET/S3_ACCESS_KEY_ID/S3_SECRET_ACCESS_KEY requis en production."
     );

@@ -1,0 +1,194 @@
+# EODA Conseil — Plateforme SaaS HAS/ESSMS
+
+Outil de **préparation** à l'évaluation qualité HAS des ESSMS (SAD). Ce n'est pas un outil
+d'évaluation HAS officiel — cf. `.claude/CLAUDE.md` §1.
+
+Documentation projet : `.claude/CLAUDE.md` (règles), `.claude/context/` (métier),
+`.claude/specs/` (spécifications, architecture, roadmap).
+
+## Prérequis
+
+- Node.js ≥ 20, pnpm ≥ 10
+- Une base PostgreSQL (Supabase PostgreSQL, région `aws-0-eu-west-1` — Irlande)
+
+## Démarrage local
+
+```bash
+pnpm install                    # installe + pose les hooks git + génère le client Prisma
+cp .env.example .env            # puis renseigner DATABASE_URL, DIRECT_URL, AUTH_SECRET
+pnpm db:migrate:deploy          # applique les migrations
+pnpm db:seed                    # jeu de données de démonstration anonymisé
+pnpm dev
+```
+
+Un seul fichier d'environnement fait foi : le `.env.local` de la racine.
+`apps/web/.env.local` et `packages/database/.env` sont des **liens symboliques** vers lui —
+ne jamais les remplacer par de vrais fichiers, c'est ainsi que l'application s'est retrouvée
+à tourner sur une autre base que celle décrite par la documentation (21/08/2026).
+
+En développement, trois services ont un repli local **volontaire** : le stockage fichiers
+écrit sur disque (`apps/web/.local-storage`), l'analyse documentaire utilise un adaptateur
+stub, l'envoi d'email est journalisé. Ces replis sont **refusés en production** (voir
+ci-dessous).
+
+## Contrôles de qualité
+
+```bash
+pnpm typecheck   # tsc --noEmit sur les deux packages
+pnpm lint        # eslint --max-warnings 0
+pnpm test        # vitest + seuils de couverture qui font échouer la commande
+pnpm build       # next build
+```
+
+## Configuration
+
+Toute variable d'environnement est déclarée **simultanément** dans `.env.example` et dans
+`apps/web/src/lib/config/env.ts` — seul endroit du code autorisé à lire `process.env` (règle
+mécaniquement tenue par ESLint).
+
+### Profil de production
+
+Au démarrage (`apps/web/src/instrumentation.ts`), une instance en `NODE_ENV=production`
+vérifie **une fois** que la configuration est complète, et **sort en code 1** si elle ne l'est
+pas. Objectif : un déploiement mal configuré échoue au démarrage, il ne sert pas des pages
+qui exploseront au premier dépôt de document, devant le client.
+
+Requis en production, sans quoi l'instance refuse de démarrer :
+
+| Variable(s) | Pourquoi |
+|---|---|
+| `DATABASE_URL`, `DIRECT_URL` | Socle, requis dans tous les environnements |
+| `AUTH_SECRET` (≥ 32 caractères) | Signature/chiffrement du cookie de session |
+| `S3_ENDPOINT`, `S3_REGION`, `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | Le repli disque local ne survit pas à un redéploiement |
+| `NEXTAUTH_URL` (https://…) | Auth.js construit ses URLs de callback derrière le reverse proxy |
+
+La frontière bloquant / avertissement n'est pas « important / accessoire », c'est : **le repli
+trahit-il silencieusement ?** Le disque local perd les documents au redéploiement sans rien
+dire — bloquant. Un stub qui rend un résultat vide se voit — avertissement.
+
+Avertissements non bloquants :
+
+| Variable(s) absente(s) | Conséquence |
+|---|---|
+| `ANTHROPIC_API_KEY` | L'analyse documentaire ne produit **aucune** analyse (stub). Le dépôt de documents fonctionne, la détection des manques face au référentiel HAS non. Non bloquant depuis le 21/08/2026 pour ouvrir l'espace client avant le module 1 — **ne pas présenter ce module à un client dans cet état.** |
+| `RESEND_API_KEY`, `RESEND_FROM_EMAIL` | Toute invitation client ou relance **échoue** en production : `getEmailPort()` lève, il n'y a pas de repli console hors développement. Le SMTP intégré de Supabase ne remplace pas Resend — il ne sert que les emails de Supabase Auth, que ce projet n'utilise pas (l'auth est Auth.js sur notre table `User`). |
+
+## Déploiement en production
+
+Le déploiement est **Vercel** (voir « Déploiement sur Vercel » plus bas). Les migrations sont
+appliquées par le déploiement lui-même : le `buildCommand` de `vercel.json` enchaîne
+`prisma generate`, la vérification du profil de production, `prisma migrate deploy`, puis
+`next build`. Un déploiement dont la migration échoue échoue au build, avant qu'aucun trafic
+ne soit routé.
+
+*Historique : jusqu'au 21/08/2026 le déploiement passait par Prisma Compute et un fichier
+`prisma.compute.ts` qui portait le même enchaînement. Ce fichier et le paquet
+`@prisma/compute-sdk` ont été supprimés le 22/08/2026 — le SDK tirait une version vulnérable
+de `tar` (GHSA-r292-9mhp-454m) dans l'arbre de dépendances, pour du code qui n'était plus
+exécuté nulle part. Une dette qu'on garde « au cas où » reste une surface d'attaque réelle.*
+
+### Checklist de mise en production
+
+1. `pnpm typecheck && pnpm lint && pnpm test && pnpm build` — tout doit être vert localement.
+2. Vérifier que les variables du **profil de production** ci-dessus sont posées sur
+   l'environnement Vercel cible (secrets côté plateforme, jamais dans `vercel.json`, qui est
+   versionné).
+3. Relire le SQL de toute migration ajoutée depuis le dernier déploiement
+   (`packages/database/prisma/migrations/`) et vérifier qu'elle figure dans
+   `packages/database/src/migrations.ts` (le test `migration-manifest.test.ts` le vérifie).
+4. Pousser sur la branche déployée — la migration est appliquée pendant le build Vercel.
+5. Lire les journaux de démarrage. Trois messages possibles :
+   - `[EODA] CONFIGURATION DE PRODUCTION INCOMPLÈTE` ⇒ l'instance est sortie en code 1,
+     corriger la variable et redéployer ;
+   - `[EODA] SCHÉMA DE BASE DE DONNÉES DÉSYNCHRONISÉ` ⇒ la base n'est pas au niveau du code,
+     appliquer les migrations (étape 6) avant d'ouvrir l'accès ;
+   - aucun des deux ⇒ configuration et schéma cohérents.
+6. Séquence **manuelle** de migration, si le `build.command` devait être retiré ou si la base
+   doit être remise à niveau hors déploiement :
+   ```bash
+   pnpm --filter @eoda/database generate
+   DATABASE_URL="<url pooler>" DIRECT_URL="<url directe>" pnpm db:migrate:deploy
+   DATABASE_URL="<url pooler>" DIRECT_URL="<url directe>" \
+     pnpm --filter @eoda/database exec prisma migrate status   # doit dire « up to date »
+   ```
+
+### ⛔ Commandes interdites sur ce dépôt
+
+`prisma migrate dev`, `prisma migrate reset`, `prisma migrate diff`, et toute commande portant
+`--shadow-database-url` pointant une base réelle. Prisma **détruit et rejoue** la base désignée
+comme shadow database : la base de développement partagée a été effacée ainsi le 19/08/2026.
+Seules `prisma validate`, `prisma migrate status` et `prisma migrate deploy` sont autorisées.
+Les migrations sont écrites **à la main** dans `packages/database/prisma/migrations/`.
+
+## Déploiement sur Vercel
+
+`vercel.json` à la racine porte la configuration. Deux réglages à faire une fois dans le
+projet Vercel :
+
+1. **Root Directory** : laisser la racine du dépôt (pas `apps/web`) — la commande de build
+   est un enchaînement pnpm workspace qui a besoin de `packages/database`.
+2. **Variables d'environnement** (Production *et* Preview) : `DATABASE_URL`, `DIRECT_URL`,
+   `AUTH_SECRET`, `NEXTAUTH_URL`, `S3_ENDPOINT`, `S3_REGION`, `S3_BUCKET`,
+   `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`. `ANTHROPIC_API_KEY` et les deux variables
+   Resend sont facultatives (avertissement, pas blocage) — voir le tableau des
+   avertissements plus haut pour ce qu'on perd en les omettant.
+
+### Ordre de la commande de build, et pourquoi
+
+```
+pnpm db:generate && pnpm verify:prod-config && pnpm db:migrate:deploy && pnpm --filter @eoda/web build
+```
+
+- `verify:prod-config` **avant** la migration : inutile de migrer une base pour un
+  déploiement qui n'aboutira pas. Une variable manquante fait échouer le build, donc
+  aucune URL n'est publiée — c'est le seul moment où l'on peut encore refuser.
+- `migrate deploy` **jamais** `migrate dev` ni `migrate diff` (cf. `CLAUDE.md` §7).
+- Une migration en échec fait échouer le build, avant qu'aucun trafic ne soit routé.
+
+### Région
+
+`regions: ["cdg1"]` (Paris). Les fonctions s'exécutent en France, la base Supabase
+PostgreSQL est en `aws-0-eu-west-1` (Irlande), et le bucket Supabase Storage sera dans le
+même projet, donc la même région. **À vérifier avant d'y mettre de
+vraies données** : Vercel reste une société américaine, et l'hébergement des données de
+santé/social est une contrainte non négociable du projet (`CLAUDE.md` §6, qui nomme
+Scaleway ou OVHcloud). Supabase est également une société américaine. La contrainte qui
+compte réellement — données et calcul en Europe — est satisfaite ; le choix de Vercel et
+Supabase est une décision produit de Damon, pas une conformité acquise.
+
+### Ce qui change par rapport à un serveur long
+
+- **Le refus au démarrage n'existe pas en *serverless*.** Une fonction éphémère n'a pas de
+  démarrage à refuser : `process.exit(1)` y tuerait l'invocation en cours et se rejouerait
+  à chaque requête. Sur Vercel, `runStartupChecks()` lève au lieu de sortir, et c'est
+  `verify:prod-config` au build qui empêche réellement le déploiement incomplet.
+- **La limitation de débit sur la connexion passe par un compteur partagé.** L'adaptateur
+  en mémoire du processus (`lib/security/in-memory-rate-limiter.ts`) ne protégeait de rien
+  ici : chaque instance avait son propre compteur et un démarrage à froid le remettait à
+  zéro, donc le quota effectif contre la force brute était multiplié par le nombre
+  d'instances. Le compteur vit désormais dans la base, la seule ressource commune à toutes
+  les instances — table `rate_limit_counters`, migration
+  `20260821100000_rate_limit_counters`.
+
+  Ce qu'il faut savoir sur son comportement :
+
+  | Point | Ce qui se passe |
+  |---|---|
+  | Sélection de l'adaptateur | `getRateLimiter()` prend le compteur Postgres dès que `VERCEL=1`/`NETLIFY=true` ou `NODE_ENV=production` ; sinon le compteur mémoire (développement et tests — pas d'aller-retour base, aucun écart visible pour les appelants, c'est l'intérêt du port) |
+  | Politique | Inchangée : 10 tentatives / 15 min sur la connexion, 5 / 15 min sur le changement de mot de passe. Fenêtre fixe ancrée sur la première tentative |
+  | Concurrence | Un seul `INSERT … ON CONFLICT ("key") DO UPDATE … RETURNING` : PostgreSQL verrouille la ligne en conflit, deux requêtes simultanées sont sérialisées, aucun incrément n'est perdu. Pas de lecture préalable — un read-then-write serait précisément la course à fermer |
+  | `peek` | Lecture seule, ne consomme aucun créneau (le provider d'authentification s'en sert pour composer son message) |
+  | Purge | Les lignes échues sont supprimées opportunistement, greffées en CTE sur 2 % des écritures, via l'index `rate_limit_counters_expires_at_idx`. Pas de cron |
+  | **Base injoignable** | **La tentative est REFUSÉE** (fail-closed). Un garde-fou anti-force-brute qui s'ouvre en panne offre à l'attaquant une stratégie évidente : saturer la base puis bourrer les mots de passe. Seule exception, `reset` après une authentification déjà réussie, dont l'échec est absorbé — le compteur expirera seul |
+
+## Comptes et mots de passe
+
+Un compte client est créé par `inviteClientUser` avec un mot de passe temporaire affiché une
+seule fois. Ce mot de passe **ne vaut que pour la première connexion** : le compte porte
+`mustChangePassword`, et la couche d'autorisation (`apps/web/src/lib/auth/guards.ts`) ne sert
+aucune autre route authentifiée tant que la rotation n'a pas eu lieu
+(`/changer-mot-de-passe`).
+
+Changer son mot de passe invalide **toutes** les sessions ouvertes avant le changement, y
+compris sur un autre appareil : `User.passwordChangedAt` fait office d'horodatage de
+révocation, comparé à l'heure de connexion portée par le jeton.

@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { Building2, Calendar, FileText } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Building2, Calendar, FileText, ChevronRight } from "lucide-react";
+import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import type { EstablishmentType } from "@eoda/database";
 
@@ -20,35 +20,43 @@ const TYPE_LABELS: Record<EstablishmentType, string> = {
 
 export function EstablishmentCard({ id, name, finessNumber, type, hasEvaluationTargetDate, documentCount }: Props) {
   return (
-    <Link href={`/dashboard/cabinet/etablissements/${id}`}>
-      <Card className="hover:border-terre hover:shadow-md transition-all cursor-pointer">
-        <CardHeader className="pb-3">
+    <Link
+      href={`/dashboard/cabinet/etablissements/${id}`}
+      className="block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terre focus-visible:ring-offset-2"
+    >
+      <Card className="border-l-4 border-l-terre hover:shadow-eoda-md hover:-translate-y-0.5 transition-all duration-150 cursor-pointer h-full">
+        <div className="p-5 flex flex-col h-full gap-3">
           <div className="flex items-start justify-between gap-2">
-            <div className="flex items-center gap-2.5">
-              <Building2 className="w-5 h-5 text-terre flex-shrink-0 mt-0.5" />
-              <CardTitle className="text-base leading-tight">{name}</CardTitle>
+            <div className="flex items-center gap-2.5 min-w-0">
+              <span className="flex items-center justify-center w-9 h-9 rounded-lg bg-terre/10 flex-shrink-0">
+                <Building2 className="w-4 h-4 text-terre" aria-hidden="true" />
+              </span>
+              <h3 className="text-base font-semibold text-brun-ancre leading-tight truncate">{name}</h3>
             </div>
+            <ChevronRight className="w-4 h-4 text-gris-mid flex-shrink-0 mt-1" aria-hidden="true" />
+          </div>
+
+          {finessNumber && <p className="text-xs text-gris-mid pl-[46px]">FINESS {finessNumber}</p>}
+
+          <div className="flex items-center gap-2 pl-[46px]">
             <Badge variant="secondary">{TYPE_LABELS[type]}</Badge>
           </div>
-          {finessNumber && (
-            <p className="text-xs text-gris-mid pl-7">FINESS {finessNumber}</p>
-          )}
-        </CardHeader>
-        <CardContent className="flex items-center gap-4 text-xs text-gris-mid">
-          <span className="flex items-center gap-1">
-            <FileText className="w-3.5 h-3.5" />
-            {documentCount} document{documentCount !== 1 ? "s" : ""}
-          </span>
-          {hasEvaluationTargetDate && (
+
+          <div className="flex items-center gap-4 text-xs text-gris-mid pl-[46px] mt-auto pt-2 border-t border-gris-light">
             <span className="flex items-center gap-1">
-              <Calendar className="w-3.5 h-3.5" />
-              Éval. HAS :{" "}
-              {new Intl.DateTimeFormat("fr-FR", { month: "long", year: "numeric" }).format(
-                new Date(hasEvaluationTargetDate)
-              )}
+              <FileText className="w-3.5 h-3.5" aria-hidden="true" />
+              {documentCount} document{documentCount !== 1 ? "s" : ""}
             </span>
-          )}
-        </CardContent>
+            {hasEvaluationTargetDate && (
+              <span className="flex items-center gap-1">
+                <Calendar className="w-3.5 h-3.5" aria-hidden="true" />
+                {new Intl.DateTimeFormat("fr-FR", { month: "short", year: "numeric" }).format(
+                  new Date(hasEvaluationTargetDate)
+                )}
+              </span>
+            )}
+          </div>
+        </div>
       </Card>
     </Link>
   );

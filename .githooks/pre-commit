@@ -1,0 +1,40 @@
+#!/bin/sh
+# Hook installé PAR LE DÉPÔT (git config core.hooksPath, posé par le postinstall
+# de package.json) — pas un script à lancer à la main, sinon il n'est jamais exécuté.
+#
+# Répartition assumée entre ce hook et la CI :
+#   - ici : ce qui est rapide et irréversible si ça passe (un secret commité reste dans
+#     l'historique de tous les clones, même après suppression du fichier) ;
+#   - en CI : ce qui est lent mais non contournable (typecheck, lint, tests, couverture).
+# Un hook peut être contourné par --no-verify ; la CI non. Les deux sont nécessaires.
+
+set -e
+
+RED='\033[0;31m'; YELLOW='\033[0;33m'; NC='\033[0m'
+
+staged=$(git diff --cached --name-only --diff-filter=ACM)
+[ -z "$staged" ] && exit 0
+
+# 1. Aucun fichier d'environnement commité, sauf .env.example (règle S5).
+env_files=$(printf '%s\n' "$staged" | grep -E '(^|/)\.env($|\.)' | grep -v '\.env\.example$' || true)
+if [ -n "$env_files" ]; then
+  printf "${RED}✖ Fichier d'environnement dans le commit :${NC}\n%s\n" "$env_files"
+  printf "  Seul .env.example est versionné. Retirer avec : git restore --staged <fichier>\n"
+  exit 1
+fi
+
+# 2. Détection de secrets. gitleaks scanne bien plus large que ce que ce hook peut
+#    faire à la main — la CI le lance de façon inconditionnelle.
+if command -v gitleaks >/dev/null 2>&1; then
+  gitleaks protect --staged --redact --no-banner || {
+    printf "${RED}✖ Secret potentiel détecté.${NC}\n"
+    printf "  ⚠️  Si un secret a déjà été poussé : LE RÉVOQUER CHEZ LE FOURNISSEUR D'ABORD.\n"
+    printf "      Retirer le fichier de Git ne révoque rien et l'historique reste dans tous les clones.\n"
+    exit 1
+  }
+else
+  printf "${YELLOW}⚠ gitleaks absent — analyse de secrets déléguée à la CI.${NC}\n"
+  printf "  Installation recommandée : brew install gitleaks\n"
+fi
+
+exit 0

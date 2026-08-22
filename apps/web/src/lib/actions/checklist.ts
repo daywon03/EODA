@@ -1,8 +1,8 @@
 "use server";
 
 import { prisma } from "@eoda/database";
-import { auth } from "@/auth";
-import { redirect } from "next/navigation";
+import { requireClientEstablishment, requireEstablishmentInTenant } from "@/lib/auth/guards";
+import { getEstablishmentCoveredCategories } from "@/lib/services/establishment-offer-service";
 import type { DocumentCategory, DocumentStatus } from "@eoda/database";
 
 export type ChecklistItem = {
@@ -13,6 +13,7 @@ export type ChecklistItem = {
   expectedFrequency: string | null;
   status: DocumentStatus;
   documentId: string | null;
+  missingJustification: string | null;
   currentVersion: {
     id: string;
     versionNumber: number;
@@ -23,9 +24,17 @@ export type ChecklistItem = {
 
 export type ChecklistByCategory = Record<DocumentCategory, ChecklistItem[]>;
 
+// Chemin de chargement PARTAGÉ par le portail client et la fiche établissement du
+// cabinet : les deux rendent ChecklistCategory et doivent filtrer à l'identique.
 async function buildChecklist(establishmentId: string): Promise<ChecklistByCategory> {
-  // Tous les types de documents
+  // Périmètre de l'offre contractée (null = pas de mission ⇒ avant-vente, checklist
+  // complète). Résolu par establishment-offer-service, la MÊME couche que celle qui
+  // arbitre les dépôts dans document.ts — affichage et mutations ne peuvent pas diverger.
+  const covered = await getEstablishmentCoveredCategories(establishmentId);
+
+  // Types de documents attendus, restreints au périmètre de l'offre.
   const allTypes = await prisma.documentType.findMany({
+    where: covered ? { category: { in: [...covered] } } : {},
     orderBy: [{ category: "asc" }, { code: "asc" }],
   });
 
@@ -36,6 +45,7 @@ async function buildChecklist(establishmentId: string): Promise<ChecklistByCateg
       id: true,
       documentTypeId: true,
       status: true,
+      missingJustification: true,
       currentVersion: {
         select: { id: true, versionNumber: true, originalFilename: true, uploadedAt: true },
       },
@@ -66,6 +76,7 @@ async function buildChecklist(establishmentId: string): Promise<ChecklistByCateg
       expectedFrequency: dt.expectedFrequency,
       status,
       documentId: doc?.id ?? null,
+      missingJustification: doc?.missingJustification ?? null,
       currentVersion: doc?.currentVersion ?? null,
     };
 
@@ -80,20 +91,14 @@ export async function getClientChecklist(): Promise<{
   establishment: { id: string; name: string; type: string } | null;
   checklist: ChecklistByCategory;
 }> {
-  const session = await auth();
-  if (!session || session.user.role !== "CLIENT_USER") redirect("/login");
+  // L'établissement est résolu depuis le lien EstablishmentUser de la session, pas
+  // depuis un identifiant fourni par la requête : non falsifiable par construction.
+  const { establishment } = await requireClientEstablishment();
 
-  // Trouver l'établissement lié au client (premier si plusieurs)
-  const establishmentUser = await prisma.establishmentUser.findFirst({
-    where: { userId: session.user.id },
-    include: { establishment: { select: { id: true, name: true, type: true } } },
-  });
-
-  if (!establishmentUser) {
+  if (!establishment) {
     return { establishment: null, checklist: {} as ChecklistByCategory };
   }
 
-  const { establishment } = establishmentUser;
   const checklist = await buildChecklist(establishment.id);
 
   return { establishment, checklist };
@@ -102,8 +107,10 @@ export async function getClientChecklist(): Promise<{
 export async function getEstablishmentChecklist(
   establishmentId: string
 ): Promise<ChecklistByCategory> {
-  const session = await auth();
-  if (!session || session.user.role === "CLIENT_USER") redirect("/login");
+  // Vérifie l'appartenance de l'établissement au tenant de l'appelant — sans ce
+  // contrôle, un utilisateur Cabinet lisait la checklist de n'importe quel
+  // établissement, tous tenants confondus.
+  await requireEstablishmentInTenant(establishmentId);
 
   return buildChecklist(establishmentId);
 }
