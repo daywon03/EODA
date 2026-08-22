@@ -40,8 +40,9 @@ vi.mock("bcryptjs", () => ({
 const { changePasswordAction } = await import("./password");
 
 const USER_ID = "user-1";
-const CURRENT = "ancien-mot-de-passe-de-test";
-const NEW = "nouvelle-phrase-de-passe";
+// Même marqueur anglais que password-policy.test.ts — voir le commentaire là-bas.
+const CURRENT = "placeholder-ancien-not-a-real-secret";
+const NEW = "placeholder-nouveau-not-a-real-secret";
 
 function formData(fields: Record<string, string>): FormData {
   const data = new FormData();

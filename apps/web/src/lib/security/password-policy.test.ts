@@ -8,10 +8,20 @@ import {
 // Valeurs de test volontairement lisibles et à faible entropie : une chaîne
 // d'apparence aléatoire ici déclenche le détecteur de secrets en pre-commit,
 // et une allowlist qui grossit finit par masquer une vraie fuite.
+//
+// Le marqueur `not-a-real-secret` est en ANGLAIS et ce n'est pas un oubli. Les
+// analyseurs de secrets reconnaissent les valeurs factices sur une liste de mots
+// anglais (example, dummy, placeholder, not-a-real-secret…) : nos anciens libellés
+// français, parfaitement explicites pour un humain, ne disaient rien à la machine et
+// ont fait remonter deux faux positifs sur la PR #1 du 22/08/2026.
+//
+// Ne pas « traduire » ces valeurs. La solution alternative — inscrire le fichier dans
+// une liste d'exceptions du scanner — exempterait AUSSI le vrai secret qu'on y
+// collerait un jour par accident.
 const VALID = {
-  currentPassword: "ancien-mot-de-passe-de-test",
-  newPassword: "phrase-de-passe-longue",
-  confirmation: "phrase-de-passe-longue",
+  currentPassword: "placeholder-ancien-not-a-real-secret",
+  newPassword: "placeholder-nouveau-not-a-real-secret",
+  confirmation: "placeholder-nouveau-not-a-real-secret",
 };
 
 describe("validateNewPassword", () => {
@@ -38,7 +48,7 @@ describe("validateNewPassword", () => {
 
   it("compte des OCTETS et non des caractères pour la limite haute", () => {
     // 40 caractères, 120 octets en UTF-8 : accepté si l'on comptait des caractères.
-    const multibyte = "é".repeat(40) + "phrase-de-passe";
+    const multibyte = "é".repeat(40) + "placeholder-not-a-real-secret";
     const result = validateNewPassword({
       ...VALID,
       newPassword: multibyte,
@@ -48,16 +58,16 @@ describe("validateNewPassword", () => {
   });
 
   it("refuse une confirmation qui ne correspond pas", () => {
-    const result = validateNewPassword({ ...VALID, confirmation: "phrase-de-passe-autre" });
+    const result = validateNewPassword({ ...VALID, confirmation: "placeholder-autre-not-a-real-secret" });
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.error).toContain("confirmation");
   });
 
   it("refuse de reconduire le mot de passe actuel", () => {
     const result = validateNewPassword({
-      currentPassword: "phrase-de-passe-longue",
-      newPassword: "phrase-de-passe-longue",
-      confirmation: "phrase-de-passe-longue",
+      currentPassword: "placeholder-identique-not-a-real-secret",
+      newPassword: "placeholder-identique-not-a-real-secret",
+      confirmation: "placeholder-identique-not-a-real-secret",
     });
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.error).toContain("différent");
