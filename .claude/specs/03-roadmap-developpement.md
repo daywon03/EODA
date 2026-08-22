@@ -167,10 +167,9 @@ avant mise en usage réel.
   (sortie code 1) une instance de production sans `S3_*`, `ANTHROPIC_API_KEY` ou
   `NEXTAUTH_URL`. Fin du déploiement « vert » qui explose au premier dépôt de document.
   Détail : §4.11.
-- [x] **Migrations appliquées au déploiement** — `prisma.compute.ts` enchaîne
-  `migrate deploy` puis `next build` dans `build.command` (seul point d'accroche exposé par
-  le SDK) ; l'application journalise une erreur unique au démarrage si le schéma est en
-  retard. Checklist de mise en production dans `README.md`. Détail : §4.12.
+- [x] **Migrations appliquées au déploiement** — le `buildCommand` de `vercel.json` enchaîne
+  `migrate deploy` puis `next build` ; l'application journalise une erreur unique au démarrage
+  si le schéma est en retard. Checklist de mise en production dans `README.md`. Détail : §4.12.
 - [ ] Tests de charge basiques sur le pipeline d'analyse (un upload simultané de plusieurs
   documents ne doit pas planter le job queue)
 - [ ] Vérification réelle du format d'export attendu par Synaé (point ouvert — voir

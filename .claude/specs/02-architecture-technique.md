@@ -24,7 +24,7 @@ la BDD dès le Jalon 0. Le socle a d'abord été construit sur **Prisma Postgres
 Compute** (2026-07-07), plus rapide à mettre en place pour valider l'architecture tôt.
 Depuis le **21/08/2026**, décision de Damon : la BDD est **Supabase PostgreSQL**
 (`aws-0-eu-west-1`, Irlande) et l'app est déployée sur **Vercel** (`cdg1`, Paris).
-`prisma.compute.ts` est désormais du legacy.
+`prisma.compute.ts` et le paquet `@prisma/compute-sdk` ont été supprimés le 22/08/2026.
 
 `CLAUDE.md` §6 nomme Scaleway ou OVHcloud comme contrainte non négociable. La contrainte qui
 compte réellement est l'**hébergement en Europe** : Supabase `eu-west-1` (Irlande) et Vercel
@@ -529,11 +529,9 @@ servait les pages, et n'échouait qu'au premier dépôt de document — devant l
 - `pnpm db:migrate:deploy` ne tournait que dans la CI, contre une base jetable. Rien
   n'appliquait les migrations à la vraie base : c'était une étape manuelle que personne
   n'avait écrite.
-- La détection automatique de schéma du SDK Prisma Compute (`detectAppSchema`) descend depuis
-  `root` (`apps/web`) et ne trouve donc **pas** `packages/database/prisma/schema.prisma`. Le
-  contrat `ComputeAppConfig` n'expose ni hook `prebuild` ni hook `release` : `build.command`
-  est le seul point d'accroche. `prisma.compute.ts` y enchaîne `generate`,
-  `migrate deploy`, `next build`. Un déploiement dont la migration échoue échoue au build.
+- Le `buildCommand` de `vercel.json` enchaîne `generate`, la vérification du profil de
+  production, `migrate deploy`, `next build`. Un déploiement dont la migration échoue échoue
+  au build, avant qu'aucun trafic ne soit routé.
 - Au démarrage, l'application compare le manifeste `EXPECTED_MIGRATIONS`
   (`packages/database/src/migrations.ts`) à la table `_prisma_migrations` et **journalise une
   erreur unique et complète** si le schéma est en retard ou incohérent. Non bloquant
@@ -541,8 +539,11 @@ servait les pages, et n'échouait qu'au premier dépôt de document — devant l
   l'instance de se lever, et une base « en avance » (retour arrière applicatif) est légitime.
 - La duplication entre le manifeste et le dossier `prisma/migrations` est tenue
   mécaniquement par `apps/web/src/lib/db/migration-manifest.test.ts` (règle zéro).
-- *(Depuis le 21/08/2026, c'est la commande de build de `vercel.json` qui porte cet
-  enchaînement ; `prisma.compute.ts` est conservé en legacy.)*
+- *(Historique : cet enchaînement vivait dans `prisma.compute.ts` jusqu'au 21/08/2026.
+  Fichier et `@prisma/compute-sdk` supprimés le 22/08/2026 — le SDK tirait un `tar`
+  vulnérable (GHSA-r292-9mhp-454m) pour du code qui n'était plus exécuté. Garder une
+  dépendance « au cas où » ne coûte pas zéro : elle reste dans l'arbre, et donc dans
+  l'audit.)*
 
 ## 5. Préparation explicite de l'évolutivité (sans la construire maintenant)
 

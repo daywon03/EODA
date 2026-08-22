@@ -40,8 +40,5 @@
     "db:seed": "pnpm --filter @eoda/database seed",
     "db:studio": "pnpm --filter @eoda/database studio",
     "verify:prod-config": "pnpm --filter @eoda/web verify:prod-config"
-  },
-  "devDependencies": {
-    "@prisma/compute-sdk": "^0.32.0"
   }
 }

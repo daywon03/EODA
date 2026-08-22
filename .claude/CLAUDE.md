@@ -34,7 +34,7 @@ vérifie** — sinon elle n'existe pas.
 | Hooks installés par le dépôt | `git config core.hooksPath .githooks` posé par le `postinstall` | `package.json` |
 | Manifeste de migrations à jour | test qui compare `EXPECTED_MIGRATIONS` au dossier `prisma/migrations` | `apps/web/src/lib/db/migration-manifest.test.ts` |
 | Configuration de production complète | contrôle au démarrage qui **sort en code 1** | `apps/web/src/instrumentation.ts` + `lib/config/production-profile.ts` |
-| Migrations appliquées au déploiement | `migrate deploy` dans `build.command` | `prisma.compute.ts` |
+| Migrations appliquées au déploiement | `migrate deploy` dans `buildCommand` | `vercel.json` |
 | Dépendances vulnérables | `pnpm audit --audit-level high` **sans `\|\| true`** | CI |
 | CI qui dit la vérité | aucun `continue-on-error`, aucun masquage d'échec | CI |
 
@@ -125,7 +125,9 @@ Le référentiel HAS a des règles précises (NC interdit sur impératifs, RI un
 - **Analyse documentaire :** extraction texte (pdf-parse / mammoth pour docx) +
   appel LLM (Anthropic Claude API) avec prompt structuré contre le référentiel HAS
 - **Hébergement app :** **Vercel**, région `cdg1` (Paris) — `vercel.json` à la racine ;
-  remplace Prisma Compute (`prisma.compute.ts` est du legacy) depuis le 21/08/2026.
+  remplace Prisma Compute depuis le 21/08/2026 (`prisma.compute.ts` et le paquet
+  `@prisma/compute-sdk` ont été supprimés le 22/08/2026 : le SDK tirait un `tar` vulnérable
+  pour du code plus jamais exécuté).
   Écart assumé par rapport au §6 qui nomme Scaleway/OVHcloud : la contrainte qui compte est
   l'hébergement **en Europe**, satisfaite par Vercel `cdg1` et Supabase `eu-west-1`. Vercel et
   Supabase restent des sociétés américaines — décision produit de Damon, pas une conformité

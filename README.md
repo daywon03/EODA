@@ -73,36 +73,30 @@ Avertissements non bloquants :
 | `ANTHROPIC_API_KEY` | L'analyse documentaire ne produit **aucune** analyse (stub). Le dépôt de documents fonctionne, la détection des manques face au référentiel HAS non. Non bloquant depuis le 21/08/2026 pour ouvrir l'espace client avant le module 1 — **ne pas présenter ce module à un client dans cet état.** |
 | `RESEND_API_KEY`, `RESEND_FROM_EMAIL` | Toute invitation client ou relance **échoue** en production : `getEmailPort()` lève, il n'y a pas de repli console hors développement. Le SMTP intégré de Supabase ne remplace pas Resend — il ne sert que les emails de Supabase Auth, que ce projet n'utilise pas (l'auth est Auth.js sur notre table `User`). |
 
-## Déploiement en production — legacy (Prisma Compute)
+## Déploiement en production
 
-⚠️ **Section legacy.** Depuis le 21/08/2026, le déploiement documenté est **Vercel** (voir
-« Déploiement sur Vercel » plus bas). `prisma.compute.ts` n'est plus la cible : il est
-conservé comme repli, et la séquence de migration manuelle de l'étape 6 reste valable quel
-que soit l'hébergeur.
+Le déploiement est **Vercel** (voir « Déploiement sur Vercel » plus bas). Les migrations sont
+appliquées par le déploiement lui-même : le `buildCommand` de `vercel.json` enchaîne
+`prisma generate`, la vérification du profil de production, `prisma migrate deploy`, puis
+`next build`. Un déploiement dont la migration échoue échoue au build, avant qu'aucun trafic
+ne soit routé.
 
-Le déploiement était **manuel** : `prisma app deploy`, piloté par `prisma.compute.ts`.
-
-Les migrations sont désormais appliquées par le déploiement lui-même : `prisma.compute.ts`
-définit `build.command`, qui enchaîne `prisma generate`, `prisma migrate deploy`, puis
-`next build`. C'est le seul point d'accroche que le contrat de configuration du SDK expose
-(`ComputeAppConfig` n'a ni hook `prebuild` ni hook `release`), et il s'exécute avec les
-variables d'environnement de la branche déployée. Un déploiement dont la migration échoue
-échoue au build, avant qu'aucun trafic ne soit routé.
-
-⚠️ La détection automatique de schéma du SDK ne trouve **pas** notre schéma : elle descend
-depuis `root` (`apps/web`) alors que le schéma vit dans `packages/database/`. Sans le
-`build.command` ci-dessus, aucune migration n'est appliquée au déploiement.
+*Historique : jusqu'au 21/08/2026 le déploiement passait par Prisma Compute et un fichier
+`prisma.compute.ts` qui portait le même enchaînement. Ce fichier et le paquet
+`@prisma/compute-sdk` ont été supprimés le 22/08/2026 — le SDK tirait une version vulnérable
+de `tar` (GHSA-r292-9mhp-454m) dans l'arbre de dépendances, pour du code qui n'était plus
+exécuté nulle part. Une dette qu'on garde « au cas où » reste une surface d'attaque réelle.*
 
 ### Checklist de mise en production
 
 1. `pnpm typecheck && pnpm lint && pnpm test && pnpm build` — tout doit être vert localement.
-2. Vérifier que les variables du **profil de production** ci-dessus sont posées sur la branche
-   Prisma Compute cible (secrets côté plateforme, jamais dans `prisma.compute.ts`, qui est
+2. Vérifier que les variables du **profil de production** ci-dessus sont posées sur
+   l'environnement Vercel cible (secrets côté plateforme, jamais dans `vercel.json`, qui est
    versionné).
 3. Relire le SQL de toute migration ajoutée depuis le dernier déploiement
    (`packages/database/prisma/migrations/`) et vérifier qu'elle figure dans
    `packages/database/src/migrations.ts` (le test `migration-manifest.test.ts` le vérifie).
-4. `prisma app deploy` — la migration est appliquée pendant le build.
+4. Pousser sur la branche déployée — la migration est appliquée pendant le build Vercel.
 5. Lire les journaux de démarrage. Trois messages possibles :
    - `[EODA] CONFIGURATION DE PRODUCTION INCOMPLÈTE` ⇒ l'instance est sortie en code 1,
      corriger la variable et redéployer ;
