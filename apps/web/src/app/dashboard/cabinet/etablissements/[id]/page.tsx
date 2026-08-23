@@ -13,7 +13,14 @@ import { ProgressBar } from "@/components/ui/progress-bar";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Building2, Calendar, Pencil, Users } from "lucide-react";
 import Link from "next/link";
-import type { EstablishmentType, DocumentCategory } from "@eoda/database";
+import type { EstablishmentType, DocumentCategory, StructureType } from "@eoda/database";
+import { StageBadge } from "@/components/crm/StageBadge";
+import {
+  deriveFunnelStage,
+  isAccompanimentStarted,
+  isBetaMission,
+} from "@/lib/services/lifecycle-service";
+import { toMissionLifecycleFacts } from "@/lib/db/to-mission-lifecycle-facts";
 
 const CATEGORY_LABELS: Record<DocumentCategory, string> = {
   LOI_2002_2: "Documents loi 2002-2 (droits des personnes accompagnées)",
@@ -25,6 +32,13 @@ const CATEGORY_LABELS: Record<DocumentCategory, string> = {
 const TYPE_LABELS: Record<EstablishmentType, string> = {
   SAD_AIDE: "SAD Aide",
   SAD_MIXTE: "SAD Mixte",
+};
+
+// Statut juridique — axe distinct du type SAD ci-dessus (CLAUDE.md §7).
+const STRUCTURE_TYPE_LABELS: Record<StructureType, string> = {
+  ASSOCIATION: "Association loi 1901",
+  PUBLIC: "CCAS / CIAS",
+  PRIVE: "Secteur privé",
 };
 
 type Props = { params: Promise<{ id: string }> };
@@ -40,6 +54,17 @@ export default async function EstablishmentDetailPage({ params }: Props) {
   const establishment = await getEstablishment(id);
   const checklist = await getEstablishmentChecklist(id);
   const mission = await getMission(id);
+
+  // Étape dérivée des faits, jamais d'un statut stocké (cf. lifecycle-service).
+  const lifecycle = toMissionLifecycleFacts(establishment.mission);
+  const stage = deriveFunnelStage({
+    prospectStatus: establishment.prospect?.status ?? null,
+    mission: lifecycle,
+  });
+  // Une fiche signée n'est pas encore un accompagnement : le diagnostic n'a pas
+  // démarré, il n'y a donc rien à coter ni de checklist à suivre. Afficher ces
+  // modules à ce stade donne l'illusion d'un travail en cours qui n'existe pas.
+  const accompanimentStarted = isAccompanimentStarted(stage);
 
   const categories = Object.keys(CATEGORY_LABELS) as DocumentCategory[];
   const allItems = Object.values(checklist).flat();
@@ -91,16 +116,27 @@ export default async function EstablishmentDetailPage({ params }: Props) {
                 <span>
                   Évaluation HAS cible :{" "}
                   <strong>
-                    {new Intl.DateTimeFormat("fr-FR", { month: "long", year: "numeric" }).format(
+                    {new Intl.DateTimeFormat("fr-FR", { dateStyle: "long" }).format(
                       new Date(establishment.hasEvaluationTargetDate)
                     )}
                   </strong>
                 </span>
               </div>
             )}
-            <Badge variant="not_applicable">
-              {establishment.commercialTier === "BETA" ? "Bêta-test gratuit" : establishment.commercialTier}
-            </Badge>
+            {/* Le badge affichait `commercialTier`, figé à BETA pour tout le monde :
+                il annonçait « Bêta-test gratuit » à des clients payants. L'étape et
+                la gratuité viennent maintenant des faits (mission, prospect). */}
+            <div className="flex flex-wrap items-center gap-2">
+              <StageBadge stage={stage} beta={isBetaMission(lifecycle)} />
+              <Badge variant="secondary">{TYPE_LABELS[establishment.type]}</Badge>
+              {establishment.structureType ? (
+                <Badge variant="secondary">
+                  {STRUCTURE_TYPE_LABELS[establishment.structureType]}
+                </Badge>
+              ) : (
+                <Badge variant="not_applicable">Statut juridique non renseigné</Badge>
+              )}
+            </div>
           </CardContent>
         </Card>
 
@@ -153,14 +189,26 @@ export default async function EstablishmentDetailPage({ params }: Props) {
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Auto-évaluation HAS</CardTitle>
-            <CardDescription>Cotation des critères par chapitre (1/2/3/4/★/NC/RI)</CardDescription>
+            <CardDescription>
+              {accompanimentStarted
+                ? "Cotation des critères par chapitre (1/2/3/4/★/NC/RI)"
+                : "Disponible une fois le diagnostic engagé — cochez un premier item de la checklist de mission ou planifiez une phase."}
+            </CardDescription>
           </CardHeader>
           <CardContent>
-            <Button size="sm" asChild>
-              <Link href={`/dashboard/cabinet/etablissements/${establishment.id}/evaluation`}>
-                Ouvrir l&apos;auto-évaluation
-              </Link>
-            </Button>
+            {accompanimentStarted ? (
+              <Button size="sm" asChild>
+                <Link href={`/dashboard/cabinet/etablissements/${establishment.id}/evaluation`}>
+                  Ouvrir l&apos;auto-évaluation
+                </Link>
+              </Button>
+            ) : (
+              <Button size="sm" variant="outline" asChild>
+                <Link href={`/dashboard/cabinet/etablissements/${establishment.id}/mission`}>
+                  Démarrer le diagnostic
+                </Link>
+              </Button>
+            )}
           </CardContent>
         </Card>
       )}

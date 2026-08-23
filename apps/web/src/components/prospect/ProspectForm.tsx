@@ -8,12 +8,12 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { AlertCircle, Loader2 } from "lucide-react";
 import Link from "next/link";
-import type { AcquisitionChannel, CommercialTier, ProspectType } from "@eoda/database";
+import type { AcquisitionChannel, CommercialTier, StructureType } from "@eoda/database";
 
 type ProspectInitialValues = {
   id: string;
   structureName: string;
-  structureType: ProspectType;
+  structureType: StructureType;
   channel: AcquisitionChannel;
   contactName: string | null;
   contactPhone: string | null;

@@ -1,39 +1,47 @@
 "use client";
 
 import { useActionState } from "react";
-import { createEstablishment, updateEstablishment } from "@/lib/actions/establishment";
+import { updateEstablishment } from "@/lib/actions/establishment";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { AlertCircle, Loader2 } from "lucide-react";
 import Link from "next/link";
-import type { EstablishmentType } from "@eoda/database";
+import type { EstablishmentType, StructureType } from "@eoda/database";
 
 type EstablishmentInitialValues = {
   id: string;
   name: string;
   finessNumber: string | null;
   type: EstablishmentType;
+  structureType: StructureType | null;
   address: string | null;
   hasEvaluationTargetDate: Date | null;
 };
 
-type Props = { establishment?: EstablishmentInitialValues };
+// Édition SEULEMENT. Il n'existe plus de mode création : une fiche client naît de la
+// signature d'un devis (cf. lib/actions/establishment.ts). `establishment` n'est donc
+// plus optionnel — le typage interdit d'appeler ce formulaire à vide.
+type Props = { establishment: EstablishmentInitialValues };
 
-function toMonthInputValue(date: Date | null): string {
+// Les valeurs nulles viennent des fiches antérieures à ces champs obligatoires. On ne
+// les remplace par aucun défaut : une valeur inventée serait indiscernable d'une
+// saisie réelle. Le champ reste vide, `required` le signale.
+function toDateInputValue(date: Date | null): string {
   if (!date) return "";
   const d = new Date(date);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  return [
+    d.getFullYear(),
+    String(d.getMonth() + 1).padStart(2, "0"),
+    String(d.getDate()).padStart(2, "0"),
+  ].join("-");
 }
 
 export function EstablishmentForm({ establishment }: Props) {
-  const isEdit = !!establishment;
-  const action = isEdit ? updateEstablishment.bind(null, establishment.id) : createEstablishment;
+  const action = updateEstablishment.bind(null, establishment.id);
   const [state, formAction, isPending] = useActionState(action, null);
-  const cancelHref = isEdit
-    ? `/dashboard/cabinet/etablissements/${establishment.id}`
-    : "/dashboard/cabinet";
+  const cancelHref = `/dashboard/cabinet/etablissements/${establishment.id}`;
 
   return (
     <form action={formAction} className="space-y-5">
@@ -45,7 +53,7 @@ export function EstablishmentForm({ establishment }: Props) {
           id="name"
           name="name"
           placeholder="ex : Association ASSAD BENOIT"
-          defaultValue={establishment?.name}
+          defaultValue={establishment.name}
           required
           autoFocus
           disabled={isPending}
@@ -54,13 +62,16 @@ export function EstablishmentForm({ establishment }: Props) {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-1.5">
-          <Label htmlFor="finessNumber">Numéro FINESS</Label>
+          <Label htmlFor="finessNumber">
+            Numéro FINESS <span className="text-rouge-imp">*</span>
+          </Label>
           <Input
             id="finessNumber"
             name="finessNumber"
             placeholder="ex : 930034459"
-            defaultValue={establishment?.finessNumber ?? undefined}
+            defaultValue={establishment.finessNumber ?? undefined}
             maxLength={9}
+            required
             disabled={isPending}
           />
         </div>
@@ -68,7 +79,7 @@ export function EstablishmentForm({ establishment }: Props) {
           <Label htmlFor="type">
             Type SAD <span className="text-rouge-imp">*</span>
           </Label>
-          <Select id="type" name="type" required disabled={isPending} defaultValue={establishment?.type ?? ""}>
+          <Select id="type" name="type" required disabled={isPending} defaultValue={establishment.type ?? ""}>
             <option value="">— Sélectionner —</option>
             <option value="SAD_AIDE">SAD Aide (aide à domicile uniquement)</option>
             <option value="SAD_MIXTE">SAD Mixte (aide + soins)</option>
@@ -76,24 +87,54 @@ export function EstablishmentForm({ establishment }: Props) {
         </div>
       </div>
 
+      {/* Statut juridique — axe SÉPARÉ du type SAD ci-dessus, et non une valeur de
+          plus dans la même liste. Une association loi 1901 peut être SAD Aide ou SAD
+          Mixte ; les fusionner rendrait la moitié des combinaisons inexprimables. */}
       <div className="space-y-1.5">
-        <Label htmlFor="address">Adresse</Label>
+        <Label htmlFor="structureType">
+          Statut juridique <span className="text-rouge-imp">*</span>
+        </Label>
+        <Select
+          id="structureType"
+          name="structureType"
+          required
+          disabled={isPending}
+          defaultValue={establishment.structureType ?? ""}
+        >
+          <option value="">— Sélectionner —</option>
+          <option value="ASSOCIATION">Association loi 1901</option>
+          <option value="PUBLIC">CCAS / CIAS (organisme public)</option>
+          <option value="PRIVE">Secteur privé</option>
+        </Select>
+        <p className="text-xs text-gris-mid">
+          Indépendant du type SAD : une association peut être Aide ou Mixte.
+        </p>
+      </div>
+
+      <div className="space-y-1.5">
+        <Label htmlFor="address">
+          Adresse <span className="text-rouge-imp">*</span>
+        </Label>
         <Input
           id="address"
           name="address"
           placeholder="ex : 12 rue de la Paix, 93150 Le Blanc-Mesnil"
-          defaultValue={establishment?.address ?? undefined}
+          defaultValue={establishment.address ?? undefined}
+          required
           disabled={isPending}
         />
       </div>
 
       <div className="space-y-1.5">
-        <Label htmlFor="hasEvaluationTargetDate">Date cible de l'évaluation HAS</Label>
+        <Label htmlFor="hasEvaluationTargetDate">
+          Date cible de l&apos;évaluation HAS <span className="text-rouge-imp">*</span>
+        </Label>
         <Input
           id="hasEvaluationTargetDate"
           name="hasEvaluationTargetDate"
-          type="month"
-          defaultValue={toMonthInputValue(establishment?.hasEvaluationTargetDate ?? null)}
+          type="date"
+          defaultValue={toDateInputValue(establishment.hasEvaluationTargetDate ?? null)}
+          required
           disabled={isPending}
         />
         <p className="text-xs text-gris-mid">
@@ -114,7 +155,7 @@ export function EstablishmentForm({ establishment }: Props) {
       <div className="flex gap-3 pt-2 border-t border-gris-light mt-6">
         <Button type="submit" disabled={isPending} className="mt-6">
           {isPending && <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />}
-          {isEdit ? "Enregistrer les modifications" : "Créer l'établissement"}
+          Enregistrer les modifications
         </Button>
         <Button type="button" variant="outline" asChild className="mt-6">
           <Link href={cancelHref}>Annuler</Link>

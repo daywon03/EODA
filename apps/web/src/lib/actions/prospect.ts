@@ -1,6 +1,6 @@
 "use server";
 
-import { prisma, type Prisma, type ProspectStatus, type ProspectType } from "@eoda/database";
+import { prisma, type Prisma, type ProspectStatus, type StructureType } from "@eoda/database";
 import { requireCabinetAdminSession } from "@/lib/auth/guards";
 import { redirect, notFound } from "next/navigation";
 import { revalidatePath } from "next/cache";
@@ -136,7 +136,7 @@ export async function deleteProspect(id: string): Promise<{ error: string } | vo
 export type ProspectCardItem = {
   id: string;
   structureName: string;
-  structureType: ProspectType;
+  structureType: StructureType;
   status: ProspectStatus;
   contactName: string | null;
   estimatedAmountEuros: number | null;
@@ -220,7 +220,7 @@ function emptyStatusCounts(): Record<ProspectStatus, number> {
 // `groupBy` répond aux deux.
 export async function getProspectKpiCounts(): Promise<{
   byStatus: Record<ProspectStatus, number>;
-  byStructureType: Record<ProspectType, number>;
+  byStructureType: Record<StructureType, number>;
 }> {
   const { tenantId } = await requireCabinetAdminSession();
 
@@ -232,7 +232,7 @@ export async function getProspectKpiCounts(): Promise<{
   const byStatus = emptyStatusCounts();
   for (const row of statusRows) byStatus[row.status] = row._count._all;
 
-  const byStructureType: Record<ProspectType, number> = { ASSOCIATION: 0, PRIVE: 0, PUBLIC: 0 };
+  const byStructureType: Record<StructureType, number> = { ASSOCIATION: 0, PRIVE: 0, PUBLIC: 0 };
   for (const row of typeRows) byStructureType[row.structureType] = row._count._all;
 
   return { byStatus, byStructureType };

@@ -1,11 +1,11 @@
 import { ProspectCard } from "./ProspectCard";
 import { PROSPECT_STATUS_LABELS } from "./ProspectStatusBadge";
-import type { ProspectStatus, ProspectType } from "@eoda/database";
+import type { ProspectStatus, StructureType } from "@eoda/database";
 
 type ProspectItem = {
   id: string;
   structureName: string;
-  structureType: ProspectType;
+  structureType: StructureType;
   status: ProspectStatus;
   contactName: string | null;
   estimatedAmountEuros: number | null;

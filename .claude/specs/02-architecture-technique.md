@@ -545,6 +545,50 @@ servait les pages, et n'échouait qu'au premier dépôt de document — devant l
   dépendance « au cas où » ne coûte pas zéro : elle reste dans l'arbre, et donc dans
   l'audit.)*
 
+### 4.13 Cycle de vie d'une fiche client — état dérivé ✅ *(23/08/2026)*
+
+**Une seule porte vers une fiche client.** Il existait deux chemins :
+`convertDevisToClient` (prospect → devis → signature) et une création manuelle via
+`/dashboard/cabinet/etablissements/nouveau`. Le second redemandait les mêmes champs —
+FINESS, type de SAD, adresse, échéance HAS — mais **avant** qu'aucune relation
+commerciale n'existe, et produisait un établissement sans prospect, sans devis et sans
+chiffre d'affaires : invisible de tous les indicateurs. Supprimé (route, page, action
+`createEstablishment`).
+
+**L'état est calculé, pas stocké.** Le réflexe aurait été d'ajouter
+`Establishment.status`. Rejeté : le dépôt porte déjà quatre sources d'état
+(`Prospect.status`, `Devis.status`, `Mission.formule`/`gratuit`,
+`Establishment.commercialTier`) et la cinquième aurait divergé comme la quatrième —
+`commercialTier` a été ajouté puis plus rien ne l'a mis à jour, si bien que la fiche
+annonçait « Bêta-test gratuit » à des clients payants.
+
+`lib/services/lifecycle-service.ts` (pur, 100 % couvert) :
+
+| Étape | Dérivée de |
+|---|---|
+| `SIGNE` | mission existe, aucun item coché, aucune date de phase posée |
+| `EN_COURS` | ≥ 1 item de diagnostic coché **ou** ≥ 1 date de phase posée |
+| `TERMINE` | `Mission.closedAt` renseigné |
+
+`closedAt` est la **seule** colonne ajoutée : la clôture est une décision de
+l'évaluatrice, pas un calcul. Déduire « terminé » d'une checklist à 100 % serait faux —
+une mission entièrement cochée reste ouverte jusqu'à la visite des évaluateurs, et la
+clore fermerait le portail du client avant l'échéance pour laquelle il a payé. Le cas
+inverse existe aussi : une mission abandonnée est close avec une progression partielle.
+
+Une échelle unifiée (`deriveFunnelStage`) projette prospect **et** client sur un même
+axe `NOUVEAU → RDV → DEVIS_ENVOYE → NEGOCIATION → SIGNE → EN_COURS → TERMINE / PERDU`.
+La mission l'emporte dès qu'elle existe : `Prospect.status` reste figé à `SIGNE` après
+conversion — correct comme dernier état commercial, mais il afficherait « Signé » sur
+une structure dont la mission est terminée depuis six mois. Un établissement sans
+prospect (ASSAD BENOIT, antérieur à l'entonnoir unique) se dérive de sa seule mission.
+
+`StructureType` (ex-`ProspectType`) est désormais partagé par `Prospect` et
+`Establishment` — d'où le renommage. Nullable sur `Establishment` sans valeur par
+défaut : les fiches antérieures n'ont pas l'information et poser « ASSOCIATION » pour
+tout le monde ferait entrer une donnée inventée dans un livrable. Il est saisi au stade
+prospect et **recopié** à la signature, jamais ressaisi.
+
 ## 5. Préparation explicite de l'évolutivité (sans la construire maintenant)
 
 | Besoin futur | Ce qu'on fait maintenant pour ne pas se bloquer |

@@ -251,6 +251,31 @@ Détail complet et état d'avancement : `specs/02-architecture-technique.md` §4
   catalogue, donc un « à partir de », rendu comme tel côté portail client. Ne jamais fusionner
   les deux chemins de création « puisque c'est le même objet » : ils n'ont pas la même valeur
   juridique. Règles pures dans `lib/services/mission-option-service.ts`.
+- **Une fiche client ne se crée QUE par la signature d'un devis.** Il n'existe
+  volontairement plus de `createEstablishment` ni de route `/etablissements/nouveau`
+  (supprimés le 23/08/2026). Une création manuelle produisait un établissement sans
+  prospect, sans devis et sans chiffre d'affaires — donc absent de tous les indicateurs
+  commerciaux — et redemandait FINESS / adresse / échéance HAS **avant** qu'aucune
+  relation commerciale n'existe. Un seul chemin : prospect → devis → signature. Si le
+  besoin « client déjà signé hors plateforme » revient, il passe par un prospect et un
+  devis, jamais par une seconde porte.
+- **L'état d'une fiche est DÉRIVÉ, jamais stocké** — `lib/services/lifecycle-service.ts`
+  (pur, testé). `SIGNE` / `EN_COURS` se calculent à partir des faits (items de
+  diagnostic cochés, dates de phases posées) ; `TERMINE` vient de `Mission.closedAt`,
+  seul fait non dérivable parce que la clôture est une décision, pas un calcul. Ne
+  **jamais** ajouter `Establishment.status` : le dépôt porte déjà quatre sources d'état
+  et `commercialTier` a démontré ce qui arrive à la cinquième — ajoutée, puis plus
+  jamais mise à jour, elle annonçait « Bêta-test gratuit » à des clients payants.
+  Le bêta-test (`Mission.gratuit`) est un **attribut orthogonal**, pas une étape : une
+  mission gratuite peut être signée, en cours ou terminée.
+- **`StructureType` (statut juridique) et `EstablishmentType` (type SAD) sont deux axes
+  indépendants**, portés par `Prospect` *et* `Establishment` pour le premier. Le support
+  commercial les aligne sur une même ligne (« SAD Aide · SAD Mixtes · Associations loi
+  1901 · CCAS/CIAS · Secteur privé ») : c'est une liste de segments de marché, pas un
+  enum. Les fusionner rendrait « association qui est un SAD Mixte » inexprimable. Le
+  statut juridique est saisi une seule fois, au stade prospect, et **recopié** sur la
+  fiche à la signature — jamais redemandé, une seconde saisie du même fait finit par
+  diverger.
 - Ne pas faire passer un devis à `SIGNE` par `changeDevisStatus` : la signature est la seule
   transition qui produit des effets hors du module commercial (fiche établissement, mission,
   périmètre ouvert au client) et passe par `convertDevisToClient` (`lib/actions/conversion.ts`),

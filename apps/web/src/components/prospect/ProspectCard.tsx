@@ -3,20 +3,20 @@ import { Users, Phone, ChevronRight } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ProspectStatusBadge } from "./ProspectStatusBadge";
-import type { ProspectStatus, ProspectType } from "@eoda/database";
+import type { ProspectStatus, StructureType } from "@eoda/database";
 import { formatEuros } from "@/lib/services/price-format-service";
 
 type Props = {
   id: string;
   structureName: string;
-  structureType: ProspectType;
+  structureType: StructureType;
   status: ProspectStatus;
   contactName: string | null;
   estimatedAmountEuros: number | null;
   devisCount: number;
 };
 
-const TYPE_LABELS: Record<ProspectType, string> = {
+const TYPE_LABELS: Record<StructureType, string> = {
   ASSOCIATION: "Association",
   PRIVE: "Privé",
   PUBLIC: "Public",

@@ -37,9 +37,22 @@ enum ProspectStatus {
   PERDU
 }
 
-enum ProspectType {
+// Statut juridique de la structure. Sert AUX DEUX modèles — Prospect (avant
+// signature) et Establishment (après) — d'où le nom neutre : l'appeler ProspectType
+// sur une fiche client serait trompeur.
+//
+// ⚠️ À ne jamais fusionner avec `EstablishmentType` (SAD_AIDE / SAD_MIXTE). Ce sont
+// deux axes indépendants : une association loi 1901 peut être un SAD Aide OU un SAD
+// Mixte. Le support commercial les aligne sur une même ligne (« SAD Aide · SAD Mixtes
+// · Associations loi 1901 · CCAS/CIAS · Secteur privé ») — c'est une liste de segments
+// de marché, pas un enum. Les fusionner rendrait la moitié des combinaisons
+// inexprimables (cf. CLAUDE.md §7).
+enum StructureType {
+  // Association loi 1901
   ASSOCIATION
+  // Secteur privé
   PRIVE
+  // CCAS / CIAS et autres organismes publics
   PUBLIC
 }
 
@@ -223,7 +236,14 @@ model Establishment {
   tenantId              String            @map("tenant_id")
   name                  String
   finessNumber          String?           @unique @map("finess_number")
+  // Type de service rendu — axe INDÉPENDANT du statut juridique ci-dessous.
   type                  EstablishmentType
+  // Statut juridique. Nullable en base et pourtant exigé à la saisie : les fiches
+  // créées avant cette colonne n'en ont pas, et aucune valeur par défaut ne serait
+  // vraie. Inventer « ASSOCIATION » pour tout le monde ferait entrer une donnée
+  // fausse dans un livrable client — mieux vaut un « non renseigné » visible qui
+  // appelle une correction.
+  structureType         StructureType?    @map("structure_type")
   address               String?
   // Historique/affichage uniquement — non éditable via l'UI. La formule qui fait
   // autorité pour le périmètre d'accompagnement réellement contracté est
@@ -536,7 +556,7 @@ model Prospect {
   id                   String             @id @default(cuid())
   tenantId             String             @map("tenant_id")
   structureName        String             @map("structure_name")
-  structureType        ProspectType       @map("structure_type")
+  structureType        StructureType      @map("structure_type")
   contactName          String?            @map("contact_name")
   contactPhone         String?            @map("contact_phone")
   contactEmail         String?            @map("contact_email")
@@ -715,6 +735,13 @@ model Mission {
   consolidationEndDate       DateTime? @map("consolidation_end_date")
   preparationFinaleStartDate DateTime? @map("preparation_finale_start_date")
   preparationFinaleEndDate   DateTime? @map("preparation_finale_end_date")
+
+  // Clôture de la mission. SEUL fait du cycle de vie qui ne se dérive pas : c'est une
+  // décision de l'évaluatrice, pas un calcul. Déduire « terminé » d'une checklist à
+  // 100 % serait faux — une mission entièrement cochée reste ouverte jusqu'à la visite
+  // des évaluateurs HAS. Tout le reste de l'état (SIGNE / EN_COURS) se calcule à partir
+  // des faits existants, cf. lib/services/lifecycle-service.ts.
+  closedAt DateTime? @map("closed_at")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")

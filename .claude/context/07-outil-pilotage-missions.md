@@ -406,8 +406,20 @@ déjà conforme.
 >   avenant, dans le module devis. Contrôle porté par l'action serveur, la case verrouillée
 >   de l'UI n'en est que le reflet.
 >
-> **Non implémenté** : §12.5 (états de fin de mission, page plan d'action, module
-> sensibilisation, relances automatiques, export Synaé).
+> **Entonnoir unique — 23/08/2026.** La création manuelle d'établissement
+> (`/dashboard/cabinet/etablissements/nouveau`) est **supprimée**. Une fiche client naît
+> exclusivement de la signature d'un devis. Elle demandait FINESS, type de SAD, adresse
+> et échéance HAS avant qu'aucun prospect ni devis n'existe — des informations qui ne
+> sont connues qu'à la signature — et le résultat n'apparaissait dans aucun indicateur
+> commercial. L'état de la fiche est désormais **dérivé** des faits
+> (`lib/services/lifecycle-service.ts`) : `SIGNE` → `EN_COURS` → `TERMINE`, plus un
+> badge bêta orthogonal. Aucun statut stocké, sauf `Mission.closedAt` — la clôture est
+> une décision, pas un calcul.
+>
+> **Non implémenté** : §12.5 (page plan d'action, module sensibilisation, relances
+> automatiques, export Synaé). Les états de fin de mission sont partiellement couverts :
+> `Mission.closedAt` existe et produit l'étape `TERMINE`, mais aucun écran ne permet
+> encore de clore une mission ni d'en qualifier l'issue.
 >
 > **Non représentable en l'état dans le catalogue** (aucun champ ne les porte, ils restent
 > à traiter à la main dans le devis) : la remise « Forfait multi-docs (3+) : -10 % », le pack

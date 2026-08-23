@@ -4,6 +4,8 @@ import Link from "next/link";
 import { listEstablishments } from "@/lib/actions/establishment";
 import { EstablishmentCard } from "@/components/etablissement/EstablishmentCard";
 import { PageHeader } from "@/components/layout/PageHeader";
+import { deriveFunnelStage, isBetaMission } from "@/lib/services/lifecycle-service";
+import { toMissionLifecycleFacts } from "@/lib/db/to-mission-lifecycle-facts";
 import { Button } from "@/components/ui/button";
 import { Plus, Building2, FileText, CalendarClock, ScrollText } from "lucide-react";
 
@@ -38,10 +40,15 @@ export default async function CabinetDashboardPage() {
                 Journal d&apos;audit
               </Link>
             </Button>
+            {/* Une fiche client ne se crée plus à la main : elle naît de la
+                signature d'un devis (convertDevisToClient). Un établissement créé
+                hors entonnoir n'aurait ni prospect, ni devis, ni chiffre d'affaires
+                — donc n'apparaîtrait dans aucun indicateur commercial. Le point
+                d'entrée est le prospect. */}
             <Button asChild>
-              <Link href="/dashboard/cabinet/etablissements/nouveau">
+              <Link href="/dashboard/cabinet/commercial/prospects">
                 <Plus className="w-4 h-4" aria-hidden="true" />
-                Nouvel établissement
+                Nouveau prospect
               </Link>
             </Button>
           </div>
@@ -67,14 +74,16 @@ export default async function CabinetDashboardPage() {
       {establishments.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 text-center border-2 border-dashed border-gris-light rounded-xl bg-white/50">
           <Building2 className="w-12 h-12 text-gris-light mb-4" aria-hidden="true" />
-          <h2 className="text-lg font-semibold text-brun-ancre mb-1">Aucun établissement</h2>
-          <p className="text-gris-mid text-sm mb-6">
-            Créez votre premier établissement pour commencer.
+          <h2 className="text-lg font-semibold text-brun-ancre mb-1">Aucune fiche client</h2>
+          <p className="text-gris-mid text-sm mb-6 max-w-md">
+            Une fiche client naît de la signature d&apos;un devis. Commencez par
+            enregistrer le prospect, établissez son devis, puis signez-le : la fiche,
+            la mission et les options souscrites sont créées d&apos;un seul geste.
           </p>
           <Button asChild>
-            <Link href="/dashboard/cabinet/etablissements/nouveau">
+            <Link href="/dashboard/cabinet/commercial/prospects">
               <Plus className="w-4 h-4" aria-hidden="true" />
-              Créer ASSAD BENOIT
+              Ouvrir le pipeline prospects
             </Link>
           </Button>
         </div>
@@ -89,6 +98,11 @@ export default async function CabinetDashboardPage() {
               type={e.type}
               hasEvaluationTargetDate={e.hasEvaluationTargetDate}
               documentCount={e._count.documents}
+              stage={deriveFunnelStage({
+                prospectStatus: e.prospect?.status ?? null,
+                mission: toMissionLifecycleFacts(e.mission),
+              })}
+              beta={isBetaMission(toMissionLifecycleFacts(e.mission))}
             />
           ))}
         </div>

@@ -178,32 +178,42 @@ export function SignatureConversionForm({
         <div className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <Label htmlFor="finessNumber">Numéro FINESS</Label>
+              <Label htmlFor="finessNumber">
+                Numéro FINESS <span className="text-rouge-imp">*</span>
+              </Label>
               <Input
                 id="finessNumber"
                 name="finessNumber"
                 inputMode="numeric"
                 placeholder="9 chiffres"
+                required
                 disabled={isPending}
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="hasEvaluationTargetDate">Échéance évaluation HAS</Label>
+              <Label htmlFor="hasEvaluationTargetDate">
+                Échéance évaluation HAS <span className="text-rouge-imp">*</span>
+              </Label>
               <Input
                 id="hasEvaluationTargetDate"
                 name="hasEvaluationTargetDate"
                 type="date"
+                required
                 disabled={isPending}
               />
             </div>
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="address">Adresse</Label>
-            <Input id="address" name="address" disabled={isPending} />
+            <Label htmlFor="address">
+              Adresse <span className="text-rouge-imp">*</span>
+            </Label>
+            <Input id="address" name="address" required disabled={isPending} />
           </div>
           <p className="text-xs text-gris-mid">
-            FINESS, adresse et échéance sont facultatifs ici et complétables sur la fiche.
-            Le nom de la fiche reprend celui du prospect : {structureName}.
+            C&apos;est le moment où ces informations sont connues : la fiche client part
+            ensuite dans les livrables HAS, elle ne se crée plus à vide ailleurs. Le nom
+            reprend celui du prospect ({structureName}) et le statut juridique est repris
+            de sa qualification — rien à ressaisir.
           </p>
         </div>
       )}

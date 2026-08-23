@@ -40,6 +40,12 @@ export default defineConfig({
         "src/lib/services/help-content-service.ts",
         "src/lib/services/client-contract-service.ts",
         "src/lib/services/conversion-service.ts",
+        // Cycle de vie d'une fiche client. Sous mesure parce que l'état est DÉRIVÉ :
+        // une erreur ici n'échoue nulle part, elle affiche simplement une mauvaise
+        // étape — un client « terminé » présenté comme « signé », un accompagnement
+        // en cours annoncé comme non démarré.
+        "src/lib/services/lifecycle-service.ts",
+        "src/lib/db/to-mission-lifecycle-facts.ts",
         "src/lib/config/production-profile.ts",
         "src/lib/db/migration-status.ts",
         "src/lib/security/password-policy.ts",
