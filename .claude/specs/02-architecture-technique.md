@@ -624,6 +624,57 @@ comme `to-mission-lifecycle-facts.ts` : le service reste pur, et le tableau de b
 Cabinet (qui compte sur les fiches déjà chargées) et la page commerciale (qui les
 recharge) comptent la même chose.
 
+### 4.15 Dossier prospect — contact, historique, action suivante ✅ *(26/08/2026)*
+
+Demandes de Sandrine au call du 26/08, dans l'ordre où elles ont été faites.
+
+**Le contact cesse d'être une chaîne libre.** `civility` (M./Mme/Mlle) et `contactRole`
+(Direction / Coordination / Assistanat / Autre) sont des colonnes ; jusqu'ici tout était
+recopié dans `contactName` (« Madame Dupont »), ce qui rend le nom intriable,
+inadressable et impossible à pré-remplir dans un devis sans le redécouper à la main. La
+liste des fonctions est courte et se complétera au fil des rôles rencontrés : `AUTRE` +
+précision évite d'attendre une migration pour enregistrer un cas nouveau. Même
+mécanique pour `channelOther` : un canal « Autre » sans précision n'enregistre pas une
+information, il enregistre qu'on ne sait pas — et fait disparaître de l'analyse
+d'acquisition exactement les cas nouveaux qu'il faudrait repérer. La règle
+(`otherPrecisionError`) est unique et partagée par les deux champs, et la précision est
+effacée si la valeur cesse d'être `AUTRE` (`keepPrecisionOnlyForOther`) : un commentaire
+orphelin qui contredit le champ affiché est pire que pas de commentaire.
+
+**L'historique** (`ProspectTimelineEntry`, append-only) porte sur la même frise les
+commentaires saisis et les changements d'étape — c'est le dossier que Sandrine
+reconstituait dans sa boîte mail. Le changement de statut et sa trace sont écrits dans
+une seule transaction : séparés, un incident laisserait une étape sans histoire, or
+c'est l'histoire qu'on cherche à reconstituer. Un statut réappliqué à l'identique
+n'écrit rien. Il n'existe volontairement **ni modification ni suppression** d'une
+entrée — un historique réécrivable ne prouve rien.
+
+**Une action par étape** (`prospect-next-action-service.ts`, pur) : l'écran proposait
+les mêmes boutons à toutes les étapes. `RDV` (la réunion de découverte) mène à l'édition
+du devis — la demande littérale — ou à la reprise du devis existant plutôt qu'à un
+second document pour une seule offre ; `DEVIS_ENVOYE` mène à l'historique, puisque rien
+n'est à éditer tant qu'ils n'ont pas répondu ; `PERDU` ne propose rien, en proposer une
+rouvrirait un dossier délibérément fermé.
+
+**Prospect → client** : `describeProspectRelation` bascule le titre sur l'existence de
+la fiche (`establishmentId`), pas sur `status = SIGNE` — la signature du devis et la
+conversion sont deux instants distincts.
+
+**Partage du devis** (`devis-sharing-service.ts`, pur) — décision de Damon, « au plus
+simple » : aucun envoi serveur, aucun jeton de partage public, aucun moteur PDF. Le
+bouton « Télécharger » ouvre la vue imprimable avec `?auto=1` et pose comme titre de
+document le nom de fichier de la convention EODA
+(`AAAAMMJJ_DEVIS_CLIENT_OBJET_v01_Externe.pdf`), que le navigateur propose alors dans
+« Enregistrer au format PDF » — sans quoi la pièce jointe s'appelle « localhost ». Le
+bouton « Préparer l'e-mail » ouvre un `mailto:` pré-rempli : il **prépare**, il n'envoie
+pas. Le message part de la vraie boîte de Sandrine, avec sa signature, et elle le relit.
+Un envoi serveur aurait exigé une adresse d'expédition, un moteur PDF et une file de
+reprise sur échec pour rendre le même service.
+
+*(`getEmailPort()` reste inutilisé : l'infrastructure d'envoi existe, aucun appelant ne
+s'en sert encore. À reprendre le jour où une relance automatique sera spécifiée — §12.7
+du mode opératoire.)*
+
 ## 5. Préparation explicite de l'évolutivité (sans la construire maintenant)
 
 | Besoin futur | Ce qu'on fait maintenant pour ne pas se bloquer |

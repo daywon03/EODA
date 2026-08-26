@@ -278,6 +278,23 @@ Détail complet et état d'avancement : `specs/02-architecture-technique.md` §4
   et serait sinon compté deux fois dans l'entonnoir unifié, une fois en « Signé »
   et une fois à l'étape réelle de sa mission. `byStructureType` reste sur tous les
   prospects : c'est une lecture de marché, pas une photo du pipeline.
+- **L'historique d'un prospect ne se réécrit pas.** `ProspectTimelineEntry` est
+  append-only : commentaires ET changements d'étape sur la même frise, aucune action
+  de modification ni de suppression, le changement de statut et sa trace dans une
+  seule transaction (`lib/actions/prospect.ts`). Ne pas ajouter d'édition « pour
+  corriger une faute » : un dossier réécrivable ne prouve rien le jour où il faut
+  expliquer pourquoi une négociation a échoué.
+- **Un choix « Autre » exige sa précision** — `otherPrecisionError` /
+  `keepPrecisionOnlyForOther` (`lib/services/prospect-contact-service.ts`), une seule
+  règle partagée par le canal d'acquisition et la fonction du contact. La précision
+  est effacée si la valeur cesse d'être `AUTRE`. Même principe pour la civilité et la
+  fonction : elles ne se recopient jamais dans `contactName`, un nom qui contient sa
+  civilité ne se trie ni ne s'adresse.
+- **Le partage d'un devis ne passe par aucun envoi serveur** (décision Damon,
+  26/08/2026) : `mailto:` pré-rempli + téléchargement via la vue imprimable, nommé
+  selon la convention EODA (`devis-sharing-service.ts`). Ne pas « améliorer » en
+  ajoutant un jeton de partage public ou un moteur PDF sans que ce soit redemandé —
+  c'est une route publique et une dépendance lourde, pour un service déjà rendu.
 - **`StructureType` (statut juridique) et `EstablishmentType` (type SAD) sont deux axes
   indépendants**, portés par `Prospect` *et* `Establishment` pour le premier. Le support
   commercial les aligne sur une même ligne (« SAD Aide · SAD Mixtes · Associations loi

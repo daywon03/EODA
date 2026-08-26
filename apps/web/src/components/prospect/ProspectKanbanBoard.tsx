@@ -7,7 +7,7 @@ type ProspectItem = {
   structureName: string;
   structureType: StructureType;
   status: ProspectStatus;
-  contactName: string | null;
+  contactIdentity: string | null;
   estimatedAmountEuros: number | null;
   devisCount: number;
 };
@@ -44,7 +44,7 @@ export function ProspectKanbanBoard({ prospects, totalByStatus }: Props) {
                   structureName={p.structureName}
                   structureType={p.structureType}
                   status={p.status}
-                  contactName={p.contactName}
+                  contactIdentity={p.contactIdentity}
                   estimatedAmountEuros={p.estimatedAmountEuros}
                   devisCount={p.devisCount}
                 />

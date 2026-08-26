@@ -56,6 +56,25 @@ enum StructureType {
   PUBLIC
 }
 
+// Civilité du contact — champ à part et non préfixe du nom. Recopier « Madame »
+// dans `contactName` rend le nom inexploitable : impossible de trier, d'adresser un
+// courrier ou de pré-remplir un devis sans le redécouper à la main.
+enum Civility {
+  MONSIEUR
+  MADAME
+  MADEMOISELLE
+}
+
+// Fonction du contact dans la structure. Liste volontairement courte, à compléter au
+// fur et à mesure des rôles réellement rencontrés en prospection ; `AUTRE` + précision
+// libre évite d'avoir à migrer le schéma à chaque cas nouveau.
+enum ContactRole {
+  DIRECTION
+  COORDINATION
+  ASSISTANAT
+  AUTRE
+}
+
 enum AcquisitionChannel {
   BOUCHE_A_OREILLE
   REFERENCEMENT_UNA
@@ -63,6 +82,15 @@ enum AcquisitionChannel {
   REFERENCEMENT_GOOGLE
   LINKEDIN
   AUTRE
+}
+
+// Nature d'une entrée d'historique de prospect. Deux natures seulement, et elles ne
+// se confondent pas : un commentaire est saisi par quelqu'un, un changement de statut
+// est constaté par l'outil. Les fusionner en « note » ferait disparaître la
+// chronologie commerciale dans du texte libre.
+enum ProspectTimelineKind {
+  COMMENTAIRE
+  CHANGEMENT_STATUT
 }
 
 enum DevisStatus {
@@ -193,6 +221,7 @@ model Tenant {
   devis             Devis[]
   missions          Mission[]
   optionRequests    ClientOptionRequest[]
+  prospectTimeline  ProspectTimelineEntry[]
 
   @@map("tenants")
 }
@@ -227,6 +256,7 @@ model User {
   uploadedVersions   DocumentVersion[]    @relation("UploadedBy")
   evaluationSessions EvaluationSession[]
   optionRequests     ClientOptionRequest[] @relation("RequestedBy")
+  prospectTimeline   ProspectTimelineEntry[] @relation("ProspectTimelineAuthor")
 
   @@map("users")
 }
@@ -557,10 +587,19 @@ model Prospect {
   tenantId             String             @map("tenant_id")
   structureName        String             @map("structure_name")
   structureType        StructureType      @map("structure_type")
+  civility             Civility?
   contactName          String?            @map("contact_name")
+  contactRole          ContactRole?       @map("contact_role")
+  // Précision obligatoire quand `contactRole = AUTRE` — sinon la valeur « Autre »
+  // ne dit rien de plus que l'absence de valeur. Même règle pour `channelOther`.
+  contactRoleOther     String?            @map("contact_role_other")
   contactPhone         String?            @map("contact_phone")
   contactEmail         String?            @map("contact_email")
   channel              AcquisitionChannel
+  // « Comment nous ont-ils connus ? » quand aucun canal listé ne convient. Sans ce
+  // champ, `AUTRE` est un trou noir : il enregistre qu'on ne sait pas, et l'analyse
+  // d'acquisition perd exactement les cas nouveaux qu'il faudrait repérer.
+  channelOther         String?            @map("channel_other")
   status               ProspectStatus     @default(NOUVEAU)
   envisagedFormule     CommercialTier?    @map("envisaged_formule")
   estimatedAmountEuros Int?               @map("estimated_amount_euros")
@@ -585,8 +624,45 @@ model Prospect {
   // prospect survit, simplement détaché.
   establishment Establishment? @relation(fields: [establishmentId], references: [id], onDelete: SetNull)
   devis         Devis[]
+  timeline      ProspectTimelineEntry[]
 
   @@map("prospects")
+}
+
+// Historique d'un prospect — le dossier que Sandrine reconstituait dans sa boîte
+// mail. Commentaires saisis à chaque étape (questions reçues, relances, points
+// d'accroche) ET changements de statut, sur la même frise : séparer les deux
+// obligerait à lire deux écrans pour répondre à « où en est-on avec eux, et
+// pourquoi ? ».
+//
+// Historique, donc APPEND-ONLY : aucune action de modification ni de suppression
+// d'une entrée. Un historique qu'on peut réécrire ne prouve rien.
+model ProspectTimelineEntry {
+  id           String               @id @default(cuid())
+  tenantId     String               @map("tenant_id")
+  prospectId   String               @map("prospect_id")
+  kind         ProspectTimelineKind
+  // Auteur. Nullable et SetNull : la désactivation d'un compte ne doit pas emporter
+  // l'historique commercial (même principe que la piste d'audit).
+  authorUserId String?              @map("author_user_id")
+  // Texte du commentaire. Null pour un changement de statut, qui se raconte avec
+  // `statusFrom`/`statusTo` — recopier « passé en Devis envoyé » dans du texte libre
+  // le rendrait infalsifiable mais illisible par la machine.
+  body         String?
+  statusFrom   ProspectStatus?      @map("status_from")
+  statusTo     ProspectStatus?      @map("status_to")
+  createdAt    DateTime             @default(now()) @map("created_at")
+
+  tenant   Tenant   @relation(fields: [tenantId], references: [id])
+  // Cascade : l'historique n'existe que par son prospect. Un prospect n'est
+  // supprimable que sans devis (lib/actions/prospect.ts), donc sans valeur
+  // commerciale à conserver.
+  prospect Prospect @relation(fields: [prospectId], references: [id], onDelete: Cascade)
+  author   User?    @relation("ProspectTimelineAuthor", fields: [authorUserId], references: [id], onDelete: SetNull)
+
+  // Lecture par défaut : la frise d'un prospect, du plus récent au plus ancien.
+  @@index([prospectId, createdAt])
+  @@map("prospect_timeline_entries")
 }
 
 model Devis {

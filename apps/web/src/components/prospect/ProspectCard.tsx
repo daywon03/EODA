@@ -11,7 +11,7 @@ type Props = {
   structureName: string;
   structureType: StructureType;
   status: ProspectStatus;
-  contactName: string | null;
+  contactIdentity: string | null;
   estimatedAmountEuros: number | null;
   devisCount: number;
 };
@@ -27,7 +27,7 @@ export function ProspectCard({
   structureName,
   structureType,
   status,
-  contactName,
+  contactIdentity,
   estimatedAmountEuros,
   devisCount,
 }: Props) {
@@ -48,10 +48,10 @@ export function ProspectCard({
             <ProspectStatusBadge status={status} />
           </div>
 
-          {contactName && (
+          {contactIdentity && (
             <p className="flex items-center gap-1 text-xs text-gris-mid">
               <Users className="w-3.5 h-3.5 flex-shrink-0" aria-hidden="true" />
-              {contactName}
+              {contactIdentity}
             </p>
           )}
 

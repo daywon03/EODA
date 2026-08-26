@@ -218,6 +218,17 @@ tarifaire).
   tri ligne par ligne inclus/option qu'elle a demandé à Damon de proposer
   ([4:36:18](https://fathom.video/calls/786436116?timestamp=16578)). Le critère de tri n'est
   pas « création vs modification » — cette règle est renversée en fin de call (§12.1).
+- [x] **Dossier prospect** *(26/08/2026, call Sandrine)* — civilité et fonction du
+  contact en colonnes (plus de « Madame Dupont » dans le nom), précision obligatoire
+  sur tout « Autre » (canal, fonction), historique append-only (commentaires +
+  changements d'étape sur une même frise), une action mise en avant par étape, bascule
+  du titre prospect → client sur l'existence de la fiche. Migration
+  `20260826090000_prospect_contact_and_timeline`. Détail :
+  `specs/02-architecture-technique.md` §4.15.
+- [x] **Partage d'un devis** *(26/08/2026)* — téléchargement nommé à la convention EODA
+  via la vue imprimable + brouillon `mailto:` pré-rempli. Aucun envoi serveur, aucun
+  moteur PDF, aucun lien public : décision explicite de Damon, à ne pas « améliorer »
+  sans nouvelle demande.
 - [ ] **Génération de contrat + avenant** pour toute option hors contrat (§12.6).
 - [ ] **Deux parcours d'achat d'option** — paywall direct ou demande → alerte interne → devis
   → déblocage, selon la forme juridique du client (§12.6).

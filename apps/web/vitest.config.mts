@@ -51,6 +51,13 @@ export default defineConfig({
         // sur le tableau de bord, et personne ne remet en cause un compteur.
         "src/lib/services/portfolio-kpi-service.ts",
         "src/lib/db/to-portfolio-row.ts",
+        // Dossier prospect : identité du contact, action suivante par étape, partage
+        // du devis. Rien n'y échoue bruyamment — une civilité mal composée ou un
+        // mauvais lien d'étape se voit seulement à l'écran, sur un document qui part
+        // chez un client.
+        "src/lib/services/prospect-contact-service.ts",
+        "src/lib/services/prospect-next-action-service.ts",
+        "src/lib/services/devis-sharing-service.ts",
         "src/lib/config/production-profile.ts",
         "src/lib/db/migration-status.ts",
         "src/lib/security/password-policy.ts",
