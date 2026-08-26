@@ -235,7 +235,14 @@ tarifaire).
   via la vue imprimable + brouillon `mailto:` pré-rempli. Aucun envoi serveur, aucun
   moteur PDF, aucun lien public : décision explicite de Damon, à ne pas « améliorer »
   sans nouvelle demande.
-- [ ] **Génération de contrat + avenant** pour toute option hors contrat (§12.6).
+- [x] **Avenant** *(26/08/2026)* — généré pour toute option rattachée au périmètre hors
+  devis signé (`MissionOption.priceIsFirm = false`), depuis le suivi de mission :
+  `/imprimer/avenant/[id]`, nommé à la convention EODA, avec emplacements de signature.
+  Le document CONSTATE (ce qui s'ajoute, à quel prix, sous les conditions du contrat
+  initial) et n'écrit aucune clause nouvelle. **Le « contrat » lui-même reste le devis
+  signé** — c'est déjà le document contractuel du dépôt (CLAUDE.md §7) ; produire un
+  second document de contrat supposerait un texte de CGV/CGP que Sandrine n'a pas fourni.
+  Reste ouvert : aucun suivi de la SIGNATURE de l'avenant (pas de modèle, pas de statut).
 - [ ] **Deux parcours d'achat d'option** — paywall direct ou demande → alerte interne → devis
   → déblocage, selon la forme juridique du client (§12.6).
 - [ ] **Abonnement portail** — 400 €/mois, engagement 1 an à reconduction tacite, dégressivité

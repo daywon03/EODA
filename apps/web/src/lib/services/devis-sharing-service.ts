@@ -16,6 +16,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { formatEuros } from "./price-format-service";
+import { buildEodaFileName } from "./document-naming-service";
 
 export type DevisShareInput = {
   number: string;
@@ -27,38 +28,23 @@ export type DevisShareInput = {
   senderName: string;
 };
 
-// Convention de nommage EODA (CLAUDE.md §6) :
-// AAAAMMJJ_TYPE_CLIENT_OBJET_vXX_Interne|Externe.ext
-//
-// Un devis part chez le client : c'est donc toujours `Externe`. La version reste
-// `v01` — le numéro de devis porte déjà l'unicité, et un devis révisé est un
-// nouveau document numéroté, jamais une v02 du même.
-export function buildDevisFileName(input: { number: string; structureName: string; issuedOn: Date }): string {
-  const date = formatCompactDate(input.issuedOn);
-  const client = toFileToken(input.structureName);
-  const objet = toFileToken(input.number);
-  return `${date}_DEVIS_${client}_${objet}_v01_Externe.pdf`;
-}
-
-function formatCompactDate(date: Date): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}${month}${day}`;
-}
-
-// Accents retirés et séparateurs normalisés : un nom de fichier qui traverse une
-// pièce jointe, un serveur de messagerie et le poste du client ne doit dépendre ni de
-// l'encodage ni de la casse. `_` est réservé au découpage de la convention, il ne peut
-// donc pas apparaître à l'intérieur d'un segment.
-function toFileToken(value: string): string {
-  const withoutAccents = value.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-  return (
-    withoutAccents
-      .replace(/[^A-Za-z0-9]+/g, "-")
-      .replace(/^-+|-+$/g, "")
-      .slice(0, 60) || "Sans-nom"
-  );
+// Nom du fichier de devis. La convention EODA vit dans document-naming-service :
+// l'avenant en a besoin aussi, et deux copies de la règle finiraient par produire
+// deux conventions. Un devis part chez le client, donc `Externe` ; la version reste
+// à 1, le numéro de devis porte déjà l'unicité.
+export function buildDevisFileName(input: {
+  number: string;
+  structureName: string;
+  issuedOn: Date;
+}): string {
+  return buildEodaFileName({
+    issuedOn: input.issuedOn,
+    type: "DEVIS",
+    clientName: input.structureName,
+    objet: input.number,
+    audience: "Externe",
+    extension: "pdf",
+  });
 }
 
 export type MailDraft = { to: string | null; subject: string; body: string };

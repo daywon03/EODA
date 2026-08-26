@@ -25,6 +25,7 @@ import {
   isChecklistItemApplicable,
   type MissionProgress,
 } from "@/lib/services/mission-progress-service";
+import type { MissionOptionLine } from "@/lib/services/avenant-service";
 import { readMissionDocumentCounters } from "@/lib/db/read-mission-document-counters";
 import type { MissionDocumentCounters } from "@/lib/services/mission-document-counters-service";
 
@@ -528,6 +529,60 @@ export async function getMission(establishmentId: string): Promise<MissionWithPr
 // Lecture seule : cette page ne propose aucun dépôt, le dépôt reste sur le portail
 // client opérationnel. Le périmètre documentaire suit l'offre de la mission
 // (Mission.formule + gratuit), jamais Establishment.commercialTier.
+
+// ── Avenant ──────────────────────────────────────────────────────────────────
+//
+// Données du document d'avenant (§12.6). Lecture seule, réservée au Cabinet : ce
+// document est produit PAR le cabinet, même s'il part chez le client.
+export type AvenantData = {
+  missionId: string;
+  establishmentName: string;
+  // Devis d'origine s'il existe. Une fiche créée avant l'entonnoir unique
+  // (bêta-test) n'en a pas : l'avenant ne doit alors référencer aucun contrat.
+  contractReference: string | null;
+  // Instant de la signature : `convertDevisToClient` crée la mission ET pose le
+  // lien vers le devis dans la même transaction, la date de création de la mission
+  // EST donc la date de signature. Rendue seulement quand un devis d'origine
+  // existe — sinon elle daterait un contrat inexistant.
+  signedOn: Date | null;
+  options: MissionOptionLine[];
+};
+
+export async function getAvenantData(establishmentId: string): Promise<AvenantData | null> {
+  const { tenantId } = await requireCabinetSession();
+
+  const mission = await prisma.mission.findFirst({
+    where: { establishmentId, tenantId },
+    select: {
+      id: true,
+      createdAt: true,
+      establishment: { select: { name: true } },
+      sourceDevis: { select: { number: true } },
+      options: {
+        select: {
+          catalogueOptionId: true,
+          labelSnapshot: true,
+          priceSnapshotEuros: true,
+          pricingUnitSnapshot: true,
+          priceMaxSnapshotEuros: true,
+          minQuantitySnapshot: true,
+          priceIsFirm: true,
+        },
+        orderBy: { labelSnapshot: "asc" },
+      },
+    },
+  });
+  if (!mission) return null;
+
+  return {
+    missionId: mission.id,
+    establishmentName: mission.establishment.name,
+    contractReference: mission.sourceDevis?.number ?? null,
+    signedOn: mission.sourceDevis ? mission.createdAt : null,
+    options: mission.options,
+  };
+}
+
 export async function getMissionDocumentCounters(
   establishmentId: string
 ): Promise<MissionDocumentCounters | null> {

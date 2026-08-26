@@ -37,6 +37,11 @@ export default defineConfig({
         // erreur ici ferme l'accès d'un client à ses propres documents, ou le laisse
         // ouvert après une révocation.
         "src/lib/services/mission-access-service.ts",
+        // Avenant et convention de nommage : deux règles qui sortent un document
+        // CONTRACTUEL de la plateforme. Un mauvais tri de lignes fait signer deux
+        // fois la même prestation, un mauvais nom de fichier part chez le client.
+        "src/lib/services/avenant-service.ts",
+        "src/lib/services/document-naming-service.ts",
         "src/lib/services/pre-rating-suggestion-service.ts",
         "src/lib/services/anonymization-service.ts",
         "src/lib/services/document-categorization-service.ts",

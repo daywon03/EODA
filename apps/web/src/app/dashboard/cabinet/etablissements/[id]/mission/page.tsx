@@ -14,6 +14,9 @@ import { DiagnosticChecklistSection } from "@/components/mission/DiagnosticCheck
 import { PhaseChecklistSection } from "@/components/mission/PhaseChecklistSection";
 import { MissionDocumentCounters } from "@/components/mission/MissionDocumentCounters";
 import { MissionClosureSection } from "@/components/mission/MissionClosureSection";
+import { Button } from "@/components/ui/button";
+import { FileSignature } from "lucide-react";
+import { needsAvenant } from "@/lib/services/avenant-service";
 import { auth } from "@/auth";
 import type { MissionChecklistScope } from "@eoda/database";
 
@@ -86,6 +89,24 @@ export default async function MissionPage({ params }: Props) {
               <CardTitle className="text-base">Périmètre contractuel</CardTitle>
             </CardHeader>
             <CardContent>
+              {/* Toute option rattachée hors devis signé doit faire l'objet d'un
+                  avenant (§12.6) : elle n'est couverte par aucun document signé.
+                  Le bouton n'apparaît que dans ce cas — proposer un avenant vide
+                  ferait signer un document sans objet. */}
+              {needsAvenant(mission.options) && (
+                <div className="mb-4 flex flex-wrap items-center gap-3 rounded-lg border border-ambre/30 bg-ambre/10 px-4 py-3">
+                  <p className="text-sm text-brun-ancre flex-1 min-w-0">
+                    Des prestations ont été ajoutées hors du devis signé : elles
+                    demandent un avenant.
+                  </p>
+                  <Button size="sm" variant="outline" asChild>
+                    <a href={`/imprimer/avenant/${id}?auto=1`} target="_blank" rel="noopener noreferrer">
+                      <FileSignature className="w-3.5 h-3.5" aria-hidden="true" />
+                      Éditer l&apos;avenant
+                    </a>
+                  </Button>
+                </div>
+              )}
               <MissionScopeEditor
                 missionId={mission.id}
                 formules={formules}
