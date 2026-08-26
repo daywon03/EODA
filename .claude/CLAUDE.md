@@ -268,6 +268,16 @@ Détail complet et état d'avancement : `specs/02-architecture-technique.md` §4
   jamais mise à jour, elle annonçait « Bêta-test gratuit » à des clients payants.
   Le bêta-test (`Mission.gratuit`) est un **attribut orthogonal**, pas une étape : une
   mission gratuite peut être signée, en cours ou terminée.
+- **Les KPI de portefeuille se dérivent des mêmes faits que les badges d'étape** —
+  `lib/services/portfolio-kpi-service.ts` (pur, testé), conversion dans
+  `lib/db/to-portfolio-row.ts`. Un compteur qui recalculerait l'état à sa façon
+  finirait par contredire la fiche qu'il compte. Ne jamais compter une formule
+  depuis `Establishment.commercialTier` : c'est `Mission.formule`. Corollaire :
+  `getProspectKpiCounts` ne compte dans `byStatus` que les prospects **non
+  convertis** (`establishmentId: null`) — un prospect converti garde `SIGNE` à vie
+  et serait sinon compté deux fois dans l'entonnoir unifié, une fois en « Signé »
+  et une fois à l'étape réelle de sa mission. `byStructureType` reste sur tous les
+  prospects : c'est une lecture de marché, pas une photo du pipeline.
 - **`StructureType` (statut juridique) et `EstablishmentType` (type SAD) sont deux axes
   indépendants**, portés par `Prospect` *et* `Establishment` pour le premier. Le support
   commercial les aligne sur une même ligne (« SAD Aide · SAD Mixtes · Associations loi

@@ -589,6 +589,41 @@ défaut : les fiches antérieures n'ont pas l'information et poser « ASSOCIATIO
 tout le monde ferait entrer une donnée inventée dans un livrable. Il est saisi au stade
 prospect et **recopié** à la signature, jamais ressaisi.
 
+### 4.14 KPI de portefeuille — l'aval de l'entonnoir ✅ *(26/08/2026)*
+
+`commercial-kpi-service.ts` agrège des **devis** : émis, taux de conversion, pipeline
+pondéré, CA signé. Il s'arrête à la signature. Après elle, l'outil ne savait plus
+compter : « combien de clients accompagnons-nous en ce moment ? » n'avait aucune
+réponse à l'écran, et deux indicateurs mentaient — « Établissements suivis » comptait
+les missions closes depuis un an, « Évaluations HAS planifiées » comptait les fiches
+dont la date est renseignée, c'est-à-dire **toutes** depuis qu'elle est exigée à la
+signature (§4.13).
+
+`lib/services/portfolio-kpi-service.ts` (pur, sous seuil de couverture) compte l'autre
+moitié à partir des **mêmes faits** que les badges d'étape — jamais d'un second calcul :
+
+| Indicateur | Règle |
+|---|---|
+| Clients actifs | étape `SIGNE` ou `EN_COURS` — le client a payé, l'engagement court |
+| Accompagnements en cours | étape `EN_COURS` seule — une signature n'occupe pas encore de temps de travail |
+| Missions bêta actives | `gratuit` **et** non close — le bêta-test est un attribut, pas une étape |
+| Échéances HAS < 6 mois | mission active, date à venir et dans l'horizon (`now` passé en paramètre, jamais lu par le service) |
+| Missions actives par formule | `Mission.formule`, jamais `Establishment.commercialTier` — ce qui reste à livrer, pas ce qui a été vendu |
+
+**Entonnoir unifié** (`computeFunnelBreakdown`) : prospects **non convertis** +
+fiches clients sur une seule échelle. `getProspectKpiCounts` filtre donc
+`establishmentId: null` sur `byStatus` — sans ce filtre, une structure convertie
+apparaîtrait deux fois, en « Signé » (statut du prospect, figé à vie) et à l'étape
+réelle de sa mission. `byStructureType` reste calculé sur **tous** les prospects :
+c'est une lecture de marché, pas une photo du pipeline. Une fiche sans prospect ni
+mission est comptée à part (« Indéterminé ») plutôt que rangée d'office dans une étape
+— un entonnoir qui invente une étape pour ne pas avoir de trou ment sur son total.
+
+La conversion ligne Prisma → ligne d'agrégat vit dans `lib/db/to-portfolio-row.ts`,
+comme `to-mission-lifecycle-facts.ts` : le service reste pur, et le tableau de bord
+Cabinet (qui compte sur les fiches déjà chargées) et la page commerciale (qui les
+recharge) comptent la même chose.
+
 ## 5. Préparation explicite de l'évolutivité (sans la construire maintenant)
 
 | Besoin futur | Ce qu'on fait maintenant pour ne pas se bloquer |

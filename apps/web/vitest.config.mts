@@ -46,6 +46,11 @@ export default defineConfig({
         // en cours annoncé comme non démarré.
         "src/lib/services/lifecycle-service.ts",
         "src/lib/db/to-mission-lifecycle-facts.ts",
+        // Agrégats de portefeuille : même raison, un cran plus haut. Un client actif
+        // mal compté ne fait échouer aucun test métier — il produit un chiffre faux
+        // sur le tableau de bord, et personne ne remet en cause un compteur.
+        "src/lib/services/portfolio-kpi-service.ts",
+        "src/lib/db/to-portfolio-row.ts",
         "src/lib/config/production-profile.ts",
         "src/lib/db/migration-status.ts",
         "src/lib/security/password-policy.ts",

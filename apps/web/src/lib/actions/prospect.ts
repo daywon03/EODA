@@ -218,6 +218,15 @@ function emptyStatusCounts(): Record<ProspectStatus, number> {
 // lignes pour les compter en mémoire. Un KPI calculé sur une page serait faux, et
 // un KPI calculé sur une table entière chargée en RAM ne passe pas l'échelle — le
 // `groupBy` répond aux deux.
+//
+// `byStatus` ne compte que les prospects NON CONVERTIS (`establishmentId: null`).
+// Raison : après la signature, `Prospect.status` reste figé à `SIGNE` — c'est le
+// dernier état commercial et il est correct comme tel, mais la structure est
+// désormais suivie par sa mission. La compter des deux côtés la ferait apparaître
+// deux fois dans l'entonnoir unifié, une fois en « Signé » et une fois à l'étape
+// réelle de son accompagnement. `byStructureType` reste calculé sur TOUS les
+// prospects : c'est une lecture de marché (d'où viennent nos contacts), pas une
+// photo du pipeline.
 export async function getProspectKpiCounts(): Promise<{
   byStatus: Record<ProspectStatus, number>;
   byStructureType: Record<StructureType, number>;
@@ -225,7 +234,11 @@ export async function getProspectKpiCounts(): Promise<{
   const { tenantId } = await requireCabinetAdminSession();
 
   const [statusRows, typeRows] = await Promise.all([
-    prisma.prospect.groupBy({ by: ["status"], where: { tenantId }, _count: { _all: true } }),
+    prisma.prospect.groupBy({
+      by: ["status"],
+      where: { tenantId, establishmentId: null },
+      _count: { _all: true },
+    }),
     prisma.prospect.groupBy({ by: ["structureType"], where: { tenantId }, _count: { _all: true } }),
   ]);
 

@@ -5,6 +5,8 @@ import { redirect, notFound } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { requireCabinetSession, requireEstablishmentInTenant } from "@/lib/auth/guards";
 import { recordAuditEvent } from "@/lib/services/audit-log-service";
+import type { PortfolioRow } from "@/lib/services/portfolio-kpi-service";
+import { toPortfolioRow } from "@/lib/db/to-portfolio-row";
 import {
   firstError,
   requiredDate,
@@ -235,6 +237,11 @@ const LIFECYCLE_INCLUDE = {
       consolidationEndDate: true,
       preparationFinaleStartDate: true,
       preparationFinaleEndDate: true,
+      // Formule contractée — lue avec les faits de cycle de vie parce que les
+      // agrégats de portefeuille en ont besoin en même temps qu'eux, et parce que
+      // c'est la mission qui en porte la vérité, jamais `Establishment.commercialTier`
+      // (CLAUDE.md §7).
+      formule: true,
       itemStatuses: { where: { completed: true }, select: { id: true } },
     },
   },
@@ -255,6 +262,24 @@ export async function listEstablishments() {
     orderBy: { createdAt: "desc" },
     include: { _count: { select: { documents: true } }, ...LIFECYCLE_INCLUDE },
   });
+}
+
+// Portefeuille client agrégé (cf. lib/services/portfolio-kpi-service.ts) — la
+// moitié des indicateurs qui vit APRÈS la signature. Même sélection que la liste
+// des fiches : deux requêtes jumelles finiraient par diverger, et deux écrans
+// compteraient alors des choses différentes sous le même nom.
+//
+// Converti en `PortfolioRow` ici et pas dans la page : la couche de présentation
+// n'a pas à connaître la forme Prisma (huit colonnes de dates, items filtrés).
+export async function listPortfolioRowsForKpi(): Promise<PortfolioRow[]> {
+  const { tenantId } = await requireCabinetSession();
+
+  const rows = await prisma.establishment.findMany({
+    where: { tenantId },
+    include: LIFECYCLE_INCLUDE,
+  });
+
+  return rows.map(toPortfolioRow);
 }
 
 export type EstablishmentWithUsers = Prisma.EstablishmentGetPayload<{
