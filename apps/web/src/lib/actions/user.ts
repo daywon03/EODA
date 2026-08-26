@@ -83,10 +83,14 @@ export async function inviteClientUser(formData: FormData): Promise<InviteClient
   // PAS de revalidatePath ici, volontairement — et vérifié en pilotant l'application.
   // La revalidation rejoue le rendu serveur de la fiche et remplace l'arbre : l'état
   // du composant client est perdu, donc le panneau qui affiche le mot de passe
-  // temporaire. Observé précisément : le compte était créé, l'interlocuteur
-  // apparaissait dans la liste, et Sandrine ne voyait jamais le mot de passe — qui
-  // n'est affiché qu'une fois et n'est stocké nulle part. La liste est rafraîchie par
-  // le composant (router.refresh()) quand elle ferme le panneau, mot de passe copié.
+  // temporaire. Observé précisément : le compte était créé, et Sandrine ne voyait
+  // jamais le mot de passe — qui n'est affiché qu'une fois et n'est stocké nulle part.
+  //
+  // Le rafraîchissement de la liste des interlocuteurs se fait donc côté composant,
+  // par `router.refresh()`, juste après l'affichage du panneau : contrairement à
+  // `revalidatePath`, il re-rend l'arbre serveur en conservant l'état React du client.
+  // Sans lui, le compte créé n'apparaissait dans la liste qu'après un rechargement
+  // manuel de la page.
 
   // Mot de passe temporaire retourné en clair — affiché une seule fois, jamais
   // stocké ni journalisé (il n'apparaît volontairement pas dans l'audit ci-dessus).

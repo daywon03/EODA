@@ -36,6 +36,16 @@ export function InviteClientForm({ establishmentId, defaultEmail, defaultName }:
       const res = await inviteClientUser(formData);
       if (res && "success" in res && res.success === true) {
         setResult(res as SuccessResult);
+        // La liste des interlocuteurs est rendue par le serveur : sans ce
+        // rafraîchissement, le compte existe en base mais n'apparaît nulle part tant
+        // que la page n'est pas rechargée à la main — c'est ce qui a été observé.
+        //
+        // `router.refresh()` re-rend l'arbre serveur en CONSERVANT l'état React des
+        // composants client : le panneau du mot de passe temporaire, posé juste
+        // au-dessus par setResult, reste affiché. C'est ce qui le distingue d'un
+        // revalidatePath posé dans l'action serveur, qui avait effacé ce panneau —
+        // et le mot de passe n'est affiché qu'une fois, il n'est stocké nulle part.
+        router.refresh();
       } else if (res && "error" in res) {
         setResult(res as ErrorResult);
       }
@@ -87,13 +97,9 @@ export function InviteClientForm({ establishmentId, defaultEmail, defaultName }:
         </div>
         <Button
           variant="outline"
-          onClick={() => {
-            // Rafraîchissement différé : la liste des interlocuteurs ne se met à jour
-            // qu'ici, une fois le mot de passe lu. Le faire dans l'action effacerait
-            // le panneau avant que Sandrine ait pu le copier.
-            setResult(null);
-            router.refresh();
-          }}
+          // La liste est déjà à jour (rafraîchie à la création) : ce bouton ne fait
+          // que rendre le formulaire vide.
+          onClick={() => setResult(null)}
         >
           Inviter un autre interlocuteur
         </Button>
