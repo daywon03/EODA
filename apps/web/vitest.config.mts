@@ -29,6 +29,10 @@ export default defineConfig({
         "src/lib/services/mission-document-counters-service.ts",
         "src/lib/services/offer-scope-service.ts",
         "src/lib/services/document-status-service.ts",
+        // Lecture du JSON d'analyse : c'est une entrée non fiable (colonne Json
+        // écrite par un modèle, sous un contrat qui a pu changer). Un parseur trop
+        // permissif afficherait une analyse vide comme un document sans reproche.
+        "src/lib/services/analysis-view-service.ts",
         "src/lib/services/pre-rating-suggestion-service.ts",
         "src/lib/services/anonymization-service.ts",
         "src/lib/services/document-categorization-service.ts",

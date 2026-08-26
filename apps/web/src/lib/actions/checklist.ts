@@ -4,6 +4,8 @@ import { prisma } from "@eoda/database";
 import { requireClientEstablishment, requireEstablishmentInTenant } from "@/lib/auth/guards";
 import { getEstablishmentCoveredCategories } from "@/lib/services/establishment-offer-service";
 import type { DocumentCategory, DocumentStatus } from "@eoda/database";
+import type { DocumentAnalysisResult } from "@/lib/llm";
+import { parseAnalysisResult } from "@/lib/services/analysis-view-service";
 
 export type ChecklistItem = {
   documentTypeId: string;
@@ -19,6 +21,11 @@ export type ChecklistItem = {
     versionNumber: number;
     originalFilename: string;
     uploadedAt: Date;
+    // Résultat de l'analyse IA de CETTE version, déjà validé (analysis-view-service).
+    // Produit à chaque dépôt depuis le Jalon 3, il n'était affiché nulle part : le
+    // module le plus rentable de la plateforme s'arrêtait avant de rendre son
+    // résultat.
+    analysis: DocumentAnalysisResult | null;
   } | null;
 };
 
@@ -47,7 +54,13 @@ async function buildChecklist(establishmentId: string): Promise<ChecklistByCateg
       status: true,
       missingJustification: true,
       currentVersion: {
-        select: { id: true, versionNumber: true, originalFilename: true, uploadedAt: true },
+        select: {
+          id: true,
+          versionNumber: true,
+          originalFilename: true,
+          uploadedAt: true,
+          analysisResultJson: true,
+        },
       },
     },
   });
@@ -77,7 +90,17 @@ async function buildChecklist(establishmentId: string): Promise<ChecklistByCateg
       status,
       documentId: doc?.id ?? null,
       missingJustification: doc?.missingJustification ?? null,
-      currentVersion: doc?.currentVersion ?? null,
+      // Le JSON brut ne sort jamais de cette couche : il est validé ici, une fois,
+      // et le composant ne reçoit qu'une forme sûre (D2).
+      currentVersion: doc?.currentVersion
+        ? {
+            id: doc.currentVersion.id,
+            versionNumber: doc.currentVersion.versionNumber,
+            originalFilename: doc.currentVersion.originalFilename,
+            uploadedAt: doc.currentVersion.uploadedAt,
+            analysis: parseAnalysisResult(doc.currentVersion.analysisResultJson),
+          }
+        : null,
     };
 
     if (!checklist[dt.category]) checklist[dt.category] = [];

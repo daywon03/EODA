@@ -8,6 +8,7 @@ import { DocumentDownloadLink } from "./DocumentDownloadLink";
 import { DocumentPreviewLink } from "./DocumentPreviewLink";
 import { MissingDocumentJustification } from "./MissingDocumentJustification";
 import { DeleteDocumentVersionButton } from "./DeleteDocumentVersionButton";
+import { DocumentAnalysisPanel } from "./DocumentAnalysisPanel";
 import type { ChecklistItem } from "@/lib/actions/checklist";
 import type { DocumentStatus } from "@eoda/database";
 
@@ -107,6 +108,12 @@ export function ChecklistCategory({
                       />
                     )}
                   </div>
+                )}
+                {/* Ce que l'analyse a trouvé — côté client comme côté cabinet : le
+                    client dépose et corrige, c'est lui qui a besoin de savoir ce qui
+                    manque. Absente tant qu'aucune analyse n'a abouti. */}
+                {item.currentVersion?.analysis && (
+                  <DocumentAnalysisPanel analysis={item.currentVersion.analysis} />
                 )}
                 {establishmentId && (
                   <MissingDocumentJustification

@@ -78,8 +78,14 @@ ci-dessus avant un vrai document ASSAD BENOIT en production).
   (`anonymization-service.ts`)
 - [ ] `EXPIRED` (périmé selon fréquence attendue) — pas encore branché, dépend des alertes
   documents périmés (roadmap process métier, phase ultérieure)
-- [ ] Affichage détaillé des manques + suggestions dans l'UI espace client (le JSON est
-  stocké et le statut dérivé, mais pas encore affiché en détail côté client)
+- [x] Affichage détaillé des manques + suggestions **fait le 26/08/2026** — panneau
+  « Analyse automatique » sous chaque document déposé, dans le portail client ET côté
+  cabinet (`components/checklist/DocumentAnalysisPanel.tsx`). Le JSON était produit et
+  payé à chaque dépôt depuis juillet, et lu par personne. Validé défensivement à la
+  lecture (`analysis-view-service.ts`) : une colonne `Json` écrite par un modèle sous un
+  contrat plus ancien ne doit pas casser la checklist, et un résultat vide
+  (StubAnalysisAdapter, appel échoué) ne doit pas passer pour un document sans reproche.
+  Mention de réserve obligatoire : préparation, jamais évaluation HAS (CLAUDE.md §1).
 - [x] Pas de file Redis/BullMQ — simplification volontaire : analyse synchrone dans l'action
   d'upload (timeout borné), statut `ANALYZING` affiché pendant le traitement
 - [ ] Bouton "Régénérer une version corrigée" → nouvelle `DocumentVersion` — **non fait**,
