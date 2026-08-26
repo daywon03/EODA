@@ -73,6 +73,9 @@ export default defineConfig({
         "src/lib/services/devis-sharing-service.ts",
         "src/lib/config/production-profile.ts",
         "src/lib/db/migration-status.ts",
+        // CSP à nonce : le test EST le garde-fou qui empêche `'unsafe-inline'` de
+        // revenir sur script-src, et `'unsafe-eval'` d'atteindre la production.
+        "src/lib/security/content-security-policy.ts",
         "src/lib/security/password-policy.ts",
         "src/lib/security/password-hashing.ts",
         "src/lib/security/attempt-throttle.ts",

@@ -150,8 +150,15 @@ avant mise en usage réel.
   `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` (aucune n'existe aujourd'hui). Le code est prêt
   (`S3StorageAdapter`) ; le chiffrement at-rest est à confirmer côté Supabase. Reste le point
   bloquant n°1 avant de déposer un vrai document client en production.
-- [ ] **CSP à nonce** — la CSP actuelle conserve `script-src 'unsafe-inline'`, requis par le
-  script d'amorçage de Next.js App Router.
+- [x] **CSP à nonce** *(26/08/2026)* — `script-src 'unsafe-inline'` supprimé. Nonce tiré
+  par requête dans `src/middleware.ts` (`lib/security/content-security-policy.ts`, pur et
+  testé), transmis à Next.js par les en-têtes de la requête et appliqué par ceux de la
+  réponse ; `'strict-dynamic'` laisse le script d'amorçage charger les chunks. Vérifié en
+  exécution : l'en-tête porte le nonce, les balises `<script>` servies le portent toutes,
+  et il change à chaque requête. La CSP des pages ne vit plus dans `next.config.ts` — les
+  routes `/api`, hors du middleware, y gardent une politique statique bien plus serrée
+  (`default-src 'none'`). Restent `style-src 'unsafe-inline'` (Tailwind, styled-jsx) et
+  `'unsafe-eval'` en développement seulement, tenus par test.
 - [x] **Compteur de limitation partagé** (table Postgres) — fait le 21/08/2026 avec la bascule
   du déploiement sur Vercel, où le compteur mémoire ne protégeait plus de rien (une instance
   par invocation, remise à zéro au démarrage à froid). `PostgresRateLimiter`

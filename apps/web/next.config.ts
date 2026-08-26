@@ -11,37 +11,26 @@ const isProduction = process.env.NODE_ENV === "production";
 // cadre sur un site tiers, une injection de balise <script> s'exécute librement,
 // et l'URL signée d'un document part dans l'en-tête Referer vers un domaine externe.
 //
-// Notes sur la CSP :
-//  - `'unsafe-inline'` sur script-src est requis par le script d'amorçage inline de
-//    Next.js (App Router). L'éliminer demande une CSP à nonce par requête via le
-//    middleware — à faire, mais c'est un chantier distinct : mieux vaut une CSP
-//    imparfaite mais active qu'aucune CSP.
-//  - `'unsafe-eval'` est nécessaire au rechargement à chaud en développement
-//    uniquement, jamais en production.
-//  - `frame-src https:` autorise l'aperçu PDF servi depuis une URL signée du bucket
-//    S3-compatible (domaine variable selon la région/le fournisseur), ainsi que
-//    /api/local-storage en développement.
-//  - `frame-ancestors 'none'` interdit toute mise en cadre de la plateforme, y
-//    compris par elle-même : aucun écran n'en a besoin, et ça ferme le clickjacking.
+// ⚠️ La CSP des PAGES n'est plus ici : elle contient un nonce tiré à chaque requête
+// et vit donc dans src/middleware.ts (lib/security/content-security-policy.ts). Ne
+// pas la réintroduire ici — deux politiques sur la même réponse s'appliquent toutes
+// les deux, et celle qui porterait `'unsafe-inline'` annulerait le bénéfice du nonce.
+//
+// Ce qui suit ne concerne donc que les routes /api, que le `matcher` du middleware
+// exclut : elles ne rendent aucun document HTML, leur politique peut être bien plus
+// serrée que celle des pages.
 // ─────────────────────────────────────────────────────────────────────────────
-const contentSecurityPolicy = [
-  "default-src 'self'",
-  `script-src 'self' 'unsafe-inline'${isProduction ? "" : " 'unsafe-eval'"}`,
-  // Tailwind et styled-jsx produisent des styles inline.
-  "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: blob:",
-  "font-src 'self' data:",
-  "connect-src 'self' https:",
-  "frame-src 'self' blob: https:",
-  "object-src 'none'",
-  "base-uri 'self'",
-  "form-action 'self'",
-  "frame-ancestors 'none'",
-  ...(isProduction ? ["upgrade-insecure-requests"] : []),
+const apiContentSecurityPolicy = [
+  "default-src 'none'",
+  // /api/local-storage sert un PDF affiché dans une <iframe> de l'application, en
+  // développement uniquement : la mise en cadre par la plateforme elle-même doit
+  // rester possible, par personne d'autre.
+  "frame-ancestors 'self'",
+  "base-uri 'none'",
+  "form-action 'none'",
 ].join("; ");
 
 const securityHeaders = [
-  { key: "Content-Security-Policy", value: contentSecurityPolicy },
   // Redondant avec frame-ancestors, conservé pour les navigateurs anciens.
   { key: "X-Frame-Options", value: "DENY" },
   // Empêche un navigateur de deviner un type MIME et d'exécuter un document déposé
@@ -70,7 +59,13 @@ const nextConfig: NextConfig = {
   // Ne pas divulguer la version du framework aux scanners automatisés.
   poweredByHeader: false,
   async headers() {
-    return [{ source: "/:path*", headers: securityHeaders }];
+    return [
+      { source: "/:path*", headers: securityHeaders },
+      {
+        source: "/api/:path*",
+        headers: [{ key: "Content-Security-Policy", value: apiContentSecurityPolicy }],
+      },
+    ];
   },
 };
 

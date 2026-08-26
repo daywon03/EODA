@@ -451,7 +451,7 @@ Jamais de donnée personnelle dans `detail` (codes de type de document, motifs t
 - [ ] **Chiffrement at-rest du bucket** — à activer côté Supabase Storage ; le bucket réel
   n'est toujours pas provisionné (`S3_*` absentes), donc rien de sensible ne doit être déposé en
   production avant.
-- [ ] **CSP à nonce** (cf. §4.6).
+- [x] **CSP à nonce** — faite le 26/08/2026 (§4.6, middleware + lib/security/content-security-policy.ts).
 - [ ] **Compteur de débit partagé** si l'application passe à plusieurs instances (§4.5).
 - [ ] **Purge/rétention du journal d'audit** — durée de conservation à arrêter avec Sandrine
   (RGPD : la traçabilité doit être bornée, pas éternelle).
