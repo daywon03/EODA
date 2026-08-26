@@ -51,6 +51,42 @@ export function parseAnalysisResult(value: unknown): DocumentAnalysisResult | nu
   return { elementsPresents, elementsManquants, suggestionsCorrection, sembleConforme };
 }
 
+// ── Frontière de restitution ─────────────────────────────────────────────────
+//
+// « Aucune analyse de conformité automatisée ne doit être présentée au client sans
+// revue préalable de la consultante » — cahier des charges du 20/08/2026, §5 et §7.
+//
+// Ce n'est pas une préférence d'affichage. EODA intervient en conseil et engage sa
+// parole professionnelle sur ce qu'elle restitue : une analyse produite par un
+// modèle, lue directement par le client, ferait dire au cabinet des choses qu'il n'a
+// pas vérifiées — sur des documents qui seront présentés à la HAS.
+//
+// La règle est donc portée par une fonction, appelée par la couche de lecture, et
+// non recopiée dans les composants : un écran qui l'oublierait publierait.
+export type AnalysisAudience = "CABINET" | "CLIENT";
+
+export type ReviewableAnalysis = {
+  analysis: DocumentAnalysisResult | null;
+  // Null tant que personne n'a revu l'analyse.
+  reviewedAt: Date | null;
+};
+
+export function analysisVisibleTo(
+  audience: AnalysisAudience,
+  version: ReviewableAnalysis
+): DocumentAnalysisResult | null {
+  // Le cabinet voit tout : c'est précisément son travail de relire avant de publier.
+  if (audience === "CABINET") return version.analysis;
+  return version.reviewedAt !== null ? version.analysis : null;
+}
+
+// Vrai quand une analyse existe mais n'a pas encore été revue. Sert à dire au client
+// « c'est en cours de relecture » plutôt que de laisser un blanc qui ressemble à une
+// panne — sans rien lui montrer du contenu.
+export function isAnalysisAwaitingReview(version: ReviewableAnalysis): boolean {
+  return version.analysis !== null && version.reviewedAt === null;
+}
+
 export type AnalysisSummary = {
   missingCount: number;
   suggestionCount: number;

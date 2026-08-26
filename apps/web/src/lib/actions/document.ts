@@ -2,6 +2,7 @@
 
 import { prisma } from "@eoda/database";
 import { revalidatePath } from "next/cache";
+import { notFound } from "next/navigation";
 import {
   requireEstablishmentAccess,
   requireEstablishmentInTenant,
@@ -428,6 +429,64 @@ export async function deleteDocumentVersion(
     establishmentId: version.document.establishmentId,
     targetId: version.id,
     detail: version.document.documentType?.code ?? null,
+  });
+
+  revalidateDocumentViews(version.document.establishmentId);
+  return null;
+}
+
+// ── Revue humaine d'une analyse avant restitution ────────────────────────────
+//
+// « Aucune analyse de conformité automatisée ne doit être présentée au client sans
+// revue préalable de la consultante » (CDC du 20/08/2026, §5 et §7). L'analyse est
+// produite à chaque dépôt ; c'est ce geste-ci qui la rend visible côté client.
+//
+// Réservé au CABINET : `requireEstablishmentAccess` ouvre aux deux côtés, on refuse
+// donc explicitement le client. Sans ce refus, un compte client pourrait publier
+// lui-même l'analyse de ses propres documents — c'est-à-dire contourner exactement
+// la revue que le cahier des charges impose.
+export async function setAnalysisReviewed(
+  documentVersionId: string,
+  reviewed: boolean
+): Promise<{ error: string } | null> {
+  if (typeof reviewed !== "boolean") return { error: "Valeur invalide." };
+
+  const version = await prisma.documentVersion.findUnique({
+    where: { id: documentVersionId },
+    select: {
+      id: true,
+      analysisResultJson: true,
+      analysisReviewedAt: true,
+      document: { select: { establishmentId: true } },
+    },
+  });
+  if (!version) notFound();
+
+  const access = await requireEstablishmentAccess(version.document.establishmentId);
+  if (access.isClient) notFound();
+
+  // Rien à publier : refuser plutôt que de poser une date de revue sur une analyse
+  // inexistante, qui ferait croire à une relecture qui n'a pas eu lieu.
+  if (reviewed && version.analysisResultJson === null) {
+    return { error: "Aucune analyse à restituer pour cette version." };
+  }
+
+  if (reviewed === (version.analysisReviewedAt !== null)) return null;
+
+  await prisma.documentVersion.update({
+    where: { id: version.id },
+    data: {
+      analysisReviewedAt: reviewed ? new Date() : null,
+      analysisReviewedByUserId: reviewed ? access.userId : null,
+    },
+  });
+
+  await recordAuditEvent({
+    action: reviewed ? "ANALYSIS_PUBLISHED" : "ANALYSIS_UNPUBLISHED",
+    actorUserId: access.userId,
+    actorRole: access.session.user.role,
+    establishmentId: version.document.establishmentId,
+    targetId: version.id,
   });
 
   revalidateDocumentViews(version.document.establishmentId);

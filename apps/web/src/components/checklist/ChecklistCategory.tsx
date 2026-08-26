@@ -118,7 +118,20 @@ export function ChecklistCategory({
                     client dépose et corrige, c'est lui qui a besoin de savoir ce qui
                     manque. Absente tant qu'aucune analyse n'a abouti. */}
                 {item.currentVersion?.analysis && (
-                  <DocumentAnalysisPanel analysis={item.currentVersion.analysis} />
+                  <DocumentAnalysisPanel
+                    analysis={item.currentVersion.analysis}
+                    documentVersionId={item.currentVersion.id}
+                    reviewedAt={item.currentVersion.analysisReviewedAt}
+                    canReview={canManageVersions}
+                  />
+                )}
+                {/* Côté client, une analyse non relue n'est PAS montrée — mais le
+                    silence ressemblerait à une panne. On dit qu'elle arrive, sans
+                    rien en révéler. */}
+                {!canManageVersions && item.currentVersion?.analysisAwaitingReview && (
+                  <p className="mt-2 text-xs text-gris-mid">
+                    Analyse en cours de relecture par votre consultant EODA.
+                  </p>
                 )}
                 {establishmentId && canDeposit && (
                   <MissingDocumentJustification

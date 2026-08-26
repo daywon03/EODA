@@ -707,6 +707,33 @@ gérance, pas du suivi opérationnel. Chacun est journalisé (`MISSION_CLOSED`,
 envoyée » serait un état de plus à maintenir — et rien ne se ferme au 5ᵉ mois : c'est le
 moment où des documents figés commencent à dater, et où l'abonnement se justifie.
 
+### 4.17 Revue humaine avant restitution au client ✅ *(26/08/2026)*
+
+Le cahier des charges du 20/08 l'écrit deux fois — §5 (« TOUJOURS validée par la
+consultante avant affichage au client ») et §7, points de vigilance (« aucune analyse
+de conformité automatisée ne doit être présentée au client sans revue préalable »).
+
+L'affichage de l'analyse livré plus tôt le même jour (§4.14 bis / commit `dde24a4`) ne
+portait qu'une mention de réserve : le client voyait le résultat brut du modèle. Écart
+corrigé le jour même.
+
+`DocumentVersion.analysisReviewedAt` (+ `analysisReviewedByUserId`) est le fait ; la
+règle est `analysisVisibleTo(audience, …)`, appliquée **une seule fois**, dans
+`lib/actions/checklist.ts`, au moment de construire la checklist. `buildChecklist` prend
+son audience en paramètre explicite plutôt que de la déduire d'une session : une valeur
+par défaut publierait le jour où un troisième appelant oublierait de la préciser.
+
+Côté cabinet, l'analyse est toujours visible — c'est le matériau de la relecture — avec
+un bouton « Valider et restituer au client », réversible, journalisé
+(`ANALYSIS_PUBLISHED` / `ANALYSIS_UNPUBLISHED`). `setAnalysisReviewed` refuse un
+appelant client : sans ce refus, un compte client publierait l'analyse de ses propres
+documents, c'est-à-dire contournerait la revue elle-même. Côté client, une analyse non
+relue affiche « en cours de relecture » — le silence complet ressemblerait à une panne —
+sans rien révéler du contenu.
+
+Aucun rattrapage rétroactif dans la migration : les analyses déjà en base n'ont été
+revues par personne, les marquer comme telles serait exactement la faute qu'on corrige.
+
 ## 5. Préparation explicite de l'évolutivité (sans la construire maintenant)
 
 | Besoin futur | Ce qu'on fait maintenant pour ne pas se bloquer |

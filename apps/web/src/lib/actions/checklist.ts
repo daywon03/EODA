@@ -5,7 +5,12 @@ import { requireClientEstablishment, requireEstablishmentInTenant } from "@/lib/
 import { getEstablishmentCoveredCategories } from "@/lib/services/establishment-offer-service";
 import type { DocumentCategory, DocumentStatus } from "@eoda/database";
 import type { DocumentAnalysisResult } from "@/lib/llm";
-import { parseAnalysisResult } from "@/lib/services/analysis-view-service";
+import {
+  analysisVisibleTo,
+  isAnalysisAwaitingReview,
+  parseAnalysisResult,
+  type AnalysisAudience,
+} from "@/lib/services/analysis-view-service";
 import {
   isLibraryUpdateAlertDue,
   type MissionAccessState,
@@ -30,6 +35,12 @@ export type ChecklistItem = {
     // module le plus rentable de la plateforme s'arrêtait avant de rendre son
     // résultat.
     analysis: DocumentAnalysisResult | null;
+    // Date de revue par la consultante. Null = analyse non restituable au client
+    // (CDC §5, §7). Côté cabinet, sert à distinguer « à relire » de « publiée ».
+    analysisReviewedAt: Date | null;
+    // Vrai quand une analyse existe mais attend la relecture. Côté client, permet de
+    // dire « en cours de relecture » sans rien montrer du contenu.
+    analysisAwaitingReview: boolean;
   } | null;
 };
 
@@ -37,7 +48,15 @@ export type ChecklistByCategory = Record<DocumentCategory, ChecklistItem[]>;
 
 // Chemin de chargement PARTAGÉ par le portail client et la fiche établissement du
 // cabinet : les deux rendent ChecklistCategory et doivent filtrer à l'identique.
-async function buildChecklist(establishmentId: string): Promise<ChecklistByCategory> {
+// `audience` gouverne UNE chose : l'analyse automatique est-elle restituable ?
+// Elle est passée en paramètre plutôt que déduite de la session, pour que les deux
+// points d'entrée (portail client, fiche cabinet) la déclarent explicitement — une
+// valeur par défaut finirait par publier au client le jour où un troisième appelant
+// oublierait de la préciser.
+async function buildChecklist(
+  establishmentId: string,
+  audience: AnalysisAudience
+): Promise<ChecklistByCategory> {
   // Périmètre de l'offre contractée (null = pas de mission ⇒ avant-vente, checklist
   // complète). Résolu par establishment-offer-service, la MÊME couche que celle qui
   // arbitre les dépôts dans document.ts — affichage et mutations ne peuvent pas diverger.
@@ -64,6 +83,7 @@ async function buildChecklist(establishmentId: string): Promise<ChecklistByCateg
           originalFilename: true,
           uploadedAt: true,
           analysisResultJson: true,
+          analysisReviewedAt: true,
         },
       },
     },
@@ -97,13 +117,7 @@ async function buildChecklist(establishmentId: string): Promise<ChecklistByCateg
       // Le JSON brut ne sort jamais de cette couche : il est validé ici, une fois,
       // et le composant ne reçoit qu'une forme sûre (D2).
       currentVersion: doc?.currentVersion
-        ? {
-            id: doc.currentVersion.id,
-            versionNumber: doc.currentVersion.versionNumber,
-            originalFilename: doc.currentVersion.originalFilename,
-            uploadedAt: doc.currentVersion.uploadedAt,
-            analysis: parseAnalysisResult(doc.currentVersion.analysisResultJson),
-          }
+        ? toChecklistVersion(doc.currentVersion, audience)
         : null,
     };
 
@@ -112,6 +126,36 @@ async function buildChecklist(establishmentId: string): Promise<ChecklistByCateg
   }
 
   return checklist as ChecklistByCategory;
+}
+
+// Barrière de restitution, appliquée UNE fois, ici. Un composant qui la
+// réimplémenterait finirait par l'oublier — et publierait au client une analyse que
+// personne n'a relue.
+function toChecklistVersion(
+  version: {
+    id: string;
+    versionNumber: number;
+    originalFilename: string;
+    uploadedAt: Date;
+    analysisResultJson: unknown;
+    analysisReviewedAt: Date | null;
+  },
+  audience: AnalysisAudience
+): NonNullable<ChecklistItem["currentVersion"]> {
+  const reviewable = {
+    analysis: parseAnalysisResult(version.analysisResultJson),
+    reviewedAt: version.analysisReviewedAt,
+  };
+
+  return {
+    id: version.id,
+    versionNumber: version.versionNumber,
+    originalFilename: version.originalFilename,
+    uploadedAt: version.uploadedAt,
+    analysis: analysisVisibleTo(audience, reviewable),
+    analysisReviewedAt: version.analysisReviewedAt,
+    analysisAwaitingReview: isAnalysisAwaitingReview(reviewable),
+  };
 }
 
 export async function getClientChecklist(): Promise<{
@@ -139,7 +183,7 @@ export async function getClientChecklist(): Promise<{
     };
   }
 
-  const checklist = await buildChecklist(establishment.id);
+  const checklist = await buildChecklist(establishment.id, "CLIENT");
 
   return { establishment, checklist, missionAccess, libraryUpdateAlert };
 }
@@ -152,5 +196,5 @@ export async function getEstablishmentChecklist(
   // établissement, tous tenants confondus.
   await requireEstablishmentInTenant(establishmentId);
 
-  return buildChecklist(establishmentId);
+  return buildChecklist(establishmentId, "CABINET");
 }

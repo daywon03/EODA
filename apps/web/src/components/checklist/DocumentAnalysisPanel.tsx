@@ -1,17 +1,44 @@
 "use client";
 
-import { useState } from "react";
-import { ChevronDown, AlertCircle, Lightbulb, Check, Sparkles } from "lucide-react";
+import { useState, useTransition } from "react";
+import { ChevronDown, AlertCircle, Lightbulb, Check, Sparkles, Eye, EyeOff, Loader2 } from "lucide-react";
 import type { DocumentAnalysisResult } from "@/lib/llm";
 import { describeAnalysis, summariseAnalysis } from "@/lib/services/analysis-view-service";
+import { setAnalysisReviewed } from "@/lib/actions/document";
+import { Button } from "@/components/ui/button";
 
 // Résultat de l'analyse automatique d'une version déposée. Replié par défaut : la
 // checklist doit rester lisible en une page, l'analyse s'ouvre pour le document qu'on
 // traite. Ce qui reste visible fermé, c'est le nombre de manques — la seule
 // information qui décide si on ouvre.
-export function DocumentAnalysisPanel({ analysis }: { analysis: DocumentAnalysisResult }) {
+type Props = {
+  analysis: DocumentAnalysisResult;
+  // Côté cabinet uniquement : la revue est ce qui rend l'analyse visible au client
+  // (CDC §5, §7). Côté client, ces deux propriétés restent absentes.
+  documentVersionId?: string;
+  reviewedAt?: Date | null;
+  canReview?: boolean;
+};
+
+export function DocumentAnalysisPanel({
+  analysis,
+  documentVersionId,
+  reviewedAt = null,
+  canReview = false,
+}: Props) {
   const [open, setOpen] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
   const summary = summariseAnalysis(analysis);
+
+  function toggleReview() {
+    if (!documentVersionId) return;
+    setError(null);
+    startTransition(async () => {
+      const result = await setAnalysisReviewed(documentVersionId, reviewedAt === null);
+      if (result && "error" in result) setError(result.error);
+    });
+  }
 
   return (
     <div className="mt-2 rounded-lg border border-gris-light bg-ivoire/40">
@@ -58,6 +85,36 @@ export function DocumentAnalysisPanel({ analysis }: { analysis: DocumentAnalysis
               title="Éléments retrouvés"
               entries={analysis.elementsPresents}
             />
+          )}
+
+          {canReview && (
+            <div className="flex flex-wrap items-center gap-2 border-t border-gris-light pt-2">
+              {/* La restitution au client est un GESTE, pas un effet de bord du
+                  dépôt : le cahier des charges impose la relecture avant affichage,
+                  et EODA engage sa parole professionnelle sur ce qu'elle restitue. */}
+              <Button type="button" size="sm" variant="outline" disabled={isPending} onClick={toggleReview}>
+                {isPending ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" aria-hidden="true" />
+                ) : reviewedAt ? (
+                  <EyeOff className="w-3.5 h-3.5" aria-hidden="true" />
+                ) : (
+                  <Eye className="w-3.5 h-3.5" aria-hidden="true" />
+                )}
+                {reviewedAt ? "Retirer du portail client" : "Valider et restituer au client"}
+              </Button>
+              <span className="text-xs text-gris-mid">
+                {reviewedAt
+                  ? "Visible par le client."
+                  : "Non visible par le client tant qu'elle n'est pas relue."}
+              </span>
+            </div>
+          )}
+
+          {error && (
+            <p role="alert" className="flex items-center gap-1.5 text-xs text-rouge-imp">
+              <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" aria-hidden="true" />
+              {error}
+            </p>
           )}
 
           {/* Mention non négociable : EODA est en conseil/préparation, jamais en

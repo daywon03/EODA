@@ -257,6 +257,7 @@ model User {
   evaluationSessions EvaluationSession[]
   optionRequests     ClientOptionRequest[] @relation("RequestedBy")
   prospectTimeline   ProspectTimelineEntry[] @relation("ProspectTimelineAuthor")
+  reviewedAnalyses   DocumentVersion[]       @relation("AnalysisReviewedBy")
 
   @@map("users")
 }
@@ -452,10 +453,26 @@ model DocumentVersion {
   uploadedAt                  DateTime @default(now()) @map("uploaded_at")
   extractedText               String?  @map("extracted_text")
   analysisResultJson          Json?    @map("analysis_result_json")
+
+  // REVUE HUMAINE DE L'ANALYSE — exigence du cahier des charges (§5 et §7 du CDC
+  // du 20/08/2026, écrite deux fois) : « aucune analyse de conformité automatisée
+  // ne doit être présentée au client sans revue préalable de la consultante ».
+  //
+  // Tant que ce champ est null, l'analyse existe, elle est visible du CABINET, et
+  // le portail client ne la montre pas. Ce n'est pas un réglage d'affichage : c'est
+  // la frontière entre une aide au travail de Sandrine et une restitution au client.
+  //
+  // Fait stocké et non dérivé, pour la même raison que Mission.closedAt : une revue
+  // est une décision humaine, elle ne se calcule pas.
+  analysisReviewedAt          DateTime? @map("analysis_reviewed_at")
+  analysisReviewedByUserId    String?   @map("analysis_reviewed_by_user_id")
   regeneratedFromVersionId    String?  @map("regenerated_from_version_id")
 
   document                Document  @relation("AllVersions", fields: [documentId], references: [id])
   uploadedBy              User      @relation("UploadedBy", fields: [uploadedByUserId], references: [id])
+  // SetNull : la désactivation d'un compte ne doit pas dépublier une analyse déjà
+  // restituée au client.
+  analysisReviewedBy      User?     @relation("AnalysisReviewedBy", fields: [analysisReviewedByUserId], references: [id], onDelete: SetNull)
   regeneratedFromVersion  DocumentVersion?  @relation("Regeneration", fields: [regeneratedFromVersionId], references: [id])
   regeneratedVersions     DocumentVersion[] @relation("Regeneration")
   currentForDocument      Document?         @relation("CurrentVersion")
@@ -979,6 +996,10 @@ enum AuditAction {
   MISSION_REOPENED
   MISSION_CLIENT_ACCESS_REVOKED
   MISSION_CLIENT_ACCESS_RESTORED
+  // Revue humaine d'une analyse automatique avant restitution au client (CDC §5,
+  // §7). `targetId` = identifiant de la version de document.
+  ANALYSIS_PUBLISHED
+  ANALYSIS_UNPUBLISHED
 }
 
 model AuditLogEntry {

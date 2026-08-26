@@ -46,6 +46,8 @@ const ACTION_LABELS: Record<AuditAction, string> = {
   MISSION_REOPENED: "Mission rouverte (dépôt de nouveau possible)",
   MISSION_CLIENT_ACCESS_REVOKED: "Accès client révoqué",
   MISSION_CLIENT_ACCESS_RESTORED: "Accès client rétabli",
+  ANALYSIS_PUBLISHED: "Analyse relue et restituée au client",
+  ANALYSIS_UNPUBLISHED: "Analyse retirée du portail client",
 };
 
 const ROLE_LABELS: Record<string, string> = {

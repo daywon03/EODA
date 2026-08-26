@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  analysisVisibleTo,
   describeAnalysis,
+  isAnalysisAwaitingReview,
   parseAnalysisResult,
   summariseAnalysis,
 } from "./analysis-view-service";
@@ -102,5 +104,39 @@ describe("describeAnalysis", () => {
     });
     expect(sansManque).toContain("confirmer");
     expect(sansManque).not.toMatch(/\bconforme\b/);
+  });
+});
+
+describe("analysisVisibleTo — revue humaine obligatoire (CDC §5, §7)", () => {
+  const reviewed = { analysis: COMPLETE, reviewedAt: new Date("2026-08-26") };
+  const pending = { analysis: COMPLETE, reviewedAt: null };
+
+  it("ne montre RIEN au client tant que la consultante n'a pas revu", () => {
+    // Le cas qui compte : une analyse produite par un modèle, lue directement par le
+    // client, ferait dire au cabinet des choses qu'il n'a pas vérifiées — sur des
+    // documents qui seront présentés à la HAS.
+    expect(analysisVisibleTo("CLIENT", pending)).toBeNull();
+  });
+
+  it("montre l'analyse au client une fois la revue faite", () => {
+    expect(analysisVisibleTo("CLIENT", reviewed)).toEqual(COMPLETE);
+  });
+
+  it("montre tout au cabinet, revue ou non — c'est son travail de relire", () => {
+    expect(analysisVisibleTo("CABINET", pending)).toEqual(COMPLETE);
+    expect(analysisVisibleTo("CABINET", reviewed)).toEqual(COMPLETE);
+  });
+
+  it("ne fabrique pas d'analyse là où il n'y en a pas", () => {
+    expect(analysisVisibleTo("CABINET", { analysis: null, reviewedAt: null })).toBeNull();
+    expect(analysisVisibleTo("CLIENT", { analysis: null, reviewedAt: new Date() })).toBeNull();
+  });
+});
+
+describe("isAnalysisAwaitingReview", () => {
+  it("distingue « en attente de relecture » de « pas d'analyse »", () => {
+    expect(isAnalysisAwaitingReview({ analysis: COMPLETE, reviewedAt: null })).toBe(true);
+    expect(isAnalysisAwaitingReview({ analysis: null, reviewedAt: null })).toBe(false);
+    expect(isAnalysisAwaitingReview({ analysis: COMPLETE, reviewedAt: new Date() })).toBe(false);
   });
 });

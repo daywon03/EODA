@@ -278,6 +278,16 @@ Détail complet et état d'avancement : `specs/02-architecture-technique.md` §4
   et serait sinon compté deux fois dans l'entonnoir unifié, une fois en « Signé »
   et une fois à l'étape réelle de sa mission. `byStructureType` reste sur tous les
   prospects : c'est une lecture de marché, pas une photo du pipeline.
+- 🔐 **Aucune analyse automatique n'atteint le client sans revue humaine.** Exigence
+  écrite deux fois dans le cahier des charges du 20/08/2026
+  (`context/Documents/20260820_CDC_EODA_Plateforme_v01_Interne.md` §5 et §7) : la
+  consultante valide avant restitution. La barrière est
+  `analysisVisibleTo(audience, …)` dans `lib/services/analysis-view-service.ts`,
+  appliquée une seule fois dans `lib/actions/checklist.ts` — jamais dans un composant.
+  `DocumentVersion.analysisReviewedAt` est le fait ; `setAnalysisReviewed` le pose et
+  refuse un appelant client. Une mention de réserve à l'écran NE remplace PAS cette
+  revue : EODA engage sa parole professionnelle sur ce qu'elle restitue, sur des
+  documents qui seront présentés à la HAS.
 - **La fin de mission ne supprime rien, et la clôture ne coupe rien.** Trois états
   d'accès dérivés de deux faits (`Mission.closedAt`, `Mission.clientAccessRevokedAt`)
   par `lib/services/mission-access-service.ts` : `ACTIVE` / `LIBRARY` (lecture seule)
