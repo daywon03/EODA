@@ -42,6 +42,10 @@ const ACTION_LABELS: Record<AuditAction, string> = {
   OPTION_REQUEST_HANDLED: "Demande d'option traitée",
   PROSPECT_CONVERTED: "Devis signé — fiche client et profil créés",
   MISSION_SCOPE_UPDATED: "Périmètre de mission modifié (offre, options)",
+  MISSION_CLOSED: "Mission close (bibliothèque en lecture seule)",
+  MISSION_REOPENED: "Mission rouverte (dépôt de nouveau possible)",
+  MISSION_CLIENT_ACCESS_REVOKED: "Accès client révoqué",
+  MISSION_CLIENT_ACCESS_RESTORED: "Accès client rétabli",
 };
 
 const ROLE_LABELS: Record<string, string> = {

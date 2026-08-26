@@ -3,6 +3,12 @@ import type { Session } from "next-auth";
 import { auth } from "@/auth";
 import { redirect, notFound } from "next/navigation";
 import { PASSWORD_ROTATION_PATH, SIGN_OUT_PATH } from "./routes";
+import {
+  canClientRead,
+  deriveMissionAccessState,
+  type MissionAccessFacts,
+  type MissionAccessState,
+} from "@/lib/services/mission-access-service";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // COUCHE D'AUTORISATION UNIQUE — fail-closed par construction
@@ -37,7 +43,26 @@ export type EstablishmentAccessContext = {
   userId: string;
   establishmentId: string;
   isClient: boolean;
+  // État d'accès issu de la fin de mission (mission-access-service). Résolu ICI et
+  // rendu à l'appelant : une action qui le relirait de son côté finirait par
+  // l'oublier, et c'est exactement le mode de défaillance que cette couche unique
+  // existe pour empêcher.
+  missionAccess: MissionAccessState;
 };
+
+// Deux faits, une décision : la clôture de la mission et la révocation de l'accès
+// client. Lecture étroite, faite à chaque garde plutôt que mémorisée — une
+// révocation doit prendre effet immédiatement, pas à la prochaine session.
+async function readMissionClosure(establishmentId: string): Promise<MissionAccessFacts | null> {
+  return prisma.mission.findUnique({
+    where: { establishmentId },
+    select: { closedAt: true, clientAccessRevokedAt: true },
+  });
+}
+
+async function resolveMissionAccess(establishmentId: string): Promise<MissionAccessState> {
+  return deriveMissionAccessState(await readMissionClosure(establishmentId));
+}
 
 async function requireSession(): Promise<Session> {
   const session = await auth();
@@ -195,7 +220,14 @@ export async function requireEstablishmentAccess(
       select: { establishmentId: true },
     });
     if (!link) notFound();
-    return { session, userId, establishmentId, isClient: true };
+
+    const missionAccess = await resolveMissionAccess(establishmentId);
+    // Accès révoqué : `notFound()` et pas un message d'explication — la règle du
+    // fichier vaut aussi ici, on ne renseigne personne sur ce qui existe derrière.
+    // Les données, elles, ne sont pas supprimées : la rétention reste côté cabinet.
+    if (!canClientRead(missionAccess)) notFound();
+
+    return { session, userId, establishmentId, isClient: true, missionAccess };
   }
 
   if (!user.tenantId) redirect("/login");
@@ -206,7 +238,16 @@ export async function requireEstablishmentAccess(
   });
   if (!establishment) notFound();
 
-  return { session, userId, establishmentId, isClient: false };
+  // Le cabinet garde l'accès dans TOUS les états — « rétention côté cabinet, zéro
+  // accès client ». L'état est tout de même résolu : le dépôt, lui, se ferme pour
+  // tout le monde à la clôture (canDepositDocuments).
+  return {
+    session,
+    userId,
+    establishmentId,
+    isClient: false,
+    missionAccess: await resolveMissionAccess(establishmentId),
+  };
 }
 
 // Variante non-redirigeante de requireEstablishmentAccess() — pour les actions qui
@@ -234,7 +275,12 @@ export async function tryEstablishmentAccess(
       where: { userId_establishmentId: { userId, establishmentId } },
       select: { establishmentId: true },
     });
-    return link ? { session, userId, establishmentId, isClient: true } : null;
+    if (!link) return null;
+
+    const missionAccess = await resolveMissionAccess(establishmentId);
+    if (!canClientRead(missionAccess)) return null;
+
+    return { session, userId, establishmentId, isClient: true, missionAccess };
   }
 
   if (!user.tenantId) return null;
@@ -243,7 +289,15 @@ export async function tryEstablishmentAccess(
     where: { id: establishmentId, tenantId: user.tenantId },
     select: { id: true },
   });
-  return establishment ? { session, userId, establishmentId, isClient: false } : null;
+  if (!establishment) return null;
+
+  return {
+    session,
+    userId,
+    establishmentId,
+    isClient: false,
+    missionAccess: await resolveMissionAccess(establishmentId),
+  };
 }
 
 // Garde côté espace Client uniquement (dashboard client) — retourne l'établissement
@@ -253,6 +307,13 @@ export async function requireClientEstablishment(): Promise<{
   session: Session;
   userId: string;
   establishment: { id: string; name: string; type: string } | null;
+  // Gouverne ce que le portail client propose : dépôt ouvert, bibliothèque en
+  // lecture seule, ou rien du tout.
+  missionAccess: MissionAccessState;
+  // Les FAITS de clôture, rendus tels quels : l'alerte du 5ᵉ mois se calcule à
+  // l'affichage, avec l'horloge de l'appelant. Une garde ne décide pas de ce qu'un
+  // écran doit annoncer.
+  missionClosure: MissionAccessFacts | null;
 }> {
   const session = await requireSession();
 
@@ -266,10 +327,36 @@ export async function requireClientEstablishment(): Promise<{
     include: { establishment: { select: { id: true, name: true, type: true } } },
   });
 
+  if (!link?.establishment) {
+    return {
+      session,
+      userId: session.user.id,
+      establishment: null,
+      missionAccess: "ACTIVE",
+      missionClosure: null,
+    };
+  }
+
+  const missionClosure = await readMissionClosure(link.establishment.id);
+  const missionAccess = deriveMissionAccessState(missionClosure);
+  // Accès révoqué : la page se comporte comme s'il n'y avait pas d'établissement
+  // rattaché. Rien n'est supprimé, mais rien n'est montré non plus.
+  if (!canClientRead(missionAccess)) {
+    return {
+      session,
+      userId: session.user.id,
+      establishment: null,
+      missionAccess,
+      missionClosure,
+    };
+  }
+
   return {
     session,
     userId: session.user.id,
-    establishment: link?.establishment ?? null,
+    establishment: link.establishment,
+    missionAccess,
+    missionClosure,
   };
 }
 

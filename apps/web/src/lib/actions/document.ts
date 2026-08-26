@@ -7,6 +7,7 @@ import {
   requireEstablishmentInTenant,
   tryEstablishmentAccess,
 } from "@/lib/auth/guards";
+import { canDepositDocuments } from "@/lib/services/mission-access-service";
 import { extractText } from "@/lib/services/text-extraction-service";
 import { suggestDocumentType } from "@/lib/services/document-categorization-service";
 import { ingestDocumentVersion } from "@/lib/services/document-ingestion-service";
@@ -27,6 +28,12 @@ import { getLLMAnalysisPort } from "@/lib/llm";
 // analyse » : accepter le fichier stockerait une donnée client et brûlerait un
 // appel LLM pour un livrable qui n'a pas été souscrit. Le message ne révèle ni
 // prix ni contenu des autres offres.
+// Bibliothèque en lecture seule après la clôture (§12.5). Message explicite et non
+// un `notFound()` : le client a toujours accès à ses documents, c'est l'écriture qui
+// s'arrête — le dire évite un ticket « le bouton ne marche plus ».
+const DEPOSIT_CLOSED_MESSAGE =
+  "L'accompagnement est terminé : vos documents restent consultables, mais aucun nouveau dépôt n'est possible. Contactez votre consultant EODA pour rouvrir un accompagnement.";
+
 const OUT_OF_OFFER_ERROR =
   "Ce document n'entre pas dans le périmètre de l'offre souscrite pour cet établissement.";
 
@@ -50,6 +57,13 @@ export async function uploadDocument(formData: FormData): Promise<UploadDocument
   // Autorisation avant toute lecture du fichier : ne jamais dépenser de l'I/O ni de
   // l'extraction de texte pour un appelant non habilité sur cet établissement.
   const access = await requireEstablishmentAccess(establishmentId);
+
+  // Fin de mission : la bibliothèque est en LECTURE SEULE (§12.5). Le refus est
+  // ici, côté serveur, et pas seulement dans l'UI qui masque le bouton — une action
+  // serveur est une route HTTP publique.
+  if (!canDepositDocuments(access.missionAccess)) {
+    return { error: DEPOSIT_CLOSED_MESSAGE };
+  }
 
   // Périmètre documentaire de l'offre contractée, résolu juste après la garde et
   // AVANT toute écriture : il filtre les candidats à la détection automatique et
@@ -145,6 +159,9 @@ export async function respondToMissingDocument(
 ): Promise<{ error: string } | null> {
   const access = await requireEstablishmentAccess(establishmentId);
 
+  // Une réponse Oui/Non est une écriture : elle s'arrête avec le dépôt.
+  if (!canDepositDocuments(access.missionAccess)) return { error: DEPOSIT_CLOSED_MESSAGE };
+
   const documentType = await prisma.documentType.findUnique({ where: { id: documentTypeId } });
   if (!documentType) return { error: "Type de document invalide." };
 
@@ -195,6 +212,8 @@ export async function updateMissingJustification(
   comment: string | null
 ): Promise<{ error: string } | null> {
   const access = await requireEstablishmentAccess(establishmentId);
+
+  if (!canDepositDocuments(access.missionAccess)) return { error: DEPOSIT_CLOSED_MESSAGE };
 
   const documentType = await prisma.documentType.findUnique({ where: { id: documentTypeId } });
   if (!documentType) return { error: "Type de document invalide." };

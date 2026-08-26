@@ -41,4 +41,5 @@ export const EXPECTED_MIGRATIONS: readonly string[] = [
   "20260822220000_mission_option_price_nature",
   "20260823010000_structure_type_and_mission_closure",
   "20260826090000_prospect_contact_and_timeline",
+  "20260826140000_mission_client_access",
 ] as const;

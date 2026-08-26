@@ -6,7 +6,11 @@ import {
   type CatalogueOption,
   type MissionChecklistScope,
 } from "@eoda/database";
-import { requireCabinetSession, requireEstablishmentInTenant } from "@/lib/auth/guards";
+import {
+  requireCabinetAdminSession,
+  requireCabinetSession,
+  requireEstablishmentInTenant,
+} from "@/lib/auth/guards";
 import { notFound } from "next/navigation";
 import { requiredEnum } from "@/lib/validation/form-parsers";
 import { revalidatePath } from "next/cache";
@@ -344,7 +348,119 @@ export type MissionWithProgress = {
     priceIsFirm: boolean;
   }[];
   progress: MissionProgress;
+  // Faits de fin de mission — l'état d'accès s'en DÉRIVE (mission-access-service),
+  // il n'est pas stocké.
+  closedAt: Date | null;
+  clientAccessRevokedAt: Date | null;
 };
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FIN DE MISSION — quatre gestes, tous réversibles, aucun destructeur (§12.5).
+//
+// Réservés à CABINET_ADMIN, contrairement au reste du suivi de mission ouvert aux
+// évaluateurs : clore, c'est mettre fin à un engagement contractuel, et révoquer,
+// c'est couper l'accès d'un client à ses propres documents. Ce sont des décisions
+// de gérance, pas du suivi opérationnel.
+//
+// Aucune donnée n'est supprimée dans aucun des quatre cas. La rétention reste côté
+// cabinet : « on ne coupe pas leur accès » est la position finale du call du 16/08,
+// et même la révocation ne fait que fermer une porte.
+// ─────────────────────────────────────────────────────────────────────────────
+
+async function requireMissionForClosure(missionId: string) {
+  const { tenantId, userId, session } = await requireCabinetAdminSession();
+
+  const mission = await prisma.mission.findFirst({
+    where: { id: missionId, tenantId },
+    select: { id: true, establishmentId: true, closedAt: true, clientAccessRevokedAt: true },
+  });
+  // notFound() et jamais un message : ne pas révéler qu'une mission existe dans un
+  // autre tenant (CLAUDE.md §5 bis).
+  if (!mission) notFound();
+
+  return { mission, userId, role: session.user.role };
+}
+
+function revalidateAccessViews(establishmentId: string): void {
+  for (const path of missionPaths(establishmentId)) revalidatePath(path);
+  // Les deux pages du portail client changent d'état en même temps.
+  revalidatePath("/dashboard/client");
+  revalidatePath("/dashboard/client/accompagnement");
+}
+
+// Clôture. Le dépôt s'arrête, la lecture continue : le client garde sa bibliothèque.
+export async function closeMission(missionId: string): Promise<{ error: string } | null> {
+  const { mission, userId, role } = await requireMissionForClosure(missionId);
+
+  // Déjà close : ne pas réécrire `closedAt`, la date de clôture est un fait daté et
+  // un second clic en ferait un fait faux.
+  if (mission.closedAt) return null;
+
+  await prisma.mission.update({ where: { id: mission.id }, data: { closedAt: new Date() } });
+
+  await recordAuditEvent({
+    action: "MISSION_CLOSED",
+    actorUserId: userId,
+    actorRole: role,
+    establishmentId: mission.establishmentId,
+    targetId: mission.id,
+  });
+
+  revalidateAccessViews(mission.establishmentId);
+  return null;
+}
+
+// Réouverture — un accompagnement repris, une clôture prématurée. `closedAt`
+// redevient null : l'état se dérive, il n'y a pas de « close puis rouverte » à
+// stocker. La trace de l'aller-retour vit dans le journal d'audit, pas sur la ligne.
+export async function reopenMission(missionId: string): Promise<{ error: string } | null> {
+  const { mission, userId, role } = await requireMissionForClosure(missionId);
+
+  if (!mission.closedAt) return null;
+
+  await prisma.mission.update({ where: { id: mission.id }, data: { closedAt: null } });
+
+  await recordAuditEvent({
+    action: "MISSION_REOPENED",
+    actorUserId: userId,
+    actorRole: role,
+    establishmentId: mission.establishmentId,
+    targetId: mission.id,
+  });
+
+  revalidateAccessViews(mission.establishmentId);
+  return null;
+}
+
+// Révocation de l'accès client. Le geste le plus lourd du module : le client ne voit
+// plus rien. Rien n'est effacé pour autant, et reposer le champ rend la bibliothèque.
+export async function setClientAccessRevoked(
+  missionId: string,
+  revoked: boolean
+): Promise<{ error: string } | null> {
+  const { mission, userId, role } = await requireMissionForClosure(missionId);
+
+  if (typeof revoked !== "boolean") return { error: "Valeur invalide." };
+  // Idempotent : deux clics ne redatent pas une révocation déjà posée.
+  if (revoked === (mission.clientAccessRevokedAt !== null)) return null;
+
+  await prisma.mission.update({
+    where: { id: mission.id },
+    data: { clientAccessRevokedAt: revoked ? new Date() : null },
+  });
+
+  await recordAuditEvent({
+    action: revoked ? "MISSION_CLIENT_ACCESS_REVOKED" : "MISSION_CLIENT_ACCESS_RESTORED",
+    actorUserId: userId,
+    actorRole: role,
+    establishmentId: mission.establishmentId,
+    targetId: mission.id,
+  });
+
+  revalidateAccessViews(mission.establishmentId);
+  return null;
+}
 
 export async function getMission(establishmentId: string): Promise<MissionWithProgress | null> {
   const { tenantId } = await requireCabinetSession();
@@ -392,6 +508,8 @@ export async function getMission(establishmentId: string): Promise<MissionWithPr
     id: mission.id,
     formule: mission.formule,
     gratuit: mission.gratuit,
+    closedAt: mission.closedAt,
+    clientAccessRevokedAt: mission.clientAccessRevokedAt,
     fondationsStartDate: mission.fondationsStartDate,
     fondationsEndDate: mission.fondationsEndDate,
     deploiementStartDate: mission.deploiementStartDate,

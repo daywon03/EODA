@@ -33,6 +33,10 @@ export default defineConfig({
         // écrite par un modèle, sous un contrat qui a pu changer). Un parseur trop
         // permissif afficherait une analyse vide comme un document sans reproche.
         "src/lib/services/analysis-view-service.ts",
+        // Fin de mission : ce service décide qui peut encore lire et déposer. Une
+        // erreur ici ferme l'accès d'un client à ses propres documents, ou le laisse
+        // ouvert après une révocation.
+        "src/lib/services/mission-access-service.ts",
         "src/lib/services/pre-rating-suggestion-service.ts",
         "src/lib/services/anonymization-service.ts",
         "src/lib/services/document-categorization-service.ts",

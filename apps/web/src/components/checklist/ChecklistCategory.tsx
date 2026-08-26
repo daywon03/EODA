@@ -21,6 +21,10 @@ type Props = {
   // offerte au portail client. L'action serveur refait le contrôle de toute façon —
   // ce drapeau ne fait que ne pas proposer un bouton qui serait refusé.
   canManageVersions?: boolean;
+  // Fin de mission : en bibliothèque (lecture seule), les documents restent
+  // consultables mais plus rien ne se dépose. Le bouton disparaît parce que l'action
+  // serveur le refuserait — pas l'inverse.
+  canDeposit?: boolean;
 };
 
 const STATUS_ORDER: DocumentStatus[] = [
@@ -37,6 +41,7 @@ export function ChecklistCategory({
   defaultOpen = false,
   establishmentId,
   canManageVersions = false,
+  canDeposit = true,
 }: Props) {
   const [open, setOpen] = useState(defaultOpen);
 
@@ -115,7 +120,7 @@ export function ChecklistCategory({
                 {item.currentVersion?.analysis && (
                   <DocumentAnalysisPanel analysis={item.currentVersion.analysis} />
                 )}
-                {establishmentId && (
+                {establishmentId && canDeposit && (
                   <MissingDocumentJustification
                     establishmentId={establishmentId}
                     documentTypeId={item.documentTypeId}
@@ -127,7 +132,7 @@ export function ChecklistCategory({
               </div>
               <div className="flex sm:flex-col items-center sm:items-end gap-2 flex-shrink-0">
                 <StatusBadge status={item.status} />
-                {establishmentId && (
+                {establishmentId && canDeposit && (
                   <DocumentUploadButton
                     establishmentId={establishmentId}
                     documentTypeId={item.documentTypeId}

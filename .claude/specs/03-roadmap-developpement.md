@@ -243,7 +243,11 @@ tarifaire).
 - [ ] **Module sensibilisation** — génération du PDF de questions ciblé sur les critères
   faibles, renvoi vers Kahoot, réimport des statistiques (§12.5). Pas de moteur de quiz maison.
 - [ ] **Relances automatiques** — délais, cadence et condition d'arrêt jamais spécifiés (§12.7).
-- [ ] **Fin de mission** — trois états à modéliser : mission active / bibliothèque abonnée en
-  lecture seule / accès révoqué. Aucune suppression dure (§12.5).
+- [x] **Fin de mission** *(26/08/2026)* — trois états d'accès DÉRIVÉS de deux faits
+  (`Mission.closedAt`, `Mission.clientAccessRevokedAt`) : mission active / bibliothèque en
+  lecture seule / accès révoqué. Aucune suppression, tout est réversible, les quatre gestes
+  sont réservés à `CABINET_ADMIN` et journalisés. Alerte de mise à jour au 5ᵉ mois calculée à
+  l'affichage. Migration `20260826140000_mission_client_access`. Détail :
+  `specs/02-architecture-technique.md` §4.16.
 - [ ] **Export Excel compatible Synaé** — format d'import réel toujours inconnu (§12.7,
   risque n°1 ci-dessous).

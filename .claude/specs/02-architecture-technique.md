@@ -675,6 +675,38 @@ reprise sur échec pour rendre le même service.
 s'en sert encore. À reprendre le jour où une relance automatique sera spécifiée — §12.7
 du mode opératoire.)*
 
+### 4.16 Fin de mission — trois états d'accès ✅ *(26/08/2026)*
+
+§12.5 du mode opératoire, position finale du call du 16/08 après deux rétractations :
+« à la fin de l'accompagnement, **on ne coupe pas leur accès**. Ils auront accès à la
+bibliothèque des documents générés, mais nous leur préconisons de s'abonner. »
+
+| État | Dérivé de | Client | Cabinet |
+|---|---|---|---|
+| `ACTIVE` | `closedAt` null | dépôt + lecture | tout |
+| `LIBRARY` | `closedAt` posé | **lecture seule** | lecture, dépôt fermé |
+| `REVOKED` | `clientAccessRevokedAt` posé | rien | tout (rétention) |
+
+Une seule colonne ajoutée, `Mission.clientAccessRevokedAt` : la clôture existait déjà
+(`closedAt`, §4.13) et la révocation est la seconde décision non dérivable. Couper
+l'accès est un geste explicite et **réversible**, jamais un effet de bord de la
+clôture. **Aucune suppression de données dans aucun des trois états.**
+
+`mission-access-service.ts` (pur) porte la règle ; l'application vit dans
+`lib/auth/guards.ts` — un `CLIENT_USER` révoqué reçoit `notFound()`, et la clôture ferme
+le dépôt côté serveur dans les trois actions d'écriture de `document.ts`, pas seulement
+en masquant le bouton. Le cabinet garde l'accès dans tous les états.
+
+Les quatre gestes (clore, rouvrir, révoquer, rétablir) sont réservés à `CABINET_ADMIN`
+— contrairement au reste du suivi de mission, ouvert aux évaluateurs : c'est de la
+gérance, pas du suivi opérationnel. Chacun est journalisé (`MISSION_CLOSED`,
+`MISSION_REOPENED`, `MISSION_CLIENT_ACCESS_REVOKED`, `MISSION_CLIENT_ACCESS_RESTORED`).
+
+**Alerte du 5ᵉ mois** ([3:30:23] du call) : calculée à l'affichage à partir de
+`closedAt`, en mois de calendrier. Rien n'est écrit en base — un drapeau « alerte
+envoyée » serait un état de plus à maintenir — et rien ne se ferme au 5ᵉ mois : c'est le
+moment où des documents figés commencent à dater, et où l'abonnement se justifie.
+
 ## 5. Préparation explicite de l'évolutivité (sans la construire maintenant)
 
 | Besoin futur | Ce qu'on fait maintenant pour ne pas se bloquer |

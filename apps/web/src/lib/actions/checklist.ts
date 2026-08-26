@@ -6,6 +6,10 @@ import { getEstablishmentCoveredCategories } from "@/lib/services/establishment-
 import type { DocumentCategory, DocumentStatus } from "@eoda/database";
 import type { DocumentAnalysisResult } from "@/lib/llm";
 import { parseAnalysisResult } from "@/lib/services/analysis-view-service";
+import {
+  isLibraryUpdateAlertDue,
+  type MissionAccessState,
+} from "@/lib/services/mission-access-service";
 
 export type ChecklistItem = {
   documentTypeId: string;
@@ -113,18 +117,31 @@ async function buildChecklist(establishmentId: string): Promise<ChecklistByCateg
 export async function getClientChecklist(): Promise<{
   establishment: { id: string; name: string; type: string } | null;
   checklist: ChecklistByCategory;
+  // Fin de mission (§12.5) : gouverne ce que le portail PROPOSE. Le refus réel est
+  // dans les actions d'écriture — masquer un bouton n'a jamais protégé une route.
+  missionAccess: MissionAccessState;
+  // Vrai quand la bibliothèque date de 5 mois ou plus (§12.5) — le moment où des
+  // documents figés commencent à vieillir, pas une expiration.
+  libraryUpdateAlert: boolean;
 }> {
   // L'établissement est résolu depuis le lien EstablishmentUser de la session, pas
   // depuis un identifiant fourni par la requête : non falsifiable par construction.
-  const { establishment } = await requireClientEstablishment();
+  const { establishment, missionAccess, missionClosure } = await requireClientEstablishment();
+  // `now` lu ici, à la frontière : le service reste pur et testable sans horloge.
+  const libraryUpdateAlert = isLibraryUpdateAlertDue(missionClosure, new Date());
 
   if (!establishment) {
-    return { establishment: null, checklist: {} as ChecklistByCategory };
+    return {
+      establishment: null,
+      checklist: {} as ChecklistByCategory,
+      missionAccess,
+      libraryUpdateAlert,
+    };
   }
 
   const checklist = await buildChecklist(establishment.id);
 
-  return { establishment, checklist };
+  return { establishment, checklist, missionAccess, libraryUpdateAlert };
 }
 
 export async function getEstablishmentChecklist(

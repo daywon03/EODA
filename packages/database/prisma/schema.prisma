@@ -819,6 +819,16 @@ model Mission {
   // des faits existants, cf. lib/services/lifecycle-service.ts.
   closedAt DateTime? @map("closed_at")
 
+  // Révocation de l'accès CLIENT après la fin de mission. Seconde décision non
+  // dérivable : une mission close laisse par défaut au client sa bibliothèque en
+  // lecture seule (§12.5, position finale du call du 16/08 — « on ne coupe pas leur
+  // accès, on leur préconise de s'abonner »). Couper est un geste explicite, jamais
+  // un effet de bord de la clôture.
+  //
+  // Aucune donnée n'est supprimée : la rétention reste côté cabinet. Réversible —
+  // reposer ce champ à null rend la bibliothèque.
+  clientAccessRevokedAt DateTime? @map("client_access_revoked_at")
+
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
@@ -961,6 +971,14 @@ enum AuditAction {
   // Cycle de vie d'une version de document
   DOCUMENT_VERSION_DELETED
   DOCUMENT_JUSTIFICATION_UPDATED
+  // Fin de mission (§12.5). `targetId` = identifiant de la mission. Ces quatre
+  // gestes ouvrent ou ferment l'accès d'un client à ses propres documents : ils
+  // sont les plus sensibles du module et doivent laisser une trace datée et
+  // nominative côté acteur — jamais côté personne accompagnée.
+  MISSION_CLOSED
+  MISSION_REOPENED
+  MISSION_CLIENT_ACCESS_REVOKED
+  MISSION_CLIENT_ACCESS_RESTORED
 }
 
 model AuditLogEntry {

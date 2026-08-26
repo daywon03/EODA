@@ -13,6 +13,8 @@ import { MissionProgressSummary } from "@/components/mission/MissionProgressSumm
 import { DiagnosticChecklistSection } from "@/components/mission/DiagnosticChecklistSection";
 import { PhaseChecklistSection } from "@/components/mission/PhaseChecklistSection";
 import { MissionDocumentCounters } from "@/components/mission/MissionDocumentCounters";
+import { MissionClosureSection } from "@/components/mission/MissionClosureSection";
+import { auth } from "@/auth";
 import type { MissionChecklistScope } from "@eoda/database";
 
 type Props = { params: Promise<{ id: string }> };
@@ -43,7 +45,8 @@ const PHASE_DATE_FIELDS: Record<
 
 export default async function MissionPage({ params }: Props) {
   const { id } = await params;
-  const [establishment, mission, formules, options, documentCounters] = await Promise.all([
+  const [session, establishment, mission, formules, options, documentCounters] = await Promise.all([
+    auth(),
     getEstablishment(id),
     getMission(id),
     listFormulesForMissionSetup(),
@@ -104,6 +107,9 @@ export default async function MissionPage({ params }: Props) {
             </CardContent>
           </Card>
 
+          {/* Fin de mission (§12.5) : trois états d'accès, tous réversibles, aucune
+              suppression. Placé après les phases dans la lecture, mais avant elles
+              dans le rendu serait faux — on ne clôt pas ce qu'on n'a pas parcouru. */}
           {PHASE_ORDER.map((phase) => (
             <Card key={phase}>
               <CardContent className="pt-6">
@@ -119,6 +125,17 @@ export default async function MissionPage({ params }: Props) {
               </CardContent>
             </Card>
           ))}
+
+          <Card>
+            <CardContent className="pt-6">
+              <MissionClosureSection
+                missionId={mission.id}
+                closedAt={mission.closedAt}
+                clientAccessRevokedAt={mission.clientAccessRevokedAt}
+                canManageClosure={session?.user.role === "CABINET_ADMIN"}
+              />
+            </CardContent>
+          </Card>
         </div>
       )}
     </div>

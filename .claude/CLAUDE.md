@@ -278,6 +278,13 @@ Détail complet et état d'avancement : `specs/02-architecture-technique.md` §4
   et serait sinon compté deux fois dans l'entonnoir unifié, une fois en « Signé »
   et une fois à l'étape réelle de sa mission. `byStructureType` reste sur tous les
   prospects : c'est une lecture de marché, pas une photo du pipeline.
+- **La fin de mission ne supprime rien, et la clôture ne coupe rien.** Trois états
+  d'accès dérivés de deux faits (`Mission.closedAt`, `Mission.clientAccessRevokedAt`)
+  par `lib/services/mission-access-service.ts` : `ACTIVE` / `LIBRARY` (lecture seule)
+  / `REVOKED`. L'application est dans `lib/auth/guards.ts` et dans les actions
+  d'écriture — jamais seulement en masquant un bouton. Le cabinet garde l'accès dans
+  tous les états (rétention). Ne jamais transformer la clôture en coupure d'accès :
+  c'est la position finale du call du 16/08, après deux rétractations.
 - **L'historique d'un prospect ne se réécrit pas.** `ProspectTimelineEntry` est
   append-only : commentaires ET changements d'étape sur la même frise, aucune action
   de modification ni de suppression, le changement de statut et sa trace dans une

@@ -22,6 +22,9 @@ const prismaMock = {
   user: { findUnique: vi.fn() },
   establishment: { findFirst: vi.fn() },
   establishmentUser: { findUnique: vi.fn(), findFirst: vi.fn() },
+  // Fin de mission : les gardes lisent la clôture et la révocation à CHAQUE contrôle
+  // (une révocation doit prendre effet tout de suite, pas à la prochaine session).
+  mission: { findUnique: vi.fn() },
 };
 
 const authMock = vi.fn();
@@ -64,6 +67,8 @@ beforeEach(() => {
   authMock.mockResolvedValue(session());
   prismaMock.establishment.findFirst.mockResolvedValue({ id: "etab-1" });
   prismaMock.establishmentUser.findUnique.mockResolvedValue({ establishmentId: "etab-1" });
+  // Par défaut : aucune mission (avant-vente) — rien n'est clos, rien n'est coupé.
+  prismaMock.mission.findUnique.mockResolvedValue(null);
 });
 
 function dbUser(overrides: Record<string, unknown> = {}) {
@@ -310,6 +315,71 @@ describe("requireEstablishmentAccess — cloisonnement côté client", () => {
 
     await expect(requireEstablishmentAccess("etab-1")).rejects.toThrow("REDIRECT:/login");
     expect(prismaMock.establishment.findFirst).not.toHaveBeenCalled();
+  });
+});
+
+describe("fin de mission — accès client révoqué", () => {
+  const REVOKED = { closedAt: new Date("2027-01-01"), clientAccessRevokedAt: new Date("2027-02-01") };
+  const LIBRARY = { closedAt: new Date("2027-01-01"), clientAccessRevokedAt: null };
+
+  it("refuse un CLIENT_USER dont l'accès a été révoqué", async () => {
+    // Cas de refus le plus important du lot : les documents existent toujours, la
+    // porte est fermée. notFound() et pas un message — on ne renseigne personne.
+    prismaMock.user.findUnique.mockResolvedValue(dbUser({ role: "CLIENT_USER", tenantId: null }));
+    prismaMock.mission.findUnique.mockResolvedValue(REVOKED);
+
+    await expect(requireEstablishmentAccess("etab-1")).rejects.toBeInstanceOf(NotFoundError);
+  });
+
+  it("laisse passer le CLIENT_USER en bibliothèque — la clôture ne coupe pas la lecture", async () => {
+    prismaMock.user.findUnique.mockResolvedValue(dbUser({ role: "CLIENT_USER", tenantId: null }));
+    prismaMock.mission.findUnique.mockResolvedValue(LIBRARY);
+
+    await expect(requireEstablishmentAccess("etab-1")).resolves.toMatchObject({
+      isClient: true,
+      missionAccess: "LIBRARY",
+    });
+  });
+
+  it("laisse passer le cabinet même après révocation — la rétention est de son côté", async () => {
+    prismaMock.user.findUnique.mockResolvedValue(dbUser());
+    prismaMock.mission.findUnique.mockResolvedValue(REVOKED);
+
+    await expect(requireEstablishmentAccess("etab-1")).resolves.toMatchObject({
+      isClient: false,
+      missionAccess: "REVOKED",
+    });
+  });
+
+  it("refuse sèchement côté tryEstablishmentAccess, sans navigation", async () => {
+    prismaMock.user.findUnique.mockResolvedValue(dbUser({ role: "CLIENT_USER", tenantId: null }));
+    prismaMock.mission.findUnique.mockResolvedValue(REVOKED);
+
+    await expect(tryEstablishmentAccess("etab-1")).resolves.toBeNull();
+  });
+
+  it("rend l'établissement introuvable au portail client révoqué", async () => {
+    prismaMock.user.findUnique.mockResolvedValue(dbUser({ role: "CLIENT_USER", tenantId: null }));
+    prismaMock.establishmentUser.findFirst.mockResolvedValue({
+      establishment: { id: "etab-1", name: "SAD", type: "SAD_AIDE" },
+    });
+    prismaMock.mission.findUnique.mockResolvedValue(REVOKED);
+
+    await expect(requireClientEstablishment()).resolves.toMatchObject({
+      establishment: null,
+      missionAccess: "REVOKED",
+    });
+  });
+
+  it("relit la clôture à chaque contrôle — une révocation prend effet immédiatement", async () => {
+    prismaMock.user.findUnique.mockResolvedValue(dbUser({ role: "CLIENT_USER", tenantId: null }));
+    prismaMock.mission.findUnique.mockResolvedValue(LIBRARY);
+
+    await requireEstablishmentAccess("etab-1");
+
+    expect(prismaMock.mission.findUnique).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { establishmentId: "etab-1" } })
+    );
   });
 });
 
