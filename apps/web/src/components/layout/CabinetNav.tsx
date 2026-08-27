@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Building2, Briefcase } from "lucide-react";
+import { Building2, Briefcase, CalendarDays } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type Props = { isAdmin: boolean };
@@ -12,6 +12,12 @@ export function CabinetNav({ isAdmin }: Props) {
 
   const tabs = [
     { href: "/dashboard/cabinet", label: "Établissements", icon: Building2, match: (p: string) => p === "/dashboard/cabinet" || p.startsWith("/dashboard/cabinet/etablissements") },
+    {
+      href: "/dashboard/cabinet/agenda",
+      label: "Agenda",
+      icon: CalendarDays,
+      match: (p: string) => p.startsWith("/dashboard/cabinet/agenda"),
+    },
     ...(isAdmin
       ? [
           {

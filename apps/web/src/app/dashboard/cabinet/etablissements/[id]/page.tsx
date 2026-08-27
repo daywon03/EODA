@@ -6,12 +6,15 @@ import { ClientUserRow } from "@/components/etablissement/ClientUserRow";
 import { DeleteEstablishmentButton } from "@/components/etablissement/DeleteEstablishmentButton";
 import { ChecklistCategory } from "@/components/checklist/ChecklistCategory";
 import { MissionSummaryCard } from "@/components/mission/MissionSummaryCard";
+import { AppointmentForm } from "@/components/agenda/AppointmentForm";
+import { AppointmentList } from "@/components/agenda/AppointmentList";
+import { listAppointmentsFor } from "@/lib/actions/appointment";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ProgressBar } from "@/components/ui/progress-bar";
 import { PageHeader } from "@/components/layout/PageHeader";
-import { Building2, Calendar, Pencil, Users } from "lucide-react";
+import { Building2, Calendar, CalendarDays, Pencil, Users } from "lucide-react";
 import Link from "next/link";
 import type { EstablishmentType, DocumentCategory, StructureType } from "@eoda/database";
 import { StageBadge } from "@/components/crm/StageBadge";
@@ -54,6 +57,7 @@ export default async function EstablishmentDetailPage({ params }: Props) {
   const establishment = await getEstablishment(id);
   const checklist = await getEstablishmentChecklist(id);
   const mission = await getMission(id);
+  const appointments = await listAppointmentsFor({ establishmentId: id });
 
   // Étape dérivée des faits, jamais d'un statut stocké (cf. lifecycle-service).
   const lifecycle = toMissionLifecycleFacts(establishment.mission);
@@ -247,6 +251,29 @@ export default async function EstablishmentDetailPage({ params }: Props) {
                 />
               );
             })}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Agenda de la structure — les points programmés avec elle, et de quoi en
+          poser un nouveau. Le client verra les mêmes créneaux sur son portail. */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <CalendarDays className="w-4 h-4 text-terre" aria-hidden="true" />
+            Rendez-vous
+          </CardTitle>
+          <CardDescription>
+            Visio, sur site ou téléphone — la structure voit ces créneaux depuis son espace.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-5">
+          <AppointmentList
+            appointments={appointments}
+            emptyMessage="Aucun rendez-vous programmé avec cette structure pour l'instant."
+          />
+          <div className="border-t border-gris-light pt-5">
+            <AppointmentForm establishmentId={establishment.id} structureName={establishment.name} />
           </div>
         </CardContent>
       </Card>

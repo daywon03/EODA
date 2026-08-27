@@ -68,6 +68,12 @@ export default defineConfig({
         // du devis. Rien n'y échoue bruyamment — une civilité mal composée ou un
         // mauvais lien d'étape se voit seulement à l'écran, sur un document qui part
         // chez un client.
+        // Agenda : grille de mois, sélection des prochains rendez-vous, détection de
+        // chevauchement. Une erreur ici déplace un rendez-vous à l'écran sans que rien
+        // n'échoue — et quelqu'un se déplace pour rien.
+        "src/lib/services/calendar-service.ts",
+        // Format de date unique (JJ/MM/AAAA) : le test tient la règle demandée.
+        "src/lib/services/date-format-service.ts",
         "src/lib/services/prospect-contact-service.ts",
         "src/lib/services/prospect-next-action-service.ts",
         "src/lib/services/devis-sharing-service.ts",

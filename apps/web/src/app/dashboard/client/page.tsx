@@ -1,8 +1,19 @@
 import { getClientChecklist } from "@/lib/actions/checklist";
+import { listClientAppointments } from "@/lib/actions/appointment";
+import { AppointmentList } from "@/components/agenda/AppointmentList";
 import { ChecklistCategory } from "@/components/checklist/ChecklistCategory";
 import { ProgressBar } from "@/components/ui/progress-bar";
 import { PageHeader } from "@/components/layout/PageHeader";
-import { Building2, AlertTriangle, ShieldAlert, CheckCircle2, Clock, Archive, BellRing } from "lucide-react";
+import {
+  Building2,
+  AlertTriangle,
+  ShieldAlert,
+  CheckCircle2,
+  Clock,
+  Archive,
+  BellRing,
+  CalendarDays,
+} from "lucide-react";
 import {
   documentProgressPercent,
   summariseDocumentObligations,
@@ -24,6 +35,9 @@ const DEFAULT_OPEN: DocumentCategory[] = ["LOI_2002_2"];
 
 export default async function ClientDashboardPage() {
   const { establishment, checklist, missionAccess, libraryUpdateAlert } = await getClientChecklist();
+  // « Savoir quand sont ses prochains points, que ce soit en visio ou en présentiel. »
+  // Lecture seule : le client lit son agenda, il ne le pilote pas.
+  const appointments = await listClientAppointments(4);
 
   if (!establishment) {
     return (
@@ -106,6 +120,20 @@ export default async function ClientDashboardPage() {
           </div>
         </div>
       )}
+
+      {/* Prochains rendez-vous, avant la checklist : c'est la question qu'on se pose
+          en ouvrant son espace, et la seule à laquelle une date répond. */}
+      <section className="bg-white border border-gris-light rounded-xl p-5 space-y-4">
+        <div className="flex items-center gap-2">
+          <CalendarDays className="w-4 h-4 text-terre" aria-hidden="true" />
+          <h2 className="text-sm font-semibold text-brun-ancre">Vos prochains rendez-vous</h2>
+        </div>
+        <AppointmentList
+          appointments={appointments}
+          readOnly
+          emptyMessage="Aucun rendez-vous programmé pour l'instant. Votre consultant EODA vous proposera les prochaines dates."
+        />
+      </section>
 
       {/* Progression globale */}
       <div className="bg-white border border-gris-light rounded-xl p-5 space-y-4">

@@ -75,6 +75,43 @@ enum ContactRole {
   AUTRE
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// AGENDA — rendez-vous du cabinet et points programmés avec le client
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Nature du rendez-vous. Les trois premiers sont les étapes de vente nommées par
+// Sandrine (call du 26/08) : R0 prise de contact, R1 découverte, R2 accord de
+// principe. Les suivants appartiennent à l'accompagnement.
+enum AppointmentKind {
+  R0_PRISE_CONTACT
+  R1_DECOUVERTE
+  R2_ACCORD
+  REUNION_CADRAGE
+  VISITE
+  ATELIER
+  REUNION_SUIVI
+  RESTITUTION
+  AUTRE
+}
+
+// Comment on se voit. Porté par le rendez-vous et non déduit du lieu : « visio »
+// avec une adresse saisie est un cas réel (salle de réunion + lien de secours).
+enum AppointmentMode {
+  VISIO
+  PRESENTIEL
+  TELEPHONE
+}
+
+// Le planning est PRÉVISIONNEL par défaut : « je fais des propositions qu'il valide
+// à chaque fois » (call du 26/08). Un créneau proposé n'est pas un créneau tenu, et
+// l'afficher comme ferme au client ferait annuler des rendez-vous qui n'existaient
+// pas.
+enum AppointmentStatus {
+  PROPOSE
+  CONFIRME
+  ANNULE
+}
+
 enum AcquisitionChannel {
   BOUCHE_A_OREILLE
   REFERENCEMENT_UNA
@@ -222,6 +259,7 @@ model Tenant {
   missions          Mission[]
   optionRequests    ClientOptionRequest[]
   prospectTimeline  ProspectTimelineEntry[]
+  appointments      Appointment[]
 
   @@map("tenants")
 }
@@ -258,6 +296,7 @@ model User {
   optionRequests     ClientOptionRequest[] @relation("RequestedBy")
   prospectTimeline   ProspectTimelineEntry[] @relation("ProspectTimelineAuthor")
   reviewedAnalyses   DocumentVersion[]       @relation("AnalysisReviewedBy")
+  createdAppointments Appointment[]          @relation("AppointmentCreatedBy")
 
   @@map("users")
 }
@@ -291,6 +330,7 @@ model Establishment {
   prospect           Prospect?
   mission            Mission?
   optionRequests     ClientOptionRequest[]
+  appointments       Appointment[]
 
   @@map("establishments")
 }
@@ -642,8 +682,60 @@ model Prospect {
   establishment Establishment? @relation(fields: [establishmentId], references: [id], onDelete: SetNull)
   devis         Devis[]
   timeline      ProspectTimelineEntry[]
+  appointments  Appointment[]
 
   @@map("prospects")
+}
+
+// Rendez-vous — la même ligne sert l'avant-vente et l'accompagnement.
+//
+// Rattaché à un PROSPECT (R0/R1/R2, avant toute signature) ou à un ÉTABLISSEMENT
+// (une fois la fiche créée), jamais aux deux. Deux modèles séparés obligeraient
+// l'agenda à fusionner deux sources pour répondre à « qu'est-ce que j'ai cette
+// semaine ? », et la conversion à recopier des rendez-vous d'une table à l'autre.
+model Appointment {
+  id              String            @id @default(cuid())
+  tenantId        String            @map("tenant_id")
+  prospectId      String?           @map("prospect_id")
+  establishmentId String?           @map("establishment_id")
+
+  kind    AppointmentKind
+  mode    AppointmentMode
+  status  AppointmentStatus @default(PROPOSE)
+
+  startsAt DateTime @map("starts_at")
+  endsAt   DateTime @map("ends_at")
+
+  // Intitulé lu par le client (« Atelier documentaire — jour 1 »).
+  subject String
+  // Lien de visioconférence ou adresse du rendez-vous. Un seul champ : la nature du
+  // lieu est déjà dite par `mode`, et deux colonnes dont une toujours vide se
+  // remplissent de travers.
+  location String?
+  // Notes de préparation du cabinet. JAMAIS transmises au portail client — c'est la
+  // raison d'être du champ séparé de `subject`.
+  notes String?
+
+  // Un rendez-vous interne (préparation, point d'équipe) reste hors du portail
+  // client. Par défaut visible : l'agenda existe d'abord pour que le client sache
+  // quand on se voit.
+  visibleToClient Boolean @default(true) @map("visible_to_client")
+
+  createdByUserId String   @map("created_by_user_id")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  tenant        Tenant         @relation(fields: [tenantId], references: [id])
+  prospect      Prospect?      @relation(fields: [prospectId], references: [id], onDelete: Cascade)
+  establishment Establishment? @relation(fields: [establishmentId], references: [id], onDelete: Cascade)
+  createdBy     User           @relation("AppointmentCreatedBy", fields: [createdByUserId], references: [id])
+
+  // Lecture par défaut de l'agenda : tout le tenant sur une plage de dates.
+  @@index([tenantId, startsAt])
+  // Les prochains rendez-vous d'un client, côté portail.
+  @@index([establishmentId, startsAt])
+  @@index([prospectId, startsAt])
+  @@map("appointments")
 }
 
 // Historique d'un prospect — le dossier que Sandrine reconstituait dans sa boîte

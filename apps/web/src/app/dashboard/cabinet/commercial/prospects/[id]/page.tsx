@@ -9,6 +9,9 @@ import { DeleteProspectButton } from "@/components/prospect/DeleteProspectButton
 import { ProspectTimeline } from "@/components/prospect/ProspectTimeline";
 import { ProspectCommentForm } from "@/components/prospect/ProspectCommentForm";
 import { DevisCard } from "@/components/devis/DevisCard";
+import { AppointmentForm } from "@/components/agenda/AppointmentForm";
+import { AppointmentList } from "@/components/agenda/AppointmentList";
+import { listAppointmentsFor } from "@/lib/actions/appointment";
 import { FORMULE_LABELS } from "@/components/mission/formule-labels";
 import { formatEuros } from "@/lib/services/price-format-service";
 import {
@@ -29,6 +32,9 @@ const TYPE_LABELS = { ASSOCIATION: "Association", PRIVE: "Privé", PUBLIC: "Publ
 export default async function ProspectDetailPage({ params }: Props) {
   const { id } = await params;
   const prospect = await getProspect(id);
+  // R0, R1, R2 : les trois rendez-vous de vente se programment ici, avant qu'aucune
+  // fiche client n'existe.
+  const appointments = await listAppointmentsFor({ prospectId: id });
 
   // « À un moment donné, le titre prospect doit se transformer en client » : ce
   // moment est la conversion, c'est-à-dire l'existence d'une fiche — pas le statut
@@ -190,6 +196,21 @@ export default async function ProspectDetailPage({ params }: Props) {
             ))}
           </div>
         )}
+      </div>
+
+      <div className="space-y-3">
+        <h2 className="text-base font-semibold text-brun-ancre">Rendez-vous</h2>
+        <Card>
+          <CardContent className="pt-6 space-y-5">
+            <AppointmentList
+              appointments={appointments}
+              emptyMessage="Aucun rendez-vous programmé. Posez le créneau du prochain échange — il apparaîtra dans votre agenda."
+            />
+            <div className="border-t border-gris-light pt-5">
+              <AppointmentForm prospectId={id} structureName={prospect.structureName} />
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Le dossier : ce que Sandrine reconstituait jusqu'ici dans sa boîte mail. */}
