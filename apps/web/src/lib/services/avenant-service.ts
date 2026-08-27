@@ -1,5 +1,6 @@
 import type { PricingUnit } from "@eoda/database";
 import { buildEodaFileName } from "./document-naming-service";
+import { formatDate } from "./date-format-service";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // AVENANT — « génération de contrat + avenant obligatoire pour toute option
@@ -86,7 +87,7 @@ export function describeContractReference(input: {
   }
 
   const signature = input.signedOn
-    ? ` signé le ${new Intl.DateTimeFormat("fr-FR", { day: "2-digit", month: "long", year: "numeric" }).format(input.signedOn)}`
+    ? ` signé le ${formatDate(input.signedOn)}`
     : "";
 
   return `Le présent avenant complète le devis ${input.contractReference}${signature}, dont les conditions restent inchangées pour tout ce qui n'est pas expressément modifié ci-dessous.`;

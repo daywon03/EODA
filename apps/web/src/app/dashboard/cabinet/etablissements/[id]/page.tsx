@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ProgressBar } from "@/components/ui/progress-bar";
 import { PageHeader } from "@/components/layout/PageHeader";
+import { formatDate } from "@/lib/services/date-format-service";
 import { Building2, Calendar, CalendarDays, Pencil, Users } from "lucide-react";
 import Link from "next/link";
 import type { EstablishmentType, DocumentCategory, StructureType } from "@eoda/database";
@@ -120,7 +121,7 @@ export default async function EstablishmentDetailPage({ params }: Props) {
                 <span>
                   Évaluation HAS cible :{" "}
                   <strong>
-                    {new Intl.DateTimeFormat("fr-FR", { dateStyle: "long" }).format(
+                    {formatDate(
                       new Date(establishment.hasEvaluationTargetDate)
                     )}
                   </strong>

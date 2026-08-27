@@ -1,4 +1,5 @@
 import type { PricingUnit } from "@eoda/database";
+import { formatDate } from "@/lib/services/date-format-service";
 import { formatEuros, formatStartingPrice } from "@/lib/services/price-format-service";
 import { optionCommittedAmountEuros } from "@/lib/services/devis-calculation-service";
 
@@ -26,7 +27,7 @@ type Props = {
   installmentAmountEuros: number;
 };
 
-const dateFormatter = new Intl.DateTimeFormat("fr-FR", { day: "2-digit", month: "long", year: "numeric" });
+
 
 export function DevisSummaryPrintable({
   number,
@@ -48,11 +49,11 @@ export function DevisSummaryPrintable({
       <div className="flex items-start justify-between border-b border-gris-light pb-4">
         <div>
           <h2 className="text-lg font-bold">Devis {number}</h2>
-          <p className="text-sm text-gris-mid">Émis le {dateFormatter.format(new Date(createdAt))}</p>
+          <p className="text-sm text-gris-mid">Émis le {formatDate(new Date(createdAt))}</p>
         </div>
         <div className="text-right">
           <p className="text-sm text-gris-mid">Valable jusqu'au</p>
-          <p className="text-sm font-semibold">{dateFormatter.format(new Date(validUntil))}</p>
+          <p className="text-sm font-semibold">{formatDate(new Date(validUntil))}</p>
         </div>
       </div>
 

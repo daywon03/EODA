@@ -77,6 +77,9 @@ export default defineConfig({
         "src/lib/services/calendar-service.ts",
         // Format de date unique (JJ/MM/AAAA) : le test tient la règle demandée.
         "src/lib/services/date-format-service.ts",
+        // Modèles d'e-mail : ils sortent de la plateforme vers des gens, et
+        // interpolent des saisies dans du HTML.
+        "src/lib/email/templates.ts",
         "src/lib/services/prospect-contact-service.ts",
         "src/lib/services/prospect-next-action-service.ts",
         "src/lib/services/devis-sharing-service.ts",

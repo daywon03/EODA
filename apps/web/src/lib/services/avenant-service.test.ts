@@ -88,7 +88,9 @@ describe("describeContractReference", () => {
     });
 
     expect(phrase).toContain("DEV-2026-014");
-    expect(phrase).toContain("juillet 2026");
+    // Format unique de l'application : JJ/MM/AAAA, y compris sur un document
+    // contractuel (demande du 26/08).
+    expect(phrase).toContain("01/07/2026");
     expect(phrase).toContain("conditions restent inchangées");
   });
 

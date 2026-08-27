@@ -20,13 +20,22 @@ const prismaMock = {
   catalogueFormule: { findUnique: vi.fn() },
   clientOptionRequest: { findMany: vi.fn(), findFirst: vi.fn(), create: vi.fn() },
   document: { findMany: vi.fn() },
+  // L'auteur de la demande, lu pour nommer qui demande dans l'alerte interne.
+  user: { findUnique: vi.fn() },
 };
+
+// L'alerte interne ne doit jamais faire échouer la demande : elle est doublée par la
+// file du portail. On la double ici pour que le test porte sur l'enregistrement.
+const notifyOptionRequest = vi.fn();
 
 const requireClientEstablishment = vi.fn();
 const getClientChecklist = vi.fn();
 const recordAuditEvent = vi.fn();
 
 vi.mock("@eoda/database", () => ({ prisma: prismaMock }));
+vi.mock("@/lib/email/notifications", () => ({
+  notifyOptionRequest: (...args: unknown[]) => notifyOptionRequest(...args),
+}));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("@/lib/auth/guards", () => ({
   requireClientEstablishment: () => requireClientEstablishment(),
@@ -70,6 +79,8 @@ function signedDevisRow() {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  prismaMock.user.findUnique.mockResolvedValue({ name: "Tania Leborgne" });
+  notifyOptionRequest.mockResolvedValue(true);
   requireClientEstablishment.mockResolvedValue({
     session: { user: { id: "user-1" } },
     userId: "user-1",

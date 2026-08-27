@@ -5,6 +5,7 @@ import { closeMission, reopenMission, setClientAccessRevoked } from "@/lib/actio
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { AlertCircle, Loader2, Lock, Unlock, Archive, RotateCcw } from "lucide-react";
+import { formatDate } from "@/lib/services/date-format-service";
 import {
   deriveMissionAccessState,
   MISSION_ACCESS_LABELS,
@@ -20,7 +21,7 @@ type Props = {
   canManageClosure: boolean;
 };
 
-const dateFormatter = new Intl.DateTimeFormat("fr-FR", { dateStyle: "long" });
+
 
 export function MissionClosureSection({
   missionId,
@@ -55,9 +56,9 @@ export function MissionClosureSection({
         {state === "ACTIVE" &&
           "L'accompagnement est en cours : le client dépose ses documents et consulte son espace."}
         {state === "LIBRARY" &&
-          `Mission close le ${closedAt ? dateFormatter.format(closedAt) : "—"}. Le client garde l'accès à sa bibliothèque en lecture seule ; plus aucun dépôt n'est possible.`}
+          `Mission close le ${closedAt ? formatDate(closedAt) : "—"}. Le client garde l'accès à sa bibliothèque en lecture seule ; plus aucun dépôt n'est possible.`}
         {state === "REVOKED" &&
-          `Accès client coupé le ${clientAccessRevokedAt ? dateFormatter.format(clientAccessRevokedAt) : "—"}. Les documents sont conservés côté cabinet — rien n'a été supprimé.`}
+          `Accès client coupé le ${clientAccessRevokedAt ? formatDate(clientAccessRevokedAt) : "—"}. Les documents sont conservés côté cabinet — rien n'a été supprimé.`}
       </p>
 
       {canManageClosure && (

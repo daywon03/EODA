@@ -6,6 +6,7 @@ import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
+import { formatDateTime } from "@/lib/services/date-format-service";
 import { ScrollText } from "lucide-react";
 
 export const metadata = { title: "Journal d'audit · EODA Conseil" };
@@ -58,10 +59,7 @@ const ROLE_LABELS: Record<string, string> = {
   CLIENT_USER: "Client",
 };
 
-const DATE_FORMAT = new Intl.DateTimeFormat("fr-FR", {
-  dateStyle: "short",
-  timeStyle: "medium",
-});
+// Format unique de l'application (date-format-service) : JJ/MM/AAAA à HH:MM.
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
@@ -189,7 +187,7 @@ export default async function AuditLogPage({
                 {result.rows.map((row) => (
                   <tr key={row.id} className="hover:bg-ivoire/50 transition-colors">
                     <td className="px-5 py-2.5 whitespace-nowrap tabular-nums text-gris-mid">
-                      {DATE_FORMAT.format(row.occurredAt)}
+                      {formatDateTime(row.occurredAt)}
                     </td>
                     <td className="px-5 py-2.5 text-brun-ancre">{ACTION_LABELS[row.action]}</td>
                     <td className="px-5 py-2.5 text-brun-ancre">

@@ -1,3 +1,4 @@
+import { formatDate } from "@/lib/services/date-format-service";
 import { formatStartingPrice } from "@/lib/services/price-format-service";
 import {
   avenantStartingTotalEuros,
@@ -14,11 +15,7 @@ type Props = {
   options: MissionOptionLine[];
 };
 
-const dateFormatter = new Intl.DateTimeFormat("fr-FR", {
-  day: "2-digit",
-  month: "long",
-  year: "numeric",
-});
+
 
 // Avenant au contrat d'accompagnement — options souscrites hors contrat initial
 // (§12.6). Le document CONSTATE : ce qui s'ajoute, à quel prix, et sous quelles
@@ -39,7 +36,7 @@ export function AvenantPrintable({
       <div className="flex items-start justify-between border-b border-gris-light pb-4">
         <div>
           <h2 className="text-lg font-bold">Avenant au contrat d&apos;accompagnement</h2>
-          <p className="text-sm text-gris-mid">Établi le {dateFormatter.format(issuedOn)}</p>
+          <p className="text-sm text-gris-mid">Établi le {formatDate(issuedOn)}</p>
         </div>
         <p className="text-sm font-semibold">EODA Conseil</p>
       </div>

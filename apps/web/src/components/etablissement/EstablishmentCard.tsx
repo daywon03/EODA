@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import type { EstablishmentType } from "@eoda/database";
 import { StageBadge } from "@/components/crm/StageBadge";
 import type { FunnelStage } from "@/lib/services/lifecycle-service";
+import { formatDate } from "@/lib/services/date-format-service";
 
 type Props = {
   id: string;
@@ -64,7 +65,7 @@ export function EstablishmentCard({
             {hasEvaluationTargetDate && (
               <span className="flex items-center gap-1">
                 <Calendar className="w-3.5 h-3.5" aria-hidden="true" />
-                {new Intl.DateTimeFormat("fr-FR", { month: "short", year: "numeric" }).format(
+                {formatDate(
                   new Date(hasEvaluationTargetDate)
                 )}
               </span>

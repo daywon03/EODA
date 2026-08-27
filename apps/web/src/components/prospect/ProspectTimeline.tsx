@@ -1,14 +1,9 @@
 import type { ProspectStatus, ProspectTimelineKind } from "@eoda/database";
+import { formatDateTime } from "@/lib/services/date-format-service";
 import { PROSPECT_STATUS_LABELS } from "./ProspectStatusBadge";
 import { ArrowRight, MessageSquare } from "lucide-react";
 
-const dateFormatter = new Intl.DateTimeFormat("fr-FR", {
-  day: "2-digit",
-  month: "short",
-  year: "numeric",
-  hour: "2-digit",
-  minute: "2-digit",
-});
+
 
 export type TimelineEntry = {
   id: string;
@@ -52,7 +47,7 @@ export function ProspectTimeline({ entries }: { entries: TimelineEntry[] }) {
               {entry.kind === "COMMENTAIRE" ? entry.body : describeStatusChange(entry)}
             </p>
             <p className="text-xs text-gris-mid mt-0.5">
-              {dateFormatter.format(entry.createdAt)}
+              {formatDateTime(entry.createdAt)}
               {/* Auteur absent = compte supprimé depuis. On l'écrit plutôt que de
                   laisser une ligne anonyme qui ferait douter de la trace. */}
               {" · "}

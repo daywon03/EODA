@@ -18,7 +18,13 @@ type Props = {
   defaultName?: string | null;
 };
 
-type SuccessResult = { success: true; tempPassword: string; userName: string; userEmail: string };
+type SuccessResult = {
+  success: true;
+  tempPassword: string;
+  userName: string;
+  userEmail: string;
+  invitationEmailSent: boolean;
+};
 type ErrorResult = { error: string };
 type Result = SuccessResult | ErrorResult;
 
@@ -93,6 +99,22 @@ export function InviteClientForm({ establishmentId, defaultEmail, defaultName }:
           <p className="flex items-center gap-1.5 text-xs text-rouge-imp">
             <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" aria-hidden="true" />
             Ce mot de passe ne sera plus affiché. Copiez-le avant de fermer.
+          </p>
+          {/* Dire si l'e-mail est parti, plutôt que de le supposer : c'est ce qui
+              décide si Sandrine doit communiquer le mot de passe elle-même. */}
+          <p className="flex items-center gap-1.5 text-xs text-gris-mid">
+            {result.invitationEmailSent ? (
+              <>
+                <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0 text-vert-ok" aria-hidden="true" />
+                Invitation envoyée à {result.userEmail} — identifiant et mot de passe compris.
+              </>
+            ) : (
+              <>
+                <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 text-ambre" aria-hidden="true" />
+                L&apos;e-mail d&apos;invitation n&apos;a pas pu être envoyé : communiquez
+                vous-même l&apos;identifiant et ce mot de passe.
+              </>
+            )}
           </p>
         </div>
         <Button

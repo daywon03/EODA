@@ -264,8 +264,14 @@ tarifaire).
   signé** — c'est déjà le document contractuel du dépôt (CLAUDE.md §7) ; produire un
   second document de contrat supposerait un texte de CGV/CGP que Sandrine n'a pas fourni.
   Reste ouvert : aucun suivi de la SIGNATURE de l'avenant (pas de modèle, pas de statut).
-- [ ] **Deux parcours d'achat d'option** — paywall direct ou demande → alerte interne → devis
-  → déblocage, selon la forme juridique du client (§12.6).
+- [~] **Deux parcours d'achat d'option** — le parcours « demande → alerte interne → devis →
+  déblocage » est complet depuis le 27/08 : la demande client déclenche un e-mail vers les
+  comptes `CABINET_ADMIN` **et** une pastille de navigation qui reste tant que la demande
+  n'est pas traitée. Le **paywall direct** reste à faire : il suppose un prestataire de
+  paiement, décision non prise (§12.6).
+- [x] **E-mail d'invitation client** *(27/08/2026)* — identifiant, mot de passe temporaire et
+  lien, envoyés à la création du compte. L'écran DIT si l'e-mail est parti : sinon Sandrine
+  communique le mot de passe elle-même. Un échec d'envoi ne perd jamais le compte.
 - [ ] **Abonnement portail** — 400 €/mois, engagement 1 an à reconduction tacite, dégressivité
   -10 % Performance / -30 % Excellence à calculer dans l'outil (§12.2).
 - [ ] **Module sensibilisation** — génération du PDF de questions ciblé sur les critères
