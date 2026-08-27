@@ -34,7 +34,11 @@ export function DocumentUploadButton({ establishmentId, documentTypeId }: Props)
       <input
         ref={inputRef}
         type="file"
-        accept=".pdf,.docx"
+        // Filtre de confort du sélecteur de fichiers, jamais un contrôle : le type
+        // réel est déterminé par la signature binaire côté serveur
+        // (upload-validation-service). Les structures n'ont pas toutes une suite
+        // bureautique récente — .doc et .xls sont acceptés tels quels.
+        accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.jpg,.jpeg,.png"
         className="hidden"
         onChange={handleFileChange}
         disabled={isPending}

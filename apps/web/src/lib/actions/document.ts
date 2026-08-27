@@ -3,12 +3,9 @@
 import { prisma } from "@eoda/database";
 import { revalidatePath } from "next/cache";
 import { notFound } from "next/navigation";
-import {
-  requireEstablishmentAccess,
-  requireEstablishmentInTenant,
-  tryEstablishmentAccess,
-} from "@/lib/auth/guards";
+import { requireEstablishmentAccess, tryEstablishmentAccess } from "@/lib/auth/guards";
 import { canDepositDocuments } from "@/lib/services/mission-access-service";
+import { canDeleteVersion } from "@/lib/services/document-workflow-service";
 import { extractText } from "@/lib/services/text-extraction-service";
 import { suggestDocumentType } from "@/lib/services/document-categorization-service";
 import { ingestDocumentVersion } from "@/lib/services/document-ingestion-service";
@@ -369,8 +366,28 @@ export async function deleteDocumentVersion(
 
   // L'identifiant vient d'une route HTTP publique : l'habilitation porte sur
   // l'établissement PROPRIÉTAIRE de la version, jamais sur un identifiant fourni.
-  // notFound() est déclenché par la garde si la version appartient à un autre tenant.
-  const { session, userId } = await requireEstablishmentInTenant(version.document.establishmentId);
+  // `requireEstablishmentAccess` ouvre aux deux côtés — le client doit pouvoir
+  // corriger son propre dépôt — et notFound() tombe si la version est hors périmètre.
+  const access = await requireEstablishmentAccess(version.document.establishmentId);
+  const { session, userId } = access;
+
+  // Chacun ne supprime que ce qu'il a déposé, et seulement la dernière version.
+  const uploader = await prisma.user.findUnique({
+    where: { id: version.uploadedByUserId },
+    select: { role: true },
+  });
+  const allowed = canDeleteVersion({
+    actorIsCabinet: !access.isClient,
+    versionProducedByCabinet: uploader?.role !== "CLIENT_USER",
+    isLatest: version.document.currentVersionId === version.id,
+  });
+  if (!allowed) {
+    return {
+      error: access.isClient
+        ? "Vous ne pouvez retirer que votre dernier dépôt. Contactez votre consultant EODA pour toute autre correction."
+        : "Seules les versions produites par le cabinet peuvent être supprimées, et uniquement la dernière. Un document déposé par le client lui appartient.",
+    };
+  }
 
   try {
     await getFileStoragePort().delete(version.fileStorageKey);
@@ -490,5 +507,53 @@ export async function setAnalysisReviewed(
   });
 
   revalidateDocumentViews(version.document.establishmentId);
+  return null;
+}
+
+// ── Validation d'un document ─────────────────────────────────────────────────
+//
+// Dernière étape du parcours (26/08) : « c'est complet quand tout est fait, quand
+// c'est uploadé, analysé, modifié, relu et validé ». Réservée au CABINET : valider,
+// c'est engager la parole de l'évaluatrice sur un document qui partira à la HAS.
+// Réversible — une validation posée trop tôt doit pouvoir être retirée.
+export async function setDocumentValidated(
+  establishmentId: string,
+  documentTypeId: string,
+  validated: boolean
+): Promise<{ error: string } | null> {
+  if (typeof validated !== "boolean") return { error: "Valeur invalide." };
+
+  const access = await requireEstablishmentAccess(establishmentId);
+  if (access.isClient) notFound();
+
+  const document = await prisma.document.findUnique({
+    where: { establishmentId_documentTypeId: { establishmentId, documentTypeId } },
+    select: { id: true, validatedAt: true, currentVersionId: true },
+  });
+  if (!document) return { error: "Ce document n'a pas encore été déposé." };
+
+  // Valider un document sans version reviendrait à valider une intention.
+  if (validated && document.currentVersionId === null) {
+    return { error: "Aucune version déposée : il n'y a rien à valider." };
+  }
+  if (validated === (document.validatedAt !== null)) return null;
+
+  await prisma.document.update({
+    where: { id: document.id },
+    data: {
+      validatedAt: validated ? new Date() : null,
+      validatedByUserId: validated ? access.userId : null,
+    },
+  });
+
+  await recordAuditEvent({
+    action: validated ? "DOCUMENT_VALIDATED" : "DOCUMENT_UNVALIDATED",
+    actorUserId: access.userId,
+    actorRole: access.session.user.role,
+    establishmentId,
+    targetId: document.id,
+  });
+
+  revalidateDocumentViews(establishmentId);
   return null;
 }

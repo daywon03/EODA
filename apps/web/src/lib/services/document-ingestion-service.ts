@@ -87,16 +87,26 @@ export async function ingestDocumentVersion(
     },
   });
 
+  // Un format non analysable (image, tableur, ancien .doc) est conservé comme PIÈCE :
+  // il n'y a pas de texte à confronter au référentiel. Le marquer « en analyse »
+  // ferait attendre un résultat qui ne viendrait jamais.
+  const analysable = input.extractedText !== null && input.extractedText.length > 0;
+
   await prisma.document.update({
     where: { id: document.id },
     data: {
       currentVersionId: version.id,
-      status: "ANALYZING",
+      status: analysable ? "ANALYZING" : "UPLOADED",
       // Un nouveau dépôt réinitialise un éventuel surclassement manuel : le statut
       // porte alors sur une version qui n'existe plus.
       statusOverriddenByUser: false,
     },
   });
+
+  // Rien à analyser : on s'arrête au dépôt, sans appel LLM ni statut trompeur.
+  if (!analysable) {
+    return { documentId: document.id, documentVersionId: version.id, analysisSucceeded: false };
+  }
 
   const analysisSucceeded = await analyzeVersion(
     {

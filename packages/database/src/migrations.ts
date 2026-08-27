@@ -44,4 +44,5 @@ export const EXPECTED_MIGRATIONS: readonly string[] = [
   "20260826140000_mission_client_access",
   "20260826170000_analysis_human_review",
   "20260827090000_appointments",
+  "20260827120000_document_validation",
 ] as const;

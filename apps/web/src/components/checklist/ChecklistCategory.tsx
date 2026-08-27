@@ -1,14 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDown, FileText } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 import { StatusBadge } from "./StatusBadge";
 import { DocumentUploadButton } from "./DocumentUploadButton";
-import { DocumentDownloadLink } from "./DocumentDownloadLink";
-import { DocumentPreviewLink } from "./DocumentPreviewLink";
 import { MissingDocumentJustification } from "./MissingDocumentJustification";
-import { DeleteDocumentVersionButton } from "./DeleteDocumentVersionButton";
 import { DocumentAnalysisPanel } from "./DocumentAnalysisPanel";
+import { DocumentVersionHistory } from "./DocumentVersionHistory";
+import { DocumentStepTrail } from "./DocumentStepTrail";
 import type { ChecklistItem } from "@/lib/actions/checklist";
 import type { DocumentStatus } from "@eoda/database";
 
@@ -96,23 +95,21 @@ export function ChecklistCategory({
                 {item.expectedFrequency === "ANNUAL" && (
                   <p className="text-xs text-ambre mt-0.5">Fréquence annuelle attendue</p>
                 )}
-                {item.currentVersion && (
-                  <div className="flex items-center gap-2 mt-1">
-                    <p className="flex items-center gap-1 text-xs text-gris-mid min-w-0">
-                      <FileText className="w-3 h-3 flex-shrink-0" aria-hidden="true" />
-                      <span className="truncate">
-                        {item.currentVersion.originalFilename} · v{item.currentVersion.versionNumber}
-                      </span>
-                    </p>
-                    <DocumentPreviewLink documentVersionId={item.currentVersion.id} />
-                    <DocumentDownloadLink documentVersionId={item.currentVersion.id} />
-                    {canManageVersions && (
-                      <DeleteDocumentVersionButton
-                        documentVersionId={item.currentVersion.id}
-                        filename={item.currentVersion.originalFilename}
-                      />
-                    )}
-                  </div>
+                {/* Toutes les versions, pas seulement la dernière : c'est la
+                    comparaison entre la version du client et celle qu'EODA a produite
+                    qui montre le travail fait. */}
+                <DocumentVersionHistory
+                  versions={item.versions}
+                  canManageVersions={canManageVersions}
+                />
+
+                {/* Le parcours du document — côté cabinet uniquement. */}
+                {canManageVersions && establishmentId && (
+                  <DocumentStepTrail
+                    establishmentId={establishmentId}
+                    documentTypeId={item.documentTypeId}
+                    step={item.step}
+                  />
                 )}
                 {/* Ce que l'analyse a trouvé — côté client comme côté cabinet : le
                     client dépose et corrige, c'est lui qui a besoin de savoir ce qui

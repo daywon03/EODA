@@ -4,6 +4,10 @@ import { prisma } from "@eoda/database";
 import { requireClientEstablishment, requireEstablishmentInTenant } from "@/lib/auth/guards";
 import { getEstablishmentCoveredCategories } from "@/lib/services/establishment-offer-service";
 import type { DocumentCategory, DocumentStatus } from "@eoda/database";
+import {
+  deriveDocumentStep,
+  type DocumentStep,
+} from "@/lib/services/document-workflow-service";
 import type { DocumentAnalysisResult } from "@/lib/llm";
 import {
   analysisVisibleTo,
@@ -25,6 +29,13 @@ export type ChecklistItem = {
   status: DocumentStatus;
   documentId: string | null;
   missingJustification: string | null;
+  // TOUTES les versions, de la plus récente à la plus ancienne — demande du 26/08 :
+  // « il faut que je puisse les stocker […] la version originale, le rapport et la
+  // version modifiée ». Elles étaient toutes conservées en base, l'écran n'en
+  // montrait qu'une.
+  versions: DocumentVersionItem[];
+  // Étape atteinte dans le parcours documentaire (document-workflow-service).
+  step: DocumentStep;
   currentVersion: {
     id: string;
     versionNumber: number;
@@ -42,6 +53,19 @@ export type ChecklistItem = {
     // dire « en cours de relecture » sans rien montrer du contenu.
     analysisAwaitingReview: boolean;
   } | null;
+};
+
+// Une version telle qu'elle s'affiche dans l'historique.
+export type DocumentVersionItem = {
+  id: string;
+  versionNumber: number;
+  originalFilename: string;
+  uploadedAt: Date;
+  // Qui l'a déposée. « EODA » ou le nom de la structure : c'est ce qui distingue la
+  // version d'origine du client de celle que le cabinet a produite.
+  uploadedByName: string;
+  producedByCabinet: boolean;
+  hasAnalysis: boolean;
 };
 
 export type ChecklistByCategory = Record<DocumentCategory, ChecklistItem[]>;
@@ -76,6 +100,7 @@ async function buildChecklist(
       documentTypeId: true,
       status: true,
       missingJustification: true,
+      validatedAt: true,
       currentVersion: {
         select: {
           id: true,
@@ -84,6 +109,19 @@ async function buildChecklist(
           uploadedAt: true,
           analysisResultJson: true,
           analysisReviewedAt: true,
+        },
+      },
+      // L'historique complet. Ordonné du plus récent au plus ancien : on cherche
+      // presque toujours la dernière version, et le reste est de la trace.
+      versions: {
+        orderBy: { versionNumber: "desc" },
+        select: {
+          id: true,
+          versionNumber: true,
+          originalFilename: true,
+          uploadedAt: true,
+          analysisResultJson: true,
+          uploadedBy: { select: { name: true, role: true } },
         },
       },
     },
@@ -119,6 +157,27 @@ async function buildChecklist(
       currentVersion: doc?.currentVersion
         ? toChecklistVersion(doc.currentVersion, audience)
         : null,
+      versions: (doc?.versions ?? []).map((version) => ({
+        id: version.id,
+        versionNumber: version.versionNumber,
+        originalFilename: version.originalFilename,
+        uploadedAt: version.uploadedAt,
+        uploadedByName: version.uploadedBy.name,
+        // Le rôle de l'auteur dit d'où vient la version. Recopié à la lecture plutôt
+        // que stocké : un compte ne change pas de camp, et une colonne de plus serait
+        // une vérité à maintenir.
+        producedByCabinet: version.uploadedBy.role !== "CLIENT_USER",
+        hasAnalysis: version.analysisResultJson !== null,
+      })),
+      step: deriveDocumentStep({
+        hasVersion: !!doc?.currentVersion,
+        hasAnalysis: doc?.currentVersion?.analysisResultJson != null,
+        hasCabinetVersion: (doc?.versions ?? []).some(
+          (version) => version.uploadedBy.role !== "CLIENT_USER"
+        ),
+        analysisRestituted: doc?.currentVersion?.analysisReviewedAt != null,
+        validatedAt: doc?.validatedAt ?? null,
+      }),
     };
 
     if (!checklist[dt.category]) checklist[dt.category] = [];

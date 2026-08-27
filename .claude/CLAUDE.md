@@ -278,6 +278,15 @@ Détail complet et état d'avancement : `specs/02-architecture-technique.md` §4
   et serait sinon compté deux fois dans l'entonnoir unifié, une fois en « Signé »
   et une fois à l'étape réelle de sa mission. `byStructureType` reste sur tous les
   prospects : c'est une lecture de marché, pas une photo du pipeline.
+- **Le parcours d'un document se dérive, sauf sa validation.** Déposé → analysé → mis
+  en conformité → restitué → validé (`lib/services/document-workflow-service.ts`).
+  Seul `Document.validatedAt` est stocké : valider engage la parole de l'évaluatrice.
+  Le portail CLIENT garde les statuts simples (manquant / déposé / conforme) — « les
+  deux portails ne regardent pas la même chose » (call du 26/08).
+- **Chacun ne supprime que son propre dernier dépôt** (`canDeleteVersion`). Le cabinet
+  ne peut pas effacer une pièce déposée par le client — demande explicite de Sandrine,
+  risque juridique autant que mauvaise manip — et aucune version antérieure n'est
+  supprimable : l'historique complet est ce qu'elle a demandé à voir.
 - 🔐 **Aucune analyse automatique n'atteint le client sans revue humaine.** Exigence
   écrite deux fois dans le cahier des charges du 20/08/2026
   (`context/Documents/20260820_CDC_EODA_Plateforme_v01_Interne.md` §5 et §7) : la

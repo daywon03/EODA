@@ -297,6 +297,7 @@ model User {
   prospectTimeline   ProspectTimelineEntry[] @relation("ProspectTimelineAuthor")
   reviewedAnalyses   DocumentVersion[]       @relation("AnalysisReviewedBy")
   createdAppointments Appointment[]          @relation("AppointmentCreatedBy")
+  validatedDocuments  Document[]             @relation("DocumentValidatedBy")
 
   @@map("users")
 }
@@ -471,6 +472,18 @@ model Document {
   // Réponse Oui/Non + commentaire libre quand le document n'est pas encore déposé —
   // utilisable comme élément de preuve pour la cotation (Module 3). cf. plan Phase 0.
   missingJustification   String?        @map("missing_justification")
+
+  // VALIDATION — dernière étape du parcours documentaire décrit par Sandrine le
+  // 26/08 : déposé → analysé → mis en conformité → restitué → VALIDÉ.
+  //
+  // Les quatre premières étapes se DÉRIVENT de faits déjà là (une version existe,
+  // une analyse existe, une version corrigée existe, l'analyse a été relue). La
+  // cinquième, non : valider, c'est engager la parole de l'évaluatrice sur un
+  // document qui partira à la HAS. C'est une décision, comme la clôture d'une
+  // mission — donc un fait stocké.
+  validatedAt            DateTime?      @map("validated_at")
+  validatedByUserId      String?        @map("validated_by_user_id")
+
   createdAt              DateTime       @default(now()) @map("created_at")
   updatedAt              DateTime       @updatedAt @map("updated_at")
 
@@ -478,6 +491,8 @@ model Document {
   documentType   DocumentType?    @relation(fields: [documentTypeId], references: [id])
   currentVersion DocumentVersion? @relation("CurrentVersion", fields: [currentVersionId], references: [id])
   versions       DocumentVersion[] @relation("AllVersions")
+  // SetNull : la désactivation d'un compte ne dévalide pas un document déjà validé.
+  validatedBy    User?            @relation("DocumentValidatedBy", fields: [validatedByUserId], references: [id], onDelete: SetNull)
 
   @@unique([establishmentId, documentTypeId])
   @@map("documents")
@@ -1092,6 +1107,9 @@ enum AuditAction {
   // §7). `targetId` = identifiant de la version de document.
   ANALYSIS_PUBLISHED
   ANALYSIS_UNPUBLISHED
+  // Validation finale d'un document par le cabinet (parcours documentaire, 26/08).
+  DOCUMENT_VALIDATED
+  DOCUMENT_UNVALIDATED
 }
 
 model AuditLogEntry {

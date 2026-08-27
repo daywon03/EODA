@@ -78,6 +78,20 @@ ci-dessus avant un vrai document ASSAD BENOIT en production).
   (`anonymization-service.ts`)
 - [ ] `EXPIRED` (périmé selon fréquence attendue) — pas encore branché, dépend des alertes
   documents périmés (roadmap process métier, phase ultérieure)
+- [x] **Parcours documentaire côté cabinet** *(27/08/2026)* — déposé → analysé → mis en
+  conformité → restitué → validé (`document-workflow-service.ts`, quatre étapes dérivées,
+  la validation stockée parce que c'est une décision). Le client garde ses statuts simples :
+  « les deux portails ne regardent pas la même chose » (call du 26/08).
+- [x] **Toutes les versions affichées** *(27/08/2026)* — historique complet par document, avec
+  auteur (client ou EODA) et date ; elles étaient déjà toutes conservées, l'écran n'en montrait
+  qu'une.
+- [x] **Formats acceptés élargis** *(27/08/2026)* — PDF, .doc/.docx, .xls/.xlsx, CSV, JPEG, PNG.
+  Type toujours déterminé par signature binaire ; le CSV, qui n'en a pas, est reconnu à sa
+  FORME (plusieurs lignes, même nombre de séparateurs) — une charge utile d'une seule ligne
+  reste refusée. Les formats non analysables sont conservés comme pièces, sans statut trompeur.
+- [x] **Droits de suppression** *(27/08/2026)* — chacun ne retire que son propre dernier dépôt.
+  Le cabinet ne peut pas effacer une pièce déposée par le client (demande explicite du 26/08),
+  le client peut corriger la sienne, et aucune version antérieure n'est supprimable.
 - [x] Affichage détaillé des manques + suggestions **fait le 26/08/2026** — panneau
   « Analyse automatique » sous chaque document déposé, dans le portail client ET côté
   cabinet (`components/checklist/DocumentAnalysisPanel.tsx`). Le JSON était produit et

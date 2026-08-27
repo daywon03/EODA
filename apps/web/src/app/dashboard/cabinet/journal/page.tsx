@@ -48,6 +48,8 @@ const ACTION_LABELS: Record<AuditAction, string> = {
   MISSION_CLIENT_ACCESS_RESTORED: "Accès client rétabli",
   ANALYSIS_PUBLISHED: "Analyse relue et restituée au client",
   ANALYSIS_UNPUBLISHED: "Analyse retirée du portail client",
+  DOCUMENT_VALIDATED: "Document validé",
+  DOCUMENT_UNVALIDATED: "Validation de document retirée",
 };
 
 const ROLE_LABELS: Record<string, string> = {

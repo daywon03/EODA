@@ -10,7 +10,10 @@ import {
 // Fabrique un ZIP minimal ressemblant à un .docx (signature ZIP + entrée "word/").
 function fakeDocx(withWordEntry = true): Buffer {
   const signature = Buffer.from([0x50, 0x4b, 0x03, 0x04]);
-  const body = Buffer.from(withWordEntry ? "word/document.xml" : "xl/workbook.xml", "latin1");
+  // Sans entrée « word/ » : une archive quelconque. `xl/` n'est plus un bon
+  // contre-exemple depuis que les tableurs sont acceptés — un XLSX est un dépôt
+  // légitime, pas un ZIP déguisé.
+  const body = Buffer.from(withWordEntry ? "word/document.xml" : "photos/plage.jpg", "latin1");
   return Buffer.concat([signature, body]);
 }
 
@@ -25,8 +28,49 @@ describe("detectFileType", () => {
     );
   });
 
-  it("refuse un ZIP qui n'est pas un DOCX (ex: xlsx renommé)", () => {
+  it("refuse une archive ZIP qui n'est ni un DOCX ni un XLSX", () => {
+    // Une archive quelconque — ou piégée — sous un nom en .docx.
     expect(detectFileType(fakeDocx(false))).toBeNull();
+  });
+
+  it("reconnaît un XLSX par son entrée « xl/ »", () => {
+    const xlsx = Buffer.concat([
+      Buffer.from([0x50, 0x4b, 0x03, 0x04]),
+      Buffer.from("xl/workbook.xml", "latin1"),
+    ]);
+    expect(detectFileType(xlsx)).toBe(
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    );
+  });
+
+  it("reconnaît un ancien .doc/.xls à son conteneur OLE2", () => {
+    const ole2 = Buffer.concat([
+      Buffer.from([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1]),
+      Buffer.alloc(64),
+    ]);
+    expect(detectFileType(ole2)).toBe("application/x-ole-storage");
+  });
+
+  it("reconnaît une image PNG et une image JPEG", () => {
+    expect(
+      detectFileType(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x01]))
+    ).toBe("image/png");
+    expect(detectFileType(Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10]))).toBe("image/jpeg");
+  });
+
+  it("reconnaît un CSV à sa forme : plusieurs lignes, même nombre de séparateurs", () => {
+    const csv = Buffer.from("nom;prenom;fonction\nDupont;Marie;Direction\n", "utf8");
+    expect(detectFileType(csv)).toBe("text/csv");
+  });
+
+  it("refuse un texte d'une seule ligne qui contient un séparateur", () => {
+    // Sans signature à vérifier, c'est la FORME du CSV qui fait foi — une charge
+    // utile d'une seule ligne n'en a pas.
+    expect(detectFileType(Buffer.from("nom;prenom;fonction", "utf8"))).toBeNull();
+  });
+
+  it("refuse un binaire renommé en .csv", () => {
+    expect(detectFileType(Buffer.from([0x01, 0x00, 0x02, 0x00, 0x03]))).toBeNull();
   });
 
   it("refuse un contenu arbitraire, même nommé .pdf", () => {

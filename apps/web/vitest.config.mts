@@ -33,6 +33,9 @@ export default defineConfig({
         // écrite par un modèle, sous un contrat qui a pu changer). Un parseur trop
         // permissif afficherait une analyse vide comme un document sans reproche.
         "src/lib/services/analysis-view-service.ts",
+        // Parcours documentaire et droits de suppression : une erreur ici efface la
+        // pièce d'un client, ou laisse croire qu'un document est validé.
+        "src/lib/services/document-workflow-service.ts",
         // Fin de mission : ce service décide qui peut encore lire et déposer. Une
         // erreur ici ferme l'accès d'un client à ses propres documents, ou le laisse
         // ouvert après une révocation.
