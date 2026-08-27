@@ -47,4 +47,5 @@ export const EXPECTED_MIGRATIONS: readonly string[] = [
   "20260827120000_document_validation",
   "20260827140000_document_types_requested",
   "20260827160000_establishment_logo",
+  "20260827180000_offer_labels_without_modules",
 ] as const;

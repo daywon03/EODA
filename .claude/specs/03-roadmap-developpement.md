@@ -272,6 +272,13 @@ tarifaire).
   signé** — c'est déjà le document contractuel du dépôt (CLAUDE.md §7) ; produire un
   second document de contrat supposerait un texte de CGV/CGP que Sandrine n'a pas fourni.
   Reste ouvert : aucun suivi de la SIGNATURE de l'avenant (pas de modèle, pas de statut).
+- [x] **Libellés d'offres sans les codes de module** *(27/08/2026)* — « M1 · M2 · M3 »
+  s'affichait sur le portail client. Le même code recouvrait deux choses (M3 = 3 jours
+  d'atelier en Performance, alors qu'Excellence en compte 5) : les supprimer règle la
+  contradiction sans avoir à l'expliquer. Migration
+  `20260827180000_offer_labels_without_modules` — clause `WHERE` sur le texte seedé, donc
+  une ligne déjà réécrite depuis l'écran catalogue est conservée ; les devis existants ne
+  bougent pas, ils portent leurs propres instantanés.
 - [x] **Rapport de mise en conformité** *(27/08/2026)* — document autonome et archivable,
   remis au client : compteurs d'ouverture, puis document par document ce qui manque, avec
   les critères HAS rattachés. `/imprimer/rapport/[id]`, nommé à la convention EODA, en-tête
