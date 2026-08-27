@@ -8,6 +8,7 @@ import { MissingDocumentJustification } from "./MissingDocumentJustification";
 import { DocumentAnalysisPanel } from "./DocumentAnalysisPanel";
 import { DocumentVersionHistory } from "./DocumentVersionHistory";
 import { DocumentStepTrail } from "./DocumentStepTrail";
+import { DocumentScopeToggle } from "./DocumentScopeToggle";
 import type { ChecklistItem } from "@/lib/actions/checklist";
 import type { DocumentStatus } from "@eoda/database";
 
@@ -24,6 +25,9 @@ type Props = {
   // consultables mais plus rien ne se dépose. Le bouton disparaît parce que l'action
   // serveur le refuserait — pas l'inverse.
   canDeposit?: boolean;
+  // CABINET_ADMIN : peut basculer un document entre « réclamé au client » et
+  // « produit par EODA ». La liste vaut pour tous les clients.
+  canEditScope?: boolean;
 };
 
 const STATUS_ORDER: DocumentStatus[] = [
@@ -41,6 +45,7 @@ export function ChecklistCategory({
   establishmentId,
   canManageVersions = false,
   canDeposit = true,
+  canEditScope = false,
 }: Props) {
   const [open, setOpen] = useState(defaultOpen);
 
@@ -94,6 +99,19 @@ export function ChecklistCategory({
                 )}
                 {item.expectedFrequency === "ANNUAL" && (
                   <p className="text-xs text-ambre mt-0.5">Fréquence annuelle attendue</p>
+                )}
+                {/* Qui doit fournir ce document — l'information manquait, et c'est
+                    elle qui distingue la checklist du client du plan de production
+                    du cabinet. Côté client, ce marqueur n'a pas lieu d'être : tout
+                    ce qu'il voit lui est réclamé, ou lui appartient déjà. */}
+                {canManageVersions && (
+                  <p className="mt-0.5">
+                    <DocumentScopeToggle
+                      documentTypeId={item.documentTypeId}
+                      requestedFromClient={item.requestedFromClient}
+                      canEdit={canEditScope}
+                    />
+                  </p>
                 )}
                 {/* Toutes les versions, pas seulement la dernière : c'est la
                     comparaison entre la version du client et celle qu'EODA a produite

@@ -1,3 +1,4 @@
+import { auth } from "@/auth";
 import { getEstablishment } from "@/lib/actions/establishment";
 import { getEstablishmentChecklist } from "@/lib/actions/checklist";
 import { getMission } from "@/lib/actions/mission";
@@ -59,6 +60,10 @@ export default async function EstablishmentDetailPage({ params }: Props) {
   const checklist = await getEstablishmentChecklist(id);
   const mission = await getMission(id);
   const appointments = await listAppointmentsFor({ establishmentId: id });
+  const session = await auth();
+  // Basculer un document entre « réclamé au client » et « produit par EODA » est une
+  // politique de cabinet : réservée à CABINET_ADMIN, comme le catalogue.
+  const isAdmin = session?.user.role === "CABINET_ADMIN";
 
   // Étape dérivée des faits, jamais d'un statut stocké (cf. lifecycle-service).
   const lifecycle = toMissionLifecycleFacts(establishment.mission);
@@ -249,6 +254,7 @@ export default async function EstablishmentDetailPage({ params }: Props) {
                   items={items}
                   establishmentId={establishment.id}
                   canManageVersions
+                  canEditScope={isAdmin}
                 />
               );
             })}

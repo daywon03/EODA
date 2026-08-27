@@ -26,6 +26,9 @@ export type ChecklistItem = {
   label: string;
   isConditional: boolean;
   expectedFrequency: string | null;
+  // Réclamé à la structure, ou produit par EODA (§ call du 26/08). Le portail client
+  // n'affiche que les types réclamés — plus ceux dont un document existe déjà.
+  requestedFromClient: boolean;
   status: DocumentStatus;
   documentId: string | null;
   missingJustification: string | null;
@@ -149,6 +152,7 @@ async function buildChecklist(
       label: dt.label,
       isConditional: dt.isConditional,
       expectedFrequency: dt.expectedFrequency,
+      requestedFromClient: dt.requestedFromClient,
       status,
       documentId: doc?.id ?? null,
       missingJustification: doc?.missingJustification ?? null,
@@ -179,6 +183,14 @@ async function buildChecklist(
         validatedAt: doc?.validatedAt ?? null,
       }),
     };
+
+    // Ce que le CLIENT voit : les documents qu'on lui réclame, et ceux dont une
+    // version existe déjà — sa bibliothèque, qu'il ait déposé lui-même ou qu'EODA
+    // ait produit pour lui. Les autres sont le plan de production du cabinet ; les
+    // lui montrer, c'est lui réclamer ce qu'on s'est engagé à écrire à sa place.
+    if (audience === "CLIENT" && !dt.requestedFromClient && !doc?.currentVersion) {
+      continue;
+    }
 
     if (!checklist[dt.category]) checklist[dt.category] = [];
     checklist[dt.category]!.push(item);

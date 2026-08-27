@@ -278,6 +278,14 @@ Détail complet et état d'avancement : `specs/02-architecture-technique.md` §4
   et serait sinon compté deux fois dans l'entonnoir unifié, une fois en « Signé »
   et une fois à l'étape réelle de sa mission. `byStructureType` reste sur tous les
   prospects : c'est une lecture de marché, pas une photo du pipeline.
+- **Ce qu'on réclame au client n'est pas tout ce qu'on produit pour lui.**
+  `DocumentType.requestedFromClient` sépare les deux (cinq documents réclamés avant
+  la visite, ~24 produits par EODA). Le portail client n'affiche que les types
+  réclamés **plus** ceux dont un document existe déjà. Ne jamais « rétablir » la
+  liste complète côté client : demander les 29 à une structure qui fait appel à EODA
+  parce qu'elle ne les a pas, c'est lui remettre le travail qu'elle a acheté. La
+  liste exacte est modifiable par `CABINET_ADMIN` depuis la fiche client (elle
+  attend confirmation des experts de Sandrine).
 - **Le parcours d'un document se dérive, sauf sa validation.** Déposé → analysé → mis
   en conformité → restitué → validé (`lib/services/document-workflow-service.ts`).
   Seul `Document.validatedAt` est stocké : valider engage la parole de l'évaluatrice.

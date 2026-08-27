@@ -445,6 +445,19 @@ model DocumentType {
   isConditional     Boolean           @default(false) @map("is_conditional")
   expectedFrequency ExpectedFrequency? @map("expected_frequency")
 
+  // RÉCLAMÉ AU CLIENT, ou PRODUIT PAR EODA.
+  //
+  // « Ce ne sont pas des documents qu'ils doivent fournir […] c'est à moi de les
+  // créer pour eux » (call du 26/08). Sur 29 types attendus, cinq seulement sont
+  // réclamés à la structure avant la visite d'évaluation ; tout le reste est ce que
+  // l'accompagnement produit. Demander les 29 à quelqu'un qui fait appel à nous
+  // précisément parce qu'il ne les a pas, c'est lui remettre notre travail.
+  //
+  // Défaut `false` : on ne réclame rien par défaut. Le portail client n'affiche que
+  // les types réclamés — et ceux pour lesquels un document existe déjà, qui restent
+  // sa bibliothèque.
+  requestedFromClient Boolean         @default(false) @map("requested_from_client")
+
   documents DocumentTypeCriterion[]
   Document  Document[]
 
@@ -1110,6 +1123,9 @@ enum AuditAction {
   // Validation finale d'un document par le cabinet (parcours documentaire, 26/08).
   DOCUMENT_VALIDATED
   DOCUMENT_UNVALIDATED
+  // Un type de document passe de « réclamé au client » à « produit par EODA », ou
+  // l'inverse. Politique de cabinet, valable pour tous les clients.
+  DOCUMENT_TYPE_SCOPE_CHANGED
 }
 
 model AuditLogEntry {

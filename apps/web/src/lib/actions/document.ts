@@ -3,7 +3,11 @@
 import { prisma } from "@eoda/database";
 import { revalidatePath } from "next/cache";
 import { notFound } from "next/navigation";
-import { requireEstablishmentAccess, tryEstablishmentAccess } from "@/lib/auth/guards";
+import {
+  requireCabinetAdminSession,
+  requireEstablishmentAccess,
+  tryEstablishmentAccess,
+} from "@/lib/auth/guards";
 import { canDepositDocuments } from "@/lib/services/mission-access-service";
 import { canDeleteVersion } from "@/lib/services/document-workflow-service";
 import { extractText } from "@/lib/services/text-extraction-service";
@@ -555,5 +559,47 @@ export async function setDocumentValidated(
   });
 
   revalidateDocumentViews(establishmentId);
+  return null;
+}
+
+// ── Réclamé au client, ou produit par EODA ───────────────────────────────────
+//
+// « Ce n'est pas à eux de me les envoyer, c'est à moi de les créer pour eux. » Le
+// drapeau vit sur le TYPE de document, pas sur l'établissement : c'est une politique
+// de cabinet (« voilà ce que nous réclamons »), pas une exception par client. Sandrine
+// consulte ses experts sur la liste exacte — elle doit pouvoir la corriger sans
+// migration, d'où cette action.
+//
+// Réservée à CABINET_ADMIN : la liste vaut pour tous les clients.
+export async function setDocumentTypeRequested(
+  documentTypeId: string,
+  requested: boolean
+): Promise<{ error: string } | null> {
+  const { session, userId } = await requireCabinetAdminSession();
+  if (typeof requested !== "boolean") return { error: "Valeur invalide." };
+
+  const documentType = await prisma.documentType.findUnique({
+    where: { id: documentTypeId },
+    select: { id: true, code: true, requestedFromClient: true },
+  });
+  if (!documentType) notFound();
+  if (documentType.requestedFromClient === requested) return null;
+
+  await prisma.documentType.update({
+    where: { id: documentType.id },
+    data: { requestedFromClient: requested },
+  });
+
+  await recordAuditEvent({
+    action: "DOCUMENT_TYPE_SCOPE_CHANGED",
+    actorUserId: userId,
+    actorRole: session.user.role,
+    targetId: documentType.id,
+    detail: `${documentType.code} → ${requested ? "réclamé au client" : "produit par EODA"}`,
+  });
+
+  // La checklist change des DEUX côtés : le client cesse de le voir, ou le découvre.
+  revalidatePath("/dashboard/client");
+  revalidatePath("/dashboard/cabinet");
   return null;
 }

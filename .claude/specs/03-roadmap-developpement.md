@@ -78,6 +78,14 @@ ci-dessus avant un vrai document ASSAD BENOIT en production).
   (`anonymization-service.ts`)
 - [ ] `EXPIRED` (périmé selon fréquence attendue) — pas encore branché, dépend des alertes
   documents périmés (roadmap process métier, phase ultérieure)
+- [x] **Cinq documents réclamés au client, pas vingt-neuf** *(27/08/2026)* —
+  `DocumentType.requestedFromClient` : le portail client n'affiche que les types réclamés,
+  plus ceux dont un document existe déjà (sa bibliothèque). Les 29 types restent visibles
+  côté cabinet : ils sont le plan de production de l'accompagnement. ⚠️ Les cinq codes seedés
+  (`L2002_PROJET_SERVICE`, `L2002_CHARTE_DROITS`, `L2002_LIVRET_ACCUEIL`, `L2002_DIPC`,
+  `L2002_REGLEMENT_FONCTIONNEMENT`) sont une **proposition à confirmer par Sandrine**, qui
+  consulte ses experts — d'où la bascule modifiable depuis l'application par `CABINET_ADMIN`,
+  sans migration. Migration `20260827140000_document_types_requested`.
 - [x] **Parcours documentaire côté cabinet** *(27/08/2026)* — déposé → analysé → mis en
   conformité → restitué → validé (`document-workflow-service.ts`, quatre étapes dérivées,
   la validation stockée parce que c'est une décision). Le client garde ses statuts simples :
