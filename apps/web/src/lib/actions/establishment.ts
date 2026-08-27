@@ -5,6 +5,7 @@ import { redirect, notFound } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { requireCabinetSession, requireEstablishmentInTenant } from "@/lib/auth/guards";
 import { recordAuditEvent } from "@/lib/services/audit-log-service";
+import { validateLogoUpload } from "@/lib/security/upload-validation-service";
 import type { PortfolioRow } from "@/lib/services/portfolio-kpi-service";
 import { toPortfolioRow } from "@/lib/db/to-portfolio-row";
 import {
@@ -121,6 +122,54 @@ export async function updateEstablishment(
   revalidatePath("/dashboard/cabinet");
   revalidatePath(`/dashboard/cabinet/etablissements/${id}`);
   redirect(`/dashboard/cabinet/etablissements/${id}`);
+}
+
+
+// ── Logo de la structure ─────────────────────────────────────────────────────
+//
+// Apposé à côté de celui d'EODA sur les documents produits pour elle. Déposé par le
+// CABINET et pas par le client : c'est un élément de mise en page de nos livrables,
+// pas une pièce du dossier.
+export async function uploadEstablishmentLogo(
+  _prevState: { error: string } | null,
+  formData: FormData
+): Promise<{ error: string } | null> {
+  const establishmentIdRaw = formData.get("establishmentId");
+  if (typeof establishmentIdRaw !== "string" || establishmentIdRaw.length === 0) {
+    return { error: "Établissement manquant." };
+  }
+
+  const { establishmentId } = await requireEstablishmentInTenant(establishmentIdRaw);
+
+  const file = formData.get("logo");
+  if (!(file instanceof File) || file.size === 0) return { error: "Aucun fichier sélectionné." };
+
+  const buffer = Buffer.from(await file.arrayBuffer());
+  // Type déterminé par la signature binaire, jamais par `file.type` : un logo est
+  // rendu tel quel dans une page, y compris dans un document remis au client.
+  const validation = validateLogoUpload(buffer, file.size);
+  if (!validation.ok) return { error: validation.error };
+
+  await prisma.establishment.update({
+    where: { id: establishmentId },
+    data: { logoDataUri: validation.dataUri },
+  });
+
+  revalidatePath(`/dashboard/cabinet/etablissements/${establishmentId}`);
+  revalidatePath(`/imprimer/avenant/${establishmentId}`);
+  return null;
+}
+
+export async function removeEstablishmentLogo(
+  establishmentId: string
+): Promise<{ error: string } | null> {
+  const { establishmentId: id } = await requireEstablishmentInTenant(establishmentId);
+
+  await prisma.establishment.update({ where: { id }, data: { logoDataUri: null } });
+
+  revalidatePath(`/dashboard/cabinet/etablissements/${id}`);
+  revalidatePath(`/imprimer/avenant/${id}`);
+  return null;
 }
 
 export async function deleteEstablishment(id: string): Promise<{ error: string } | void> {

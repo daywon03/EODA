@@ -5,6 +5,7 @@ import {
   toSafeFilenameSegment,
   validateUploadedFile,
   MAX_FILE_SIZE_BYTES,
+  validateLogoUpload,
 } from "./upload-validation-service";
 
 // Fabrique un ZIP minimal ressemblant à un .docx (signature ZIP + entrée "word/").
@@ -160,5 +161,36 @@ describe("buildStorageKey", () => {
     const v1 = buildStorageKey({ ...common, versionNumber: 1 });
     const v2 = buildStorageKey({ ...common, versionNumber: 2 });
     expect(v1).not.toBe(v2);
+  });
+});
+
+describe("validateLogoUpload", () => {
+  const png = Buffer.concat([
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    Buffer.alloc(32, 1),
+  ]);
+
+  it("accepte un PNG et rend un data URI prêt à afficher", () => {
+    const result = validateLogoUpload(png, png.length);
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.dataUri.startsWith("data:image/png;base64,")).toBe(true);
+  });
+
+  it("refuse un PDF, même valide — un logo est une image", () => {
+    const pdf = Buffer.from("%PDF-1.7\nreste", "latin1");
+    expect(validateLogoUpload(pdf, pdf.length)).toMatchObject({ ok: false });
+  });
+
+  it("refuse un SVG : c'est un document XML, il peut porter du script", () => {
+    const svg = Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"><script/></svg>', "utf8");
+    expect(validateLogoUpload(svg, svg.length)).toMatchObject({ ok: false });
+  });
+
+  it("refuse au-delà de 300 Ko — la donnée est encodée en base64 et relue à chaque rendu", () => {
+    const big = Buffer.concat([png, Buffer.alloc(300 * 1024)]);
+    expect(validateLogoUpload(big, big.length)).toMatchObject({
+      ok: false,
+      error: expect.stringContaining("300 Ko"),
+    });
   });
 });

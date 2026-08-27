@@ -35,6 +35,7 @@ export default async function ImprimerAvenantPage({ params, searchParams }: Prop
       </div>
       <AvenantPrintable
         establishmentName={data.establishmentName}
+        establishmentLogo={data.establishmentLogo}
         contractReference={data.contractReference}
         signedOn={data.signedOn}
         issuedOn={issuedOn}

@@ -316,6 +316,18 @@ model Establishment {
   // appelle une correction.
   structureType         StructureType?    @map("structure_type")
   address               String?
+
+  // LOGO DE LA STRUCTURE — apposé, à côté de celui d'EODA, sur les documents que la
+  // plateforme produit pour elle (call du 26/08 : « d'un côté il y a mon logo, pour
+  // dire que c'est un document que j'ai créé, et de l'autre le logo de l'entreprise à
+  // qui c'est destiné »).
+  //
+  // Stocké en data URI, et pas dans le bucket : une image de moins de 300 Ko, lue
+  // uniquement au rendu d'un document, n'a pas besoin d'une route de service ni d'un
+  // contrôle d'accès de plus. Elle voyage avec la page qui l'affiche — y compris à
+  // l'impression, où une URL signée expirée donnerait un carré vide sur un document
+  // remis au client.
+  logoDataUri           String?           @map("logo_data_uri")
   // Historique/affichage uniquement — non éditable via l'UI. La formule qui fait
   // autorité pour le périmètre d'accompagnement réellement contracté est
   // Mission.formule (cf. section PIPELINE COMMERCIAL / SUIVI DE MISSION plus bas).

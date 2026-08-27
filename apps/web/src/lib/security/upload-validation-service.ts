@@ -176,3 +176,40 @@ export function buildStorageKey(params: {
   const safeName = toSafeFilenameSegment(originalFilename);
   return `${establishmentId}/${documentTypeId}/v${versionNumber}-${timestamp}-${safeName}`;
 }
+
+// ── Logo de structure ────────────────────────────────────────────────────────
+//
+// Un logo n'est pas un document : il est stocké en data URI et RENDU dans une page.
+// Les contraintes sont donc différentes, et plus strictes :
+//
+//   - images seulement, et seulement PNG/JPEG : un SVG est un document XML, il peut
+//     porter du script, et il serait ici affiché tel quel ;
+//   - 300 Ko au plus : la donnée est encodée en base64 (+33 %) et relue à chaque
+//     rendu de document ;
+//   - le type est déterminé par la SIGNATURE, comme partout ailleurs.
+export const MAX_LOGO_SIZE_BYTES = 300 * 1024;
+
+const LOGO_TYPES: DetectedFileType[] = [PNG_MIME_TYPE, JPEG_MIME_TYPE];
+
+export type LogoValidationResult =
+  | { ok: true; dataUri: string }
+  | { ok: false; error: string };
+
+export function validateLogoUpload(content: Buffer, declaredSizeBytes: number): LogoValidationResult {
+  if (declaredSizeBytes === 0 || content.length === 0) {
+    return { ok: false, error: "Le fichier est vide." };
+  }
+  if (content.length > MAX_LOGO_SIZE_BYTES || declaredSizeBytes > MAX_LOGO_SIZE_BYTES) {
+    return { ok: false, error: "Logo trop volumineux (300 Ko maximum)." };
+  }
+
+  const detected = detectFileType(content);
+  if (!detected || !LOGO_TYPES.includes(detected)) {
+    return {
+      ok: false,
+      error: "Format non reconnu — déposez le logo au format PNG ou JPEG.",
+    };
+  }
+
+  return { ok: true, dataUri: `data:${detected};base64,${content.toString("base64")}` };
+}

@@ -278,6 +278,20 @@ Détail complet et état d'avancement : `specs/02-architecture-technique.md` §4
   et serait sinon compté deux fois dans l'entonnoir unifié, une fois en « Signé »
   et une fois à l'étape réelle de sa mission. `byStructureType` reste sur tous les
   prospects : c'est une lecture de marché, pas une photo du pipeline.
+- 🎨 **Le logo ne se redessine pas.** Assets officiels dans `apps/web/public/`
+  (`logo-eoda.png` = bloc complet pour fonds clairs, `marque-eoda.png` = rond pour
+  fonds sombres), servis par `components/layout/EodaLogo.tsx`. Source :
+  `context/Documents/20260827_CHARTE_EODA_Couleurs-et-logo_v01_Interne.pptx`. Ces
+  fichiers sont PUBLICS (exclus du matcher du middleware) parce qu'un e-mail doit
+  pouvoir charger le logo hors session.
+- **Deux mentions, jamais interchangeables** (`document-ownership-service.ts`) : la
+  **paternité** (« créé par EODA […] propriété de EODA, qui en concède le droit
+  d'exploitation à X ») va sur les documents PRODUITS pour la structure ; la mention
+  de **prestation** va sur les documents contractuels (devis, avenant), où EODA ne
+  revendique rien. Revendiquer la propriété d'un devis serait faux. Le logo du client
+  (`Establishment.logoDataUri`, déposé par le cabinet) s'affiche à côté de celui
+  d'EODA sur ces documents ; sans logo, c'est le NOM de la structure qui est écrit —
+  jamais un emplacement vide.
 - **Ce qu'on réclame au client n'est pas tout ce qu'on produit pour lui.**
   `DocumentType.requestedFromClient` sépare les deux (cinq documents réclamés avant
   la visite, ~24 produits par EODA). Le portail client n'affiche que les types

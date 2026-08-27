@@ -80,6 +80,10 @@ export default defineConfig({
         // Modèles d'e-mail : ils sortent de la plateforme vers des gens, et
         // interpolent des saisies dans du HTML.
         "src/lib/email/templates.ts",
+        // Mentions de paternité : un texte juridique apposé sur des documents remis
+        // au client. Le test verrouille la formulation dictée en séance, et empêche
+        // qu'une revendication de propriété atterrisse sur un devis.
+        "src/lib/services/document-ownership-service.ts",
         "src/lib/services/prospect-contact-service.ts",
         "src/lib/services/prospect-next-action-service.ts",
         "src/lib/services/devis-sharing-service.ts",

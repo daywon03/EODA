@@ -537,6 +537,8 @@ export async function getMission(establishmentId: string): Promise<MissionWithPr
 export type AvenantData = {
   missionId: string;
   establishmentName: string;
+  // Logo de la structure, apposé à côté de celui d'EODA sur le document.
+  establishmentLogo: string | null;
   // Devis d'origine s'il existe. Une fiche créée avant l'entonnoir unique
   // (bêta-test) n'en a pas : l'avenant ne doit alors référencer aucun contrat.
   contractReference: string | null;
@@ -556,7 +558,7 @@ export async function getAvenantData(establishmentId: string): Promise<AvenantDa
     select: {
       id: true,
       createdAt: true,
-      establishment: { select: { name: true } },
+      establishment: { select: { name: true, logoDataUri: true } },
       sourceDevis: { select: { number: true } },
       options: {
         select: {
@@ -577,6 +579,7 @@ export async function getAvenantData(establishmentId: string): Promise<AvenantDa
   return {
     missionId: mission.id,
     establishmentName: mission.establishment.name,
+    establishmentLogo: mission.establishment.logoDataUri,
     contractReference: mission.sourceDevis?.number ?? null,
     signedOn: mission.sourceDevis ? mission.createdAt : null,
     options: mission.options,

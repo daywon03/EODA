@@ -7,6 +7,7 @@ import { ClientUserRow } from "@/components/etablissement/ClientUserRow";
 import { DeleteEstablishmentButton } from "@/components/etablissement/DeleteEstablishmentButton";
 import { ChecklistCategory } from "@/components/checklist/ChecklistCategory";
 import { MissionSummaryCard } from "@/components/mission/MissionSummaryCard";
+import { EstablishmentLogoForm } from "@/components/etablissement/EstablishmentLogoForm";
 import { AppointmentForm } from "@/components/agenda/AppointmentForm";
 import { AppointmentList } from "@/components/agenda/AppointmentList";
 import { listAppointmentsFor } from "@/lib/actions/appointment";
@@ -16,7 +17,7 @@ import { Button } from "@/components/ui/button";
 import { ProgressBar } from "@/components/ui/progress-bar";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { formatDate } from "@/lib/services/date-format-service";
-import { Building2, Calendar, CalendarDays, Pencil, Users } from "lucide-react";
+import { Building2, Calendar, CalendarDays, Image as ImageIcon, Pencil, Users } from "lucide-react";
 import Link from "next/link";
 import type { EstablishmentType, DocumentCategory, StructureType } from "@eoda/database";
 import { StageBadge } from "@/components/crm/StageBadge";
@@ -259,6 +260,28 @@ export default async function EstablishmentDetailPage({ params }: Props) {
               );
             })}
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Identité visuelle de la structure — apposée sur les documents produits pour
+          elle, à côté du logo EODA. */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <ImageIcon className="w-4 h-4 text-terre" aria-hidden="true" />
+            Logo de la structure
+          </CardTitle>
+          <CardDescription>
+            Il figure sur les documents que la plateforme produit pour cette structure.
+            Sans logo déposé, c&apos;est son nom qui est écrit.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <EstablishmentLogoForm
+            establishmentId={establishment.id}
+            establishmentName={establishment.name}
+            logoDataUri={establishment.logoDataUri}
+          />
         </CardContent>
       </Card>
 

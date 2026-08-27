@@ -272,6 +272,15 @@ tarifaire).
   signé** — c'est déjà le document contractuel du dépôt (CLAUDE.md §7) ; produire un
   second document de contrat supposerait un texte de CGV/CGP que Sandrine n'a pas fourni.
   Reste ouvert : aucun suivi de la SIGNATURE de l'avenant (pas de modèle, pas de statut).
+- [x] **Identité sur les documents** *(27/08/2026)* — logo EODA officiel appliqué partout
+  (fini le SVG approximé de l'en-tête et de la connexion), logo de la structure déposable
+  depuis sa fiche (`Establishment.logoDataUri`, PNG/JPEG ≤ 300 Ko, type vérifié par
+  signature binaire, stocké en data URI), en-tête à deux logos sur les documents produits,
+  et deux mentions qui ne se confondent pas : **paternité** (propriété EODA + droit
+  d'exploitation concédé) sur les livrables produits pour la structure, **prestation** sur
+  les documents contractuels. Migration `20260827160000_establishment_logo`.
+  Reste à faire : appliquer l'en-tête et la mention de paternité aux documents de mise en
+  conformité — ils n'existent pas encore (lot B, en attente des templates de Sandrine).
 - [~] **Deux parcours d'achat d'option** — le parcours « demande → alerte interne → devis →
   déblocage » est complet depuis le 27/08 : la demande client déclenche un e-mail vers les
   comptes `CABINET_ADMIN` **et** une pastille de navigation qui reste tant que la demande

@@ -1,4 +1,6 @@
 import { formatDate } from "@/lib/services/date-format-service";
+import { buildContractualMention } from "@/lib/services/document-ownership-service";
+import { DocumentBrandHeader } from "@/components/documents/DocumentBrandHeader";
 import { formatStartingPrice } from "@/lib/services/price-format-service";
 import {
   avenantStartingTotalEuros,
@@ -9,6 +11,7 @@ import {
 
 type Props = {
   establishmentName: string;
+  establishmentLogo: string | null;
   contractReference: string | null;
   signedOn: Date | null;
   issuedOn: Date;
@@ -23,6 +26,7 @@ type Props = {
 // nouvelle : produire du droit à la place de Sandrine n'est pas le rôle de l'outil.
 export function AvenantPrintable({
   establishmentName,
+  establishmentLogo,
   contractReference,
   signedOn,
   issuedOn,
@@ -33,16 +37,12 @@ export function AvenantPrintable({
 
   return (
     <div className="space-y-6 text-brun-ancre">
-      <div className="flex items-start justify-between gap-6 border-b border-gris-light pb-4">
+      <div className="space-y-4 border-b border-gris-light pb-4">
+        <DocumentBrandHeader
+          establishmentName={establishmentName}
+          establishmentLogo={establishmentLogo}
+        />
         <div>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/logo-eoda.png"
-            alt="EODA conseil — accompagnement qualité des ESSMS"
-            width={196}
-            height={72}
-            className="mb-3 h-auto max-w-full"
-          />
           <h2 className="text-lg font-bold">Avenant au contrat d&apos;accompagnement</h2>
           <p className="text-sm text-gris-mid">Établi le {formatDate(issuedOn)}</p>
         </div>
@@ -109,8 +109,11 @@ export function AvenantPrintable({
       <p className="text-xs text-gris-mid border-t border-gris-light pt-4">
         Tarifs indicatifs « à partir de » · TVA non applicable, art. 293 B du CGI · les
         conditions du contrat initial demeurent applicables pour tout ce que le présent
-        avenant ne modifie pas. Prestation de conseil et de préparation, ne constitue pas
-        une évaluation HAS officielle.
+        avenant ne modifie pas.
+        {" "}
+        {/* Mention de PRESTATION, pas de paternité : sur un document contractuel, EODA
+            s'engage — elle ne revendique pas la propriété d'une œuvre. */}
+        {buildContractualMention(establishmentName)}
       </p>
     </div>
   );

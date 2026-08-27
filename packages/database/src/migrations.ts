@@ -46,4 +46,5 @@ export const EXPECTED_MIGRATIONS: readonly string[] = [
   "20260827090000_appointments",
   "20260827120000_document_validation",
   "20260827140000_document_types_requested",
+  "20260827160000_establishment_logo",
 ] as const;
