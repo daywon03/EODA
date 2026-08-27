@@ -84,6 +84,10 @@ export default defineConfig({
         // au client. Le test verrouille la formulation dictée en séance, et empêche
         // qu'une revendication de propriété atterrisse sur un devis.
         "src/lib/services/document-ownership-service.ts",
+        // Rapport de mise en conformité : c'est lui qui décide ce qui part chez le
+        // client. Une analyse non relue qui s'y glisserait contournerait la revue
+        // humaine par la porte de l'imprimante.
+        "src/lib/services/conformity-report-service.ts",
         "src/lib/services/prospect-contact-service.ts",
         "src/lib/services/prospect-next-action-service.ts",
         "src/lib/services/devis-sharing-service.ts",

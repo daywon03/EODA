@@ -272,6 +272,15 @@ tarifaire).
   signé** — c'est déjà le document contractuel du dépôt (CLAUDE.md §7) ; produire un
   second document de contrat supposerait un texte de CGV/CGP que Sandrine n'a pas fourni.
   Reste ouvert : aucun suivi de la SIGNATURE de l'avenant (pas de modèle, pas de statut).
+- [x] **Rapport de mise en conformité** *(27/08/2026)* — document autonome et archivable,
+  remis au client : compteurs d'ouverture, puis document par document ce qui manque, avec
+  les critères HAS rattachés. `/imprimer/rapport/[id]`, nommé à la convention EODA, en-tête
+  à deux logos et mention de PATERNITÉ (c'est un livrable produit pour la structure).
+  ⚠️ Seules les analyses **relues** y entrent : une analyse non validée y figure comme « en
+  cours de relecture », sans son contenu — sinon la revue humaine serait contournée par la
+  porte de l'imprimante. Un rapport sans rien à dire n'est pas produit du tout.
+  Reste du lot B : la version modifiée du document (surlignages + encarts) et la base
+  vectorielle du manuel HAS, toutes deux en attente des templates de Sandrine.
 - [x] **Identité sur les documents** *(27/08/2026)* — logo EODA officiel appliqué partout
   (fini le SVG approximé de l'en-tête et de la connexion), logo de la structure déposable
   depuis sa fiche (`Establishment.logoDataUri`, PNG/JPEG ≤ 300 Ko, type vérifié par

@@ -1,7 +1,9 @@
 "use server";
 
 import { prisma } from "@eoda/database";
+import { notFound } from "next/navigation";
 import { requireClientEstablishment, requireEstablishmentInTenant } from "@/lib/auth/guards";
+import type { ReportSourceItem } from "@/lib/services/conformity-report-service";
 import { getEstablishmentCoveredCategories } from "@/lib/services/establishment-offer-service";
 import type { DocumentCategory, DocumentStatus } from "@eoda/database";
 import {
@@ -268,4 +270,68 @@ export async function getEstablishmentChecklist(
   await requireEstablishmentInTenant(establishmentId);
 
   return buildChecklist(establishmentId, "CABINET");
+}
+
+// ── Rapport de mise en conformité ────────────────────────────────────────────
+//
+// Données du document remis au client. Lecture CABINET : l'analyse non relue est
+// ramenée pour que le service puisse dire « en cours de relecture » — mais son
+// CONTENU n'entre jamais dans le rapport (conformity-report-service).
+export type ConformityReportData = {
+  establishmentName: string;
+  establishmentLogo: string | null;
+  items: ReportSourceItem[];
+};
+
+export async function getConformityReportData(
+  establishmentId: string
+): Promise<ConformityReportData> {
+  const { tenantId } = await requireEstablishmentInTenant(establishmentId);
+
+  const establishment = await prisma.establishment.findFirst({
+    where: { id: establishmentId, tenantId },
+    select: { name: true, logoDataUri: true },
+  });
+  if (!establishment) notFound();
+
+  const checklist = await buildChecklist(establishmentId, "CABINET");
+  // La catégorie est la CLÉ de la checklist, pas un champ de l'item : on la rattache
+  // ici plutôt que de l'ajouter partout dans le modèle.
+  const items = Object.entries(checklist).flatMap(([category, categoryItems]) =>
+    categoryItems.map((item) => ({ ...item, category }))
+  );
+
+  // Critères HAS rattachés, chargés en une fois pour tous les types présents : « il
+  // manque ça, au regard de tel critère » est ce qui distingue un rapport d'une liste
+  // de reproches.
+  const links = await prisma.documentTypeCriterion.findMany({
+    where: { documentTypeId: { in: items.map((item) => item.documentTypeId) } },
+    select: {
+      documentTypeId: true,
+      criterion: { select: { code: true, label: true } },
+    },
+  });
+
+  const criteriaByType = new Map<string, { code: string; label: string }[]>();
+  for (const link of links) {
+    const bucket = criteriaByType.get(link.documentTypeId) ?? [];
+    bucket.push(link.criterion);
+    criteriaByType.set(link.documentTypeId, bucket);
+  }
+
+  return {
+    establishmentName: establishment.name,
+    establishmentLogo: establishment.logoDataUri,
+    items: items.map((item) => ({
+      code: item.code,
+      label: item.label,
+      category: item.category,
+      step: item.step,
+      analysis: item.currentVersion?.analysis ?? null,
+      analysisReviewedAt: item.currentVersion?.analysisReviewedAt ?? null,
+      criteria: (criteriaByType.get(item.documentTypeId) ?? []).sort((a, b) =>
+        a.code.localeCompare(b.code)
+      ),
+    })),
+  };
 }

@@ -17,7 +17,15 @@ import { Button } from "@/components/ui/button";
 import { ProgressBar } from "@/components/ui/progress-bar";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { formatDate } from "@/lib/services/date-format-service";
-import { Building2, Calendar, CalendarDays, Image as ImageIcon, Pencil, Users } from "lucide-react";
+import {
+  Building2,
+  Calendar,
+  CalendarDays,
+  FileBarChart,
+  Image as ImageIcon,
+  Pencil,
+  Users,
+} from "lucide-react";
 import Link from "next/link";
 import type { EstablishmentType, DocumentCategory, StructureType } from "@eoda/database";
 import { StageBadge } from "@/components/crm/StageBadge";
@@ -260,6 +268,29 @@ export default async function EstablishmentDetailPage({ params }: Props) {
               );
             })}
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Le rapport de mise en conformité — le livrable que le cabinet remet et que la
+          structure archive. Seules les analyses RELUES y entrent. */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <FileBarChart className="w-4 h-4 text-terre" aria-hidden="true" />
+            Rapport de mise en conformité
+          </CardTitle>
+          <CardDescription>
+            Ce qui manque, document par document, au regard des critères HAS rattachés.
+            Les analyses non encore relues y figurent comme telles, sans leur contenu.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button size="sm" variant="outline" asChild>
+            <a href={`/imprimer/rapport/${id}?auto=1`} target="_blank" rel="noopener noreferrer">
+              <FileBarChart className="w-3.5 h-3.5" aria-hidden="true" />
+              Éditer le rapport
+            </a>
+          </Button>
         </CardContent>
       </Card>
 
