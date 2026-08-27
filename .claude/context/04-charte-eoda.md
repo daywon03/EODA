@@ -44,23 +44,23 @@ production, prévoir soit :
 
 ## 3. Logo
 
-Pictogramme : viseur/croix directionnelle (cercle + croix + point central), évoquant la
-précision/le diagnostic. Wordmark : "EODA conseil". Tagline obligatoire en sous-titre :
-*"Expliquer · Observer · Démontrer · Accompagner"*.
+**Fichier source officiel** : `context/Documents/20260827_CHARTE_EODA_Couleurs-et-logo_v01_Interne.pptx`
+(remis par Sandrine le 27/08/2026). Les deux déclinaisons utilisées par la plateforme en
+sont extraites, fond blanc détouré :
 
-SVG de référence (utilisé dans le prototype existant et à réutiliser tel quel) :
+| Fichier | Contenu | Où |
+|---|---|---|
+| `apps/web/public/logo-eoda.png` | Bloc complet : rond + « EODA conseil » + signature + « Accompagnement qualité des ESSMS » | Fonds CLAIRS — page de connexion (mobile), devis et avenants imprimés, en-tête des e-mails |
+| `apps/web/public/marque-eoda.png` | Le rond seul (quartiers brun / terre / ambre sur ivoire) | Fonds SOMBRES — en-tête de l'application, panneau de connexion, favicon (`apps/web/src/app/icon.png`) |
 
-```html
-<svg viewBox="0 0 42 42" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <circle cx="21" cy="21" r="19" stroke="#D69646" stroke-width="2"/>
-  <circle cx="21" cy="21" r="7" stroke="#D69646" stroke-width="2"/>
-  <line x1="21" y1="2" x2="21" y2="10" stroke="#D69646" stroke-width="2" stroke-linecap="round"/>
-  <line x1="21" y1="32" x2="21" y2="40" stroke="#D69646" stroke-width="2" stroke-linecap="round"/>
-  <line x1="2" y1="21" x2="10" y2="21" stroke="#D69646" stroke-width="2" stroke-linecap="round"/>
-  <line x1="32" y1="21" x2="40" y2="21" stroke="#D69646" stroke-width="2" stroke-linecap="round"/>
-  <circle cx="21" cy="21" r="3" fill="#D69646"/>
-</svg>
-```
+Le pictogramme est un viseur / croix directionnelle, évoquant la précision du diagnostic.
+Wordmark : « EODA conseil ». Signature : *« Expliquer · Observer · Démontrer · Accompagner »*.
+
+⚠️ **Ne jamais redessiner le logo.** Jusqu'au 27/08/2026, l'en-tête et la page de connexion
+affichaient un SVG dessiné à la main : un rond en ambre uni, sans les quartiers brun et
+terre du vrai logo, et sans le lettrage. Une approximation abîme la marque — et celle-ci
+part sur des devis remis à des clients. Le composant unique est
+`components/layout/EodaLogo.tsx` (`EodaMark` / `EodaLockup`).
 
 ## 4. Convention de nommage des fichiers générés par la plateforme
 

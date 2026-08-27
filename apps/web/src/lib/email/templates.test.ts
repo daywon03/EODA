@@ -90,3 +90,33 @@ describe("buildOptionRequestEmail", () => {
     expect(hostile.html).not.toContain("<script>");
   });
 });
+
+describe("logo dans l'en-tête", () => {
+  it("affiche le logo quand une URL absolue est fournie", () => {
+    // Un client de messagerie ne connaît pas le domaine de l'application : une URL
+    // relative ne mène nulle part.
+    const withLogo = buildClientInvitationEmail({
+      recipientName: "T",
+      email: "t@x.fr",
+      temporaryPassword: "abc",
+      loginUrl: "https://x/login",
+      establishmentName: "S",
+      brand: { logoUrl: "https://portail.eoda-conseil.com/logo-eoda.png" },
+    });
+    expect(withLogo.html).toContain("https://portail.eoda-conseil.com/logo-eoda.png");
+    expect(withLogo.html).toContain('alt="EODA conseil"');
+  });
+
+  it("retombe sur le nom en toutes lettres sans URL de logo", () => {
+    // Une image cassée en tête d'e-mail fait plus de dégâts qu'une ligne de texte.
+    const withoutLogo = buildOptionRequestEmail({
+      establishmentName: "S",
+      optionLabel: "O",
+      message: null,
+      requestedByName: "T",
+      requestUrl: "https://x",
+    });
+    expect(withoutLogo.html).not.toContain("<img");
+    expect(withoutLogo.html).toContain("EODA Conseil");
+  });
+});

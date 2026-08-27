@@ -33,12 +33,19 @@ export function AvenantPrintable({
 
   return (
     <div className="space-y-6 text-brun-ancre">
-      <div className="flex items-start justify-between border-b border-gris-light pb-4">
+      <div className="flex items-start justify-between gap-6 border-b border-gris-light pb-4">
         <div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/logo-eoda.png"
+            alt="EODA conseil — accompagnement qualité des ESSMS"
+            width={196}
+            height={72}
+            className="mb-3 h-auto max-w-full"
+          />
           <h2 className="text-lg font-bold">Avenant au contrat d&apos;accompagnement</h2>
           <p className="text-sm text-gris-mid">Établi le {formatDate(issuedOn)}</p>
         </div>
-        <p className="text-sm font-semibold">EODA Conseil</p>
       </div>
 
       <div>

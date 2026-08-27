@@ -36,6 +36,7 @@ export async function sendClientInvitationEmail(input: {
     temporaryPassword: input.temporaryPassword,
     establishmentName: input.establishmentName,
     loginUrl: appUrl("/login"),
+    brand: { logoUrl: appUrl("/logo-eoda.png") },
   });
 
   try {
@@ -74,6 +75,7 @@ export async function notifyOptionRequest(input: {
     message: input.message,
     requestedByName: input.requestedByName,
     requestUrl: appUrl("/dashboard/cabinet/commercial"),
+    brand: { logoUrl: appUrl("/logo-eoda.png") },
   });
 
   const port = getEmailPort();

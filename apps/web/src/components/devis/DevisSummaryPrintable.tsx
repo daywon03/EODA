@@ -46,8 +46,19 @@ export function DevisSummaryPrintable({
 }: Props) {
   return (
     <div className="space-y-6 text-brun-ancre">
-      <div className="flex items-start justify-between border-b border-gris-light pb-4">
+      <div className="flex items-start justify-between gap-6 border-b border-gris-light pb-4">
         <div>
+          {/* Logo officiel, sur un document qui part chez le client. <img> et non
+              next/image : la vue imprimable doit rendre le fichier tel quel, sans
+              dépendre d'une route d'optimisation au moment de l'impression. */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/logo-eoda.png"
+            alt="EODA conseil — accompagnement qualité des ESSMS"
+            width={196}
+            height={72}
+            className="mb-3 h-auto max-w-full"
+          />
           <h2 className="text-lg font-bold">Devis {number}</h2>
           <p className="text-sm text-gris-mid">Émis le {formatDate(new Date(createdAt))}</p>
         </div>

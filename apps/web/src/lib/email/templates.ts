@@ -22,16 +22,29 @@ export function escapeHtml(value: string): string {
 
 export type EmailContent = { subject: string; html: string };
 
+// Un client de messagerie ne connaît pas le domaine de l'application : l'URL du logo
+// doit être ABSOLUE. Passée en paramètre plutôt que lue ici, pour que ce fichier
+// reste pur (et testable sans configuration).
+export type BrandAssets = { logoUrl: string };
+
 // Charte EODA (context/04-charte-eoda.md) — en dur ici, et pas via Tailwind : un
 // client de messagerie n'exécute aucune feuille de style externe, tout est en ligne.
 const BRUN_ANCRE = "#3E2C26";
 const TERRE = "#B45A32";
 const IVOIRE = "#F0E8DC";
 
-function layout(title: string, body: string): string {
+function layout(title: string, body: string, brand?: BrandAssets): string {
+  // Le logo n'est affiché que si une URL absolue est fournie. Sans elle, on retombe
+  // sur le nom en toutes lettres : une image cassée en tête d'e-mail fait plus de
+  // dégâts qu'une ligne de texte.
+  const header = brand
+    ? `<img src="${escapeHtml(brand.logoUrl)}" alt="EODA conseil" width="180" height="67"
+           style="display:block;margin:0 0 16px;max-width:100%;height:auto">`
+    : `<p style="margin:0 0 4px;color:${TERRE};font-size:13px;letter-spacing:.08em;text-transform:uppercase">EODA Conseil</p>`;
+
   return `<div style="font-family:'Trebuchet MS',Segoe UI,Arial,sans-serif;background:${IVOIRE};padding:24px">
   <div style="max-width:560px;margin:0 auto;background:#ffffff;border-radius:12px;padding:28px">
-    <p style="margin:0 0 4px;color:${TERRE};font-size:13px;letter-spacing:.08em;text-transform:uppercase">EODA Conseil</p>
+    ${header}
     <h1 style="margin:0 0 16px;color:${BRUN_ANCRE};font-size:20px">${escapeHtml(title)}</h1>
     ${body}
     <p style="margin:24px 0 0;color:#8B7666;font-size:12px;border-top:1px solid ${IVOIRE};padding-top:12px">
@@ -56,6 +69,7 @@ export function buildClientInvitationEmail(input: {
   temporaryPassword: string;
   loginUrl: string;
   establishmentName: string;
+  brand?: BrandAssets;
 }): EmailContent {
   const body = `
     <p style="color:${BRUN_ANCRE};font-size:15px;line-height:1.6">
@@ -84,7 +98,7 @@ export function buildClientInvitationEmail(input: {
 
   return {
     subject: `Votre accès à l'espace EODA — ${input.establishmentName}`,
-    html: layout("Votre espace client est ouvert", body),
+    html: layout("Votre espace client est ouvert", body, input.brand),
   };
 }
 
@@ -99,6 +113,7 @@ export function buildOptionRequestEmail(input: {
   message: string | null;
   requestedByName: string;
   requestUrl: string;
+  brand?: BrandAssets;
 }): EmailContent {
   const message = input.message?.trim();
 
@@ -122,6 +137,6 @@ export function buildOptionRequestEmail(input: {
 
   return {
     subject: `Demande de devis — ${input.establishmentName} · ${input.optionLabel}`,
-    html: layout("Une structure demande une prestation complémentaire", body),
+    html: layout("Une structure demande une prestation complémentaire", body, input.brand),
   };
 }

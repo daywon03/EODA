@@ -3,21 +3,7 @@ import { auth } from "@/auth";
 import { logoutAction } from "@/lib/auth-actions";
 import { Button } from "@/components/ui/button";
 import { Info, LogOut } from "lucide-react";
-
-// SVG logo officiel EODA — context/04-charte-eoda.md
-function EodaLogo() {
-  return (
-    <svg viewBox="0 0 42 42" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-9 h-9 flex-shrink-0">
-      <circle cx="21" cy="21" r="19" stroke="#D69646" strokeWidth="2" />
-      <circle cx="21" cy="21" r="7" stroke="#D69646" strokeWidth="2" />
-      <line x1="21" y1="2" x2="21" y2="10" stroke="#D69646" strokeWidth="2" strokeLinecap="round" />
-      <line x1="21" y1="32" x2="21" y2="40" stroke="#D69646" strokeWidth="2" strokeLinecap="round" />
-      <line x1="2" y1="21" x2="10" y2="21" stroke="#D69646" strokeWidth="2" strokeLinecap="round" />
-      <line x1="32" y1="21" x2="40" y2="21" stroke="#D69646" strokeWidth="2" strokeLinecap="round" />
-      <circle cx="21" cy="21" r="3" fill="#D69646" />
-    </svg>
-  );
-}
+import { EodaMark } from "./EodaLogo";
 
 export async function AppHeader() {
   const session = await auth();
@@ -33,7 +19,7 @@ export async function AppHeader() {
       <div className="mx-auto max-w-7xl flex items-center justify-between gap-4 px-6 py-3">
         {/* Logo + marque */}
         <div className="flex items-center gap-3 min-w-0">
-          <EodaLogo />
+          <EodaMark size={36} />
           <div className="min-w-0">
             <span className="text-ivoire font-bold text-base sm:text-lg tracking-wide block truncate">
               EODA conseil

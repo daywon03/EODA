@@ -102,5 +102,12 @@ export default auth((req) => {
 });
 
 export const config = {
-  matcher: ["/((?!api|_next/static|_next/image|favicon.ico).*)"],
+  // Les assets de MARQUE sont publics : le logo doit se charger dans un e-mail, donc
+  // hors session. Sans cette exclusion, le middleware redirige `/logo-eoda.png` vers
+  // /login et l'image casse dans tous les messages envoyés — constaté en exécution.
+  //
+  // Aucun contenu sensible n'est servi ainsi : les documents clients passent par
+  // /api/local-storage (déjà hors matcher, avec son propre contrôle d'accès) ou par
+  // une URL signée du bucket.
+  matcher: ["/((?!api|_next/static|_next/image|favicon.ico|.*\\.png$|.*\\.svg$).*)"],
 };
