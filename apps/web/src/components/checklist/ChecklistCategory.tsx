@@ -97,8 +97,13 @@ export function ChecklistCategory({
                 {item.isConditional && item.status !== "NOT_APPLICABLE" && (
                   <p className="text-xs text-gris-mid mt-0.5">Si concerné</p>
                 )}
-                {item.expectedFrequency === "ANNUAL" && (
+                {item.expectedFrequency === "ANNUAL" && !item.expiryNotice && (
                   <p className="text-xs text-ambre mt-0.5">Fréquence annuelle attendue</p>
+                )}
+                {/* Périmé : dire DEPUIS QUAND, pas seulement que ça l'est — sinon la
+                    réponse est « mais je vous l'ai envoyé ». */}
+                {item.expiryNotice && (
+                  <p className="mt-0.5 text-xs text-orange-700">{item.expiryNotice}</p>
                 )}
                 {/* Qui doit fournir ce document — l'information manquait, et c'est
                     elle qui distingue la checklist du client du plan de production

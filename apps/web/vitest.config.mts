@@ -88,6 +88,9 @@ export default defineConfig({
         // client. Une analyse non relue qui s'y glisserait contournerait la revue
         // humaine par la porte de l'imprimante.
         "src/lib/services/conformity-report-service.ts",
+        // Péremption documentaire : elle décide qu'un document « conforme » ne l'est
+        // plus. Dérivée de l'horloge, donc jamais vérifiable par un statut en base.
+        "src/lib/services/document-expiry-service.ts",
         "src/lib/services/prospect-contact-service.ts",
         "src/lib/services/prospect-next-action-service.ts",
         "src/lib/services/devis-sharing-service.ts",

@@ -10,6 +10,7 @@ import {
   deriveDocumentStep,
   type DocumentStep,
 } from "@/lib/services/document-workflow-service";
+import { applyExpiry, describeExpiry } from "@/lib/services/document-expiry-service";
 import type { DocumentAnalysisResult } from "@/lib/llm";
 import {
   analysisVisibleTo,
@@ -31,6 +32,9 @@ export type ChecklistItem = {
   // Réclamé à la structure, ou produit par EODA (§ call du 26/08). Le portail client
   // n'affiche que les types réclamés — plus ceux dont un document existe déjà.
   requestedFromClient: boolean;
+  // Phrase d'explication quand la version courante a dépassé sa fréquence attendue.
+  // Null tant que le document est à jour.
+  expiryNotice: string | null;
   status: DocumentStatus;
   documentId: string | null;
   missingJustification: string | null;
@@ -86,6 +90,9 @@ async function buildChecklist(
   establishmentId: string,
   audience: AnalysisAudience
 ): Promise<ChecklistByCategory> {
+  // Une seule lecture d'horloge par construction de checklist : deux documents
+  // déposés le même jour ne doivent pas se périmer à une milliseconde d'écart.
+  const now = new Date();
   // Périmètre de l'offre contractée (null = pas de mission ⇒ avant-vente, checklist
   // complète). Résolu par establishment-offer-service, la MÊME couche que celle qui
   // arbitre les dépôts dans document.ts — affichage et mutations ne peuvent pas diverger.
@@ -139,9 +146,17 @@ async function buildChecklist(
   for (const dt of allTypes) {
     const doc = docByTypeId.get(dt.id);
 
+    // Péremption : DÉRIVÉE à la lecture, jamais stockée. Elle dépend de l'horloge —
+    // un statut figé en base serait faux le lendemain sans que personne n'écrive quoi
+    // que ce soit.
+    const expiryFacts = {
+      expectedFrequency: dt.expectedFrequency,
+      currentVersionAt: doc?.currentVersion?.uploadedAt ?? null,
+    };
+
     let status: DocumentStatus;
     if (doc) {
-      status = doc.status;
+      status = applyExpiry(doc.status, expiryFacts, now);
     } else if (dt.isConditional) {
       status = "NOT_APPLICABLE";
     } else {
@@ -155,6 +170,7 @@ async function buildChecklist(
       isConditional: dt.isConditional,
       expectedFrequency: dt.expectedFrequency,
       requestedFromClient: dt.requestedFromClient,
+      expiryNotice: describeExpiry(expiryFacts, now),
       status,
       documentId: doc?.id ?? null,
       missingJustification: doc?.missingJustification ?? null,

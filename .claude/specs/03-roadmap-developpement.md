@@ -76,8 +76,13 @@ ci-dessus avant un vrai document ASSAD BENOIT en production).
   d'analyse
 - [x] Étape d'anonymisation best-effort (email/téléphone/NIR) avant tout envoi au LLM
   (`anonymization-service.ts`)
-- [ ] `EXPIRED` (périmé selon fréquence attendue) — pas encore branché, dépend des alertes
-  documents périmés (roadmap process métier, phase ultérieure)
+- [x] `EXPIRED` (périmé selon fréquence attendue) **fait le 27/08/2026** — DÉRIVÉ à la
+  lecture (`document-expiry-service.ts`), jamais stocké : la péremption dépend de l'horloge,
+  un statut figé serait faux le lendemain sans qu'on écrive quoi que ce soit. Annuel 12 mois,
+  biennal 24, triennal 36, « à la demande » ne se périme pas. Le statut ne remplace que
+  « conforme / déposé / incomplet » — un document manquant reste manquant. La checklist dit
+  DEPUIS QUAND la version date, pas seulement qu'elle est périmée. C'est le troisième état
+  demandé par le CDC §5 (« reçu / manquant / à mettre à jour »).
 - [x] **Cinq documents réclamés au client, pas vingt-neuf** *(27/08/2026)* —
   `DocumentType.requestedFromClient` : le portail client n'affiche que les types réclamés,
   plus ceux dont un document existe déjà (sa bibliothèque). Les 29 types restent visibles
