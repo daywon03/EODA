@@ -17,6 +17,7 @@ import { MissionClosureSection } from "@/components/mission/MissionClosureSectio
 import { Button } from "@/components/ui/button";
 import { FileSignature, FileText } from "lucide-react";
 import { needsAvenant } from "@/lib/services/avenant-service";
+import { AvenantSignatureToggle } from "@/components/mission/AvenantSignatureToggle";
 import { auth } from "@/auth";
 import type { MissionChecklistScope } from "@eoda/database";
 
@@ -56,6 +57,10 @@ export default async function MissionPage({ params }: Props) {
     listOptionsForMissionSetup(),
     getMissionDocumentCounters(id),
   ]);
+
+  // Prestations rattachées HORS devis signé : ce sont elles, et elles seules, que
+  // l'avenant régularise — donc les seules dont la signature se suit.
+  const avenantTracked = (mission?.options ?? []).filter((option) => !option.priceIsFirm);
 
   return (
     <div className="space-y-6 max-w-3xl">
@@ -119,6 +124,27 @@ export default async function MissionPage({ params }: Props) {
                       Éditer l&apos;avenant
                     </a>
                   </Button>
+                </div>
+              )}
+
+              {/* Retour de l'avenant signé. Le fait se passe hors de la plateforme
+                  (un PDF, une signature, un e-mail) : il se pose à la main, et rien
+                  ne le devine. Une fois posé, la prestation ne se retire plus en
+                  décochant une case. */}
+              {avenantTracked.length > 0 && (
+                <div className="mb-4 space-y-2 rounded-lg border border-gris-light bg-ivoire/40 px-4 py-3">
+                  <p className="text-xs uppercase tracking-wide text-gris-mid">
+                    Suivi des avenants
+                  </p>
+                  {avenantTracked.map((option) => (
+                    <AvenantSignatureToggle
+                      key={option.catalogueOptionId}
+                      missionId={mission.id}
+                      catalogueOptionId={option.catalogueOptionId}
+                      label={option.labelSnapshot}
+                      signedOn={option.avenantSignedOn}
+                    />
+                  ))}
                 </div>
               )}
               <MissionScopeEditor

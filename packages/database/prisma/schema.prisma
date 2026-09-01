@@ -1042,6 +1042,21 @@ model MissionOption {
   // convertDevisToClient, donc d'un devis signé. La migration n'a rien à recalculer.
   priceIsFirm Boolean @default(true) @map("price_is_firm")
 
+  // SIGNATURE DE L'AVENANT qui régularise cette option.
+  //
+  // L'avenant se GÉNÉRAIT sans que rien ne dise s'il était revenu signé : Sandrine
+  // devait s'en souvenir, ou rouvrir sa boîte mail. Ce champ est ce fait, et rien de
+  // plus — il ne rend PAS le montant ferme : l'avenant porte un « à partir de »
+  // recopié du catalogue (avenant-service), le signer ne le transforme pas en prix
+  // négocié. `priceIsFirm` reste la PROVENANCE (devis signé), ce champ la
+  // RÉGULARISATION. Les confondre ferait afficher au client un engagement que
+  // personne n'a chiffré.
+  //
+  // Conséquence : une option régularisée ne se retire plus depuis l'écran de mission,
+  // exactement comme une option issue d'un devis — un document signé ne s'annule pas
+  // en décochant une case.
+  avenantSignedOn DateTime? @map("avenant_signed_on")
+
   createdAt DateTime @default(now()) @map("created_at")
 
   // Cascade : une option souscrite n'existe que par sa mission. Sans cette règle
@@ -1153,6 +1168,12 @@ enum AuditAction {
   // données de la plateforme : c'est précisément le genre d'accès dont il faut
   // pouvoir dire qui, quand, et pour quel établissement.
   EVALUATION_EXPORTED
+  // Retour d'un avenant signé, et retrait de cette signature. `targetId` =
+  // identifiant de la ligne MissionOption, `detail` = le libellé de la prestation
+  // (donnée de catalogue, jamais nominative). Ces deux gestes verrouillent ou
+  // déverrouillent le retrait d'une prestation du périmètre d'un client.
+  AVENANT_SIGNED
+  AVENANT_SIGNATURE_CLEARED
 }
 
 model AuditLogEntry {
