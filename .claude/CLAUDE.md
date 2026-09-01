@@ -27,6 +27,7 @@ vérifie** — sinon elle n'existe pas.
 | Pas d'opération asynchrone non attendue | `no-floating-promises`, `no-misused-promises`, `await-thenable` en **error** | `apps/web/.eslintrc.json` (type-aware, `parserOptions.project`) |
 | Pas d'échappatoire au typage | `no-explicit-any` en **error** | idem |
 | Pas de journalisation sauvage | `no-console` en **error** (`error`/`warn` autorisés) | idem |
+| Aucun dialogue natif du navigateur | `no-restricted-syntax` sur `confirm`/`alert`/`prompt` en **error** | idem — remplacés par `<ConfirmActionButton>` |
 | `process.env` lu à un seul endroit | `no-restricted-syntax` en **error** | idem — seule exception : `lib/config/env.ts` |
 | Contrat de types respecté | `tsc --noEmit` sur **les deux** packages | `pnpm typecheck` (`pnpm -r --if-present`) |
 | Couverture minimale | seuils qui **font échouer** la commande | `apps/web/vitest.config.mts` — 80 % lignes/fonctions/instructions, 75 % branches |

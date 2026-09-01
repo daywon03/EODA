@@ -7,6 +7,7 @@ import {
 } from "@/lib/actions/catalogue";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { ConfirmActionButton } from "@/components/ui/confirm-action-button";
 import { AlertCircle, EyeOff, Loader2, RotateCcw } from "lucide-react";
 
 type Props = {
@@ -23,22 +24,22 @@ type Props = {
 // « Retirer » ne supprime rien : les devis déjà émis continuent d'afficher la
 // ligne grâce à leurs snapshots de libellé et de prix. Elle disparaît seulement
 // des sélecteurs et devient invendable.
+//
+// Seul le retrait se confirme : remettre en vente ne casse rien et se défait d'un
+// clic. Confirmer les deux sens apprendrait à cliquer sans lire.
 export function CatalogueActiveToggle({ kind, id, label, active }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
-  function handleClick() {
-    if (active) {
-      const confirmed = window.confirm(
-        `Retirer « ${label} » du catalogue ? Elle disparaîtra des nouveaux devis. Les devis existants qui la référencent restent inchangés.`
-      );
-      if (!confirmed) return;
-    }
+  function toggle(next: boolean) {
+    const action = kind === "formule" ? toggleCatalogueFormuleActive : toggleCatalogueOptionActive;
+    return action(id, next);
+  }
 
+  function handleRestore() {
     setError(null);
     startTransition(async () => {
-      const toggle = kind === "formule" ? toggleCatalogueFormuleActive : toggleCatalogueOptionActive;
-      const result = await toggle(id, !active);
+      const result = await toggle(true);
       if (result && "error" in result) setError(result.error);
     });
   }
@@ -47,22 +48,25 @@ export function CatalogueActiveToggle({ kind, id, label, active }: Props) {
     <div className="flex flex-col items-end gap-1">
       <div className="flex items-center gap-2">
         {!active && <Badge variant="not_applicable">Retirée du catalogue</Badge>}
-        <Button
-          type="button"
-          size="sm"
-          variant={active ? "outline" : "secondary"}
-          onClick={handleClick}
-          disabled={isPending}
-        >
-          {isPending ? (
-            <Loader2 className="w-3.5 h-3.5 animate-spin" aria-hidden="true" />
-          ) : active ? (
-            <EyeOff className="w-3.5 h-3.5" aria-hidden="true" />
-          ) : (
-            <RotateCcw className="w-3.5 h-3.5" aria-hidden="true" />
-          )}
-          {active ? "Retirer de la vente" : "Remettre en vente"}
-        </Button>
+        {active ? (
+          <ConfirmActionButton
+            tone="neutral"
+            label="Retirer de la vente"
+            icon={EyeOff}
+            question={`Retirer « ${label} » du catalogue ? Elle disparaîtra des nouveaux devis. Les devis existants qui la référencent restent inchangés.`}
+            confirmLabel="Retirer du catalogue"
+            onConfirm={() => toggle(false)}
+          />
+        ) : (
+          <Button type="button" size="sm" variant="secondary" onClick={handleRestore} disabled={isPending}>
+            {isPending ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin" aria-hidden="true" />
+            ) : (
+              <RotateCcw className="w-3.5 h-3.5" aria-hidden="true" />
+            )}
+            Remettre en vente
+          </Button>
+        )}
       </div>
       {error && (
         <p role="alert" className="flex items-center gap-1 text-xs text-rouge-imp">

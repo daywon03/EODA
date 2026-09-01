@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { ConfirmActionButton } from "@/components/ui/confirm-action-button";
 import {
   AlertCircle,
   CheckCircle2,
@@ -37,9 +38,9 @@ const ROLE_LABELS: Record<string, string> = {
 };
 
 // Ligne d'interlocuteur client — lecture ET révocation. Les trois opérations
-// destructrices (retrait d'accès, désactivation, réinitialisation) demandent une
-// confirmation explicite avant l'appel serveur ; l'autorisation, elle, est refaite
-// côté serveur dans tous les cas (une confirmation d'interface ne protège rien).
+// destructrices (retrait d'accès, désactivation, réinitialisation) posent une
+// question en page avant l'appel serveur ; l'autorisation, elle, est refaite côté
+// serveur dans tous les cas (une confirmation d'interface ne protège rien).
 export function ClientUserRow({ establishmentId, user, roleInEstablishment }: Props) {
   const [isEditing, setEditing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -67,18 +68,11 @@ export function ClientUserRow({ establishmentId, user, roleInEstablishment }: Pr
     });
   }
 
-  function handleToggleActive() {
-    const nextActive = !user.isActive;
-    if (
-      !nextActive &&
-      !window.confirm(
-        `Désactiver le compte de ${user.name} ? Il ne pourra plus se connecter, y compris depuis une session déjà ouverte. Réversible.`
-      )
-    ) {
-      return;
-    }
+  // Réactiver ne se confirme pas : c'est le geste qui rend l'accès, pas celui qui
+  // le retire. Seul le sens destructeur pose une question.
+  function handleReactivate() {
     const data = baseFormData();
-    data.set("isActive", nextActive ? "true" : "false");
+    data.set("isActive", "true");
     setError(null);
     startTransition(async () => {
       const result = await setClientUserActive(data);
@@ -86,35 +80,23 @@ export function ClientUserRow({ establishmentId, user, roleInEstablishment }: Pr
     });
   }
 
-  function handleRemove() {
-    if (
-      !window.confirm(
-        `Retirer l'accès de ${user.name} à cet établissement ? S'il ne lui reste aucun autre établissement, son compte sera désactivé. Cette action est irréversible.`
-      )
-    ) {
-      return;
-    }
-    setError(null);
-    startTransition(async () => {
-      const result = await removeClientUserFromEstablishment(baseFormData());
-      if ("error" in result) setError(result.error);
-    });
+  async function deactivate() {
+    const data = baseFormData();
+    data.set("isActive", "false");
+    const result = await setClientUserActive(data);
+    return "error" in result ? result : null;
   }
 
-  function handleResetPassword() {
-    if (
-      !window.confirm(
-        `Réinitialiser le mot de passe de ${user.name} ? Son mot de passe actuel cessera immédiatement de fonctionner et ses sessions ouvertes seront fermées.`
-      )
-    ) {
-      return;
-    }
-    setError(null);
-    startTransition(async () => {
-      const result = await resetClientUserPassword(baseFormData());
-      if ("error" in result) setError(result.error);
-      else setTempPassword(result.tempPassword);
-    });
+  async function removeAccess() {
+    const result = await removeClientUserFromEstablishment(baseFormData());
+    return "error" in result ? result : null;
+  }
+
+  async function resetPassword() {
+    const result = await resetClientUserPassword(baseFormData());
+    if ("error" in result) return result;
+    setTempPassword(result.tempPassword);
+    return null;
   }
 
   function copyPassword(password: string) {
@@ -173,18 +155,39 @@ export function ClientUserRow({ establishmentId, user, roleInEstablishment }: Pr
             <Pencil className="w-3.5 h-3.5" aria-hidden="true" />
             Modifier
           </Button>
-          <Button type="button" size="sm" variant="outline" onClick={handleResetPassword} disabled={isPending}>
-            <KeyRound className="w-3.5 h-3.5" aria-hidden="true" />
-            Réinitialiser le mot de passe
-          </Button>
-          <Button type="button" size="sm" variant="outline" onClick={handleToggleActive} disabled={isPending}>
-            <Power className="w-3.5 h-3.5" aria-hidden="true" />
-            {user.isActive ? "Désactiver le compte" : "Réactiver le compte"}
-          </Button>
-          <Button type="button" size="sm" variant="destructive" onClick={handleRemove} disabled={isPending}>
-            <UserMinus className="w-3.5 h-3.5" aria-hidden="true" />
-            Retirer l&apos;accès
-          </Button>
+          <ConfirmActionButton
+            tone="neutral"
+            label="Réinitialiser le mot de passe"
+            icon={KeyRound}
+            question={`Réinitialiser le mot de passe de ${user.name} ? Son mot de passe actuel cessera immédiatement de fonctionner et ses sessions ouvertes seront fermées.`}
+            confirmLabel="Réinitialiser"
+            onConfirm={resetPassword}
+            disabled={isPending}
+          />
+          {user.isActive ? (
+            <ConfirmActionButton
+              tone="neutral"
+              label="Désactiver le compte"
+              icon={Power}
+              question={`Désactiver le compte de ${user.name} ? Il ne pourra plus se connecter, y compris depuis une session déjà ouverte. Réversible.`}
+              confirmLabel="Désactiver"
+              onConfirm={deactivate}
+              disabled={isPending}
+            />
+          ) : (
+            <Button type="button" size="sm" variant="outline" onClick={handleReactivate} disabled={isPending}>
+              <Power className="w-3.5 h-3.5" aria-hidden="true" />
+              Réactiver le compte
+            </Button>
+          )}
+          <ConfirmActionButton
+            label="Retirer l'accès"
+            icon={UserMinus}
+            question={`Retirer l'accès de ${user.name} à cet établissement ? S'il ne lui reste aucun autre établissement, son compte sera désactivé. Cette action est irréversible.`}
+            confirmLabel="Retirer l'accès"
+            onConfirm={removeAccess}
+            disabled={isPending}
+          />
         </div>
       )}
 

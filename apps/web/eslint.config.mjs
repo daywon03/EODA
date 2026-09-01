@@ -50,9 +50,28 @@ const config = [
       // ── Pas de journalisation sauvage ────────────────────────────────────────
       "no-console": ["error", { allow: ["error", "warn"] }],
 
-      // ── S6 — process.env lu à un seul endroit ────────────────────────────────
+      // ── Aucun dialogue natif du navigateur ───────────────────────────────────
+      // `window.confirm` / `alert` / `prompt` gèlent le fil d'exécution, ne sont ni
+      // stylés ni traduisibles, et surtout : le navigateur propose de « bloquer les
+      // autres dialogues de cette page ». Une fois coché, la confirmation suivante
+      // disparaît sans que personne ne le sache — une suppression définitive part
+      // alors sur un simple clic. Utiliser <ConfirmActionButton>.
       "no-restricted-syntax": [
         "error",
+        {
+          selector:
+            "CallExpression[callee.object.name='window'][callee.property.name=/^(confirm|alert|prompt)$/]",
+          message:
+            "Pas de dialogue natif du navigateur — utiliser <ConfirmActionButton> (components/ui/confirm-action-button.tsx). Voir CLAUDE.md §0.",
+        },
+        {
+          selector:
+            "CallExpression[callee.type='Identifier'][callee.name=/^(confirm|alert|prompt)$/]",
+          message:
+            "Pas de dialogue natif du navigateur — utiliser <ConfirmActionButton> (components/ui/confirm-action-button.tsx). Voir CLAUDE.md §0.",
+        },
+
+        // ── S6 — process.env lu à un seul endroit ──────────────────────────────
         {
           selector:
             "MemberExpression[object.object.name='process'][object.property.name='env']",

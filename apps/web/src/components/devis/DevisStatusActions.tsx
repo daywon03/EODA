@@ -6,6 +6,7 @@ import { changeDevisStatus } from "@/lib/actions/devis";
 import { DEVIS_ALLOWED_TRANSITIONS } from "@/lib/services/devis-transition-service";
 import { isConversionTransition } from "@/lib/services/conversion-service";
 import { Button } from "@/components/ui/button";
+import { ConfirmActionButton } from "@/components/ui/confirm-action-button";
 import { AlertCircle, Ban, Loader2, Send, CheckCircle2, XCircle } from "lucide-react";
 import type { DevisStatus } from "@eoda/database";
 
@@ -46,9 +47,6 @@ export function DevisStatusActions({ devisId, status }: { devisId: string; statu
   if (!canSign && nextStatuses.length === 0) return null;
 
   function handleClick(nextStatus: DevisStatus) {
-    const { confirm } = TRANSITION_UI[nextStatus];
-    if (confirm && !window.confirm(confirm)) return;
-
     setError(null);
     startTransition(async () => {
       const result = await changeDevisStatus(devisId, nextStatus);
@@ -68,7 +66,23 @@ export function DevisStatusActions({ devisId, status }: { devisId: string; statu
           </Button>
         )}
         {nextStatuses.map((next) => {
-          const { label, icon: Icon, variant } = TRANSITION_UI[next];
+          const { label, icon: Icon, variant, confirm } = TRANSITION_UI[next];
+          // Une transition qui porte une question la pose en page ; les autres
+          // partent directement. Même table, même libellé, même icône : la
+          // confirmation est un attribut de la transition, pas un composant à part.
+          if (confirm) {
+            return (
+              <ConfirmActionButton
+                key={next}
+                label={label}
+                icon={Icon}
+                question={confirm}
+                confirmLabel={label}
+                onConfirm={() => changeDevisStatus(devisId, next)}
+                disabled={isPending}
+              />
+            );
+          }
           return (
             <Button
               key={next}
