@@ -201,3 +201,42 @@ export function buildDocumentReminderEmail(input: {
     html: layout("Il reste des pièces à déposer", body, input.brand),
   };
 }
+
+// Nouveau message dans le fil d'échange (CDC §5).
+//
+// Le message lui-même n'est PAS dans l'e-mail, et c'est délibéré : le fil existe pour
+// que les échanges restent dans la plateforme, rattachés à la mission. Recopier le
+// contenu dans un e-mail les ferait repartir dans les boîtes mail — le problème qu'on
+// cherche à régler — et sortirait un texte qui peut évoquer des situations de
+// personnes accompagnées.
+export function buildNewMessageEmail(input: {
+  establishmentName: string;
+  // Qui a écrit : ça change le destinataire et la phrase, pas le reste.
+  fromCabinet: boolean;
+  threadUrl: string;
+  brand?: BrandAssets;
+}): EmailContent {
+  const who = input.fromCabinet
+    ? "EODA Conseil vous a laissé un message"
+    : `${escapeHtml(input.establishmentName)} vous a laissé un message`;
+
+  const body = `
+    <p style="color:${BRUN_ANCRE};font-size:15px;line-height:1.6">${who}
+      dans l'espace d'accompagnement${input.fromCabinet ? "" : ` de ${escapeHtml(input.establishmentName)}`}.
+    </p>
+    <p style="color:#6B5648;font-size:14px;line-height:1.6">
+      Le message se lit dans la plateforme : les échanges y restent rattachés à la
+      mission, avec les documents auxquels ils se rapportent.
+    </p>
+    <p style="margin:24px 0">
+      <a href="${escapeHtml(input.threadUrl)}"
+         style="background:${TERRE};color:#ffffff;text-decoration:none;padding:12px 20px;border-radius:8px;display:inline-block;font-weight:bold">
+        Ouvrir le fil d'échange
+      </a>
+    </p>`;
+
+  return {
+    subject: `Nouveau message — ${input.establishmentName}`,
+    html: layout("Vous avez un nouveau message", body, input.brand),
+  };
+}
