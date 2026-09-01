@@ -704,6 +704,17 @@ model Prospect {
   // Évaluation des besoins (Phase 0 — étape "Évaluation des besoins" de la prospection) —
   // notes qualitatives ; `estimatedAmountEuros` ci-dessus sert de niveau financier.
   needsAssessmentNotes String?            @map("needs_assessment_notes")
+  // GRILLE D'ENTRETIEN DÉCOUVERTE — réponses de la réunion de découverte (R1),
+  // saisies par le cabinet pendant l'appel. Colonne Json et non vingt colonnes : la
+  // grille est un CONTENU versionné (apps/web/src/content/decouverte/), pas un
+  // schéma. Ajouter une question ne doit pas demander une migration — le gabarit
+  // v03 de Sandrine est attendu, et il remplacera les questions.
+  //
+  // Lue DÉFENSIVEMENT (discovery-grid-service) : une réponse écrite sous une version
+  // antérieure de la grille ne doit pas casser l'écran, et une question disparue ne
+  // doit pas réapparaître.
+  discoveryAnswersJson Json?              @map("discovery_answers_json")
+  discoveryUpdatedAt   DateTime?          @map("discovery_updated_at")
   notes                String?
   // Renseigné par la CONVERSION à la signature (lib/actions/conversion.ts) : passer
   // un devis à SIGNE crée l'Establishment s'il n'existe pas, pose ce lien, et crée

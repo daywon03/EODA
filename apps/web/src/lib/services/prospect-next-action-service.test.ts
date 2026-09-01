@@ -16,9 +16,12 @@ function facts(overrides: Partial<ProspectActionFacts> = {}): ProspectActionFact
 }
 
 describe("deriveProspectNextAction", () => {
-  it("mène à l'évaluation des besoins sur un prospect neuf", () => {
+  it("mène à la grille de découverte sur un prospect neuf, pas au chiffrage", () => {
+    // Ordre du parcours : on écoute (grille), puis on chiffre (évaluation des
+    // besoins). Pointer d'emblée l'évaluation des besoins faisait choisir une offre
+    // avant la première question.
     expect(deriveProspectNextAction(facts())?.href).toBe(
-      "/dashboard/cabinet/commercial/prospects/p1/evaluation-besoins"
+      "/dashboard/cabinet/commercial/prospects/p1/decouverte"
     );
   });
 
