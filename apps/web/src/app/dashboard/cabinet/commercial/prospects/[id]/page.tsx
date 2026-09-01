@@ -22,7 +22,12 @@ import { formatDate } from "@/lib/services/date-format-service";
 import {
   describeStructureIdentityLine,
   ESTABLISHMENT_TYPE_LABELS,
+  STRUCTURE_TYPE_LABELS,
 } from "@/lib/services/structure-identity-service";
+import { buildProspectRecap, isRecapClosed } from "@/lib/services/prospect-recap-service";
+import { discoveryHighlights, isDiscoveryStarted, normaliseDiscoveryAnswers } from "@/lib/services/discovery-grid-service";
+import { ProspectRecap } from "@/components/crm/ProspectRecap";
+import { CollapsibleSection } from "@/components/ui/collapsible-section";
 import {
   deriveProspectNextAction,
   describeProspectRelation,
@@ -31,8 +36,6 @@ import {
 import { ClipboardList, Pencil, Plus, Phone, Mail, ArrowRight, Building2 } from "lucide-react";
 
 type Props = { params: Promise<{ id: string }> };
-
-const TYPE_LABELS = { ASSOCIATION: "Association", PRIVE: "Privé", PUBLIC: "Public" } as const;
 
 export default async function ProspectDetailPage({ params }: Props) {
   const { id } = await params;
@@ -59,6 +62,21 @@ export default async function ProspectDetailPage({ params }: Props) {
     establishmentId: prospect.establishmentId,
   });
 
+  // Récapitulatif : rien de nouveau n'est stocké, tout se dérive des faits déjà là.
+  const recapSteps = buildProspectRecap({
+    firstContactDate: prospect.firstContactDate,
+    discoveryUpdatedAt: prospect.discoveryUpdatedAt,
+    devis: prospect.devis,
+    status: prospect.status,
+    establishmentId: prospect.establishmentId,
+  });
+
+  // Ce que la découverte a appris et qui pèse sur l'offre. Lu défensivement : une
+  // réponse écrite sous une version antérieure de la grille ne doit pas casser l'écran.
+  const discoveryAnswers = normaliseDiscoveryAnswers(prospect.discoveryAnswersJson);
+  const highlights = discoveryHighlights(discoveryAnswers);
+  const discoveryStarted = isDiscoveryStarted(discoveryAnswers);
+
   const contactIdentity = formatContactIdentity(prospect);
   // Type de SAD et échéance HAS ne sont pas passés : ils ont leur propre ligne juste
   // en dessous, avec leurs libellés. Cette ligne-ci ne porte que ce qui identifie la
@@ -73,7 +91,7 @@ export default async function ProspectDetailPage({ params }: Props) {
     <div className="space-y-6">
       <PageHeader
         title={prospect.structureName}
-        subtitle={TYPE_LABELS[prospect.structureType]}
+        subtitle={STRUCTURE_TYPE_LABELS[prospect.structureType]}
         backHref="/dashboard/cabinet/commercial/prospects"
         action={
           <div className="flex items-center gap-2">
@@ -88,6 +106,11 @@ export default async function ProspectDetailPage({ params }: Props) {
           </div>
         }
       />
+
+      {/* Ce qui a déjà eu lieu, avant tout le reste : c'est la première question qu'on
+          se pose en ouvrant une fiche, et jusqu'ici il fallait la reconstituer en
+          parcourant la page entière. */}
+      <ProspectRecap steps={recapSteps} closed={isRecapClosed(prospect.status)} />
 
       {nextAction && (
         <Card>
@@ -173,13 +196,6 @@ export default async function ProspectDetailPage({ params }: Props) {
             </div>
           )}
 
-          {prospect.needsAssessmentNotes && (
-            <div className="border-t border-gris-light pt-3">
-              <p className="text-xs text-gris-mid uppercase tracking-wide mb-1">Évaluation des besoins</p>
-              <p className="text-sm text-brun-ancre whitespace-pre-wrap">{prospect.needsAssessmentNotes}</p>
-            </div>
-          )}
-
           {prospect.notes && (
             <div className="border-t border-gris-light pt-3">
               <p className="text-xs text-gris-mid uppercase tracking-wide mb-1">Notes</p>
@@ -211,6 +227,51 @@ export default async function ProspectDetailPage({ params }: Props) {
           </div>
         </div>
 
+        {/* Ce qui a produit le chiffre, juste au-dessus du chiffre. « Ce serait bien
+            qu'on ait la page du rendez-vous découverte qu'on a remplie […] avec la
+            date de la réunion » (call du 01/09) : la relire des semaines plus tard est
+            ce qui permet de se remémorer les contraintes annoncées en séance. */}
+        {(discoveryStarted || prospect.needsAssessmentNotes) && (
+          <Card>
+            <CardContent className="space-y-3 pt-6">
+              <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <p className="text-xs uppercase tracking-wide text-gris-mid">
+                  Évaluation des besoins
+                </p>
+                {prospect.discoveryUpdatedAt && (
+                  <p className="text-xs text-gris-mid">
+                    Découverte du {formatDate(prospect.discoveryUpdatedAt)}
+                  </p>
+                )}
+              </div>
+
+              {highlights.length > 0 && (
+                <dl className="grid grid-cols-1 gap-x-4 gap-y-1.5 text-sm sm:grid-cols-2">
+                  {highlights.map((entry) => (
+                    <div key={entry.label}>
+                      <dt className="text-xs text-gris-mid">{entry.label}</dt>
+                      <dd className="text-brun-ancre">{entry.value}</dd>
+                    </div>
+                  ))}
+                </dl>
+              )}
+
+              {prospect.needsAssessmentNotes && (
+                <p className="whitespace-pre-wrap text-sm text-brun-ancre">
+                  {prospect.needsAssessmentNotes}
+                </p>
+              )}
+
+              <Button asChild size="sm" variant="outline">
+                <Link href={`/dashboard/cabinet/commercial/prospects/${id}/decouverte`}>
+                  <ClipboardList className="w-3.5 h-3.5" aria-hidden="true" />
+                  Revoir la grille de découverte
+                </Link>
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
         {prospect.devis.length === 0 ? (
           <p className="text-sm text-gris-mid">Aucun devis pour ce prospect.</p>
         ) : (
@@ -229,32 +290,45 @@ export default async function ProspectDetailPage({ params }: Props) {
         )}
       </div>
 
-      <div className="space-y-3">
-        <h2 className="text-base font-semibold text-brun-ancre">Rendez-vous</h2>
-        <Card>
-          <CardContent className="pt-6 space-y-5">
-            <AppointmentList
-              appointments={appointments}
-              emptyMessage="Aucun rendez-vous programmé. Posez le créneau du prochain échange — il apparaîtra dans votre agenda."
-            />
-            <div className="border-t border-gris-light pt-5">
-              <AppointmentForm prospectId={id} structureName={prospect.structureName} />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      {/* Repliée par défaut : on ne vient pas sur une fiche pour lire son planning,
+          on y vient pour savoir où en est l'affaire. Le compte reste visible replié,
+          sinon replier revient à cacher une inconnue. */}
+      <CollapsibleSection
+        title="Rendez-vous"
+        summary={
+          appointments.length === 0
+            ? "aucun créneau posé"
+            : `${appointments.length} créneau${appointments.length > 1 ? "x" : ""}`
+        }
+      >
+        <AppointmentList
+          appointments={appointments}
+          emptyMessage="Aucun rendez-vous programmé. Posez le créneau du prochain échange — il apparaîtra dans votre agenda."
+        />
+        <div className="border-t border-gris-light pt-5">
+          <AppointmentForm prospectId={id} structureName={prospect.structureName} />
+        </div>
+      </CollapsibleSection>
 
-      {/* Le dossier : ce que Sandrine reconstituait jusqu'ici dans sa boîte mail. */}
-      <div className="space-y-3" id={TIMELINE_ANCHOR}>
-        <h2 className="text-base font-semibold text-brun-ancre">Historique</h2>
-        <Card>
-          <CardContent className="pt-6 space-y-5">
-            <ProspectCommentForm prospectId={id} />
-            <div className="border-t border-gris-light pt-4">
-              <ProspectTimeline entries={prospect.timeline} />
-            </div>
-          </CardContent>
-        </Card>
+      {/* Le dossier : ce que Sandrine reconstituait jusqu'ici dans sa boîte mail.
+          Ouvert par défaut, contrairement aux rendez-vous — c'est ce qu'on vient lire
+          pour comprendre où en est la relation, et l'ancre `TIMELINE_ANCHOR` y renvoie
+          depuis l'étape suivante. */}
+      <div id={TIMELINE_ANCHOR}>
+        <CollapsibleSection
+          title="Historique"
+          defaultOpen
+          summary={
+            prospect.timeline.length === 0
+              ? "aucun échange consigné"
+              : `${prospect.timeline.length} entrée${prospect.timeline.length > 1 ? "s" : ""}`
+          }
+        >
+          <ProspectCommentForm prospectId={id} />
+          <div className="border-t border-gris-light pt-4">
+            <ProspectTimeline entries={prospect.timeline} />
+          </div>
+        </CollapsibleSection>
       </div>
     </div>
   );
