@@ -3,7 +3,10 @@ import { ElementRow } from "./ElementRow";
 import { scoreLabel } from "@/lib/services/scoring-service";
 import type { EvaluationCriterionView } from "@/lib/actions/evaluation";
 
-type Props = { sessionId: string; criterion: EvaluationCriterionView };
+// `sessionId` null = aucune session ouverte : les cotations s'affichent, elles ne se
+// modifient pas. L'action serveur refuse de toute façon d'écrire dans une session
+// clôturée — l'absence de boutons n'en est que le reflet visible.
+type Props = { sessionId: string | null; criterion: EvaluationCriterionView };
 
 export function CriterionGroup({ sessionId, criterion }: Props) {
   return (

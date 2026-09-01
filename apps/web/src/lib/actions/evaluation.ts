@@ -48,6 +48,53 @@ function evaluationPaths(establishmentId: string, chapterNumber?: number) {
   return paths;
 }
 
+// État de session d'un chapitre, tel que l'écran de cotation en a besoin.
+//
+// ⚠️ Une session n'est PLUS créée à l'ouverture de la page. Elle l'était, et la
+// conséquence n'était visible qu'après avoir cloturé une session : rouvrir le
+// chapitre créait aussitôt une session vide, l'écran lisant toujours la plus
+// récente, toutes les cotations disparaissaient. Sandrine aurait conclu à une perte
+// de données — et c'est exactement le scénario de la SECONDE auto-évaluation
+// promise en offre Excellence (§12.6).
+//
+// Désormais : la page reprend la session OUVERTE s'il y en a une, sinon elle montre
+// la dernière session clôturée en lecture, et l'ouverture d'une nouvelle session est
+// un geste explicite.
+export type ChapterSessionState =
+  | { kind: "OPEN"; sessionId: string; startedAt: Date }
+  | { kind: "CLOSED"; startedAt: Date; finishedAt: Date; sessionCount: number }
+  | { kind: "NONE" };
+
+export async function getChapterSessionState(
+  establishmentId: string,
+  chapterId: string
+): Promise<ChapterSessionState> {
+  await requireEstablishmentInTenant(establishmentId);
+
+  const latest = await prisma.evaluationSession.findFirst({
+    where: { establishmentId, chapterId },
+    orderBy: { startedAt: "desc" },
+    select: { id: true, startedAt: true, finishedAt: true },
+  });
+  if (!latest) return { kind: "NONE" };
+  if (latest.finishedAt === null) {
+    return { kind: "OPEN", sessionId: latest.id, startedAt: latest.startedAt };
+  }
+
+  const sessionCount = await prisma.evaluationSession.count({
+    where: { establishmentId, chapterId },
+  });
+  return {
+    kind: "CLOSED",
+    startedAt: latest.startedAt,
+    finishedAt: latest.finishedAt,
+    sessionCount,
+  };
+}
+
+// Ouverture d'une session : reprend celle qui est ouverte, ou en crée une. Appelée
+// par un BOUTON, jamais par le rendu d'une page — c'est cette différence qui protège
+// les cotations de la session précédente.
 export async function startOrResumeEvaluationSession(
   establishmentId: string,
   chapterId: string
@@ -71,6 +118,18 @@ export async function startOrResumeEvaluationSession(
   return { sessionId: created.id, startedAt: created.startedAt };
 }
 
+// Version appelable depuis un formulaire : la page se recharge sur la session
+// ouverte. Le `void` est volontaire — l'écran n'a rien à faire de l'identifiant, il
+// le relira par `getChapterSessionState`.
+export async function openEvaluationSession(
+  establishmentId: string,
+  chapterId: string,
+  chapterNumber: number
+): Promise<void> {
+  await startOrResumeEvaluationSession(establishmentId, chapterId);
+  for (const path of evaluationPaths(establishmentId, chapterNumber)) revalidatePath(path);
+}
+
 export async function rateElement(
   sessionId: string,
   evaluationElementId: string,
@@ -80,6 +139,15 @@ export async function rateElement(
   if (!isEnumValue(rating, Rating)) return { error: "Cotation invalide." };
 
   const { evaluationSession } = await requireEvaluationSessionInTenant(sessionId);
+
+  // Une session clôturée ne se cote plus. Elle est la PHOTO d'un état à une date :
+  // la réécrire ferait dériver la première auto-évaluation à mesure qu'on avance
+  // dans la seconde, et la comparaison des deux ne voudrait plus rien dire. Le
+  // contrôle est ici, dans l'action — l'écran ne propose déjà pas les boutons, mais
+  // `sessionId` vient d'une route HTTP publique.
+  if (evaluationSession.finishedAt !== null) {
+    return { error: "Cette session est clôturée. Ouvrez une nouvelle session pour coter." };
+  }
 
   const element = await prisma.evaluationElement.findUnique({
     where: { id: evaluationElementId },
@@ -131,6 +199,10 @@ export async function rateElement(
 
 export async function finishEvaluationSession(sessionId: string): Promise<void> {
   const { evaluationSession } = await requireEvaluationSessionInTenant(sessionId);
+
+  // Déjà clôturée : ne rien réécrire. Sinon un second clic repousserait `finishedAt`
+  // et gonflerait la durée de séance d'un temps où personne ne travaillait.
+  if (evaluationSession.finishedAt !== null) return;
 
   const durationSeconds = Math.round((Date.now() - evaluationSession.startedAt.getTime()) / 1000);
 
