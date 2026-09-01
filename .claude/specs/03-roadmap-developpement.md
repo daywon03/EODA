@@ -139,8 +139,23 @@ qualité perçue de ce module conditionne l'adoption de toute la plateforme.
 - [x] Tableau de résultats par chapitre + critères impératifs à risque mis en évidence
 - [x] `PreRatingSuggestionService` — pont avec les statuts documents du Module 1, suggestion
   virtuelle jamais persistée sans confirmation humaine
-- [ ] Export structuré (CSV/Excel) des cotations — format à valider avec Sandrine, **pas
-  encore fait**
+- [x] Export structuré des cotations **fait le 01/09/2026** — CSV ouvrable dans Excel
+  (`evaluation-export-service.ts`, pur et testé ; route `/api/export/cotations/[id]`).
+  Séparateur `;`, virgule décimale, BOM UTF-8, CRLF, échappement RFC 4180 : sans ces
+  quatre détails le fichier est inutilisable en locale française. Cotation absente ⇒
+  cellule VIDE, jamais 0. Journalisé (`EVALUATION_EXPORTED`) : un export fait sortir
+  les données de la plateforme. ⚠️ **Ce n'est pas un fichier d'import Synaé** — le
+  format réel n'est toujours pas spécifié (risque n°1), et l'écran le dit.
+- [x] **Seconde auto-évaluation comparable** *(01/09/2026)* — promesse de l'offre
+  Excellence (§12.6). `evaluation-comparison-service.ts` (pur, testé) compare les deux
+  dernières sessions d'un chapitre par SCORE DE CRITÈRE ; un critère coté d'un seul
+  côté est `INCOMPARABLE`, jamais un écart de ±4. Écran
+  `/evaluation/comparaison`, trié par ce qui a reculé, impératifs en tête.
+  ⚠️ **Bug corrigé au passage** : l'écran de chapitre CRÉAIT une session à chaque
+  chargement — après une clôture, rouvrir le chapitre ouvrait une session vide et
+  toutes les cotations disparaissaient de l'écran. L'ouverture est désormais un geste
+  explicite, une session clôturée s'affiche en lecture, et coter dedans est refusé
+  côté serveur (une session close est la photo d'un état à une date).
 - [ ] Critère 3.6.2 (17ᵉ impératif, SAD Mixte) absent des grilles source (spécifiques SAD
   Aide) — support SAD Mixte complet en attente d'une grille Mixte fournie séparément
 
@@ -211,7 +226,9 @@ avant mise en usage réel.
   `migrate deploy` puis `next build` ; l'application journalise une erreur unique au démarrage
   si le schéma est en retard. Checklist de mise en production dans `README.md`. Détail : §4.12.
 - [ ] Tests de charge basiques sur le pipeline d'analyse (un upload simultané de plusieurs
-  documents ne doit pas planter le job queue)
+  documents ne doit pas planter le job queue) — **en attente de `ANTHROPIC_API_KEY`** :
+  mesurer la charge sur `StubAnalysisAdapter` ne mesurerait que la base de données, pas
+  le temps d'analyse réel qui est la seule variable qui compte ici.
 - [ ] Vérification réelle du format d'export attendu par Synaé (point ouvert — voir
   §risques)
 
@@ -310,11 +327,24 @@ tarifaire).
 - [x] **E-mail d'invitation client** *(27/08/2026)* — identifiant, mot de passe temporaire et
   lien, envoyés à la création du compte. L'écran DIT si l'e-mail est parti : sinon Sandrine
   communique le mot de passe elle-même. Un échec d'envoi ne perd jamais le compte.
-- [ ] **Abonnement portail** — 400 €/mois, engagement 1 an à reconduction tacite, dégressivité
-  -10 % Performance / -30 % Excellence à calculer dans l'outil (§12.2).
+- [x] **Abonnement portail** *(01/09/2026)* — 400 €/mois, engagement 12 mois à
+  reconduction tacite, dégressivité **-10 % Performance / -30 % Excellence** enfin
+  chiffrée dans l'outil (`subscription-service.ts`, pur et testé) : la plaquette v10
+  écrit « dégressif selon l'abonnement » sans jamais donner le taux. La remise dépend
+  de l'OFFRE souscrite à côté, pas de la ligne de catalogue — une colonne `discount`
+  serait fausse au premier devis d'une autre formule. Appliquée une fois à la
+  construction du devis puis SNAPSHOTÉE, affichée par le portail client au prix de SA
+  formule, appariée par CODE catalogue. Le bêta-test suit Excellence.
 - [ ] **Module sensibilisation** — génération du PDF de questions ciblé sur les critères
   faibles, renvoi vers Kahoot, réimport des statistiques (§12.5). Pas de moteur de quiz maison.
-- [ ] **Relances automatiques** — délais, cadence et condition d'arrêt jamais spécifiés (§12.7).
+- [~] **Relances** *(01/09/2026)* — le GESTE est livré, pas l'automate : Sandrine
+  déclenche depuis la fiche client, l'e-mail porte la liste des pièces encore
+  attendues (`reminder-service.ts`, pur et testé ; `DOCUMENT_REMINDER_SENT` au
+  journal). Une pièce déjà justifiée n'est jamais relancée — c'est une réponse, pas un
+  oubli — ni un document que le cabinet doit produire. Refus explicite quand plus aucun
+  dépôt n'est possible. **Ce qui reste bloqué : délais, cadence et condition d'arrêt,
+  jamais spécifiés (§12.7).** Le jour où ils le seront, une tâche planifiée appellera
+  la même action.
 - [x] **Fin de mission** *(26/08/2026)* — trois états d'accès DÉRIVÉS de deux faits
   (`Mission.closedAt`, `Mission.clientAccessRevokedAt`) : mission active / bibliothèque en
   lecture seule / accès révoqué. Aucune suppression, tout est réversible, les quatre gestes
@@ -322,4 +352,34 @@ tarifaire).
   l'affichage. Migration `20260826140000_mission_client_access`. Détail :
   `specs/02-architecture-technique.md` §4.16.
 - [ ] **Export Excel compatible Synaé** — format d'import réel toujours inconnu (§12.7,
-  risque n°1 ci-dessous).
+  risque n°1 ci-dessous). L'export CSV générique existe depuis le 01/09/2026 (Jalon 4) ;
+  seule la mise en forme restera à adapter.
+- [x] **Contrat d'accompagnement** *(01/09/2026)* — dernière étape du parcours de
+  conversion (§12.6). Il RÉCAPITULE le devis signé — parties, objet, périmètre,
+  montants fermes, engagements réciproques — et ne le remplace pas : le devis reste le
+  document contractuel du dépôt. Aucune clause de droit nouvelle : chaque engagement
+  listé est la reprise d'une décision déjà écrite (revue humaine, hébergement UE,
+  bibliothèque après clôture, indépendance conseil/évaluateur). Refuse de se produire
+  sans accord chiffré, sauf bêta-test gratuit. `/imprimer/contrat/[id]`,
+  `contract-service.ts` (pur, testé). ⚠️ **Reste dû par Sandrine** : ses conditions
+  générales de prestation (paiement, résiliation, litiges) — le contrat y renvoie en
+  annexe, il ne les invente pas.
+- [x] **Signature d'avenant suivie** *(01/09/2026)* — `MissionOption.avenantSignedOn`.
+  Ne rend PAS le montant ferme : `priceIsFirm` dit la provenance (devis signé), ce
+  champ dit la régularisation. Une option régularisée ne revient plus sur un avenant et
+  ne se retire plus en décochant une case. Réversible, journalisé.
+- [x] **Grille d'entretien découverte** *(01/09/2026)* — le bouton « Préparer la
+  réunion de découverte » ouvrait directement le choix de l'offre : on chiffrait avant
+  d'avoir écouté. La grille (contenu versionné dans `content/decouverte/`, réponses en
+  colonne `Json` lue défensivement) précède désormais l'évaluation des besoins.
+  ⚠️ Le gabarit de référence de Sandrine n'est pas dans le dépôt : les questions
+  livrées sont un gabarit interne provisoire, annoncé comme tel à l'écran. L'ouverture
+  au client n'est pas tranchée — `CABINET_ADMIN` uniquement.
+- [x] **Restitutions & livrables** *(01/09/2026)* — quatrième onglet du portail client
+  (CDC §5) : ce qu'EODA a produit ET validé, téléchargeable. Aucun modèle nouveau, la
+  sélection est dérivée (`deliverables-service.ts`). Seule l'étape VALIDE ouvre la
+  remise ; ce qui est en cours est compté, jamais listé.
+- [x] **Fil d'échange consultante ↔ client** *(01/09/2026)* — CDC §5 « messagerie »,
+  priorité souhaitable. Un fil par établissement, append-only, sans pièce jointe.
+  Le client garde la parole en bibliothèque (§12.5) ; seul un accès révoqué le ferme.
+  L'e-mail de notification ne transporte pas le contenu du message.
