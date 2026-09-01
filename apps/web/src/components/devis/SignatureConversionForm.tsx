@@ -11,7 +11,7 @@ import { InviteClientForm } from "@/components/etablissement/InviteClientForm";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { AlertCircle, ArrowRight, CheckCircle2, Loader2 } from "lucide-react";
+import { AlertCircle, ArrowRight, CheckCircle2, FileSignature, Loader2 } from "lucide-react";
 import type { EstablishmentType } from "@eoda/database";
 
 type Props = {
@@ -99,6 +99,33 @@ export function SignatureConversionForm({
             />
           </div>
         )}
+
+        {/* ÉTAPE CONTRAT (§12.6 — « génération de contrat obligatoire »). Elle vient
+            après la conversion et pas avant : le contrat récapitule un périmètre qui
+            n'existe qu'une fois la mission créée. Le document s'ouvre dans un onglet
+            isolé, comme le devis et l'avenant — sa vue imprimable n'a ni en-tête ni
+            navigation. */}
+        <div className="space-y-2 pt-3 border-t border-gris-light">
+          <div>
+            <h2 className="text-base font-semibold text-brun-ancre">
+              Éditer le contrat d&apos;accompagnement
+            </h2>
+            <p className="text-sm text-gris-mid">
+              Récapitule le devis signé : parties, périmètre, montants fermes et
+              engagements réciproques. À faire signer avec le devis en annexe.
+            </p>
+          </div>
+          <Button variant="outline" asChild>
+            <Link
+              href={`/imprimer/contrat/${state.establishmentId}`}
+              target="_blank"
+              rel="noreferrer"
+            >
+              <FileSignature className="w-4 h-4" aria-hidden="true" />
+              Ouvrir le contrat
+            </Link>
+          </Button>
+        </div>
 
         <div className="flex flex-wrap gap-3 pt-3 border-t border-gris-light">
           <Button asChild>

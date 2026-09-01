@@ -58,3 +58,20 @@
     scroll-behavior: auto !important;
   }
 }
+
+/* Documents imprimables (devis, avenant, contrat, rapport).
+ *
+ * Les navigateurs n'impriment PAS les fonds de couleur par défaut : un bandeau
+ * brun de la charte sortirait blanc, et son titre ivoire deviendrait invisible.
+ * On force donc le rendu exact des couleurs, mais seulement sur ces pages — pas
+ * sur toute l'application, où l'encre n'a pas à être dépensée. */
+@media print {
+  .document-print {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  @page {
+    margin: 14mm;
+  }
+}

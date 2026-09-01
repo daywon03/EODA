@@ -27,7 +27,11 @@ const CIVILITY_SHORT: Record<Civility, string> = {
 export const CONTACT_ROLE_LABELS: Record<ContactRole, string> = {
   DIRECTION: "Direction",
   COORDINATION: "Coordination",
-  ASSISTANAT: "Assistanat",
+  // Libellé d'AFFICHAGE, volontairement différent du nom de la valeur en base :
+  // « Assistanat » nomme une fonction, pas une personne, et c'est une personne qu'on
+  // désigne ici. La valeur `ASSISTANAT` ne bouge pas — renommer un membre d'enum
+  // PostgreSQL pour un mot d'interface serait une migration pour rien.
+  ASSISTANAT: "Assistant(e)",
   AUTRE: "Autre",
 };
 

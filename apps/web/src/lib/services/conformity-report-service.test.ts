@@ -20,7 +20,7 @@ function item(overrides: Partial<ReportSourceItem> = {}): ReportSourceItem {
     code: "L2002_DIPC",
     label: "DIPC / Contrat de séjour",
     category: "LOI_2002_2",
-    step: "RESTITUE",
+    step: "RELU",
     analysis: ANALYSIS,
     analysisReviewedAt: new Date("2026-09-01"),
     criteria: [{ code: "1.10.6", label: "Le projet personnalisé est réactualisé" }],

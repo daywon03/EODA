@@ -1,6 +1,7 @@
 import { formatDate } from "@/lib/services/date-format-service";
 import { buildContractualMention } from "@/lib/services/document-ownership-service";
 import { DocumentBrandHeader } from "@/components/documents/DocumentBrandHeader";
+import { DocumentSignatureBlocks } from "@/components/documents/DocumentSignatureBlocks";
 import { formatStartingPrice } from "@/lib/services/price-format-service";
 import {
   avenantStartingTotalEuros,
@@ -90,21 +91,9 @@ export function AvenantPrintable({
       </div>
 
       {/* Un avenant se signe : sans emplacement de signature, le document ne vaut
-          rien et Sandrine devrait le retoucher à la main avant chaque envoi. */}
-      <div className="grid grid-cols-2 gap-8 pt-8 text-sm">
-        <div>
-          <p className="text-xs text-gris-mid">Pour EODA Conseil</p>
-          <p className="mt-1 text-xs text-gris-mid">Date et signature</p>
-          <div className="h-20 border-b border-gris-light" />
-        </div>
-        <div>
-          <p className="text-xs text-gris-mid">Pour {establishmentName}</p>
-          <p className="mt-1 text-xs text-gris-mid">
-            Date, signature et cachet, précédées de la mention « bon pour accord »
-          </p>
-          <div className="h-20 border-b border-gris-light" />
-        </div>
-      </div>
+          rien et Sandrine devrait le retoucher à la main avant chaque envoi. Même
+          bloc que le devis et le contrat (D1). */}
+      <DocumentSignatureBlocks counterpartyName={establishmentName} />
 
       <p className="text-xs text-gris-mid border-t border-gris-light pt-4">
         Tarifs indicatifs « à partir de » · TVA non applicable, art. 293 B du CGI · les

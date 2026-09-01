@@ -15,7 +15,7 @@ import { PhaseChecklistSection } from "@/components/mission/PhaseChecklistSectio
 import { MissionDocumentCounters } from "@/components/mission/MissionDocumentCounters";
 import { MissionClosureSection } from "@/components/mission/MissionClosureSection";
 import { Button } from "@/components/ui/button";
-import { FileSignature } from "lucide-react";
+import { FileSignature, FileText } from "lucide-react";
 import { needsAvenant } from "@/lib/services/avenant-service";
 import { auth } from "@/auth";
 import type { MissionChecklistScope } from "@eoda/database";
@@ -93,6 +93,20 @@ export default async function MissionPage({ params }: Props) {
                   avenant (§12.6) : elle n'est couverte par aucun document signé.
                   Le bouton n'apparaît que dans ce cas — proposer un avenant vide
                   ferait signer un document sans objet. */}
+              {/* Le CONTRAT récapitule le périmètre signé ; l'AVENANT ne porte que
+                  ce qui s'y ajoute. Deux documents, deux objets : le bouton du
+                  contrat est donc toujours là, celui de l'avenant seulement quand il
+                  a quelque chose à constater. La route refuse d'elle-même de produire
+                  un contrat sans devis signé (canIssueContract). */}
+              <div className="mb-4 flex flex-wrap items-center gap-3">
+                <Button size="sm" variant="outline" asChild>
+                  <a href={`/imprimer/contrat/${id}?auto=1`} target="_blank" rel="noopener noreferrer">
+                    <FileText className="w-3.5 h-3.5" aria-hidden="true" />
+                    Éditer le contrat d&apos;accompagnement
+                  </a>
+                </Button>
+              </div>
+
               {needsAvenant(mission.options) && (
                 <div className="mb-4 flex flex-wrap items-center gap-3 rounded-lg border border-ambre/30 bg-ambre/10 px-4 py-3">
                   <p className="text-sm text-brun-ancre flex-1 min-w-0">

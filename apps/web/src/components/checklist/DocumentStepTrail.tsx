@@ -19,8 +19,8 @@ type Props = {
   step: DocumentStep;
 };
 
-// Parcours du document côté CABINET : déposé → analysé → mis en conformité →
-// restitué → validé. Le client, lui, ne voit que ce qui le concerne (manquant,
+// Parcours du document côté CABINET : téléchargé → analysé → modifié → relu →
+// validé. Le client, lui, ne voit que ce qui le concerne (manquant,
 // déposé, conforme) — c'est la demande du 26/08, et les deux portails ne suivent pas
 // la même chose.
 //

@@ -9,6 +9,11 @@ import { DocumentAnalysisPanel } from "./DocumentAnalysisPanel";
 import { DocumentVersionHistory } from "./DocumentVersionHistory";
 import { DocumentStepTrail } from "./DocumentStepTrail";
 import { DocumentScopeToggle } from "./DocumentScopeToggle";
+import { ProgressBar } from "@/components/ui/progress-bar";
+import {
+  documentProgressPercent,
+  summariseDocumentObligations,
+} from "@/lib/services/client-contract-service";
 import type { ChecklistItem } from "@/lib/actions/checklist";
 import type { DocumentStatus } from "@eoda/database";
 
@@ -51,6 +56,11 @@ export function ChecklistCategory({
 
   const missing = items.filter((i) => i.status === "MISSING").length;
   const compliant = items.filter((i) => i.status === "COMPLIANT").length;
+  // « Barre de progression globale ET par chapitre » (CDC §5) : la jauge globale
+  // seule ne dit pas OÙ il reste du travail. Comptage délégué au même service que
+  // la jauge globale — deux calculs de progression finiraient par se contredire sur
+  // le même écran (D1).
+  const categoryPercent = documentProgressPercent(summariseDocumentObligations(items));
   const sorted = [...items].sort((a, b) => statusScore(a.status) - statusScore(b.status));
   const panelId = `checklist-panel-${title.replace(/\s+/g, "-").toLowerCase()}`;
 
@@ -74,7 +84,17 @@ export function ChecklistCategory({
             ({items.length} document{items.length > 1 ? "s" : ""})
           </span>
         </div>
-        <div className="flex items-center gap-2 text-xs flex-shrink-0">
+        <div className="flex items-center gap-3 text-xs flex-shrink-0">
+          {/* La jauge de la catégorie, dans l'en-tête : elle se lit accordéon
+              fermé, sinon elle n'aide pas à choisir lequel ouvrir. */}
+          <span className="hidden sm:flex items-center gap-2">
+            <ProgressBar
+              value={categoryPercent}
+              colorClassName="bg-vert-ok"
+              className="w-24 h-1.5"
+            />
+            <span className="text-gris-mid tabular-nums">{categoryPercent}%</span>
+          </span>
           {missing > 0 && (
             <span className="text-rouge-imp font-medium">{missing} manquant{missing > 1 ? "s" : ""}</span>
           )}

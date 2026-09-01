@@ -197,7 +197,7 @@ async function buildChecklist(
         hasCabinetVersion: (doc?.versions ?? []).some(
           (version) => version.uploadedBy.role !== "CLIENT_USER"
         ),
-        analysisRestituted: doc?.currentVersion?.analysisReviewedAt != null,
+        analysisReviewed: doc?.currentVersion?.analysisReviewedAt != null,
         validatedAt: doc?.validatedAt ?? null,
       }),
     };
