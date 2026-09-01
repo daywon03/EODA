@@ -52,4 +52,5 @@ export const EXPECTED_MIGRATIONS: readonly string[] = [
   "20260901100000_evaluation_export_audit",
   "20260901110000_avenant_signature",
   "20260901120000_avenant_signature_audit",
+  "20260901130000_document_reminder_audit",
 ] as const;

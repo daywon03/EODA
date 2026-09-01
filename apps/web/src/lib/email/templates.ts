@@ -140,3 +140,64 @@ export function buildOptionRequestEmail(input: {
     html: layout("Une structure demande une prestation complémentaire", body, input.brand),
   };
 }
+
+// Relance des pièces manquantes.
+//
+// « Relances automatiques des clients qui ne fournissent pas » (§12.5). Les DÉLAIS,
+// la CADENCE et la condition d'arrêt n'ont jamais été spécifiés (§12.7) : rien
+// n'envoie ce message tout seul, c'est Sandrine qui déclenche. Un envoi automatique
+// dont personne n'a fixé le rythme finit soit inutile, soit harcelant.
+//
+// La liste des pièces est DANS le message : renvoyer « connectez-vous pour voir ce
+// qui manque » ajoute une étape à quelqu'un qui n'a déjà pas trouvé le temps de
+// déposer. Aucun contenu de document, aucune analyse, aucun nom de personne
+// accompagnée n'y figure — seulement des intitulés de documents attendus.
+export function buildDocumentReminderEmail(input: {
+  recipientName: string;
+  establishmentName: string;
+  missingLabels: readonly string[];
+  // Mot ajouté par Sandrine avant l'envoi. Facultatif : une relance sans contexte
+  // reste utile, une relance qu'on ne peut pas nuancer ne sera pas envoyée.
+  message: string | null;
+  portalUrl: string;
+  brand?: BrandAssets;
+}): EmailContent {
+  const message = input.message?.trim();
+  const items = input.missingLabels
+    .map(
+      (label) =>
+        `<li style="margin:0 0 6px;color:${BRUN_ANCRE};font-size:15px;line-height:1.5">${escapeHtml(label)}</li>`
+    )
+    .join("");
+
+  const body = `
+    <p style="color:${BRUN_ANCRE};font-size:15px;line-height:1.6">
+      Bonjour ${escapeHtml(input.recipientName)},
+    </p>
+    <p style="color:${BRUN_ANCRE};font-size:15px;line-height:1.6">
+      Dans le cadre de la préparation de l'évaluation qualité HAS de
+      ${escapeHtml(input.establishmentName)}, les pièces suivantes restent attendues :
+    </p>
+    <ul style="margin:16px 0;padding-left:20px">${items}</ul>
+    ${
+      message
+        ? `<blockquote style="margin:16px 0;padding:12px 16px;background:${IVOIRE};border-left:3px solid ${TERRE};border-radius:0 8px 8px 0;color:${BRUN_ANCRE};font-size:14px;line-height:1.6">${escapeHtml(message)}</blockquote>`
+        : ""
+    }
+    <p style="color:${BRUN_ANCRE};font-size:15px;line-height:1.6">
+      Si un document n'existe pas ou ne concerne pas votre structure, indiquez-le
+      directement depuis votre espace : c'est une réponse, pas un manque.
+    </p>
+    <p style="margin:24px 0">
+      <a href="${escapeHtml(input.portalUrl)}"
+         style="background:${TERRE};color:#ffffff;text-decoration:none;padding:12px 20px;border-radius:8px;display:inline-block;font-weight:bold">
+        Déposer mes documents
+      </a>
+    </p>`;
+
+  const count = input.missingLabels.length;
+  return {
+    subject: `Documents attendus — ${input.establishmentName} (${count} pièce${count > 1 ? "s" : ""})`,
+    html: layout("Il reste des pièces à déposer", body, input.brand),
+  };
+}

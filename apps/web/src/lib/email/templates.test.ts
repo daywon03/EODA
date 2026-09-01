@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { buildClientInvitationEmail, buildOptionRequestEmail, escapeHtml } from "./templates";
+import {
+  buildClientInvitationEmail,
+  buildDocumentReminderEmail,
+  buildOptionRequestEmail,
+  escapeHtml,
+} from "./templates";
 
 describe("escapeHtml", () => {
   it("neutralise une balise injectée dans un champ de saisie", () => {
@@ -118,5 +123,50 @@ describe("logo dans l'en-tête", () => {
     });
     expect(withoutLogo.html).not.toContain("<img");
     expect(withoutLogo.html).toContain("EODA Conseil");
+  });
+});
+
+describe("buildDocumentReminderEmail", () => {
+  const base = {
+    recipientName: "Camille Martin",
+    establishmentName: "Structure test",
+    missingLabels: ["Projet de service", "DIPC"],
+    message: null,
+    portalUrl: "https://portail.test/dashboard/client",
+  };
+
+  it("liste les pièces DANS le message", () => {
+    // Renvoyer « connectez-vous pour voir ce qui manque » ajoute une étape à
+    // quelqu'un qui n'a déjà pas trouvé le temps de déposer.
+    const email = buildDocumentReminderEmail(base);
+    expect(email.html).toContain("Projet de service");
+    expect(email.html).toContain("DIPC");
+  });
+
+  it("annonce le nombre de pièces dans l'objet, accordé", () => {
+    expect(buildDocumentReminderEmail(base).subject).toContain("(2 pièces)");
+    expect(
+      buildDocumentReminderEmail({ ...base, missingLabels: ["DIPC"] }).subject
+    ).toContain("(1 pièce)");
+  });
+
+  it("échappe un intitulé et un message venus d'une saisie", () => {
+    const email = buildDocumentReminderEmail({
+      ...base,
+      missingLabels: ['<img src=x onerror="alert(1)">'],
+      message: "<script>alert(2)</script>",
+    });
+    expect(email.html).not.toContain("<img src=x");
+    expect(email.html).not.toContain("<script>");
+    expect(email.html).toContain("&lt;script&gt;");
+  });
+
+  it("rappelle qu'un document non concerné se justifie depuis l'espace", () => {
+    // Sans cette phrase, la seule réponse possible à une relance est le silence.
+    expect(buildDocumentReminderEmail(base).html).toContain("ne concerne pas votre structure");
+  });
+
+  it("n'affiche aucun bloc de citation sans message", () => {
+    expect(buildDocumentReminderEmail(base).html).not.toContain("blockquote");
   });
 });

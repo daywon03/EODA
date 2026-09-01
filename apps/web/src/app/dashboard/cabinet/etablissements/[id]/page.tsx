@@ -8,6 +8,8 @@ import { DeleteEstablishmentButton } from "@/components/etablissement/DeleteEsta
 import { ChecklistCategory } from "@/components/checklist/ChecklistCategory";
 import { MissionSummaryCard } from "@/components/mission/MissionSummaryCard";
 import { EstablishmentLogoForm } from "@/components/etablissement/EstablishmentLogoForm";
+import { DocumentReminderForm } from "@/components/etablissement/DocumentReminderForm";
+import { selectReminderLabels } from "@/lib/services/reminder-service";
 import { AppointmentForm } from "@/components/agenda/AppointmentForm";
 import { AppointmentList } from "@/components/agenda/AppointmentList";
 import { listAppointmentsFor } from "@/lib/actions/appointment";
@@ -24,6 +26,7 @@ import {
   FileBarChart,
   Image as ImageIcon,
   Pencil,
+  Send,
   Users,
 } from "lucide-react";
 import Link from "next/link";
@@ -73,6 +76,10 @@ export default async function EstablishmentDetailPage({ params }: Props) {
   // Basculer un document entre « réclamé au client » et « produit par EODA » est une
   // politique de cabinet : réservée à CABINET_ADMIN, comme le catalogue.
   const isAdmin = session?.user.role === "CABINET_ADMIN";
+
+  // Pièces réclamées et encore manquantes — la même règle que la relance elle-même
+  // (reminder-service), pour que le nombre affiché soit exactement ce qui partira.
+  const reminderCount = selectReminderLabels(Object.values(checklist).flat()).length;
 
   // Étape dérivée des faits, jamais d'un statut stocké (cf. lifecycle-service).
   const lifecycle = toMissionLifecycleFacts(establishment.mission);
@@ -291,6 +298,25 @@ export default async function EstablishmentDetailPage({ params }: Props) {
               Éditer le rapport
             </a>
           </Button>
+        </CardContent>
+      </Card>
+
+      {/* Relance des pièces manquantes (§12.5). Un geste, jamais une horloge : la
+          cadence n'a jamais été spécifiée (§12.7), et un rythme inventé serait soit
+          inutile, soit harcelant. */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <Send className="w-4 h-4 text-terre" aria-hidden="true" />
+            Relancer les pièces manquantes
+          </CardTitle>
+          <CardDescription>
+            Envoie aux interlocuteurs de la structure la liste des pièces encore
+            attendues. Les pièces déjà justifiées ne sont pas relancées.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <DocumentReminderForm establishmentId={id} missingCount={reminderCount} />
         </CardContent>
       </Card>
 

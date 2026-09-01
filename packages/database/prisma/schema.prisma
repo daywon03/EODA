@@ -1174,6 +1174,9 @@ enum AuditAction {
   // déverrouillent le retrait d'une prestation du périmètre d'un client.
   AVENANT_SIGNED
   AVENANT_SIGNATURE_CLEARED
+  // Relance des pièces manquantes envoyée aux interlocuteurs d'une structure.
+  // `detail` = le nombre de pièces et de destinataires, jamais leurs adresses.
+  DOCUMENT_REMINDER_SENT
 }
 
 model AuditLogEntry {

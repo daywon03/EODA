@@ -55,6 +55,7 @@ const ACTION_LABELS: Record<AuditAction, string> = {
   EVALUATION_EXPORTED: "Export des cotations d'auto-évaluation",
   AVENANT_SIGNED: "Avenant signé (retour du client)",
   AVENANT_SIGNATURE_CLEARED: "Signature d'avenant retirée",
+  DOCUMENT_REMINDER_SENT: "Relance des pièces manquantes",
 };
 
 const ROLE_LABELS: Record<string, string> = {
