@@ -53,6 +53,14 @@ export function AppointmentList({ appointments, readOnly = false, emptyMessage }
                   </p>
                   <p className="text-xs text-gris-mid">
                     {APPOINTMENT_KIND_LABELS[appointment.kind]}
+                    {/* Rendez-vous tenu avant la signature : dit en toutes lettres,
+                        sinon il se lit comme un point d'accompagnement — et personne
+                        ne comprend pourquoi il n'apparaît pas côté client. */}
+                    {appointment.beforeSignature && (
+                      <span className="ml-1.5 rounded bg-ivoire px-1.5 py-0.5 text-[10px] font-medium text-brun-moyen">
+                        avant signature
+                      </span>
+                    )}
                     {!readOnly && (
                       <>
                         {" · "}

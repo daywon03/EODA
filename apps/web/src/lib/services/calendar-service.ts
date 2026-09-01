@@ -60,6 +60,11 @@ export type CalendarAppointment = {
   // lecture : l'agenda du cabinet est inutilisable sans savoir DE QUI on parle.
   structureName: string;
   href: string | null;
+  // Rendez-vous tenu au stade PROSPECT, affiché sur la fiche d'un client déjà
+  // converti. La distinction compte : ces créneaux ne sont pas rattachés à la fiche
+  // (ils appartiennent à l'historique commercial) et ne sont pas visibles du client.
+  // Sans ce marqueur, ils se liraient comme des rendez-vous d'accompagnement.
+  beforeSignature?: boolean;
 };
 
 // ── Dates ────────────────────────────────────────────────────────────────────

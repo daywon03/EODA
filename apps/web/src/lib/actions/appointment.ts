@@ -139,27 +139,58 @@ export async function listUpcomingAgenda(limit = 8): Promise<CalendarAppointment
 }
 
 // Les rendez-vous d'UNE structure — affichés sur sa fiche ou sur le prospect.
+//
+// ⚠️ Côté FICHE CLIENT, on ramène aussi les rendez-vous tenus AVANT la signature.
+// Ils restent rattachés au prospect (la conversion ne déplace rien, l'historique
+// commercial ne se réécrit pas), et la fiche affichait donc un agenda vide pour une
+// structure rencontrée trois fois : la découverte, la réunion de besoins et la
+// signature avaient disparu de sa vue. Ils sont marqués `beforeSignature` pour ne pas
+// se confondre avec les points d'accompagnement, et restent invisibles du client —
+// `listClientAppointments` est une requête à part, filtrée sur `visibleToClient`.
 export async function listAppointmentsFor(owner: {
   prospectId?: string;
   establishmentId?: string;
 }): Promise<CalendarAppointment[]> {
   const { tenantId, session } = await requireCabinetSession();
+  const isAdmin = session.user.role === "CABINET_ADMIN";
 
-  const where = owner.establishmentId
-    ? { tenantId, establishmentId: owner.establishmentId }
-    : owner.prospectId
-      ? { tenantId, prospectId: owner.prospectId }
-      : null;
-  if (!where) return [];
   // Un évaluateur n'a pas à lire l'agenda de prospection.
-  if (owner.prospectId && session.user.role !== "CABINET_ADMIN") return [];
+  if (owner.prospectId && !isAdmin) return [];
+
+  if (owner.prospectId) {
+    const rows = await prisma.appointment.findMany({
+      where: { tenantId, prospectId: owner.prospectId },
+      select: AGENDA_SELECT,
+      orderBy: { startsAt: "asc" },
+    });
+    return rows.map((row) => toCalendarAppointment(row));
+  }
+
+  if (!owner.establishmentId) return [];
 
   const rows = await prisma.appointment.findMany({
-    where,
+    where: {
+      tenantId,
+      OR: [
+        { establishmentId: owner.establishmentId },
+        // Le prospect converti en CETTE fiche. Le filtre part de l'établissement et
+        // non d'un identifiant de prospect reçu : c'est `Prospect.establishmentId`
+        // (unique) qui referme la boucle, il n'y a rien à falsifier.
+        // Réservé à CABINET_ADMIN, comme le reste du pipeline commercial.
+        ...(isAdmin
+          ? [{ prospect: { establishmentId: owner.establishmentId } }]
+          : []),
+      ],
+    },
     select: AGENDA_SELECT,
     orderBy: { startsAt: "asc" },
   });
-  return rows.map(toCalendarAppointment);
+
+  return rows.map((row) => ({
+    ...toCalendarAppointment(row),
+    // Rattaché au prospect et pas à la fiche ⇒ antérieur à la signature.
+    beforeSignature: row.establishment === null,
+  }));
 }
 
 // ── Portail client ───────────────────────────────────────────────────────────
