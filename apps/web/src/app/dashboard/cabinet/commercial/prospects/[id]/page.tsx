@@ -18,6 +18,11 @@ import {
   describeAcquisitionChannel,
   formatContactIdentity,
 } from "@/lib/services/prospect-contact-service";
+import { formatDate } from "@/lib/services/date-format-service";
+import {
+  describeStructureIdentityLine,
+  ESTABLISHMENT_TYPE_LABELS,
+} from "@/lib/services/structure-identity-service";
 import {
   deriveProspectNextAction,
   describeProspectRelation,
@@ -55,6 +60,12 @@ export default async function ProspectDetailPage({ params }: Props) {
   });
 
   const contactIdentity = formatContactIdentity(prospect);
+  const structureIdentity = describeStructureIdentityLine({
+    finessNumber: prospect.finessNumber,
+    address: prospect.address,
+    establishmentType: prospect.establishmentType,
+    hasEvaluationTargetDate: prospect.hasEvaluationTargetDate,
+  });
 
   return (
     <div className="space-y-6">
@@ -128,6 +139,24 @@ export default async function ProspectDetailPage({ params }: Props) {
             )}
             {prospect.estimatedAmountEuros != null && (
               <p><span className="text-gris-mid">Montant estimé : </span>{formatEuros(prospect.estimatedAmountEuros)}</p>
+            )}
+            {/* Identité de la structure, dès qu'on la connaît. Les champs absents ne
+                s'affichent pas : « FINESS : — » a l'air d'un formulaire mal rempli,
+                alors que c'est une information qu'on n'a pas encore. */}
+            {structureIdentity && (
+              <p><span className="text-gris-mid">Structure : </span>{structureIdentity}</p>
+            )}
+            {prospect.establishmentType && (
+              <p>
+                <span className="text-gris-mid">Type de SAD : </span>
+                {ESTABLISHMENT_TYPE_LABELS[prospect.establishmentType]}
+              </p>
+            )}
+            {prospect.hasEvaluationTargetDate && (
+              <p>
+                <span className="text-gris-mid">Échéance HAS visée : </span>
+                {formatDate(prospect.hasEvaluationTargetDate)}
+              </p>
             )}
           </div>
 

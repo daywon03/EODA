@@ -4,6 +4,13 @@ import { prisma, EstablishmentType, type DevisStatus } from "@eoda/database";
 import { notFound } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { requireCabinetAdminSession } from "@/lib/auth/guards";
+import {
+  finessConflictError,
+  finessFormatError,
+  normaliseFiness,
+  resolveSignatureDefaults,
+  type StructureIdentity,
+} from "@/lib/services/structure-identity-service";
 import { recordAuditEvent } from "@/lib/services/audit-log-service";
 import {
   CONVERSION_REFUSAL_MESSAGES,
@@ -116,13 +123,17 @@ function parseFicheInput(
 
   // Le FINESS est la clé d'identification de l'ESSMS auprès de la HAS : une saisie
   // approximative finit dans un livrable.
-  if (finessNumber.value && !/^\d{9}$/.test(finessNumber.value)) {
+  // Contrôle de forme délégué au service partagé avec la fiche prospect : deux
+  // règles de FINESS finiraient par accepter des choses différentes (D1).
+  if (finessFormatError(normaliseFiness(finessNumber.value))) {
     return { error: "Le numéro FINESS doit comporter exactement 9 chiffres." };
   }
 
   return {
     type: type.value,
-    finessNumber: finessNumber.value,
+    // Normalisé : la fiche porte « 930034459 », jamais « 93 00 34 459 ». Un numéro
+    // stocké sous deux formes ne se compare plus.
+    finessNumber: normaliseFiness(finessNumber.value),
     address: address.value,
     hasEvaluationTargetDate: hasEvaluationTargetDate.value,
   };
@@ -198,6 +209,21 @@ export async function convertDevisToClient(
   });
   if (plan.kind === "REFUSED") {
     return { ok: false, error: CONVERSION_REFUSAL_MESSAGES[plan.reason] };
+  }
+
+  // FINESS déjà rattaché à une AUTRE fiche : refus explicite, avant la transaction.
+  // `Establishment.finessNumber` est unique ; sans ce contrôle, la contrainte se
+  // déclencherait dans le `catch` général et le message annoncerait « conversion déjà
+  // enregistrée » — c'est-à-dire exactement le contraire de ce qui s'est passé. Le
+  // cas devient probable maintenant que le FINESS se saisit dès le prospect : deux
+  // fiches de prospection peuvent porter le même numéro.
+  if (plan.createsEstablishment && parsed.finessNumber) {
+    const alreadyUsed = await prisma.establishment.findFirst({
+      where: { finessNumber: parsed.finessNumber },
+      select: { id: true },
+    });
+    const conflict = finessConflictError(alreadyUsed !== null);
+    if (conflict) return { ok: false, error: conflict };
   }
 
   const formule = devis.catalogueFormule.formule;
@@ -357,6 +383,11 @@ export type SignatureContext = {
   // Fiche déjà rattachée au prospect : la conversion complétera la mission au lieu
   // de créer un doublon.
   existingEstablishmentId: string | null;
+  // Identité de la structure telle que déjà connue — saisie au stade prospect,
+  // souvent dès le premier contact. L'écran de signature la PRÉ-REMPLIT et continue
+  // de l'exiger : une seule saisie, confirmée au moment d'engager
+  // (structure-identity-service).
+  defaults: StructureIdentity;
 };
 
 export async function getSignatureContext(devisId: string): Promise<SignatureContext> {
@@ -380,6 +411,19 @@ export async function getSignatureContext(devisId: string): Promise<SignatureCon
           contactEmail: true,
           contactName: true,
           establishmentId: true,
+          finessNumber: true,
+          address: true,
+          establishmentType: true,
+          hasEvaluationTargetDate: true,
+          // Fiche déjà créée : ses valeurs priment sur celles du prospect.
+          establishment: {
+            select: {
+              finessNumber: true,
+              address: true,
+              type: true,
+              hasEvaluationTargetDate: true,
+            },
+          },
         },
       },
     },
@@ -397,5 +441,21 @@ export async function getSignatureContext(devisId: string): Promise<SignatureCon
     contactEmail: devis.prospect.contactEmail,
     contactName: devis.prospect.contactName,
     existingEstablishmentId: devis.prospect.establishmentId,
+    defaults: resolveSignatureDefaults({
+      prospect: {
+        finessNumber: devis.prospect.finessNumber,
+        address: devis.prospect.address,
+        establishmentType: devis.prospect.establishmentType,
+        hasEvaluationTargetDate: devis.prospect.hasEvaluationTargetDate,
+      },
+      establishment: devis.prospect.establishment
+        ? {
+            finessNumber: devis.prospect.establishment.finessNumber,
+            address: devis.prospect.establishment.address,
+            establishmentType: devis.prospect.establishment.type,
+            hasEvaluationTargetDate: devis.prospect.establishment.hasEvaluationTargetDate,
+          }
+        : null,
+    }),
   };
 }

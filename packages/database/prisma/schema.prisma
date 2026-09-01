@@ -706,6 +706,25 @@ model Prospect {
   firstContactDate     DateTime           @map("first_contact_date")
   // Évaluation des besoins (Phase 0 — étape "Évaluation des besoins" de la prospection) —
   // notes qualitatives ; `estimatedAmountEuros` ci-dessus sert de niveau financier.
+  // IDENTITÉ DE LA STRUCTURE, connue dès le premier contact et saisie une seule fois.
+  //
+  // Ces quatre champs se saisissaient jusqu'ici seulement à la SIGNATURE : on les
+  // avait sous les yeux en réunion de découverte sans pouvoir les noter, et il
+  // fallait les retrouver des semaines plus tard. Ils sont donc FACULTATIFS ici (un
+  // prospect dont on ne connaît que le nom et un téléphone doit pouvoir entrer dans
+  // le pipeline) et RECOPIÉS sur la fiche à la signature — même règle que
+  // `structureType`.
+  //
+  // `finessNumber` n'est PAS unique ici, contrairement à `Establishment.finessNumber` :
+  // deux prospects peuvent désigner la même structure pendant une prospection, et
+  // c'est la création de la FICHE qui doit trancher. La contrainte reste donc là où
+  // elle a un sens.
+  finessNumber         String?            @map("finess_number")
+  address              String?
+  // Type de SAD. Reste DEMANDÉ à la signature (CLAUDE.md §7 — jamais déduit de la
+  // forme juridique) : ce champ ne fait que pré-remplir la question.
+  establishmentType    EstablishmentType? @map("establishment_type")
+  hasEvaluationTargetDate DateTime?       @map("has_evaluation_target_date")
   needsAssessmentNotes String?            @map("needs_assessment_notes")
   // GRILLE D'ENTRETIEN DÉCOUVERTE — réponses de la réunion de découverte (R1),
   // saisies par le cabinet pendant l'appel. Colonne Json et non vingt colonnes : la

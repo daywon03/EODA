@@ -118,8 +118,12 @@ Le référentiel HAS a des règles précises (NC interdit sur impératifs, RI un
 - **Base de données :** **Supabase PostgreSQL**, région `aws-0-eu-west-1` (Irlande), Prisma ORM
   — remplace Prisma Postgres depuis le 21/08/2026
 - **Stockage fichiers :** **Supabase Storage** (S3-compatible, même projet que la BDD, donc
-  même région Europe) — jamais AWS us-east par défaut. *Pas encore provisionné : ni bucket ni
-  clé d'accès, donc aucune variable `S3_*` — le repli disque local reste actif.*
+  même région Europe) — jamais AWS us-east par défaut. **Provisionné le 01/09/2026** :
+  bucket `eoda-documents`, clé d'accès S3 et les cinq variables `S3_*` dans `.env.local`.
+  Aller-retour vérifié en exécution (envoi, URL signée, relecture 200, suppression, 404
+  ensuite). `getFileStoragePort()` sélectionne donc `S3StorageAdapter` **y compris en
+  développement** : les dépôts ne vont plus sur le disque local. Reste à confirmer côté
+  Supabase : le chiffrement at-rest.
 - **Auth :** Auth.js (NextAuth) — comptes Cabinet (Sandrine + futurs collaborateurs) et
   comptes Client (un par établissement)
 - **Analyse documentaire :** extraction texte (pdf-parse / mammoth pour docx) +
@@ -251,6 +255,18 @@ Détail complet et état d'avancement : `specs/02-architecture-technique.md` §4
   catalogue, donc un « à partir de », rendu comme tel côté portail client. Ne jamais fusionner
   les deux chemins de création « puisque c'est le même objet » : ils n'ont pas la même valeur
   juridique. Règles pures dans `lib/services/mission-option-service.ts`.
+- **L'identité de la structure se saisit au stade PROSPECT, et se recopie.** FINESS,
+  adresse, type de SAD et échéance HAS visée vivent sur `Prospect` (facultatifs — un
+  prospect dont on ne connaît que le nom doit pouvoir entrer dans le pipeline) et
+  pré-remplissent l'écran de signature, qui continue de les EXIGER avant de créer la
+  fiche. Règles pures dans `lib/services/structure-identity-service.ts` : normalisation
+  du FINESS (« 93 00 34 459 » = « 930034459 »), contrôle de forme partagé entre le
+  prospect et la signature, et refus explicite d'un FINESS déjà rattaché à une autre
+  fiche — sans lui, la contrainte unique tombait dans le `catch` général de la
+  conversion, qui annonce « conversion déjà enregistrée », soit le contraire de ce qui
+  s'est passé. `Prospect.finessNumber` n'est **pas** unique : deux prospects peuvent
+  désigner la même structure pendant une prospection, c'est la création de la FICHE qui
+  tranche. Le type de SAD reste **demandé** à la signature, jamais déduit.
 - **Une fiche client ne se crée QUE par la signature d'un devis.** Il n'existe
   volontairement plus de `createEstablishment` ni de route `/etablissements/nouveau`
   (supprimés le 23/08/2026). Une création manuelle produisait un établissement sans

@@ -72,6 +72,7 @@ export default async function SignatureDevisPage({ params }: Props) {
               contactEmail={context.contactEmail}
               contactName={context.contactName}
               existingEstablishmentId={context.existingEstablishmentId}
+              defaults={context.defaults}
             />
           ) : context.status === "SIGNE" && context.existingEstablishmentId ? (
             // Conversion déjà faite. Observé en pilotant l'application : juste après

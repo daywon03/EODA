@@ -6,6 +6,7 @@ import {
   Civility,
   CommercialTier,
   ContactRole,
+  EstablishmentType,
   ProspectStatus,
   StructureType,
   type Prisma,
@@ -17,6 +18,7 @@ import { DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE } from "@/lib/services/pagination-serv
 import {
   firstError,
   isEnumValue,
+  optionalDate,
   optionalEnum,
   optionalInt,
   optionalString,
@@ -29,12 +31,19 @@ import {
   keepPrecisionOnlyForOther,
   otherPrecisionError,
 } from "@/lib/services/prospect-contact-service";
+import { finessFormatError, normaliseFiness } from "@/lib/services/structure-identity-service";
 
 const PROSPECT_LIST_PATH = "/dashboard/cabinet/commercial/prospects";
 
 type ParsedProspect = {
   structureName: string;
   structureType: StructureType;
+  // Identité de la structure — facultative au stade prospect, recopiée sur la fiche
+  // à la signature (structure-identity-service).
+  finessNumber: string | null;
+  address: string | null;
+  establishmentType: EstablishmentType | null;
+  hasEvaluationTargetDate: Date | null;
   channel: AcquisitionChannel;
   channelOther: string | null;
   civility: Civility | null;
@@ -57,6 +66,14 @@ type ParsedProspect = {
 function parseProspectInput(formData: FormData): { error: string } | ParsedProspect {
   const structureName = requiredString(formData, "structureName", "Le nom de la structure", 200);
   const structureType = requiredEnum(formData, "structureType", "Le type de structure", StructureType);
+  const finessNumber = optionalString(formData, "finessNumber", "Le numéro FINESS", 20);
+  const address = optionalString(formData, "address", "L'adresse", 300);
+  const establishmentType = optionalEnum(formData, "establishmentType", "Le type de SAD", EstablishmentType);
+  const hasEvaluationTargetDate = optionalDate(
+    formData,
+    "hasEvaluationTargetDate",
+    "L'échéance d'évaluation HAS"
+  );
   const channel = requiredEnum(formData, "channel", "Le canal d'acquisition", AcquisitionChannel);
   const channelOther = optionalString(formData, "channelOther", "La précision du canal", 200);
   const civility = optionalEnum(formData, "civility", "La civilité", Civility);
@@ -74,6 +91,10 @@ function parseProspectInput(formData: FormData): { error: string } | ParsedProsp
   const error = firstError(
     structureName,
     structureType,
+    finessNumber,
+    address,
+    establishmentType,
+    hasEvaluationTargetDate,
     channel,
     channelOther,
     civility,
@@ -92,6 +113,10 @@ function parseProspectInput(formData: FormData): { error: string } | ParsedProsp
   if (
     !structureName.ok ||
     !structureType.ok ||
+    !finessNumber.ok ||
+    !address.ok ||
+    !establishmentType.ok ||
+    !hasEvaluationTargetDate.ok ||
     !channel.ok ||
     !channelOther.ok ||
     !civility.ok ||
@@ -117,9 +142,20 @@ function parseProspectInput(formData: FormData): { error: string } | ParsedProsp
   const roleError = otherPrecisionError(contactRole.value, contactRoleOther.value, "la fonction du contact");
   if (roleError) return { error: roleError };
 
+  // FINESS : normalisé (« 93 00 34 459 » = « 930034459 ») puis contrôlé sur sa FORME.
+  // Même règle qu'à la signature, même fonction — deux contrôles de FINESS finiraient
+  // par accepter des choses différentes (D1).
+  const finess = normaliseFiness(finessNumber.value);
+  const finessError = finessFormatError(finess);
+  if (finessError) return { error: finessError };
+
   return {
     structureName: structureName.value,
     structureType: structureType.value,
+    finessNumber: finess,
+    address: address.value,
+    establishmentType: establishmentType.value,
+    hasEvaluationTargetDate: hasEvaluationTargetDate.value,
     channel: channel.value,
     // La précision ne survit pas à un changement de valeur : sinon un commentaire
     // orphelin contredit le champ affiché.

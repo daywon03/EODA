@@ -185,7 +185,14 @@ avant mise en usage réel.
   refus des actions serveur, exécutés en CI : règles de cotation HAS, périmètre des offres,
   avancement de mission, validation des dépôts, parseurs d'entrée, formatage des prix,
   politique de mot de passe, gardes d'autorisation, profil de configuration de production.
-- [ ] **Chiffrement at-rest / bucket S3 réel — cible retenue : Supabase Storage** (même
+- [~] **Bucket S3 réel — FAIT le 01/09/2026.** Bucket `eoda-documents` et clé d'accès S3
+  créés côté Supabase, les cinq variables `S3_*` sont dans `.env.local`, et l'aller-retour
+  a été vérifié en exécution : envoi, URL signée, relecture 200, suppression, 404 ensuite.
+  `getFileStoragePort()` sélectionne `S3StorageAdapter` dès que les cinq variables
+  existent — donc **aussi en développement** : le repli disque local n'est plus actif.
+  **Reste ouvert : la confirmation du chiffrement at-rest côté Supabase.** Texte d'origine
+  ci-dessous, conservé pour l'historique de la décision :
+- [ ] ~~**Chiffrement at-rest / bucket S3 réel — cible retenue : Supabase Storage**~~ (même
   projet Supabase que la base, donc même région `aws-0-eu-west-1`, décision du 21/08/2026).
   Il manque exactement deux choses : **créer le bucket** et **générer une clé d'accès S3**,
   d'où découlent les cinq variables `S3_ENDPOINT`, `S3_REGION`, `S3_BUCKET`,
