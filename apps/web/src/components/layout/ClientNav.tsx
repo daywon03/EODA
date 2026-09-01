@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { FileText, ReceiptText } from "lucide-react";
+import { FileText, PackageOpen, ReceiptText } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-// Navigation du portail client — deux surfaces, et deux seulement :
+// Navigation du portail client — trois surfaces, et trois seulement :
 //   « Mes documents »      : ce que je dépose (checklist documentaire) ;
+//   « Mes livrables »      : ce qu'EODA a produit et validé pour moi (CDC §5) ;
 //   « Mon accompagnement » : ce que j'ai souscrit et ce que je dois en retour.
 // Même structure visuelle que CabinetNav (charte EODA : soulignement terre sur
 // l'onglet actif) sans en partager le composant : les deux portails n'ont pas les
@@ -21,6 +22,12 @@ export function ClientNav() {
       label: "Mes documents",
       icon: FileText,
       match: (p: string) => p === "/dashboard/client",
+    },
+    {
+      href: "/dashboard/client/livrables",
+      label: "Mes livrables",
+      icon: PackageOpen,
+      match: (p: string) => p.startsWith("/dashboard/client/livrables"),
     },
     {
       href: "/dashboard/client/accompagnement",

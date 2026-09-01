@@ -26,6 +26,7 @@ export default async function NouveauDevisPage({ searchParams }: Props) {
     .filter((o) => o.active)
     .map((o) => ({
       id: o.id,
+      code: o.code,
       label: o.label,
       priceEuros: o.priceEuros,
       pricingUnit: o.pricingUnit,

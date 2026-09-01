@@ -46,6 +46,7 @@ export default async function EvaluationBesoinsPage({ params }: Props) {
     .filter((o) => o.active)
     .map((o) => ({
       id: o.id,
+      code: o.code,
       label: o.label,
       priceEuros: o.priceEuros,
       pricingUnit: o.pricingUnit,

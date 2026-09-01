@@ -14,6 +14,11 @@ import { Select } from "@/components/ui/select";
 import { AlertCircle, Loader2 } from "lucide-react";
 import Link from "next/link";
 import type { CommercialTier, PricingUnit } from "@eoda/database";
+import {
+  describeSubscriptionDiscount,
+  isSubscriptionOption,
+  optionUnitPriceForFormule,
+} from "@/lib/services/subscription-service";
 
 type FormuleOption = {
   formule: CommercialTier;
@@ -26,6 +31,10 @@ type FormuleOption = {
 };
 type CatalogueOptionItem = {
   id: string;
+  // Code catalogue : l'appariement de l'abonnement portail (dégressif selon l'offre)
+  // se fait par code, pas par libellé — un libellé se réécrit depuis l'écran
+  // catalogue, un code non.
+  code: string;
   label: string;
   priceEuros: number;
   pricingUnit: PricingUnit;
@@ -108,7 +117,15 @@ export function DevisForm({
     // minimal (2 h, 12 mois), pas pour son prix unitaire — cf. optionCommittedAmountEuros.
     const optionPrices = options
       .filter((o) => selectedOptionIds.includes(o.id))
-      .map(optionCommittedAmountEuros);
+      .map((o) =>
+        optionCommittedAmountEuros({
+          // Même règle de dégressivité que le serveur, même fonction : un aperçu qui
+          // annonce un total différent de celui qui sera enregistré est pire que pas
+          // d'aperçu (§12.2 — le calcul vit dans l'outil).
+          priceEuros: optionUnitPriceForFormule(o, formule === "" ? null : formule),
+          minQuantity: o.minQuantity,
+        })
+      );
     return computeDevisAmounts({
       formulePriceEuros: formulePrice,
       optionPricesEuros: optionPrices,
@@ -116,6 +133,9 @@ export function DevisForm({
       installmentCount,
     });
   }, [formule, selectedOptionIds, depositPercent, installmentCount, formules, options]);
+
+  // Phrase de dégressivité, calculée une fois pour la formule choisie.
+  const subscriptionNotice = describeSubscriptionDiscount(formule === "" ? null : formule);
 
   function toggleOption(id: string) {
     setSelectedOptionIds((prev) => (prev.includes(id) ? prev.filter((o) => o !== id) : [...prev, id]));
@@ -213,8 +233,21 @@ export function DevisForm({
                 disabled={isPending}
                 className="accent-terre"
               />
-              <span className="flex-1 min-w-0">{o.label}</span>
-              <span className="text-gris-mid whitespace-nowrap">{formatStartingPrice(o)}</span>
+              <span className="flex-1 min-w-0">
+                {o.label}
+                {/* L'abonnement portail est le seul tarif dégressif du catalogue
+                    (§12.2) : on annonce le taux appliqué à côté de la ligne, sinon le
+                    total baisse sans que personne ne sache pourquoi. */}
+                {isSubscriptionOption(o.code) && subscriptionNotice && (
+                  <span className="block text-xs text-terre">{subscriptionNotice}</span>
+                )}
+              </span>
+              <span className="text-gris-mid whitespace-nowrap">
+                {formatStartingPrice({
+                  ...o,
+                  priceEuros: optionUnitPriceForFormule(o, formule === "" ? null : formule),
+                })}
+              </span>
             </label>
           ))}
         </div>

@@ -10,6 +10,7 @@ import {
   nextProspectStatusForDevisTransition,
   optionCommittedAmountEuros,
 } from "@/lib/services/devis-calculation-service";
+import { optionUnitPriceForFormule } from "@/lib/services/subscription-service";
 import {
   canTransitionDevis,
   isDevisDeletable,
@@ -131,14 +132,28 @@ async function resolveDevisLines(tenantId: string, parsed: ParsedDevisInput) {
     where: { tenantId, id: { in: parsed.optionIds }, active: true },
   });
 
+  // Dégressivité de l'abonnement portail selon l'OFFRE du devis (§12.2 : « le calcul
+  // doit vivre dans l'outil »). Appliquée ici, une seule fois, puis SNAPSHOTÉE sur la
+  // ligne de devis : le montant remisé fait partie du document commercial, il ne doit
+  // pas se recalculer plus tard sous une autre formule.
+  const pricedOptions = options.map((option) => ({
+    ...option,
+    engagedUnitPriceEuros: optionUnitPriceForFormule(option, parsed.formule),
+  }));
+
   const amounts = computeDevisAmounts({
     formulePriceEuros: catalogueFormule.priceEuros,
-    optionPricesEuros: options.map(optionCommittedAmountEuros),
+    optionPricesEuros: pricedOptions.map((option) =>
+      optionCommittedAmountEuros({
+        priceEuros: option.engagedUnitPriceEuros,
+        minQuantity: option.minQuantity,
+      })
+    ),
     depositPercent: parsed.depositPercent,
     installmentCount: parsed.installmentCount,
   });
 
-  return { catalogueFormule, options, amounts };
+  return { catalogueFormule, options: pricedOptions, amounts };
 }
 
 export async function createDevis(
@@ -193,7 +208,7 @@ export async function createDevis(
           create: lines.options.map((o) => ({
             catalogueOptionId: o.id,
             labelSnapshot: o.label,
-            priceSnapshotEuros: o.priceEuros,
+            priceSnapshotEuros: o.engagedUnitPriceEuros,
             pricingUnitSnapshot: o.pricingUnit,
             priceMaxSnapshotEuros: o.priceMaxEuros,
             minQuantitySnapshot: o.minQuantity,
@@ -248,7 +263,7 @@ export async function updateDevis(
           create: lines.options.map((o) => ({
             catalogueOptionId: o.id,
             labelSnapshot: o.label,
-            priceSnapshotEuros: o.priceEuros,
+            priceSnapshotEuros: o.engagedUnitPriceEuros,
             pricingUnitSnapshot: o.pricingUnit,
             priceMaxSnapshotEuros: o.priceMaxEuros,
             minQuantitySnapshot: o.minQuantity,
