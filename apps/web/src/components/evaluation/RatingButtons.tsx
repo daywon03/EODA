@@ -4,19 +4,22 @@ import { useState, useTransition } from "react";
 import { rateElement } from "@/lib/actions/evaluation";
 import { Loader2, AlertTriangle } from "lucide-react";
 import type { Rating } from "@eoda/database";
+import { RATING_LABELS } from "@/lib/services/scoring-service";
 
 type RatingOption = { value: Rating; label: string; colorClass: string };
 
+// Les libellés viennent du moteur de cotation (source unique, partagée avec l'export
+// CSV) ; seules les couleurs sont propres à l'écran.
 const BASE_OPTIONS: RatingOption[] = [
-  { value: "R1", label: "1", colorClass: "bg-cot-1" },
-  { value: "R2", label: "2", colorClass: "bg-cot-2" },
-  { value: "R3", label: "3", colorClass: "bg-cot-3" },
-  { value: "R4", label: "4", colorClass: "bg-cot-4" },
-  { value: "STAR", label: "★", colorClass: "bg-cot-star" },
-  { value: "NC", label: "NC", colorClass: "bg-cot-nc" },
+  { value: "R1", label: RATING_LABELS.R1, colorClass: "bg-cot-1" },
+  { value: "R2", label: RATING_LABELS.R2, colorClass: "bg-cot-2" },
+  { value: "R3", label: RATING_LABELS.R3, colorClass: "bg-cot-3" },
+  { value: "R4", label: RATING_LABELS.R4, colorClass: "bg-cot-4" },
+  { value: "STAR", label: RATING_LABELS.STAR, colorClass: "bg-cot-star" },
+  { value: "NC", label: RATING_LABELS.NC, colorClass: "bg-cot-nc" },
 ];
 
-const RI_OPTION: RatingOption = { value: "RI", label: "RI", colorClass: "bg-cot-ri" };
+const RI_OPTION: RatingOption = { value: "RI", label: RATING_LABELS.RI, colorClass: "bg-cot-ri" };
 
 type Props = {
   sessionId: string;

@@ -1149,6 +1149,10 @@ enum AuditAction {
   // Un type de document passe de « réclamé au client » à « produit par EODA », ou
   // l'inverse. Politique de cabinet, valable pour tous les clients.
   DOCUMENT_TYPE_SCOPE_CHANGED
+  // Export des cotations d'auto-évaluation (fichier tableur). Un export SORT les
+  // données de la plateforme : c'est précisément le genre d'accès dont il faut
+  // pouvoir dire qui, quand, et pour quel établissement.
+  EVALUATION_EXPORTED
 }
 
 model AuditLogEntry {

@@ -49,4 +49,5 @@ export const EXPECTED_MIGRATIONS: readonly string[] = [
   "20260827160000_establishment_logo",
   "20260827180000_offer_labels_without_modules",
   "20260901090000_prospect_discovery",
+  "20260901100000_evaluation_export_audit",
 ] as const;
