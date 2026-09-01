@@ -1,6 +1,6 @@
 "use server";
 
-import { prisma, type StructureType } from "@eoda/database";
+import { prisma, type EstablishmentType, type StructureType } from "@eoda/database";
 import { notFound } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { requireCabinetAdminSession } from "@/lib/auth/guards";
@@ -34,6 +34,8 @@ export type DiscoveryReadResult = {
   finessNumber: string | null;
   siretNumber: string | null;
   address: string | null;
+  establishmentType: EstablishmentType | null;
+  hasEvaluationTargetDate: Date | null;
 };
 
 export async function getDiscoveryAnswers(prospectId: string): Promise<DiscoveryReadResult> {
@@ -49,6 +51,8 @@ export async function getDiscoveryAnswers(prospectId: string): Promise<Discovery
       finessNumber: true,
       siretNumber: true,
       address: true,
+      establishmentType: true,
+      hasEvaluationTargetDate: true,
     },
   });
   if (!prospect) notFound();
@@ -64,6 +68,8 @@ export async function getDiscoveryAnswers(prospectId: string): Promise<Discovery
     finessNumber: prospect.finessNumber,
     siretNumber: prospect.siretNumber,
     address: prospect.address,
+    establishmentType: prospect.establishmentType,
+    hasEvaluationTargetDate: prospect.hasEvaluationTargetDate,
   };
 }
 

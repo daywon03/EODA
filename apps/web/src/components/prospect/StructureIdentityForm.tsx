@@ -1,9 +1,12 @@
 "use client";
 
 import { useActionState } from "react";
-import type { StructureType } from "@eoda/database";
+import type { EstablishmentType, StructureType } from "@eoda/database";
 import { updateProspectIdentity } from "@/lib/actions/prospect";
-import { STRUCTURE_TYPE_LABELS } from "@/lib/services/structure-identity-service";
+import {
+  ESTABLISHMENT_TYPE_LABELS,
+  STRUCTURE_TYPE_LABELS,
+} from "@/lib/services/structure-identity-service";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,6 +19,8 @@ type Props = {
   finessNumber: string | null;
   siretNumber: string | null;
   address: string | null;
+  establishmentType: EstablishmentType | null;
+  hasEvaluationTargetDate: Date | null;
 };
 
 // Identité administrative de la structure, saisissable PENDANT la réunion de
@@ -27,8 +32,13 @@ type Props = {
 // formulaire de création — et renvoyer la consultante vers l'écran « Modifier » au
 // milieu d'un appel lui ferait perdre les réponses de grille non enregistrées.
 //
+// S'y ajoutent le type de SAD et l'échéance HAS, que la grille v03 demande aussi en
+// découverte (§1 et §3). Ils sont ICI et pas dans la grille parce qu'ils ont une
+// COLONNE : les stocker en réponses de grille en ferait une seconde source, alors que
+// c'est la colonne qui alimente le devis, le périmètre de critères et les indicateurs.
+//
 // Formulaire volontairement PARTIEL, et distinct de `ProspectForm` : il ne poste que
-// ces quatre champs, et l'action serveur n'écrit que ceux-là. Réunir les deux
+// ces six champs, et l'action serveur n'écrit que ceux-là. Réunir les deux
 // formulaires ferait poster des champs absents de cet écran — donc les effacerait.
 export function StructureIdentityForm({
   prospectId,
@@ -36,6 +46,8 @@ export function StructureIdentityForm({
   finessNumber,
   siretNumber,
   address,
+  establishmentType,
+  hasEvaluationTargetDate,
 }: Props) {
   const [state, formAction, isPending] = useActionState(
     updateProspectIdentity.bind(null, prospectId),
@@ -97,6 +109,44 @@ export function StructureIdentityForm({
             maxLength={20}
             disabled={isPending}
           />
+        </div>
+
+        <div className="space-y-1.5">
+          <Label htmlFor="identity-establishmentType">Type de SAD</Label>
+          <Select
+            id="identity-establishmentType"
+            name="establishmentType"
+            defaultValue={establishmentType ?? ""}
+            disabled={isPending}
+          >
+            <option value="">— À confirmer —</option>
+            <option value="SAD_AIDE">{ESTABLISHMENT_TYPE_LABELS.SAD_AIDE}</option>
+            <option value="SAD_MIXTE">{ESTABLISHMENT_TYPE_LABELS.SAD_MIXTE}</option>
+          </Select>
+          {/* Le périmètre de critères en dépend : un SAD mixte porte un impératif de
+              plus (circuit du médicament). D'où sa place dès la découverte. */}
+          <p className="text-xs text-gris-mid">
+            Détermine le périmètre de critères évalués.
+          </p>
+        </div>
+
+        <div className="space-y-1.5">
+          <Label htmlFor="identity-hasEvaluationTargetDate">Échéance d&apos;évaluation HAS</Label>
+          <Input
+            id="identity-hasEvaluationTargetDate"
+            name="hasEvaluationTargetDate"
+            type="date"
+            defaultValue={
+              hasEvaluationTargetDate
+                ? new Date(hasEvaluationTargetDate).toISOString().slice(0, 10)
+                : undefined
+            }
+            disabled={isPending}
+          />
+          <p className="text-xs text-gris-mid">
+            Au jour près quand elle est connue : une évaluation au 27 janvier ne laisse
+            pas le même temps qu&apos;une évaluation au 1<sup>er</sup>.
+          </p>
         </div>
       </div>
 

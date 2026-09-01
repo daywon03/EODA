@@ -33,9 +33,9 @@ export type DiscoverySection = {
 };
 
 export type DiscoveryGrid = {
-  // Version du gabarit, affichée à l'écran. Le jour où le gabarit v03 de Sandrine
-  // arrive, cette valeur change et l'écran le dit — les réponses saisies sous la
-  // version précédente restent lisibles.
+  // Version du gabarit, affichée à l'écran. Elle change à chaque révision de la
+  // grille : les réponses saisies sous une version précédente restent en base, et
+  // celles dont la question a disparu sont ignorées à la lecture.
   version: string;
   sections: readonly DiscoverySection[];
 };

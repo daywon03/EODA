@@ -225,8 +225,8 @@ export async function updateProspect(
   redirect(`${PROSPECT_LIST_PATH}/${id}`);
 }
 
-// Identité administrative seule — FINESS, SIRET, statut juridique, adresse —
-// enregistrable SANS repasser par le formulaire complet du prospect.
+// Identité administrative seule — statut juridique, adresse, FINESS, SIRET, type de
+// SAD, échéance HAS — enregistrable SANS repasser par le formulaire complet.
 //
 // Pourquoi une action à part plutôt qu'un lien vers « Modifier » : ces quatre
 // informations se recueillent PENDANT la réunion de découverte, en même temps que la
@@ -257,10 +257,34 @@ export async function updateProspectIdentity(
   const finessNumber = optionalString(formData, "finessNumber", "Le numéro FINESS", 20);
   const siretNumber = optionalString(formData, "siretNumber", "Le numéro SIRET", 20);
   const address = optionalString(formData, "address", "L'adresse", 300);
+  // Type de SAD et échéance HAS sont ici parce que la grille d'entretien v03 les
+  // demande en découverte (§1 et §3). Ils ont une COLONNE : les reposer dans la
+  // grille en ferait une seconde source, et c'est la colonne qui alimente le devis,
+  // le périmètre de critères et les indicateurs.
+  const establishmentType = optionalEnum(formData, "establishmentType", "Le type de SAD", EstablishmentType);
+  const hasEvaluationTargetDate = optionalDate(
+    formData,
+    "hasEvaluationTargetDate",
+    "L'échéance d'évaluation HAS"
+  );
 
-  const error = firstError(structureType, finessNumber, siretNumber, address);
+  const error = firstError(
+    structureType,
+    finessNumber,
+    siretNumber,
+    address,
+    establishmentType,
+    hasEvaluationTargetDate
+  );
   if (error) return { error };
-  if (!structureType.ok || !finessNumber.ok || !siretNumber.ok || !address.ok) {
+  if (
+    !structureType.ok ||
+    !finessNumber.ok ||
+    !siretNumber.ok ||
+    !address.ok ||
+    !establishmentType.ok ||
+    !hasEvaluationTargetDate.ok
+  ) {
     return { error: "Formulaire invalide." };
   }
 
@@ -280,6 +304,8 @@ export async function updateProspectIdentity(
       finessNumber: finess,
       siretNumber: siret,
       address: address.value,
+      establishmentType: establishmentType.value,
+      hasEvaluationTargetDate: hasEvaluationTargetDate.value,
     },
   });
 

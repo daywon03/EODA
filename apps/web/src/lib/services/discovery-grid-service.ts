@@ -94,11 +94,30 @@ export function isDiscoveryStarted(answers: DiscoveryAnswers): boolean {
 // Ce que la grille apprend et qui doit être REDIT en évaluation des besoins. On ne
 // recopie rien automatiquement dans l'offre : la grille documente une conversation,
 // elle ne décide pas d'un périmètre — c'est Sandrine qui coche (§12.3).
+//
+// Quatre questions, choisies parce qu'elles font pencher le choix de la formule : qui
+// porte la qualité en interne, ce qui existe déjà, ce que la structure peut mettre, et
+// qui signe.
+//
+// L'échéance HAS et le type de SAD étaient dans cette liste et n'y sont plus : ils ont
+// une colonne sur le prospect, l'écran d'évaluation des besoins les lit directement.
+//
+// ⚠️ Ces identifiants sont du texte : rien dans le langage ne les rattache à la
+// grille, et une question renommée ferait simplement disparaître ses points saillants
+// sans erreur. C'est arrivé au passage en v03. Le test « chaque identifiant saillant
+// existe dans la grille » EST le garde-fou — ne pas le supprimer.
+export const HIGHLIGHTED_DISCOVERY_FIELDS = [
+  "pilotage_qualite",
+  "plan_action",
+  "budget_ordre_grandeur",
+  "decideur",
+] as const;
+
 export function discoveryHighlights(
   answers: DiscoveryAnswers,
   grid: DiscoveryGrid = DISCOVERY_GRID
 ): { label: string; value: string }[] {
-  const highlighted = ["echeance_has", "type_activite", "decideur"];
+  const highlighted: readonly string[] = HIGHLIGHTED_DISCOVERY_FIELDS;
   return discoveryFields(grid)
     .filter((field) => highlighted.includes(field.id))
     .map((field) => ({ label: field.label, value: answers[field.id] ?? "" }))

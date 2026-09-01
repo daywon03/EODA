@@ -43,8 +43,9 @@ export default async function DecouvertePage({ params }: Props) {
             se faire en plusieurs fois.
           </p>
           <p className="mt-2">
-            Ce contenu est un gabarit interne provisoire, en attente de la grille de référence
-            d&apos;EODA. Les réponses déjà saisies seront conservées lors de sa mise en place.
+            Questions reprises du gabarit EODA du 30 août 2026. Le statut juridique, le type
+            de SAD et l&apos;échéance HAS ne s&apos;y trouvent pas : ils se saisissent
+            ci-dessus, et alimentent directement le devis et le périmètre de critères.
           </p>
         </CardContent>
       </Card>
@@ -64,6 +65,8 @@ export default async function DecouvertePage({ params }: Props) {
             finessNumber={discovery.finessNumber}
             siretNumber={discovery.siretNumber}
             address={discovery.address}
+            establishmentType={discovery.establishmentType}
+            hasEvaluationTargetDate={discovery.hasEvaluationTargetDate}
           />
         </CardContent>
       </Card>
