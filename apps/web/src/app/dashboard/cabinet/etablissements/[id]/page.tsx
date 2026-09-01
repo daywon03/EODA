@@ -137,6 +137,19 @@ export default async function EstablishmentDetailPage({ params }: Props) {
             {establishment.address && (
               <p className="text-gris-mid">{establishment.address}</p>
             )}
+            {/* Le SIRET est le seul champ d'identité rendu ABSENT plutôt qu'omis.
+                Partout ailleurs on tait ce qu'on ne sait pas — « FINESS : — » a l'air
+                d'un formulaire mal rempli. Ici c'est l'inverse qui est vrai : le
+                numéro est facultatif à la saisie parce qu'il ne doit bloquer aucune
+                signature, mais il devra figurer sur la première facture. Le taire
+                garantirait de s'en apercevoir ce jour-là. */}
+            <p className="text-gris-mid">
+              {establishment.siretNumber ? (
+                <>SIRET {establishment.siretNumber}</>
+              ) : (
+                <span className="text-ambre">SIRET à renseigner</span>
+              )}
+            </p>
             {establishment.hasEvaluationTargetDate && (
               <div className="flex items-center gap-2 text-brun-ancre">
                 <Calendar className="w-4 h-4 text-terre flex-shrink-0" />

@@ -60,11 +60,13 @@ export default async function ProspectDetailPage({ params }: Props) {
   });
 
   const contactIdentity = formatContactIdentity(prospect);
+  // Type de SAD et échéance HAS ne sont pas passés : ils ont leur propre ligne juste
+  // en dessous, avec leurs libellés. Cette ligne-ci ne porte que ce qui identifie la
+  // structure administrativement.
   const structureIdentity = describeStructureIdentityLine({
     finessNumber: prospect.finessNumber,
+    siretNumber: prospect.siretNumber,
     address: prospect.address,
-    establishmentType: prospect.establishmentType,
-    hasEvaluationTargetDate: prospect.hasEvaluationTargetDate,
   });
 
   return (

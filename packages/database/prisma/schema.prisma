@@ -309,6 +309,16 @@ model Establishment {
   tenantId              String            @map("tenant_id")
   name                  String
   finessNumber          String?           @unique @map("finess_number")
+  // SIRET — identifiant au registre des entreprises, mention obligatoire sur un
+  // devis, un contrat et une facture. Distinct du FINESS, qui identifie l'ESSMS
+  // auprès des autorités sanitaires : les deux coexistent, aucun ne remplace l'autre.
+  //
+  // PAS @unique, contrairement au FINESS, et c'est délibéré : le FINESS est déjà la
+  // clé qui interdit deux fiches pour la même structure, et il a fallu un service
+  // dédié pour que sa violation ne soit pas avalée par le `catch` général de la
+  // conversion. Une seconde contrainte unique ouvrirait un second chemin d'échec à la
+  // signature, pour un gain nul — l'unicité est déjà obtenue.
+  siretNumber           String?           @map("siret_number")
   // Type de service rendu — axe INDÉPENDANT du statut juridique ci-dessous.
   type                  EstablishmentType
   // Statut juridique. Nullable en base et pourtant exigé à la saisie : les fiches
@@ -720,6 +730,9 @@ model Prospect {
   // c'est la création de la FICHE qui doit trancher. La contrainte reste donc là où
   // elle a un sens.
   finessNumber         String?            @map("finess_number")
+  // Voir Establishment.siretNumber. Facultatif ici comme le reste de l'identité : la
+  // personne qui appelle peut être une assistante de direction qui ne l'a pas.
+  siretNumber          String?            @map("siret_number")
   address              String?
   // Type de SAD. Reste DEMANDÉ à la signature (CLAUDE.md §7 — jamais déduit de la
   // forme juridique) : ce champ ne fait que pré-remplir la question.

@@ -9,11 +9,13 @@ import { Select } from "@/components/ui/select";
 import { AlertCircle, Loader2 } from "lucide-react";
 import Link from "next/link";
 import type { EstablishmentType, StructureType } from "@eoda/database";
+import { STRUCTURE_TYPE_LABELS } from "@/lib/services/structure-identity-service";
 
 type EstablishmentInitialValues = {
   id: string;
   name: string;
   finessNumber: string | null;
+  siretNumber: string | null;
   type: EstablishmentType;
   structureType: StructureType | null;
   address: string | null;
@@ -68,10 +70,27 @@ export function EstablishmentForm({ establishment }: Props) {
           <Input
             id="finessNumber"
             name="finessNumber"
+            inputMode="numeric"
             placeholder="ex : 930034459"
             defaultValue={establishment.finessNumber ?? undefined}
-            maxLength={9}
+            // 20 et non 9 : le numéro se recopie couramment par groupes
+            // (« 93 00 34 459 »), et le serveur le normalise. Bloquer la saisie à
+            // 9 caractères rendait cette normalisation inatteignable depuis cet
+            // écran — le champ refusait la forme même qu'il accepte ailleurs.
+            maxLength={20}
             required
+            disabled={isPending}
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="siretNumber">Numéro SIRET</Label>
+          <Input
+            id="siretNumber"
+            name="siretNumber"
+            inputMode="numeric"
+            placeholder="ex : 80234120900016"
+            defaultValue={establishment.siretNumber ?? undefined}
+            maxLength={20}
             disabled={isPending}
           />
         </div>
@@ -102,9 +121,9 @@ export function EstablishmentForm({ establishment }: Props) {
           defaultValue={establishment.structureType ?? ""}
         >
           <option value="">— Sélectionner —</option>
-          <option value="ASSOCIATION">Association loi 1901</option>
-          <option value="PUBLIC">CCAS / CIAS (organisme public)</option>
-          <option value="PRIVE">Secteur privé</option>
+          <option value="ASSOCIATION">{STRUCTURE_TYPE_LABELS.ASSOCIATION}</option>
+          <option value="PUBLIC">{STRUCTURE_TYPE_LABELS.PUBLIC}</option>
+          <option value="PRIVE">{STRUCTURE_TYPE_LABELS.PRIVE}</option>
         </Select>
         <p className="text-xs text-gris-mid">
           Indépendant du type SAD : une association peut être Aide ou Mixte.

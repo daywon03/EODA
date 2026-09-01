@@ -38,6 +38,7 @@ export type ContractOptionLine = {
 export type ContractFacts = {
   establishmentName: string;
   finessNumber: string | null;
+  siretNumber: string | null;
   address: string | null;
   formule: CommercialTier;
   formuleLabel: string;
@@ -217,20 +218,4 @@ export function buildContractFileName(input: {
     audience: "Externe",
     extension: "pdf",
   });
-}
-
-// Identité de la structure en une ligne, telle qu'elle doit figurer en tête de
-// contrat. Les champs absents sont OMIS, jamais remplacés par un tiret : un contrat
-// qui affiche « FINESS : — » a l'air d'un formulaire mal rempli.
-export function describeStructureIdentity(facts: {
-  establishmentName: string;
-  finessNumber: string | null;
-  address: string | null;
-}): string {
-  const parts = [facts.establishmentName.trim()];
-  if (facts.address && facts.address.trim().length > 0) parts.push(facts.address.trim());
-  if (facts.finessNumber && facts.finessNumber.trim().length > 0) {
-    parts.push(`FINESS ${facts.finessNumber.trim()}`);
-  }
-  return parts.join(" · ");
 }

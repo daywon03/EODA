@@ -1,8 +1,9 @@
 import { getDiscoveryAnswers } from "@/lib/actions/discovery";
 import { discoveryGrid } from "@/lib/services/discovery-grid-service";
 import { DiscoveryGridForm } from "@/components/prospect/DiscoveryGridForm";
+import { StructureIdentityForm } from "@/components/prospect/StructureIdentityForm";
 import { PageHeader } from "@/components/layout/PageHeader";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export const metadata = { title: "Réunion de découverte · EODA Conseil" };
 
@@ -45,6 +46,25 @@ export default async function DecouvertePage({ params }: Props) {
             Ce contenu est un gabarit interne provisoire, en attente de la grille de référence
             d&apos;EODA. Les réponses déjà saisies seront conservées lors de sa mise en place.
           </p>
+        </CardContent>
+      </Card>
+
+      {/* L'identité administrative AVANT la grille : elle se demande en début d'appel
+          (« vous êtes bien une association ? quel est votre FINESS ? »), et c'est
+          l'information qui manquait ensuite au devis et au contrat. Enregistrable
+          seule, sans quitter l'écran ni perdre les réponses de grille en cours. */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Identité de la structure</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <StructureIdentityForm
+            prospectId={id}
+            structureType={discovery.structureType}
+            finessNumber={discovery.finessNumber}
+            siretNumber={discovery.siretNumber}
+            address={discovery.address}
+          />
         </CardContent>
       </Card>
 

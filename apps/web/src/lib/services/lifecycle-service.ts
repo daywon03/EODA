@@ -114,7 +114,12 @@ export function deriveFunnelStage(input: {
 
 export const FUNNEL_STAGE_LABELS: Record<FunnelStage, string> = {
   NOUVEAU: "Nouveau contact",
-  RDV: "RDV programmé",
+  // « RDV programmé » ne disait pas DE QUEL rendez-vous il s'agit, alors que c'est
+  // l'étape qui structure toute la vente : « à partir du rendez-vous découverte, on
+  // émet une évaluation des besoins, et le devis est déjà prêt » (call du 01/09).
+  // C'est le même rendez-vous que le R1 de l'agenda ; deux noms pour un fait unique
+  // obligeaient à faire la traduction de tête entre le pipeline et le calendrier.
+  RDV: "Rendez-vous découverte",
   DEVIS_ENVOYE: "Devis envoyé",
   NEGOCIATION: "Négociation",
   SIGNE: "Signé",
