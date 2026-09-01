@@ -4,7 +4,7 @@ import { getEvaluationChapter, listChapters } from "@/lib/actions/evaluation";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { ChapterOverviewCard } from "@/components/evaluation/ChapterOverviewCard";
 import { Button } from "@/components/ui/button";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, Download, GitCompareArrows } from "lucide-react";
 
 type Props = { params: Promise<{ id: string }> };
 
@@ -41,6 +41,7 @@ export default async function EvaluationOverviewPage({ params }: Props) {
           </div>
         </div>
       ) : (
+        <div className="space-y-6">
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {chapterData.map((data) => (
             <ChapterOverviewCard
@@ -53,6 +54,47 @@ export default async function EvaluationOverviewPage({ params }: Props) {
               imperatifsAtRiskCount={data.imperatifsAtRisk.length}
             />
           ))}
+        </div>
+
+        {/* Seconde auto-évaluation « comparable à la première » (§12.6, promesse de
+            l'offre Excellence). Le lien est toujours là : la page dit elle-même
+            qu'il n'y a rien à comparer tant qu'un chapitre n'a qu'une session. */}
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-gris-light bg-white px-5 py-4">
+          <div className="text-sm">
+            <p className="font-semibold text-brun-ancre">Comparer avec la session précédente</p>
+            <p className="text-gris-mid">
+              Progressions, reculs et impératifs repassés sous 4, critère par critère.
+            </p>
+          </div>
+          <Button variant="outline" asChild>
+            <Link href={`/dashboard/cabinet/etablissements/${id}/evaluation/comparaison`}>
+              <GitCompareArrows className="w-4 h-4" aria-hidden="true" />
+              Voir la comparaison
+            </Link>
+          </Button>
+        </div>
+
+        {/* Export des cotations (Jalon 4). Une route de téléchargement, pas une
+            action serveur : un fichier se sert avec ses en-têtes. Le format d'import
+            réel de Synaé n'est toujours pas spécifié — l'écran le DIT plutôt que de
+            laisser croire à une compatibilité qui se découvrirait fausse le jour de
+            la saisie officielle. */}
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-gris-light bg-white px-5 py-4">
+          <div className="text-sm">
+            <p className="font-semibold text-brun-ancre">Exporter les cotations</p>
+            <p className="text-gris-mid">
+              Tableur complet — chapitre, critère, élément, cotation, commentaire.
+              Format tableur générique : le gabarit d&apos;import Synaé n&apos;est pas
+              encore connu.
+            </p>
+          </div>
+          <Button variant="outline" asChild>
+            <a href={`/api/export/cotations/${id}`}>
+              <Download className="w-4 h-4" aria-hidden="true" />
+              Télécharger (CSV)
+            </a>
+          </Button>
+        </div>
         </div>
       )}
     </div>

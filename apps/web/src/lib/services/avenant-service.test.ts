@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
   avenantStartingTotalEuros,
   buildAvenantFileName,
+  describeAvenantState,
   describeContractReference,
+  isOptionContractuallyLocked,
   needsAvenant,
   selectAvenantLines,
   type MissionOptionLine,
@@ -77,6 +79,31 @@ describe("buildAvenantFileName", () => {
     expect(
       buildAvenantFileName({ structureName: "ASSAD Benoit", issuedOn, contractReference: null })
     ).toContain("_Perimetre-mission_");
+  });
+});
+
+describe("suivi de la signature d'un avenant", () => {
+  const pending = { priceIsFirm: false, avenantSignedOn: null };
+  const signed = { priceIsFirm: false, avenantSignedOn: new Date("2026-08-30T00:00:00Z") };
+  const fromDevis = { priceIsFirm: true, avenantSignedOn: null };
+
+  it("ne remet pas sur un avenant une option déjà régularisée", () => {
+    // La refaire signer laisserait croire que la première signature n'a pas compté.
+    expect(selectAvenantLines([pending, signed])).toEqual([pending]);
+    expect(needsAvenant([signed])).toBe(false);
+    expect(needsAvenant([pending])).toBe(true);
+  });
+
+  it("verrouille le retrait dès qu'un document signé couvre l'option", () => {
+    expect(isOptionContractuallyLocked(fromDevis)).toBe(true);
+    expect(isOptionContractuallyLocked(signed)).toBe(true);
+    expect(isOptionContractuallyLocked(pending)).toBe(false);
+  });
+
+  it("dit où en est l'avenant, et se taît sur une option du devis", () => {
+    expect(describeAvenantState(pending)).toBe("Avenant à faire signer");
+    expect(describeAvenantState(signed)).toContain("30/08/2026");
+    expect(describeAvenantState(fromDevis)).toBeNull();
   });
 });
 

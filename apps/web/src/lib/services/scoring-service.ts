@@ -4,6 +4,21 @@ import type { Rating, RequirementLevel } from "@eoda/database";
 // context/02-referentiel-has.md §3.2. Agrégation E.E. → Critère → Objectif →
 // Thématique → Chapitre → Global, moyenne simple à chaque niveau (★=4, NC/RI exclus).
 
+// Libellé d'une cotation, tel qu'il s'affiche et tel qu'il s'exporte : 1/2/3/4/★/NC/RI
+// (context/02-referentiel-has.md §3.2). Ici et non dans le composant de boutons, où il
+// vivait : l'export CSV a besoin des mêmes libellés, et deux tables de correspondance
+// finiraient par nommer différemment la même cotation sur l'écran et dans le fichier
+// remis (D1). Les couleurs, elles, restent à l'écran — un CSV n'en a pas.
+export const RATING_LABELS: Record<Rating, string> = {
+  R1: "1",
+  R2: "2",
+  R3: "3",
+  R4: "4",
+  STAR: "★",
+  NC: "NC",
+  RI: "RI",
+};
+
 // Valeur numérique d'une cotation pour le calcul de moyenne — null = exclu du calcul
 // (NC, RI). ★ compte comme 4, jamais comme une valeur à part.
 export function ratingValue(rating: Rating): number | null {

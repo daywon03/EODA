@@ -28,6 +28,10 @@ export type MissionOptionLine = {
   priceMaxSnapshotEuros: number | null;
   minQuantitySnapshot: number | null;
   priceIsFirm: boolean;
+  // Date de retour de l'avenant signé, quand il est revenu. Une option régularisée
+  // n'a plus rien à faire sur un nouvel avenant : la refaire signer laisserait
+  // croire que la première signature n'a pas compté.
+  avenantSignedOn?: Date | null;
 };
 
 // Les seules lignes qu'un avenant doit porter. Y mettre aussi les options du devis
@@ -36,12 +40,41 @@ export type MissionOptionLine = {
 // Générique sur la forme reçue : la page de suivi ne charge que trois colonnes par
 // option, le document imprimable les charge toutes. Exiger partout la ligne complète
 // obligerait la page à lire des montants dont elle n'a pas l'usage.
-export function selectAvenantLines<T extends { priceIsFirm: boolean }>(options: T[]): T[] {
-  return options.filter((option) => !option.priceIsFirm);
+export function selectAvenantLines<
+  T extends { priceIsFirm: boolean; avenantSignedOn?: Date | null },
+>(options: T[]): T[] {
+  return options.filter((option) => !option.priceIsFirm && !option.avenantSignedOn);
 }
 
-export function needsAvenant(options: { priceIsFirm: boolean }[]): boolean {
+export function needsAvenant(
+  options: { priceIsFirm: boolean; avenantSignedOn?: Date | null }[]
+): boolean {
   return selectAvenantLines(options).length > 0;
+}
+
+// Une option régularisée par un avenant SIGNÉ ne se retire plus depuis l'écran de
+// mission — un document signé ne s'annule pas en décochant une case. Même règle que
+// pour une option issue d'un devis, pour la même raison, d'où une seule fonction :
+// deux contrôles séparés, c'est un des deux qui finira par manquer.
+export function isOptionContractuallyLocked(option: {
+  priceIsFirm: boolean;
+  avenantSignedOn?: Date | null;
+}): boolean {
+  return option.priceIsFirm || option.avenantSignedOn != null;
+}
+
+// Ce que l'écran affiche à côté d'une option rattachée hors devis. Trois états, et le
+// deuxième est celui qui manquait : l'avenant existait, personne ne savait où il en
+// était.
+export function describeAvenantState(option: {
+  priceIsFirm: boolean;
+  avenantSignedOn?: Date | null;
+}): string | null {
+  if (option.priceIsFirm) return null;
+  if (option.avenantSignedOn) {
+    return `Avenant signé le ${formatDate(option.avenantSignedOn)}`;
+  }
+  return "Avenant à faire signer";
 }
 
 // Somme des montants catalogue des lignes de l'avenant. C'est un « à partir de » et

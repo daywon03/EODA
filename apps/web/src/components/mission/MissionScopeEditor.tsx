@@ -14,7 +14,12 @@ type Props = {
   options: CatalogueOption[];
   currentFormule: CommercialTier;
   currentGratuit: boolean;
-  subscribedOptions: { catalogueOptionId: string; priceIsFirm: boolean }[];
+  subscribedOptions: {
+    catalogueOptionId: string;
+    labelSnapshot?: string;
+    priceIsFirm: boolean;
+    avenantSignedOn?: Date | null;
+  }[];
 };
 
 export function MissionScopeEditor({

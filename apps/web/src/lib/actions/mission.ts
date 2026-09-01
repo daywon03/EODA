@@ -25,7 +25,10 @@ import {
   isChecklistItemApplicable,
   type MissionProgress,
 } from "@/lib/services/mission-progress-service";
-import type { MissionOptionLine } from "@/lib/services/avenant-service";
+import {
+  isOptionContractuallyLocked,
+  type MissionOptionLine,
+} from "@/lib/services/avenant-service";
 import { readMissionDocumentCounters } from "@/lib/db/read-mission-document-counters";
 import type { MissionDocumentCounters } from "@/lib/services/mission-document-counters-service";
 
@@ -176,7 +179,11 @@ export async function updateMissionScope(
 
   const mission = await prisma.mission.findFirst({
     where: { id: missionId, tenantId },
-    include: { options: { select: { catalogueOptionId: true, priceIsFirm: true } } },
+    include: {
+      options: {
+        select: { catalogueOptionId: true, priceIsFirm: true, avenantSignedOn: true },
+      },
+    },
   });
   if (!mission) notFound();
 
@@ -194,17 +201,20 @@ export async function updateMissionScope(
     selected,
   });
 
-  // Une option issue d'un devis SIGNÉ ne se retire pas depuis cet écran. Le devis
-  // fait contrat : la retirer du périmètre fermerait au client un accès qu'il a payé,
-  // sans trace côté commercial. La correction passe par un avenant, dans le module
-  // devis — c'est-à-dire là où le client est engagé.
-  const firmByOptionId = new Map(
-    mission.options.map((option) => [option.catalogueOptionId, option.priceIsFirm])
+  // Une option couverte par un document SIGNÉ ne se retire pas depuis cet écran :
+  // devis signé (montant ferme) comme avenant revenu signé. La retirer fermerait au
+  // client un accès qu'il a payé, sans trace côté commercial. La correction passe par
+  // un avenant, là où le client est engagé.
+  const lockedByOptionId = new Map(
+    mission.options.map((option) => [
+      option.catalogueOptionId,
+      isOptionContractuallyLocked(option),
+    ])
   );
-  if (reconciliation.toRemove.some((id) => firmByOptionId.get(id) === true)) {
+  if (reconciliation.toRemove.some((id) => lockedByOptionId.get(id) === true)) {
     return {
       error:
-        "Une option issue d'un devis signé ne peut pas être retirée ici. Passer par un avenant.",
+        "Une option couverte par un devis ou un avenant signé ne peut pas être retirée ici. Passer par un avenant.",
     };
   }
 
@@ -342,11 +352,14 @@ export type MissionWithProgress = {
     applicable: boolean;
   }[];
   // Options rattachées au périmètre. `priceIsFirm` distingue celles qui viennent
-  // d'un devis signé (verrouillées ici) de celles rattachées à la main.
+  // d'un devis signé (verrouillées ici) de celles rattachées à la main ;
+  // `avenantSignedOn` dit si l'avenant qui régularise ces dernières est revenu signé
+  // — auquel cas elles se verrouillent aussi.
   options: {
     catalogueOptionId: string;
     labelSnapshot: string;
     priceIsFirm: boolean;
+    avenantSignedOn: Date | null;
   }[];
   progress: MissionProgress;
   // Faits de fin de mission — l'état d'accès s'en DÉRIVE (mission-access-service),
@@ -471,7 +484,12 @@ export async function getMission(establishmentId: string): Promise<MissionWithPr
     include: {
       itemStatuses: true,
       options: {
-        select: { catalogueOptionId: true, labelSnapshot: true, priceIsFirm: true },
+        select: {
+          catalogueOptionId: true,
+          labelSnapshot: true,
+          priceIsFirm: true,
+          avenantSignedOn: true,
+        },
         orderBy: { labelSnapshot: "asc" },
       },
     },
@@ -569,6 +587,7 @@ export async function getAvenantData(establishmentId: string): Promise<AvenantDa
           priceMaxSnapshotEuros: true,
           minQuantitySnapshot: true,
           priceIsFirm: true,
+          avenantSignedOn: true,
         },
         orderBy: { labelSnapshot: "asc" },
       },
@@ -598,4 +617,58 @@ export async function getMissionDocumentCounters(
   // portails affichent les MÊMES compteurs, ils ne peuvent pas les calculer
   // séparément sans finir par diverger (D1).
   return readMissionDocumentCounters(establishmentId, mission.formule, mission.gratuit);
+}
+
+// ── Signature de l'avenant ───────────────────────────────────────────────────
+//
+// L'avenant se générait sans que rien ne dise s'il était revenu signé. Ce geste pose
+// le fait, et il est réversible : une signature enregistrée par erreur verrouillerait
+// définitivement le retrait de l'option (isOptionContractuallyLocked).
+//
+// Réservé au Cabinet, journalisé : c'est un geste qui change ce que le client peut
+// perdre ou garder dans son périmètre.
+export async function setAvenantSigned(
+  missionId: string,
+  catalogueOptionId: string,
+  signed: boolean
+): Promise<{ error: string } | null> {
+  const { tenantId, userId } = await requireCabinetSession();
+
+  // `missionId` et `catalogueOptionId` viennent d'une route HTTP publique : la ligne
+  // est relue avec le filtre tenant, jamais atteinte par identifiant seul.
+  const mission = await prisma.mission.findFirst({
+    where: { id: missionId, tenantId },
+    select: { id: true, establishmentId: true },
+  });
+  if (!mission) notFound();
+
+  const option = await prisma.missionOption.findFirst({
+    where: { missionId, catalogueOptionId },
+    select: { id: true, priceIsFirm: true, labelSnapshot: true },
+  });
+  if (!option) notFound();
+
+  // Une option issue d'un devis signé est DÉJÀ au contrat : lui attacher un avenant
+  // laisserait croire qu'elle a été ajoutée hors contrat initial.
+  if (option.priceIsFirm) {
+    return { error: "Cette prestation est déjà couverte par le devis signé." };
+  }
+
+  await prisma.missionOption.update({
+    where: { id: option.id },
+    data: { avenantSignedOn: signed ? new Date() : null },
+  });
+
+  await recordAuditEvent({
+    action: signed ? "AVENANT_SIGNED" : "AVENANT_SIGNATURE_CLEARED",
+    actorUserId: userId,
+    establishmentId: mission.establishmentId,
+    targetId: option.id,
+    // Libellé de prestation : une donnée de catalogue, jamais nominative.
+    detail: option.labelSnapshot,
+  });
+
+  for (const path of missionPaths(mission.establishmentId)) revalidatePath(path);
+  revalidatePath("/dashboard/client/accompagnement");
+  return null;
 }

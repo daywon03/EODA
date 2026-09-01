@@ -13,8 +13,10 @@ import type {
   Civility,
   CommercialTier,
   ContactRole,
+  EstablishmentType,
   StructureType,
 } from "@eoda/database";
+import { ESTABLISHMENT_TYPE_LABELS } from "@/lib/services/structure-identity-service";
 import {
   ACQUISITION_CHANNEL_LABELS,
   CIVILITY_LABELS,
@@ -25,6 +27,10 @@ type ProspectInitialValues = {
   id: string;
   structureName: string;
   structureType: StructureType;
+  finessNumber: string | null;
+  address: string | null;
+  establishmentType: EstablishmentType | null;
+  hasEvaluationTargetDate: Date | null;
   channel: AcquisitionChannel;
   channelOther: string | null;
   civility: Civility | null;
@@ -76,6 +82,73 @@ export function ProspectForm({ prospect }: Props) {
           disabled={isPending}
         />
       </div>
+
+      {/* IDENTITÉ DE LA STRUCTURE — facultative ici, et c'est le point : on note ce
+          qu'on apprend au premier contact au lieu de le retrouver des semaines plus
+          tard à la signature. Ces valeurs pré-remplissent l'écran de signature, qui
+          les demande toujours explicitement avant de créer la fiche. */}
+      <fieldset className="space-y-4 rounded-lg border border-gris-light bg-ivoire/30 p-4">
+        <legend className="px-1 text-sm font-semibold text-brun-ancre">
+          La structure
+        </legend>
+        <p className="-mt-2 text-xs text-gris-mid">
+          Facultatif au premier contact. Ce qui est renseigné ici est repris
+          automatiquement à la signature du devis — jamais ressaisi.
+        </p>
+
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div className="space-y-1.5">
+            <Label htmlFor="finessNumber">Numéro FINESS</Label>
+            <Input
+              id="finessNumber"
+              name="finessNumber"
+              inputMode="numeric"
+              placeholder="9 chiffres — ex : 930034459"
+              defaultValue={prospect?.finessNumber ?? undefined}
+              disabled={isPending}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="establishmentType">Type de SAD</Label>
+            <Select
+              id="establishmentType"
+              name="establishmentType"
+              disabled={isPending}
+              defaultValue={prospect?.establishmentType ?? ""}
+            >
+              <option value="">— À confirmer —</option>
+              <option value="SAD_AIDE">{ESTABLISHMENT_TYPE_LABELS.SAD_AIDE}</option>
+              <option value="SAD_MIXTE">{ESTABLISHMENT_TYPE_LABELS.SAD_MIXTE}</option>
+            </Select>
+          </div>
+        </div>
+
+        <div className="space-y-1.5">
+          <Label htmlFor="address">Adresse</Label>
+          <Input
+            id="address"
+            name="address"
+            placeholder="ex : 12 rue des Lilas, 93150 Le Blanc-Mesnil"
+            defaultValue={prospect?.address ?? undefined}
+            disabled={isPending}
+          />
+        </div>
+
+        <div className="space-y-1.5 sm:max-w-xs">
+          <Label htmlFor="hasEvaluationTargetDate">Échéance d&apos;évaluation HAS visée</Label>
+          <Input
+            id="hasEvaluationTargetDate"
+            name="hasEvaluationTargetDate"
+            type="date"
+            defaultValue={
+              prospect?.hasEvaluationTargetDate
+                ? toDateInputValue(prospect.hasEvaluationTargetDate)
+                : undefined
+            }
+            disabled={isPending}
+          />
+        </div>
+      </fieldset>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-1.5">

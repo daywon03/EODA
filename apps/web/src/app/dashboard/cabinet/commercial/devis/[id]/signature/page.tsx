@@ -72,6 +72,7 @@ export default async function SignatureDevisPage({ params }: Props) {
               contactEmail={context.contactEmail}
               contactName={context.contactName}
               existingEstablishmentId={context.existingEstablishmentId}
+              defaults={context.defaults}
             />
           ) : context.status === "SIGNE" && context.existingEstablishmentId ? (
             // Conversion déjà faite. Observé en pilotant l'application : juste après
@@ -87,10 +88,21 @@ export default async function SignatureDevisPage({ params }: Props) {
                 recevra un mot de passe temporaire qu&apos;il devra changer à sa première
                 connexion.
               </p>
-              <div className="flex gap-3">
+              <div className="flex flex-wrap gap-3">
                 <Button asChild>
                   <Link href={`/dashboard/cabinet/etablissements/${context.existingEstablishmentId}`}>
                     Ouvrir la fiche client
+                  </Link>
+                </Button>
+                {/* Le contrat reste accessible après coup : on revient sur cet écran
+                    précisément quand on a besoin du document, pas de la conversion. */}
+                <Button variant="outline" asChild>
+                  <Link
+                    href={`/imprimer/contrat/${context.existingEstablishmentId}`}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    Éditer le contrat d&apos;accompagnement
                   </Link>
                 </Button>
                 <Button variant="outline" asChild>

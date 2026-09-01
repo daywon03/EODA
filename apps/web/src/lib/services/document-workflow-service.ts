@@ -8,9 +8,15 @@
 // portails ne regardent pas la même chose. Le client suit ce qu'il doit fournir ; le
 // cabinet suit ce qu'il doit produire.
 //
+// Les cinq étapes portent EXACTEMENT le vocabulaire dicté — téléchargé, analysé,
+// modifié, relu, validé. Un fil d'avancement qui reformule ce qu'on lui a dicté
+// oblige à traduire à voix haute en réunion.
+//
 // Quatre étapes sur cinq se DÉRIVENT de faits déjà en base. La cinquième, la
 // validation, est une décision et se stocke (`Document.validatedAt`) — même règle que
-// la clôture d'une mission.
+// la clôture d'une mission. « Relu » n'est pas une sixième décision : c'est le fait
+// `DocumentVersion.analysisReviewedAt`, celui-là même qui ouvre l'analyse au client
+// (analysis-view-service). Relire et restituer sont le même geste.
 //
 // Règles PURES : ni Prisma, ni React.
 // ─────────────────────────────────────────────────────────────────────────────
@@ -19,18 +25,18 @@ export const DOCUMENT_STEPS = [
   "ATTENDU",
   "DEPOSE",
   "ANALYSE",
-  "MIS_EN_CONFORMITE",
-  "RESTITUE",
+  "MODIFIE",
+  "RELU",
   "VALIDE",
 ] as const;
 export type DocumentStep = (typeof DOCUMENT_STEPS)[number];
 
 export const DOCUMENT_STEP_LABELS: Record<DocumentStep, string> = {
   ATTENDU: "Attendu",
-  DEPOSE: "Déposé",
+  DEPOSE: "Téléchargé",
   ANALYSE: "Analysé",
-  MIS_EN_CONFORMITE: "Mis en conformité",
-  RESTITUE: "Restitué au client",
+  MODIFIE: "Modifié",
+  RELU: "Relu",
   VALIDE: "Validé",
 };
 
@@ -43,7 +49,7 @@ export type DocumentWorkflowFacts = {
   // distingue « mis en conformité » de « simplement analysé ».
   hasCabinetVersion: boolean;
   // L'analyse a été relue et rendue visible au client (analysisReviewedAt).
-  analysisRestituted: boolean;
+  analysisReviewed: boolean;
   validatedAt: Date | null;
 };
 
@@ -52,8 +58,8 @@ export type DocumentWorkflowFacts = {
 // parcours, et l'écran affiche le chemin parcouru.
 export function deriveDocumentStep(facts: DocumentWorkflowFacts): DocumentStep {
   if (facts.validatedAt !== null) return "VALIDE";
-  if (facts.analysisRestituted) return "RESTITUE";
-  if (facts.hasCabinetVersion) return "MIS_EN_CONFORMITE";
+  if (facts.analysisReviewed) return "RELU";
+  if (facts.hasCabinetVersion) return "MODIFIE";
   if (facts.hasAnalysis) return "ANALYSE";
   if (facts.hasVersion) return "DEPOSE";
   return "ATTENDU";
@@ -79,10 +85,10 @@ export function describeNextStep(step: DocumentStep): string {
     case "DEPOSE":
       return "À analyser — l'analyse se lance au dépôt, relancez-la si elle a échoué.";
     case "ANALYSE":
-      return "À mettre en conformité : corriger le document au regard des manques relevés.";
-    case "MIS_EN_CONFORMITE":
-      return "À restituer : relisez l'analyse, puis rendez-la visible au client.";
-    case "RESTITUE":
+      return "À modifier : corriger le document au regard des manques relevés.";
+    case "MODIFIE":
+      return "À relire : validez l'analyse pour la rendre visible au client.";
+    case "RELU":
       return "À valider une fois le document revu avec la structure.";
     case "VALIDE":
       return "Document validé — rien à faire.";
@@ -100,8 +106,8 @@ export function countByStep(steps: DocumentStep[]): DocumentStepCounters {
     ATTENDU: 0,
     DEPOSE: 0,
     ANALYSE: 0,
-    MIS_EN_CONFORMITE: 0,
-    RESTITUE: 0,
+    MODIFIE: 0,
+    RELU: 0,
     VALIDE: 0,
   };
 

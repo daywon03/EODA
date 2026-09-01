@@ -21,6 +21,12 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { RequestOptionQuoteForm } from "@/components/client/RequestOptionQuoteForm";
 import { formatEuros, formatPriceWithUnit, formatStartingPrice } from "@/lib/services/price-format-service";
+import {
+  describeSubscriptionDiscount,
+  isSubscriptionOption,
+  optionUnitPriceForFormule,
+  SUBSCRIPTION_COMMITMENT_NOTICE,
+} from "@/lib/services/subscription-service";
 
 export const metadata = { title: "Mon accompagnement · EODA Conseil" };
 
@@ -72,6 +78,9 @@ export default async function ClientAccompagnementPage() {
     documentProgressPercent,
     counters,
   } = await getClientContract();
+
+  // Dégressivité de l'abonnement portail selon l'offre souscrite (§12.2).
+  const subscriptionNotice = describeSubscriptionDiscount(offer?.formule ?? null);
 
   if (!establishment) {
     return (
@@ -346,8 +355,22 @@ export default async function ClientAccompagnementPage() {
                 <div className="min-w-0 flex-1">
                   <p className="text-sm text-brun-ancre">{option.label}</p>
                   <p className="text-sm text-terre font-semibold tabular-nums mt-0.5">
-                    {formatStartingPrice(option)}
+                    {/* L'abonnement portail est dégressif selon l'offre souscrite
+                        (§12.2) : le client doit voir SON prix, pas le tarif d'entrée.
+                        Même fonction que le devis — un prix annoncé ici puis
+                        contredit par le devis détruirait la confiance qu'on cherche
+                        à installer. */}
+                    {formatStartingPrice({
+                      ...option,
+                      priceEuros: optionUnitPriceForFormule(option, offer?.formule ?? null),
+                    })}
                   </p>
+                  {isSubscriptionOption(option.code) && (
+                    <p className="mt-0.5 text-xs text-gris-mid">
+                      {SUBSCRIPTION_COMMITMENT_NOTICE}
+                      {subscriptionNotice ? ` ${subscriptionNotice}` : ""}
+                    </p>
+                  )}
                 </div>
                 <RequestOptionQuoteForm
                   catalogueOptionId={option.id}

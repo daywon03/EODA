@@ -11,8 +11,9 @@ import { InviteClientForm } from "@/components/etablissement/InviteClientForm";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { AlertCircle, ArrowRight, CheckCircle2, Loader2 } from "lucide-react";
+import { AlertCircle, ArrowRight, CheckCircle2, FileSignature, Loader2 } from "lucide-react";
 import type { EstablishmentType } from "@eoda/database";
+import type { StructureIdentity } from "@/lib/services/structure-identity-service";
 
 type Props = {
   devisId: string;
@@ -22,6 +23,10 @@ type Props = {
   // Le prospect a déjà une fiche : la signature complètera son profil au lieu d'en
   // créer une seconde. Le type de SAD n'est alors plus demandé — il est déjà saisi.
   existingEstablishmentId: string | null;
+  // Identité déjà connue, saisie au stade prospect. Elle PRÉ-REMPLIT les champs et
+  // ne les remplace pas : la signature continue de les exiger, parce que c'est le
+  // moment où l'on engage la fiche (structure-identity-service).
+  defaults: StructureIdentity;
 };
 
 const TYPE_CHOICES: { value: EstablishmentType; label: string; hint: string }[] = [
@@ -43,12 +48,13 @@ export function SignatureConversionForm({
   contactEmail,
   contactName,
   existingEstablishmentId,
+  defaults,
 }: Props) {
   const [state, formAction, isPending] = useActionState(
     convertDevisToClient.bind(null, devisId),
     null
   );
-  const [type, setType] = useState<EstablishmentType | "">("");
+  const [type, setType] = useState<EstablishmentType | "">(defaults.establishmentType ?? "");
   const [inviteSkipped, setInviteSkipped] = useState(false);
 
   // ── Après la conversion ────────────────────────────────────────────────────
@@ -99,6 +105,33 @@ export function SignatureConversionForm({
             />
           </div>
         )}
+
+        {/* ÉTAPE CONTRAT (§12.6 — « génération de contrat obligatoire »). Elle vient
+            après la conversion et pas avant : le contrat récapitule un périmètre qui
+            n'existe qu'une fois la mission créée. Le document s'ouvre dans un onglet
+            isolé, comme le devis et l'avenant — sa vue imprimable n'a ni en-tête ni
+            navigation. */}
+        <div className="space-y-2 pt-3 border-t border-gris-light">
+          <div>
+            <h2 className="text-base font-semibold text-brun-ancre">
+              Éditer le contrat d&apos;accompagnement
+            </h2>
+            <p className="text-sm text-gris-mid">
+              Récapitule le devis signé : parties, périmètre, montants fermes et
+              engagements réciproques. À faire signer avec le devis en annexe.
+            </p>
+          </div>
+          <Button variant="outline" asChild>
+            <Link
+              href={`/imprimer/contrat/${state.establishmentId}`}
+              target="_blank"
+              rel="noreferrer"
+            >
+              <FileSignature className="w-4 h-4" aria-hidden="true" />
+              Ouvrir le contrat
+            </Link>
+          </Button>
+        </div>
 
         <div className="flex flex-wrap gap-3 pt-3 border-t border-gris-light">
           <Button asChild>
@@ -186,6 +219,7 @@ export function SignatureConversionForm({
                 name="finessNumber"
                 inputMode="numeric"
                 placeholder="9 chiffres"
+                defaultValue={defaults.finessNumber ?? undefined}
                 required
                 disabled={isPending}
               />
@@ -198,6 +232,11 @@ export function SignatureConversionForm({
                 id="hasEvaluationTargetDate"
                 name="hasEvaluationTargetDate"
                 type="date"
+                defaultValue={
+                  defaults.hasEvaluationTargetDate
+                    ? new Date(defaults.hasEvaluationTargetDate).toISOString().slice(0, 10)
+                    : undefined
+                }
                 required
                 disabled={isPending}
               />
@@ -207,7 +246,13 @@ export function SignatureConversionForm({
             <Label htmlFor="address">
               Adresse <span className="text-rouge-imp">*</span>
             </Label>
-            <Input id="address" name="address" required disabled={isPending} />
+            <Input
+              id="address"
+              name="address"
+              defaultValue={defaults.address ?? undefined}
+              required
+              disabled={isPending}
+            />
           </div>
           <p className="text-xs text-gris-mid">
             C&apos;est le moment où ces informations sont connues : la fiche client part

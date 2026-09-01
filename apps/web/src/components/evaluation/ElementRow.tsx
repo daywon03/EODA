@@ -5,15 +5,19 @@ import { rateElement } from "@/lib/actions/evaluation";
 import { RatingButtons } from "./RatingButtons";
 import { Sparkles } from "lucide-react";
 import type { EvaluationElementView } from "@/lib/actions/evaluation";
+import { RATING_LABELS } from "@/lib/services/scoring-service";
+import type { Rating } from "@eoda/database";
 
-type Props = { sessionId: string; element: EvaluationElementView };
+type Props = { sessionId: string | null; element: EvaluationElementView };
 
 export function ElementRow({ sessionId, element }: Props) {
   const [comment, setComment] = useState(element.comment ?? "");
   const [, startTransition] = useTransition();
 
+  const readOnly = sessionId === null;
+
   function saveComment() {
-    if (!element.rating) return;
+    if (readOnly || !element.rating) return;
     startTransition(async () => {
       await rateElement(sessionId, element.id, element.rating!, comment || null);
     });
@@ -35,21 +39,45 @@ export function ElementRow({ sessionId, element }: Props) {
           </span>
         )}
       </div>
-      <RatingButtons
-        sessionId={sessionId}
-        elementId={element.id}
-        currentRating={element.rating}
-        allowsRi={element.allowsRi}
-      />
+      {readOnly ? (
+        <ReadOnlyRating rating={element.rating} />
+      ) : (
+        <RatingButtons
+          sessionId={sessionId}
+          elementId={element.id}
+          currentRating={element.rating}
+          allowsRi={element.allowsRi}
+        />
+      )}
       <textarea
         value={comment}
         onChange={(e) => setComment(e.target.value)}
         onBlur={saveComment}
-        disabled={!element.rating}
+        disabled={readOnly || !element.rating}
         rows={2}
-        placeholder={element.rating ? "Commentaire / preuve consultée" : "Sélectionnez une cotation pour ajouter un commentaire"}
+        placeholder={
+          readOnly
+            ? "Session clôturée — commentaire en lecture"
+            : element.rating
+              ? "Commentaire / preuve consultée"
+              : "Sélectionnez une cotation pour ajouter un commentaire"
+        }
         className="w-full rounded-md border border-gris-light bg-white px-2 py-1.5 text-xs text-brun-ancre placeholder:text-gris-mid focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terre disabled:cursor-not-allowed disabled:opacity-50 disabled:bg-ivoire"
       />
     </div>
+  );
+}
+
+// Cotation d'une session clôturée : la valeur, sans le moyen de la changer. Un
+// bouton désactivé se lit comme une panne ; une valeur affichée se lit comme un fait.
+function ReadOnlyRating({ rating }: { rating: Rating | null }) {
+  if (rating === null) {
+    return <p className="text-xs text-gris-mid">Non coté lors de cette session</p>;
+  }
+  return (
+    <p className="text-xs text-brun-ancre">
+      Cotation retenue :{" "}
+      <span className="font-semibold">{RATING_LABELS[rating]}</span>
+    </p>
   );
 }

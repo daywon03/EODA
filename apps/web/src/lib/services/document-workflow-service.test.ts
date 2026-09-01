@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   canDeleteVersion,
+  DOCUMENT_STEP_LABELS,
   countByStep,
   deriveDocumentStep,
   describeNextStep,
@@ -13,7 +14,7 @@ function facts(overrides: Partial<DocumentWorkflowFacts> = {}): DocumentWorkflow
     hasVersion: false,
     hasAnalysis: false,
     hasCabinetVersion: false,
-    analysisRestituted: false,
+    analysisReviewed: false,
     validatedAt: null,
     ...overrides,
   };
@@ -36,15 +37,15 @@ describe("deriveDocumentStep", () => {
     // C'est le travail de correction qui fait la différence, pas la lecture.
     expect(
       deriveDocumentStep(facts({ hasVersion: true, hasAnalysis: true, hasCabinetVersion: true }))
-    ).toBe("MIS_EN_CONFORMITE");
+    ).toBe("MODIFIE");
   });
 
   it("passe à « restitué » une fois l'analyse relue et rendue visible", () => {
     expect(
       deriveDocumentStep(
-        facts({ hasVersion: true, hasAnalysis: true, hasCabinetVersion: true, analysisRestituted: true })
+        facts({ hasVersion: true, hasAnalysis: true, hasCabinetVersion: true, analysisReviewed: true })
       )
-    ).toBe("RESTITUE");
+    ).toBe("RELU");
   });
 
   it("rend « validé » dès que la décision est posée, quel que soit le reste", () => {
@@ -63,8 +64,8 @@ describe("isStepReached", () => {
 
 describe("describeNextStep", () => {
   it("dit quoi faire, pas seulement où on en est", () => {
-    expect(describeNextStep("ANALYSE")).toContain("mettre en conformité");
-    expect(describeNextStep("RESTITUE")).toContain("valider");
+    expect(describeNextStep("ANALYSE")).toContain("modifier");
+    expect(describeNextStep("RELU")).toContain("valider");
   });
 
   it("ne réclame rien sur un document validé", () => {
@@ -81,7 +82,7 @@ describe("countByStep", () => {
     expect(counters.ATTENDU).toBe(4);
     expect(counters.DEPOSE).toBe(3);
     expect(counters.ANALYSE).toBe(2);
-    expect(counters.MIS_EN_CONFORMITE).toBe(1);
+    expect(counters.MODIFIE).toBe(1);
     expect(counters.VALIDE).toBe(1);
   });
 
@@ -90,8 +91,8 @@ describe("countByStep", () => {
       ATTENDU: 0,
       DEPOSE: 0,
       ANALYSE: 0,
-      MIS_EN_CONFORMITE: 0,
-      RESTITUE: 0,
+      MODIFIE: 0,
+      RELU: 0,
       VALIDE: 0,
     });
   });
@@ -130,5 +131,18 @@ describe("canDeleteVersion", () => {
     expect(
       canDeleteVersion({ actorIsCabinet: true, versionProducedByCabinet: true, isLatest: false })
     ).toBe(false);
+  });
+});
+
+// Le vocabulaire des étapes a été dicté mot pour mot (« téléchargé, analysé, modifié,
+// relu et validé ») : le verrouiller par un test évite qu'une reformulation bien
+// intentionnée le fasse dériver à la prochaine passe sur l'écran.
+describe("DOCUMENT_STEP_LABELS", () => {
+  it("porte exactement le vocabulaire dicté par Sandrine", () => {
+    expect(DOCUMENT_STEP_LABELS.DEPOSE).toBe("Téléchargé");
+    expect(DOCUMENT_STEP_LABELS.ANALYSE).toBe("Analysé");
+    expect(DOCUMENT_STEP_LABELS.MODIFIE).toBe("Modifié");
+    expect(DOCUMENT_STEP_LABELS.RELU).toBe("Relu");
+    expect(DOCUMENT_STEP_LABELS.VALIDE).toBe("Validé");
   });
 });

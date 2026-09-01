@@ -416,10 +416,17 @@ déjà conforme.
 > badge bêta orthogonal. Aucun statut stocké, sauf `Mission.closedAt` — la clôture est
 > une décision, pas un calcul.
 >
-> **Non implémenté** : §12.5 (page plan d'action, module sensibilisation, relances
-> automatiques, export Synaé). Les états de fin de mission sont partiellement couverts :
-> `Mission.closedAt` existe et produit l'étape `TERMINE`, mais aucun écran ne permet
-> encore de clore une mission ni d'en qualifier l'issue.
+> **Implémenté le 01/09/2026** : abonnement portail (§12.2 — dégressivité -10 %/-30 %
+> enfin chiffrée dans l'outil, `subscription-service.ts`), contrat d'accompagnement et
+> suivi de la signature des avenants (§12.6), relances des pièces manquantes (§12.5 —
+> le GESTE, pas l'automate : la cadence reste non spécifiée), seconde auto-évaluation
+> comparable (§12.6), grille d'entretien découverte avant le chiffrage, export CSV des
+> cotations, restitutions & livrables et fil d'échange côté client (CDC §5).
+>
+> **Non implémenté** : §12.5 (page plan d'action — bloquée par le fichier PAC de
+> Sandrine et le tri inclus/option ; module sensibilisation ; automate de relance) et
+> l'export au format d'import Synaé, toujours inconnu. Le paywall direct (§12.6) reste
+> suspendu à une décision sur le prestataire de paiement.
 >
 > **Non représentable en l'état dans le catalogue** (aucun champ ne les porte, ils restent
 > à traiter à la main dans le devis) : la remise « Forfait multi-docs (3+) : -10 % », le pack

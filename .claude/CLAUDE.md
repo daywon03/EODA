@@ -118,8 +118,12 @@ Le référentiel HAS a des règles précises (NC interdit sur impératifs, RI un
 - **Base de données :** **Supabase PostgreSQL**, région `aws-0-eu-west-1` (Irlande), Prisma ORM
   — remplace Prisma Postgres depuis le 21/08/2026
 - **Stockage fichiers :** **Supabase Storage** (S3-compatible, même projet que la BDD, donc
-  même région Europe) — jamais AWS us-east par défaut. *Pas encore provisionné : ni bucket ni
-  clé d'accès, donc aucune variable `S3_*` — le repli disque local reste actif.*
+  même région Europe) — jamais AWS us-east par défaut. **Provisionné le 01/09/2026** :
+  bucket `eoda-documents`, clé d'accès S3 et les cinq variables `S3_*` dans `.env.local`.
+  Aller-retour vérifié en exécution (envoi, URL signée, relecture 200, suppression, 404
+  ensuite). `getFileStoragePort()` sélectionne donc `S3StorageAdapter` **y compris en
+  développement** : les dépôts ne vont plus sur le disque local. Reste à confirmer côté
+  Supabase : le chiffrement at-rest.
 - **Auth :** Auth.js (NextAuth) — comptes Cabinet (Sandrine + futurs collaborateurs) et
   comptes Client (un par établissement)
 - **Analyse documentaire :** extraction texte (pdf-parse / mammoth pour docx) +
@@ -251,6 +255,18 @@ Détail complet et état d'avancement : `specs/02-architecture-technique.md` §4
   catalogue, donc un « à partir de », rendu comme tel côté portail client. Ne jamais fusionner
   les deux chemins de création « puisque c'est le même objet » : ils n'ont pas la même valeur
   juridique. Règles pures dans `lib/services/mission-option-service.ts`.
+- **L'identité de la structure se saisit au stade PROSPECT, et se recopie.** FINESS,
+  adresse, type de SAD et échéance HAS visée vivent sur `Prospect` (facultatifs — un
+  prospect dont on ne connaît que le nom doit pouvoir entrer dans le pipeline) et
+  pré-remplissent l'écran de signature, qui continue de les EXIGER avant de créer la
+  fiche. Règles pures dans `lib/services/structure-identity-service.ts` : normalisation
+  du FINESS (« 93 00 34 459 » = « 930034459 »), contrôle de forme partagé entre le
+  prospect et la signature, et refus explicite d'un FINESS déjà rattaché à une autre
+  fiche — sans lui, la contrainte unique tombait dans le `catch` général de la
+  conversion, qui annonce « conversion déjà enregistrée », soit le contraire de ce qui
+  s'est passé. `Prospect.finessNumber` n'est **pas** unique : deux prospects peuvent
+  désigner la même structure pendant une prospection, c'est la création de la FICHE qui
+  tranche. Le type de SAD reste **demandé** à la signature, jamais déduit.
 - **Une fiche client ne se crée QUE par la signature d'un devis.** Il n'existe
   volontairement plus de `createEstablishment` ni de route `/etablissements/nouveau`
   (supprimés le 23/08/2026). Une création manuelle produisait un établissement sans
@@ -351,6 +367,55 @@ Détail complet et état d'avancement : `specs/02-architecture-technique.md` §4
   statut juridique est saisi une seule fois, au stade prospect, et **recopié** sur la
   fiche à la signature — jamais redemandé, une seconde saisie du même fait finit par
   diverger.
+- **Le contrat RÉCAPITULE le devis signé, il ne le remplace pas.** Le document
+  contractuel du dépôt reste le devis (§7 ci-dessus). Le contrat d'accompagnement
+  (`contract-service.ts`, `/imprimer/contrat/[id]`) ajoute ce qu'un devis ne dit
+  pas — parties, objet, engagements réciproques — et n'écrit **aucune clause de
+  droit nouvelle** : chaque engagement listé est la reprise d'une décision déjà
+  écrite dans le dépôt. Ne pas y ajouter de CGV rédigées à la main : elles
+  n'existent pas encore côté Sandrine, et le contrat y renvoie en annexe. Il refuse
+  de se produire sans accord chiffré (`canIssueContract`), sauf bêta-test gratuit.
+- **`priceIsFirm` et `avenantSignedOn` ne disent pas la même chose.** Le premier est
+  la PROVENANCE (l'option vient d'un devis signé, le montant fait contrat), le second
+  la RÉGULARISATION (l'avenant est revenu signé). Signer un avenant ne rend pas son
+  montant ferme : l'avenant porte un « à partir de » recopié du catalogue. Les deux
+  verrouillent en revanche le retrait de l'option depuis l'écran de mission — une
+  seule fonction pour les deux (`isOptionContractuallyLocked`).
+- **La dégressivité de l'abonnement portail vit dans l'outil**, pas au catalogue
+  (`subscription-service.ts`) : -10 % Performance, -30 % Excellence, 0 en Essentiel,
+  et le bêta-test suit Excellence. Elle dépend de l'OFFRE souscrite à côté, jamais de
+  la ligne de catalogue. Appliquée une seule fois à la construction du devis, puis
+  snapshotée : un montant remisé fait partie du document commercial. L'appariement se
+  fait par CODE (`VEILLE_PORTAIL_EODA`), jamais par libellé.
+- **Un livrable n'est pas un objet à créer, c'est un état dérivé** — la dernière
+  version produite par le cabinet sur un document dont `validatedAt` est posé
+  (`deliverables-service.ts`). Ne jamais ajouter de table « livrable » : elle se
+  remplirait à la main, donc s'oublierait. Seule l'étape VALIDE ouvre la remise au
+  client ; ce qui est en cours est compté, jamais listé (promettre à la place de
+  Sandrine).
+- **La grille de découverte est un CONTENU, pas un schéma** (`content/decouverte/`,
+  réponses en `Prospect.discoveryAnswersJson` lues défensivement). Ajouter une
+  question ne doit jamais demander une migration. Le gabarit officiel de Sandrine
+  n'est pas dans le dépôt : les questions livrées sont provisoires et annoncées comme
+  telles à l'écran. **L'ouverture de cette grille au client n'est pas tranchée** —
+  `CABINET_ADMIN` uniquement jusqu'à décision explicite.
+- **Une session d'évaluation clôturée est une PHOTO.** Elle ne se cote plus (refus
+  côté serveur), et l'écran de chapitre ne crée plus de session en se chargeant : il
+  le faisait, et rouvrir un chapitre après une clôture faisait disparaître toutes les
+  cotations. L'ouverture est un geste explicite. C'est ce qui rend la seconde
+  auto-évaluation comparable à la première (`evaluation-comparison-service.ts`, où un
+  critère coté d'un seul côté est `INCOMPARABLE` et jamais un écart de ±4).
+- **Les relances sont un geste, pas un automate.** Délais et cadence n'ont jamais été
+  spécifiés (§12.7) : ne pas en inventer. Une pièce déjà justifiée par le client n'est
+  jamais relancée, ni un document que le cabinet doit produire
+  (`reminder-service.ts`). Les destinataires viennent du lien `EstablishmentUser`,
+  jamais d'une adresse saisie.
+- **Le fil d'échange est append-only et ne transporte rien.** Un fil par
+  établissement, aucune pièce jointe (les documents ont leur propre dépôt), aucune
+  modification ni suppression. L'e-mail de notification ne contient PAS le message :
+  il peut évoquer des situations de personnes accompagnées, et le fil existe pour que
+  les échanges restent dans la plateforme. Le client garde la parole en bibliothèque ;
+  seul un accès révoqué ferme le fil.
 - Ne pas faire passer un devis à `SIGNE` par `changeDevisStatus` : la signature est la seule
   transition qui produit des effets hors du module commercial (fiche établissement, mission,
   périmètre ouvert au client) et passe par `convertDevisToClient` (`lib/actions/conversion.ts`),

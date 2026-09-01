@@ -1,10 +1,18 @@
 import { Label } from "@/components/ui/label";
 import type { CatalogueOption } from "@eoda/database";
 import { formatStartingPrice } from "@/lib/services/price-format-service";
-import { Lock } from "lucide-react";
+import { FileSignature, Lock } from "lucide-react";
+import {
+  describeAvenantState,
+  isOptionContractuallyLocked,
+} from "@/lib/services/avenant-service";
 
 // Options déjà rattachées au périmètre, telles que renvoyées par getMission().
-type SubscribedRow = { catalogueOptionId: string; priceIsFirm: boolean };
+type SubscribedRow = {
+  catalogueOptionId: string;
+  priceIsFirm: boolean;
+  avenantSignedOn?: Date | null;
+};
 
 type Props = {
   options: CatalogueOption[];
@@ -46,7 +54,11 @@ export function MissionOptionsPicker({ options, subscribed = [], disabled }: Pro
           // fermerait un accès payé, sans trace côté commercial. L'action serveur
           // refuse de toute façon — la case verrouillée n'est que le reflet visible
           // de cette règle, jamais sa seule application.
-          const locked = row?.priceIsFirm === true;
+          // Verrouillé aussi par un AVENANT revenu signé : un document signé ne
+          // s'annule pas en décochant une case. Une seule règle pour les deux cas
+          // (avenant-service), sinon c'est l'un des deux qui finira par manquer.
+          const locked = row !== undefined && isOptionContractuallyLocked(row);
+          const avenantState = row ? describeAvenantState(row) : null;
 
           return (
             <label
@@ -65,10 +77,27 @@ export function MissionOptionsPicker({ options, subscribed = [], disabled }: Pro
                   className="accent-terre"
                 />
                 {option.label}
-                {locked && (
+                {row?.priceIsFirm && (
                   <span className="inline-flex items-center gap-1 text-xs text-gris-mid">
                     <Lock className="w-3 h-3" aria-hidden="true" />
                     au devis signé
+                  </span>
+                )}
+                {/* L'état de l'avenant, là où on décide du périmètre : « à faire
+                    signer » ou « signé le … ». C'est l'information qui manquait —
+                    l'avenant se générait, et personne ne savait où il en était. */}
+                {avenantState && (
+                  <span
+                    className={`inline-flex items-center gap-1 text-xs ${
+                      row?.avenantSignedOn ? "text-vert-ok" : "text-ambre"
+                    }`}
+                  >
+                    {row?.avenantSignedOn ? (
+                      <Lock className="w-3 h-3" aria-hidden="true" />
+                    ) : (
+                      <FileSignature className="w-3 h-3" aria-hidden="true" />
+                    )}
+                    {avenantState}
                   </span>
                 )}
               </span>
@@ -83,7 +112,7 @@ export function MissionOptionsPicker({ options, subscribed = [], disabled }: Pro
       {/* Une case `disabled` n'est pas soumise : sans ce champ, une option verrouillée
           disparaîtrait du périmètre au premier enregistrement du formulaire. */}
       {subscribed
-        .filter((row) => row.priceIsFirm)
+        .filter(isOptionContractuallyLocked)
         .map((row) => (
           <input
             key={row.catalogueOptionId}

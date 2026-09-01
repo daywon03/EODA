@@ -260,6 +260,7 @@ model Tenant {
   optionRequests    ClientOptionRequest[]
   prospectTimeline  ProspectTimelineEntry[]
   appointments      Appointment[]
+  missionMessages   MissionMessage[]
 
   @@map("tenants")
 }
@@ -298,6 +299,7 @@ model User {
   reviewedAnalyses   DocumentVersion[]       @relation("AnalysisReviewedBy")
   createdAppointments Appointment[]          @relation("AppointmentCreatedBy")
   validatedDocuments  Document[]             @relation("DocumentValidatedBy")
+  missionMessages     MissionMessage[]
 
   @@map("users")
 }
@@ -344,6 +346,7 @@ model Establishment {
   mission            Mission?
   optionRequests     ClientOptionRequest[]
   appointments       Appointment[]
+  messages           MissionMessage[]
 
   @@map("establishments")
 }
@@ -703,7 +706,37 @@ model Prospect {
   firstContactDate     DateTime           @map("first_contact_date")
   // Évaluation des besoins (Phase 0 — étape "Évaluation des besoins" de la prospection) —
   // notes qualitatives ; `estimatedAmountEuros` ci-dessus sert de niveau financier.
+  // IDENTITÉ DE LA STRUCTURE, connue dès le premier contact et saisie une seule fois.
+  //
+  // Ces quatre champs se saisissaient jusqu'ici seulement à la SIGNATURE : on les
+  // avait sous les yeux en réunion de découverte sans pouvoir les noter, et il
+  // fallait les retrouver des semaines plus tard. Ils sont donc FACULTATIFS ici (un
+  // prospect dont on ne connaît que le nom et un téléphone doit pouvoir entrer dans
+  // le pipeline) et RECOPIÉS sur la fiche à la signature — même règle que
+  // `structureType`.
+  //
+  // `finessNumber` n'est PAS unique ici, contrairement à `Establishment.finessNumber` :
+  // deux prospects peuvent désigner la même structure pendant une prospection, et
+  // c'est la création de la FICHE qui doit trancher. La contrainte reste donc là où
+  // elle a un sens.
+  finessNumber         String?            @map("finess_number")
+  address              String?
+  // Type de SAD. Reste DEMANDÉ à la signature (CLAUDE.md §7 — jamais déduit de la
+  // forme juridique) : ce champ ne fait que pré-remplir la question.
+  establishmentType    EstablishmentType? @map("establishment_type")
+  hasEvaluationTargetDate DateTime?       @map("has_evaluation_target_date")
   needsAssessmentNotes String?            @map("needs_assessment_notes")
+  // GRILLE D'ENTRETIEN DÉCOUVERTE — réponses de la réunion de découverte (R1),
+  // saisies par le cabinet pendant l'appel. Colonne Json et non vingt colonnes : la
+  // grille est un CONTENU versionné (apps/web/src/content/decouverte/), pas un
+  // schéma. Ajouter une question ne doit pas demander une migration — le gabarit
+  // v03 de Sandrine est attendu, et il remplacera les questions.
+  //
+  // Lue DÉFENSIVEMENT (discovery-grid-service) : une réponse écrite sous une version
+  // antérieure de la grille ne doit pas casser l'écran, et une question disparue ne
+  // doit pas réapparaître.
+  discoveryAnswersJson Json?              @map("discovery_answers_json")
+  discoveryUpdatedAt   DateTime?          @map("discovery_updated_at")
   notes                String?
   // Renseigné par la CONVERSION à la signature (lib/actions/conversion.ts) : passer
   // un devis à SIGNE crée l'Establishment s'il n'existe pas, pose ce lien, et crée
@@ -1031,6 +1064,21 @@ model MissionOption {
   // convertDevisToClient, donc d'un devis signé. La migration n'a rien à recalculer.
   priceIsFirm Boolean @default(true) @map("price_is_firm")
 
+  // SIGNATURE DE L'AVENANT qui régularise cette option.
+  //
+  // L'avenant se GÉNÉRAIT sans que rien ne dise s'il était revenu signé : Sandrine
+  // devait s'en souvenir, ou rouvrir sa boîte mail. Ce champ est ce fait, et rien de
+  // plus — il ne rend PAS le montant ferme : l'avenant porte un « à partir de »
+  // recopié du catalogue (avenant-service), le signer ne le transforme pas en prix
+  // négocié. `priceIsFirm` reste la PROVENANCE (devis signé), ce champ la
+  // RÉGULARISATION. Les confondre ferait afficher au client un engagement que
+  // personne n'a chiffré.
+  //
+  // Conséquence : une option régularisée ne se retire plus depuis l'écran de mission,
+  // exactement comme une option issue d'un devis — un document signé ne s'annule pas
+  // en décochant une case.
+  avenantSignedOn DateTime? @map("avenant_signed_on")
+
   createdAt DateTime @default(now()) @map("created_at")
 
   // Cascade : une option souscrite n'existe que par sa mission. Sans cette règle
@@ -1063,6 +1111,46 @@ model MissionChecklistItemStatus {
 
   @@unique([missionId, itemId])
   @@map("mission_checklist_item_statuses")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FIL D'ÉCHANGE MISSION ↔ CLIENT — CDC §5 « messagerie / échanges »
+//
+// « Fil d'échange léger consultante ↔ client rattaché à la mission, pour limiter les
+// allers-retours par e-mail. » Léger est le mot : un fil par établissement, pas de
+// pièce jointe (les documents ont leur propre dépôt, versionné et analysé), pas de
+// conversation par document.
+//
+// APPEND-ONLY, comme `ProspectTimelineEntry` et pour la même raison : un échange
+// réécrivable ne prouve rien le jour où il faut expliquer ce qui avait été demandé,
+// et quand. Ni modification, ni suppression.
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum MessageAuthorSide {
+  CABINET
+  CLIENT
+}
+
+model MissionMessage {
+  id              String            @id @default(cuid())
+  tenantId        String            @map("tenant_id")
+  establishmentId String            @map("establishment_id")
+  authorUserId    String            @map("author_user_id")
+  // Côté FIGÉ à l'écriture, et non déduit du rôle de l'auteur à la lecture : un
+  // compte peut changer de rôle, et le fil doit continuer de dire qui parlait au nom
+  // de qui ce jour-là.
+  authorSide      MessageAuthorSide @map("author_side")
+  body            String
+  createdAt       DateTime          @default(now()) @map("created_at")
+
+  tenant        Tenant        @relation(fields: [tenantId], references: [id])
+  // Cascade : le fil n'existe que par l'établissement. La rétention porte sur les
+  // documents et le journal d'audit, pas sur une conversation.
+  establishment Establishment @relation(fields: [establishmentId], references: [id], onDelete: Cascade)
+  author        User          @relation(fields: [authorUserId], references: [id])
+
+  @@index([establishmentId, createdAt])
+  @@map("mission_messages")
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1138,6 +1226,19 @@ enum AuditAction {
   // Un type de document passe de « réclamé au client » à « produit par EODA », ou
   // l'inverse. Politique de cabinet, valable pour tous les clients.
   DOCUMENT_TYPE_SCOPE_CHANGED
+  // Export des cotations d'auto-évaluation (fichier tableur). Un export SORT les
+  // données de la plateforme : c'est précisément le genre d'accès dont il faut
+  // pouvoir dire qui, quand, et pour quel établissement.
+  EVALUATION_EXPORTED
+  // Retour d'un avenant signé, et retrait de cette signature. `targetId` =
+  // identifiant de la ligne MissionOption, `detail` = le libellé de la prestation
+  // (donnée de catalogue, jamais nominative). Ces deux gestes verrouillent ou
+  // déverrouillent le retrait d'une prestation du périmètre d'un client.
+  AVENANT_SIGNED
+  AVENANT_SIGNATURE_CLEARED
+  // Relance des pièces manquantes envoyée aux interlocuteurs d'une structure.
+  // `detail` = le nombre de pièces et de destinataires, jamais leurs adresses.
+  DOCUMENT_REMINDER_SENT
 }
 
 model AuditLogEntry {

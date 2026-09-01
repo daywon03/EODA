@@ -68,6 +68,8 @@ beforeEach(() => {
   prismaMock.evaluationSession.findFirst.mockResolvedValue({
     id: SESSION_ID,
     establishmentId: "etab-1",
+    // Session OUVERTE par défaut : c'est l'état dans lequel on cote.
+    finishedAt: null,
     chapter: { number: 3 },
   });
   prismaMock.elementRating.upsert.mockResolvedValue({});
@@ -103,6 +105,7 @@ describe("rateElement — périmètre de critères de l'offre", () => {
       prismaMock.evaluationSession.findFirst.mockResolvedValue({
         id: SESSION_ID,
         establishmentId: "etab-1",
+        finishedAt: null,
         chapter: { number: 3 },
       });
       prismaMock.elementRating.upsert.mockResolvedValue({});
@@ -142,6 +145,29 @@ describe("rateElement — périmètre de critères de l'offre", () => {
 
     await expect(rateElement(SESSION_ID, "ee-1", "RI", null)).resolves.toEqual({
       error: "RI n'est disponible que pour le Chapitre 1.",
+    });
+    expect(prismaMock.elementRating.upsert).not.toHaveBeenCalled();
+  });
+});
+
+describe("rateElement — session clôturée", () => {
+  it("refuse de coter dans une session clôturée, sans rien écrire", async () => {
+    // Une session close est la PHOTO d'un état à une date. La réécrire ferait dériver
+    // la première auto-évaluation pendant qu'on mène la seconde, et la comparaison
+    // des deux (§12.6, offre Excellence) ne voudrait plus rien dire.
+    prismaMock.evaluationSession.findFirst.mockResolvedValue({
+      id: SESSION_ID,
+      establishmentId: "etab-1",
+      finishedAt: new Date("2026-08-20T10:00:00Z"),
+      chapter: { number: 3 },
+    });
+    givenElement("IMPERATIF");
+    givenMission("EXCELLENCE");
+
+    const result = await rateElement(SESSION_ID, "ee-1", untrustedRating("R4"), null);
+
+    expect(result).toEqual({
+      error: "Cette session est clôturée. Ouvrez une nouvelle session pour coter.",
     });
     expect(prismaMock.elementRating.upsert).not.toHaveBeenCalled();
   });

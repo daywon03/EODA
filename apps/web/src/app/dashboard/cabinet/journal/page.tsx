@@ -52,6 +52,10 @@ const ACTION_LABELS: Record<AuditAction, string> = {
   DOCUMENT_VALIDATED: "Document validé",
   DOCUMENT_UNVALIDATED: "Validation de document retirée",
   DOCUMENT_TYPE_SCOPE_CHANGED: "Document réclamé au client / produit par EODA",
+  EVALUATION_EXPORTED: "Export des cotations d'auto-évaluation",
+  AVENANT_SIGNED: "Avenant signé (retour du client)",
+  AVENANT_SIGNATURE_CLEARED: "Signature d'avenant retirée",
+  DOCUMENT_REMINDER_SENT: "Relance des pièces manquantes",
 };
 
 const ROLE_LABELS: Record<string, string> = {

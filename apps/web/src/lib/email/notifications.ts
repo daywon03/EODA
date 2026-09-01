@@ -1,7 +1,12 @@
 import { prisma } from "@eoda/database";
 import { getEnv } from "@/lib/config/env";
 import { getEmailPort } from "./index";
-import { buildClientInvitationEmail, buildOptionRequestEmail } from "./templates";
+import {
+  buildClientInvitationEmail,
+  buildDocumentReminderEmail,
+  buildNewMessageEmail,
+  buildOptionRequestEmail,
+} from "./templates";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ENVOI DES NOTIFICATIONS — la couche qui a le droit de parler au monde extérieur.
@@ -90,4 +95,116 @@ export async function notifyOptionRequest(input: {
     );
   }
   return failures.length < admins.length;
+}
+
+// Relance des pièces manquantes, vers les interlocuteurs du client.
+//
+// Destinataires lus en base depuis le lien `EstablishmentUser` : on ne relance que
+// des comptes réellement rattachés à CET établissement, et jamais une adresse saisie
+// à la main dans un formulaire — ce serait le meilleur moyen d'envoyer la liste des
+// manques d'une structure à quelqu'un d'autre.
+//
+// Rend le nombre d'envois réussis : l'écran doit pouvoir dire « relance envoyée à
+// 2 personnes » ou « aucune adresse joignable », jamais un succès muet.
+export async function sendDocumentReminderEmails(input: {
+  establishmentId: string;
+  establishmentName: string;
+  missingLabels: readonly string[];
+  message: string | null;
+}): Promise<{ sent: number; total: number }> {
+  const links = await prisma.establishmentUser.findMany({
+    where: { establishmentId: input.establishmentId },
+    select: { user: { select: { name: true, email: true, isActive: true } } },
+  });
+  // Un compte désactivé ne reçoit rien : sa désactivation est précisément la décision
+  // de couper le lien.
+  const recipients = links.map((link) => link.user).filter((user) => user.isActive);
+  if (recipients.length === 0) return { sent: 0, total: 0 };
+
+  const port = getEmailPort();
+  const results = await Promise.allSettled(
+    recipients.map((recipient) => {
+      const content = buildDocumentReminderEmail({
+        recipientName: recipient.name ?? "Madame, Monsieur",
+        establishmentName: input.establishmentName,
+        missingLabels: input.missingLabels,
+        message: input.message,
+        portalUrl: appUrl("/dashboard/client"),
+        brand: { logoUrl: appUrl("/logo-eoda.png") },
+      });
+      return port.send({ to: recipient.email, subject: content.subject, html: content.html });
+    })
+  );
+
+  const sent = results.filter((result) => result.status === "fulfilled").length;
+  if (sent < recipients.length) {
+    // Ni adresse ni nom dans le journal technique : un envoi échoué se diagnostique
+    // par son nombre, pas par la liste de ses destinataires.
+    console.error(
+      `Relance documentaire — ${recipients.length - sent}/${recipients.length} envoi(s) échoué(s).`
+    );
+  }
+
+  return { sent, total: recipients.length };
+}
+
+// Nouveau message dans le fil d'échange : on prévient l'AUTRE côté.
+//
+// Le contenu du message ne part pas par e-mail (cf. `buildNewMessageEmail`) : le fil
+// existe pour garder les échanges dans la plateforme. L'e-mail sert uniquement à
+// faire revenir quelqu'un.
+export async function notifyNewMessage(input: {
+  tenantId: string;
+  establishmentId: string;
+  establishmentName: string;
+  authorSide: "CABINET" | "CLIENT";
+}): Promise<boolean> {
+  const fromCabinet = input.authorSide === "CABINET";
+
+  const recipients = fromCabinet
+    ? // Message du cabinet → les interlocuteurs de CET établissement, lus par le lien
+      // EstablishmentUser (jamais une adresse saisie).
+      (
+        await prisma.establishmentUser.findMany({
+          where: { establishmentId: input.establishmentId },
+          select: { user: { select: { email: true, isActive: true } } },
+        })
+      )
+        .map((link) => link.user)
+        .filter((user) => user.isActive)
+    : // Message du client → les comptes CABINET_ADMIN du tenant. Même choix que les
+      // demandes d'option : la personne reçoit les alertes parce qu'elle a un compte,
+      // pas parce qu'on a pensé à modifier une variable d'environnement.
+      await prisma.user.findMany({
+        where: { tenantId: input.tenantId, role: "CABINET_ADMIN", isActive: true },
+        select: { email: true, isActive: true },
+      });
+
+  if (recipients.length === 0) return false;
+
+  const content = buildNewMessageEmail({
+    establishmentName: input.establishmentName,
+    fromCabinet,
+    threadUrl: appUrl(
+      fromCabinet
+        ? "/dashboard/client/echanges"
+        : `/dashboard/cabinet/etablissements/${input.establishmentId}/echanges`
+    ),
+    brand: { logoUrl: appUrl("/logo-eoda.png") },
+  });
+
+  const port = getEmailPort();
+  const results = await Promise.allSettled(
+    recipients.map((recipient) =>
+      port.send({ to: recipient.email, subject: content.subject, html: content.html })
+    )
+  );
+
+  const failures = results.filter((result) => result.status === "rejected");
+  if (failures.length > 0) {
+    console.error(
+      `Notification de message — ${failures.length}/${recipients.length} envoi(s) échoué(s).`
+    );
+  }
+  return failures.length < recipients.length;
 }

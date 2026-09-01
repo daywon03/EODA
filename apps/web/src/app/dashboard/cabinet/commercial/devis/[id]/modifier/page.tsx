@@ -52,6 +52,7 @@ export default async function ModifierDevisPage({ params }: Props) {
             }))}
             options={activeOptions.map((o) => ({
               id: o.id,
+              code: o.code,
               label: o.label,
               priceEuros: o.priceEuros,
               pricingUnit: o.pricingUnit,

@@ -45,10 +45,13 @@ export function deriveProspectNextAction(facts: ProspectActionFacts): ProspectNe
 
   switch (facts.status) {
     case "NOUVEAU":
+      // Mène à la GRILLE de découverte, et non plus directement au choix de l'offre :
+      // ouvrir l'évaluation des besoins à cette étape faisait chiffrer avant d'avoir
+      // écouté. L'évaluation des besoins vient après, depuis la grille.
       return {
         label: "Préparer la réunion de découverte",
-        hint: "L'évaluation des besoins prépare l'offre et les options à proposer en séance.",
-        href: `${PROSPECTS_PATH}/${prospectId}/evaluation-besoins`,
+        hint: "La grille d'entretien se remplit en séance ; l'offre se choisit ensuite.",
+        href: `${PROSPECTS_PATH}/${prospectId}/decouverte`,
       };
 
     // Le RDV programmé EST la réunion de découverte : c'est de là qu'on choisit
