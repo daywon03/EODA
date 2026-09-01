@@ -34,6 +34,14 @@ export type PendingOptionRequest = {
   };
 };
 
+// Nombre de demandes en attente — sert la pastille de navigation. Un `count` et non
+// la liste : la barre de navigation est rendue à chaque page, elle n'a pas à charger
+// des libellés et des prix pour afficher un chiffre.
+export async function countPendingOptionRequests(): Promise<number> {
+  const { tenantId } = await requireCabinetAdminSession();
+  return prisma.clientOptionRequest.count({ where: { tenantId, status: "DEMANDEE" } });
+}
+
 // Demandes en attente du tenant de l'appelant, de la plus ancienne à la plus
 // récente. Le filtre par tenant n'est pas conditionnel : sans tenant, la garde a
 // déjà refusé (fail-closed).

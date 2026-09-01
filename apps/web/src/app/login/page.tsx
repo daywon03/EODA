@@ -1,21 +1,8 @@
 import { LoginForm } from "./LoginForm";
 import { ShieldCheck, FileCheck2, ClipboardCheck } from "lucide-react";
+import { EodaLockup, EodaMark } from "@/components/layout/EodaLogo";
 
 export const metadata = { title: "Connexion · EODA Conseil" };
-
-function EodaLogo({ className = "w-14 h-14" }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 42 42" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
-      <circle cx="21" cy="21" r="19" stroke="#D69646" strokeWidth="2" />
-      <circle cx="21" cy="21" r="7" stroke="#D69646" strokeWidth="2" />
-      <line x1="21" y1="2" x2="21" y2="10" stroke="#D69646" strokeWidth="2" strokeLinecap="round" />
-      <line x1="21" y1="32" x2="21" y2="40" stroke="#D69646" strokeWidth="2" strokeLinecap="round" />
-      <line x1="2" y1="21" x2="10" y2="21" stroke="#D69646" strokeWidth="2" strokeLinecap="round" />
-      <line x1="32" y1="21" x2="40" y2="21" stroke="#D69646" strokeWidth="2" strokeLinecap="round" />
-      <circle cx="21" cy="21" r="3" fill="#D69646" />
-    </svg>
-  );
-}
 
 const HIGHLIGHTS = [
   { icon: FileCheck2, text: "Checklist documentaire loi 2002-2 et HAS" },
@@ -41,7 +28,9 @@ export default function LoginPage() {
           aria-hidden="true"
         />
         <div className="relative flex items-center gap-3">
-          <EodaLogo className="w-11 h-11" />
+          {/* Panneau sombre : le rond seul — le lettrage brun du bloc complet ne
+              tiendrait pas sur ce fond. */}
+          <EodaMark size={44} />
           <div>
             <span className="text-ivoire font-bold text-lg tracking-wide block">EODA conseil</span>
             <span className="text-ambre text-[11px] uppercase tracking-widest block">
@@ -74,14 +63,10 @@ export default function LoginPage() {
       {/* Panneau formulaire */}
       <div className="flex items-center justify-center px-6 py-12 bg-ivoire-light">
         <div className="w-full max-w-sm animate-fade-in">
-          <div className="flex flex-col items-center lg:hidden mb-8 gap-3">
-            <EodaLogo />
-            <div className="text-center">
-              <h1 className="text-brun-ancre font-bold text-2xl tracking-wide">EODA conseil</h1>
-              <p className="text-terre text-xs uppercase tracking-widest mt-1">
-                Expliquer · Observer · Démontrer · Accompagner
-              </p>
-            </div>
+          {/* Mobile : fond clair, donc le bloc complet — logo, nom et signature
+              d'un seul tenant, tels que dessinés. */}
+          <div className="flex flex-col items-center lg:hidden mb-8">
+            <EodaLockup width={260} className="h-auto max-w-full" />
           </div>
 
           <div className="bg-white rounded-xl shadow-eoda-lg p-8">

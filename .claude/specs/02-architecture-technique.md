@@ -451,7 +451,7 @@ Jamais de donnée personnelle dans `detail` (codes de type de document, motifs t
 - [ ] **Chiffrement at-rest du bucket** — à activer côté Supabase Storage ; le bucket réel
   n'est toujours pas provisionné (`S3_*` absentes), donc rien de sensible ne doit être déposé en
   production avant.
-- [ ] **CSP à nonce** (cf. §4.6).
+- [x] **CSP à nonce** — faite le 26/08/2026 (§4.6, middleware + lib/security/content-security-policy.ts).
 - [ ] **Compteur de débit partagé** si l'application passe à plusieurs instances (§4.5).
 - [ ] **Purge/rétention du journal d'audit** — durée de conservation à arrêter avec Sandrine
   (RGPD : la traçabilité doit être bornée, pas éternelle).
@@ -544,6 +544,195 @@ servait les pages, et n'échouait qu'au premier dépôt de document — devant l
   vulnérable (GHSA-r292-9mhp-454m) pour du code qui n'était plus exécuté. Garder une
   dépendance « au cas où » ne coûte pas zéro : elle reste dans l'arbre, et donc dans
   l'audit.)*
+
+### 4.13 Cycle de vie d'une fiche client — état dérivé ✅ *(23/08/2026)*
+
+**Une seule porte vers une fiche client.** Il existait deux chemins :
+`convertDevisToClient` (prospect → devis → signature) et une création manuelle via
+`/dashboard/cabinet/etablissements/nouveau`. Le second redemandait les mêmes champs —
+FINESS, type de SAD, adresse, échéance HAS — mais **avant** qu'aucune relation
+commerciale n'existe, et produisait un établissement sans prospect, sans devis et sans
+chiffre d'affaires : invisible de tous les indicateurs. Supprimé (route, page, action
+`createEstablishment`).
+
+**L'état est calculé, pas stocké.** Le réflexe aurait été d'ajouter
+`Establishment.status`. Rejeté : le dépôt porte déjà quatre sources d'état
+(`Prospect.status`, `Devis.status`, `Mission.formule`/`gratuit`,
+`Establishment.commercialTier`) et la cinquième aurait divergé comme la quatrième —
+`commercialTier` a été ajouté puis plus rien ne l'a mis à jour, si bien que la fiche
+annonçait « Bêta-test gratuit » à des clients payants.
+
+`lib/services/lifecycle-service.ts` (pur, 100 % couvert) :
+
+| Étape | Dérivée de |
+|---|---|
+| `SIGNE` | mission existe, aucun item coché, aucune date de phase posée |
+| `EN_COURS` | ≥ 1 item de diagnostic coché **ou** ≥ 1 date de phase posée |
+| `TERMINE` | `Mission.closedAt` renseigné |
+
+`closedAt` est la **seule** colonne ajoutée : la clôture est une décision de
+l'évaluatrice, pas un calcul. Déduire « terminé » d'une checklist à 100 % serait faux —
+une mission entièrement cochée reste ouverte jusqu'à la visite des évaluateurs, et la
+clore fermerait le portail du client avant l'échéance pour laquelle il a payé. Le cas
+inverse existe aussi : une mission abandonnée est close avec une progression partielle.
+
+Une échelle unifiée (`deriveFunnelStage`) projette prospect **et** client sur un même
+axe `NOUVEAU → RDV → DEVIS_ENVOYE → NEGOCIATION → SIGNE → EN_COURS → TERMINE / PERDU`.
+La mission l'emporte dès qu'elle existe : `Prospect.status` reste figé à `SIGNE` après
+conversion — correct comme dernier état commercial, mais il afficherait « Signé » sur
+une structure dont la mission est terminée depuis six mois. Un établissement sans
+prospect (ASSAD BENOIT, antérieur à l'entonnoir unique) se dérive de sa seule mission.
+
+`StructureType` (ex-`ProspectType`) est désormais partagé par `Prospect` et
+`Establishment` — d'où le renommage. Nullable sur `Establishment` sans valeur par
+défaut : les fiches antérieures n'ont pas l'information et poser « ASSOCIATION » pour
+tout le monde ferait entrer une donnée inventée dans un livrable. Il est saisi au stade
+prospect et **recopié** à la signature, jamais ressaisi.
+
+### 4.14 KPI de portefeuille — l'aval de l'entonnoir ✅ *(26/08/2026)*
+
+`commercial-kpi-service.ts` agrège des **devis** : émis, taux de conversion, pipeline
+pondéré, CA signé. Il s'arrête à la signature. Après elle, l'outil ne savait plus
+compter : « combien de clients accompagnons-nous en ce moment ? » n'avait aucune
+réponse à l'écran, et deux indicateurs mentaient — « Établissements suivis » comptait
+les missions closes depuis un an, « Évaluations HAS planifiées » comptait les fiches
+dont la date est renseignée, c'est-à-dire **toutes** depuis qu'elle est exigée à la
+signature (§4.13).
+
+`lib/services/portfolio-kpi-service.ts` (pur, sous seuil de couverture) compte l'autre
+moitié à partir des **mêmes faits** que les badges d'étape — jamais d'un second calcul :
+
+| Indicateur | Règle |
+|---|---|
+| Clients actifs | étape `SIGNE` ou `EN_COURS` — le client a payé, l'engagement court |
+| Accompagnements en cours | étape `EN_COURS` seule — une signature n'occupe pas encore de temps de travail |
+| Missions bêta actives | `gratuit` **et** non close — le bêta-test est un attribut, pas une étape |
+| Échéances HAS < 6 mois | mission active, date à venir et dans l'horizon (`now` passé en paramètre, jamais lu par le service) |
+| Missions actives par formule | `Mission.formule`, jamais `Establishment.commercialTier` — ce qui reste à livrer, pas ce qui a été vendu |
+
+**Entonnoir unifié** (`computeFunnelBreakdown`) : prospects **non convertis** +
+fiches clients sur une seule échelle. `getProspectKpiCounts` filtre donc
+`establishmentId: null` sur `byStatus` — sans ce filtre, une structure convertie
+apparaîtrait deux fois, en « Signé » (statut du prospect, figé à vie) et à l'étape
+réelle de sa mission. `byStructureType` reste calculé sur **tous** les prospects :
+c'est une lecture de marché, pas une photo du pipeline. Une fiche sans prospect ni
+mission est comptée à part (« Indéterminé ») plutôt que rangée d'office dans une étape
+— un entonnoir qui invente une étape pour ne pas avoir de trou ment sur son total.
+
+La conversion ligne Prisma → ligne d'agrégat vit dans `lib/db/to-portfolio-row.ts`,
+comme `to-mission-lifecycle-facts.ts` : le service reste pur, et le tableau de bord
+Cabinet (qui compte sur les fiches déjà chargées) et la page commerciale (qui les
+recharge) comptent la même chose.
+
+### 4.15 Dossier prospect — contact, historique, action suivante ✅ *(26/08/2026)*
+
+Demandes de Sandrine au call du 26/08, dans l'ordre où elles ont été faites.
+
+**Le contact cesse d'être une chaîne libre.** `civility` (M./Mme/Mlle) et `contactRole`
+(Direction / Coordination / Assistanat / Autre) sont des colonnes ; jusqu'ici tout était
+recopié dans `contactName` (« Madame Dupont »), ce qui rend le nom intriable,
+inadressable et impossible à pré-remplir dans un devis sans le redécouper à la main. La
+liste des fonctions est courte et se complétera au fil des rôles rencontrés : `AUTRE` +
+précision évite d'attendre une migration pour enregistrer un cas nouveau. Même
+mécanique pour `channelOther` : un canal « Autre » sans précision n'enregistre pas une
+information, il enregistre qu'on ne sait pas — et fait disparaître de l'analyse
+d'acquisition exactement les cas nouveaux qu'il faudrait repérer. La règle
+(`otherPrecisionError`) est unique et partagée par les deux champs, et la précision est
+effacée si la valeur cesse d'être `AUTRE` (`keepPrecisionOnlyForOther`) : un commentaire
+orphelin qui contredit le champ affiché est pire que pas de commentaire.
+
+**L'historique** (`ProspectTimelineEntry`, append-only) porte sur la même frise les
+commentaires saisis et les changements d'étape — c'est le dossier que Sandrine
+reconstituait dans sa boîte mail. Le changement de statut et sa trace sont écrits dans
+une seule transaction : séparés, un incident laisserait une étape sans histoire, or
+c'est l'histoire qu'on cherche à reconstituer. Un statut réappliqué à l'identique
+n'écrit rien. Il n'existe volontairement **ni modification ni suppression** d'une
+entrée — un historique réécrivable ne prouve rien.
+
+**Une action par étape** (`prospect-next-action-service.ts`, pur) : l'écran proposait
+les mêmes boutons à toutes les étapes. `RDV` (la réunion de découverte) mène à l'édition
+du devis — la demande littérale — ou à la reprise du devis existant plutôt qu'à un
+second document pour une seule offre ; `DEVIS_ENVOYE` mène à l'historique, puisque rien
+n'est à éditer tant qu'ils n'ont pas répondu ; `PERDU` ne propose rien, en proposer une
+rouvrirait un dossier délibérément fermé.
+
+**Prospect → client** : `describeProspectRelation` bascule le titre sur l'existence de
+la fiche (`establishmentId`), pas sur `status = SIGNE` — la signature du devis et la
+conversion sont deux instants distincts.
+
+**Partage du devis** (`devis-sharing-service.ts`, pur) — décision de Damon, « au plus
+simple » : aucun envoi serveur, aucun jeton de partage public, aucun moteur PDF. Le
+bouton « Télécharger » ouvre la vue imprimable avec `?auto=1` et pose comme titre de
+document le nom de fichier de la convention EODA
+(`AAAAMMJJ_DEVIS_CLIENT_OBJET_v01_Externe.pdf`), que le navigateur propose alors dans
+« Enregistrer au format PDF » — sans quoi la pièce jointe s'appelle « localhost ». Le
+bouton « Préparer l'e-mail » ouvre un `mailto:` pré-rempli : il **prépare**, il n'envoie
+pas. Le message part de la vraie boîte de Sandrine, avec sa signature, et elle le relit.
+Un envoi serveur aurait exigé une adresse d'expédition, un moteur PDF et une file de
+reprise sur échec pour rendre le même service.
+
+*(`getEmailPort()` reste inutilisé : l'infrastructure d'envoi existe, aucun appelant ne
+s'en sert encore. À reprendre le jour où une relance automatique sera spécifiée — §12.7
+du mode opératoire.)*
+
+### 4.16 Fin de mission — trois états d'accès ✅ *(26/08/2026)*
+
+§12.5 du mode opératoire, position finale du call du 16/08 après deux rétractations :
+« à la fin de l'accompagnement, **on ne coupe pas leur accès**. Ils auront accès à la
+bibliothèque des documents générés, mais nous leur préconisons de s'abonner. »
+
+| État | Dérivé de | Client | Cabinet |
+|---|---|---|---|
+| `ACTIVE` | `closedAt` null | dépôt + lecture | tout |
+| `LIBRARY` | `closedAt` posé | **lecture seule** | lecture, dépôt fermé |
+| `REVOKED` | `clientAccessRevokedAt` posé | rien | tout (rétention) |
+
+Une seule colonne ajoutée, `Mission.clientAccessRevokedAt` : la clôture existait déjà
+(`closedAt`, §4.13) et la révocation est la seconde décision non dérivable. Couper
+l'accès est un geste explicite et **réversible**, jamais un effet de bord de la
+clôture. **Aucune suppression de données dans aucun des trois états.**
+
+`mission-access-service.ts` (pur) porte la règle ; l'application vit dans
+`lib/auth/guards.ts` — un `CLIENT_USER` révoqué reçoit `notFound()`, et la clôture ferme
+le dépôt côté serveur dans les trois actions d'écriture de `document.ts`, pas seulement
+en masquant le bouton. Le cabinet garde l'accès dans tous les états.
+
+Les quatre gestes (clore, rouvrir, révoquer, rétablir) sont réservés à `CABINET_ADMIN`
+— contrairement au reste du suivi de mission, ouvert aux évaluateurs : c'est de la
+gérance, pas du suivi opérationnel. Chacun est journalisé (`MISSION_CLOSED`,
+`MISSION_REOPENED`, `MISSION_CLIENT_ACCESS_REVOKED`, `MISSION_CLIENT_ACCESS_RESTORED`).
+
+**Alerte du 5ᵉ mois** ([3:30:23] du call) : calculée à l'affichage à partir de
+`closedAt`, en mois de calendrier. Rien n'est écrit en base — un drapeau « alerte
+envoyée » serait un état de plus à maintenir — et rien ne se ferme au 5ᵉ mois : c'est le
+moment où des documents figés commencent à dater, et où l'abonnement se justifie.
+
+### 4.17 Revue humaine avant restitution au client ✅ *(26/08/2026)*
+
+Le cahier des charges du 20/08 l'écrit deux fois — §5 (« TOUJOURS validée par la
+consultante avant affichage au client ») et §7, points de vigilance (« aucune analyse
+de conformité automatisée ne doit être présentée au client sans revue préalable »).
+
+L'affichage de l'analyse livré plus tôt le même jour (§4.14 bis / commit `dde24a4`) ne
+portait qu'une mention de réserve : le client voyait le résultat brut du modèle. Écart
+corrigé le jour même.
+
+`DocumentVersion.analysisReviewedAt` (+ `analysisReviewedByUserId`) est le fait ; la
+règle est `analysisVisibleTo(audience, …)`, appliquée **une seule fois**, dans
+`lib/actions/checklist.ts`, au moment de construire la checklist. `buildChecklist` prend
+son audience en paramètre explicite plutôt que de la déduire d'une session : une valeur
+par défaut publierait le jour où un troisième appelant oublierait de la préciser.
+
+Côté cabinet, l'analyse est toujours visible — c'est le matériau de la relecture — avec
+un bouton « Valider et restituer au client », réversible, journalisé
+(`ANALYSIS_PUBLISHED` / `ANALYSIS_UNPUBLISHED`). `setAnalysisReviewed` refuse un
+appelant client : sans ce refus, un compte client publierait l'analyse de ses propres
+documents, c'est-à-dire contournerait la revue elle-même. Côté client, une analyse non
+relue affiche « en cours de relecture » — le silence complet ressemblerait à une panne —
+sans rien révéler du contenu.
+
+Aucun rattrapage rétroactif dans la migration : les analyses déjà en base n'ont été
+revues par personne, les marquer comme telles serait exactement la faute qu'on corrige.
 
 ## 5. Préparation explicite de l'évolutivité (sans la construire maintenant)
 

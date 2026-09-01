@@ -251,6 +251,106 @@ Détail complet et état d'avancement : `specs/02-architecture-technique.md` §4
   catalogue, donc un « à partir de », rendu comme tel côté portail client. Ne jamais fusionner
   les deux chemins de création « puisque c'est le même objet » : ils n'ont pas la même valeur
   juridique. Règles pures dans `lib/services/mission-option-service.ts`.
+- **Une fiche client ne se crée QUE par la signature d'un devis.** Il n'existe
+  volontairement plus de `createEstablishment` ni de route `/etablissements/nouveau`
+  (supprimés le 23/08/2026). Une création manuelle produisait un établissement sans
+  prospect, sans devis et sans chiffre d'affaires — donc absent de tous les indicateurs
+  commerciaux — et redemandait FINESS / adresse / échéance HAS **avant** qu'aucune
+  relation commerciale n'existe. Un seul chemin : prospect → devis → signature. Si le
+  besoin « client déjà signé hors plateforme » revient, il passe par un prospect et un
+  devis, jamais par une seconde porte.
+- **L'état d'une fiche est DÉRIVÉ, jamais stocké** — `lib/services/lifecycle-service.ts`
+  (pur, testé). `SIGNE` / `EN_COURS` se calculent à partir des faits (items de
+  diagnostic cochés, dates de phases posées) ; `TERMINE` vient de `Mission.closedAt`,
+  seul fait non dérivable parce que la clôture est une décision, pas un calcul. Ne
+  **jamais** ajouter `Establishment.status` : le dépôt porte déjà quatre sources d'état
+  et `commercialTier` a démontré ce qui arrive à la cinquième — ajoutée, puis plus
+  jamais mise à jour, elle annonçait « Bêta-test gratuit » à des clients payants.
+  Le bêta-test (`Mission.gratuit`) est un **attribut orthogonal**, pas une étape : une
+  mission gratuite peut être signée, en cours ou terminée.
+- **Les KPI de portefeuille se dérivent des mêmes faits que les badges d'étape** —
+  `lib/services/portfolio-kpi-service.ts` (pur, testé), conversion dans
+  `lib/db/to-portfolio-row.ts`. Un compteur qui recalculerait l'état à sa façon
+  finirait par contredire la fiche qu'il compte. Ne jamais compter une formule
+  depuis `Establishment.commercialTier` : c'est `Mission.formule`. Corollaire :
+  `getProspectKpiCounts` ne compte dans `byStatus` que les prospects **non
+  convertis** (`establishmentId: null`) — un prospect converti garde `SIGNE` à vie
+  et serait sinon compté deux fois dans l'entonnoir unifié, une fois en « Signé »
+  et une fois à l'étape réelle de sa mission. `byStructureType` reste sur tous les
+  prospects : c'est une lecture de marché, pas une photo du pipeline.
+- 🎨 **Le logo ne se redessine pas.** Assets officiels dans `apps/web/public/`
+  (`logo-eoda.png` = bloc complet pour fonds clairs, `marque-eoda.png` = rond pour
+  fonds sombres), servis par `components/layout/EodaLogo.tsx`. Source :
+  `context/Documents/20260827_CHARTE_EODA_Couleurs-et-logo_v01_Interne.pptx`. Ces
+  fichiers sont PUBLICS (exclus du matcher du middleware) parce qu'un e-mail doit
+  pouvoir charger le logo hors session.
+- **Deux mentions, jamais interchangeables** (`document-ownership-service.ts`) : la
+  **paternité** (« créé par EODA […] propriété de EODA, qui en concède le droit
+  d'exploitation à X ») va sur les documents PRODUITS pour la structure ; la mention
+  de **prestation** va sur les documents contractuels (devis, avenant), où EODA ne
+  revendique rien. Revendiquer la propriété d'un devis serait faux. Le logo du client
+  (`Establishment.logoDataUri`, déposé par le cabinet) s'affiche à côté de celui
+  d'EODA sur ces documents ; sans logo, c'est le NOM de la structure qui est écrit —
+  jamais un emplacement vide.
+- **Ce qu'on réclame au client n'est pas tout ce qu'on produit pour lui.**
+  `DocumentType.requestedFromClient` sépare les deux (cinq documents réclamés avant
+  la visite, ~24 produits par EODA). Le portail client n'affiche que les types
+  réclamés **plus** ceux dont un document existe déjà. Ne jamais « rétablir » la
+  liste complète côté client : demander les 29 à une structure qui fait appel à EODA
+  parce qu'elle ne les a pas, c'est lui remettre le travail qu'elle a acheté. La
+  liste exacte est modifiable par `CABINET_ADMIN` depuis la fiche client (elle
+  attend confirmation des experts de Sandrine).
+- **Le parcours d'un document se dérive, sauf sa validation.** Déposé → analysé → mis
+  en conformité → restitué → validé (`lib/services/document-workflow-service.ts`).
+  Seul `Document.validatedAt` est stocké : valider engage la parole de l'évaluatrice.
+  Le portail CLIENT garde les statuts simples (manquant / déposé / conforme) — « les
+  deux portails ne regardent pas la même chose » (call du 26/08).
+- **Chacun ne supprime que son propre dernier dépôt** (`canDeleteVersion`). Le cabinet
+  ne peut pas effacer une pièce déposée par le client — demande explicite de Sandrine,
+  risque juridique autant que mauvaise manip — et aucune version antérieure n'est
+  supprimable : l'historique complet est ce qu'elle a demandé à voir.
+- 🔐 **Aucune analyse automatique n'atteint le client sans revue humaine.** Exigence
+  écrite deux fois dans le cahier des charges du 20/08/2026
+  (`context/Documents/20260820_CDC_EODA_Plateforme_v01_Interne.md` §5 et §7) : la
+  consultante valide avant restitution. La barrière est
+  `analysisVisibleTo(audience, …)` dans `lib/services/analysis-view-service.ts`,
+  appliquée une seule fois dans `lib/actions/checklist.ts` — jamais dans un composant.
+  `DocumentVersion.analysisReviewedAt` est le fait ; `setAnalysisReviewed` le pose et
+  refuse un appelant client. Une mention de réserve à l'écran NE remplace PAS cette
+  revue : EODA engage sa parole professionnelle sur ce qu'elle restitue, sur des
+  documents qui seront présentés à la HAS.
+- **La fin de mission ne supprime rien, et la clôture ne coupe rien.** Trois états
+  d'accès dérivés de deux faits (`Mission.closedAt`, `Mission.clientAccessRevokedAt`)
+  par `lib/services/mission-access-service.ts` : `ACTIVE` / `LIBRARY` (lecture seule)
+  / `REVOKED`. L'application est dans `lib/auth/guards.ts` et dans les actions
+  d'écriture — jamais seulement en masquant un bouton. Le cabinet garde l'accès dans
+  tous les états (rétention). Ne jamais transformer la clôture en coupure d'accès :
+  c'est la position finale du call du 16/08, après deux rétractations.
+- **L'historique d'un prospect ne se réécrit pas.** `ProspectTimelineEntry` est
+  append-only : commentaires ET changements d'étape sur la même frise, aucune action
+  de modification ni de suppression, le changement de statut et sa trace dans une
+  seule transaction (`lib/actions/prospect.ts`). Ne pas ajouter d'édition « pour
+  corriger une faute » : un dossier réécrivable ne prouve rien le jour où il faut
+  expliquer pourquoi une négociation a échoué.
+- **Un choix « Autre » exige sa précision** — `otherPrecisionError` /
+  `keepPrecisionOnlyForOther` (`lib/services/prospect-contact-service.ts`), une seule
+  règle partagée par le canal d'acquisition et la fonction du contact. La précision
+  est effacée si la valeur cesse d'être `AUTRE`. Même principe pour la civilité et la
+  fonction : elles ne se recopient jamais dans `contactName`, un nom qui contient sa
+  civilité ne se trie ni ne s'adresse.
+- **Le partage d'un devis ne passe par aucun envoi serveur** (décision Damon,
+  26/08/2026) : `mailto:` pré-rempli + téléchargement via la vue imprimable, nommé
+  selon la convention EODA (`devis-sharing-service.ts`). Ne pas « améliorer » en
+  ajoutant un jeton de partage public ou un moteur PDF sans que ce soit redemandé —
+  c'est une route publique et une dépendance lourde, pour un service déjà rendu.
+- **`StructureType` (statut juridique) et `EstablishmentType` (type SAD) sont deux axes
+  indépendants**, portés par `Prospect` *et* `Establishment` pour le premier. Le support
+  commercial les aligne sur une même ligne (« SAD Aide · SAD Mixtes · Associations loi
+  1901 · CCAS/CIAS · Secteur privé ») : c'est une liste de segments de marché, pas un
+  enum. Les fusionner rendrait « association qui est un SAD Mixte » inexprimable. Le
+  statut juridique est saisi une seule fois, au stade prospect, et **recopié** sur la
+  fiche à la signature — jamais redemandé, une seconde saisie du même fait finit par
+  diverger.
 - Ne pas faire passer un devis à `SIGNE` par `changeDevisStatus` : la signature est la seule
   transition qui produit des effets hors du module commercial (fiche établissement, mission,
   périmètre ouvert au client) et passe par `convertDevisToClient` (`lib/actions/conversion.ts`),

@@ -5,13 +5,7 @@ import { Button } from "@/components/ui/button";
 import { ProgressBar } from "@/components/ui/progress-bar";
 import { ClipboardCheck, ArrowRight } from "lucide-react";
 import type { CommercialTier } from "@eoda/database";
-
-const FORMULE_LABELS: Record<CommercialTier, string> = {
-  BETA: "Bêta",
-  ESSENTIEL: "Essentiel",
-  PERFORMANCE: "Performance",
-  EXCELLENCE: "Excellence",
-};
+import { FORMULE_LABELS } from "./formule-labels";
 
 type Props =
   | { establishmentId: string; mission: null }

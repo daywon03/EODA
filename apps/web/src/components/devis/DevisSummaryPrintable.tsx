@@ -1,4 +1,5 @@
 import type { PricingUnit } from "@eoda/database";
+import { formatDate } from "@/lib/services/date-format-service";
 import { formatEuros, formatStartingPrice } from "@/lib/services/price-format-service";
 import { optionCommittedAmountEuros } from "@/lib/services/devis-calculation-service";
 
@@ -26,7 +27,7 @@ type Props = {
   installmentAmountEuros: number;
 };
 
-const dateFormatter = new Intl.DateTimeFormat("fr-FR", { day: "2-digit", month: "long", year: "numeric" });
+
 
 export function DevisSummaryPrintable({
   number,
@@ -45,14 +46,25 @@ export function DevisSummaryPrintable({
 }: Props) {
   return (
     <div className="space-y-6 text-brun-ancre">
-      <div className="flex items-start justify-between border-b border-gris-light pb-4">
+      <div className="flex items-start justify-between gap-6 border-b border-gris-light pb-4">
         <div>
+          {/* Logo officiel, sur un document qui part chez le client. <img> et non
+              next/image : la vue imprimable doit rendre le fichier tel quel, sans
+              dépendre d'une route d'optimisation au moment de l'impression. */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/logo-eoda.png"
+            alt="EODA conseil — accompagnement qualité des ESSMS"
+            width={196}
+            height={72}
+            className="mb-3 h-auto max-w-full"
+          />
           <h2 className="text-lg font-bold">Devis {number}</h2>
-          <p className="text-sm text-gris-mid">Émis le {dateFormatter.format(new Date(createdAt))}</p>
+          <p className="text-sm text-gris-mid">Émis le {formatDate(new Date(createdAt))}</p>
         </div>
         <div className="text-right">
           <p className="text-sm text-gris-mid">Valable jusqu'au</p>
-          <p className="text-sm font-semibold">{dateFormatter.format(new Date(validUntil))}</p>
+          <p className="text-sm font-semibold">{formatDate(new Date(validUntil))}</p>
         </div>
       </div>
 

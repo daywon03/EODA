@@ -80,6 +80,8 @@ beforeEach(() => {
   requireEstablishmentAccess.mockResolvedValue({
     userId: "user-1",
     session: { user: { role: "CLIENT_USER" } },
+    // Mission en cours par défaut : le dépôt s'arrête à la clôture (§12.5).
+    missionAccess: "ACTIVE",
   });
   extractText.mockResolvedValue("texte extrait");
   ingestDocumentVersion.mockResolvedValue({ documentVersionId: "dv-1" });
@@ -179,5 +181,24 @@ describe("respondToMissingDocument — périmètre de l'offre", () => {
 
     expect(result).toBeNull();
     expect(prismaMock.document.upsert).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("uploadDocument — fin de mission", () => {
+  it("refuse le dépôt quand la mission est close, sans rien stocker ni analyser", async () => {
+    // La bibliothèque est en LECTURE SEULE : les documents restent consultables,
+    // l'écriture s'arrête. Le refus est côté serveur — masquer le bouton ne protège
+    // pas une route HTTP publique.
+    requireEstablishmentAccess.mockResolvedValue({
+      userId: "user-1",
+      session: { user: { role: "CLIENT_USER" } },
+      missionAccess: "LIBRARY",
+    });
+
+    const result = await uploadDocument(uploadForm(LOI_TYPE.id));
+
+    expect(result).toMatchObject({ error: expect.stringContaining("terminé") });
+    expect(ingestDocumentVersion).not.toHaveBeenCalled();
+    expect(extractText).not.toHaveBeenCalled();
   });
 });

@@ -37,8 +37,11 @@ vi.mock("@/lib/auth/guards", () => ({
 vi.mock("@/lib/services/audit-log-service", () => ({
   recordAuditEvent: (...args: unknown[]) => recordAuditEvent(...args),
 }));
+// Marqueur `not-a-real-secret` en anglais : voir password-policy.test.ts pour le
+// pourquoi — les analyseurs de secrets reconnaissent les valeurs factices sur une
+// liste de mots anglais, pas sur « mot-de-passe-jetable ».
 vi.mock("@/lib/security/password-hashing", () => ({
-  generateTemporaryPassword: () => "mot-de-passe-jetable",
+  generateTemporaryPassword: () => "placeholder-jetable-not-a-real-secret",
   hashPassword: () => Promise.resolve("empreinte"),
 }));
 
@@ -205,7 +208,7 @@ describe("révocation", () => {
 
     const result = await resetClientUserPassword(targetForm());
 
-    expect(result).toMatchObject({ success: true, tempPassword: "mot-de-passe-jetable" });
+    expect(result).toMatchObject({ success: true, tempPassword: "placeholder-jetable-not-a-real-secret" });
     expect(prismaMock.user.update).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
@@ -216,6 +219,6 @@ describe("révocation", () => {
     );
     // Le mot de passe temporaire ne doit apparaître dans AUCUN événement d'audit.
     const auditPayloads = JSON.stringify(recordAuditEvent.mock.calls);
-    expect(auditPayloads).not.toContain("mot-de-passe-jetable");
+    expect(auditPayloads).not.toContain("placeholder-jetable-not-a-real-secret");
   });
 });

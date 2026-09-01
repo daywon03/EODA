@@ -36,11 +36,16 @@ const badgeVariants = cva(
 );
 
 export interface BadgeProps
-  extends React.HTMLAttributes<HTMLDivElement>,
+  extends React.HTMLAttributes<HTMLSpanElement>,
     VariantProps<typeof badgeVariants> {}
 
+// <span> et non <div> : un badge est une étiquette EN LIGNE, posée au fil du texte
+// (« Devis DEV-2026-014 · Essentiel [Signé] »). Un <div> à l'intérieur d'un <p> est
+// du HTML invalide — le navigateur ferme le paragraphe tout seul, ce qui produit un
+// arbre différent côté serveur et côté client, donc une erreur d'hydratation.
+// `inline-flex` rend exactement pareil sur un <span>.
 function Badge({ className, variant, ...props }: BadgeProps) {
-  return <div className={cn(badgeVariants({ variant }), className)} {...props} />;
+  return <span className={cn(badgeVariants({ variant }), className)} {...props} />;
 }
 
 export { Badge, badgeVariants };

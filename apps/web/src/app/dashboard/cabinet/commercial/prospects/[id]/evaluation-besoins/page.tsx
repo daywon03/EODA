@@ -2,6 +2,7 @@ import { getProspect } from "@/lib/actions/prospect";
 import { listCatalogue } from "@/lib/actions/catalogue";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { DevisForm } from "@/components/devis/DevisForm";
+import { formatContactIdentity } from "@/lib/services/prospect-contact-service";
 import { Card, CardContent } from "@/components/ui/card";
 import { Mail, Phone } from "lucide-react";
 
@@ -63,7 +64,9 @@ export default async function EvaluationBesoinsPage({ params }: Props) {
       <Card>
         <CardContent className="pt-6">
           <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 text-sm text-brun-ancre">
-            {prospect.contactName && <span>{prospect.contactName}</span>}
+            {/* Même composition qu'ailleurs (civilité, nom, fonction) : la règle
+                vit dans prospect-contact-service, pas dans chaque écran. */}
+            {formatContactIdentity(prospect) && <span>{formatContactIdentity(prospect)}</span>}
             {prospect.contactPhone && (
               <span className="flex items-center gap-1.5">
                 <Phone className="w-3.5 h-3.5 text-gris-mid" aria-hidden="true" />

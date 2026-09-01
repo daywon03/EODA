@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { createProspect, updateProspect } from "@/lib/actions/prospect";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,14 +8,29 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { AlertCircle, Loader2 } from "lucide-react";
 import Link from "next/link";
-import type { AcquisitionChannel, CommercialTier, ProspectType } from "@eoda/database";
+import type {
+  AcquisitionChannel,
+  Civility,
+  CommercialTier,
+  ContactRole,
+  StructureType,
+} from "@eoda/database";
+import {
+  ACQUISITION_CHANNEL_LABELS,
+  CIVILITY_LABELS,
+  CONTACT_ROLE_LABELS,
+} from "@/lib/services/prospect-contact-service";
 
 type ProspectInitialValues = {
   id: string;
   structureName: string;
-  structureType: ProspectType;
+  structureType: StructureType;
   channel: AcquisitionChannel;
+  channelOther: string | null;
+  civility: Civility | null;
   contactName: string | null;
+  contactRole: ContactRole | null;
+  contactRoleOther: string | null;
   contactPhone: string | null;
   contactEmail: string | null;
   envisagedFormule: CommercialTier | null;
@@ -34,6 +49,11 @@ function toDateInputValue(date: Date): string {
 
 export function ProspectForm({ prospect }: Props) {
   const isEdit = !!prospect;
+  // Les deux précisions ne s'affichent que sur « Autre ». Les montrer en permanence
+  // ferait deux champs vides sur chaque fiche ; les cacher sans état les rendrait
+  // impossibles à remplir.
+  const [channel, setChannel] = useState<string>(prospect?.channel ?? "");
+  const [contactRole, setContactRole] = useState<string>(prospect?.contactRole ?? "");
   const action = isEdit ? updateProspect.bind(null, prospect.id) : createProspect;
   const [state, formAction, isPending] = useActionState(action, null);
   const cancelHref = isEdit
@@ -73,21 +93,59 @@ export function ProspectForm({ prospect }: Props) {
           <Label htmlFor="channel">
             Canal d'acquisition <span className="text-rouge-imp">*</span>
           </Label>
-          <Select id="channel" name="channel" required disabled={isPending} defaultValue={prospect?.channel ?? ""}>
+          <Select
+            id="channel"
+            name="channel"
+            required
+            disabled={isPending}
+            value={channel}
+            onChange={(e) => setChannel(e.target.value)}
+          >
             <option value="">— Sélectionner —</option>
-            <option value="BOUCHE_A_OREILLE">Bouche-à-oreille</option>
-            <option value="REFERENCEMENT_UNA">Référencement UNA</option>
-            <option value="EMAILING">Emailing</option>
-            <option value="REFERENCEMENT_GOOGLE">Référencement Google</option>
-            <option value="LINKEDIN">LinkedIn</option>
-            <option value="AUTRE">Autre</option>
+            {Object.entries(ACQUISITION_CHANNEL_LABELS).map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
           </Select>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      {/* « Autre » sans précision enregistre seulement qu'on ne sait pas : l'analyse
+          d'acquisition y perd exactement les cas nouveaux qu'il faudrait repérer. */}
+      {channel === "AUTRE" && (
         <div className="space-y-1.5">
-          <Label htmlFor="contactName">Contact</Label>
+          <Label htmlFor="channelOther">
+            Comment nous ont-ils connus ? <span className="text-rouge-imp">*</span>
+          </Label>
+          <Input
+            id="channelOther"
+            name="channelOther"
+            placeholder="ex : salon des ESSMS, recommandation d'une ARS, article de presse..."
+            defaultValue={prospect?.channelOther ?? undefined}
+            required
+            disabled={isPending}
+          />
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+        {/* Civilité à part, et non recopiée dans le nom : « Madame Dupont » ne se
+            trie pas, ne s'adresse pas et ne se pré-remplit pas dans un devis sans
+            être redécoupé à la main. */}
+        <div className="space-y-1.5">
+          <Label htmlFor="civility">Civilité</Label>
+          <Select id="civility" name="civility" disabled={isPending} defaultValue={prospect?.civility ?? ""}>
+            <option value="">— Non précisé —</option>
+            {Object.entries(CIVILITY_LABELS).map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </Select>
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="contactName">Nom du contact</Label>
           <Input id="contactName" name="contactName" defaultValue={prospect?.contactName ?? undefined} disabled={isPending} />
         </div>
         <div className="space-y-1.5">
@@ -98,6 +156,44 @@ export function ProspectForm({ prospect }: Props) {
           <Label htmlFor="contactEmail">E-mail</Label>
           <Input id="contactEmail" name="contactEmail" type="email" defaultValue={prospect?.contactEmail ?? undefined} disabled={isPending} />
         </div>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="space-y-1.5">
+          <Label htmlFor="contactRole">Fonction</Label>
+          <Select
+            id="contactRole"
+            name="contactRole"
+            disabled={isPending}
+            value={contactRole}
+            onChange={(e) => setContactRole(e.target.value)}
+          >
+            <option value="">— Non précisée —</option>
+            {Object.entries(CONTACT_ROLE_LABELS).map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </Select>
+        </div>
+        {/* Liste volontairement courte, à compléter au fil des rôles réellement
+            rencontrés : « Autre » + précision évite d'attendre une migration de
+            schéma pour enregistrer un rôle nouveau. */}
+        {contactRole === "AUTRE" && (
+          <div className="space-y-1.5">
+            <Label htmlFor="contactRoleOther">
+              Précisez la fonction <span className="text-rouge-imp">*</span>
+            </Label>
+            <Input
+              id="contactRoleOther"
+              name="contactRoleOther"
+              placeholder="ex : chargée de mission qualité"
+              defaultValue={prospect?.contactRoleOther ?? undefined}
+              required
+              disabled={isPending}
+            />
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">

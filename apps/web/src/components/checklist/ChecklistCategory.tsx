@@ -1,13 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDown, FileText } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 import { StatusBadge } from "./StatusBadge";
 import { DocumentUploadButton } from "./DocumentUploadButton";
-import { DocumentDownloadLink } from "./DocumentDownloadLink";
-import { DocumentPreviewLink } from "./DocumentPreviewLink";
 import { MissingDocumentJustification } from "./MissingDocumentJustification";
-import { DeleteDocumentVersionButton } from "./DeleteDocumentVersionButton";
+import { DocumentAnalysisPanel } from "./DocumentAnalysisPanel";
+import { DocumentVersionHistory } from "./DocumentVersionHistory";
+import { DocumentStepTrail } from "./DocumentStepTrail";
+import { DocumentScopeToggle } from "./DocumentScopeToggle";
 import type { ChecklistItem } from "@/lib/actions/checklist";
 import type { DocumentStatus } from "@eoda/database";
 
@@ -20,6 +21,13 @@ type Props = {
   // offerte au portail client. L'action serveur refait le contrôle de toute façon —
   // ce drapeau ne fait que ne pas proposer un bouton qui serait refusé.
   canManageVersions?: boolean;
+  // Fin de mission : en bibliothèque (lecture seule), les documents restent
+  // consultables mais plus rien ne se dépose. Le bouton disparaît parce que l'action
+  // serveur le refuserait — pas l'inverse.
+  canDeposit?: boolean;
+  // CABINET_ADMIN : peut basculer un document entre « réclamé au client » et
+  // « produit par EODA ». La liste vaut pour tous les clients.
+  canEditScope?: boolean;
 };
 
 const STATUS_ORDER: DocumentStatus[] = [
@@ -36,6 +44,8 @@ export function ChecklistCategory({
   defaultOpen = false,
   establishmentId,
   canManageVersions = false,
+  canDeposit = true,
+  canEditScope = false,
 }: Props) {
   const [open, setOpen] = useState(defaultOpen);
 
@@ -87,28 +97,63 @@ export function ChecklistCategory({
                 {item.isConditional && item.status !== "NOT_APPLICABLE" && (
                   <p className="text-xs text-gris-mid mt-0.5">Si concerné</p>
                 )}
-                {item.expectedFrequency === "ANNUAL" && (
+                {item.expectedFrequency === "ANNUAL" && !item.expiryNotice && (
                   <p className="text-xs text-ambre mt-0.5">Fréquence annuelle attendue</p>
                 )}
-                {item.currentVersion && (
-                  <div className="flex items-center gap-2 mt-1">
-                    <p className="flex items-center gap-1 text-xs text-gris-mid min-w-0">
-                      <FileText className="w-3 h-3 flex-shrink-0" aria-hidden="true" />
-                      <span className="truncate">
-                        {item.currentVersion.originalFilename} · v{item.currentVersion.versionNumber}
-                      </span>
-                    </p>
-                    <DocumentPreviewLink documentVersionId={item.currentVersion.id} />
-                    <DocumentDownloadLink documentVersionId={item.currentVersion.id} />
-                    {canManageVersions && (
-                      <DeleteDocumentVersionButton
-                        documentVersionId={item.currentVersion.id}
-                        filename={item.currentVersion.originalFilename}
-                      />
-                    )}
-                  </div>
+                {/* Périmé : dire DEPUIS QUAND, pas seulement que ça l'est — sinon la
+                    réponse est « mais je vous l'ai envoyé ». */}
+                {item.expiryNotice && (
+                  <p className="mt-0.5 text-xs text-orange-700">{item.expiryNotice}</p>
                 )}
-                {establishmentId && (
+                {/* Qui doit fournir ce document — l'information manquait, et c'est
+                    elle qui distingue la checklist du client du plan de production
+                    du cabinet. Côté client, ce marqueur n'a pas lieu d'être : tout
+                    ce qu'il voit lui est réclamé, ou lui appartient déjà. */}
+                {canManageVersions && (
+                  <p className="mt-0.5">
+                    <DocumentScopeToggle
+                      documentTypeId={item.documentTypeId}
+                      requestedFromClient={item.requestedFromClient}
+                      canEdit={canEditScope}
+                    />
+                  </p>
+                )}
+                {/* Toutes les versions, pas seulement la dernière : c'est la
+                    comparaison entre la version du client et celle qu'EODA a produite
+                    qui montre le travail fait. */}
+                <DocumentVersionHistory
+                  versions={item.versions}
+                  canManageVersions={canManageVersions}
+                />
+
+                {/* Le parcours du document — côté cabinet uniquement. */}
+                {canManageVersions && establishmentId && (
+                  <DocumentStepTrail
+                    establishmentId={establishmentId}
+                    documentTypeId={item.documentTypeId}
+                    step={item.step}
+                  />
+                )}
+                {/* Ce que l'analyse a trouvé — côté client comme côté cabinet : le
+                    client dépose et corrige, c'est lui qui a besoin de savoir ce qui
+                    manque. Absente tant qu'aucune analyse n'a abouti. */}
+                {item.currentVersion?.analysis && (
+                  <DocumentAnalysisPanel
+                    analysis={item.currentVersion.analysis}
+                    documentVersionId={item.currentVersion.id}
+                    reviewedAt={item.currentVersion.analysisReviewedAt}
+                    canReview={canManageVersions}
+                  />
+                )}
+                {/* Côté client, une analyse non relue n'est PAS montrée — mais le
+                    silence ressemblerait à une panne. On dit qu'elle arrive, sans
+                    rien en révéler. */}
+                {!canManageVersions && item.currentVersion?.analysisAwaitingReview && (
+                  <p className="mt-2 text-xs text-gris-mid">
+                    Analyse en cours de relecture par votre consultant EODA.
+                  </p>
+                )}
+                {establishmentId && canDeposit && (
                   <MissingDocumentJustification
                     establishmentId={establishmentId}
                     documentTypeId={item.documentTypeId}
@@ -120,7 +165,7 @@ export function ChecklistCategory({
               </div>
               <div className="flex sm:flex-col items-center sm:items-end gap-2 flex-shrink-0">
                 <StatusBadge status={item.status} />
-                {establishmentId && (
+                {establishmentId && canDeposit && (
                   <DocumentUploadButton
                     establishmentId={establishmentId}
                     documentTypeId={item.documentTypeId}

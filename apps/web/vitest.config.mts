@@ -29,6 +29,22 @@ export default defineConfig({
         "src/lib/services/mission-document-counters-service.ts",
         "src/lib/services/offer-scope-service.ts",
         "src/lib/services/document-status-service.ts",
+        // Lecture du JSON d'analyse : c'est une entrée non fiable (colonne Json
+        // écrite par un modèle, sous un contrat qui a pu changer). Un parseur trop
+        // permissif afficherait une analyse vide comme un document sans reproche.
+        "src/lib/services/analysis-view-service.ts",
+        // Parcours documentaire et droits de suppression : une erreur ici efface la
+        // pièce d'un client, ou laisse croire qu'un document est validé.
+        "src/lib/services/document-workflow-service.ts",
+        // Fin de mission : ce service décide qui peut encore lire et déposer. Une
+        // erreur ici ferme l'accès d'un client à ses propres documents, ou le laisse
+        // ouvert après une révocation.
+        "src/lib/services/mission-access-service.ts",
+        // Avenant et convention de nommage : deux règles qui sortent un document
+        // CONTRACTUEL de la plateforme. Un mauvais tri de lignes fait signer deux
+        // fois la même prestation, un mauvais nom de fichier part chez le client.
+        "src/lib/services/avenant-service.ts",
+        "src/lib/services/document-naming-service.ts",
         "src/lib/services/pre-rating-suggestion-service.ts",
         "src/lib/services/anonymization-service.ts",
         "src/lib/services/document-categorization-service.ts",
@@ -40,8 +56,49 @@ export default defineConfig({
         "src/lib/services/help-content-service.ts",
         "src/lib/services/client-contract-service.ts",
         "src/lib/services/conversion-service.ts",
+        // Cycle de vie d'une fiche client. Sous mesure parce que l'état est DÉRIVÉ :
+        // une erreur ici n'échoue nulle part, elle affiche simplement une mauvaise
+        // étape — un client « terminé » présenté comme « signé », un accompagnement
+        // en cours annoncé comme non démarré.
+        "src/lib/services/lifecycle-service.ts",
+        "src/lib/db/to-mission-lifecycle-facts.ts",
+        // Agrégats de portefeuille : même raison, un cran plus haut. Un client actif
+        // mal compté ne fait échouer aucun test métier — il produit un chiffre faux
+        // sur le tableau de bord, et personne ne remet en cause un compteur.
+        "src/lib/services/portfolio-kpi-service.ts",
+        "src/lib/db/to-portfolio-row.ts",
+        // Dossier prospect : identité du contact, action suivante par étape, partage
+        // du devis. Rien n'y échoue bruyamment — une civilité mal composée ou un
+        // mauvais lien d'étape se voit seulement à l'écran, sur un document qui part
+        // chez un client.
+        // Agenda : grille de mois, sélection des prochains rendez-vous, détection de
+        // chevauchement. Une erreur ici déplace un rendez-vous à l'écran sans que rien
+        // n'échoue — et quelqu'un se déplace pour rien.
+        "src/lib/services/calendar-service.ts",
+        // Format de date unique (JJ/MM/AAAA) : le test tient la règle demandée.
+        "src/lib/services/date-format-service.ts",
+        // Modèles d'e-mail : ils sortent de la plateforme vers des gens, et
+        // interpolent des saisies dans du HTML.
+        "src/lib/email/templates.ts",
+        // Mentions de paternité : un texte juridique apposé sur des documents remis
+        // au client. Le test verrouille la formulation dictée en séance, et empêche
+        // qu'une revendication de propriété atterrisse sur un devis.
+        "src/lib/services/document-ownership-service.ts",
+        // Rapport de mise en conformité : c'est lui qui décide ce qui part chez le
+        // client. Une analyse non relue qui s'y glisserait contournerait la revue
+        // humaine par la porte de l'imprimante.
+        "src/lib/services/conformity-report-service.ts",
+        // Péremption documentaire : elle décide qu'un document « conforme » ne l'est
+        // plus. Dérivée de l'horloge, donc jamais vérifiable par un statut en base.
+        "src/lib/services/document-expiry-service.ts",
+        "src/lib/services/prospect-contact-service.ts",
+        "src/lib/services/prospect-next-action-service.ts",
+        "src/lib/services/devis-sharing-service.ts",
         "src/lib/config/production-profile.ts",
         "src/lib/db/migration-status.ts",
+        // CSP à nonce : le test EST le garde-fou qui empêche `'unsafe-inline'` de
+        // revenir sur script-src, et `'unsafe-eval'` d'atteindre la production.
+        "src/lib/security/content-security-policy.ts",
         "src/lib/security/password-policy.ts",
         "src/lib/security/password-hashing.ts",
         "src/lib/security/attempt-throttle.ts",

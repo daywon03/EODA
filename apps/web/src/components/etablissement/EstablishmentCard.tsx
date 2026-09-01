@@ -3,6 +3,9 @@ import { Building2, Calendar, FileText, ChevronRight } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import type { EstablishmentType } from "@eoda/database";
+import { StageBadge } from "@/components/crm/StageBadge";
+import type { FunnelStage } from "@/lib/services/lifecycle-service";
+import { formatDate } from "@/lib/services/date-format-service";
 
 type Props = {
   id: string;
@@ -11,6 +14,8 @@ type Props = {
   type: EstablishmentType;
   hasEvaluationTargetDate: Date | null;
   documentCount: number;
+  stage: FunnelStage | null;
+  beta: boolean;
 };
 
 const TYPE_LABELS: Record<EstablishmentType, string> = {
@@ -18,7 +23,16 @@ const TYPE_LABELS: Record<EstablishmentType, string> = {
   SAD_MIXTE: "SAD Mixte",
 };
 
-export function EstablishmentCard({ id, name, finessNumber, type, hasEvaluationTargetDate, documentCount }: Props) {
+export function EstablishmentCard({
+  id,
+  name,
+  finessNumber,
+  type,
+  hasEvaluationTargetDate,
+  documentCount,
+  stage,
+  beta,
+}: Props) {
   return (
     <Link
       href={`/dashboard/cabinet/etablissements/${id}`}
@@ -38,7 +52,8 @@ export function EstablishmentCard({ id, name, finessNumber, type, hasEvaluationT
 
           {finessNumber && <p className="text-xs text-gris-mid pl-[46px]">FINESS {finessNumber}</p>}
 
-          <div className="flex items-center gap-2 pl-[46px]">
+          <div className="flex flex-wrap items-center gap-2 pl-[46px]">
+            <StageBadge stage={stage} beta={beta} />
             <Badge variant="secondary">{TYPE_LABELS[type]}</Badge>
           </div>
 
@@ -50,7 +65,7 @@ export function EstablishmentCard({ id, name, finessNumber, type, hasEvaluationT
             {hasEvaluationTargetDate && (
               <span className="flex items-center gap-1">
                 <Calendar className="w-3.5 h-3.5" aria-hidden="true" />
-                {new Intl.DateTimeFormat("fr-FR", { month: "short", year: "numeric" }).format(
+                {formatDate(
                   new Date(hasEvaluationTargetDate)
                 )}
               </span>

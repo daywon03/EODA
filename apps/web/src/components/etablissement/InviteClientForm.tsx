@@ -18,7 +18,13 @@ type Props = {
   defaultName?: string | null;
 };
 
-type SuccessResult = { success: true; tempPassword: string; userName: string; userEmail: string };
+type SuccessResult = {
+  success: true;
+  tempPassword: string;
+  userName: string;
+  userEmail: string;
+  invitationEmailSent: boolean;
+};
 type ErrorResult = { error: string };
 type Result = SuccessResult | ErrorResult;
 
@@ -36,6 +42,16 @@ export function InviteClientForm({ establishmentId, defaultEmail, defaultName }:
       const res = await inviteClientUser(formData);
       if (res && "success" in res && res.success === true) {
         setResult(res as SuccessResult);
+        // La liste des interlocuteurs est rendue par le serveur : sans ce
+        // rafraîchissement, le compte existe en base mais n'apparaît nulle part tant
+        // que la page n'est pas rechargée à la main — c'est ce qui a été observé.
+        //
+        // `router.refresh()` re-rend l'arbre serveur en CONSERVANT l'état React des
+        // composants client : le panneau du mot de passe temporaire, posé juste
+        // au-dessus par setResult, reste affiché. C'est ce qui le distingue d'un
+        // revalidatePath posé dans l'action serveur, qui avait effacé ce panneau —
+        // et le mot de passe n'est affiché qu'une fois, il n'est stocké nulle part.
+        router.refresh();
       } else if (res && "error" in res) {
         setResult(res as ErrorResult);
       }
@@ -84,16 +100,28 @@ export function InviteClientForm({ establishmentId, defaultEmail, defaultName }:
             <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" aria-hidden="true" />
             Ce mot de passe ne sera plus affiché. Copiez-le avant de fermer.
           </p>
+          {/* Dire si l'e-mail est parti, plutôt que de le supposer : c'est ce qui
+              décide si Sandrine doit communiquer le mot de passe elle-même. */}
+          <p className="flex items-center gap-1.5 text-xs text-gris-mid">
+            {result.invitationEmailSent ? (
+              <>
+                <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0 text-vert-ok" aria-hidden="true" />
+                Invitation envoyée à {result.userEmail} — identifiant et mot de passe compris.
+              </>
+            ) : (
+              <>
+                <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 text-ambre" aria-hidden="true" />
+                L&apos;e-mail d&apos;invitation n&apos;a pas pu être envoyé : communiquez
+                vous-même l&apos;identifiant et ce mot de passe.
+              </>
+            )}
+          </p>
         </div>
         <Button
           variant="outline"
-          onClick={() => {
-            // Rafraîchissement différé : la liste des interlocuteurs ne se met à jour
-            // qu'ici, une fois le mot de passe lu. Le faire dans l'action effacerait
-            // le panneau avant que Sandrine ait pu le copier.
-            setResult(null);
-            router.refresh();
-          }}
+          // La liste est déjà à jour (rafraîchie à la création) : ce bouton ne fait
+          // que rendre le formulaire vide.
+          onClick={() => setResult(null)}
         >
           Inviter un autre interlocuteur
         </Button>

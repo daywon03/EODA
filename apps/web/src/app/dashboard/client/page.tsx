@@ -1,13 +1,25 @@
 import { getClientChecklist } from "@/lib/actions/checklist";
+import { listClientAppointments } from "@/lib/actions/appointment";
+import { AppointmentList } from "@/components/agenda/AppointmentList";
 import { ChecklistCategory } from "@/components/checklist/ChecklistCategory";
 import { ProgressBar } from "@/components/ui/progress-bar";
 import { PageHeader } from "@/components/layout/PageHeader";
-import { Building2, AlertTriangle, ShieldAlert, CheckCircle2, Clock } from "lucide-react";
+import {
+  Building2,
+  AlertTriangle,
+  ShieldAlert,
+  CheckCircle2,
+  Clock,
+  Archive,
+  BellRing,
+  CalendarDays,
+} from "lucide-react";
 import {
   documentProgressPercent,
   summariseDocumentObligations,
 } from "@/lib/services/client-contract-service";
 import type { DocumentCategory } from "@eoda/database";
+import { canDepositDocuments } from "@/lib/services/mission-access-service";
 
 export const metadata = { title: "Espace Client · EODA Conseil" };
 
@@ -22,7 +34,10 @@ const CATEGORY_LABELS: Record<DocumentCategory, string> = {
 const DEFAULT_OPEN: DocumentCategory[] = ["LOI_2002_2"];
 
 export default async function ClientDashboardPage() {
-  const { establishment, checklist } = await getClientChecklist();
+  const { establishment, checklist, missionAccess, libraryUpdateAlert } = await getClientChecklist();
+  // « Savoir quand sont ses prochains points, que ce soit en visio ou en présentiel. »
+  // Lecture seule : le client lit son agenda, il ne le pilote pas.
+  const appointments = await listClientAppointments(4);
 
   if (!establishment) {
     return (
@@ -56,6 +71,9 @@ export default async function ClientDashboardPage() {
   const otherCount = totalItems - missingCount - compliantCount;
   const progressPct = documentProgressPercent(summary);
 
+  // Bibliothèque : la checklist reste lisible, les dépôts s'arrêtent.
+  const depositOpen = canDepositDocuments(missionAccess);
+
   const stats = [
     { label: "Manquants", value: missingCount, icon: AlertTriangle, color: "text-rouge-imp bg-rouge-imp/10" },
     { label: "Conformes", value: compliantCount, icon: CheckCircle2, color: "text-vert-ok bg-vert-ok/10" },
@@ -70,6 +88,52 @@ export default async function ClientDashboardPage() {
         icon={Building2}
         accent="ambre"
       />
+
+      {/* Fin d'accompagnement — dit ce qui change ET ce qui ne change pas. Un
+          portail qui se ferme sans explication ressemble à une panne. */}
+      {!depositOpen && (
+        <div className="flex items-start gap-3 bg-ivoire border border-gris-light rounded-lg px-5 py-4">
+          <Archive className="w-5 h-5 text-ambre flex-shrink-0 mt-0.5" aria-hidden="true" />
+          <div className="text-sm">
+            <p className="font-semibold text-brun-ancre">Accompagnement terminé</p>
+            <p className="text-gris-mid">
+              Vos documents restent consultables et téléchargeables. Aucun nouveau dépôt
+              n&apos;est possible : contactez votre consultant EODA pour reprendre un
+              accompagnement.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Alerte du 5ᵉ mois (§12.5) : rien ne se ferme, mais des documents figés
+          depuis cinq mois commencent à dater — le référentiel HAS évolue. */}
+      {libraryUpdateAlert && (
+        <div className="flex items-start gap-3 bg-ambre/10 border border-ambre/30 rounded-lg px-5 py-4">
+          <BellRing className="w-5 h-5 text-ambre flex-shrink-0 mt-0.5" aria-hidden="true" />
+          <div className="text-sm">
+            <p className="font-semibold text-brun-ancre">Vos documents datent de plus de cinq mois</p>
+            <p className="text-gris-mid">
+              Le référentiel HAS et les obligations documentaires évoluent. Un point de
+              mise à jour avec EODA Conseil permet de vérifier que votre bibliothèque
+              est toujours à jour.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Prochains rendez-vous, avant la checklist : c'est la question qu'on se pose
+          en ouvrant son espace, et la seule à laquelle une date répond. */}
+      <section className="bg-white border border-gris-light rounded-xl p-5 space-y-4">
+        <div className="flex items-center gap-2">
+          <CalendarDays className="w-4 h-4 text-terre" aria-hidden="true" />
+          <h2 className="text-sm font-semibold text-brun-ancre">Vos prochains rendez-vous</h2>
+        </div>
+        <AppointmentList
+          appointments={appointments}
+          readOnly
+          emptyMessage="Aucun rendez-vous programmé pour l'instant. Votre consultant EODA vous proposera les prochaines dates."
+        />
+      </section>
 
       {/* Progression globale */}
       <div className="bg-white border border-gris-light rounded-xl p-5 space-y-4">
@@ -114,6 +178,7 @@ export default async function ClientDashboardPage() {
               items={items}
               defaultOpen={DEFAULT_OPEN.includes(cat)}
               establishmentId={establishment.id}
+              canDeposit={depositOpen}
             />
           );
         })}

@@ -19,19 +19,21 @@ const prismaMock = {
     delete: vi.fn(),
   },
   document: { update: vi.fn() },
+  // Le rôle de l'AUTEUR du dépôt décide qui peut le supprimer.
+  user: { findUnique: vi.fn() },
   $transaction: vi.fn(),
 };
 
-const requireEstablishmentInTenant = vi.fn();
+const requireEstablishmentAccess = vi.fn();
 const recordAuditEvent = vi.fn();
 const storageDelete = vi.fn();
 
 vi.mock("@eoda/database", () => ({ prisma: prismaMock }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("@/lib/auth/guards", () => ({
-  requireEstablishmentAccess: vi.fn(),
+  requireEstablishmentAccess: (...args: [string]) => requireEstablishmentAccess(...args),
   tryEstablishmentAccess: vi.fn(),
-  requireEstablishmentInTenant: (...args: [string]) => requireEstablishmentInTenant(...args),
+  requireEstablishmentInTenant: vi.fn(),
 }));
 vi.mock("@/lib/services/text-extraction-service", () => ({ extractText: vi.fn() }));
 vi.mock("@/lib/services/document-categorization-service", () => ({ suggestDocumentType: vi.fn() }));
@@ -59,6 +61,7 @@ function givenVersion(currentVersionId: string | null = VERSION_ID): void {
   prismaMock.documentVersion.findUnique.mockResolvedValue({
     id: VERSION_ID,
     documentId: DOCUMENT_ID,
+    uploadedByUserId: "user-cabinet",
     fileStorageKey: "etab-1/doc/v1.pdf",
     document: {
       id: DOCUMENT_ID,
@@ -71,12 +74,15 @@ function givenVersion(currentVersionId: string | null = VERSION_ID): void {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  requireEstablishmentInTenant.mockResolvedValue({
+  requireEstablishmentAccess.mockResolvedValue({
     establishmentId: ESTABLISHMENT_ID,
-    tenantId: "tenant-1",
     userId: "user-cabinet",
+    isClient: false,
+    missionAccess: "ACTIVE",
     session: { user: { id: "user-cabinet", role: "CABINET_ADMIN" } },
   });
+  // Par défaut : version produite par le cabinet, supprimable par le cabinet.
+  prismaMock.user.findUnique.mockResolvedValue({ role: "CABINET_ADMIN" });
   storageDelete.mockResolvedValue(undefined);
   prismaMock.documentVersion.findFirst.mockResolvedValue(null);
   prismaMock.$transaction.mockImplementation(async (arg: TxCallback<unknown>) => arg(prismaMock));
@@ -101,7 +107,7 @@ describe("refus", () => {
 
   it("propage le refus de la garde et ne touche ni au stockage ni à la base", async () => {
     givenVersion();
-    requireEstablishmentInTenant.mockRejectedValue(new Error("NOT_FOUND"));
+    requireEstablishmentAccess.mockRejectedValue(new Error("NOT_FOUND"));
 
     await expect(deleteDocumentVersion(VERSION_ID)).rejects.toThrow("NOT_FOUND");
     expect(storageDelete).not.toHaveBeenCalled();
@@ -156,12 +162,49 @@ describe("suppression", () => {
     );
   });
 
-  it("ne touche pas au document quand la version supprimée n'était pas la courante", async () => {
-    givenVersion("version-2");
+  // Le cas « supprimer une version antérieure » n'existe plus : il est désormais
+  // refusé (cf. « qui peut supprimer quoi » plus bas). Supprimer une version qui n'est
+  // pas la dernière n'est pas une correction, c'est une réécriture de l'historique —
+  // et l'historique complet est précisément ce que Sandrine a demandé à voir.
+});
 
-    await deleteDocumentVersion(VERSION_ID);
+describe("qui peut supprimer quoi", () => {
+  it("refuse au cabinet la suppression d'un document déposé par le client", async () => {
+    // « Moi, je prends ce qu'ils me donnent » — le refus est côté serveur, pas
+    // seulement un bouton masqué.
+    givenVersion();
+    prismaMock.user.findUnique.mockResolvedValue({ role: "CLIENT_USER" });
 
-    expect(prismaMock.document.update).not.toHaveBeenCalled();
+    const result = await deleteDocumentVersion(VERSION_ID);
+
+    expect(result).toMatchObject({ error: expect.stringContaining("appartient") });
+    expect(storageDelete).not.toHaveBeenCalled();
+    expect(prismaMock.documentVersion.delete).not.toHaveBeenCalled();
+  });
+
+  it("laisse le client retirer son propre dernier dépôt", async () => {
+    givenVersion();
+    prismaMock.user.findUnique.mockResolvedValue({ role: "CLIENT_USER" });
+    requireEstablishmentAccess.mockResolvedValue({
+      establishmentId: ESTABLISHMENT_ID,
+      userId: "user-client",
+      isClient: true,
+      missionAccess: "ACTIVE",
+      session: { user: { id: "user-client", role: "CLIENT_USER" } },
+    });
+
+    const result = await deleteDocumentVersion(VERSION_ID);
+
+    expect(result).toBeNull();
     expect(prismaMock.documentVersion.delete).toHaveBeenCalled();
+  });
+
+  it("refuse la suppression d'une version qui n'est plus la courante", async () => {
+    givenVersion("autre-version");
+
+    const result = await deleteDocumentVersion(VERSION_ID);
+
+    expect(result).toMatchObject({ error: expect.stringContaining("dernière") });
+    expect(prismaMock.documentVersion.delete).not.toHaveBeenCalled();
   });
 });

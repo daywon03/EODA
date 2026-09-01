@@ -54,7 +54,7 @@ export type ConversionInput = {
   existingEstablishmentId: string | null;
   // Mission déjà rattachée à cet établissement, s'il existe.
   existingMissionId: string | null;
-  // Type de SAD saisi par Sandrine. Non dérivable : `ProspectType` est la forme
+  // Type de SAD saisi par Sandrine. Non dérivable : `StructureType` est la forme
   // juridique (association / privé / public), `EstablishmentType` est SAD_AIDE ou
   // SAD_MIXTE. Deux dimensions orthogonales — deviner l'une depuis l'autre
   // produirait un périmètre de critères faux (le 17ᵉ impératif, cf. plus bas).

@@ -1,70 +1,140 @@
 "use server";
 
-import { prisma, type Prisma, type ProspectStatus, type ProspectType } from "@eoda/database";
+import {
+  prisma,
+  AcquisitionChannel,
+  Civility,
+  CommercialTier,
+  ContactRole,
+  ProspectStatus,
+  StructureType,
+  type Prisma,
+} from "@eoda/database";
 import { requireCabinetAdminSession } from "@/lib/auth/guards";
 import { redirect, notFound } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE } from "@/lib/services/pagination-service";
+import {
+  firstError,
+  isEnumValue,
+  optionalEnum,
+  optionalInt,
+  optionalString,
+  requiredDate,
+  requiredEnum,
+  requiredString,
+} from "@/lib/validation/form-parsers";
+import {
+  formatContactIdentity,
+  keepPrecisionOnlyForOther,
+  otherPrecisionError,
+} from "@/lib/services/prospect-contact-service";
 
 const PROSPECT_LIST_PATH = "/dashboard/cabinet/commercial/prospects";
 
-function parseProspectInput(formData: FormData): { error: string } | {
+type ParsedProspect = {
   structureName: string;
-  structureType: "ASSOCIATION" | "PRIVE" | "PUBLIC";
-  channel:
-    | "BOUCHE_A_OREILLE"
-    | "REFERENCEMENT_UNA"
-    | "EMAILING"
-    | "REFERENCEMENT_GOOGLE"
-    | "LINKEDIN"
-    | "AUTRE";
+  structureType: StructureType;
+  channel: AcquisitionChannel;
+  channelOther: string | null;
+  civility: Civility | null;
   contactName: string | null;
+  contactRole: ContactRole | null;
+  contactRoleOther: string | null;
   contactPhone: string | null;
   contactEmail: string | null;
-  envisagedFormule: "BETA" | "ESSENTIEL" | "PERFORMANCE" | "EXCELLENCE" | null;
+  envisagedFormule: CommercialTier | null;
   estimatedAmountEuros: number | null;
   firstContactDate: Date;
   needsAssessmentNotes: string | null;
   notes: string | null;
-} {
-  const structureName = (formData.get("structureName") as string | null)?.trim();
-  const structureType = formData.get("structureType") as
-    | "ASSOCIATION"
-    | "PRIVE"
-    | "PUBLIC"
-    | null;
-  const channel = formData.get("channel") as
-    | "BOUCHE_A_OREILLE"
-    | "REFERENCEMENT_UNA"
-    | "EMAILING"
-    | "REFERENCEMENT_GOOGLE"
-    | "LINKEDIN"
-    | "AUTRE"
-    | null;
-  const firstContactDateRaw = formData.get("firstContactDate") as string | null;
+};
 
-  if (!structureName) return { error: "Le nom de la structure est obligatoire." };
-  if (!structureType) return { error: "Le type de structure est obligatoire." };
-  if (!channel) return { error: "Le canal d'acquisition est obligatoire." };
-  if (!firstContactDateRaw) return { error: "La date de premier contact est obligatoire." };
+// Les enums passaient par des casts `formData.get("x") as "A" | "B"`, qui ne valident
+// rien à l'exécution : une action serveur est une route HTTP publique, appelable sans
+// le <select> qui la borne à l'écran (CLAUDE.md §5 bis). Repris par les parseurs au
+// moment d'ajouter les nouveaux champs.
+function parseProspectInput(formData: FormData): { error: string } | ParsedProspect {
+  const structureName = requiredString(formData, "structureName", "Le nom de la structure", 200);
+  const structureType = requiredEnum(formData, "structureType", "Le type de structure", StructureType);
+  const channel = requiredEnum(formData, "channel", "Le canal d'acquisition", AcquisitionChannel);
+  const channelOther = optionalString(formData, "channelOther", "La précision du canal", 200);
+  const civility = optionalEnum(formData, "civility", "La civilité", Civility);
+  const contactName = optionalString(formData, "contactName", "Le nom du contact", 200);
+  const contactRole = optionalEnum(formData, "contactRole", "La fonction du contact", ContactRole);
+  const contactRoleOther = optionalString(formData, "contactRoleOther", "La précision de la fonction", 200);
+  const contactPhone = optionalString(formData, "contactPhone", "Le téléphone", 40);
+  const contactEmail = optionalString(formData, "contactEmail", "L'e-mail", 200);
+  const envisagedFormule = optionalEnum(formData, "envisagedFormule", "La formule envisagée", CommercialTier);
+  const estimatedAmountEuros = optionalInt(formData, "estimatedAmountEuros", "Le montant estimé", { min: 0 });
+  const firstContactDate = requiredDate(formData, "firstContactDate", "La date de premier contact");
+  const needsAssessmentNotes = optionalString(formData, "needsAssessmentNotes", "L'évaluation des besoins");
+  const notes = optionalString(formData, "notes", "Les notes");
 
-  const envisagedFormuleRaw = formData.get("envisagedFormule") as string | null;
-  const estimatedAmountRaw = (formData.get("estimatedAmountEuros") as string | null)?.trim();
-
-  return {
+  const error = firstError(
     structureName,
     structureType,
     channel,
-    contactName: (formData.get("contactName") as string | null)?.trim() || null,
-    contactPhone: (formData.get("contactPhone") as string | null)?.trim() || null,
-    contactEmail: (formData.get("contactEmail") as string | null)?.trim() || null,
-    envisagedFormule: envisagedFormuleRaw
-      ? (envisagedFormuleRaw as "BETA" | "ESSENTIEL" | "PERFORMANCE" | "EXCELLENCE")
-      : null,
-    estimatedAmountEuros: estimatedAmountRaw ? Number(estimatedAmountRaw) : null,
-    firstContactDate: new Date(firstContactDateRaw),
-    needsAssessmentNotes: (formData.get("needsAssessmentNotes") as string | null)?.trim() || null,
-    notes: (formData.get("notes") as string | null)?.trim() || null,
+    channelOther,
+    civility,
+    contactName,
+    contactRole,
+    contactRoleOther,
+    contactPhone,
+    contactEmail,
+    envisagedFormule,
+    estimatedAmountEuros,
+    firstContactDate,
+    needsAssessmentNotes,
+    notes
+  );
+  if (error) return { error };
+  if (
+    !structureName.ok ||
+    !structureType.ok ||
+    !channel.ok ||
+    !channelOther.ok ||
+    !civility.ok ||
+    !contactName.ok ||
+    !contactRole.ok ||
+    !contactRoleOther.ok ||
+    !contactPhone.ok ||
+    !contactEmail.ok ||
+    !envisagedFormule.ok ||
+    !estimatedAmountEuros.ok ||
+    !firstContactDate.ok ||
+    !needsAssessmentNotes.ok ||
+    !notes.ok
+  ) {
+    return { error: "Formulaire invalide." };
+  }
+
+  // « Autre » sans précision n'enregistre pas une information, il enregistre qu'on ne
+  // sait pas — et fait disparaître de l'analyse d'acquisition exactement les cas
+  // nouveaux qu'il faudrait repérer.
+  const channelError = otherPrecisionError(channel.value, channelOther.value, "le canal d'acquisition");
+  if (channelError) return { error: channelError };
+  const roleError = otherPrecisionError(contactRole.value, contactRoleOther.value, "la fonction du contact");
+  if (roleError) return { error: roleError };
+
+  return {
+    structureName: structureName.value,
+    structureType: structureType.value,
+    channel: channel.value,
+    // La précision ne survit pas à un changement de valeur : sinon un commentaire
+    // orphelin contredit le champ affiché.
+    channelOther: keepPrecisionOnlyForOther(channel.value, channelOther.value),
+    civility: civility.value,
+    contactName: contactName.value,
+    contactRole: contactRole.value,
+    contactRoleOther: keepPrecisionOnlyForOther(contactRole.value, contactRoleOther.value),
+    contactPhone: contactPhone.value,
+    contactEmail: contactEmail.value,
+    envisagedFormule: envisagedFormule.value,
+    estimatedAmountEuros: estimatedAmountEuros.value,
+    firstContactDate: firstContactDate.value,
+    needsAssessmentNotes: needsAssessmentNotes.value,
+    notes: notes.value,
   };
 }
 
@@ -103,16 +173,69 @@ export async function updateProspect(
   redirect(`${PROSPECT_LIST_PATH}/${id}`);
 }
 
-export async function updateProspectStatus(id: string, status: ProspectStatus): Promise<{ error: string } | null> {
-  const { tenantId } = await requireCabinetAdminSession();
+export async function updateProspectStatus(
+  id: string,
+  status: ProspectStatus
+): Promise<{ error: string } | null> {
+  const { tenantId, userId } = await requireCabinetAdminSession();
+
+  // `status` arrive en argument d'action serveur, donc par une route HTTP publique :
+  // le <select> qui le borne à l'écran ne le valide pas (CLAUDE.md §5 bis).
+  if (!isEnumValue(status, ProspectStatus)) return { error: "Statut invalide." };
 
   const existing = await prisma.prospect.findFirst({ where: { id, tenantId } });
   if (!existing) notFound();
 
-  await prisma.prospect.update({ where: { id }, data: { status } });
+  // Rien à écrire si l'étape ne change pas : sinon la frise se remplit de lignes
+  // « Nouveau → Nouveau » à chaque ouverture du menu déroulant.
+  if (existing.status === status) return null;
+
+  // Le changement et sa trace dans la même transaction. Séparés, un incident laisse
+  // une étape sans histoire — et c'est justement l'histoire qu'on cherche à
+  // reconstituer.
+  await prisma.$transaction([
+    prisma.prospect.update({ where: { id }, data: { status } }),
+    prisma.prospectTimelineEntry.create({
+      data: {
+        tenantId,
+        prospectId: id,
+        kind: "CHANGEMENT_STATUT",
+        authorUserId: userId,
+        statusFrom: existing.status,
+        statusTo: status,
+      },
+    }),
+  ]);
 
   revalidatePath(PROSPECT_LIST_PATH);
   revalidatePath(`${PROSPECT_LIST_PATH}/${id}`);
+  return null;
+}
+
+// Commentaire libre sur le dossier — la demande de Sandrine : « qu'on puisse mettre
+// des commentaires si entre-temps ils nous envoyaient des mails, des questions ».
+//
+// APPEND-ONLY : il n'existe volontairement ni modification ni suppression d'une
+// entrée. Un historique réécrivable ne prouve rien, et c'est ce dossier qui sert à
+// répondre « pourquoi en sommes-nous là ? » six mois plus tard.
+export async function addProspectComment(
+  prospectId: string,
+  _prevState: { error: string } | null,
+  formData: FormData
+): Promise<{ error: string } | null> {
+  const { tenantId, userId } = await requireCabinetAdminSession();
+
+  const existing = await prisma.prospect.findFirst({ where: { id: prospectId, tenantId } });
+  if (!existing) notFound();
+
+  const body = requiredString(formData, "body", "Le commentaire", 2000);
+  if (!body.ok) return { error: body.error };
+
+  await prisma.prospectTimelineEntry.create({
+    data: { tenantId, prospectId, kind: "COMMENTAIRE", authorUserId: userId, body: body.value },
+  });
+
+  revalidatePath(`${PROSPECT_LIST_PATH}/${prospectId}`);
   return null;
 }
 
@@ -136,9 +259,12 @@ export async function deleteProspect(id: string): Promise<{ error: string } | vo
 export type ProspectCardItem = {
   id: string;
   structureName: string;
-  structureType: ProspectType;
+  structureType: StructureType;
   status: ProspectStatus;
-  contactName: string | null;
+  // Identité déjà composée (civilité, nom, fonction) : la carte du Kanban ne
+  // recompose pas la règle de son côté, sinon deux écrans finissent par écrire le
+  // même contact de deux façons.
+  contactIdentity: string | null;
   estimatedAmountEuros: number | null;
   devisCount: number;
 };
@@ -182,7 +308,10 @@ export async function listProspectBoard(
             structureName: true,
             structureType: true,
             status: true,
+            civility: true,
             contactName: true,
+            contactRole: true,
+            contactRoleOther: true,
             estimatedAmountEuros: true,
             _count: { select: { devis: true } },
           },
@@ -201,7 +330,7 @@ export async function listProspectBoard(
       structureName: p.structureName,
       structureType: p.structureType,
       status: p.status,
-      contactName: p.contactName,
+      contactIdentity: formatContactIdentity(p),
       estimatedAmountEuros: p.estimatedAmountEuros,
       devisCount: p._count.devis,
     })),
@@ -218,28 +347,47 @@ function emptyStatusCounts(): Record<ProspectStatus, number> {
 // lignes pour les compter en mémoire. Un KPI calculé sur une page serait faux, et
 // un KPI calculé sur une table entière chargée en RAM ne passe pas l'échelle — le
 // `groupBy` répond aux deux.
+//
+// `byStatus` ne compte que les prospects NON CONVERTIS (`establishmentId: null`).
+// Raison : après la signature, `Prospect.status` reste figé à `SIGNE` — c'est le
+// dernier état commercial et il est correct comme tel, mais la structure est
+// désormais suivie par sa mission. La compter des deux côtés la ferait apparaître
+// deux fois dans l'entonnoir unifié, une fois en « Signé » et une fois à l'étape
+// réelle de son accompagnement. `byStructureType` reste calculé sur TOUS les
+// prospects : c'est une lecture de marché (d'où viennent nos contacts), pas une
+// photo du pipeline.
 export async function getProspectKpiCounts(): Promise<{
   byStatus: Record<ProspectStatus, number>;
-  byStructureType: Record<ProspectType, number>;
+  byStructureType: Record<StructureType, number>;
 }> {
   const { tenantId } = await requireCabinetAdminSession();
 
   const [statusRows, typeRows] = await Promise.all([
-    prisma.prospect.groupBy({ by: ["status"], where: { tenantId }, _count: { _all: true } }),
+    prisma.prospect.groupBy({
+      by: ["status"],
+      where: { tenantId, establishmentId: null },
+      _count: { _all: true },
+    }),
     prisma.prospect.groupBy({ by: ["structureType"], where: { tenantId }, _count: { _all: true } }),
   ]);
 
   const byStatus = emptyStatusCounts();
   for (const row of statusRows) byStatus[row.status] = row._count._all;
 
-  const byStructureType: Record<ProspectType, number> = { ASSOCIATION: 0, PRIVE: 0, PUBLIC: 0 };
+  const byStructureType: Record<StructureType, number> = { ASSOCIATION: 0, PRIVE: 0, PUBLIC: 0 };
   for (const row of typeRows) byStructureType[row.structureType] = row._count._all;
 
   return { byStatus, byStructureType };
 }
 
 export type ProspectWithDevis = Prisma.ProspectGetPayload<{
-  include: { devis: { orderBy: { createdAt: "desc" }; include: { catalogueFormule: true } } };
+  include: {
+    devis: { orderBy: { createdAt: "desc" }; include: { catalogueFormule: true } };
+    timeline: {
+      orderBy: { createdAt: "desc" };
+      include: { author: { select: { name: true } } };
+    };
+  };
 }>;
 
 export async function getProspect(id: string): Promise<ProspectWithDevis> {
@@ -249,6 +397,15 @@ export async function getProspect(id: string): Promise<ProspectWithDevis> {
     where: { id, tenantId },
     include: {
       devis: { orderBy: { createdAt: "desc" }, include: { catalogueFormule: true } },
+      // L'historique du dossier, du plus récent au plus ancien. Chargé avec le
+      // prospect : c'est la même lecture, et deux requêtes n'apporteraient qu'un
+      // second aller-retour pour un affichage qui vit sur le même écran.
+      timeline: {
+        orderBy: { createdAt: "desc" },
+        // Le nom de l'auteur seul — jamais l'objet User complet, qui ferait
+        // traverser e-mail et empreinte de mot de passe jusqu'au composant (D2).
+        include: { author: { select: { name: true } } },
+      },
     },
   });
 

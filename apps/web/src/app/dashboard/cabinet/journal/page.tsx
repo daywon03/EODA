@@ -6,6 +6,7 @@ import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
+import { formatDateTime } from "@/lib/services/date-format-service";
 import { ScrollText } from "lucide-react";
 
 export const metadata = { title: "Journal d'audit · EODA Conseil" };
@@ -42,6 +43,15 @@ const ACTION_LABELS: Record<AuditAction, string> = {
   OPTION_REQUEST_HANDLED: "Demande d'option traitée",
   PROSPECT_CONVERTED: "Devis signé — fiche client et profil créés",
   MISSION_SCOPE_UPDATED: "Périmètre de mission modifié (offre, options)",
+  MISSION_CLOSED: "Mission close (bibliothèque en lecture seule)",
+  MISSION_REOPENED: "Mission rouverte (dépôt de nouveau possible)",
+  MISSION_CLIENT_ACCESS_REVOKED: "Accès client révoqué",
+  MISSION_CLIENT_ACCESS_RESTORED: "Accès client rétabli",
+  ANALYSIS_PUBLISHED: "Analyse relue et restituée au client",
+  ANALYSIS_UNPUBLISHED: "Analyse retirée du portail client",
+  DOCUMENT_VALIDATED: "Document validé",
+  DOCUMENT_UNVALIDATED: "Validation de document retirée",
+  DOCUMENT_TYPE_SCOPE_CHANGED: "Document réclamé au client / produit par EODA",
 };
 
 const ROLE_LABELS: Record<string, string> = {
@@ -50,10 +60,7 @@ const ROLE_LABELS: Record<string, string> = {
   CLIENT_USER: "Client",
 };
 
-const DATE_FORMAT = new Intl.DateTimeFormat("fr-FR", {
-  dateStyle: "short",
-  timeStyle: "medium",
-});
+// Format unique de l'application (date-format-service) : JJ/MM/AAAA à HH:MM.
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
@@ -181,7 +188,7 @@ export default async function AuditLogPage({
                 {result.rows.map((row) => (
                   <tr key={row.id} className="hover:bg-ivoire/50 transition-colors">
                     <td className="px-5 py-2.5 whitespace-nowrap tabular-nums text-gris-mid">
-                      {DATE_FORMAT.format(row.occurredAt)}
+                      {formatDateTime(row.occurredAt)}
                     </td>
                     <td className="px-5 py-2.5 text-brun-ancre">{ACTION_LABELS[row.action]}</td>
                     <td className="px-5 py-2.5 text-brun-ancre">

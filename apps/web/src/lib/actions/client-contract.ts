@@ -3,6 +3,7 @@
 import { prisma, type CommercialTier } from "@eoda/database";
 import { revalidatePath } from "next/cache";
 import { requireClientEstablishment } from "@/lib/auth/guards";
+import { notifyOptionRequest } from "@/lib/email/notifications";
 import { getClientChecklist } from "@/lib/actions/checklist";
 import { recordAuditEvent } from "@/lib/services/audit-log-service";
 import { readMissionDocumentCounters } from "@/lib/db/read-mission-document-counters";
@@ -294,7 +295,7 @@ export async function requestOptionQuote(
   // identifiant inexistant — on ne révèle pas qu'il existe ailleurs.
   const option = await prisma.catalogueOption.findFirst({
     where: { id: optionId.value, tenantId, active: true },
-    select: { id: true, code: true },
+    select: { id: true, code: true, label: true },
   });
   if (!option) return { ok: false, error: "Cette prestation n'est plus proposée." };
 
@@ -341,7 +342,26 @@ export async function requestOptionQuote(
     detail: option.code,
   });
 
+  const requester = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { name: true },
+  });
+
+  // Alerte interne — « il faudrait qu'il y ait un mail et un pop-up pour qu'on ne
+  // rate pas les demandes. Surtout les demandes où ils veulent payer plus. »
+  // L'e-mail part vers les comptes CABINET_ADMIN du tenant ; la pastille du portail
+  // vient de la même file (listPendingOptionRequests). Un échec d'envoi ne perd pas
+  // la demande : elle est déjà enregistrée, et la file la montre de toute façon.
+  await notifyOptionRequest({
+    tenantId,
+    establishmentName: establishment.name,
+    optionLabel: option.label,
+    message: message.value,
+    requestedByName: requester?.name ?? "un interlocuteur",
+  });
+
   revalidatePath("/dashboard/client/accompagnement");
+  revalidatePath("/dashboard/cabinet");
   revalidatePath("/dashboard/cabinet/commercial");
 
   return { ok: true };

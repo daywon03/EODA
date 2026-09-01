@@ -1,0 +1,14 @@
+-- Logo de la structure accompagnée.
+--
+-- « Dans tous mes documents, tout ce que je modifie pour mon client, il y a d'un côté
+-- mon logo, pour dire que c'est un document que j'ai créé, et de l'autre côté le logo
+-- de l'entreprise à qui c'est destiné. » (call du 26/08)
+--
+-- Stocké en data URI (TEXT) plutôt que dans le bucket : une image de moins de 300 Ko,
+-- lue uniquement au rendu d'un document, n'a pas besoin d'une route de service ni d'un
+-- contrôle d'accès supplémentaire. Elle voyage avec la page — y compris à l'impression,
+-- où une URL signée expirée laisserait un carré vide sur un document remis au client.
+--
+-- Migration écrite à la main : `prisma migrate dev` / `migrate diff` sont interdits sur
+-- ce dépôt (incident du 19/08/2026). Application : `pnpm db:migrate:deploy` uniquement.
+ALTER TABLE "establishments" ADD COLUMN "logo_data_uri" TEXT;

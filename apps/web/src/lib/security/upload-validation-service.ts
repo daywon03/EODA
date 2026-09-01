@@ -20,30 +20,100 @@
 export const PDF_MIME_TYPE = "application/pdf";
 export const DOCX_MIME_TYPE =
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+export const XLSX_MIME_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+// Anciennes versions bureautiques : .doc et .xls partagent le même conteneur OLE2,
+// que la seule signature ne permet pas de distinguer. On les accepte comme un même
+// type « document bureautique ancien » — c'est vrai, et suffisant : aucun des deux
+// n'est analysable, ils sont conservés comme pièces.
+export const LEGACY_OFFICE_MIME_TYPE = "application/x-ole-storage";
+export const JPEG_MIME_TYPE = "image/jpeg";
+export const PNG_MIME_TYPE = "image/png";
+export const CSV_MIME_TYPE = "text/csv";
 
 export const MAX_FILE_SIZE_BYTES = 20 * 1024 * 1024;
 
-export type DetectedFileType = typeof PDF_MIME_TYPE | typeof DOCX_MIME_TYPE;
+export type DetectedFileType =
+  | typeof PDF_MIME_TYPE
+  | typeof DOCX_MIME_TYPE
+  | typeof XLSX_MIME_TYPE
+  | typeof LEGACY_OFFICE_MIME_TYPE
+  | typeof JPEG_MIME_TYPE
+  | typeof PNG_MIME_TYPE
+  | typeof CSV_MIME_TYPE;
+
+// Formats dont le pipeline sait extraire du texte, donc analysables. Les autres sont
+// stockés comme pièces : les accepter sans le dire ferait attendre une analyse qui ne
+// viendrait jamais.
+const ANALYSABLE_TYPES: DetectedFileType[] = [PDF_MIME_TYPE, DOCX_MIME_TYPE];
+
+export function isAnalysableType(type: DetectedFileType): boolean {
+  return ANALYSABLE_TYPES.includes(type);
+}
 
 const PDF_SIGNATURE = Buffer.from("%PDF-", "latin1");
-// DOCX est une archive ZIP (OOXML) — signature d'en-tête d'entrée locale ZIP.
+// DOCX et XLSX sont des archives ZIP (OOXML) — signature d'en-tête d'entrée locale ZIP.
 const ZIP_SIGNATURE = Buffer.from([0x50, 0x4b, 0x03, 0x04]);
+// Conteneur OLE2 : .doc et .xls d'avant Office 2007.
+const OLE2_SIGNATURE = Buffer.from([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1]);
+const JPEG_SIGNATURE = Buffer.from([0xff, 0xd8, 0xff]);
+const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+
+function startsWith(content: Buffer, signature: Buffer): boolean {
+  return content.subarray(0, signature.length).equals(signature);
+}
 
 // Détecte le type réel à partir du contenu, en ignorant le type déclaré.
 // Retourne null si la signature ne correspond à aucun format accepté.
 export function detectFileType(content: Buffer): DetectedFileType | null {
-  if (content.subarray(0, PDF_SIGNATURE.length).equals(PDF_SIGNATURE)) {
-    return PDF_MIME_TYPE;
-  }
-  if (content.subarray(0, ZIP_SIGNATURE.length).equals(ZIP_SIGNATURE)) {
-    // Un .docx est un ZIP contenant "word/" — le vérifier évite d'accepter un
-    // .xlsx, un .zip quelconque ou une archive piégée sous un nom en .docx.
+  if (startsWith(content, PDF_SIGNATURE)) return PDF_MIME_TYPE;
+  if (startsWith(content, JPEG_SIGNATURE)) return JPEG_MIME_TYPE;
+  if (startsWith(content, PNG_SIGNATURE)) return PNG_MIME_TYPE;
+  if (startsWith(content, OLE2_SIGNATURE)) return LEGACY_OFFICE_MIME_TYPE;
+
+  if (startsWith(content, ZIP_SIGNATURE)) {
+    // Un .docx contient « word/ », un .xlsx contient « xl/ » — le vérifier évite
+    // d'accepter une archive quelconque, ou piégée, sous un nom en .docx.
     // Recherche bornée à l'en-tête : les noms d'entrées ZIP apparaissent dès le
     // début du fichier, pas besoin de décompresser.
     const header = content.subarray(0, Math.min(content.length, 4096)).toString("latin1");
-    return header.includes("word/") ? DOCX_MIME_TYPE : null;
+    if (header.includes("word/")) return DOCX_MIME_TYPE;
+    if (header.includes("xl/")) return XLSX_MIME_TYPE;
+    return null;
   }
+
+  // CSV : aucune signature n'existe, par construction — c'est du texte. Reconnu donc
+  // par son CONTENU : du texte imprimable, sans octet nul (ce qui écarte tout binaire
+  // renommé), et au moins un séparateur de colonnes sur la première ligne.
+  //
+  // C'est l'exception assumée à la règle « type déterminé par signature binaire » :
+  // un fichier texte n'en a pas. Le risque est borné — un CSV n'est ni exécuté ni
+  // rendu par le navigateur (il est servi en pièce jointe), et le contrôle refuse
+  // tout ce qui contient un octet nul.
+  if (looksLikeCsv(content)) return CSV_MIME_TYPE;
+
   return null;
+}
+
+// Un CSV a une FORME, et c'est elle qu'on vérifie faute de signature : au moins deux
+// lignes non vides, portant le même nombre de séparateurs. Une charge utile d'une
+// seule ligne — un webshell, un script — ne la présente pas, et se voit refusée
+// comme avant.
+function looksLikeCsv(content: Buffer): boolean {
+  const head = content.subarray(0, Math.min(content.length, 8192));
+  if (head.includes(0)) return false;
+
+  const text = head.toString("utf8");
+  // Le remplacement U+FFFD signale un octet invalide en UTF-8 : ce n'est pas du texte.
+  if (text.includes("\uFFFD")) return false;
+
+  const lines = text.split(/\r?\n/).filter((line) => line.trim().length > 0).slice(0, 5);
+  if (lines.length < 2) return false;
+
+  return [";", ",", "\t"].some((separator) => {
+    const counts = lines.map((line) => line.split(separator).length - 1);
+    const first = counts[0] ?? 0;
+    return first > 0 && counts.every((count) => count === first);
+  });
 }
 
 export type UploadValidationResult =
@@ -66,7 +136,8 @@ export function validateUploadedFile(
   if (!detected) {
     return {
       ok: false,
-      error: "Format non supporté — seuls les fichiers PDF et DOCX sont acceptés.",
+      error:
+        "Format non reconnu. Formats acceptés : PDF, Word (.doc, .docx), Excel (.xls, .xlsx), CSV, images (JPEG, PNG).",
     };
   }
 
@@ -104,4 +175,41 @@ export function buildStorageKey(params: {
   const { establishmentId, documentTypeId, versionNumber, originalFilename, timestamp } = params;
   const safeName = toSafeFilenameSegment(originalFilename);
   return `${establishmentId}/${documentTypeId}/v${versionNumber}-${timestamp}-${safeName}`;
+}
+
+// ── Logo de structure ────────────────────────────────────────────────────────
+//
+// Un logo n'est pas un document : il est stocké en data URI et RENDU dans une page.
+// Les contraintes sont donc différentes, et plus strictes :
+//
+//   - images seulement, et seulement PNG/JPEG : un SVG est un document XML, il peut
+//     porter du script, et il serait ici affiché tel quel ;
+//   - 300 Ko au plus : la donnée est encodée en base64 (+33 %) et relue à chaque
+//     rendu de document ;
+//   - le type est déterminé par la SIGNATURE, comme partout ailleurs.
+export const MAX_LOGO_SIZE_BYTES = 300 * 1024;
+
+const LOGO_TYPES: DetectedFileType[] = [PNG_MIME_TYPE, JPEG_MIME_TYPE];
+
+export type LogoValidationResult =
+  | { ok: true; dataUri: string }
+  | { ok: false; error: string };
+
+export function validateLogoUpload(content: Buffer, declaredSizeBytes: number): LogoValidationResult {
+  if (declaredSizeBytes === 0 || content.length === 0) {
+    return { ok: false, error: "Le fichier est vide." };
+  }
+  if (content.length > MAX_LOGO_SIZE_BYTES || declaredSizeBytes > MAX_LOGO_SIZE_BYTES) {
+    return { ok: false, error: "Logo trop volumineux (300 Ko maximum)." };
+  }
+
+  const detected = detectFileType(content);
+  if (!detected || !LOGO_TYPES.includes(detected)) {
+    return {
+      ok: false,
+      error: "Format non reconnu — déposez le logo au format PNG ou JPEG.",
+    };
+  }
+
+  return { ok: true, dataUri: `data:${detected};base64,${content.toString("base64")}` };
 }

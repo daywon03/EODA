@@ -2,11 +2,14 @@
 
 import { prisma } from "@eoda/database";
 import { revalidatePath } from "next/cache";
+import { notFound } from "next/navigation";
 import {
+  requireCabinetAdminSession,
   requireEstablishmentAccess,
-  requireEstablishmentInTenant,
   tryEstablishmentAccess,
 } from "@/lib/auth/guards";
+import { canDepositDocuments } from "@/lib/services/mission-access-service";
+import { canDeleteVersion } from "@/lib/services/document-workflow-service";
 import { extractText } from "@/lib/services/text-extraction-service";
 import { suggestDocumentType } from "@/lib/services/document-categorization-service";
 import { ingestDocumentVersion } from "@/lib/services/document-ingestion-service";
@@ -27,6 +30,12 @@ import { getLLMAnalysisPort } from "@/lib/llm";
 // analyse » : accepter le fichier stockerait une donnée client et brûlerait un
 // appel LLM pour un livrable qui n'a pas été souscrit. Le message ne révèle ni
 // prix ni contenu des autres offres.
+// Bibliothèque en lecture seule après la clôture (§12.5). Message explicite et non
+// un `notFound()` : le client a toujours accès à ses documents, c'est l'écriture qui
+// s'arrête — le dire évite un ticket « le bouton ne marche plus ».
+const DEPOSIT_CLOSED_MESSAGE =
+  "L'accompagnement est terminé : vos documents restent consultables, mais aucun nouveau dépôt n'est possible. Contactez votre consultant EODA pour rouvrir un accompagnement.";
+
 const OUT_OF_OFFER_ERROR =
   "Ce document n'entre pas dans le périmètre de l'offre souscrite pour cet établissement.";
 
@@ -50,6 +59,13 @@ export async function uploadDocument(formData: FormData): Promise<UploadDocument
   // Autorisation avant toute lecture du fichier : ne jamais dépenser de l'I/O ni de
   // l'extraction de texte pour un appelant non habilité sur cet établissement.
   const access = await requireEstablishmentAccess(establishmentId);
+
+  // Fin de mission : la bibliothèque est en LECTURE SEULE (§12.5). Le refus est
+  // ici, côté serveur, et pas seulement dans l'UI qui masque le bouton — une action
+  // serveur est une route HTTP publique.
+  if (!canDepositDocuments(access.missionAccess)) {
+    return { error: DEPOSIT_CLOSED_MESSAGE };
+  }
 
   // Périmètre documentaire de l'offre contractée, résolu juste après la garde et
   // AVANT toute écriture : il filtre les candidats à la détection automatique et
@@ -145,6 +161,9 @@ export async function respondToMissingDocument(
 ): Promise<{ error: string } | null> {
   const access = await requireEstablishmentAccess(establishmentId);
 
+  // Une réponse Oui/Non est une écriture : elle s'arrête avec le dépôt.
+  if (!canDepositDocuments(access.missionAccess)) return { error: DEPOSIT_CLOSED_MESSAGE };
+
   const documentType = await prisma.documentType.findUnique({ where: { id: documentTypeId } });
   if (!documentType) return { error: "Type de document invalide." };
 
@@ -195,6 +214,8 @@ export async function updateMissingJustification(
   comment: string | null
 ): Promise<{ error: string } | null> {
   const access = await requireEstablishmentAccess(establishmentId);
+
+  if (!canDepositDocuments(access.missionAccess)) return { error: DEPOSIT_CLOSED_MESSAGE };
 
   const documentType = await prisma.documentType.findUnique({ where: { id: documentTypeId } });
   if (!documentType) return { error: "Type de document invalide." };
@@ -349,8 +370,28 @@ export async function deleteDocumentVersion(
 
   // L'identifiant vient d'une route HTTP publique : l'habilitation porte sur
   // l'établissement PROPRIÉTAIRE de la version, jamais sur un identifiant fourni.
-  // notFound() est déclenché par la garde si la version appartient à un autre tenant.
-  const { session, userId } = await requireEstablishmentInTenant(version.document.establishmentId);
+  // `requireEstablishmentAccess` ouvre aux deux côtés — le client doit pouvoir
+  // corriger son propre dépôt — et notFound() tombe si la version est hors périmètre.
+  const access = await requireEstablishmentAccess(version.document.establishmentId);
+  const { session, userId } = access;
+
+  // Chacun ne supprime que ce qu'il a déposé, et seulement la dernière version.
+  const uploader = await prisma.user.findUnique({
+    where: { id: version.uploadedByUserId },
+    select: { role: true },
+  });
+  const allowed = canDeleteVersion({
+    actorIsCabinet: !access.isClient,
+    versionProducedByCabinet: uploader?.role !== "CLIENT_USER",
+    isLatest: version.document.currentVersionId === version.id,
+  });
+  if (!allowed) {
+    return {
+      error: access.isClient
+        ? "Vous ne pouvez retirer que votre dernier dépôt. Contactez votre consultant EODA pour toute autre correction."
+        : "Seules les versions produites par le cabinet peuvent être supprimées, et uniquement la dernière. Un document déposé par le client lui appartient.",
+    };
+  }
 
   try {
     await getFileStoragePort().delete(version.fileStorageKey);
@@ -412,5 +453,153 @@ export async function deleteDocumentVersion(
   });
 
   revalidateDocumentViews(version.document.establishmentId);
+  return null;
+}
+
+// ── Revue humaine d'une analyse avant restitution ────────────────────────────
+//
+// « Aucune analyse de conformité automatisée ne doit être présentée au client sans
+// revue préalable de la consultante » (CDC du 20/08/2026, §5 et §7). L'analyse est
+// produite à chaque dépôt ; c'est ce geste-ci qui la rend visible côté client.
+//
+// Réservé au CABINET : `requireEstablishmentAccess` ouvre aux deux côtés, on refuse
+// donc explicitement le client. Sans ce refus, un compte client pourrait publier
+// lui-même l'analyse de ses propres documents — c'est-à-dire contourner exactement
+// la revue que le cahier des charges impose.
+export async function setAnalysisReviewed(
+  documentVersionId: string,
+  reviewed: boolean
+): Promise<{ error: string } | null> {
+  if (typeof reviewed !== "boolean") return { error: "Valeur invalide." };
+
+  const version = await prisma.documentVersion.findUnique({
+    where: { id: documentVersionId },
+    select: {
+      id: true,
+      analysisResultJson: true,
+      analysisReviewedAt: true,
+      document: { select: { establishmentId: true } },
+    },
+  });
+  if (!version) notFound();
+
+  const access = await requireEstablishmentAccess(version.document.establishmentId);
+  if (access.isClient) notFound();
+
+  // Rien à publier : refuser plutôt que de poser une date de revue sur une analyse
+  // inexistante, qui ferait croire à une relecture qui n'a pas eu lieu.
+  if (reviewed && version.analysisResultJson === null) {
+    return { error: "Aucune analyse à restituer pour cette version." };
+  }
+
+  if (reviewed === (version.analysisReviewedAt !== null)) return null;
+
+  await prisma.documentVersion.update({
+    where: { id: version.id },
+    data: {
+      analysisReviewedAt: reviewed ? new Date() : null,
+      analysisReviewedByUserId: reviewed ? access.userId : null,
+    },
+  });
+
+  await recordAuditEvent({
+    action: reviewed ? "ANALYSIS_PUBLISHED" : "ANALYSIS_UNPUBLISHED",
+    actorUserId: access.userId,
+    actorRole: access.session.user.role,
+    establishmentId: version.document.establishmentId,
+    targetId: version.id,
+  });
+
+  revalidateDocumentViews(version.document.establishmentId);
+  return null;
+}
+
+// ── Validation d'un document ─────────────────────────────────────────────────
+//
+// Dernière étape du parcours (26/08) : « c'est complet quand tout est fait, quand
+// c'est uploadé, analysé, modifié, relu et validé ». Réservée au CABINET : valider,
+// c'est engager la parole de l'évaluatrice sur un document qui partira à la HAS.
+// Réversible — une validation posée trop tôt doit pouvoir être retirée.
+export async function setDocumentValidated(
+  establishmentId: string,
+  documentTypeId: string,
+  validated: boolean
+): Promise<{ error: string } | null> {
+  if (typeof validated !== "boolean") return { error: "Valeur invalide." };
+
+  const access = await requireEstablishmentAccess(establishmentId);
+  if (access.isClient) notFound();
+
+  const document = await prisma.document.findUnique({
+    where: { establishmentId_documentTypeId: { establishmentId, documentTypeId } },
+    select: { id: true, validatedAt: true, currentVersionId: true },
+  });
+  if (!document) return { error: "Ce document n'a pas encore été déposé." };
+
+  // Valider un document sans version reviendrait à valider une intention.
+  if (validated && document.currentVersionId === null) {
+    return { error: "Aucune version déposée : il n'y a rien à valider." };
+  }
+  if (validated === (document.validatedAt !== null)) return null;
+
+  await prisma.document.update({
+    where: { id: document.id },
+    data: {
+      validatedAt: validated ? new Date() : null,
+      validatedByUserId: validated ? access.userId : null,
+    },
+  });
+
+  await recordAuditEvent({
+    action: validated ? "DOCUMENT_VALIDATED" : "DOCUMENT_UNVALIDATED",
+    actorUserId: access.userId,
+    actorRole: access.session.user.role,
+    establishmentId,
+    targetId: document.id,
+  });
+
+  revalidateDocumentViews(establishmentId);
+  return null;
+}
+
+// ── Réclamé au client, ou produit par EODA ───────────────────────────────────
+//
+// « Ce n'est pas à eux de me les envoyer, c'est à moi de les créer pour eux. » Le
+// drapeau vit sur le TYPE de document, pas sur l'établissement : c'est une politique
+// de cabinet (« voilà ce que nous réclamons »), pas une exception par client. Sandrine
+// consulte ses experts sur la liste exacte — elle doit pouvoir la corriger sans
+// migration, d'où cette action.
+//
+// Réservée à CABINET_ADMIN : la liste vaut pour tous les clients.
+export async function setDocumentTypeRequested(
+  documentTypeId: string,
+  requested: boolean
+): Promise<{ error: string } | null> {
+  const { session, userId } = await requireCabinetAdminSession();
+  if (typeof requested !== "boolean") return { error: "Valeur invalide." };
+
+  const documentType = await prisma.documentType.findUnique({
+    where: { id: documentTypeId },
+    select: { id: true, code: true, requestedFromClient: true },
+  });
+  if (!documentType) notFound();
+  if (documentType.requestedFromClient === requested) return null;
+
+  await prisma.documentType.update({
+    where: { id: documentType.id },
+    data: { requestedFromClient: requested },
+  });
+
+  await recordAuditEvent({
+    action: "DOCUMENT_TYPE_SCOPE_CHANGED",
+    actorUserId: userId,
+    actorRole: session.user.role,
+    targetId: documentType.id,
+    detail: `${documentType.code} → ${requested ? "réclamé au client" : "produit par EODA"}`,
+  });
+
+  // La checklist change des DEUX côtés : le client cesse de le voir, ou le découvre.
+  revalidatePath("/dashboard/client");
+  revalidatePath("/dashboard/cabinet");
   return null;
 }

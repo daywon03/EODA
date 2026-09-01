@@ -316,7 +316,7 @@ const CATALOGUE_FORMULES: FormuleSeed[] = [
     formule: "ESSENTIEL",
     label: "Essentiel",
     priceEuros: 2500,
-    modulesLabel: "M1 (critères impératifs)",
+    modulesLabel: "Diagnostic des critères impératifs",
     description:
       "Diagnostic des 16 critères impératifs (1 journée) + analyse documentaire loi 2002-2 + rapport de diagnostic avec plan d'action à appliquer en autonomie — 2 à 4 semaines",
   },
@@ -324,17 +324,18 @@ const CATALOGUE_FORMULES: FormuleSeed[] = [
     formule: "PERFORMANCE",
     label: "Performance",
     priceEuros: 6500,
-    modulesLabel: "M1 complet · M2 · M3",
+    modulesLabel: "Diagnostic complet · Analyse documentaire · Ateliers de validation",
     description:
-      "Tout Essentiel + les 141 critères standards (2 jours) + M2 analyse documentaire et mise en conformité (PLAC) + M3 3 journées d'atelier de validation documentaire — 3 mois",
+      "Tout Essentiel + les 141 critères standards (2 jours) + analyse documentaire et mise en conformité (PLAC) + 3 journées d'atelier de validation documentaire — 3 mois",
   },
   {
     formule: "EXCELLENCE",
     label: "Excellence",
     priceEuros: 15000,
-    modulesLabel: "M1 · M2 · M3 · M4 · M5-M6 · M7 · M8 · M10",
+    modulesLabel:
+      "Tout Performance · Suivi hebdomadaire · Création documentaire · Reporting · Ateliers · 2e auto-évaluation",
     description:
-      "Tout Performance + M4 réunions hebdomadaires de suivi du PAC + M5-M6 création documentaire (procédures, registres) + M7 reporting Excel/Power BI + M8 5 jours d'atelier en présentiel + M10 nouvelle session d'auto-évaluation — 10 mois",
+      "Tout Performance + réunions hebdomadaires de suivi du plan d'action + création documentaire (procédures, registres) + reporting Excel ou Power BI + 5 jours d'atelier en présentiel + nouvelle session d'auto-évaluation — 10 mois",
   },
 ];
 

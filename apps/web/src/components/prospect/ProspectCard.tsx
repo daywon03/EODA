@@ -3,20 +3,20 @@ import { Users, Phone, ChevronRight } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ProspectStatusBadge } from "./ProspectStatusBadge";
-import type { ProspectStatus, ProspectType } from "@eoda/database";
+import type { ProspectStatus, StructureType } from "@eoda/database";
 import { formatEuros } from "@/lib/services/price-format-service";
 
 type Props = {
   id: string;
   structureName: string;
-  structureType: ProspectType;
+  structureType: StructureType;
   status: ProspectStatus;
-  contactName: string | null;
+  contactIdentity: string | null;
   estimatedAmountEuros: number | null;
   devisCount: number;
 };
 
-const TYPE_LABELS: Record<ProspectType, string> = {
+const TYPE_LABELS: Record<StructureType, string> = {
   ASSOCIATION: "Association",
   PRIVE: "Privé",
   PUBLIC: "Public",
@@ -27,7 +27,7 @@ export function ProspectCard({
   structureName,
   structureType,
   status,
-  contactName,
+  contactIdentity,
   estimatedAmountEuros,
   devisCount,
 }: Props) {
@@ -48,10 +48,10 @@ export function ProspectCard({
             <ProspectStatusBadge status={status} />
           </div>
 
-          {contactName && (
+          {contactIdentity && (
             <p className="flex items-center gap-1 text-xs text-gris-mid">
               <Users className="w-3.5 h-3.5 flex-shrink-0" aria-hidden="true" />
-              {contactName}
+              {contactIdentity}
             </p>
           )}
 

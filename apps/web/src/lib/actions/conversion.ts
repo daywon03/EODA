@@ -16,6 +16,8 @@ import {
   optionalDate,
   optionalEnum,
   optionalString,
+  requiredDate,
+  requiredString,
 } from "@/lib/validation/form-parsers";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -74,18 +76,37 @@ type ParsedFicheInput = {
   hasEvaluationTargetDate: Date | null;
 };
 
-// Champs de la fiche à créer. `type` est optionnel ICI et exigé par
-// `planConversion` seulement quand la fiche est réellement créée : compléter la
-// mission d'un établissement existant n'a pas à redemander son type.
-function parseFicheInput(formData: FormData): { error: string } | ParsedFicheInput {
+// Champs de la fiche client, saisis AU MOMENT DE LA SIGNATURE — c'est-à-dire au seul
+// moment où ils sont réellement connus. Les demander plus tôt, à la création d'une
+// fiche vide, revenait à réclamer le numéro FINESS d'une structure qui n'avait encore
+// rien signé ; c'est cette porte-là qui a été fermée.
+//
+// `creating` distingue les deux usages de la signature :
+//   - true  → la fiche est créée : tous les champs sont exigés, ils partent
+//             directement dans les livrables HAS ;
+//   - false → la signature ne fait qu'ajouter la mission à une fiche existante. Rien
+//             n'est redemandé, et surtout rien n'est écrasé.
+//
+// La distinction n'est pas réinventée ici : elle vient de `planConversion`, qui la
+// calcule déjà pour décider s'il faut créer l'établissement.
+//
+// Le statut juridique, lui, n'est PAS dans ce formulaire : le prospect le porte déjà
+// (`Prospect.structureType`). Le redemander à la signature, c'est offrir l'occasion
+// de saisir une valeur qui contredit celle du pipeline.
+function parseFicheInput(
+  formData: FormData,
+  creating: boolean
+): { error: string } | ParsedFicheInput {
   const type = optionalEnum(formData, "type", "Le type de SAD", EstablishmentType);
-  const finessNumber = optionalString(formData, "finessNumber", "Le numéro FINESS", 20);
-  const address = optionalString(formData, "address", "L'adresse", 300);
-  const hasEvaluationTargetDate = optionalDate(
-    formData,
-    "hasEvaluationTargetDate",
-    "La date d'évaluation HAS visée"
-  );
+  const finessNumber = creating
+    ? requiredString(formData, "finessNumber", "Le numéro FINESS", 20)
+    : optionalString(formData, "finessNumber", "Le numéro FINESS", 20);
+  const address = creating
+    ? requiredString(formData, "address", "L'adresse", 300)
+    : optionalString(formData, "address", "L'adresse", 300);
+  const hasEvaluationTargetDate = creating
+    ? requiredDate(formData, "hasEvaluationTargetDate", "L'échéance d'évaluation HAS")
+    : optionalDate(formData, "hasEvaluationTargetDate", "L'échéance d'évaluation HAS");
 
   const error = firstError(type, finessNumber, address, hasEvaluationTargetDate);
   if (error) return { error };
@@ -93,8 +114,8 @@ function parseFicheInput(formData: FormData): { error: string } | ParsedFicheInp
     return { error: "Formulaire invalide." };
   }
 
-  // Même règle que `createEstablishment` : le FINESS est la clé d'identification de
-  // l'ESSMS auprès de la HAS, une saisie approximative finit dans un livrable.
+  // Le FINESS est la clé d'identification de l'ESSMS auprès de la HAS : une saisie
+  // approximative finit dans un livrable.
   if (finessNumber.value && !/^\d{9}$/.test(finessNumber.value)) {
     return { error: "Le numéro FINESS doit comporter exactement 9 chiffres." };
   }
@@ -117,9 +138,6 @@ export async function convertDevisToClient(
   if (typeof devisId !== "string" || devisId.length === 0) {
     return { ok: false, error: "Devis manquant." };
   }
-
-  const parsed = parseFicheInput(formData);
-  if ("error" in parsed) return { ok: false, error: parsed.error };
 
   const devis = await prisma.devis.findFirst({
     where: { id: devisId, tenantId },
@@ -144,6 +162,9 @@ export async function convertDevisToClient(
           id: true,
           tenantId: true,
           structureName: true,
+          // Statut juridique déjà qualifié au stade prospect — recopié sur la fiche
+          // plutôt que redemandé, pour qu'une seule saisie fasse foi des deux côtés.
+          structureType: true,
           contactEmail: true,
           contactName: true,
           establishmentId: true,
@@ -159,6 +180,13 @@ export async function convertDevisToClient(
         select: { id: true },
       })
     : null;
+
+  // La fiche n'est créée que si le prospect n'en a pas encore : c'est cette réponse
+  // qui décide quels champs sont exigés du formulaire, d'où l'analyse en deux temps.
+  const creatingFiche = devis.prospect.establishmentId === null;
+
+  const parsed = parseFicheInput(formData, creatingFiche);
+  if ("error" in parsed) return { ok: false, error: parsed.error };
 
   const plan = planConversion({
     devisStatus: devis.status,
@@ -199,6 +227,9 @@ export async function convertDevisToClient(
               name: devis.prospect.structureName,
               // Non nul ici : `planConversion` refuse la création sans type.
               type: parsed.type ?? "SAD_AIDE",
+              // Recopié du prospect, jamais ressaisi : deux saisies du même fait
+              // finissent par diverger, et c'est le pipeline qui aurait raison.
+              structureType: devis.prospect.structureType,
               finessNumber: parsed.finessNumber,
               address: parsed.address,
               hasEvaluationTargetDate: parsed.hasEvaluationTargetDate,
@@ -343,6 +374,9 @@ export async function getSignatureContext(devisId: string): Promise<SignatureCon
       prospect: {
         select: {
           structureName: true,
+          // Statut juridique déjà qualifié au stade prospect — recopié sur la fiche
+          // plutôt que redemandé, pour qu'une seule saisie fasse foi des deux côtés.
+          structureType: true,
           contactEmail: true,
           contactName: true,
           establishmentId: true,

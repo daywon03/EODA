@@ -37,10 +37,79 @@ enum ProspectStatus {
   PERDU
 }
 
-enum ProspectType {
+// Statut juridique de la structure. Sert AUX DEUX modèles — Prospect (avant
+// signature) et Establishment (après) — d'où le nom neutre : l'appeler ProspectType
+// sur une fiche client serait trompeur.
+//
+// ⚠️ À ne jamais fusionner avec `EstablishmentType` (SAD_AIDE / SAD_MIXTE). Ce sont
+// deux axes indépendants : une association loi 1901 peut être un SAD Aide OU un SAD
+// Mixte. Le support commercial les aligne sur une même ligne (« SAD Aide · SAD Mixtes
+// · Associations loi 1901 · CCAS/CIAS · Secteur privé ») — c'est une liste de segments
+// de marché, pas un enum. Les fusionner rendrait la moitié des combinaisons
+// inexprimables (cf. CLAUDE.md §7).
+enum StructureType {
+  // Association loi 1901
   ASSOCIATION
+  // Secteur privé
   PRIVE
+  // CCAS / CIAS et autres organismes publics
   PUBLIC
+}
+
+// Civilité du contact — champ à part et non préfixe du nom. Recopier « Madame »
+// dans `contactName` rend le nom inexploitable : impossible de trier, d'adresser un
+// courrier ou de pré-remplir un devis sans le redécouper à la main.
+enum Civility {
+  MONSIEUR
+  MADAME
+  MADEMOISELLE
+}
+
+// Fonction du contact dans la structure. Liste volontairement courte, à compléter au
+// fur et à mesure des rôles réellement rencontrés en prospection ; `AUTRE` + précision
+// libre évite d'avoir à migrer le schéma à chaque cas nouveau.
+enum ContactRole {
+  DIRECTION
+  COORDINATION
+  ASSISTANAT
+  AUTRE
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// AGENDA — rendez-vous du cabinet et points programmés avec le client
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Nature du rendez-vous. Les trois premiers sont les étapes de vente nommées par
+// Sandrine (call du 26/08) : R0 prise de contact, R1 découverte, R2 accord de
+// principe. Les suivants appartiennent à l'accompagnement.
+enum AppointmentKind {
+  R0_PRISE_CONTACT
+  R1_DECOUVERTE
+  R2_ACCORD
+  REUNION_CADRAGE
+  VISITE
+  ATELIER
+  REUNION_SUIVI
+  RESTITUTION
+  AUTRE
+}
+
+// Comment on se voit. Porté par le rendez-vous et non déduit du lieu : « visio »
+// avec une adresse saisie est un cas réel (salle de réunion + lien de secours).
+enum AppointmentMode {
+  VISIO
+  PRESENTIEL
+  TELEPHONE
+}
+
+// Le planning est PRÉVISIONNEL par défaut : « je fais des propositions qu'il valide
+// à chaque fois » (call du 26/08). Un créneau proposé n'est pas un créneau tenu, et
+// l'afficher comme ferme au client ferait annuler des rendez-vous qui n'existaient
+// pas.
+enum AppointmentStatus {
+  PROPOSE
+  CONFIRME
+  ANNULE
 }
 
 enum AcquisitionChannel {
@@ -50,6 +119,15 @@ enum AcquisitionChannel {
   REFERENCEMENT_GOOGLE
   LINKEDIN
   AUTRE
+}
+
+// Nature d'une entrée d'historique de prospect. Deux natures seulement, et elles ne
+// se confondent pas : un commentaire est saisi par quelqu'un, un changement de statut
+// est constaté par l'outil. Les fusionner en « note » ferait disparaître la
+// chronologie commerciale dans du texte libre.
+enum ProspectTimelineKind {
+  COMMENTAIRE
+  CHANGEMENT_STATUT
 }
 
 enum DevisStatus {
@@ -180,6 +258,8 @@ model Tenant {
   devis             Devis[]
   missions          Mission[]
   optionRequests    ClientOptionRequest[]
+  prospectTimeline  ProspectTimelineEntry[]
+  appointments      Appointment[]
 
   @@map("tenants")
 }
@@ -214,6 +294,10 @@ model User {
   uploadedVersions   DocumentVersion[]    @relation("UploadedBy")
   evaluationSessions EvaluationSession[]
   optionRequests     ClientOptionRequest[] @relation("RequestedBy")
+  prospectTimeline   ProspectTimelineEntry[] @relation("ProspectTimelineAuthor")
+  reviewedAnalyses   DocumentVersion[]       @relation("AnalysisReviewedBy")
+  createdAppointments Appointment[]          @relation("AppointmentCreatedBy")
+  validatedDocuments  Document[]             @relation("DocumentValidatedBy")
 
   @@map("users")
 }
@@ -223,8 +307,27 @@ model Establishment {
   tenantId              String            @map("tenant_id")
   name                  String
   finessNumber          String?           @unique @map("finess_number")
+  // Type de service rendu — axe INDÉPENDANT du statut juridique ci-dessous.
   type                  EstablishmentType
+  // Statut juridique. Nullable en base et pourtant exigé à la saisie : les fiches
+  // créées avant cette colonne n'en ont pas, et aucune valeur par défaut ne serait
+  // vraie. Inventer « ASSOCIATION » pour tout le monde ferait entrer une donnée
+  // fausse dans un livrable client — mieux vaut un « non renseigné » visible qui
+  // appelle une correction.
+  structureType         StructureType?    @map("structure_type")
   address               String?
+
+  // LOGO DE LA STRUCTURE — apposé, à côté de celui d'EODA, sur les documents que la
+  // plateforme produit pour elle (call du 26/08 : « d'un côté il y a mon logo, pour
+  // dire que c'est un document que j'ai créé, et de l'autre le logo de l'entreprise à
+  // qui c'est destiné »).
+  //
+  // Stocké en data URI, et pas dans le bucket : une image de moins de 300 Ko, lue
+  // uniquement au rendu d'un document, n'a pas besoin d'une route de service ni d'un
+  // contrôle d'accès de plus. Elle voyage avec la page qui l'affiche — y compris à
+  // l'impression, où une URL signée expirée donnerait un carré vide sur un document
+  // remis au client.
+  logoDataUri           String?           @map("logo_data_uri")
   // Historique/affichage uniquement — non éditable via l'UI. La formule qui fait
   // autorité pour le périmètre d'accompagnement réellement contracté est
   // Mission.formule (cf. section PIPELINE COMMERCIAL / SUIVI DE MISSION plus bas).
@@ -240,6 +343,7 @@ model Establishment {
   prospect           Prospect?
   mission            Mission?
   optionRequests     ClientOptionRequest[]
+  appointments       Appointment[]
 
   @@map("establishments")
 }
@@ -353,6 +457,19 @@ model DocumentType {
   isConditional     Boolean           @default(false) @map("is_conditional")
   expectedFrequency ExpectedFrequency? @map("expected_frequency")
 
+  // RÉCLAMÉ AU CLIENT, ou PRODUIT PAR EODA.
+  //
+  // « Ce ne sont pas des documents qu'ils doivent fournir […] c'est à moi de les
+  // créer pour eux » (call du 26/08). Sur 29 types attendus, cinq seulement sont
+  // réclamés à la structure avant la visite d'évaluation ; tout le reste est ce que
+  // l'accompagnement produit. Demander les 29 à quelqu'un qui fait appel à nous
+  // précisément parce qu'il ne les a pas, c'est lui remettre notre travail.
+  //
+  // Défaut `false` : on ne réclame rien par défaut. Le portail client n'affiche que
+  // les types réclamés — et ceux pour lesquels un document existe déjà, qui restent
+  // sa bibliothèque.
+  requestedFromClient Boolean         @default(false) @map("requested_from_client")
+
   documents DocumentTypeCriterion[]
   Document  Document[]
 
@@ -380,6 +497,18 @@ model Document {
   // Réponse Oui/Non + commentaire libre quand le document n'est pas encore déposé —
   // utilisable comme élément de preuve pour la cotation (Module 3). cf. plan Phase 0.
   missingJustification   String?        @map("missing_justification")
+
+  // VALIDATION — dernière étape du parcours documentaire décrit par Sandrine le
+  // 26/08 : déposé → analysé → mis en conformité → restitué → VALIDÉ.
+  //
+  // Les quatre premières étapes se DÉRIVENT de faits déjà là (une version existe,
+  // une analyse existe, une version corrigée existe, l'analyse a été relue). La
+  // cinquième, non : valider, c'est engager la parole de l'évaluatrice sur un
+  // document qui partira à la HAS. C'est une décision, comme la clôture d'une
+  // mission — donc un fait stocké.
+  validatedAt            DateTime?      @map("validated_at")
+  validatedByUserId      String?        @map("validated_by_user_id")
+
   createdAt              DateTime       @default(now()) @map("created_at")
   updatedAt              DateTime       @updatedAt @map("updated_at")
 
@@ -387,6 +516,8 @@ model Document {
   documentType   DocumentType?    @relation(fields: [documentTypeId], references: [id])
   currentVersion DocumentVersion? @relation("CurrentVersion", fields: [currentVersionId], references: [id])
   versions       DocumentVersion[] @relation("AllVersions")
+  // SetNull : la désactivation d'un compte ne dévalide pas un document déjà validé.
+  validatedBy    User?            @relation("DocumentValidatedBy", fields: [validatedByUserId], references: [id], onDelete: SetNull)
 
   @@unique([establishmentId, documentTypeId])
   @@map("documents")
@@ -402,10 +533,26 @@ model DocumentVersion {
   uploadedAt                  DateTime @default(now()) @map("uploaded_at")
   extractedText               String?  @map("extracted_text")
   analysisResultJson          Json?    @map("analysis_result_json")
+
+  // REVUE HUMAINE DE L'ANALYSE — exigence du cahier des charges (§5 et §7 du CDC
+  // du 20/08/2026, écrite deux fois) : « aucune analyse de conformité automatisée
+  // ne doit être présentée au client sans revue préalable de la consultante ».
+  //
+  // Tant que ce champ est null, l'analyse existe, elle est visible du CABINET, et
+  // le portail client ne la montre pas. Ce n'est pas un réglage d'affichage : c'est
+  // la frontière entre une aide au travail de Sandrine et une restitution au client.
+  //
+  // Fait stocké et non dérivé, pour la même raison que Mission.closedAt : une revue
+  // est une décision humaine, elle ne se calcule pas.
+  analysisReviewedAt          DateTime? @map("analysis_reviewed_at")
+  analysisReviewedByUserId    String?   @map("analysis_reviewed_by_user_id")
   regeneratedFromVersionId    String?  @map("regenerated_from_version_id")
 
   document                Document  @relation("AllVersions", fields: [documentId], references: [id])
   uploadedBy              User      @relation("UploadedBy", fields: [uploadedByUserId], references: [id])
+  // SetNull : la désactivation d'un compte ne doit pas dépublier une analyse déjà
+  // restituée au client.
+  analysisReviewedBy      User?     @relation("AnalysisReviewedBy", fields: [analysisReviewedByUserId], references: [id], onDelete: SetNull)
   regeneratedFromVersion  DocumentVersion?  @relation("Regeneration", fields: [regeneratedFromVersionId], references: [id])
   regeneratedVersions     DocumentVersion[] @relation("Regeneration")
   currentForDocument      Document?         @relation("CurrentVersion")
@@ -536,11 +683,20 @@ model Prospect {
   id                   String             @id @default(cuid())
   tenantId             String             @map("tenant_id")
   structureName        String             @map("structure_name")
-  structureType        ProspectType       @map("structure_type")
+  structureType        StructureType      @map("structure_type")
+  civility             Civility?
   contactName          String?            @map("contact_name")
+  contactRole          ContactRole?       @map("contact_role")
+  // Précision obligatoire quand `contactRole = AUTRE` — sinon la valeur « Autre »
+  // ne dit rien de plus que l'absence de valeur. Même règle pour `channelOther`.
+  contactRoleOther     String?            @map("contact_role_other")
   contactPhone         String?            @map("contact_phone")
   contactEmail         String?            @map("contact_email")
   channel              AcquisitionChannel
+  // « Comment nous ont-ils connus ? » quand aucun canal listé ne convient. Sans ce
+  // champ, `AUTRE` est un trou noir : il enregistre qu'on ne sait pas, et l'analyse
+  // d'acquisition perd exactement les cas nouveaux qu'il faudrait repérer.
+  channelOther         String?            @map("channel_other")
   status               ProspectStatus     @default(NOUVEAU)
   envisagedFormule     CommercialTier?    @map("envisaged_formule")
   estimatedAmountEuros Int?               @map("estimated_amount_euros")
@@ -565,8 +721,97 @@ model Prospect {
   // prospect survit, simplement détaché.
   establishment Establishment? @relation(fields: [establishmentId], references: [id], onDelete: SetNull)
   devis         Devis[]
+  timeline      ProspectTimelineEntry[]
+  appointments  Appointment[]
 
   @@map("prospects")
+}
+
+// Rendez-vous — la même ligne sert l'avant-vente et l'accompagnement.
+//
+// Rattaché à un PROSPECT (R0/R1/R2, avant toute signature) ou à un ÉTABLISSEMENT
+// (une fois la fiche créée), jamais aux deux. Deux modèles séparés obligeraient
+// l'agenda à fusionner deux sources pour répondre à « qu'est-ce que j'ai cette
+// semaine ? », et la conversion à recopier des rendez-vous d'une table à l'autre.
+model Appointment {
+  id              String            @id @default(cuid())
+  tenantId        String            @map("tenant_id")
+  prospectId      String?           @map("prospect_id")
+  establishmentId String?           @map("establishment_id")
+
+  kind    AppointmentKind
+  mode    AppointmentMode
+  status  AppointmentStatus @default(PROPOSE)
+
+  startsAt DateTime @map("starts_at")
+  endsAt   DateTime @map("ends_at")
+
+  // Intitulé lu par le client (« Atelier documentaire — jour 1 »).
+  subject String
+  // Lien de visioconférence ou adresse du rendez-vous. Un seul champ : la nature du
+  // lieu est déjà dite par `mode`, et deux colonnes dont une toujours vide se
+  // remplissent de travers.
+  location String?
+  // Notes de préparation du cabinet. JAMAIS transmises au portail client — c'est la
+  // raison d'être du champ séparé de `subject`.
+  notes String?
+
+  // Un rendez-vous interne (préparation, point d'équipe) reste hors du portail
+  // client. Par défaut visible : l'agenda existe d'abord pour que le client sache
+  // quand on se voit.
+  visibleToClient Boolean @default(true) @map("visible_to_client")
+
+  createdByUserId String   @map("created_by_user_id")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  tenant        Tenant         @relation(fields: [tenantId], references: [id])
+  prospect      Prospect?      @relation(fields: [prospectId], references: [id], onDelete: Cascade)
+  establishment Establishment? @relation(fields: [establishmentId], references: [id], onDelete: Cascade)
+  createdBy     User           @relation("AppointmentCreatedBy", fields: [createdByUserId], references: [id])
+
+  // Lecture par défaut de l'agenda : tout le tenant sur une plage de dates.
+  @@index([tenantId, startsAt])
+  // Les prochains rendez-vous d'un client, côté portail.
+  @@index([establishmentId, startsAt])
+  @@index([prospectId, startsAt])
+  @@map("appointments")
+}
+
+// Historique d'un prospect — le dossier que Sandrine reconstituait dans sa boîte
+// mail. Commentaires saisis à chaque étape (questions reçues, relances, points
+// d'accroche) ET changements de statut, sur la même frise : séparer les deux
+// obligerait à lire deux écrans pour répondre à « où en est-on avec eux, et
+// pourquoi ? ».
+//
+// Historique, donc APPEND-ONLY : aucune action de modification ni de suppression
+// d'une entrée. Un historique qu'on peut réécrire ne prouve rien.
+model ProspectTimelineEntry {
+  id           String               @id @default(cuid())
+  tenantId     String               @map("tenant_id")
+  prospectId   String               @map("prospect_id")
+  kind         ProspectTimelineKind
+  // Auteur. Nullable et SetNull : la désactivation d'un compte ne doit pas emporter
+  // l'historique commercial (même principe que la piste d'audit).
+  authorUserId String?              @map("author_user_id")
+  // Texte du commentaire. Null pour un changement de statut, qui se raconte avec
+  // `statusFrom`/`statusTo` — recopier « passé en Devis envoyé » dans du texte libre
+  // le rendrait infalsifiable mais illisible par la machine.
+  body         String?
+  statusFrom   ProspectStatus?      @map("status_from")
+  statusTo     ProspectStatus?      @map("status_to")
+  createdAt    DateTime             @default(now()) @map("created_at")
+
+  tenant   Tenant   @relation(fields: [tenantId], references: [id])
+  // Cascade : l'historique n'existe que par son prospect. Un prospect n'est
+  // supprimable que sans devis (lib/actions/prospect.ts), donc sans valeur
+  // commerciale à conserver.
+  prospect Prospect @relation(fields: [prospectId], references: [id], onDelete: Cascade)
+  author   User?    @relation("ProspectTimelineAuthor", fields: [authorUserId], references: [id], onDelete: SetNull)
+
+  // Lecture par défaut : la frise d'un prospect, du plus récent au plus ancien.
+  @@index([prospectId, createdAt])
+  @@map("prospect_timeline_entries")
 }
 
 model Devis {
@@ -716,6 +961,23 @@ model Mission {
   preparationFinaleStartDate DateTime? @map("preparation_finale_start_date")
   preparationFinaleEndDate   DateTime? @map("preparation_finale_end_date")
 
+  // Clôture de la mission. SEUL fait du cycle de vie qui ne se dérive pas : c'est une
+  // décision de l'évaluatrice, pas un calcul. Déduire « terminé » d'une checklist à
+  // 100 % serait faux — une mission entièrement cochée reste ouverte jusqu'à la visite
+  // des évaluateurs HAS. Tout le reste de l'état (SIGNE / EN_COURS) se calcule à partir
+  // des faits existants, cf. lib/services/lifecycle-service.ts.
+  closedAt DateTime? @map("closed_at")
+
+  // Révocation de l'accès CLIENT après la fin de mission. Seconde décision non
+  // dérivable : une mission close laisse par défaut au client sa bibliothèque en
+  // lecture seule (§12.5, position finale du call du 16/08 — « on ne coupe pas leur
+  // accès, on leur préconise de s'abonner »). Couper est un geste explicite, jamais
+  // un effet de bord de la clôture.
+  //
+  // Aucune donnée n'est supprimée : la rétention reste côté cabinet. Réversible —
+  // reposer ce champ à null rend la bibliothèque.
+  clientAccessRevokedAt DateTime? @map("client_access_revoked_at")
+
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
@@ -858,6 +1120,24 @@ enum AuditAction {
   // Cycle de vie d'une version de document
   DOCUMENT_VERSION_DELETED
   DOCUMENT_JUSTIFICATION_UPDATED
+  // Fin de mission (§12.5). `targetId` = identifiant de la mission. Ces quatre
+  // gestes ouvrent ou ferment l'accès d'un client à ses propres documents : ils
+  // sont les plus sensibles du module et doivent laisser une trace datée et
+  // nominative côté acteur — jamais côté personne accompagnée.
+  MISSION_CLOSED
+  MISSION_REOPENED
+  MISSION_CLIENT_ACCESS_REVOKED
+  MISSION_CLIENT_ACCESS_RESTORED
+  // Revue humaine d'une analyse automatique avant restitution au client (CDC §5,
+  // §7). `targetId` = identifiant de la version de document.
+  ANALYSIS_PUBLISHED
+  ANALYSIS_UNPUBLISHED
+  // Validation finale d'un document par le cabinet (parcours documentaire, 26/08).
+  DOCUMENT_VALIDATED
+  DOCUMENT_UNVALIDATED
+  // Un type de document passe de « réclamé au client » à « produit par EODA », ou
+  // l'inverse. Politique de cabinet, valable pour tous les clients.
+  DOCUMENT_TYPE_SCOPE_CHANGED
 }
 
 model AuditLogEntry {
