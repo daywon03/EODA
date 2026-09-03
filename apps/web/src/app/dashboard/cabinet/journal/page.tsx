@@ -59,6 +59,9 @@ const ACTION_LABELS: Record<AuditAction, string> = {
   TEMPLATE_VERSION_UPLOADED: "Modèle — version publiée",
   TEMPLATE_VERSION_DELETED: "Modèle — version supprimée",
   TEMPLATE_DOCUMENT_DELETED: "Modèle supprimé",
+  TEMPLATE_FOLDER_IMPORTED: "Fichier importé depuis un dossier",
+  TEMPLATE_DOCUMENT_MOVED: "Modèle rangé dans un autre dossier",
+  TEMPLATE_CATEGORY_DELETED: "Dossier de la bibliothèque supprimé",
 };
 
 const ROLE_LABELS: Record<string, string> = {
