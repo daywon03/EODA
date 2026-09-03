@@ -9,7 +9,8 @@
     "lint": "eslint . --max-warnings 0",
     "typecheck": "tsc --noEmit",
     "test": "vitest run --coverage",
-    "verify:prod-config": "tsx scripts/verify-production-config.ts"
+    "verify:prod-config": "tsx scripts/verify-production-config.ts",
+    "check:bundle": "node scripts/check-bundle-budget.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.112.3",
