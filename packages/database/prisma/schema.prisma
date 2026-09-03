@@ -1062,6 +1062,11 @@ model Mission {
   options       MissionOption[]
 
   @@index([tenantId])
+  // Déclaré ici après coup : l'index existe en base depuis la migration
+  // `20260820210000_prospect_conversion`, mais le schéma l'ignorait. Une dérive
+  // silencieuse dans ce sens est bénigne — l'index est là — mais elle rendait le
+  // schéma faux, et le prochain `db pull` l'aurait « corrigé » en le supprimant.
+  @@index([sourceDevisId])
   @@map("missions")
 }
 
