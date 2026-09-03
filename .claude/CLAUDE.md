@@ -39,7 +39,7 @@ vérifie** — sinon elle n'existe pas.
 | Budget de JavaScript par route | `pnpm check:bundle` après le build, **sort en code 1** au-delà du budget | `apps/web/scripts/check-bundle-budget.mjs` + CI |
 | Configuration de production complète | contrôle au démarrage qui **sort en code 1** | `apps/web/src/instrumentation.ts` + `lib/config/production-profile.ts` |
 | Migrations appliquées au déploiement | `migrate deploy` dans `buildCommand` | `vercel.json` |
-| Dépendances vulnérables | `pnpm audit --audit-level high` **sans `\|\| true`** | CI |
+| Dépendances vulnérables | `pnpm audit:deps` — **sort en code 1** sur toute vulnérabilité haute ou critique, **sans `\|\| true`** ; distingue « vulnérabilité trouvée » de « registre npm injoignable », qu'il réessaie avant d'échouer en le disant | `scripts/audit-dependencies.mjs` + CI |
 | CI qui dit la vérité | aucun `continue-on-error`, aucun masquage d'échec | CI |
 
 **Dette acceptée, à réexaminer après le 22/09/2026** : `.npmrc` porte `node-linker=hoisted`,
