@@ -7,6 +7,7 @@ import { formatDate } from "@/lib/services/date-format-service";
 import { DocumentPreviewLink } from "./DocumentPreviewLink";
 import { DocumentDownloadLink } from "./DocumentDownloadLink";
 import { DeleteDocumentVersionButton } from "./DeleteDocumentVersionButton";
+import { INLINE_ACTION_MUTED_CLASS } from "@/components/ui/inline-action";
 
 type Props = {
   versions: DocumentVersionItem[];
@@ -44,7 +45,7 @@ export function DocumentVersionHistory({ versions, canManageVersions = false }: 
             type="button"
             onClick={() => setOpen((value) => !value)}
             aria-expanded={open}
-            className="inline-flex items-center gap-1 rounded px-1 py-0.5 text-xs text-gris-mid transition-colors hover:text-brun-ancre cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terre"
+            className={INLINE_ACTION_MUTED_CLASS}
           >
             <ChevronDown
               className={`w-3 h-3 transition-transform duration-200 ${open ? "rotate-0" : "-rotate-90"}`}
@@ -104,7 +105,7 @@ function VersionRow({
         </span>
       )}
 
-      <span className="flex items-center gap-1">
+      <span className="flex items-center gap-3">
         <DocumentPreviewLink documentVersionId={version.id} />
         <DocumentDownloadLink documentVersionId={version.id} />
         {isLatest && version.producedByCabinet === canManageVersions && (

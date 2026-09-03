@@ -2,6 +2,10 @@
 
 import { useEffect, useId, useRef, useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
+import {
+  INLINE_ACTION_CLASS,
+  INLINE_ACTION_DESTRUCTIVE_CLASS,
+} from "@/components/ui/inline-action";
 import { AlertCircle, Check, Loader2, X, type LucideIcon } from "lucide-react";
 
 type ActionResult = { error: string } | null | undefined | void;
@@ -146,11 +150,7 @@ export function ConfirmActionButton({
           aria-label={triggerName}
           title={triggerName}
           aria-expanded={asking}
-          className={`inline-flex items-center gap-1 rounded text-xs hover:underline disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 ${
-            tone === "destructive"
-              ? "text-rouge-imp focus-visible:ring-rouge-imp"
-              : "text-terre focus-visible:ring-terre"
-          }`}
+          className={tone === "destructive" ? INLINE_ACTION_DESTRUCTIVE_CLASS : INLINE_ACTION_CLASS}
         >
           {triggerContent}
         </button>

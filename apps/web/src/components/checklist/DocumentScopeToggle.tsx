@@ -23,6 +23,9 @@ export function DocumentScopeToggle({ documentTypeId, requestedFromClient, canEd
 
   const Icon = requestedFromClient ? Inbox : PenLine;
   const label = requestedFromClient ? "Réclamé au client" : "Produit par EODA";
+  const switchHint = requestedFromClient
+    ? "Basculer : ce document sera produit par EODA et cessera d'être réclamé au client"
+    : "Basculer : ce document sera réclamé au client";
 
   function toggle() {
     setError(null);
@@ -51,16 +54,16 @@ export function DocumentScopeToggle({ documentTypeId, requestedFromClient, canEd
 
   return (
     <span className="inline-flex flex-wrap items-center gap-1.5">
+      {/* La cible faisait 22 px de haut — la hauteur de son texte. Elle en fait 36,
+          et son nom accessible dit l'état COURANT puis ce que le clic produira :
+          « Basculer » seul ne dit ni d'où l'on part ni où l'on va. */}
       <button
         type="button"
         onClick={toggle}
         disabled={isPending}
-        title={
-          requestedFromClient
-            ? "Basculer : ce document sera produit par EODA et cessera d'être réclamé au client"
-            : "Basculer : ce document sera réclamé au client"
-        }
-        className="inline-flex items-center gap-1 rounded-full border border-gris-light px-2 py-0.5 text-xs text-gris-mid transition-colors hover:border-terre/40 hover:text-brun-ancre cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terre disabled:opacity-50 disabled:cursor-not-allowed"
+        aria-label={`${label}. ${switchHint}`}
+        title={switchHint}
+        className="inline-flex min-h-9 items-center gap-1.5 rounded-full border border-gris-light px-3 py-2 text-xs text-gris-mid transition-colors hover:border-terre/40 hover:text-brun-ancre cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terre focus-visible:ring-offset-1 disabled:opacity-50 disabled:cursor-not-allowed"
       >
         {content}
       </button>

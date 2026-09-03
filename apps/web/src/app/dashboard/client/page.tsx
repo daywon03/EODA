@@ -8,6 +8,7 @@ import {
   Building2,
   AlertTriangle,
   ShieldAlert,
+  ArrowDown,
   CheckCircle2,
   Clock,
   Archive,
@@ -15,6 +16,7 @@ import {
   CalendarDays,
 } from "lucide-react";
 import {
+  describeClientNextStep,
   documentProgressPercent,
   summariseDocumentObligations,
 } from "@/lib/services/client-contract-service";
@@ -34,10 +36,11 @@ const CATEGORY_LABELS: Record<DocumentCategory, string> = {
 const DEFAULT_OPEN: DocumentCategory[] = ["LOI_2002_2"];
 
 export default async function ClientDashboardPage() {
-  const { establishment, checklist, missionAccess, libraryUpdateAlert } = await getClientChecklist();
   // « Savoir quand sont ses prochains points, que ce soit en visio ou en présentiel. »
-  // Lecture seule : le client lit son agenda, il ne le pilote pas.
-  const appointments = await listClientAppointments(4);
+  // Lecture seule : le client lit son agenda, il ne le pilote pas. Les deux lectures
+  // partent ensemble — l'agenda ne dépend pas de la checklist.
+  const [{ establishment, checklist, missionAccess, libraryUpdateAlert }, appointments] =
+    await Promise.all([getClientChecklist(), listClientAppointments(4)]);
 
   if (!establishment) {
     return (
@@ -66,18 +69,47 @@ export default async function ClientDashboardPage() {
   // recalculer chacune de son côté sans finir par diverger (D1).
   const summary = summariseDocumentObligations(Object.values(checklist).flat());
   const totalItems = summary.total;
-  const missingCount = summary.toDeposit + summary.justified;
-  const compliantCount = summary.compliant;
-  const otherCount = totalItems - missingCount - compliantCount;
   const progressPct = documentProgressPercent(summary);
 
   // Bibliothèque : la checklist reste lisible, les dépôts s'arrêtent.
   const depositOpen = canDepositDocuments(missionAccess);
+  const nextStep = describeClientNextStep(summary, depositOpen);
 
+  // Les quatre états RÉELS, plus deux regroupements qui mentaient.
+  //
+  // « Manquants » additionnait les pièces à fournir ET celles que le client avait déjà
+  // justifiées : il voyait « 5 manquants » après avoir répondu sur trois d'entre elles,
+  // et son travail ne se voyait nulle part. « En cours » mélangeait ce qu'EODA relit et
+  // ce qui ne s'applique pas à la structure — deux choses qui n'appellent pas du tout
+  // la même réaction.
+  //
+  // Le service produisait déjà ces quatre nombres séparément ; c'est l'écran qui les
+  // recollait.
   const stats = [
-    { label: "Manquants", value: missingCount, icon: AlertTriangle, color: "text-rouge-imp bg-rouge-imp/10" },
-    { label: "Conformes", value: compliantCount, icon: CheckCircle2, color: "text-vert-ok bg-vert-ok/10" },
-    { label: "En cours", value: otherCount, icon: Clock, color: "text-ambre bg-ambre/10" },
+    {
+      label: "À déposer",
+      value: summary.toDeposit,
+      icon: AlertTriangle,
+      color: "text-rouge-imp bg-rouge-imp/10",
+    },
+    {
+      label: "En cours de relecture",
+      value: summary.inReview,
+      icon: Clock,
+      color: "text-ambre bg-ambre/10",
+    },
+    {
+      label: "Conformes",
+      value: summary.compliant,
+      icon: CheckCircle2,
+      color: "text-vert-ok bg-vert-ok/10",
+    },
+    {
+      label: "Non concernés",
+      value: summary.justified + summary.notApplicable,
+      icon: Archive,
+      color: "text-gris-mid bg-gris-light/40",
+    },
   ];
 
   return (
@@ -88,6 +120,31 @@ export default async function ClientDashboardPage() {
         icon={Building2}
         accent="ambre"
       />
+
+      {/* CE QU'IL RESTE À FAIRE, avant tout le reste.
+          Le portail disait où en était le dossier — quatre nombres et une barre — sans
+          jamais répondre à la question qui amène le client ici : « et moi, qu'est-ce
+          que j'ai à faire ? ». Il fallait la reconstituer en comparant des compteurs,
+          ce qui est exactement le travail qu'un portail existe pour éviter. */}
+      {nextStep && (
+        <div
+          className={`flex items-start gap-3 rounded-lg border px-5 py-4 ${
+            nextStep.tone === "ACTION"
+              ? "border-terre/40 bg-terre/[0.07]"
+              : "border-gris-light bg-white"
+          }`}
+        >
+          {nextStep.tone === "ACTION" ? (
+            <ArrowDown className="mt-0.5 h-5 w-5 flex-shrink-0 text-terre" aria-hidden="true" />
+          ) : (
+            <CheckCircle2 className="mt-0.5 h-5 w-5 flex-shrink-0 text-vert-ok" aria-hidden="true" />
+          )}
+          <div className="text-sm">
+            <p className="font-semibold text-brun-ancre">{nextStep.title}</p>
+            <p className="text-gris-mid">{nextStep.detail}</p>
+          </div>
+        </div>
+      )}
 
       {/* Fin d'accompagnement — dit ce qui change ET ce qui ne change pas. Un
           portail qui se ferme sans explication ressemble à une panne. */}
@@ -140,11 +197,11 @@ export default async function ClientDashboardPage() {
         <div className="flex items-center justify-between text-sm">
           <span className="font-medium text-brun-ancre">Progression globale</span>
           <span className="text-gris-mid tabular-nums">
-            {compliantCount} / {totalItems} documents conformes
+            {summary.compliant} / {totalItems} documents conformes
           </span>
         </div>
         <ProgressBar value={progressPct} colorClassName="bg-vert-ok" />
-        <div className="grid grid-cols-3 gap-3 pt-1">
+        <div className="grid grid-cols-2 gap-3 pt-1 sm:grid-cols-4">
           {stats.map(({ label, value, icon: Icon, color }) => (
             <div key={label} className="flex items-center gap-2.5">
               <span className={`flex items-center justify-center w-8 h-8 rounded-lg flex-shrink-0 ${color}`}>

@@ -3,6 +3,7 @@
 import { useTransition } from "react";
 import { getTemplateVersionDownloadUrl } from "@/lib/actions/template-library";
 import { Download, Loader2 } from "lucide-react";
+import { INLINE_ACTION_CLASS } from "@/components/ui/inline-action";
 
 // Téléchargement d'une version. Même motif que côté documents clients : l'URL signée
 // est demandée au clic et n'est jamais rendue dans la page — une URL de stockage
@@ -22,7 +23,7 @@ export function TemplateDownloadLink({ versionId }: { versionId: string }) {
       type="button"
       onClick={handleClick}
       disabled={isPending}
-      className="flex items-center gap-1 text-xs text-terre hover:underline disabled:cursor-not-allowed disabled:opacity-50"
+      className={INLINE_ACTION_CLASS}
       aria-label="Télécharger cette version"
     >
       {isPending ? (

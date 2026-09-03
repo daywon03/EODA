@@ -50,7 +50,12 @@ export function ElementRow({ sessionId, element }: Props) {
           allowsRi={element.allowsRi}
         />
       )}
+      {/* Le texte en filigrane disparaît dès qu'on écrit : sur une grille de 137
+          critères, on ne sait plus à quoi ce champ répond. Libellé masqué à l'œil,
+          présent pour les lecteurs d'écran — l'ajouter en clair au-dessus de chaque
+          élément ferait 137 fois la même phrase. */}
       <Textarea
+        aria-label={`Commentaire et preuve consultée — ${element.originalText.slice(0, 80)}`}
         value={comment}
         onChange={(e) => setComment(e.target.value)}
         onBlur={saveComment}

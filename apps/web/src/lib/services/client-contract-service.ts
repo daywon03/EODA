@@ -221,3 +221,52 @@ export function documentProgressPercent(summary: DocumentObligationSummary): num
   if (summary.total === 0) return 0;
   return Math.round((summary.compliant / summary.total) * 100);
 }
+
+// Ce que le client doit faire MAINTENANT, en une phrase.
+//
+// Le portail disait où en était le dossier — quatre nombres et une barre — sans jamais
+// répondre à la question qui l'y amène : « et moi, qu'est-ce que j'ai à faire ? ». On
+// la reconstituait en comparant des compteurs, ce qui est précisément le travail qu'un
+// portail existe pour éviter.
+//
+// `null` quand les dépôts sont fermés : l'écran affiche alors le message de fin
+// d'accompagnement, et lui demander quoi que ce soit serait faux.
+export type ClientNextStep = {
+  tone: "ACTION" | "ATTENTE" | "TERMINE";
+  title: string;
+  detail: string;
+};
+
+export function describeClientNextStep(
+  summary: DocumentObligationSummary,
+  depositOpen: boolean
+): ClientNextStep | null {
+  if (!depositOpen) return null;
+
+  if (summary.toDeposit > 0) {
+    const plural = summary.toDeposit > 1;
+    return {
+      tone: "ACTION",
+      title: `${summary.toDeposit} pièce${plural ? "s" : ""} à déposer`,
+      detail: plural
+        ? "Déposez-les dans la checklist ci-dessous. Si l'une d'elles ne concerne pas votre structure, répondez-le sur sa ligne — c'est aussi une réponse."
+        : "Déposez-la dans la checklist ci-dessous. Si elle ne concerne pas votre structure, répondez-le sur sa ligne — c'est aussi une réponse.",
+    };
+  }
+
+  if (summary.inReview > 0) {
+    const plural = summary.inReview > 1;
+    return {
+      tone: "ATTENTE",
+      title: `Rien à faire de votre côté pour l'instant`,
+      detail: `${summary.inReview} document${plural ? "s sont" : " est"} en cours de relecture par EODA Conseil. Vous serez informé${plural ? "" : ""} dès qu'il y a du nouveau.`,
+    };
+  }
+
+  return {
+    tone: "TERMINE",
+    title: "Tous les documents attendus sont fournis",
+    detail:
+      "Votre consultante EODA reprendra contact pour la suite de l'accompagnement. Vous pouvez continuer à déposer de nouvelles versions à tout moment.",
+  };
+}

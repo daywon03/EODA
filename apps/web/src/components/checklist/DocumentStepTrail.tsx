@@ -48,7 +48,12 @@ export function DocumentStepTrail({ establishmentId, documentTypeId, step }: Pro
 
   return (
     <div className="mt-2 space-y-2 rounded-lg border border-gris-light bg-ivoire/40 p-3">
-      <ol className="flex flex-wrap items-center gap-x-1.5 gap-y-1">
+      {/* Une frise sans nom accessible s'annonce « liste, 5 éléments » : on entend
+          les étapes sans savoir de quoi elles sont les étapes. */}
+      <ol
+        className="flex flex-wrap items-center gap-x-1.5 gap-y-1"
+        aria-label="Parcours du document"
+      >
         {steps.map((candidate, index) => {
           const reached = isStepReached(step, candidate);
           return (
@@ -60,12 +65,13 @@ export function DocumentStepTrail({ establishmentId, documentTypeId, step }: Pro
               )}
               <span
                 className={cn(
-                  "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px]",
+                  "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs",
                   reached ? "bg-vert-ok/15 text-brun-ancre" : "text-gris-mid"
                 )}
               >
                 {reached && <Check className="w-3 h-3 text-vert-ok" aria-hidden="true" />}
                 {DOCUMENT_STEP_LABELS[candidate]}
+                <span className="sr-only">{reached ? " — étape franchie" : " — à venir"}</span>
               </span>
             </li>
           );

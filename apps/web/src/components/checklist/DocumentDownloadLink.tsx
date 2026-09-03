@@ -3,6 +3,7 @@
 import { useTransition } from "react";
 import { getDocumentDownloadUrl } from "@/lib/actions/document";
 import { Download, Loader2 } from "lucide-react";
+import { INLINE_ACTION_CLASS } from "@/components/ui/inline-action";
 
 type Props = { documentVersionId: string };
 
@@ -21,7 +22,7 @@ export function DocumentDownloadLink({ documentVersionId }: Props) {
       type="button"
       onClick={handleClick}
       disabled={isPending}
-      className="flex items-center gap-1 text-xs text-terre hover:underline disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+      className={INLINE_ACTION_CLASS}
       aria-label="Télécharger le document"
     >
       {isPending ? (

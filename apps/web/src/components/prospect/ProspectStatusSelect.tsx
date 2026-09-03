@@ -24,7 +24,13 @@ export function ProspectStatusSelect({ prospectId, status }: { prospectId: strin
 
   return (
     <div className="flex items-center gap-2">
-      <Select defaultValue={status} onChange={handleChange} disabled={isPending} className="w-auto">
+      <Select
+        aria-label="Étape du prospect dans le pipeline"
+        defaultValue={status}
+        onChange={handleChange}
+        disabled={isPending}
+        className="w-auto"
+      >
         {STATUSES.map((s) => (
           <option key={s} value={s}>
             {PROSPECT_STATUS_LABELS[s]}
