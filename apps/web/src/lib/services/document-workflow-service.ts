@@ -144,3 +144,11 @@ export function canDeleteVersion(params: {
   if (!params.isLatest) return false;
   return params.actorIsCabinet === params.versionProducedByCabinet;
 }
+
+// Longueur maximale du commentaire « ce document vous concerne-t-il ? ».
+//
+// Vit ICI et non dans l'action serveur : le serveur la faisait respecter en tronquant
+// en silence, et l'écran ne la connaissait pas. Cent caractères disparaissaient sans
+// un mot. Une limite que celui qui écrit ne voit pas n'est pas une limite, c'est un
+// piège.
+export const MAX_JUSTIFICATION_LENGTH = 2000;

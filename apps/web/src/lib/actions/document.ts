@@ -9,7 +9,9 @@ import {
   tryEstablishmentAccess,
 } from "@/lib/auth/guards";
 import { canDepositDocuments } from "@/lib/services/mission-access-service";
-import { canDeleteVersion } from "@/lib/services/document-workflow-service";
+import { canDeleteVersion,
+  MAX_JUSTIFICATION_LENGTH,
+} from "@/lib/services/document-workflow-service";
 import { extractText } from "@/lib/services/text-extraction-service";
 import { suggestDocumentType } from "@/lib/services/document-categorization-service";
 import { ingestDocumentVersion } from "@/lib/services/document-ingestion-service";
@@ -151,8 +153,6 @@ export async function uploadDocument(formData: FormData): Promise<UploadDocument
 // "Oui" (concerne l'établissement mais pas encore fourni) garde MISSING. Le
 // commentaire est conservé dans les deux cas comme élément de preuve exploitable
 // en cotation (Module 3).
-const MAX_JUSTIFICATION_LENGTH = 2000;
-
 export async function respondToMissingDocument(
   establishmentId: string,
   documentTypeId: string,

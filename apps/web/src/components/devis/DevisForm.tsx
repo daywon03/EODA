@@ -19,6 +19,7 @@ import {
   isSubscriptionOption,
   optionUnitPriceForFormule,
 } from "@/lib/services/subscription-service";
+import { Textarea } from "@/components/ui/textarea";
 
 type FormuleOption = {
   formule: CommercialTier;
@@ -256,7 +257,7 @@ export function DevisForm({
       {isAssessment && (
         <div className="space-y-1.5">
           <Label htmlFor="needsAssessmentNotes">Notes de la réunion d&apos;évaluation</Label>
-          <textarea
+          <Textarea
             id="needsAssessmentNotes"
             name="needsAssessmentNotes"
             rows={4}
@@ -264,7 +265,6 @@ export function DevisForm({
             defaultValue={defaultNeedsAssessmentNotes ?? ""}
             disabled={isPending}
             placeholder="Contexte, échéance HAS annoncée, points de vigilance, ce qui a motivé le choix de l'offre…"
-            className="w-full rounded-md border border-gris-light bg-white px-3 py-2 text-sm text-brun-ancre placeholder:text-gris-mid focus:outline-none focus:ring-2 focus:ring-terre/40 focus:border-terre disabled:opacity-60"
           />
         </div>
       )}

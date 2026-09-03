@@ -5,6 +5,7 @@ import { requestOptionQuote } from "@/lib/actions/client-contract";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { AlertCircle, Check, Loader2, Send } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
 
 type Props = {
   catalogueOptionId: string;
@@ -60,14 +61,13 @@ export function RequestOptionQuoteForm({ catalogueOptionId, optionLabel, already
       <label htmlFor={`message-${catalogueOptionId}`} className="block text-xs text-gris-mid">
         Précisez votre besoin (facultatif) — {optionLabel}
       </label>
-      <textarea
+      <Textarea
         id={`message-${catalogueOptionId}`}
         name="message"
         rows={3}
         maxLength={1000}
         value={message}
         onChange={(event) => setMessage(event.target.value)}
-        className="w-full rounded-md border border-gris-light bg-white px-3 py-2 text-sm text-brun-ancre focus:border-terre focus:outline-none focus:ring-1 focus:ring-terre"
         placeholder="Nombre de documents concernés, échéance souhaitée…"
       />
       {error && (

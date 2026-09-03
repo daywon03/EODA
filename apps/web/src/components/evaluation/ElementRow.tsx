@@ -7,6 +7,7 @@ import { Sparkles } from "lucide-react";
 import type { EvaluationElementView } from "@/lib/actions/evaluation";
 import { RATING_LABELS } from "@/lib/services/scoring-service";
 import type { Rating } from "@eoda/database";
+import { Textarea } from "@/components/ui/textarea";
 
 type Props = { sessionId: string | null; element: EvaluationElementView };
 
@@ -49,7 +50,7 @@ export function ElementRow({ sessionId, element }: Props) {
           allowsRi={element.allowsRi}
         />
       )}
-      <textarea
+      <Textarea
         value={comment}
         onChange={(e) => setComment(e.target.value)}
         onBlur={saveComment}
@@ -62,7 +63,6 @@ export function ElementRow({ sessionId, element }: Props) {
               ? "Commentaire / preuve consultée"
               : "Sélectionnez une cotation pour ajouter un commentaire"
         }
-        className="w-full rounded-md border border-gris-light bg-white px-2 py-1.5 text-xs text-brun-ancre placeholder:text-gris-mid focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terre disabled:cursor-not-allowed disabled:opacity-50 disabled:bg-ivoire"
       />
     </div>
   );

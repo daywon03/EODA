@@ -4,6 +4,7 @@ import { useActionState, useState } from "react";
 import { sendDocumentReminder } from "@/lib/actions/reminder";
 import { Button } from "@/components/ui/button";
 import { AlertCircle, CheckCircle2, Loader2, Send } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
 
 type Props = {
   establishmentId: string;
@@ -58,7 +59,7 @@ export function DocumentReminderForm({ establishmentId, missingCount }: Props) {
         déjà justifiées par le client n&apos;y figurent pas.
       </p>
 
-      <textarea
+      <Textarea
         name="message"
         rows={3}
         maxLength={1000}
