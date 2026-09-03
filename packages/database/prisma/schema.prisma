@@ -261,6 +261,7 @@ model Tenant {
   prospectTimeline  ProspectTimelineEntry[]
   appointments      Appointment[]
   missionMessages   MissionMessage[]
+  templateDocuments TemplateDocument[]
 
   @@map("tenants")
 }
@@ -300,6 +301,7 @@ model User {
   createdAppointments Appointment[]          @relation("AppointmentCreatedBy")
   validatedDocuments  Document[]             @relation("DocumentValidatedBy")
   missionMessages     MissionMessage[]
+  uploadedTemplates   TemplateVersion[]      @relation("TemplateUploadedBy")
 
   @@map("users")
 }
@@ -1204,6 +1206,12 @@ enum AuditAction {
   USER_DEACTIVATED
   USER_REACTIVATED
   USER_DELETED_WITH_ESTABLISHMENT
+  // Bibliothèque de modèles EODA (CABINET_ADMIN uniquement). `targetId` = identifiant
+  // technique du modèle ou de la version, `detail` = son libellé de version — jamais
+  // le nom d'un fichier, qui peut porter un nom de structure.
+  TEMPLATE_VERSION_UPLOADED
+  TEMPLATE_VERSION_DELETED
+  TEMPLATE_DOCUMENT_DELETED
   PASSWORD_RESET_BY_ADMIN
   LOGIN_REFUSED_INACTIVE
   // Demande de devis d'option depuis le portail client (§12.3 / §12.6).
@@ -1306,4 +1314,82 @@ model RateLimitCounter {
   // Sert la purge des lignes échues (DELETE … WHERE expires_at <= now).
   @@index([expiresAt])
   @@map("rate_limit_counters")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// BIBLIOTHÈQUE DE MODÈLES EODA
+//
+// « Est-ce qu'on pourrait avoir un endroit dans le portail où j'uploade les versions
+// vierges ? […] S'il faut une nouvelle version avec un nouvel article de loi, que
+// j'y aille directement, que je crée une version 1.2, une version 1.3. Je ne pourrai
+// pas garder tout ça sur mon PC à un moment donné » (call du 01/09).
+//
+// ⚠️ À NE PAS confondre avec `Document` / `DocumentVersion`, qui sont les pièces
+// D'UNE STRUCTURE. Ici, rien n'appartient à un établissement : ce sont les gabarits
+// d'EODA, son propre matériau de travail, et ils sont réservés au cabinet. Les
+// fusionner obligerait à rattacher chaque modèle à un client fictif et ferait entrer
+// des gabarits internes dans les checklists et les livrables clients.
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Trois états du même document, tels que Sandrine les nomme et les envoie. Ce n'est
+// pas une chronologie de rédaction mais trois usages distincts : le gabarit qu'on
+// réutilise, l'état reçu, le résultat produit. C'est cette distinction qui donnera
+// son intérêt à l'entraînement de l'IA — comparer un avant et un après.
+enum TemplateStage {
+  // Gabarit sans données : ce qui sert de base à une nouvelle structure.
+  VIERGE
+  // État reçu de la structure, avant intervention.
+  INITIALE
+  // Version produite par EODA, celle qui est restituée.
+  FINALE
+}
+
+model TemplateDocument {
+  id       String @id @default(cuid())
+  tenantId String @map("tenant_id")
+  title    String
+  // Même catégorisation que la checklist documentaire : la bibliothèque se range
+  // comme les pièces qu'elle sert à produire. Pas de lien vers `DocumentType` pour
+  // l'instant — beaucoup de gabarits sont des outils internes qui ne correspondent à
+  // aucune pièce attendue, et une clé étrangère que rien ne lit serait spéculative.
+  category    DocumentCategory
+  description String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  tenant   Tenant            @relation(fields: [tenantId], references: [id])
+  versions TemplateVersion[]
+
+  // Un même titre deux fois dans la bibliothèque, ce sont deux fiches qui divergent :
+  // l'une reçoit les mises à jour, l'autre est oubliée.
+  @@unique([tenantId, title])
+  @@map("template_documents")
+}
+
+model TemplateVersion {
+  id                 String @id @default(cuid())
+  templateDocumentId String @map("template_document_id")
+  // Libellé décidé par la consultante (« v1.2 »), et pas un compteur : c'est elle qui
+  // sait si une correction est une révision mineure ou une refonte. Un numéro
+  // incrémenté par la machine ne dirait rien de la portée du changement.
+  versionLabel String        @map("version_label")
+  stage        TemplateStage
+  // Ce qui a changé — « ajout de l'article L.311-8 ». Sans cette note, une v1.3 ne se
+  // distingue d'une v1.2 que par sa date.
+  changeNote String? @map("change_note")
+
+  fileStorageKey   String @map("file_storage_key")
+  originalFilename String @map("original_filename")
+  contentType      String @map("content_type")
+  sizeBytes        Int    @map("size_bytes")
+
+  uploadedByUserId String   @map("uploaded_by_user_id")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  templateDocument TemplateDocument @relation(fields: [templateDocumentId], references: [id], onDelete: Cascade)
+  uploadedBy       User             @relation("TemplateUploadedBy", fields: [uploadedByUserId], references: [id])
+
+  // Le même libellé ne peut pas désigner deux fichiers différents au même stade.
+  @@unique([templateDocumentId, stage, versionLabel])
+  @@map("template_versions")
 }

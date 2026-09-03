@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Building2, Briefcase, CalendarDays } from "lucide-react";
+import { Building2, Briefcase, CalendarDays, Library } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type Props = { isAdmin: boolean; pendingRequests?: number };
@@ -17,6 +17,16 @@ export function CabinetNav({ isAdmin, pendingRequests = 0 }: Props) {
       label: "Agenda",
       icon: CalendarDays,
       match: (p: string) => p.startsWith("/dashboard/cabinet/agenda"),
+    },
+    {
+      // Bibliothèque de modèles : lecture ouverte à tout le cabinet, contrairement au
+      // pipeline commercial. Un collaborateur doit pouvoir partir du gabarit à jour —
+      // c'est l'objet même d'une bibliothèque. L'écriture, elle, reste réservée à
+      // CABINET_ADMIN, et l'écran ne montre les formulaires qu'à lui.
+      href: "/dashboard/cabinet/modeles",
+      label: "Modèles",
+      icon: Library,
+      match: (p: string) => p.startsWith("/dashboard/cabinet/modeles"),
     },
     ...(isAdmin
       ? [

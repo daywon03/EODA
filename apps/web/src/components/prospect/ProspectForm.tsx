@@ -25,6 +25,7 @@ import {
   CIVILITY_LABELS,
   CONTACT_ROLE_LABELS,
 } from "@/lib/services/prospect-contact-service";
+import { Textarea } from "@/components/ui/textarea";
 
 type ProspectInitialValues = {
   id: string;
@@ -322,26 +323,24 @@ export function ProspectForm({ prospect }: Props) {
 
       <div className="space-y-1.5">
         <Label htmlFor="needsAssessmentNotes">Évaluation des besoins</Label>
-        <textarea
+        <Textarea
           id="needsAssessmentNotes"
           name="needsAssessmentNotes"
           rows={3}
           placeholder="Besoins exprimés lors de l'échange de prospection (périmètre attendu, contraintes, échéance...)"
           defaultValue={prospect?.needsAssessmentNotes ?? undefined}
           disabled={isPending}
-          className="flex w-full rounded-md border border-gris-light bg-white px-3 py-2 text-base sm:text-sm text-brun-ancre transition-colors placeholder:text-gris-mid focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terre focus-visible:ring-offset-2 focus-visible:border-terre disabled:cursor-not-allowed disabled:opacity-50"
         />
       </div>
 
       <div className="space-y-1.5">
         <Label htmlFor="notes">Notes</Label>
-        <textarea
+        <Textarea
           id="notes"
           name="notes"
           rows={3}
           defaultValue={prospect?.notes ?? undefined}
           disabled={isPending}
-          className="flex w-full rounded-md border border-gris-light bg-white px-3 py-2 text-base sm:text-sm text-brun-ancre transition-colors placeholder:text-gris-mid focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terre focus-visible:ring-offset-2 focus-visible:border-terre disabled:cursor-not-allowed disabled:opacity-50"
         />
       </div>
 
