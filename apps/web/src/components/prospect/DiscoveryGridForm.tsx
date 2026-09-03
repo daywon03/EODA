@@ -14,6 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { ProgressBar } from "@/components/ui/progress-bar";
 import { AlertCircle, ArrowRight, CheckCircle2, Loader2, Save } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
 
 type Props = {
   prospectId: string;
@@ -76,7 +77,7 @@ export function DiscoveryGridForm({ prospectId, grid, answers, updatedAt }: Prop
                     ))}
                   </Select>
                 ) : field.kind === "LONG_TEXT" ? (
-                  <textarea
+                  <Textarea
                     id={field.id}
                     name={field.id}
                     rows={3}

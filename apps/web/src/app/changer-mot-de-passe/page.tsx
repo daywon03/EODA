@@ -1,6 +1,6 @@
 import { requirePasswordRotationSession } from "@/lib/auth/guards";
 import { MIN_PASSWORD_LENGTH } from "@/lib/security/password-policy";
-import { ChangePasswordForm } from "./ChangePasswordForm";
+import { ChangePasswordForm } from "@/components/auth/ChangePasswordForm";
 import { KeyRound, ShieldAlert } from "lucide-react";
 
 export const metadata = { title: "Changer mon mot de passe · EODA Conseil" };

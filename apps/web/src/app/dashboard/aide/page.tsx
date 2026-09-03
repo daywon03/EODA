@@ -18,6 +18,7 @@ export default async function HelpCenterPage() {
         title="Aide et guide d'utilisation"
         subtitle="Comment faire, écran par écran. Ce guide sert aussi de support de formation."
         icon={LifeBuoy}
+        backHref="/dashboard"
       />
 
       <HelpArticleList articles={articles} />

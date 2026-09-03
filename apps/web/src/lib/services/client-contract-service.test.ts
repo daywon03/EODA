@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  describeClientNextStep,
   documentProgressPercent,
   isOptionSubscribed,
   listAvailableOptions,
@@ -244,5 +245,38 @@ describe("resolveSubscribedOptions", () => {
     const resolved = resolveSubscribedOptions({ missionOptions, devisOptions: [] });
     expect(resolved).not.toBe(missionOptions);
     expect(resolved).toEqual(missionOptions);
+  });
+});
+
+describe("describeClientNextStep", () => {
+  const empty = { total: 10, toDeposit: 0, justified: 0, inReview: 0, compliant: 10, notApplicable: 0 };
+
+  it("ne demande rien quand les dépôts sont fermés", () => {
+    // La bibliothèque affiche déjà le message de fin d'accompagnement ; réclamer une
+    // pièce qu'on ne peut plus déposer serait absurde.
+    expect(describeClientNextStep({ ...empty, toDeposit: 3 }, false)).toBeNull();
+  });
+
+  it("met en avant ce qu'il reste à déposer, avant tout le reste", () => {
+    const step = describeClientNextStep({ ...empty, toDeposit: 3, inReview: 2 }, true);
+    expect(step?.tone).toBe("ACTION");
+    expect(step?.title).toBe("3 pièces à déposer");
+  });
+
+  it("accorde au singulier", () => {
+    expect(describeClientNextStep({ ...empty, toDeposit: 1 }, true)?.title).toBe("1 pièce à déposer");
+  });
+
+  it("dit explicitement qu'il n'y a rien à faire quand la balle est chez EODA", () => {
+    const step = describeClientNextStep({ ...empty, inReview: 2 }, true);
+    expect(step?.tone).toBe("ATTENTE");
+    expect(step?.title).toContain("Rien à faire");
+  });
+
+  it("ne compte pas les pièces justifiées comme du travail restant", () => {
+    // Répondre « ce document ne nous concerne pas » EST une réponse : le portail ne
+    // doit pas continuer à la réclamer.
+    const step = describeClientNextStep({ ...empty, justified: 4 }, true);
+    expect(step?.tone).toBe("TERMINE");
   });
 });

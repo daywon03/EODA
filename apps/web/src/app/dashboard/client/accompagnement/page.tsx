@@ -209,6 +209,30 @@ export default async function ClientAccompagnementPage() {
                 hint="répartition du solde"
               />
             </div>
+
+            {/* LES DOCUMENTS, pas seulement les chiffres. Jusqu'ici, pour relire son
+                devis, le client devait le retrouver dans sa boîte mail — c'est-à-dire
+                retourner exactement là d'où ce portail existe pour le sortir.
+                Aucun identifiant dans ces liens : les deux documents sont résolus
+                depuis la session, il n'y a donc rien à falsifier. */}
+            <div className="flex flex-wrap gap-2 border-t border-gris-light pt-4">
+              <Button variant="outline" size="sm" asChild>
+                <Link href="/imprimer/client/devis" target="_blank" rel="noopener">
+                  <FileText className="h-3.5 w-3.5" aria-hidden="true" />
+                  Relire mon devis signé
+                </Link>
+              </Button>
+              <Button variant="outline" size="sm" asChild>
+                <Link href="/imprimer/client/contrat" target="_blank" rel="noopener">
+                  <FileSignature className="h-3.5 w-3.5" aria-hidden="true" />
+                  Mon contrat d&apos;accompagnement
+                </Link>
+              </Button>
+            </div>
+            <p className="text-xs text-gris-mid">
+              Les deux s&apos;ouvrent dans un nouvel onglet, prêts à imprimer ou à
+              enregistrer en PDF.
+            </p>
           </div>
         )}
 

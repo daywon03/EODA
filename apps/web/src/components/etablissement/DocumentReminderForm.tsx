@@ -3,7 +3,9 @@
 import { useActionState, useState } from "react";
 import { sendDocumentReminder } from "@/lib/actions/reminder";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
 import { AlertCircle, CheckCircle2, Loader2, Send } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
 
 type Props = {
   establishmentId: string;
@@ -12,8 +14,6 @@ type Props = {
   missingCount: number;
 };
 
-const TEXTAREA_CLASS =
-  "w-full rounded-md border border-gris-light bg-white px-3 py-2 text-sm text-brun-ancre placeholder:text-gris-mid focus:outline-none focus:ring-2 focus:ring-terre/40 focus:border-terre disabled:opacity-60";
 
 // Relance des pièces manquantes. Un geste, pas un automate : la cadence des relances
 // n'a jamais été spécifiée (§12.7), et un rythme inventé ici serait soit inutile,
@@ -58,14 +58,17 @@ export function DocumentReminderForm({ establishmentId, missingCount }: Props) {
         déjà justifiées par le client n&apos;y figurent pas.
       </p>
 
-      <textarea
-        name="message"
-        rows={3}
-        maxLength={1000}
-        disabled={isPending}
-        placeholder="Mot d'accompagnement (facultatif) — par exemple : comme convenu lors de notre échange…"
-        className={TEXTAREA_CLASS}
-      />
+      <div className="space-y-1.5">
+        <Label htmlFor="reminder-message">Mot d&apos;accompagnement (facultatif)</Label>
+        <Textarea
+          id="reminder-message"
+          name="message"
+          rows={3}
+          maxLength={1000}
+          disabled={isPending}
+          placeholder="Par exemple : comme convenu lors de notre échange de mardi…"
+        />
+      </div>
 
       {state && "error" in state && (
         <p role="alert" className="flex items-center gap-2 text-sm text-rouge-imp">

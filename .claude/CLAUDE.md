@@ -41,6 +41,13 @@ vérifie** — sinon elle n'existe pas.
 | Dépendances vulnérables | `pnpm audit --audit-level high` **sans `\|\| true`** | CI |
 | CI qui dit la vérité | aucun `continue-on-error`, aucun masquage d'échec | CI |
 
+**Dette acceptée, à réexaminer après le 22/09/2026** : `.npmrc` porte `node-linker=hoisted`,
+qui désactive l'arborescence isolée de pnpm et rend possibles les dépendances fantômes
+(convention `D9`). Le réglage avait été posé pour Prisma Compute, retiré du dépôt le
+22/08/2026 — sa cause n'existe donc plus. Il ne se retire pas à l'aveugle : la
+vérification est un déploiement de **prévisualisation Vercel** sans cette ligne, pas une
+construction locale.
+
 **Dette acceptée, avec justification écrite** : `xlsx` (GHSA-4r6h-8v6p-xvw6,
 GHSA-5pgg-2g8v-p4x9) n'a pas de version corrigée publiée sur npm. Utilisé uniquement par
 `packages/database/prisma/seed-has-referential.ts`, un script de seed exécuté à la main sur

@@ -4,6 +4,7 @@ import { useEffect, useState, useTransition } from "react";
 import { createPortal } from "react-dom";
 import { X, Eye, Loader2 } from "lucide-react";
 import { getDocumentPreviewData, type DocumentPreviewData } from "@/lib/actions/document";
+import { INLINE_ACTION_CLASS } from "@/components/ui/inline-action";
 
 type Props = { documentVersionId: string };
 
@@ -24,7 +25,7 @@ export function DocumentPreviewLink({ documentVersionId }: Props) {
         type="button"
         onClick={handleOpen}
         disabled={isPending}
-        className="flex items-center gap-1 text-xs text-terre hover:underline disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+        className={INLINE_ACTION_CLASS}
         aria-label="Voir le document"
       >
         {isPending ? (
