@@ -54,6 +54,21 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   transpilePackages: ["@eoda/database"],
+  // ───────────────────────────────────────────────────────────────────────────
+  // TAILLE DES DÉPÔTS DE FICHIERS
+  //
+  // Les actions serveur de Next.js refusent par défaut tout corps de requête au-delà
+  // d'UN mégaoctet. Or la validation des fichiers déposés accepte jusqu'à 20 Mo
+  // (`MAX_FILE_SIZE_BYTES`) : sans ce réglage, un PDF de 3 Mo est refusé par le
+  // framework AVANT d'atteindre le moindre contrôle, sous une erreur qui ne dit pas
+  // que le fichier était trop gros. La limite qui fait foi doit être celle qu'on a
+  // écrite et testée, pas un défaut de plateforme.
+  //
+  // Le plafond est posé un cran au-dessus des 20 Mo : un envoi multipart transporte
+  // aussi les autres champs du formulaire et son propre encadrement.
+  experimental: {
+    serverActions: { bodySizeLimit: "24mb" },
+  },
   output: "standalone",
   outputFileTracingRoot: path.join(__dirname, "../.."),
   // Ne pas divulguer la version du framework aux scanners automatisés.

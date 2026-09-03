@@ -1,8 +1,12 @@
 "use client";
 
-import { useActionState } from "react";
-import { createTemplate } from "@/lib/actions/template-library";
-import { TEMPLATE_CATEGORY_LABELS } from "@/lib/services/template-library-service";
+import { useActionState, useState } from "react";
+import { createTemplate, type CategorySummary } from "@/lib/actions/template-library";
+import {
+  TEMPLATE_KINDS,
+  TEMPLATE_KIND_HINTS,
+  TEMPLATE_KIND_LABELS,
+} from "@/lib/services/template-library-service";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,11 +15,25 @@ import { Textarea } from "@/components/ui/textarea";
 import { AlertCircle, Loader2, Plus } from "lucide-react";
 
 // Création d'une fiche de modèle. La fiche ne porte AUCUN fichier : elle nomme un
-// document, et les fichiers viennent ensuite, un par version. C'est ce qui permet de
-// tenir « version vierge, version initiale, version finale » du même document au même
-// endroit plutôt qu'en trois entrées sans lien entre elles.
-export function TemplateForm() {
+// document, et les fichiers viennent ensuite. C'est ce qui permet de tenir « version
+// vierge, version initiale, version finale » du même document au même endroit plutôt
+// qu'en trois entrées sans lien entre elles.
+//
+// La NATURE se choisit ici et ne change plus : un gabarit a trois stades, un document
+// de référence n'en a aucun. Basculer l'un en l'autre après coup rendrait des fichiers
+// déjà déposés inatteignables — c'est pour ça que le choix est explicite, avec sa
+// conséquence écrite à côté.
+export function TemplateForm({ categories }: { categories: CategorySummary[] }) {
   const [state, formAction, isPending] = useActionState(createTemplate, null);
+  const [kind, setKind] = useState<string>("GABARIT");
+
+  if (categories.length === 0) {
+    return (
+      <p className="text-sm text-gris-mid">
+        Créez d&apos;abord un dossier : une fiche se range forcément quelque part.
+      </p>
+    );
+  }
 
   return (
     <form action={formAction} className="space-y-4">
@@ -35,19 +53,45 @@ export function TemplateForm() {
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="category">
-            Catégorie <span className="text-rouge-imp">*</span>
+          <Label htmlFor="categoryId">
+            Dossier <span className="text-rouge-imp">*</span>
           </Label>
-          <Select id="category" name="category" required disabled={isPending} defaultValue="">
+          <Select id="categoryId" name="categoryId" required disabled={isPending} defaultValue="">
             <option value="" disabled>
               — Sélectionner —
             </option>
-            <option value="LOI_2002_2">{TEMPLATE_CATEGORY_LABELS.LOI_2002_2}</option>
-            <option value="FONCTIONNEMENT">{TEMPLATE_CATEGORY_LABELS.FONCTIONNEMENT}</option>
-            <option value="QUALITE_RISQUES">{TEMPLATE_CATEGORY_LABELS.QUALITE_RISQUES}</option>
-            <option value="RH">{TEMPLATE_CATEGORY_LABELS.RH}</option>
+            {categories.map((category) => (
+              <option key={category.id} value={category.id}>
+                {category.name}
+              </option>
+            ))}
           </Select>
         </div>
+      </div>
+
+      <div className="space-y-1.5">
+        <Label htmlFor="kind">
+          Nature du document <span className="text-rouge-imp">*</span>
+        </Label>
+        <Select
+          id="kind"
+          name="kind"
+          required
+          disabled={isPending}
+          value={kind}
+          onChange={(event) => setKind(event.target.value)}
+        >
+          {TEMPLATE_KINDS.map((value) => (
+            <option key={value} value={value}>
+              {TEMPLATE_KIND_LABELS[value]}
+            </option>
+          ))}
+        </Select>
+        {/* La conséquence du choix, affichée au moment du choix : « document de
+            référence » ne dit pas de lui-même qu'il n'aura ni stade ni version. */}
+        <p className="text-xs text-gris-mid">
+          {kind === "REFERENCE" ? TEMPLATE_KIND_HINTS.REFERENCE : TEMPLATE_KIND_HINTS.GABARIT}
+        </p>
       </div>
 
       <div className="space-y-1.5">

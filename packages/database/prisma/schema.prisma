@@ -9,8 +9,8 @@ generator client {
 
 datasource db {
   provider  = "postgresql"
-  url       = env("DATABASE_URL")   // Pooler Prisma Postgres — requêtes runtime
-  directUrl = env("DIRECT_URL")     // Connexion directe — migrations uniquement
+  url       = env("DATABASE_URL") // Pooler Prisma Postgres — requêtes runtime
+  directUrl = env("DIRECT_URL") // Connexion directe — migrations uniquement
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -244,42 +244,43 @@ enum Rating {
 // ─────────────────────────────────────────────────────────────────────────────
 
 model Tenant {
-  id            String          @id @default(cuid())
-  name          String
-  createdAt     DateTime        @default(now()) @map("created_at")
-  users         User[]
+  id             String          @id @default(cuid())
+  name           String
+  createdAt      DateTime        @default(now()) @map("created_at")
+  users          User[]
   establishments Establishment[]
 
-  catalogueFormules CatalogueFormule[]
-  catalogueOptions  CatalogueOption[]
-  billingSettings   BillingSettings?
-  devisCounters     DevisCounter[]
-  prospects         Prospect[]
-  devis             Devis[]
-  missions          Mission[]
-  optionRequests    ClientOptionRequest[]
-  prospectTimeline  ProspectTimelineEntry[]
-  appointments      Appointment[]
-  missionMessages   MissionMessage[]
-  templateDocuments TemplateDocument[]
+  catalogueFormules  CatalogueFormule[]
+  catalogueOptions   CatalogueOption[]
+  billingSettings    BillingSettings?
+  devisCounters      DevisCounter[]
+  prospects          Prospect[]
+  devis              Devis[]
+  missions           Mission[]
+  optionRequests     ClientOptionRequest[]
+  prospectTimeline   ProspectTimelineEntry[]
+  appointments       Appointment[]
+  missionMessages    MissionMessage[]
+  templateDocuments  TemplateDocument[]
+  templateCategories TemplateCategory[]
 
   @@map("tenants")
 }
 
 model User {
-  id           String    @id @default(cuid())
-  tenantId     String?   @map("tenant_id")
-  email        String    @unique
+  id           String   @id @default(cuid())
+  tenantId     String?  @map("tenant_id")
+  email        String   @unique
   name         String
-  passwordHash String    @map("password_hash")
-  role         UserRole  @default(CLIENT_USER)
-  createdAt    DateTime  @default(now()) @map("created_at")
+  passwordHash String   @map("password_hash")
+  role         UserRole @default(CLIENT_USER)
+  createdAt    DateTime @default(now()) @map("created_at")
 
   // Rotation du mot de passe. Un compte client est créé avec un mot de passe
   // temporaire affiché une seule fois : tant que ce drapeau est vrai, la couche
   // d'autorisation (lib/auth/guards.ts) n'ouvre aucune autre route que la page de
   // changement. Voir specs/02-architecture-technique.md §4.10.
-  mustChangePassword Boolean  @default(true) @map("must_change_password")
+  mustChangePassword Boolean   @default(true) @map("must_change_password")
   // Sert aussi d'horodatage de révocation : toute session ouverte AVANT cette date
   // est refusée par les gardes (invalidation des sessions concurrentes).
   passwordChangedAt  DateTime? @map("password_changed_at")
@@ -288,30 +289,30 @@ model User {
   // cliente, suspension d'accès). Un compte inactif est refusé À LA CONNEXION et à
   // chaque contrôle d'autorisation (lib/auth/guards.ts) — jamais seulement masqué
   // dans une liste. Réversible : la réactivation repose le drapeau.
-  isActive           Boolean   @default(true) @map("is_active")
-  deactivatedAt      DateTime? @map("deactivated_at")
+  isActive      Boolean   @default(true) @map("is_active")
+  deactivatedAt DateTime? @map("deactivated_at")
 
-  tenant             Tenant?              @relation(fields: [tenantId], references: [id])
-  establishmentUsers EstablishmentUser[]
-  uploadedVersions   DocumentVersion[]    @relation("UploadedBy")
-  evaluationSessions EvaluationSession[]
-  optionRequests     ClientOptionRequest[] @relation("RequestedBy")
-  prospectTimeline   ProspectTimelineEntry[] @relation("ProspectTimelineAuthor")
-  reviewedAnalyses   DocumentVersion[]       @relation("AnalysisReviewedBy")
-  createdAppointments Appointment[]          @relation("AppointmentCreatedBy")
-  validatedDocuments  Document[]             @relation("DocumentValidatedBy")
+  tenant              Tenant?                 @relation(fields: [tenantId], references: [id])
+  establishmentUsers  EstablishmentUser[]
+  uploadedVersions    DocumentVersion[]       @relation("UploadedBy")
+  evaluationSessions  EvaluationSession[]
+  optionRequests      ClientOptionRequest[]   @relation("RequestedBy")
+  prospectTimeline    ProspectTimelineEntry[] @relation("ProspectTimelineAuthor")
+  reviewedAnalyses    DocumentVersion[]       @relation("AnalysisReviewedBy")
+  createdAppointments Appointment[]           @relation("AppointmentCreatedBy")
+  validatedDocuments  Document[]              @relation("DocumentValidatedBy")
   missionMessages     MissionMessage[]
-  uploadedTemplates   TemplateVersion[]      @relation("TemplateUploadedBy")
+  uploadedTemplates   TemplateVersion[]       @relation("TemplateUploadedBy")
 
   @@index([tenantId])
   @@map("users")
 }
 
 model Establishment {
-  id                    String            @id @default(cuid())
-  tenantId              String            @map("tenant_id")
-  name                  String
-  finessNumber          String?           @unique @map("finess_number")
+  id            String            @id @default(cuid())
+  tenantId      String            @map("tenant_id")
+  name          String
+  finessNumber  String?           @unique @map("finess_number")
   // SIRET — identifiant au registre des entreprises, mention obligatoire sur un
   // devis, un contrat et une facture. Distinct du FINESS, qui identifie l'ESSMS
   // auprès des autorités sanitaires : les deux coexistent, aucun ne remplace l'autre.
@@ -321,16 +322,16 @@ model Establishment {
   // dédié pour que sa violation ne soit pas avalée par le `catch` général de la
   // conversion. Une seconde contrainte unique ouvrirait un second chemin d'échec à la
   // signature, pour un gain nul — l'unicité est déjà obtenue.
-  siretNumber           String?           @map("siret_number")
+  siretNumber   String?           @map("siret_number")
   // Type de service rendu — axe INDÉPENDANT du statut juridique ci-dessous.
-  type                  EstablishmentType
+  type          EstablishmentType
   // Statut juridique. Nullable en base et pourtant exigé à la saisie : les fiches
   // créées avant cette colonne n'en ont pas, et aucune valeur par défaut ne serait
   // vraie. Inventer « ASSOCIATION » pour tout le monde ferait entrer une donnée
   // fausse dans un livrable client — mieux vaut un « non renseigné » visible qui
   // appelle une correction.
-  structureType         StructureType?    @map("structure_type")
-  address               String?
+  structureType StructureType?    @map("structure_type")
+  address       String?
 
   // LOGO DE LA STRUCTURE — apposé, à côté de celui d'EODA, sur les documents que la
   // plateforme produit pour elle (call du 26/08 : « d'un côté il y a mon logo, pour
@@ -342,16 +343,16 @@ model Establishment {
   // contrôle d'accès de plus. Elle voyage avec la page qui l'affiche — y compris à
   // l'impression, où une URL signée expirée donnerait un carré vide sur un document
   // remis au client.
-  logoDataUri           String?           @map("logo_data_uri")
+  logoDataUri             String?        @map("logo_data_uri")
   // Historique/affichage uniquement — non éditable via l'UI. La formule qui fait
   // autorité pour le périmètre d'accompagnement réellement contracté est
   // Mission.formule (cf. section PIPELINE COMMERCIAL / SUIVI DE MISSION plus bas).
-  commercialTier        CommercialTier    @default(BETA) @map("commercial_tier")
-  hasEvaluationTargetDate DateTime?       @map("has_evaluation_target_date")
-  createdAt             DateTime          @default(now()) @map("created_at")
-  updatedAt             DateTime          @updatedAt @map("updated_at")
+  commercialTier          CommercialTier @default(BETA) @map("commercial_tier")
+  hasEvaluationTargetDate DateTime?      @map("has_evaluation_target_date")
+  createdAt               DateTime       @default(now()) @map("created_at")
+  updatedAt               DateTime       @updatedAt @map("updated_at")
 
-  tenant             Tenant              @relation(fields: [tenantId], references: [id])
+  tenant             Tenant                @relation(fields: [tenantId], references: [id])
   establishmentUsers EstablishmentUser[]
   documents          Document[]
   evaluationSessions EvaluationSession[]
@@ -383,20 +384,20 @@ model EstablishmentUser {
 // ─────────────────────────────────────────────────────────────────────────────
 
 model HasReferentialVersion {
-  id            String   @id @default(cuid())
-  label         String   // ex: "Manuel HAS juillet 2025"
-  effectiveDate DateTime @map("effective_date")
+  id            String    @id @default(cuid())
+  label         String // ex: "Manuel HAS juillet 2025"
+  effectiveDate DateTime  @map("effective_date")
   chapters      Chapter[]
 
   @@map("has_referential_versions")
 }
 
 model Chapter {
-  id                   String                @id @default(cuid())
-  referentialVersionId String                @map("referential_version_id")
+  id                   String @id @default(cuid())
+  referentialVersionId String @map("referential_version_id")
   number               Int
   name                 String
-  method               String                // "Accompagné traceur" | "Traceur ciblé" | "Audit système"
+  method               String // "Accompagné traceur" | "Traceur ciblé" | "Audit système"
 
   referentialVersion HasReferentialVersion @relation(fields: [referentialVersionId], references: [id])
   themes             Theme[]
@@ -420,12 +421,12 @@ model Theme {
 }
 
 model Objective {
-  id            String  @id @default(cuid())
-  themeId       String  @map("theme_id")
-  code          String  // ex: "2.2"
-  weightPercent Float?  @map("weight_percent") // pondération future — lire via ScoringService
+  id            String @id @default(cuid())
+  themeId       String @map("theme_id")
+  code          String // ex: "2.2"
+  weightPercent Float? @map("weight_percent") // pondération future — lire via ScoringService
 
-  theme    Theme      @relation(fields: [themeId], references: [id])
+  theme    Theme       @relation(fields: [themeId], references: [id])
   criteria Criterion[]
 
   @@unique([themeId, code])
@@ -440,7 +441,7 @@ model Criterion {
   requirementLevel RequirementLevel @map("requirement_level")
   applicableTo     ApplicableTo     @map("applicable_to")
 
-  objective          Objective              @relation(fields: [objectiveId], references: [id])
+  objective          Objective               @relation(fields: [objectiveId], references: [id])
   evaluationElements EvaluationElement[]
   documentTypes      DocumentTypeCriterion[]
 
@@ -449,17 +450,17 @@ model Criterion {
 }
 
 model EvaluationElement {
-  id                  String  @id @default(cuid())
-  criterionId         String  @map("criterion_id")
-  originalText        String  @map("original_text")
-  reformulatedText    String? @map("reformulated_text")
+  id               String  @id @default(cuid())
+  criterionId      String  @map("criterion_id")
+  originalText     String  @map("original_text")
+  reformulatedText String? @map("reformulated_text")
   // true uniquement si chapter.number == 1 — vérifier avant d'autoriser RI dans l'UI
-  allowsRi            Boolean @default(false) @map("allows_ri")
+  allowsRi         Boolean @default(false) @map("allows_ri")
   // UUID stable de la colonne "ID Question" des grilles Synaé source — permet un seed
   // idempotent (upsert) plutôt que de dupliquer les E.E. à chaque re-seed.
-  sourceQuestionId    String? @unique @map("source_question_id")
+  sourceQuestionId String? @unique @map("source_question_id")
 
-  criterion   Criterion      @relation(fields: [criterionId], references: [id])
+  criterion      Criterion       @relation(fields: [criterionId], references: [id])
   elementRatings ElementRating[]
 
   @@index([criterionId])
@@ -471,11 +472,11 @@ model EvaluationElement {
 // ─────────────────────────────────────────────────────────────────────────────
 
 model DocumentType {
-  id                String            @id @default(cuid())
-  code              String            @unique // ex: "L2002_DIPC", "P13_FICHE_DECLARATION"
+  id                String             @id @default(cuid())
+  code              String             @unique // ex: "L2002_DIPC", "P13_FICHE_DECLARATION"
   category          DocumentCategory
   label             String
-  isConditional     Boolean           @default(false) @map("is_conditional")
+  isConditional     Boolean            @default(false) @map("is_conditional")
   expectedFrequency ExpectedFrequency? @map("expected_frequency")
 
   // RÉCLAMÉ AU CLIENT, ou PRODUIT PAR EODA.
@@ -489,7 +490,7 @@ model DocumentType {
   // Défaut `false` : on ne réclame rien par défaut. Le portail client n'affiche que
   // les types réclamés — et ceux pour lesquels un document existe déjà, qui restent
   // sa bibliothèque.
-  requestedFromClient Boolean         @default(false) @map("requested_from_client")
+  requestedFromClient Boolean @default(false) @map("requested_from_client")
 
   documents DocumentTypeCriterion[]
   Document  Document[]
@@ -528,18 +529,18 @@ model Document {
   // cinquième, non : valider, c'est engager la parole de l'évaluatrice sur un
   // document qui partira à la HAS. C'est une décision, comme la clôture d'une
   // mission — donc un fait stocké.
-  validatedAt            DateTime?      @map("validated_at")
-  validatedByUserId      String?        @map("validated_by_user_id")
+  validatedAt       DateTime? @map("validated_at")
+  validatedByUserId String?   @map("validated_by_user_id")
 
-  createdAt              DateTime       @default(now()) @map("created_at")
-  updatedAt              DateTime       @updatedAt @map("updated_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
-  establishment  Establishment    @relation(fields: [establishmentId], references: [id])
-  documentType   DocumentType?    @relation(fields: [documentTypeId], references: [id])
-  currentVersion DocumentVersion? @relation("CurrentVersion", fields: [currentVersionId], references: [id])
+  establishment  Establishment     @relation(fields: [establishmentId], references: [id])
+  documentType   DocumentType?     @relation(fields: [documentTypeId], references: [id])
+  currentVersion DocumentVersion?  @relation("CurrentVersion", fields: [currentVersionId], references: [id])
   versions       DocumentVersion[] @relation("AllVersions")
   // SetNull : la désactivation d'un compte ne dévalide pas un document déjà validé.
-  validatedBy    User?            @relation("DocumentValidatedBy", fields: [validatedByUserId], references: [id], onDelete: SetNull)
+  validatedBy    User?             @relation("DocumentValidatedBy", fields: [validatedByUserId], references: [id], onDelete: SetNull)
 
   @@unique([establishmentId, documentTypeId])
   @@index([documentTypeId])
@@ -547,15 +548,15 @@ model Document {
 }
 
 model DocumentVersion {
-  id                          String   @id @default(cuid())
-  documentId                  String   @map("document_id")
-  versionNumber               Int      @map("version_number")
-  fileStorageKey              String   @map("file_storage_key")
-  originalFilename            String   @map("original_filename")
-  uploadedByUserId            String   @map("uploaded_by_user_id")
-  uploadedAt                  DateTime @default(now()) @map("uploaded_at")
-  extractedText               String?  @map("extracted_text")
-  analysisResultJson          Json?    @map("analysis_result_json")
+  id                 String   @id @default(cuid())
+  documentId         String   @map("document_id")
+  versionNumber      Int      @map("version_number")
+  fileStorageKey     String   @map("file_storage_key")
+  originalFilename   String   @map("original_filename")
+  uploadedByUserId   String   @map("uploaded_by_user_id")
+  uploadedAt         DateTime @default(now()) @map("uploaded_at")
+  extractedText      String?  @map("extracted_text")
+  analysisResultJson Json?    @map("analysis_result_json")
 
   // REVUE HUMAINE DE L'ANALYSE — exigence du cahier des charges (§5 et §7 du CDC
   // du 20/08/2026, écrite deux fois) : « aucune analyse de conformité automatisée
@@ -567,18 +568,18 @@ model DocumentVersion {
   //
   // Fait stocké et non dérivé, pour la même raison que Mission.closedAt : une revue
   // est une décision humaine, elle ne se calcule pas.
-  analysisReviewedAt          DateTime? @map("analysis_reviewed_at")
-  analysisReviewedByUserId    String?   @map("analysis_reviewed_by_user_id")
-  regeneratedFromVersionId    String?  @map("regenerated_from_version_id")
+  analysisReviewedAt       DateTime? @map("analysis_reviewed_at")
+  analysisReviewedByUserId String?   @map("analysis_reviewed_by_user_id")
+  regeneratedFromVersionId String?   @map("regenerated_from_version_id")
 
-  document                Document  @relation("AllVersions", fields: [documentId], references: [id])
-  uploadedBy              User      @relation("UploadedBy", fields: [uploadedByUserId], references: [id])
+  document               Document          @relation("AllVersions", fields: [documentId], references: [id])
+  uploadedBy             User              @relation("UploadedBy", fields: [uploadedByUserId], references: [id])
   // SetNull : la désactivation d'un compte ne doit pas dépublier une analyse déjà
   // restituée au client.
-  analysisReviewedBy      User?     @relation("AnalysisReviewedBy", fields: [analysisReviewedByUserId], references: [id], onDelete: SetNull)
-  regeneratedFromVersion  DocumentVersion?  @relation("Regeneration", fields: [regeneratedFromVersionId], references: [id])
-  regeneratedVersions     DocumentVersion[] @relation("Regeneration")
-  currentForDocument      Document?         @relation("CurrentVersion")
+  analysisReviewedBy     User?             @relation("AnalysisReviewedBy", fields: [analysisReviewedByUserId], references: [id], onDelete: SetNull)
+  regeneratedFromVersion DocumentVersion?  @relation("Regeneration", fields: [regeneratedFromVersionId], references: [id])
+  regeneratedVersions    DocumentVersion[] @relation("Regeneration")
+  currentForDocument     Document?         @relation("CurrentVersion")
 
   @@index([documentId])
   @@map("document_versions")
@@ -597,9 +598,9 @@ model EvaluationSession {
   durationSeconds   Int?      @map("duration_seconds")
   performedByUserId String    @map("performed_by_user_id")
 
-  establishment Establishment  @relation(fields: [establishmentId], references: [id])
-  chapter       Chapter        @relation(fields: [chapterId], references: [id])
-  performedBy   User           @relation(fields: [performedByUserId], references: [id])
+  establishment  Establishment   @relation(fields: [establishmentId], references: [id])
+  chapter        Chapter         @relation(fields: [chapterId], references: [id])
+  performedBy    User            @relation(fields: [performedByUserId], references: [id])
   elementRatings ElementRating[]
 
   @@index([chapterId])
@@ -608,13 +609,13 @@ model EvaluationSession {
 }
 
 model ElementRating {
-  id                  String  @id @default(cuid())
-  evaluationSessionId String  @map("evaluation_session_id")
-  evaluationElementId String  @map("evaluation_element_id")
+  id                  String   @id @default(cuid())
+  evaluationSessionId String   @map("evaluation_session_id")
+  evaluationElementId String   @map("evaluation_element_id")
   rating              Rating
   comment             String? // preuve consultée
-  suggestedBySystem   Boolean @default(false) @map("suggested_by_system")
-  confirmedByUser     Boolean @default(false) @map("confirmed_by_user")
+  suggestedBySystem   Boolean  @default(false) @map("suggested_by_system")
+  confirmedByUser     Boolean  @default(false) @map("confirmed_by_user")
   ratedAt             DateTime @default(now()) @map("rated_at")
 
   evaluationSession EvaluationSession @relation(fields: [evaluationSessionId], references: [id])
@@ -653,21 +654,21 @@ model CatalogueFormule {
 }
 
 model CatalogueOption {
-  id       String @id @default(cuid())
-  tenantId String @map("tenant_id")
-  code     String
-  label    String
+  id            String      @id @default(cuid())
+  tenantId      String      @map("tenant_id")
+  code          String
+  label         String
   // Borne basse du prix « à partir de » — toujours exprimée dans l'unité `pricingUnit`.
-  priceEuros Int         @map("price_euros")
-  pricingUnit PricingUnit @default(FORFAIT) @map("pricing_unit")
+  priceEuros    Int         @map("price_euros")
+  pricingUnit   PricingUnit @default(FORFAIT) @map("pricing_unit")
   // Borne haute d'une fourchette (ex. « 95 à 120 € / h »). null = pas de fourchette.
-  priceMaxEuros Int? @map("price_max_euros")
+  priceMaxEuros Int?        @map("price_max_euros")
   // Quantité minimale facturable, dans l'unité ci-dessus : 2 pour « mini. 2 h »,
   // 12 pour un abonnement mensuel à engagement d'un an. null = pas de minimum.
-  minQuantity Int?     @map("min_quantity")
-  active      Boolean  @default(true)
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  minQuantity   Int?        @map("min_quantity")
+  active        Boolean     @default(true)
+  createdAt     DateTime    @default(now()) @map("created_at")
+  updatedAt     DateTime    @updatedAt @map("updated_at")
 
   tenant         Tenant                @relation(fields: [tenantId], references: [id])
   devisOptions   DevisOption[]
@@ -707,27 +708,27 @@ model DevisCounter {
 }
 
 model Prospect {
-  id                   String             @id @default(cuid())
-  tenantId             String             @map("tenant_id")
-  structureName        String             @map("structure_name")
-  structureType        StructureType      @map("structure_type")
-  civility             Civility?
-  contactName          String?            @map("contact_name")
-  contactRole          ContactRole?       @map("contact_role")
+  id                      String             @id @default(cuid())
+  tenantId                String             @map("tenant_id")
+  structureName           String             @map("structure_name")
+  structureType           StructureType      @map("structure_type")
+  civility                Civility?
+  contactName             String?            @map("contact_name")
+  contactRole             ContactRole?       @map("contact_role")
   // Précision obligatoire quand `contactRole = AUTRE` — sinon la valeur « Autre »
   // ne dit rien de plus que l'absence de valeur. Même règle pour `channelOther`.
-  contactRoleOther     String?            @map("contact_role_other")
-  contactPhone         String?            @map("contact_phone")
-  contactEmail         String?            @map("contact_email")
-  channel              AcquisitionChannel
+  contactRoleOther        String?            @map("contact_role_other")
+  contactPhone            String?            @map("contact_phone")
+  contactEmail            String?            @map("contact_email")
+  channel                 AcquisitionChannel
   // « Comment nous ont-ils connus ? » quand aucun canal listé ne convient. Sans ce
   // champ, `AUTRE` est un trou noir : il enregistre qu'on ne sait pas, et l'analyse
   // d'acquisition perd exactement les cas nouveaux qu'il faudrait repérer.
-  channelOther         String?            @map("channel_other")
-  status               ProspectStatus     @default(NOUVEAU)
-  envisagedFormule     CommercialTier?    @map("envisaged_formule")
-  estimatedAmountEuros Int?               @map("estimated_amount_euros")
-  firstContactDate     DateTime           @map("first_contact_date")
+  channelOther            String?            @map("channel_other")
+  status                  ProspectStatus     @default(NOUVEAU)
+  envisagedFormule        CommercialTier?    @map("envisaged_formule")
+  estimatedAmountEuros    Int?               @map("estimated_amount_euros")
+  firstContactDate        DateTime           @map("first_contact_date")
   // Évaluation des besoins (Phase 0 — étape "Évaluation des besoins" de la prospection) —
   // notes qualitatives ; `estimatedAmountEuros` ci-dessus sert de niveau financier.
   // IDENTITÉ DE LA STRUCTURE, connue dès le premier contact et saisie une seule fois.
@@ -743,16 +744,16 @@ model Prospect {
   // deux prospects peuvent désigner la même structure pendant une prospection, et
   // c'est la création de la FICHE qui doit trancher. La contrainte reste donc là où
   // elle a un sens.
-  finessNumber         String?            @map("finess_number")
+  finessNumber            String?            @map("finess_number")
   // Voir Establishment.siretNumber. Facultatif ici comme le reste de l'identité : la
   // personne qui appelle peut être une assistante de direction qui ne l'a pas.
-  siretNumber          String?            @map("siret_number")
-  address              String?
+  siretNumber             String?            @map("siret_number")
+  address                 String?
   // Type de SAD. Reste DEMANDÉ à la signature (CLAUDE.md §7 — jamais déduit de la
   // forme juridique) : ce champ ne fait que pré-remplir la question.
-  establishmentType    EstablishmentType? @map("establishment_type")
-  hasEvaluationTargetDate DateTime?       @map("has_evaluation_target_date")
-  needsAssessmentNotes String?            @map("needs_assessment_notes")
+  establishmentType       EstablishmentType? @map("establishment_type")
+  hasEvaluationTargetDate DateTime?          @map("has_evaluation_target_date")
+  needsAssessmentNotes    String?            @map("needs_assessment_notes")
   // GRILLE D'ENTRETIEN DÉCOUVERTE — réponses de la réunion de découverte (R1),
   // saisies par le cabinet pendant l'appel. Colonne Json et non vingt colonnes : la
   // grille est un CONTENU versionné (apps/web/src/content/decouverte/), pas un
@@ -762,24 +763,24 @@ model Prospect {
   // Lue DÉFENSIVEMENT (discovery-grid-service) : une réponse écrite sous une version
   // antérieure de la grille ne doit pas casser l'écran, et une question disparue ne
   // doit pas réapparaître.
-  discoveryAnswersJson Json?              @map("discovery_answers_json")
-  discoveryUpdatedAt   DateTime?          @map("discovery_updated_at")
-  notes                String?
+  discoveryAnswersJson    Json?              @map("discovery_answers_json")
+  discoveryUpdatedAt      DateTime?          @map("discovery_updated_at")
+  notes                   String?
   // Renseigné par la CONVERSION à la signature (lib/actions/conversion.ts) : passer
   // un devis à SIGNE crée l'Establishment s'il n'existe pas, pose ce lien, et crée
   // la Mission qui porte le périmètre. Plus de saisie manuelle — c'était la charnière
   // manuelle du parcours §12.4 (« le parcours à verrouiller en priorité »).
   // @unique : c'est CETTE contrainte qui interdit qu'un même établissement soit
   // rattaché à deux prospects, et donc qu'une double conversion en fabrique un second.
-  establishmentId      String?            @unique @map("establishment_id")
-  createdAt            DateTime           @default(now()) @map("created_at")
-  updatedAt            DateTime           @updatedAt @map("updated_at")
+  establishmentId         String?            @unique @map("establishment_id")
+  createdAt               DateTime           @default(now()) @map("created_at")
+  updatedAt               DateTime           @updatedAt @map("updated_at")
 
-  tenant        Tenant         @relation(fields: [tenantId], references: [id])
+  tenant        Tenant                  @relation(fields: [tenantId], references: [id])
   // SetNull et non Cascade : supprimer une fiche client ne doit pas effacer
   // l'historique commercial (prospect, devis signés, chiffre d'affaires). Le
   // prospect survit, simplement détaché.
-  establishment Establishment? @relation(fields: [establishmentId], references: [id], onDelete: SetNull)
+  establishment Establishment?          @relation(fields: [establishmentId], references: [id], onDelete: SetNull)
   devis         Devis[]
   timeline      ProspectTimelineEntry[]
   appointments  Appointment[]
@@ -795,27 +796,27 @@ model Prospect {
 // l'agenda à fusionner deux sources pour répondre à « qu'est-ce que j'ai cette
 // semaine ? », et la conversion à recopier des rendez-vous d'une table à l'autre.
 model Appointment {
-  id              String            @id @default(cuid())
-  tenantId        String            @map("tenant_id")
-  prospectId      String?           @map("prospect_id")
-  establishmentId String?           @map("establishment_id")
+  id              String  @id @default(cuid())
+  tenantId        String  @map("tenant_id")
+  prospectId      String? @map("prospect_id")
+  establishmentId String? @map("establishment_id")
 
-  kind    AppointmentKind
-  mode    AppointmentMode
-  status  AppointmentStatus @default(PROPOSE)
+  kind   AppointmentKind
+  mode   AppointmentMode
+  status AppointmentStatus @default(PROPOSE)
 
   startsAt DateTime @map("starts_at")
   endsAt   DateTime @map("ends_at")
 
   // Intitulé lu par le client (« Atelier documentaire — jour 1 »).
-  subject String
+  subject  String
   // Lien de visioconférence ou adresse du rendez-vous. Un seul champ : la nature du
   // lieu est déjà dite par `mode`, et deux colonnes dont une toujours vide se
   // remplissent de travers.
   location String?
   // Notes de préparation du cabinet. JAMAIS transmises au portail client — c'est la
   // raison d'être du champ séparé de `subject`.
-  notes String?
+  notes    String?
 
   // Un rendez-vous interne (préparation, point d'équipe) reste hors du portail
   // client. Par défaut visible : l'agenda existe d'abord pour que le client sache
@@ -883,7 +884,7 @@ model Devis {
   number     String      @unique
   status     DevisStatus @default(BROUILLON)
 
-  catalogueFormuleId String @map("catalogue_formule_id")
+  catalogueFormuleId        String @map("catalogue_formule_id")
   // Snapshots — figent le libellé/prix de la formule au moment de la création
   // pour qu'une évolution ultérieure du catalogue ne change jamais un devis existant.
   formuleLabelSnapshot      String @map("formule_label_snapshot")
@@ -918,11 +919,11 @@ model Devis {
 
 // Ligne d'option cochée sur un devis — snapshot prix/libellé, cf. Devis ci-dessus.
 model DevisOption {
-  id                 String @id @default(cuid())
-  devisId            String @map("devis_id")
-  catalogueOptionId  String @map("catalogue_option_id")
-  labelSnapshot      String @map("label_snapshot")
-  priceSnapshotEuros Int    @map("price_snapshot_euros")
+  id                    String      @id @default(cuid())
+  devisId               String      @map("devis_id")
+  catalogueOptionId     String      @map("catalogue_option_id")
+  labelSnapshot         String      @map("label_snapshot")
+  priceSnapshotEuros    Int         @map("price_snapshot_euros")
   // L'unité, la borne haute et le minimum font partie du prix : sans eux, une ligne
   // « 95 € » d'un devis imprimé en 2027 ne veut plus rien dire. Snapshotés comme le prix.
   pricingUnitSnapshot   PricingUnit @default(FORFAIT) @map("pricing_unit_snapshot")
@@ -989,17 +990,17 @@ model ClientOptionRequest {
 // tenant, seedé une seule fois (idem DocumentType), non modifiable via l'UI dans
 // cette itération. cf. §7.1-§7.2.
 model MissionChecklistItem {
-  id    String                @id @default(cuid())
-  code  String                @unique
-  scope MissionChecklistScope
-  label String
-  order Int
+  id         String                @id @default(cuid())
+  code       String                @unique
+  scope      MissionChecklistScope
+  label      String
+  order      Int
   // Offre minimale qui couvre cet item — c'est LE référentiel du filtrage par
   // offre (context/07-outil-pilotage-missions.md §12.4). Aucun code d'item n'est
   // codé en dur dans un service : la règle se change en base, pas en TypeScript.
   // ESSENTIEL = couvert par toutes les formules. BETA (bêta-test gratuit) reçoit
   // le périmètre EXCELLENCE, cf. offer-scope-service.getEffectiveTier().
-  minFormule CommercialTier @default(ESSENTIEL) @map("min_formule")
+  minFormule CommercialTier        @default(ESSENTIEL) @map("min_formule")
 
   statuses MissionChecklistItemStatus[]
 
@@ -1240,6 +1241,14 @@ enum AuditAction {
   TEMPLATE_VERSION_UPLOADED
   TEMPLATE_VERSION_DELETED
   TEMPLATE_DOCUMENT_DELETED
+  // Import d'un dossier entier depuis le poste de la consultante. `detail` = le nombre
+  // de fichiers rangés, jamais leurs noms — un nom de fichier porte souvent le nom
+  // d'une structure.
+  TEMPLATE_FOLDER_IMPORTED
+  // Rangement : déplacement d'une fiche d'un dossier à l'autre, suppression d'un
+  // dossier. `detail` = le nom du dossier, une clé de rangement interne au cabinet.
+  TEMPLATE_DOCUMENT_MOVED
+  TEMPLATE_CATEGORY_DELETED
   PASSWORD_RESET_BY_ADMIN
   LOGIN_REFUSED_INACTIVE
   // Demande de devis d'option depuis le portail client (§12.3 / §12.6).
@@ -1372,39 +1381,103 @@ enum TemplateStage {
   FINALE
 }
 
+// Deux natures d'entrée dans la bibliothèque, et elles n'obéissent pas aux mêmes
+// règles. Le distinguo vient du call du 03/09 : « le manuel HAS y sera, et lui n'aura
+// pas forcément plusieurs versions ».
+//
+//  - GABARIT : un document qu'EODA produit. Il a les trois stades, il a des numéros de
+//    version, et c'est la comparaison entre l'état reçu et le résultat produit qui en
+//    fait la valeur.
+//  - REFERENCE : un document qu'EODA ne produit pas et ne modifie pas — le manuel HAS,
+//    un texte réglementaire, une grille Synaé. Un seul fichier, pas de stade, pas de
+//    numéro de version imposé : lui coller « version vierge / initiale / finale »
+//    n'aurait aucun sens et découragerait de le déposer.
+//
+// Ces deux natures cohabitent dans la même table parce qu'elles servent la même
+// chose : la base de connaissances de l'IA. Les séparer en deux tables obligerait à
+// écrire deux fois chaque lecture, pour une distinction qui tient dans un champ.
+enum TemplateDocumentKind {
+  GABARIT
+  REFERENCE
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CATÉGORIE DE LA BIBLIOTHÈQUE — le « dossier », créé à la main par le cabinet.
+//
+// « Là, tu mets catégorie… là, il n'y en a pas. Il faudrait que tu puisses au moins
+// rajouter toi-même à la main » (call du 03/09) : Sandrine voulait ranger un gabarit
+// dans « Phase 0 — prise de contact », qui n'est pas une catégorie documentaire HAS
+// mais une étape de SON mode opératoire.
+//
+// D'où une table, et non l'enum `DocumentCategory`. Les deux axes sont différents :
+// `DocumentCategory` classe les pièces ATTENDUES d'une structure au regard de la loi
+// 2002-2 — il ne s'invente pas, il vient du référentiel ; une catégorie de
+// bibliothèque range le matériau de travail du cabinet — il n'appartient qu'à lui, et
+// il évoluera à mesure que le mode opératoire évolue. Les confondre aurait figé le
+// rangement interne d'EODA sur une liste qu'elle n'a pas le droit de modifier.
+// ─────────────────────────────────────────────────────────────────────────────
+model TemplateCategory {
+  id        String   @id @default(cuid())
+  tenantId  String   @map("tenant_id")
+  name      String
+  // Ordre d'affichage décidé à la main. Un tri alphabétique mettrait « Phase 10 »
+  // avant « Phase 2 », et surtout il interdirait de ranger les dossiers dans l'ordre
+  // du déroulé d'une mission — qui est précisément la façon dont elle les nomme.
+  position  Int
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  tenant    Tenant             @relation(fields: [tenantId], references: [id])
+  documents TemplateDocument[]
+
+  // Deux dossiers du même nom, ce sont deux rangements qui divergent.
+  @@unique([tenantId, name])
+  @@index([tenantId, position])
+  @@map("template_categories")
+}
+
 model TemplateDocument {
-  id       String @id @default(cuid())
-  tenantId String @map("tenant_id")
-  title    String
-  // Même catégorisation que la checklist documentaire : la bibliothèque se range
-  // comme les pièces qu'elle sert à produire. Pas de lien vers `DocumentType` pour
-  // l'instant — beaucoup de gabarits sont des outils internes qui ne correspondent à
-  // aucune pièce attendue, et une clé étrangère que rien ne lit serait spéculative.
-  category    DocumentCategory
+  id          String               @id @default(cuid())
+  tenantId    String               @map("tenant_id")
+  title       String
+  // Le dossier où la fiche est rangée. Modifiable : c'est exactement ce que veut dire
+  // « pouvoir les réarranger ensuite » — un import de dossier range au mieux, il ne
+  // range pas juste à tous les coups.
+  categoryId  String               @map("category_id")
+  kind        TemplateDocumentKind @default(GABARIT)
   description String?
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdAt   DateTime             @default(now()) @map("created_at")
+  updatedAt   DateTime             @updatedAt @map("updated_at")
 
   tenant   Tenant            @relation(fields: [tenantId], references: [id])
+  category TemplateCategory  @relation(fields: [categoryId], references: [id])
   versions TemplateVersion[]
 
   // Un même titre deux fois dans la bibliothèque, ce sont deux fiches qui divergent :
-  // l'une reçoit les mises à jour, l'autre est oubliée.
+  // l'une reçoit les mises à jour, l'autre est oubliée. Unicité sur le TENANT et non
+  // sur la catégorie : déplacer une fiche ne doit pas pouvoir créer un doublon, et
+  // « Livret d'accueil » ne veut pas dire deux choses selon le dossier.
   @@unique([tenantId, title])
+  @@index([categoryId])
   @@map("template_documents")
 }
 
 model TemplateVersion {
-  id                 String @id @default(cuid())
-  templateDocumentId String @map("template_document_id")
+  id                 String         @id @default(cuid())
+  templateDocumentId String         @map("template_document_id")
   // Libellé décidé par la consultante (« v1.2 »), et pas un compteur : c'est elle qui
   // sait si une correction est une révision mineure ou une refonte. Un numéro
   // incrémenté par la machine ne dirait rien de la portée du changement.
-  versionLabel String        @map("version_label")
-  stage        TemplateStage
+  // NULLABLES tous les deux, et c'est la nature de la fiche qui décide (cf.
+  // `TemplateDocumentKind`) : un manuel HAS n'a ni stade ni numéro de version au sens
+  // d'EODA. Sur un GABARIT ils sont exigés par l'action serveur — la base ne peut pas
+  // exprimer « obligatoire selon le parent », c'est donc la couche métier qui le tient,
+  // avec ses tests.
+  versionLabel       String?        @map("version_label")
+  stage              TemplateStage?
   // Ce qui a changé — « ajout de l'article L.311-8 ». Sans cette note, une v1.3 ne se
   // distingue d'une v1.2 que par sa date.
-  changeNote String? @map("change_note")
+  changeNote         String?        @map("change_note")
 
   fileStorageKey   String @map("file_storage_key")
   originalFilename String @map("original_filename")
@@ -1418,6 +1491,8 @@ model TemplateVersion {
   uploadedBy       User             @relation("TemplateUploadedBy", fields: [uploadedByUserId], references: [id])
 
   // Le même libellé ne peut pas désigner deux fichiers différents au même stade.
+  // PostgreSQL considère deux NULL comme distincts : un document de référence peut
+  // donc porter plusieurs fichiers sans libellé, ce qui est le comportement voulu.
   @@unique([templateDocumentId, stage, versionLabel])
   @@map("template_versions")
 }

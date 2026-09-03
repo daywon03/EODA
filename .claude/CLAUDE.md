@@ -39,7 +39,7 @@ vérifie** — sinon elle n'existe pas.
 | Budget de JavaScript par route | `pnpm check:bundle` après le build, **sort en code 1** au-delà du budget | `apps/web/scripts/check-bundle-budget.mjs` + CI |
 | Configuration de production complète | contrôle au démarrage qui **sort en code 1** | `apps/web/src/instrumentation.ts` + `lib/config/production-profile.ts` |
 | Migrations appliquées au déploiement | `migrate deploy` dans `buildCommand` | `vercel.json` |
-| Dépendances vulnérables | `pnpm audit --audit-level high` **sans `\|\| true`** | CI |
+| Dépendances vulnérables | `pnpm audit:deps` — **sort en code 1** sur toute vulnérabilité haute ou critique, **sans `\|\| true`** ; distingue « vulnérabilité trouvée » de « registre npm injoignable », qu'il réessaie avant d'échouer en le disant | `scripts/audit-dependencies.mjs` + CI |
 | CI qui dit la vérité | aucun `continue-on-error`, aucun masquage d'échec | CI |
 
 **Dette acceptée, à réexaminer après le 22/09/2026** : `.npmrc` porte `node-linker=hoisted`,
@@ -410,6 +410,32 @@ Détail complet et état d'avancement : `specs/02-architecture-technique.md` §4
   n'est pas dans le dépôt : les questions livrées sont provisoires et annoncées comme
   telles à l'écran. **L'ouverture de cette grille au client n'est pas tranchée** —
   `CABINET_ADMIN` uniquement jusqu'à décision explicite.
+- **La bibliothèque de modèles se range avec les mots de Sandrine, pas ceux du
+  référentiel.** Le dossier est une ligne de `TemplateCategory` créée à la main,
+  ordonnée à la main — jamais l'enum `DocumentCategory`, qui classe les pièces
+  ATTENDUES d'une structure au regard de la loi 2002-2 et ne s'invente pas. Les
+  deux axes ont failli être confondus : « Phase 0 — prise de contact » est une
+  étape de son mode opératoire et n'existe dans aucun référentiel (call du
+  03/09). Le tri est manuel parce que ses dossiers suivent le déroulé d'une
+  mission — l'alphabet mettrait « Phase 10 » avant « Phase 2 ».
+  Deux natures de fiches, et elles n'obéissent pas aux mêmes règles
+  (`TemplateDocumentKind`) : un **GABARIT** a les trois stades et des numéros de
+  version ; un **document de RÉFÉRENCE** — manuel HAS, texte réglementaire — n'en
+  a aucun (« lui n'aura pas forcément plusieurs versions »). D'où
+  `TemplateVersion.stage` et `versionLabel` nullables : l'obligation dépend du
+  parent, la base ne sait pas l'exprimer, elle vit dans `resolveVersionIdentity`
+  avec ses tests. Ne jamais convertir une fiche d'une nature à l'autre : les
+  fichiers déjà déposés deviendraient inatteignables.
+  **L'import de dossier PROPOSE, il ne range pas.** `planFolderImport` (pur,
+  testé) lit une arborescence et remplit un tableau que Sandrine corrige avant
+  que rien ne soit écrit — un rangement automatique silencieux se découvre trois
+  semaines plus tard, quand la bibliothèque est déjà fausse. Un stade **deviné**
+  et un stade **par défaut** sont distingués à l'écran (`stageDetected`) :
+  sinon on relit les cinquante lignes ou aucune. L'envoi est **un appel par
+  fichier**, séquentiel — une requête unique de cinquante fichiers ne passe
+  aucune passerelle, et une coupure au trente-septième perdrait les trente-six
+  premiers.
+
 - **Une session d'évaluation clôturée est une PHOTO.** Elle ne se cote plus (refus
   côté serveur), et l'écran de chapitre ne crée plus de session en se chargeant : il
   le faisait, et rouvrir un chapitre après une clôture faisait disparaître toutes les

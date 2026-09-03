@@ -67,8 +67,14 @@ jobs:
 
       # Échoue sur une vulnérabilité haute ou critique. Pas de `|| true` : une étape
       # de qualité qui ne peut pas échouer transforme la CI en théâtre.
+      #
+      # Passe par un script parce que `pnpm audit` sort en code 1 dans DEUX cas qui
+      # n'ont rien à voir : une vulnérabilité trouvée, et un registre npm injoignable
+      # (`ERR_SOCKET_TIMEOUT`, constaté le 04/09/2026). Le second se réessaie ; les
+      # confondre apprend à ignorer les échecs de cette étape, ce qui revient au
+      # `|| true` en un peu plus long.
       - name: Audit des dépendances
-        run: pnpm audit --audit-level high
+        run: node scripts/audit-dependencies.mjs
 
       - name: Generate Prisma client
         run: pnpm db:generate
