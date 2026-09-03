@@ -225,6 +225,17 @@ export function SignatureConversionForm({
               />
             </div>
             <div className="space-y-1.5">
+              <Label htmlFor="siretNumber">Numéro SIRET</Label>
+              <Input
+                id="siretNumber"
+                name="siretNumber"
+                inputMode="numeric"
+                placeholder="14 chiffres"
+                defaultValue={defaults.siretNumber ?? undefined}
+                disabled={isPending}
+              />
+            </div>
+            <div className="space-y-1.5">
               <Label htmlFor="hasEvaluationTargetDate">
                 Échéance évaluation HAS <span className="text-rouge-imp">*</span>
               </Label>

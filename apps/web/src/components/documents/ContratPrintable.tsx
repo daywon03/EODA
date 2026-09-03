@@ -9,12 +9,12 @@ import {
   countOptionsPendingAvenant,
   describePendingAvenant,
   describeContractBasis,
-  describeStructureIdentity,
   selectContractOptions,
   CONTRACT_GENERAL_TERMS_NOTICE,
   CONTRACT_INDEPENDENCE_NOTICE,
   type ContractFacts,
 } from "@/lib/services/contract-service";
+import { describeStructureIdentityLine } from "@/lib/services/structure-identity-service";
 
 type Props = {
   facts: ContractFacts;
@@ -62,7 +62,7 @@ export function ContratPrintable({ facts, establishmentLogo, issuedOn }: Props) 
         <div>
           <p className="text-xs uppercase tracking-wide text-gris-mid">La structure</p>
           <p className="font-semibold">{facts.establishmentName}</p>
-          <p className="text-xs text-gris-mid">{describeStructureIdentity(facts)}</p>
+          <p className="text-xs text-gris-mid">{describeStructureIdentityLine({ ...facts, structureName: facts.establishmentName })}</p>
         </div>
       </section>
 

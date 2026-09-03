@@ -5,6 +5,7 @@ import {
   discoveryFields,
   discoveryGrid,
   discoveryHighlights,
+  HIGHLIGHTED_DISCOVERY_FIELDS,
   isDiscoveryStarted,
   normaliseDiscoveryAnswers,
   parseDiscoverySubmission,
@@ -96,9 +97,27 @@ describe("grille livrée", () => {
   });
 
   it("remonte les points saillants renseignés, et seulement eux", () => {
-    const highlights = discoveryHighlights({ echeance_has: "janvier 2027" });
+    const highlights = discoveryHighlights({
+      decideur: "Direction seule",
+      // Renseignée mais non saillante : elle ne doit pas remonter.
+      besoin: "Préparer l'évaluation de janvier",
+    });
     expect(highlights).toEqual([
-      { label: "Échéance d'évaluation HAS connue ?", value: "janvier 2027" },
+      { label: "Qui décide en dernier ressort ?", value: "Direction seule" },
     ]);
+  });
+
+  // RÈGLE ZÉRO. `HIGHLIGHTED_DISCOVERY_FIELDS` est une liste de chaînes : rien dans le
+  // langage ne la rattache à la grille. Au passage en v03, les trois identifiants
+  // qu'elle contenait avaient disparu du contenu — les points saillants étaient
+  // silencieusement vides, sans erreur ni avertissement. Ce test est le seul contrôle
+  // qui le dit.
+  it("ne désigne comme saillant que des questions qui existent vraiment", () => {
+    const ids = new Set(discoveryFields(discoveryGrid()).map((field) => field.id));
+    for (const highlighted of HIGHLIGHTED_DISCOVERY_FIELDS) {
+      expect(ids.has(highlighted), `question saillante absente de la grille : ${highlighted}`).toBe(
+        true
+      );
+    }
   });
 });

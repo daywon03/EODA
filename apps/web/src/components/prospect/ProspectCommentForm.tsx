@@ -5,6 +5,7 @@ import { addProspectComment } from "@/lib/actions/prospect";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { AlertCircle, Loader2, MessageSquarePlus } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
 
 export function ProspectCommentForm({ prospectId }: { prospectId: string }) {
   const [state, formAction, isPending] = useActionState(
@@ -22,7 +23,7 @@ export function ProspectCommentForm({ prospectId }: { prospectId: string }) {
   return (
     <form ref={formRef} action={formAction} className="space-y-2">
       <Label htmlFor="body">Consigner un échange</Label>
-      <textarea
+      <Textarea
         id="body"
         name="body"
         rows={3}
@@ -30,7 +31,6 @@ export function ProspectCommentForm({ prospectId }: { prospectId: string }) {
         maxLength={2000}
         placeholder="Appel, e-mail reçu, question posée, objection, relance prévue..."
         disabled={isPending}
-        className="flex w-full rounded-md border border-gris-light bg-white px-3 py-2 text-base sm:text-sm text-brun-ancre transition-colors placeholder:text-gris-mid focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terre focus-visible:ring-offset-2 focus-visible:border-terre disabled:cursor-not-allowed disabled:opacity-50"
       />
 
       {state?.error && (

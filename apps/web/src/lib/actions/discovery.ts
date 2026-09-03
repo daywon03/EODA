@@ -1,6 +1,6 @@
 "use server";
 
-import { prisma } from "@eoda/database";
+import { prisma, type EstablishmentType, type StructureType } from "@eoda/database";
 import { notFound } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { requireCabinetAdminSession } from "@/lib/auth/guards";
@@ -28,6 +28,14 @@ export type DiscoveryReadResult = {
   structureName: string;
   answers: DiscoveryAnswers;
   updatedAt: Date | null;
+  // Identité administrative, éditable sur le même écran : elle se recueille pendant
+  // le même appel que la grille.
+  structureType: StructureType;
+  finessNumber: string | null;
+  siretNumber: string | null;
+  address: string | null;
+  establishmentType: EstablishmentType | null;
+  hasEvaluationTargetDate: Date | null;
 };
 
 export async function getDiscoveryAnswers(prospectId: string): Promise<DiscoveryReadResult> {
@@ -35,7 +43,17 @@ export async function getDiscoveryAnswers(prospectId: string): Promise<Discovery
 
   const prospect = await prisma.prospect.findFirst({
     where: { id: prospectId, tenantId },
-    select: { structureName: true, discoveryAnswersJson: true, discoveryUpdatedAt: true },
+    select: {
+      structureName: true,
+      discoveryAnswersJson: true,
+      discoveryUpdatedAt: true,
+      structureType: true,
+      finessNumber: true,
+      siretNumber: true,
+      address: true,
+      establishmentType: true,
+      hasEvaluationTargetDate: true,
+    },
   });
   if (!prospect) notFound();
 
@@ -46,6 +64,12 @@ export async function getDiscoveryAnswers(prospectId: string): Promise<Discovery
     // l'écran (même règle que l'analyse documentaire).
     answers: normaliseDiscoveryAnswers(prospect.discoveryAnswersJson),
     updatedAt: prospect.discoveryUpdatedAt,
+    structureType: prospect.structureType,
+    finessNumber: prospect.finessNumber,
+    siretNumber: prospect.siretNumber,
+    address: prospect.address,
+    establishmentType: prospect.establishmentType,
+    hasEvaluationTargetDate: prospect.hasEvaluationTargetDate,
   };
 }
 

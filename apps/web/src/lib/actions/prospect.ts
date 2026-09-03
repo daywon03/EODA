@@ -31,7 +31,12 @@ import {
   keepPrecisionOnlyForOther,
   otherPrecisionError,
 } from "@/lib/services/prospect-contact-service";
-import { finessFormatError, normaliseFiness } from "@/lib/services/structure-identity-service";
+import {
+  finessFormatError,
+  normaliseFiness,
+  normaliseSiret,
+  siretFormatError,
+} from "@/lib/services/structure-identity-service";
 
 const PROSPECT_LIST_PATH = "/dashboard/cabinet/commercial/prospects";
 
@@ -41,6 +46,7 @@ type ParsedProspect = {
   // Identité de la structure — facultative au stade prospect, recopiée sur la fiche
   // à la signature (structure-identity-service).
   finessNumber: string | null;
+  siretNumber: string | null;
   address: string | null;
   establishmentType: EstablishmentType | null;
   hasEvaluationTargetDate: Date | null;
@@ -67,6 +73,7 @@ function parseProspectInput(formData: FormData): { error: string } | ParsedProsp
   const structureName = requiredString(formData, "structureName", "Le nom de la structure", 200);
   const structureType = requiredEnum(formData, "structureType", "Le type de structure", StructureType);
   const finessNumber = optionalString(formData, "finessNumber", "Le numéro FINESS", 20);
+  const siretNumber = optionalString(formData, "siretNumber", "Le numéro SIRET", 20);
   const address = optionalString(formData, "address", "L'adresse", 300);
   const establishmentType = optionalEnum(formData, "establishmentType", "Le type de SAD", EstablishmentType);
   const hasEvaluationTargetDate = optionalDate(
@@ -92,6 +99,7 @@ function parseProspectInput(formData: FormData): { error: string } | ParsedProsp
     structureName,
     structureType,
     finessNumber,
+    siretNumber,
     address,
     establishmentType,
     hasEvaluationTargetDate,
@@ -114,6 +122,7 @@ function parseProspectInput(formData: FormData): { error: string } | ParsedProsp
     !structureName.ok ||
     !structureType.ok ||
     !finessNumber.ok ||
+    !siretNumber.ok ||
     !address.ok ||
     !establishmentType.ok ||
     !hasEvaluationTargetDate.ok ||
@@ -149,10 +158,17 @@ function parseProspectInput(formData: FormData): { error: string } | ParsedProsp
   const finessError = finessFormatError(finess);
   if (finessError) return { error: finessError };
 
+  // Même traitement pour le SIRET : « 802 341 209 00016 » est le même numéro que
+  // « 80234120900016 ».
+  const siret = normaliseSiret(siretNumber.value);
+  const siretError = siretFormatError(siret);
+  if (siretError) return { error: siretError };
+
   return {
     structureName: structureName.value,
     structureType: structureType.value,
     finessNumber: finess,
+    siretNumber: siret,
     address: address.value,
     establishmentType: establishmentType.value,
     hasEvaluationTargetDate: hasEvaluationTargetDate.value,
@@ -207,6 +223,95 @@ export async function updateProspect(
   revalidatePath(PROSPECT_LIST_PATH);
   revalidatePath(`${PROSPECT_LIST_PATH}/${id}`);
   redirect(`${PROSPECT_LIST_PATH}/${id}`);
+}
+
+// Identité administrative seule — statut juridique, adresse, FINESS, SIRET, type de
+// SAD, échéance HAS — enregistrable SANS repasser par le formulaire complet.
+//
+// Pourquoi une action à part plutôt qu'un lien vers « Modifier » : ces quatre
+// informations se recueillent PENDANT la réunion de découverte, en même temps que la
+// grille d'entretien (« j'aimerais bien pouvoir le rentrer soit au début, soit au
+// milieu, à n'importe quel moment : FINESS, SIRET, structure juridique » — call du
+// 01/09). Envoyer la consultante sur un autre écran au milieu d'un appel lui ferait
+// perdre les réponses de grille non encore enregistrées.
+//
+// Ce que cette action NE fait pas : toucher au contact, au canal d'acquisition, à la
+// formule envisagée ou aux notes. Un formulaire partiel qui poste des champs absents
+// les effacerait — c'est pour ça que le parseur complet n'est pas réutilisé ici.
+export async function updateProspectIdentity(
+  prospectId: string,
+  _prevState: { error: string } | { ok: true } | null,
+  formData: FormData
+): Promise<{ error: string } | { ok: true }> {
+  const { tenantId } = await requireCabinetAdminSession();
+
+  // `prospectId` arrive par une route HTTP publique : l'appartenance se vérifie en
+  // base, elle ne se déduit pas du fait que l'écran l'a affiché.
+  const existing = await prisma.prospect.findFirst({
+    where: { id: prospectId, tenantId },
+    select: { id: true },
+  });
+  if (!existing) notFound();
+
+  const structureType = requiredEnum(formData, "structureType", "Le statut juridique", StructureType);
+  const finessNumber = optionalString(formData, "finessNumber", "Le numéro FINESS", 20);
+  const siretNumber = optionalString(formData, "siretNumber", "Le numéro SIRET", 20);
+  const address = optionalString(formData, "address", "L'adresse", 300);
+  // Type de SAD et échéance HAS sont ici parce que la grille d'entretien v03 les
+  // demande en découverte (§1 et §3). Ils ont une COLONNE : les reposer dans la
+  // grille en ferait une seconde source, et c'est la colonne qui alimente le devis,
+  // le périmètre de critères et les indicateurs.
+  const establishmentType = optionalEnum(formData, "establishmentType", "Le type de SAD", EstablishmentType);
+  const hasEvaluationTargetDate = optionalDate(
+    formData,
+    "hasEvaluationTargetDate",
+    "L'échéance d'évaluation HAS"
+  );
+
+  const error = firstError(
+    structureType,
+    finessNumber,
+    siretNumber,
+    address,
+    establishmentType,
+    hasEvaluationTargetDate
+  );
+  if (error) return { error };
+  if (
+    !structureType.ok ||
+    !finessNumber.ok ||
+    !siretNumber.ok ||
+    !address.ok ||
+    !establishmentType.ok ||
+    !hasEvaluationTargetDate.ok
+  ) {
+    return { error: "Formulaire invalide." };
+  }
+
+  // Mêmes règles de normalisation et de forme qu'à la création et qu'à la signature.
+  const finess = normaliseFiness(finessNumber.value);
+  const finessError = finessFormatError(finess);
+  if (finessError) return { error: finessError };
+
+  const siret = normaliseSiret(siretNumber.value);
+  const siretError = siretFormatError(siret);
+  if (siretError) return { error: siretError };
+
+  await prisma.prospect.update({
+    where: { id: prospectId },
+    data: {
+      structureType: structureType.value,
+      finessNumber: finess,
+      siretNumber: siret,
+      address: address.value,
+      establishmentType: establishmentType.value,
+      hasEvaluationTargetDate: hasEvaluationTargetDate.value,
+    },
+  });
+
+  revalidatePath(`${PROSPECT_LIST_PATH}/${prospectId}`);
+  revalidatePath(`${PROSPECT_LIST_PATH}/${prospectId}/decouverte`);
+  return { ok: true };
 }
 
 export async function updateProspectStatus(

@@ -261,6 +261,7 @@ model Tenant {
   prospectTimeline  ProspectTimelineEntry[]
   appointments      Appointment[]
   missionMessages   MissionMessage[]
+  templateDocuments TemplateDocument[]
 
   @@map("tenants")
 }
@@ -300,7 +301,9 @@ model User {
   createdAppointments Appointment[]          @relation("AppointmentCreatedBy")
   validatedDocuments  Document[]             @relation("DocumentValidatedBy")
   missionMessages     MissionMessage[]
+  uploadedTemplates   TemplateVersion[]      @relation("TemplateUploadedBy")
 
+  @@index([tenantId])
   @@map("users")
 }
 
@@ -309,6 +312,16 @@ model Establishment {
   tenantId              String            @map("tenant_id")
   name                  String
   finessNumber          String?           @unique @map("finess_number")
+  // SIRET — identifiant au registre des entreprises, mention obligatoire sur un
+  // devis, un contrat et une facture. Distinct du FINESS, qui identifie l'ESSMS
+  // auprès des autorités sanitaires : les deux coexistent, aucun ne remplace l'autre.
+  //
+  // PAS @unique, contrairement au FINESS, et c'est délibéré : le FINESS est déjà la
+  // clé qui interdit deux fiches pour la même structure, et il a fallu un service
+  // dédié pour que sa violation ne soit pas avalée par le `catch` général de la
+  // conversion. Une seconde contrainte unique ouvrirait un second chemin d'échec à la
+  // signature, pour un gain nul — l'unicité est déjà obtenue.
+  siretNumber           String?           @map("siret_number")
   // Type de service rendu — axe INDÉPENDANT du statut juridique ci-dessous.
   type                  EstablishmentType
   // Statut juridique. Nullable en base et pourtant exigé à la saisie : les fiches
@@ -348,6 +361,7 @@ model Establishment {
   appointments       Appointment[]
   messages           MissionMessage[]
 
+  @@index([tenantId])
   @@map("establishments")
 }
 
@@ -360,6 +374,7 @@ model EstablishmentUser {
   establishment Establishment @relation(fields: [establishmentId], references: [id])
 
   @@id([userId, establishmentId])
+  @@index([establishmentId])
   @@map("establishment_users")
 }
 
@@ -387,6 +402,7 @@ model Chapter {
   themes             Theme[]
   evaluationSessions EvaluationSession[]
 
+  @@index([referentialVersionId])
   @@map("chapters")
 }
 
@@ -428,6 +444,7 @@ model Criterion {
   evaluationElements EvaluationElement[]
   documentTypes      DocumentTypeCriterion[]
 
+  @@index([objectiveId])
   @@map("criteria")
 }
 
@@ -445,6 +462,7 @@ model EvaluationElement {
   criterion   Criterion      @relation(fields: [criterionId], references: [id])
   elementRatings ElementRating[]
 
+  @@index([criterionId])
   @@map("evaluation_elements")
 }
 
@@ -487,6 +505,7 @@ model DocumentTypeCriterion {
   criterion    Criterion    @relation(fields: [criterionId], references: [id])
 
   @@id([documentTypeId, criterionId])
+  @@index([criterionId])
   @@map("document_type_criteria")
 }
 
@@ -523,6 +542,7 @@ model Document {
   validatedBy    User?            @relation("DocumentValidatedBy", fields: [validatedByUserId], references: [id], onDelete: SetNull)
 
   @@unique([establishmentId, documentTypeId])
+  @@index([documentTypeId])
   @@map("documents")
 }
 
@@ -560,6 +580,7 @@ model DocumentVersion {
   regeneratedVersions     DocumentVersion[] @relation("Regeneration")
   currentForDocument      Document?         @relation("CurrentVersion")
 
+  @@index([documentId])
   @@map("document_versions")
 }
 
@@ -581,6 +602,8 @@ model EvaluationSession {
   performedBy   User           @relation(fields: [performedByUserId], references: [id])
   elementRatings ElementRating[]
 
+  @@index([chapterId])
+  @@index([establishmentId])
   @@map("evaluation_sessions")
 }
 
@@ -598,6 +621,7 @@ model ElementRating {
   evaluationElement EvaluationElement @relation(fields: [evaluationElementId], references: [id])
 
   @@unique([evaluationSessionId, evaluationElementId])
+  @@index([evaluationElementId])
   @@map("element_ratings")
 }
 
@@ -720,6 +744,9 @@ model Prospect {
   // c'est la création de la FICHE qui doit trancher. La contrainte reste donc là où
   // elle a un sens.
   finessNumber         String?            @map("finess_number")
+  // Voir Establishment.siretNumber. Facultatif ici comme le reste de l'identité : la
+  // personne qui appelle peut être une assistante de direction qui ne l'a pas.
+  siretNumber          String?            @map("siret_number")
   address              String?
   // Type de SAD. Reste DEMANDÉ à la signature (CLAUDE.md §7 — jamais déduit de la
   // forme juridique) : ce champ ne fait que pré-remplir la question.
@@ -757,6 +784,7 @@ model Prospect {
   timeline      ProspectTimelineEntry[]
   appointments  Appointment[]
 
+  @@index([tenantId])
   @@map("prospects")
 }
 
@@ -844,6 +872,7 @@ model ProspectTimelineEntry {
 
   // Lecture par défaut : la frise d'un prospect, du plus récent au plus ancien.
   @@index([prospectId, createdAt])
+  @@index([tenantId])
   @@map("prospect_timeline_entries")
 }
 
@@ -881,6 +910,9 @@ model Devis {
   options          DevisOption[]
   missions         Mission[]
 
+  @@index([tenantId])
+  @@index([prospectId])
+  @@index([catalogueFormuleId])
   @@map("devis")
 }
 
@@ -901,6 +933,7 @@ model DevisOption {
   catalogueOption CatalogueOption @relation(fields: [catalogueOptionId], references: [id])
 
   @@unique([devisId, catalogueOptionId])
+  @@index([catalogueOptionId])
   @@map("devis_options")
 }
 
@@ -939,6 +972,7 @@ model ClientOptionRequest {
   @@index([tenantId, status, createdAt])
   // Détection d'un doublon en attente pour un couple (établissement, option).
   @@index([establishmentId, catalogueOptionId, status])
+  @@index([catalogueOptionId])
   @@map("client_option_requests")
 }
 
@@ -1027,6 +1061,12 @@ model Mission {
   itemStatuses  MissionChecklistItemStatus[]
   options       MissionOption[]
 
+  @@index([tenantId])
+  // Déclaré ici après coup : l'index existe en base depuis la migration
+  // `20260820210000_prospect_conversion`, mais le schéma l'ignorait. Une dérive
+  // silencieuse dans ce sens est bénigne — l'index est là — mais elle rendait le
+  // schéma faux, et le prochain `db pull` l'aurait « corrigé » en le supprimant.
+  @@index([sourceDevisId])
   @@map("missions")
 }
 
@@ -1092,6 +1132,7 @@ model MissionOption {
   // signature ne peut pas doubler une ligne. Le code s'appuie dessus
   // (`createMany({ skipDuplicates: true })`), il ne la réimplémente pas.
   @@unique([missionId, catalogueOptionId])
+  @@index([catalogueOptionId])
   @@map("mission_options")
 }
 
@@ -1110,6 +1151,7 @@ model MissionChecklistItemStatus {
   item    MissionChecklistItem @relation(fields: [itemId], references: [id])
 
   @@unique([missionId, itemId])
+  @@index([itemId])
   @@map("mission_checklist_item_statuses")
 }
 
@@ -1150,6 +1192,7 @@ model MissionMessage {
   author        User          @relation(fields: [authorUserId], references: [id])
 
   @@index([establishmentId, createdAt])
+  @@index([tenantId])
   @@map("mission_messages")
 }
 
@@ -1191,6 +1234,12 @@ enum AuditAction {
   USER_DEACTIVATED
   USER_REACTIVATED
   USER_DELETED_WITH_ESTABLISHMENT
+  // Bibliothèque de modèles EODA (CABINET_ADMIN uniquement). `targetId` = identifiant
+  // technique du modèle ou de la version, `detail` = son libellé de version — jamais
+  // le nom d'un fichier, qui peut porter un nom de structure.
+  TEMPLATE_VERSION_UPLOADED
+  TEMPLATE_VERSION_DELETED
+  TEMPLATE_DOCUMENT_DELETED
   PASSWORD_RESET_BY_ADMIN
   LOGIN_REFUSED_INACTIVE
   // Demande de devis d'option depuis le portail client (§12.3 / §12.6).
@@ -1293,4 +1342,82 @@ model RateLimitCounter {
   // Sert la purge des lignes échues (DELETE … WHERE expires_at <= now).
   @@index([expiresAt])
   @@map("rate_limit_counters")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// BIBLIOTHÈQUE DE MODÈLES EODA
+//
+// « Est-ce qu'on pourrait avoir un endroit dans le portail où j'uploade les versions
+// vierges ? […] S'il faut une nouvelle version avec un nouvel article de loi, que
+// j'y aille directement, que je crée une version 1.2, une version 1.3. Je ne pourrai
+// pas garder tout ça sur mon PC à un moment donné » (call du 01/09).
+//
+// ⚠️ À NE PAS confondre avec `Document` / `DocumentVersion`, qui sont les pièces
+// D'UNE STRUCTURE. Ici, rien n'appartient à un établissement : ce sont les gabarits
+// d'EODA, son propre matériau de travail, et ils sont réservés au cabinet. Les
+// fusionner obligerait à rattacher chaque modèle à un client fictif et ferait entrer
+// des gabarits internes dans les checklists et les livrables clients.
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Trois états du même document, tels que Sandrine les nomme et les envoie. Ce n'est
+// pas une chronologie de rédaction mais trois usages distincts : le gabarit qu'on
+// réutilise, l'état reçu, le résultat produit. C'est cette distinction qui donnera
+// son intérêt à l'entraînement de l'IA — comparer un avant et un après.
+enum TemplateStage {
+  // Gabarit sans données : ce qui sert de base à une nouvelle structure.
+  VIERGE
+  // État reçu de la structure, avant intervention.
+  INITIALE
+  // Version produite par EODA, celle qui est restituée.
+  FINALE
+}
+
+model TemplateDocument {
+  id       String @id @default(cuid())
+  tenantId String @map("tenant_id")
+  title    String
+  // Même catégorisation que la checklist documentaire : la bibliothèque se range
+  // comme les pièces qu'elle sert à produire. Pas de lien vers `DocumentType` pour
+  // l'instant — beaucoup de gabarits sont des outils internes qui ne correspondent à
+  // aucune pièce attendue, et une clé étrangère que rien ne lit serait spéculative.
+  category    DocumentCategory
+  description String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  tenant   Tenant            @relation(fields: [tenantId], references: [id])
+  versions TemplateVersion[]
+
+  // Un même titre deux fois dans la bibliothèque, ce sont deux fiches qui divergent :
+  // l'une reçoit les mises à jour, l'autre est oubliée.
+  @@unique([tenantId, title])
+  @@map("template_documents")
+}
+
+model TemplateVersion {
+  id                 String @id @default(cuid())
+  templateDocumentId String @map("template_document_id")
+  // Libellé décidé par la consultante (« v1.2 »), et pas un compteur : c'est elle qui
+  // sait si une correction est une révision mineure ou une refonte. Un numéro
+  // incrémenté par la machine ne dirait rien de la portée du changement.
+  versionLabel String        @map("version_label")
+  stage        TemplateStage
+  // Ce qui a changé — « ajout de l'article L.311-8 ». Sans cette note, une v1.3 ne se
+  // distingue d'une v1.2 que par sa date.
+  changeNote String? @map("change_note")
+
+  fileStorageKey   String @map("file_storage_key")
+  originalFilename String @map("original_filename")
+  contentType      String @map("content_type")
+  sizeBytes        Int    @map("size_bytes")
+
+  uploadedByUserId String   @map("uploaded_by_user_id")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  templateDocument TemplateDocument @relation(fields: [templateDocumentId], references: [id], onDelete: Cascade)
+  uploadedBy       User             @relation("TemplateUploadedBy", fields: [uploadedByUserId], references: [id])
+
+  // Le même libellé ne peut pas désigner deux fichiers différents au même stade.
+  @@unique([templateDocumentId, stage, versionLabel])
+  @@map("template_versions")
 }

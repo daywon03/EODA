@@ -13,6 +13,7 @@ import {
   PROSPECT_APPOINTMENT_KINDS,
 } from "@/lib/services/calendar-service";
 import type { AppointmentKind } from "@eoda/database";
+import { Textarea } from "@/components/ui/textarea";
 
 type Props =
   | { establishmentId: string; prospectId?: never; structureName: string }
@@ -132,13 +133,12 @@ export function AppointmentForm(props: Props) {
 
       <div className="space-y-1.5">
         <Label htmlFor="notes">Notes de préparation</Label>
-        <textarea
+        <Textarea
           id="notes"
           name="notes"
           rows={2}
           disabled={isPending}
           placeholder="Points à aborder, documents à emporter..."
-          className="flex w-full rounded-md border border-gris-light bg-white px-3 py-2 text-base sm:text-sm text-brun-ancre transition-colors placeholder:text-gris-mid focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terre focus-visible:ring-offset-2 focus-visible:border-terre disabled:cursor-not-allowed disabled:opacity-50"
         />
         <p className="text-xs text-gris-mid">
           Ces notes restent internes au cabinet — le client ne les voit jamais.

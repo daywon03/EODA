@@ -121,6 +121,7 @@ export default async function CabinetDashboardPage() {
               type={e.type}
               hasEvaluationTargetDate={e.hasEvaluationTargetDate}
               documentCount={e._count.documents}
+              logoDataUri={e.logoDataUri}
               stage={deriveFunnelStage({
                 prospectStatus: e.prospect?.status ?? null,
                 mission: toMissionLifecycleFacts(e.mission),

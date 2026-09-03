@@ -8,6 +8,8 @@ import {
   finessConflictError,
   finessFormatError,
   normaliseFiness,
+  normaliseSiret,
+  siretFormatError,
   resolveSignatureDefaults,
   type StructureIdentity,
 } from "@/lib/services/structure-identity-service";
@@ -79,6 +81,7 @@ export type ConvertDevisResult =
 type ParsedFicheInput = {
   type: EstablishmentType | null;
   finessNumber: string | null;
+  siretNumber: string | null;
   address: string | null;
   hasEvaluationTargetDate: Date | null;
 };
@@ -108,6 +111,10 @@ function parseFicheInput(
   const finessNumber = creating
     ? requiredString(formData, "finessNumber", "Le numéro FINESS", 20)
     : optionalString(formData, "finessNumber", "Le numéro FINESS", 20);
+  // SIRET jamais exigé, même à la création : il sert à facturer, pas à identifier la
+  // structure auprès de la HAS. Le rendre bloquant refuserait d'enregistrer une
+  // signature — donc une vente — faute d'un numéro dont rien n'a besoin ce jour-là.
+  const siretNumber = optionalString(formData, "siretNumber", "Le numéro SIRET", 20);
   const address = creating
     ? requiredString(formData, "address", "L'adresse", 300)
     : optionalString(formData, "address", "L'adresse", 300);
@@ -115,9 +122,9 @@ function parseFicheInput(
     ? requiredDate(formData, "hasEvaluationTargetDate", "L'échéance d'évaluation HAS")
     : optionalDate(formData, "hasEvaluationTargetDate", "L'échéance d'évaluation HAS");
 
-  const error = firstError(type, finessNumber, address, hasEvaluationTargetDate);
+  const error = firstError(type, finessNumber, siretNumber, address, hasEvaluationTargetDate);
   if (error) return { error };
-  if (!type.ok || !finessNumber.ok || !address.ok || !hasEvaluationTargetDate.ok) {
+  if (!type.ok || !finessNumber.ok || !siretNumber.ok || !address.ok || !hasEvaluationTargetDate.ok) {
     return { error: "Formulaire invalide." };
   }
 
@@ -129,11 +136,16 @@ function parseFicheInput(
     return { error: "Le numéro FINESS doit comporter exactement 9 chiffres." };
   }
 
+  const siret = normaliseSiret(siretNumber.value);
+  const siretError = siretFormatError(siret);
+  if (siretError) return { error: siretError };
+
   return {
     type: type.value,
     // Normalisé : la fiche porte « 930034459 », jamais « 93 00 34 459 ». Un numéro
     // stocké sous deux formes ne se compare plus.
     finessNumber: normaliseFiness(finessNumber.value),
+    siretNumber: siret,
     address: address.value,
     hasEvaluationTargetDate: hasEvaluationTargetDate.value,
   };
@@ -257,6 +269,7 @@ export async function convertDevisToClient(
               // finissent par diverger, et c'est le pipeline qui aurait raison.
               structureType: devis.prospect.structureType,
               finessNumber: parsed.finessNumber,
+              siretNumber: parsed.siretNumber,
               address: parsed.address,
               hasEvaluationTargetDate: parsed.hasEvaluationTargetDate,
               // Reste BETA, affichage/historique uniquement — la formule qui fait
@@ -412,6 +425,7 @@ export async function getSignatureContext(devisId: string): Promise<SignatureCon
           contactName: true,
           establishmentId: true,
           finessNumber: true,
+          siretNumber: true,
           address: true,
           establishmentType: true,
           hasEvaluationTargetDate: true,
@@ -419,6 +433,7 @@ export async function getSignatureContext(devisId: string): Promise<SignatureCon
           establishment: {
             select: {
               finessNumber: true,
+              siretNumber: true,
               address: true,
               type: true,
               hasEvaluationTargetDate: true,
@@ -444,6 +459,7 @@ export async function getSignatureContext(devisId: string): Promise<SignatureCon
     defaults: resolveSignatureDefaults({
       prospect: {
         finessNumber: devis.prospect.finessNumber,
+        siretNumber: devis.prospect.siretNumber,
         address: devis.prospect.address,
         establishmentType: devis.prospect.establishmentType,
         hasEvaluationTargetDate: devis.prospect.hasEvaluationTargetDate,
@@ -451,6 +467,7 @@ export async function getSignatureContext(devisId: string): Promise<SignatureCon
       establishment: devis.prospect.establishment
         ? {
             finessNumber: devis.prospect.establishment.finessNumber,
+            siretNumber: devis.prospect.establishment.siretNumber,
             address: devis.prospect.establishment.address,
             establishmentType: devis.prospect.establishment.type,
             hasEvaluationTargetDate: devis.prospect.establishment.hasEvaluationTargetDate,

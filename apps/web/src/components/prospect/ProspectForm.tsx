@@ -16,18 +16,23 @@ import type {
   EstablishmentType,
   StructureType,
 } from "@eoda/database";
-import { ESTABLISHMENT_TYPE_LABELS } from "@/lib/services/structure-identity-service";
+import {
+  ESTABLISHMENT_TYPE_LABELS,
+  STRUCTURE_TYPE_LABELS,
+} from "@/lib/services/structure-identity-service";
 import {
   ACQUISITION_CHANNEL_LABELS,
   CIVILITY_LABELS,
   CONTACT_ROLE_LABELS,
 } from "@/lib/services/prospect-contact-service";
+import { Textarea } from "@/components/ui/textarea";
 
 type ProspectInitialValues = {
   id: string;
   structureName: string;
   structureType: StructureType;
   finessNumber: string | null;
+  siretNumber: string | null;
   address: string | null;
   establishmentType: EstablishmentType | null;
   hasEvaluationTargetDate: Date | null;
@@ -109,6 +114,17 @@ export function ProspectForm({ prospect }: Props) {
             />
           </div>
           <div className="space-y-1.5">
+            <Label htmlFor="siretNumber">Numéro SIRET</Label>
+            <Input
+              id="siretNumber"
+              name="siretNumber"
+              inputMode="numeric"
+              placeholder="14 chiffres — ex : 80234120900016"
+              defaultValue={prospect?.siretNumber ?? undefined}
+              disabled={isPending}
+            />
+          </div>
+          <div className="space-y-1.5">
             <Label htmlFor="establishmentType">Type de SAD</Label>
             <Select
               id="establishmentType"
@@ -157,9 +173,9 @@ export function ProspectForm({ prospect }: Props) {
           </Label>
           <Select id="structureType" name="structureType" required disabled={isPending} defaultValue={prospect?.structureType ?? ""}>
             <option value="">— Sélectionner —</option>
-            <option value="ASSOCIATION">Association</option>
-            <option value="PRIVE">Privé</option>
-            <option value="PUBLIC">Public</option>
+            <option value="ASSOCIATION">{STRUCTURE_TYPE_LABELS.ASSOCIATION}</option>
+            <option value="PRIVE">{STRUCTURE_TYPE_LABELS.PRIVE}</option>
+            <option value="PUBLIC">{STRUCTURE_TYPE_LABELS.PUBLIC}</option>
           </Select>
         </div>
         <div className="space-y-1.5">
@@ -307,26 +323,24 @@ export function ProspectForm({ prospect }: Props) {
 
       <div className="space-y-1.5">
         <Label htmlFor="needsAssessmentNotes">Évaluation des besoins</Label>
-        <textarea
+        <Textarea
           id="needsAssessmentNotes"
           name="needsAssessmentNotes"
           rows={3}
           placeholder="Besoins exprimés lors de l'échange de prospection (périmètre attendu, contraintes, échéance...)"
           defaultValue={prospect?.needsAssessmentNotes ?? undefined}
           disabled={isPending}
-          className="flex w-full rounded-md border border-gris-light bg-white px-3 py-2 text-base sm:text-sm text-brun-ancre transition-colors placeholder:text-gris-mid focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terre focus-visible:ring-offset-2 focus-visible:border-terre disabled:cursor-not-allowed disabled:opacity-50"
         />
       </div>
 
       <div className="space-y-1.5">
         <Label htmlFor="notes">Notes</Label>
-        <textarea
+        <Textarea
           id="notes"
           name="notes"
           rows={3}
           defaultValue={prospect?.notes ?? undefined}
           disabled={isPending}
-          className="flex w-full rounded-md border border-gris-light bg-white px-3 py-2 text-base sm:text-sm text-brun-ancre transition-colors placeholder:text-gris-mid focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terre focus-visible:ring-offset-2 focus-visible:border-terre disabled:cursor-not-allowed disabled:opacity-50"
         />
       </div>
 

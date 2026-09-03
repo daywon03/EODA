@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { prisma, type UserRole } from "@eoda/database";
 import type { Session } from "next-auth";
 import { auth } from "@/auth";
@@ -85,7 +86,16 @@ type ResolvedUser = {
   passwordChangedAt: Date | null;
 };
 
-async function resolveUser(userId: string): Promise<ResolvedUser | null> {
+// MÉMOÏSÉ PAR RENDU (`react.cache`) — pas un cache applicatif : la mémoïsation ne
+// survit pas à la requête HTTP, une révocation de droits prend effet à la navigation
+// suivante comme avant.
+//
+// Ce qu'elle supprime : une même navigation traverse le layout, la page et parfois
+// une action de lecture, et CHACUN appelait une garde, donc relisait l'utilisateur.
+// Trois allers-retours identiques vers la base pour la même question, mesurés à
+// ~290 ms pièce depuis un poste de développement — presque une seconde de latence
+// avant que le premier octet ne parte.
+const resolveUser = cache(async (userId: string): Promise<ResolvedUser | null> => {
   const user = await prisma.user.findUnique({
     where: { id: userId },
     select: {
@@ -97,7 +107,7 @@ async function resolveUser(userId: string): Promise<ResolvedUser | null> {
     },
   });
   return user ?? null;
-}
+});
 
 // ── Rotation du mot de passe ─────────────────────────────────────────────────
 // Deux contrôles, portés ici et nulle part ailleurs (une vérification recopiée dans

@@ -16,7 +16,7 @@ function missionRow(
     consolidationEndDate: null,
     preparationFinaleStartDate: null,
     preparationFinaleEndDate: null,
-    itemStatuses: [],
+    _count: { itemStatuses: 0 },
     ...overrides,
   };
 }
@@ -61,7 +61,7 @@ describe("toPortfolioRow", () => {
       mission: missionRow({
         gratuit: true,
         fondationsStartDate: new Date("2026-09-01"),
-        itemStatuses: [{ id: "a" }],
+        _count: { itemStatuses: 1 },
       }),
       hasEvaluationTargetDate: null,
     });

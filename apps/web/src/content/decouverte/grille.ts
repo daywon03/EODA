@@ -3,162 +3,284 @@ import type { DiscoveryGrid } from "./types";
 // ─────────────────────────────────────────────────────────────────────────────
 // GRILLE D'ENTRETIEN DÉCOUVERTE — questions de la réunion R1.
 //
-// ⚠️ PROVENANCE, à lire avant de modifier quoi que ce soit.
+// PROVENANCE : `20260830_GABARIT_VIERGE_Grille-Entretien-Decouverte_v03_Interne.docx`,
+// le gabarit de Sandrine, transmis le 01/09/2026. Les questions ci-dessous en sont la
+// transposition fidèle — c'est désormais SA grille, plus un gabarit d'attente.
 //
-// Le gabarit de référence de Sandrine — `20260830_GABARIT_VIERGE_Grille-Entretien-
-// Decouverte_v03_Interne` — n'est PAS dans le dépôt. Les questions ci-dessous ne le
-// reproduisent donc pas : elles couvrent ce que la plateforme a réellement besoin de
-// savoir pour proposer une offre et ouvrir un périmètre, et rien d'autre. Chaque
-// section est tracée à sa source dans le dépôt (échéance HAS et type de SAD :
-// périmètre de critères ; pièces loi 2002-2 : les cinq documents réclamés au client ;
-// moyens et attentes : choix de la formule).
+// Deux écarts assumés par rapport au document, et un seul principe derrière les deux :
+// **la grille ne stocke que ce qui n'a pas de colonne.**
 //
-// Quand le gabarit v03 arrivera, on remplace le tableau et on incrémente `version`.
-// Aucune migration : les réponses sont stockées par identifiant de question, et
-// celles dont la question a disparu sont simplement ignorées à la lecture
-// (discovery-grid-service). C'est exactement pour ça que la grille est un contenu et
-// pas un schéma.
+//  1. Statut juridique, type de SAD et échéance HAS sont demandés par le gabarit
+//     (§1 et §3) et ne sont PAS des questions ici. Ils ont une colonne sur le
+//     prospect, et cette colonne alimente le devis, le périmètre de critères évalués
+//     et les indicateurs commerciaux. Les reposer en réponses de grille en ferait une
+//     seconde source, qui finirait par contredire la première. Ils se saisissent sur
+//     le MÊME écran, dans le bloc « Identité de la structure » placé juste au-dessus.
 //
-// Ce qui reste à trancher côté Sandrine, et qui n'est PAS implémenté faute de
-// décision : l'ouverture de cette grille au client (« SRE n'est pas sûre de cela »).
-// Elle est donc, pour l'instant, réservée au cabinet — comme le reste du pipeline
-// commercial.
+//  2. La synthèse du gabarit (§6 : formule recommandée, montant estimé, échéance HAS
+//     estimée) n'est pas non plus ici. Le document le dit lui-même : « les champs de
+//     synthèse correspondent directement aux informations à reporter dans la fiche
+//     prospect ». Ils se saisissent à l'étape suivante, l'évaluation des besoins, qui
+//     construit le devis à partir de ces mêmes valeurs. Ne restent dans la synthèse
+//     que les deux champs sans colonne : points de vigilance et prochaine étape.
+//
+// Le gabarit numérote deux sections « 3 » — coquille du document, corrigée ici sans
+// changer l'ordre ni le contenu.
+//
+// Changer une question ne demande AUCUNE migration : les réponses sont stockées par
+// identifiant, et celles dont la question a disparu sont ignorées à la lecture
+// (`discovery-grid-service`). Les identifiants de la v00 ne sont pas repris : les
+// quelques réponses saisies sous cette version d'attente restent en base, simplement
+// invisibles — c'est ce que « lue défensivement » veut dire.
 // ─────────────────────────────────────────────────────────────────────────────
 
+// Même échelle pour les sept pièces de la loi 2002-2. Une échelle unique se lit d'un
+// coup d'œil en fin de section — et « Ne sait pas » est une réponse utile : elle
+// distingue la pièce absente de celle que l'interlocuteur ne connaît pas.
+const ETAT_DOCUMENT = ["À jour", "Existe mais ancien", "Inexistant", "Ne sait pas"] as const;
+
 export const DISCOVERY_GRID: DiscoveryGrid = {
-  version: "v00 — interne, en attente du gabarit v03",
+  version: "v03 — gabarit EODA du 30/08/2026",
   sections: [
     {
-      id: "contexte",
-      title: "Contexte de l'évaluation",
+      id: "structure",
+      title: "Contexte de la structure",
       purpose:
-        "Situer l'échéance et le point de départ : c'est ce qui détermine le calendrier et l'urgence.",
+        "Comprendre à qui on parle : taille, territoire, et qui porte la qualité aujourd'hui.",
       fields: [
         {
-          id: "echeance_has",
-          label: "Échéance d'évaluation HAS connue ?",
+          id: "taille",
+          label: "Taille de la structure",
           kind: "SHORT_TEXT",
-          hint: "Date ou période annoncée par l'autorité. « Inconnue » est une réponse utile.",
+          hint: "Nombre de personnes accompagnées, nombre de salariés.",
+        },
+        {
+          id: "territoire",
+          label: "Territoire d'intervention",
+          kind: "SHORT_TEXT",
+          hint: "Un siège et plusieurs antennes ? Le périmètre change la charge de la visite.",
+        },
+        {
+          id: "pilotage_qualite",
+          label: "Qui assure le pilotage de la démarche qualité aujourd'hui ?",
+          kind: "CHOICE",
+          options: [
+            "Référent qualité dédié",
+            "Direction",
+            "Poste partagé",
+            "Personne identifiée",
+            "Ne sait pas",
+          ],
+          hint: "C'est l'interlocuteur de la mission. Une démarche sans porteur interne ne tient pas après notre départ.",
+        },
+      ],
+    },
+    {
+      id: "besoin",
+      title: "Description du besoin",
+      purpose: "Laisser dire avant de proposer. Seule section du gabarit sans question fermée.",
+      fields: [
+        {
+          id: "besoin",
+          label: "Ce que la structure demande, dans ses mots",
+          kind: "LONG_TEXT",
+        },
+      ],
+    },
+    {
+      id: "echeance",
+      title: "Échéance et contexte réglementaire",
+      purpose:
+        "Situer le point de départ réglementaire. Ce qui a déjà été fait compte autant que la date.",
+      fields: [
+        {
+          id: "fenetre_echeance",
+          label: "Si la date d'évaluation n'est pas connue, dans quelle fenêtre ?",
+          kind: "SHORT_TEXT",
+          hint: "La date elle-même se note plus haut, dans l'identité de la structure.",
+        },
+        {
+          id: "auto_evaluation_synae",
+          label: "Auto-évaluation déjà réalisée sur Synaé ?",
+          kind: "CHOICE",
+          options: ["Non", "Commencée", "Terminée", "Ne sait pas"],
+          hint: "L'évaluation officielle se déroule sur Synaé : un compte inaccessible est un blocage à traiter tôt.",
+        },
+        {
+          id: "synae_stade",
+          label: "À quel stade en est-elle ?",
+          kind: "LONG_TEXT",
         },
         {
           id: "evaluation_anterieure",
-          label: "Évaluation ou audit qualité déjà passé ?",
+          label: "Déjà évalués ?",
           kind: "CHOICE",
-          options: ["Aucun", "Évaluation externe ancienne", "Audit interne", "Ne sait pas"],
+          options: [
+            "Jamais",
+            "Ancien système Qualiscope",
+            "Évaluation HAS antérieure",
+            "Ne sait pas",
+          ],
+          hint: "Qualiscope (A/B/C/D) est un référentiel différent et abandonné : une note passée ne se convertit pas en cotation HAS.",
         },
         {
-          id: "acces_synae",
-          label: "Compte Synaé ouvert et accessible ?",
-          kind: "CHOICE",
-          options: ["Oui", "Non", "Ne sait pas"],
-          hint: "L'évaluation officielle se déroule sur Synaé — sans accès, c'est un point de blocage à traiter tôt.",
-        },
-        {
-          id: "type_activite",
-          label: "Activité d'aide seule, ou aide et soins ?",
-          kind: "CHOICE",
-          options: ["Aide seule (SAD aide)", "Aide et soins (SAD mixte)", "À confirmer"],
-          hint: "Détermine le périmètre de critères : un SAD mixte porte un impératif supplémentaire (3.6.2, circuit du médicament).",
+          id: "evaluation_anterieure_enseignements",
+          label: "Quels enseignements en tirez-vous ?",
+          kind: "LONG_TEXT",
         },
       ],
     },
     {
-      id: "organisation",
-      title: "Organisation qualité",
-      purpose: "Savoir sur qui s'appuyer en interne, et ce qui existe déjà.",
-      fields: [
-        {
-          id: "referent_qualite",
-          label: "Référent qualité identifié ?",
-          kind: "SHORT_TEXT",
-          hint: "Nom et fonction. C'est l'interlocuteur de la mission.",
-        },
-        {
-          id: "instances",
-          label: "Instances en place (CVS, réunions d'équipe, CREX)",
-          kind: "LONG_TEXT",
-        },
-        {
-          id: "demarche_existante",
-          label: "Démarche qualité déjà engagée ?",
-          kind: "LONG_TEXT",
-          hint: "Plan d'action existant, procédures écrites, registre des événements indésirables.",
-        },
-      ],
-    },
-    {
-      id: "documentation",
-      title: "Documentation loi 2002-2",
+      id: "maturite",
+      title: "Maturité qualité actuelle",
       purpose:
-        "Mesurer l'écart documentaire de départ — les cinq pièces réclamées au client avant la visite.",
+        "Mesurer l'écart de départ, pièce par pièce. C'est cette section qui calibre la formule.",
       fields: [
         {
           id: "projet_service",
-          label: "Projet de service",
+          label: "Projet d'établissement / projet de service",
           kind: "CHOICE",
-          options: ["À jour", "Existe mais ancien", "Inexistant", "Ne sait pas"],
+          options: ETAT_DOCUMENT,
+          hint: "Art. L.311-8 du CASF.",
+        },
+        {
+          id: "charte_droits",
+          label: "Charte des droits et libertés de la personne accueillie",
+          kind: "CHOICE",
+          options: ETAT_DOCUMENT,
+          hint: "Arrêté du 8 septembre 2003.",
         },
         {
           id: "livret_accueil",
-          label: "Livret d'accueil et charte des droits",
+          label: "Livret d'accueil",
           kind: "CHOICE",
-          options: ["À jour", "Existe mais ancien", "Inexistant", "Ne sait pas"],
+          options: ETAT_DOCUMENT,
+          hint: "Circulaire du 24 mars 2004.",
+        },
+        {
+          id: "cvs",
+          label: "CVS ou autre forme de participation des usagers",
+          kind: "CHOICE",
+          options: ETAT_DOCUMENT,
+          hint: "Décret n° 2004-287 du 25 mars 2004.",
         },
         {
           id: "dipc",
-          label: "DIPC et règlement de fonctionnement",
+          label: "Contrat de séjour ou DIPC",
           kind: "CHOICE",
-          options: ["À jour", "Existe mais ancien", "Inexistant", "Ne sait pas"],
+          options: ETAT_DOCUMENT,
+          hint: "Décret du 26 novembre 2004.",
         },
         {
-          id: "documentation_remarques",
-          label: "Précisions sur l'état documentaire",
+          id: "reglement_fonctionnement",
+          label: "Règlement de fonctionnement",
+          kind: "CHOICE",
+          options: ETAT_DOCUMENT,
+          hint: "Décret n° 2003-1095 du 14 novembre 2003.",
+        },
+        {
+          id: "personne_qualifiee",
+          label: "Personne qualifiée",
+          kind: "CHOICE",
+          options: ETAT_DOCUMENT,
+          hint: "Liste arrêtée conjointement par le préfet et le président du conseil départemental.",
+        },
+        {
+          id: "procedures_formalisees",
+          label:
+            "Procédures formalisées : événements indésirables, plaintes et réclamations, prévention de la maltraitance",
           kind: "LONG_TEXT",
+        },
+        {
+          id: "plan_action",
+          label: "Un plan d'actions qualité existe-t-il déjà ?",
+          kind: "CHOICE",
+          options: ["Oui, suivi activement", "Oui, mais non suivi", "Non", "Ne sait pas"],
+          hint: "Un plan écrit que personne ne suit ne vaut pas mieux qu'aucun plan devant un évaluateur.",
+        },
+        {
+          id: "criteres_risque",
+          label: "Critères impératifs déjà identifiés comme à risque",
+          kind: "LONG_TEXT",
+          hint: "Un impératif non conforme pèse plus lourd que dix critères standards : le repérer tôt oriente tout le plan d'action.",
         },
       ],
     },
     {
-      id: "moyens",
-      title: "Moyens et contraintes",
-      purpose: "Calibrer la formule : ce que la structure peut absorber en interne.",
+      id: "mobilisation",
+      title: "Mobilisation et organisation",
+      purpose:
+        "Vérifier que quelqu'un sera là. Une formule à ateliers suppose des équipes libérées.",
       fields: [
         {
-          id: "effectifs",
-          label: "Effectifs et personnes accompagnées",
+          id: "mobilises",
+          label: "Qui serait mobilisé côté direction et encadrement ?",
+          kind: "LONG_TEXT",
+        },
+        {
+          id: "equipes_sensibilisees",
+          label: "Vos équipes de terrain ont-elles déjà été sensibilisées à la démarche ?",
+          kind: "CHOICE",
+          options: ["Oui", "Partiellement", "Non", "Ne sait pas"],
+          hint: "L'évaluateur interroge les équipes et les personnes accompagnées : une procédure que personne n'applique ne rapporte rien.",
+        },
+        {
+          id: "disponibilite_visite",
+          label: "Disponibilités envisagées pour une visite sur site",
+          kind: "LONG_TEXT",
+          hint: "Période et durée.",
+        },
+      ],
+    },
+    {
+      id: "budget",
+      title: "Budget et processus de décision",
+      purpose:
+        "Savoir ce qui peut être signé, et par qui. Une découverte menée avec quelqu'un qui ne décide pas se rejoue entièrement.",
+      fields: [
+        {
+          id: "budget_identifie",
+          label: "Un budget est-il déjà identifié pour cet accompagnement ?",
+          kind: "CHOICE",
+          options: ["Oui", "Non", "Ne sait pas"],
+        },
+        {
+          id: "budget_ordre_grandeur",
+          label: "Dans quel ordre de grandeur ?",
           kind: "SHORT_TEXT",
-        },
-        {
-          id: "disponibilite",
-          label: "Disponibilité de l'équipe pour la démarche",
-          kind: "LONG_TEXT",
-          hint: "Une formule à 3 journées d'atelier suppose des équipes libérées : mieux vaut le savoir avant de la proposer.",
-        },
-        {
-          id: "contraintes",
-          label: "Contraintes de calendrier ou de budget annoncées",
-          kind: "LONG_TEXT",
-        },
-      ],
-    },
-    {
-      id: "attentes",
-      title: "Attentes et suite",
-      purpose: "Fixer ce qui sera repris en évaluation des besoins, et ce qui a été promis.",
-      fields: [
-        {
-          id: "attentes",
-          label: "Ce que la structure attend de l'accompagnement",
-          kind: "LONG_TEXT",
         },
         {
           id: "decideur",
-          label: "Qui décide et signe ?",
+          label: "Qui décide en dernier ressort ?",
+          kind: "CHOICE",
+          options: [
+            "Direction seule",
+            "Validation en conseil d'administration",
+            "Accord d'un siège fédéral",
+            "Autre",
+          ],
+        },
+        {
+          id: "delai_decision",
+          label: "Quel délai de décision anticiper après réception du devis ?",
           kind: "SHORT_TEXT",
-          hint: "Une découverte menée avec quelqu'un qui ne décide pas se rejoue entièrement.",
+        },
+      ],
+    },
+    {
+      id: "synthese",
+      title: "Synthèse de l'entretien",
+      purpose:
+        "Ce qui a été conclu en séance. La formule, le montant et l'échéance se saisissent à l'étape suivante — l'évaluation des besoins, qui construit le devis à partir d'eux.",
+      fields: [
+        {
+          id: "points_vigilance",
+          label: "Points de vigilance identifiés",
+          kind: "LONG_TEXT",
         },
         {
           id: "prochaine_etape",
-          label: "Prochaine étape convenue en séance",
+          label: "Prochaine étape convenue",
           kind: "LONG_TEXT",
         },
       ],

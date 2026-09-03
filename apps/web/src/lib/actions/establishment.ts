@@ -10,12 +10,19 @@ import type { PortfolioRow } from "@/lib/services/portfolio-kpi-service";
 import { toPortfolioRow } from "@/lib/db/to-portfolio-row";
 import {
   firstError,
+  optionalString,
   requiredDate,
   requiredEnum,
   requiredString,
 } from "@/lib/validation/form-parsers";
+import {
+  finessFormatError,
+  normaliseFiness,
+  normaliseSiret,
+  siretFormatError,
+} from "@/lib/services/structure-identity-service";
 
-// Tous les champs de la fiche sont EXIGÉS.
+// Tous les champs de la fiche sont EXIGÉS, à l'exception du SIRET (voir plus bas).
 //
 // Ce parseur ne sert plus qu'à la correction d'une fiche existante : la création
 // passe exclusivement par la signature d'un devis (`convertDevisToClient`). À ce
@@ -30,6 +37,7 @@ function parseEstablishmentInput(formData: FormData): { error: string } | {
   type: EstablishmentType;
   structureType: StructureType;
   finessNumber: string;
+  siretNumber: string | null;
   address: string;
   hasEvaluationTargetDate: Date;
 } {
@@ -48,6 +56,14 @@ function parseEstablishmentInput(formData: FormData): { error: string } | {
   // d'identification de l'ESSMS auprès de la HAS, une saisie approximative se
   // retrouverait dans un livrable.
   const finessNumber = requiredString(formData, "finessNumber", "Le numéro FINESS", 20);
+  // SIRET FACULTATIF, là où le FINESS est exigé — la différence n'est pas un oubli.
+  // Le FINESS identifie la structure auprès de la HAS : sans lui, aucun livrable
+  // d'évaluation n'est juste, et c'est la raison d'être du produit. Le SIRET sert à
+  // facturer, et la facturation n'existe pas encore dans la plateforme : le rendre
+  // bloquant refuserait aujourd'hui d'enregistrer une signature pour une information
+  // dont personne n'a besoin avant la première facture. Il est donc demandé, affiché
+  // comme manquant quand il l'est, et n'empêche rien.
+  const siretNumber = optionalString(formData, "siretNumber", "Le numéro SIRET", 20);
   const address = requiredString(formData, "address", "L'adresse", 300);
   const hasEvaluationTargetDate = requiredDate(
     formData,
@@ -60,6 +76,7 @@ function parseEstablishmentInput(formData: FormData): { error: string } | {
     type,
     structureType,
     finessNumber,
+    siretNumber,
     address,
     hasEvaluationTargetDate
   );
@@ -69,21 +86,32 @@ function parseEstablishmentInput(formData: FormData): { error: string } | {
     !type.ok ||
     !structureType.ok ||
     !finessNumber.ok ||
+    !siretNumber.ok ||
     !address.ok ||
     !hasEvaluationTargetDate.ok
   ) {
     return { error: "Formulaire invalide." };
   }
 
-  if (!/^\d{9}$/.test(finessNumber.value)) {
-    return { error: "Le numéro FINESS doit comporter exactement 9 chiffres." };
-  }
+  // Normalisation puis contrôle de forme par la règle PARTAGÉE. Il y avait ici un
+  // second contrôle écrit à la main (`/^\d{9}$/` sans normalisation) : « 93 00 34 459 »
+  // était accepté au stade prospect et refusé sur la fiche, pour le même numéro. Deux
+  // contrôles du même fait finissent toujours par diverger (D1).
+  const finess = normaliseFiness(finessNumber.value);
+  const finessError = finessFormatError(finess);
+  if (finessError) return { error: finessError };
+  if (finess === null) return { error: "Le numéro FINESS est obligatoire." };
+
+  const siret = normaliseSiret(siretNumber.value);
+  const siretError = siretFormatError(siret);
+  if (siretError) return { error: siretError };
 
   return {
     name: name.value,
     type: type.value,
     structureType: structureType.value,
-    finessNumber: finessNumber.value,
+    finessNumber: finess,
+    siretNumber: siret,
     address: address.value,
     hasEvaluationTargetDate: hasEvaluationTargetDate.value,
   };
@@ -291,7 +319,7 @@ const LIFECYCLE_INCLUDE = {
       // c'est la mission qui en porte la vérité, jamais `Establishment.commercialTier`
       // (CLAUDE.md §7).
       formule: true,
-      itemStatuses: { where: { completed: true }, select: { id: true } },
+      _count: { select: { itemStatuses: { where: { completed: true } } } },
     },
   },
 } satisfies Prisma.EstablishmentInclude;
@@ -351,7 +379,7 @@ export type EstablishmentWithUsers = Prisma.EstablishmentGetPayload<{
         consolidationEndDate: true;
         preparationFinaleStartDate: true;
         preparationFinaleEndDate: true;
-        itemStatuses: { select: { id: true } };
+        _count: { select: { itemStatuses: true } };
       };
     };
   };

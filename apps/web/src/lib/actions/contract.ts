@@ -42,6 +42,7 @@ export async function getContractData(
         select: {
           name: true,
           finessNumber: true,
+          siretNumber: true,
           address: true,
           logoDataUri: true,
           hasEvaluationTargetDate: true,
@@ -89,6 +90,7 @@ export async function getContractData(
     facts: {
       establishmentName: mission.establishment.name,
       finessNumber: mission.establishment.finessNumber,
+      siretNumber: mission.establishment.siretNumber,
       address: mission.establishment.address,
       formule: mission.formule,
       formuleLabel: formule?.label ?? mission.formule,

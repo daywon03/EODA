@@ -89,3 +89,9 @@ jobs:
 
       - name: Build
         run: pnpm build
+
+      # Budget de JavaScript par route (convention P9). Placé APRÈS la construction :
+      # il lit le manifeste qu'elle produit. Il SORT EN CODE 1 au-dessus du budget —
+      # un budget qui avertit sans bloquer est un indicateur, pas un garde-fou.
+      - name: Budget de paquet
+        run: pnpm --filter @eoda/web check:bundle

@@ -16,7 +16,7 @@ function row(overrides: Partial<MissionLifecycleRow> = {}): MissionLifecycleRow 
     consolidationEndDate: null,
     preparationFinaleStartDate: null,
     preparationFinaleEndDate: null,
-    itemStatuses: [],
+    _count: { itemStatuses: 0 },
     ...overrides,
   };
 }
@@ -45,10 +45,12 @@ describe("toMissionLifecycleFacts", () => {
     expect(toMissionLifecycleFacts(row())?.scheduledPhaseDateCount).toBe(0);
   });
 
-  it("compte les items déjà filtrés sur completed par la requête", () => {
+  it("reprend le compte d'items déjà filtré sur completed par la requête", () => {
+    // La requête ramène un COMPTE et non les lignes : seule la longueur servait, et
+    // hydrater une trentaine d'objets par mission pour la lire est du volume payé
+    // pour rien à chaque ouverture du tableau de bord.
     expect(
-      toMissionLifecycleFacts(row({ itemStatuses: [{ id: "a" }, { id: "b" }] }))
-        ?.completedChecklistCount
+      toMissionLifecycleFacts(row({ _count: { itemStatuses: 2 } }))?.completedChecklistCount
     ).toBe(2);
   });
 

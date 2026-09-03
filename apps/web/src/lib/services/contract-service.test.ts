@@ -5,7 +5,6 @@ import {
   countOptionsPendingAvenant,
   describeContractBasis,
   describePendingAvenant,
-  describeStructureIdentity,
   selectContractOptions,
 } from "./contract-service";
 
@@ -100,28 +99,6 @@ describe("buildContractFileName", () => {
         devisNumber: null,
       })
     ).toContain("_Accompagnement_v01_Externe.pdf");
-  });
-});
-
-describe("describeStructureIdentity", () => {
-  it("compose nom, adresse et FINESS", () => {
-    expect(
-      describeStructureIdentity({
-        establishmentName: "Structure test",
-        finessNumber: "930034459",
-        address: "12 rue des Lilas, 93150 Le Blanc-Mesnil",
-      })
-    ).toBe("Structure test · 12 rue des Lilas, 93150 Le Blanc-Mesnil · FINESS 930034459");
-  });
-
-  it("omet les champs absents au lieu d'afficher un tiret", () => {
-    expect(
-      describeStructureIdentity({
-        establishmentName: "Structure test",
-        finessNumber: null,
-        address: "   ",
-      })
-    ).toBe("Structure test");
   });
 });
 

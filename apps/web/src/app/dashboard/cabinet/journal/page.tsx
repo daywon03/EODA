@@ -56,6 +56,9 @@ const ACTION_LABELS: Record<AuditAction, string> = {
   AVENANT_SIGNED: "Avenant signé (retour du client)",
   AVENANT_SIGNATURE_CLEARED: "Signature d'avenant retirée",
   DOCUMENT_REMINDER_SENT: "Relance des pièces manquantes",
+  TEMPLATE_VERSION_UPLOADED: "Modèle — version publiée",
+  TEMPLATE_VERSION_DELETED: "Modèle — version supprimée",
+  TEMPLATE_DOCUMENT_DELETED: "Modèle supprimé",
 };
 
 const ROLE_LABELS: Record<string, string> = {
