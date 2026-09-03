@@ -95,3 +95,9 @@ jobs:
       # un budget qui avertit sans bloquer est un indicateur, pas un garde-fou.
       - name: Budget de paquet
         run: pnpm --filter @eoda/web check:bundle
+
+      # Une page pré-rendue ne peut pas porter le nonce tiré à chaque requête : ses
+      # <script> seraient tous refusés par la CSP et la page ne s'hydraterait jamais.
+      # Contrôle du HTML réellement produit, pas du réglage déclaré.
+      - name: CSP à nonce applicable
+        run: pnpm --filter @eoda/web check:csp

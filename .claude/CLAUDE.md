@@ -35,6 +35,7 @@ vérifie** — sinon elle n'existe pas.
 | Hooks installés par le dépôt | `git config core.hooksPath .githooks` posé par le `postinstall` | `package.json` |
 | Manifeste de migrations à jour | test qui compare `EXPECTED_MIGRATIONS` au dossier `prisma/migrations` | `apps/web/src/lib/db/migration-manifest.test.ts` |
 | Clés étrangères indexées (convention `P6`) | test qui lit le schéma et **échoue** sur toute relation sans index, liste d'exceptions figée | `apps/web/src/lib/db/foreign-key-indexes.test.ts` |
+| CSP à nonce réellement applicable (aucune page pré-rendue) | `pnpm check:csp` après le build, **sort en code 1** si un `<script>` est écrit sans nonce | `apps/web/scripts/check-csp-nonce.mjs` + CI ; le réglage est `export const dynamic = "force-dynamic"` dans `apps/web/src/app/layout.tsx` |
 | Budget de JavaScript par route | `pnpm check:bundle` après le build, **sort en code 1** au-delà du budget | `apps/web/scripts/check-bundle-budget.mjs` + CI |
 | Configuration de production complète | contrôle au démarrage qui **sort en code 1** | `apps/web/src/instrumentation.ts` + `lib/config/production-profile.ts` |
 | Migrations appliquées au déploiement | `migrate deploy` dans `buildCommand` | `vercel.json` |
