@@ -31,9 +31,8 @@ export async function generateMetadata({ params }: Props) {
 // chronologique unique la rendrait illisible.
 export default async function ModelePage({ params }: Props) {
   const { id } = await params;
-  const { session } = await requireCabinetSession();
+  const [{ session }, template] = await Promise.all([requireCabinetSession(), getTemplate(id)]);
   const isAdmin = session.user.role === "CABINET_ADMIN";
-  const template = await getTemplate(id);
 
   return (
     <div className="max-w-3xl space-y-6">

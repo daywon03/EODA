@@ -303,6 +303,7 @@ model User {
   missionMessages     MissionMessage[]
   uploadedTemplates   TemplateVersion[]      @relation("TemplateUploadedBy")
 
+  @@index([tenantId])
   @@map("users")
 }
 
@@ -360,6 +361,7 @@ model Establishment {
   appointments       Appointment[]
   messages           MissionMessage[]
 
+  @@index([tenantId])
   @@map("establishments")
 }
 
@@ -372,6 +374,7 @@ model EstablishmentUser {
   establishment Establishment @relation(fields: [establishmentId], references: [id])
 
   @@id([userId, establishmentId])
+  @@index([establishmentId])
   @@map("establishment_users")
 }
 
@@ -399,6 +402,7 @@ model Chapter {
   themes             Theme[]
   evaluationSessions EvaluationSession[]
 
+  @@index([referentialVersionId])
   @@map("chapters")
 }
 
@@ -440,6 +444,7 @@ model Criterion {
   evaluationElements EvaluationElement[]
   documentTypes      DocumentTypeCriterion[]
 
+  @@index([objectiveId])
   @@map("criteria")
 }
 
@@ -457,6 +462,7 @@ model EvaluationElement {
   criterion   Criterion      @relation(fields: [criterionId], references: [id])
   elementRatings ElementRating[]
 
+  @@index([criterionId])
   @@map("evaluation_elements")
 }
 
@@ -499,6 +505,7 @@ model DocumentTypeCriterion {
   criterion    Criterion    @relation(fields: [criterionId], references: [id])
 
   @@id([documentTypeId, criterionId])
+  @@index([criterionId])
   @@map("document_type_criteria")
 }
 
@@ -535,6 +542,7 @@ model Document {
   validatedBy    User?            @relation("DocumentValidatedBy", fields: [validatedByUserId], references: [id], onDelete: SetNull)
 
   @@unique([establishmentId, documentTypeId])
+  @@index([documentTypeId])
   @@map("documents")
 }
 
@@ -572,6 +580,7 @@ model DocumentVersion {
   regeneratedVersions     DocumentVersion[] @relation("Regeneration")
   currentForDocument      Document?         @relation("CurrentVersion")
 
+  @@index([documentId])
   @@map("document_versions")
 }
 
@@ -593,6 +602,8 @@ model EvaluationSession {
   performedBy   User           @relation(fields: [performedByUserId], references: [id])
   elementRatings ElementRating[]
 
+  @@index([chapterId])
+  @@index([establishmentId])
   @@map("evaluation_sessions")
 }
 
@@ -610,6 +621,7 @@ model ElementRating {
   evaluationElement EvaluationElement @relation(fields: [evaluationElementId], references: [id])
 
   @@unique([evaluationSessionId, evaluationElementId])
+  @@index([evaluationElementId])
   @@map("element_ratings")
 }
 
@@ -772,6 +784,7 @@ model Prospect {
   timeline      ProspectTimelineEntry[]
   appointments  Appointment[]
 
+  @@index([tenantId])
   @@map("prospects")
 }
 
@@ -859,6 +872,7 @@ model ProspectTimelineEntry {
 
   // Lecture par défaut : la frise d'un prospect, du plus récent au plus ancien.
   @@index([prospectId, createdAt])
+  @@index([tenantId])
   @@map("prospect_timeline_entries")
 }
 
@@ -896,6 +910,9 @@ model Devis {
   options          DevisOption[]
   missions         Mission[]
 
+  @@index([tenantId])
+  @@index([prospectId])
+  @@index([catalogueFormuleId])
   @@map("devis")
 }
 
@@ -916,6 +933,7 @@ model DevisOption {
   catalogueOption CatalogueOption @relation(fields: [catalogueOptionId], references: [id])
 
   @@unique([devisId, catalogueOptionId])
+  @@index([catalogueOptionId])
   @@map("devis_options")
 }
 
@@ -954,6 +972,7 @@ model ClientOptionRequest {
   @@index([tenantId, status, createdAt])
   // Détection d'un doublon en attente pour un couple (établissement, option).
   @@index([establishmentId, catalogueOptionId, status])
+  @@index([catalogueOptionId])
   @@map("client_option_requests")
 }
 
@@ -1042,6 +1061,7 @@ model Mission {
   itemStatuses  MissionChecklistItemStatus[]
   options       MissionOption[]
 
+  @@index([tenantId])
   @@map("missions")
 }
 
@@ -1107,6 +1127,7 @@ model MissionOption {
   // signature ne peut pas doubler une ligne. Le code s'appuie dessus
   // (`createMany({ skipDuplicates: true })`), il ne la réimplémente pas.
   @@unique([missionId, catalogueOptionId])
+  @@index([catalogueOptionId])
   @@map("mission_options")
 }
 
@@ -1125,6 +1146,7 @@ model MissionChecklistItemStatus {
   item    MissionChecklistItem @relation(fields: [itemId], references: [id])
 
   @@unique([missionId, itemId])
+  @@index([itemId])
   @@map("mission_checklist_item_statuses")
 }
 
@@ -1165,6 +1187,7 @@ model MissionMessage {
   author        User          @relation(fields: [authorUserId], references: [id])
 
   @@index([establishmentId, createdAt])
+  @@index([tenantId])
   @@map("mission_messages")
 }
 

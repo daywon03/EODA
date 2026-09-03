@@ -50,7 +50,7 @@ export function EstablishmentCard({
         <span className="sr-only">Ouvrir la fiche de {name}</span>
       </Link>
 
-      <div className="pointer-events-none flex h-full flex-col gap-3 p-5">
+      <div className="pointer-events-none flex h-full flex-col gap-2.5 p-4">
         <div className="flex items-start justify-between gap-2">
           <div className="flex min-w-0 items-center gap-2.5">
             {/* Le logo de la structure quand elle en a un — « ce serait très beau »,
@@ -83,8 +83,10 @@ export function EstablishmentCard({
           <Badge variant="secondary">{ESTABLISHMENT_TYPE_LABELS[type]}</Badge>
         </div>
 
-        <div className="mt-auto flex items-center justify-between gap-3 border-t border-gris-light pt-2 pl-[46px]">
-          <div className="flex items-center gap-4 text-xs text-gris-mid">
+        <div className="mt-auto flex items-center justify-between gap-2 border-t border-gris-light pl-[46px] pt-1">
+          {/* Les deux chiffres qui comptent, sur une seule ligne. `tabular-nums` :
+              alignés d'une carte à l'autre, ils se comparent en balayant la colonne. */}
+          <div className="flex items-center gap-4 text-xs tabular-nums text-gris-mid">
             <span className="flex items-center gap-1">
               <FileText className="h-3.5 w-3.5" aria-hidden="true" />
               {documentCount} document{documentCount !== 1 ? "s" : ""}
@@ -98,8 +100,13 @@ export function EstablishmentCard({
           </div>
 
           {/* « Il aurait été bien que je puisse le supprimer de là » : il fallait
-              jusqu'ici ouvrir la fiche pour s'en défaire. `pointer-events-auto` parce
-              que le conteneur les coupe, sinon le lien en dessous capterait le clic. */}
+              jusqu'ici ouvrir la fiche pour s'en défaire. Action SUBORDONNÉE — une
+              icône discrète qui ne se teinte de rouge qu'au survol : un bloc rouge
+              plein sur chaque vignette attirait l'œil sur la seule chose qu'on ne veut
+              pas cliquer par erreur. Elle reste rendue en permanence, jamais révélée
+              au survol seul : sur tablette, il n'y a pas de survol.
+              `pointer-events-auto` parce que le conteneur les coupe, sinon le lien en
+              dessous capterait le clic. */}
           <div className="pointer-events-auto relative z-10">
             <DeleteEstablishmentButton
               establishmentId={id}

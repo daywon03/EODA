@@ -19,8 +19,7 @@ type Props = { params: Promise<{ id: string }> };
 
 export default async function DevisDetailPage({ params }: Props) {
   const { id } = await params;
-  const devis = await getDevis(id);
-  const session = await auth();
+  const [devis, session] = await Promise.all([getDevis(id), auth()]);
 
   // Partage « au plus simple » (26/08) : un fichier à télécharger, un brouillon
   // d'e-mail à relire. Rien n'est envoyé par la plateforme — le message part de la

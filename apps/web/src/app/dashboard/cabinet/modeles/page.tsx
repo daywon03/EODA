@@ -25,9 +25,8 @@ export const metadata = { title: "Modèles EODA · EODA Conseil" };
 // nouvelle version, c'est décider que tout le monde travaillera désormais dessus.
 // ─────────────────────────────────────────────────────────────────────────────
 export default async function ModelesPage() {
-  const { session } = await requireCabinetSession();
+  const [{ session }, templates] = await Promise.all([requireCabinetSession(), listTemplates()]);
   const isAdmin = session.user.role === "CABINET_ADMIN";
-  const templates = await listTemplates();
 
   return (
     <div className="max-w-4xl space-y-6">

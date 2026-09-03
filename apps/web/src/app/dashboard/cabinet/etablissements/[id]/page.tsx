@@ -69,11 +69,19 @@ export async function generateMetadata({ params }: Props) {
 
 export default async function EstablishmentDetailPage({ params }: Props) {
   const { id } = await params;
-  const establishment = await getEstablishment(id);
-  const checklist = await getEstablishmentChecklist(id);
-  const mission = await getMission(id);
-  const appointments = await listAppointmentsFor({ establishmentId: id });
-  const session = await auth();
+  // EN PARALLÈLE, et non l'une après l'autre : ces cinq lectures ne dépendent
+  // d'aucune des autres, et chaque aller-retour vers la base coûte ~290 ms depuis un
+  // poste de développement. En série, la page ne pouvait pas commencer à se rendre
+  // avant une seconde et demie ; le seul fait de les lancer ensemble ramène le coût à
+  // celui de la plus lente. Les gardes qu'elles appellent chacune lisent le même
+  // utilisateur, désormais mémoïsé par rendu (`lib/auth/guards.ts`).
+  const [establishment, checklist, mission, appointments, session] = await Promise.all([
+    getEstablishment(id),
+    getEstablishmentChecklist(id),
+    getMission(id),
+    listAppointmentsFor({ establishmentId: id }),
+    auth(),
+  ]);
   // Basculer un document entre « réclamé au client » et « produit par EODA » est une
   // politique de cabinet : réservée à CABINET_ADMIN, comme le catalogue.
   const isAdmin = session?.user.role === "CABINET_ADMIN";

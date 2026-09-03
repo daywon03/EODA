@@ -39,10 +39,13 @@ type Props = { params: Promise<{ id: string }> };
 
 export default async function ProspectDetailPage({ params }: Props) {
   const { id } = await params;
-  const prospect = await getProspect(id);
-  // R0, R1, R2 : les trois rendez-vous de vente se programment ici, avant qu'aucune
-  // fiche client n'existe.
-  const appointments = await listAppointmentsFor({ prospectId: id });
+  // Lancées ensemble : la frise des rendez-vous ne dépend pas de la fiche, et chaque
+  // aller-retour vers la base coûte ~290 ms. En série, on payait les deux.
+  const [prospect, appointments] = await Promise.all([
+    getProspect(id),
+    listAppointmentsFor({ prospectId: id }),
+  ]);
+
 
   // « À un moment donné, le titre prospect doit se transformer en client » : ce
   // moment est la conversion, c'est-à-dire l'existence d'une fiche — pas le statut

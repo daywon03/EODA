@@ -319,7 +319,7 @@ const LIFECYCLE_INCLUDE = {
       // c'est la mission qui en porte la vérité, jamais `Establishment.commercialTier`
       // (CLAUDE.md §7).
       formule: true,
-      itemStatuses: { where: { completed: true }, select: { id: true } },
+      _count: { select: { itemStatuses: { where: { completed: true } } } },
     },
   },
 } satisfies Prisma.EstablishmentInclude;
@@ -379,7 +379,7 @@ export type EstablishmentWithUsers = Prisma.EstablishmentGetPayload<{
         consolidationEndDate: true;
         preparationFinaleStartDate: true;
         preparationFinaleEndDate: true;
-        itemStatuses: { select: { id: true } };
+        _count: { select: { itemStatuses: true } };
       };
     };
   };
