@@ -4,6 +4,9 @@ import type { LLMAnalysisPort } from "@/lib/llm";
 import { anonymizeText } from "@/lib/services/anonymization-service";
 import { deriveDocumentStatus } from "@/lib/services/document-status-service";
 import { buildStorageKey } from "@/lib/security/upload-validation-service";
+import { getKnowledgeRetrievalPort } from "@/lib/knowledge";
+
+const KNOWLEDGE_EXCERPTS_LIMIT = 5;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // INGESTION D'UNE VERSION DE DOCUMENT — orchestration
@@ -110,6 +113,7 @@ export async function ingestDocumentVersion(
 
   const analysisSucceeded = await analyzeVersion(
     {
+      establishmentId: input.establishmentId,
       documentId: document.id,
       documentVersionId: version.id,
       documentTypeLabel: input.documentTypeLabel,
@@ -127,6 +131,7 @@ export async function ingestDocumentVersion(
 // faire échouer tout le dépôt.
 async function analyzeVersion(
   params: {
+    establishmentId: string;
     documentId: string;
     documentVersionId: string;
     documentTypeId: string;
@@ -140,13 +145,19 @@ async function analyzeVersion(
       where: { documentTypeId: params.documentTypeId },
       include: { criterion: { select: { label: true } } },
     });
+    const criteriaLabels = linkedCriteria.map((c) => c.criterion.label);
 
     const analysis = await llm.analyze({
       documentTypeLabel: params.documentTypeLabel,
       // Anonymisation best-effort avant tout envoi vers un service externe
       // (contrainte RGPD, cf. anonymization-service.ts).
       extractedText: anonymizeText(params.extractedText ?? ""),
-      linkedCriteriaLabels: linkedCriteria.map((c) => c.criterion.label),
+      linkedCriteriaLabels: criteriaLabels,
+      knowledgeExcerpts: await fetchKnowledgeExcerpts(
+        params.establishmentId,
+        params.documentTypeLabel,
+        criteriaLabels
+      ),
     });
 
     await prisma.documentVersion.update({
@@ -166,5 +177,33 @@ async function analyzeVersion(
       data: { status: "UPLOADED" },
     });
     return false;
+  }
+}
+
+// Isolée dans sa propre gestion d'erreur : une panne de la base de connaissances
+// (fournisseur d'embeddings indisponible, par exemple) ne doit jamais faire
+// échouer l'analyse elle-même — seulement la priver d'enrichissement, comme si
+// VOYAGE_API_KEY n'était simplement pas configurée.
+async function fetchKnowledgeExcerpts(
+  establishmentId: string,
+  documentTypeLabel: string,
+  criteriaLabels: string[]
+): Promise<string[]> {
+  const knowledge = getKnowledgeRetrievalPort();
+  if (!knowledge) return [];
+
+  try {
+    const establishment = await prisma.establishment.findUnique({
+      where: { id: establishmentId },
+      select: { tenantId: true },
+    });
+    if (!establishment) return [];
+
+    const query = [documentTypeLabel, ...criteriaLabels].join(" ; ");
+    const excerpts = await knowledge.search(establishment.tenantId, query, KNOWLEDGE_EXCERPTS_LIMIT);
+    return excerpts.map((excerpt) => excerpt.content);
+  } catch (error) {
+    console.error("Base de connaissances IA — recherche échouée, analyse sans enrichissement :", error);
+    return [];
   }
 }

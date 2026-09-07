@@ -15,6 +15,9 @@ import {
 import { validateUploadedFile } from "@/lib/security/upload-validation-service";
 import { getFileStoragePort } from "@/lib/storage";
 import { recordAuditEvent } from "@/lib/services/audit-log-service";
+import { extractMarkdown } from "@/lib/services/text-extraction-service";
+import { indexReferenceDocumentVersion } from "@/lib/services/knowledge-indexing-service";
+import { getEmbeddingPort } from "@/lib/embeddings";
 import {
   buildTemplateStorageKey,
   categoryNameError,
@@ -491,7 +494,9 @@ export async function uploadTemplateVersion(
   if (!(file instanceof File)) return { error: "Aucun fichier sélectionné." };
 
   return storeVersion({
+    tenantId,
     templateId: template.id,
+    kind: template.kind,
     identity,
     changeNote: changeNote.value,
     file,
@@ -506,7 +511,9 @@ export async function uploadTemplateVersion(
 // lignes — deux copies auraient fini par diverger sur exactement le contrôle qui
 // compte, celui du type réel du fichier.
 async function storeVersion(params: {
+  tenantId: string;
   templateId: string;
+  kind: TemplateDocumentKind;
   identity: VersionIdentity;
   changeNote: string | null;
   file: File;
@@ -515,7 +522,7 @@ async function storeVersion(params: {
   auditAction: "TEMPLATE_VERSION_UPLOADED" | "TEMPLATE_FOLDER_IMPORTED";
   auditDetail?: string;
 }): Promise<ActionResult> {
-  const { templateId, identity, changeNote, file, userId, role, auditAction } = params;
+  const { tenantId, templateId, kind, identity, changeNote, file, userId, role, auditAction } = params;
 
   const buffer = Buffer.from(await file.arrayBuffer());
   // Type réel déterminé par la SIGNATURE BINAIRE, jamais par `file.type` — valeur
@@ -572,6 +579,25 @@ async function storeVersion(params: {
     targetId: version.id,
     detail: params.auditDetail ?? `${identity.stage ?? "REFERENCE"} ${identity.versionLabel ?? ""}`.trim(),
   });
+
+  // Base de connaissances IA : uniquement les documents de RÉFÉRENCE (manuel HAS,
+  // textes réglementaires), jamais un GABARIT. Best-effort — une panne d'embedding
+  // ne doit jamais faire échouer le dépôt du fichier, cf. knowledge-indexing-service.ts.
+  const embeddings = kind === "REFERENCE" ? getEmbeddingPort() : null;
+  if (embeddings) {
+    try {
+      const extractedText = await extractMarkdown(buffer, validation.contentType);
+      await indexReferenceDocumentVersion({
+        tenantId,
+        templateDocumentId: templateId,
+        templateVersionId: version.id,
+        extractedText,
+        embeddings,
+      });
+    } catch (error) {
+      console.error("Base de connaissances IA — indexation échouée, dépôt conservé :", error);
+    }
+  }
 
   revalidatePath(LIBRARY_PATH);
   revalidatePath(`${LIBRARY_PATH}/${templateId}`);
@@ -652,7 +678,9 @@ export async function importTemplateFile(formData: FormData): Promise<ImportFile
   if ("error" in identity) return { error: `${file.name} : ${identity.error}` };
 
   const result = await storeVersion({
+    tenantId,
     templateId: template.id,
+    kind,
     identity,
     changeNote: null,
     file,

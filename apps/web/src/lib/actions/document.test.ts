@@ -16,7 +16,7 @@ const prismaMock = {
 
 const ingestDocumentVersion = vi.fn();
 const recordAuditEvent = vi.fn();
-const extractText = vi.fn();
+const extractMarkdown = vi.fn();
 const suggestDocumentType = vi.fn();
 const requireEstablishmentAccess = vi.fn();
 
@@ -27,7 +27,7 @@ vi.mock("@/lib/auth/guards", () => ({
   tryEstablishmentAccess: vi.fn(),
 }));
 vi.mock("@/lib/services/text-extraction-service", () => ({
-  extractText: (...args: unknown[]) => extractText(...args),
+  extractMarkdown: (...args: unknown[]) => extractMarkdown(...args),
 }));
 vi.mock("@/lib/services/document-categorization-service", () => ({
   suggestDocumentType: (...args: unknown[]) => suggestDocumentType(...args),
@@ -83,7 +83,7 @@ beforeEach(() => {
     // Mission en cours par défaut : le dépôt s'arrête à la clôture (§12.5).
     missionAccess: "ACTIVE",
   });
-  extractText.mockResolvedValue("texte extrait");
+  extractMarkdown.mockResolvedValue("texte extrait");
   ingestDocumentVersion.mockResolvedValue({ documentVersionId: "dv-1" });
   recordAuditEvent.mockResolvedValue(undefined);
   prismaMock.document.upsert.mockResolvedValue({});
@@ -199,6 +199,6 @@ describe("uploadDocument — fin de mission", () => {
 
     expect(result).toMatchObject({ error: expect.stringContaining("terminé") });
     expect(ingestDocumentVersion).not.toHaveBeenCalled();
-    expect(extractText).not.toHaveBeenCalled();
+    expect(extractMarkdown).not.toHaveBeenCalled();
   });
 });

@@ -84,5 +84,16 @@ export function productionConfigWarnings(env: AppEnv): string[] {
     );
   }
 
+  // Non bloquant, contrairement à `anthropic` ci-dessus : la base de connaissances
+  // est un ENRICHISSEMENT de l'analyse documentaire (lib/knowledge/index.ts renvoie
+  // null sans elle), jamais une condition pour analyser un document. Sans clé, les
+  // documents de référence déposés dans la bibliothèque de modèles ne sont
+  // simplement pas indexés.
+  if (!env.voyage) {
+    warnings.push(
+      "Base de connaissances IA non configurée (VOYAGE_API_KEY) : les documents de référence de la bibliothèque de modèles ne sont pas indexés, l'analyse documentaire tourne sans enrichissement vectoriel."
+    );
+  }
+
   return warnings;
 }
