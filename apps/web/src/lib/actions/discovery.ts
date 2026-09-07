@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { requireCabinetAdminSession } from "@/lib/auth/guards";
 import {
+  isDiscoveryStarted,
   normaliseDiscoveryAnswers,
   parseDiscoverySubmission,
   type DiscoveryAnswers,
@@ -78,13 +79,13 @@ export async function saveDiscoveryAnswers(
   _prevState: { error: string } | { ok: true } | null,
   formData: FormData
 ): Promise<{ error: string } | { ok: true }> {
-  const { tenantId } = await requireCabinetAdminSession();
+  const { tenantId, userId } = await requireCabinetAdminSession();
 
   // `prospectId` vient d'une route HTTP publique : l'appartenance au tenant se
   // vérifie en base, elle ne se déduit pas du fait que l'écran l'a affiché.
   const existing = await prisma.prospect.findFirst({
     where: { id: prospectId, tenantId },
-    select: { id: true },
+    select: { id: true, status: true },
   });
   if (!existing) notFound();
 
@@ -96,10 +97,37 @@ export async function saveDiscoveryAnswers(
     )
   );
 
-  await prisma.prospect.update({
-    where: { id: prospectId },
-    data: { discoveryAnswersJson: answers, discoveryUpdatedAt: new Date() },
-  });
+  // « On a bien fait la réunion découverte, donc on n'en est plus à la préparer » —
+  // demande explicite du 07/09/2026. Sans ce passage, le statut restait bloqué sur
+  // NOUVEAU et l'action suivante affichée sur la fiche continuait de proposer de
+  // préparer une réunion déjà tenue. RDV existe déjà dans l'entonnoir (« Rendez-vous
+  // découverte ») : aucun nouvel état, juste le déclencheur qui manquait.
+  const shouldAdvanceToRdv = existing.status === "NOUVEAU" && isDiscoveryStarted(answers);
+
+  await prisma.$transaction([
+    prisma.prospect.update({
+      where: { id: prospectId },
+      data: {
+        discoveryAnswersJson: answers,
+        discoveryUpdatedAt: new Date(),
+        ...(shouldAdvanceToRdv && { status: "RDV" }),
+      },
+    }),
+    ...(shouldAdvanceToRdv
+      ? [
+          prisma.prospectTimelineEntry.create({
+            data: {
+              tenantId,
+              prospectId,
+              kind: "CHANGEMENT_STATUT",
+              authorUserId: userId,
+              statusFrom: existing.status,
+              statusTo: "RDV",
+            },
+          }),
+        ]
+      : []),
+  ]);
 
   revalidatePath(`${PROSPECT_LIST_PATH}/${prospectId}`);
   revalidatePath(`${PROSPECT_LIST_PATH}/${prospectId}/decouverte`);

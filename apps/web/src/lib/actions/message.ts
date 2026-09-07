@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { requireClientEstablishment, requireEstablishmentInTenant } from "@/lib/auth/guards";
 import {
   canClientPostMessage,
+  hasUnansweredMessage,
   sortThread,
   validateMessageBody,
 } from "@/lib/services/message-thread-service";
@@ -135,6 +136,23 @@ export async function getClientThread(): Promise<{
     messages: await readThread(establishment.id),
     canPost: canClientPostMessage(missionAccess),
   };
+}
+
+// Badge de la barre de navigation ("Mes échanges") : le dernier mot du fil
+// vient-il du cabinet ? Une seule ligne lue, pas tout le fil — ce n'est pas la
+// page du fil, juste un indicateur affiché sur chaque écran du portail.
+export async function getClientHasUnansweredMessage(): Promise<boolean> {
+  const { establishment } = await requireClientEstablishment();
+  if (!establishment) return false;
+
+  const last = await prisma.missionMessage.findFirst({
+    where: { establishmentId: establishment.id },
+    orderBy: { createdAt: "desc" },
+    select: { authorSide: true },
+  });
+  if (!last) return false;
+
+  return hasUnansweredMessage([last], "CLIENT");
 }
 
 export async function postClientMessage(

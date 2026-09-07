@@ -14,7 +14,7 @@ import { cn } from "@/lib/utils";
 // l'onglet actif) sans en partager le composant : les deux portails n'ont pas les
 // mêmes règles de visibilité, les fusionner ferait apparaître un jour un onglet
 // Cabinet dans la barre d'un client.
-export function ClientNav() {
+export function ClientNav({ hasUnansweredMessage = false }: { hasUnansweredMessage?: boolean }) {
   const pathname = usePathname();
 
   const tabs = [
@@ -61,8 +61,19 @@ export function ClientNav() {
                   : "border-transparent text-gris-mid hover:text-brun-ancre hover:border-gris-light"
               )}
             >
-              <Icon className="w-4 h-4" aria-hidden="true" />
+              <span className="relative">
+                <Icon className="w-4 h-4" aria-hidden="true" />
+                {href === "/dashboard/client/echanges" && hasUnansweredMessage && (
+                  <span
+                    className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-terre"
+                    aria-hidden="true"
+                  />
+                )}
+              </span>
               {label}
+              {href === "/dashboard/client/echanges" && hasUnansweredMessage && (
+                <span className="sr-only"> (nouveau message)</span>
+              )}
             </Link>
           );
         })}

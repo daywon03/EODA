@@ -24,6 +24,7 @@ import {
   Calendar,
   CalendarDays,
   FileBarChart,
+  FileText,
   Image as ImageIcon,
   MessagesSquare,
   Pencil,
@@ -299,6 +300,32 @@ export default async function EstablishmentDetailPage({ params }: Props) {
           </div>
         </CardContent>
       </Card>
+
+      {/* Accès direct au contrat depuis la fiche client (demande du 07/09/2026) : il
+          n'existait auparavant que niché dans l'onglet Mission. La route refuse
+          d'elle-même de produire un contrat sans devis signé (canIssueContract) —
+          rien à revérifier ici, le bouton reste toujours proposé. */}
+      {mission && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <FileText className="w-4 h-4 text-terre" aria-hidden="true" />
+              Contrat d&apos;accompagnement
+            </CardTitle>
+            <CardDescription>
+              Récapitule le devis signé — parties, objet, engagements réciproques.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button size="sm" variant="outline" asChild>
+              <a href={`/imprimer/contrat/${id}?auto=1`} target="_blank" rel="noopener noreferrer">
+                <FileText className="w-3.5 h-3.5" aria-hidden="true" />
+                Éditer le contrat
+              </a>
+            </Button>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Le rapport de mise en conformité — le livrable que le cabinet remet et que la
           structure archive. Seules les analyses RELUES y entrent. */}
