@@ -166,7 +166,7 @@ export async function createMission(
   });
 
   for (const path of missionPaths(establishmentId)) revalidatePath(path);
-  revalidatePath("/dashboard/client/accompagnement");
+  revalidatePath("/dashboard/client/contrat");
   return null;
 }
 
@@ -258,7 +258,7 @@ export async function updateMissionScope(
   });
 
   for (const path of missionPaths(mission.establishmentId)) revalidatePath(path);
-  revalidatePath("/dashboard/client/accompagnement");
+  revalidatePath("/dashboard/client/contrat");
   return null;
 }
 
@@ -289,6 +289,9 @@ export async function toggleChecklistItem(
   });
 
   for (const path of missionPaths(mission.establishmentId)) revalidatePath(path);
+  // Cocher un item change la progression affichée côté client sur « Mon suivi »
+  // (Phase X : Y %) — jusqu'ici seule la vue cabinet était invalidée.
+  revalidatePath("/dashboard/client/suivi");
   return null;
 }
 
@@ -398,9 +401,10 @@ async function requireMissionForClosure(missionId: string) {
 
 function revalidateAccessViews(establishmentId: string): void {
   for (const path of missionPaths(establishmentId)) revalidatePath(path);
-  // Les deux pages du portail client changent d'état en même temps.
+  // Toutes les pages du portail client changent d'état en même temps.
   revalidatePath("/dashboard/client");
-  revalidatePath("/dashboard/client/accompagnement");
+  revalidatePath("/dashboard/client/suivi");
+  revalidatePath("/dashboard/client/contrat");
 }
 
 // Clôture. Le dépôt s'arrête, la lecture continue : le client garde sa bibliothèque.
@@ -613,7 +617,7 @@ export async function getMissionDocumentCounters(
   const mission = await prisma.mission.findFirst({ where: { establishmentId, tenantId } });
   if (!mission) return null;
 
-  // Lecture partagée avec le portail client (« Mon accompagnement ») — les deux
+  // Lecture partagée avec le portail client (« Mon suivi ») — les deux
   // portails affichent les MÊMES compteurs, ils ne peuvent pas les calculer
   // séparément sans finir par diverger (D1).
   return readMissionDocumentCounters(establishmentId, mission.formule, mission.gratuit);
@@ -669,6 +673,6 @@ export async function setAvenantSigned(
   });
 
   for (const path of missionPaths(mission.establishmentId)) revalidatePath(path);
-  revalidatePath("/dashboard/client/accompagnement");
+  revalidatePath("/dashboard/client/contrat");
   return null;
 }

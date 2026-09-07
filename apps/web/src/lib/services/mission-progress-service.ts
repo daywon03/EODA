@@ -17,6 +17,23 @@ const PHASE_SCOPES: MissionChecklistScope[] = [
   "PREPARATION_FINALE",
 ];
 
+// Libellés et ordre d'affichage des phases — source unique, partagée entre la
+// fiche mission (cabinet) et le suivi de progression (client, portail "Mon
+// suivi"). Vivaient auparavant recopiés dans la page cabinet uniquement (D1).
+export const PHASE_LABELS: Record<Exclude<MissionChecklistScope, "DIAGNOSTIC">, string> = {
+  FONDATIONS: "Phase 1 — Fondations",
+  DEPLOIEMENT: "Phase 2 — Déploiement",
+  CONSOLIDATION: "Phase 3 — Consolidation",
+  PREPARATION_FINALE: "Phase 4 — Préparation finale",
+};
+
+export const PHASE_ORDER: Exclude<MissionChecklistScope, "DIAGNOSTIC">[] = [
+  "FONDATIONS",
+  "DEPLOIEMENT",
+  "CONSOLIDATION",
+  "PREPARATION_FINALE",
+];
+
 export type MissionItemProgress = {
   scope: MissionChecklistScope;
   minFormule: CommercialTier;

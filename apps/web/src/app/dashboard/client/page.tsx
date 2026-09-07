@@ -64,7 +64,7 @@ export default async function ClientDashboardPage() {
   }
 
   const categories = Object.keys(CATEGORY_LABELS) as DocumentCategory[];
-  // Comptage délégué au service partagé avec « Mon accompagnement » : les deux
+  // Comptage délégué au service partagé avec « Mon suivi » : les deux
   // pages du portail affichent les mêmes nombres, elles ne peuvent pas les
   // recalculer chacune de son côté sans finir par diverger (D1).
   const summary = summariseDocumentObligations(Object.values(checklist).flat());

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-// Cas de REFUS du portail « Mon accompagnement » (D7).
+// Cas de REFUS du portail « Mon suivi »/« Mon contrat » (D7).
 // Ce qui est vérifié ici, et nulle part ailleurs :
 //   - un CLIENT_USER ne lit JAMAIS le contrat d'un autre établissement : rien
 //     dans ce module n'accepte d'identifiant d'établissement, tout part du lien
