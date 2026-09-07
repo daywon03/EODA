@@ -52,6 +52,12 @@ export type AppEnv = {
 
   // Envoi d'email. Absent = journalisation console (développement uniquement).
   resend: { apiKey: string; from: string } | null;
+
+  // Embeddings (base de connaissances IA — recherche vectorielle sur les documents
+  // de référence de la bibliothèque de modèles). Absent = base de connaissances
+  // désactivée : l'analyse documentaire continue de fonctionner SANS enrichissement,
+  // c'est un renfort, jamais une condition (cf. lib/knowledge/index.ts).
+  voyage: { apiKey: string } | null;
 };
 
 class ConfigurationError extends Error {
@@ -130,6 +136,7 @@ export function getEnv(): AppEnv {
   );
 
   const anthropicApiKey = process.env.ANTHROPIC_API_KEY?.trim() || null;
+  const voyageApiKey = process.env.VOYAGE_API_KEY?.trim() || null;
   const nextAuthUrl = process.env.NEXTAUTH_URL?.trim() || null;
 
   if (problems.length > 0) throw new ConfigurationError(problems);
@@ -156,6 +163,7 @@ export function getEnv(): AppEnv {
     resend: resendGroup
       ? { apiKey: resendGroup.RESEND_API_KEY!, from: resendGroup.RESEND_FROM_EMAIL! }
       : null,
+    voyage: voyageApiKey ? { apiKey: voyageApiKey } : null,
   };
 
   return cached;

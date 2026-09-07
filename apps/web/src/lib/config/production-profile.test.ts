@@ -22,6 +22,7 @@ const COMPLETE: AppEnv = {
   },
   anthropic: { apiKey: "cle-anthropic", model: null },
   resend: { apiKey: "cle-resend", from: "contact@exemple.fr" },
+  voyage: { apiKey: "cle-voyage" },
 };
 
 describe("productionConfigProblems", () => {
@@ -98,8 +99,19 @@ describe("productionConfigWarnings", () => {
     expect(warnings[0]).toContain("AUCUNE analyse");
   });
 
+  it("avertit sans bloquer quand la base de connaissances IA n'est pas configurée", () => {
+    const warnings = productionConfigWarnings({ ...COMPLETE, voyage: null });
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0]).toContain("VOYAGE_API_KEY");
+  });
+
   it("cumule les avertissements sans en perdre", () => {
-    const warnings = productionConfigWarnings({ ...COMPLETE, anthropic: null, resend: null });
-    expect(warnings).toHaveLength(2);
+    const warnings = productionConfigWarnings({
+      ...COMPLETE,
+      anthropic: null,
+      resend: null,
+      voyage: null,
+    });
+    expect(warnings).toHaveLength(3);
   });
 });

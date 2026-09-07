@@ -263,6 +263,7 @@ model Tenant {
   missionMessages    MissionMessage[]
   templateDocuments  TemplateDocument[]
   templateCategories TemplateCategory[]
+  knowledgeChunks    KnowledgeChunk[]
 
   @@map("tenants")
 }
@@ -1489,10 +1490,43 @@ model TemplateVersion {
 
   templateDocument TemplateDocument @relation(fields: [templateDocumentId], references: [id], onDelete: Cascade)
   uploadedBy       User             @relation("TemplateUploadedBy", fields: [uploadedByUserId], references: [id])
+  knowledgeChunks  KnowledgeChunk[]
 
   // Le même libellé ne peut pas désigner deux fichiers différents au même stade.
   // PostgreSQL considère deux NULL comme distincts : un document de référence peut
   // donc porter plusieurs fichiers sans libellé, ce qui est le comportement voulu.
   @@unique([templateDocumentId, stage, versionLabel])
   @@map("template_versions")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// BASE DE CONNAISSANCES IA — chunks embeddés des documents de RÉFÉRENCE de la
+// bibliothèque de modèles (manuel HAS, textes réglementaires), pour enrichir
+// l'analyse documentaire du Module 1 par recherche vectorielle.
+//
+// `embedding` est un type Prisma `Unsupported` : Prisma Client ne sait ni le lire
+// ni l'écrire. Toute lecture/écriture passe par SQL brut (`$queryRaw`/`$executeRaw`)
+// dans `lib/knowledge/pgvector-knowledge-adapter.ts` et
+// `lib/services/knowledge-indexing-service.ts` — ce modèle existe pour que le
+// schéma déclare ce que la base contient réellement (cf. convention P6, dérive
+// schéma/base), pas pour être consommé via le client généré.
+//
+// Jamais alimentée par les documents CLIENTS (`Document`/`DocumentVersion`) : ce
+// sont les documents de référence, contrôlés par le cabinet, qui sont indexés.
+// ─────────────────────────────────────────────────────────────────────────────
+model KnowledgeChunk {
+  id                String   @id @default(cuid())
+  tenantId          String   @map("tenant_id")
+  templateVersionId String   @map("template_version_id")
+  chunkIndex        Int      @map("chunk_index")
+  content           String
+  embedding         Unsupported("vector(1024)")
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  tenant          Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  templateVersion TemplateVersion @relation(fields: [templateVersionId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([templateVersionId])
+  @@map("knowledge_chunks")
 }

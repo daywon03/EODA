@@ -18,12 +18,14 @@
     "@aws-sdk/client-s3": "^3.1080.0",
     "@aws-sdk/s3-request-presigner": "^3.1080.0",
     "@eoda/database": "workspace:*",
+    "@opendocsg/pdf2md": "^0.3.0",
     "@prisma/client": "^5.22.0",
     "@radix-ui/react-label": "^2.1.1",
     "@radix-ui/react-slot": "^1.1.1",
     "bcryptjs": "^2.4.3",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "exceljs": "^4.4.0",
     "lucide-react": "^0.469.0",
     "mammoth": "^1.12.0",
     "next": "^15.5.23",
@@ -33,7 +35,8 @@
     "react-dom": "^19.0.0",
     "resend": "^6.17.2",
     "styled-jsx": "^5.1.6",
-    "tailwind-merge": "^2.6.0"
+    "tailwind-merge": "^2.6.0",
+    "turndown": "^7.2.4"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.6",
@@ -41,14 +44,15 @@
     "@types/node": "^22.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
+    "@types/turndown": "^5.0.6",
     "@vitest/coverage-v8": "^4.1.11",
     "autoprefixer": "^10.4.20",
     "eslint": "^9.0.0",
     "eslint-config-next": "^15.3.3",
     "postcss": "^8.5.0",
     "tailwindcss": "^3.4.17",
+    "tsx": "^4.19.2",
     "typescript": "^5.7.0",
-    "vitest": "^4.1.11",
-    "tsx": "^4.19.2"
+    "vitest": "^4.1.11"
   }
 }

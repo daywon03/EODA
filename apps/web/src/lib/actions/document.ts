@@ -12,7 +12,7 @@ import { canDepositDocuments } from "@/lib/services/mission-access-service";
 import { canDeleteVersion,
   MAX_JUSTIFICATION_LENGTH,
 } from "@/lib/services/document-workflow-service";
-import { extractText } from "@/lib/services/text-extraction-service";
+import { extractMarkdown } from "@/lib/services/text-extraction-service";
 import { suggestDocumentType } from "@/lib/services/document-categorization-service";
 import { ingestDocumentVersion } from "@/lib/services/document-ingestion-service";
 import { recordAuditEvent } from "@/lib/services/audit-log-service";
@@ -87,7 +87,7 @@ export async function uploadDocument(formData: FormData): Promise<UploadDocument
   const validation = validateUploadedFile(buffer, file.size);
   if (!validation.ok) return { error: validation.error };
 
-  const extractedText = await extractText(buffer, validation.contentType);
+  const extractedText = await extractMarkdown(buffer, validation.contentType);
 
   const requestedTypeId = formData.get("documentTypeId");
   let documentTypeId = typeof requestedTypeId === "string" && requestedTypeId ? requestedTypeId : null;

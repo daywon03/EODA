@@ -44,7 +44,7 @@ export type DetectedFileType =
 // Formats dont le pipeline sait extraire du texte, donc analysables. Les autres sont
 // stockés comme pièces : les accepter sans le dire ferait attendre une analyse qui ne
 // viendrait jamais.
-const ANALYSABLE_TYPES: DetectedFileType[] = [PDF_MIME_TYPE, DOCX_MIME_TYPE];
+const ANALYSABLE_TYPES: DetectedFileType[] = [PDF_MIME_TYPE, DOCX_MIME_TYPE, XLSX_MIME_TYPE];
 
 export function isAnalysableType(type: DetectedFileType): boolean {
   return ANALYSABLE_TYPES.includes(type);

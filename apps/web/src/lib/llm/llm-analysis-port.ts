@@ -6,6 +6,11 @@ export type DocumentAnalysisInput = {
   documentTypeLabel: string;
   extractedText: string;
   linkedCriteriaLabels: string[];
+  // Extraits de la base de connaissances (documents de RÉFÉRENCE de la bibliothèque
+  // de modèles — manuel HAS, textes réglementaires), retrouvés par recherche
+  // vectorielle. Toujours optionnel : la base de connaissances est un
+  // enrichissement, l'analyse fonctionne sans (cf. lib/knowledge/index.ts).
+  knowledgeExcerpts?: string[];
 };
 
 export type DocumentAnalysisResult = {
