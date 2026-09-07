@@ -360,7 +360,7 @@ export async function requestOptionQuote(
     requestedByName: requester?.name ?? "un interlocuteur",
   });
 
-  revalidatePath("/dashboard/client/accompagnement");
+  revalidatePath("/dashboard/client/contrat");
   revalidatePath("/dashboard/cabinet");
   revalidatePath("/dashboard/cabinet/commercial");
 

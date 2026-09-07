@@ -123,7 +123,7 @@ export async function handleOptionRequest(
   });
 
   revalidatePath("/dashboard/cabinet/commercial");
-  revalidatePath("/dashboard/client/accompagnement");
+  revalidatePath("/dashboard/client/contrat");
 
   return { ok: true };
 }

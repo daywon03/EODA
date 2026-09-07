@@ -36,7 +36,7 @@ export default async function CommercialDashboardPage() {
     getProspectKpiCounts(),
     listDevisForKpi(),
     // Demandes d'options émises depuis les portails clients (§12.3) — la
-    // contrepartie interne du paywall « Mon accompagnement ».
+    // contrepartie interne du paywall « Mon contrat ».
     listPendingOptionRequests(),
     // L'aval de l'entonnoir : les fiches clients et l'état réel de leur
     // accompagnement. Sans elles, les indicateurs s'arrêtaient à la signature.

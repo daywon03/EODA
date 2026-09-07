@@ -2,19 +2,23 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { FileText, MessagesSquare, PackageOpen, ReceiptText } from "lucide-react";
+import { FileText, MessagesSquare, PackageOpen, ReceiptText, TrendingUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-// Navigation du portail client — quatre surfaces, et quatre seulement :
-//   « Mes documents »      : ce que je dépose (checklist documentaire) ;
-//   « Mes livrables »      : ce qu'EODA a produit et validé pour moi (CDC §5) ;
-//   « Mon accompagnement » : ce que j'ai souscrit et ce que je dois en retour ;
-//   « Mes échanges »       : le fil avec la consultante (CDC §5).
+// Navigation du portail client — cinq surfaces :
+//   « Mes documents » : ce que je dépose (checklist documentaire) ;
+//   « Mes livrables » : ce qu'EODA a produit et validé pour moi (CDC §5) ;
+//   « Mon suivi »     : où en est le projet — phases, progression documentaire ;
+//   « Mon contrat »   : ce que j'ai souscrit et son cadre financier ;
+//   « Mes échanges »  : le fil avec la consultante (CDC §5).
+// Décision du 07/09/2026 : « Mon accompagnement » mélangeait progression et
+// argent — scindé en « Mon suivi » (projet) et « Mon contrat » (finances), pour
+// qu'un client venu chercher une échéance ne traverse plus des montants.
 // Même structure visuelle que CabinetNav (charte EODA : soulignement terre sur
 // l'onglet actif) sans en partager le composant : les deux portails n'ont pas les
 // mêmes règles de visibilité, les fusionner ferait apparaître un jour un onglet
 // Cabinet dans la barre d'un client.
-export function ClientNav() {
+export function ClientNav({ hasUnansweredMessage = false }: { hasUnansweredMessage?: boolean }) {
   const pathname = usePathname();
 
   const tabs = [
@@ -31,10 +35,16 @@ export function ClientNav() {
       match: (p: string) => p.startsWith("/dashboard/client/livrables"),
     },
     {
-      href: "/dashboard/client/accompagnement",
-      label: "Mon accompagnement",
+      href: "/dashboard/client/suivi",
+      label: "Mon suivi",
+      icon: TrendingUp,
+      match: (p: string) => p.startsWith("/dashboard/client/suivi"),
+    },
+    {
+      href: "/dashboard/client/contrat",
+      label: "Mon contrat",
       icon: ReceiptText,
-      match: (p: string) => p.startsWith("/dashboard/client/accompagnement"),
+      match: (p: string) => p.startsWith("/dashboard/client/contrat"),
     },
     {
       href: "/dashboard/client/echanges",
@@ -61,8 +71,19 @@ export function ClientNav() {
                   : "border-transparent text-gris-mid hover:text-brun-ancre hover:border-gris-light"
               )}
             >
-              <Icon className="w-4 h-4" aria-hidden="true" />
+              <span className="relative">
+                <Icon className="w-4 h-4" aria-hidden="true" />
+                {href === "/dashboard/client/echanges" && hasUnansweredMessage && (
+                  <span
+                    className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-terre"
+                    aria-hidden="true"
+                  />
+                )}
+              </span>
               {label}
+              {href === "/dashboard/client/echanges" && hasUnansweredMessage && (
+                <span className="sr-only"> (nouveau message)</span>
+              )}
             </Link>
           );
         })}

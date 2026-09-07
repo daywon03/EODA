@@ -18,12 +18,14 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ProgressBar } from "@/components/ui/progress-bar";
 import { PageHeader } from "@/components/layout/PageHeader";
+import { SectionJumpMenu } from "@/components/layout/SectionJumpMenu";
 import { formatDate } from "@/lib/services/date-format-service";
 import {
   Building2,
   Calendar,
   CalendarDays,
   FileBarChart,
+  FileText,
   Image as ImageIcon,
   MessagesSquare,
   Pencil,
@@ -135,7 +137,24 @@ export default async function EstablishmentDetailPage({ params }: Props) {
         }
       />
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <SectionJumpMenu
+        sections={[
+          { id: "section-informations", label: "Informations" },
+          { id: "section-interlocuteurs", label: "Interlocuteurs client" },
+          { id: "section-mission", label: "Suivi de mission" },
+          ...(mission ? [{ id: "section-evaluation", label: "Auto-évaluation HAS" }] : []),
+          ...(mission ? [{ id: "section-contrat", label: "Contrat d'accompagnement" }] : []),
+          { id: "section-checklist", label: "Checklist documentaire" },
+          { id: "section-rapport", label: "Rapport de mise en conformité" },
+          { id: "section-echanges", label: "Échanges avec la structure" },
+          { id: "section-relance", label: "Relancer les pièces manquantes" },
+          { id: "section-logo", label: "Logo de la structure" },
+          { id: "section-rendezvous", label: "Rendez-vous" },
+          { id: "section-invitation", label: "Inviter un interlocuteur" },
+        ]}
+      />
+
+      <div id="section-informations" className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Infos établissement */}
         <Card>
           <CardHeader>
@@ -189,7 +208,7 @@ export default async function EstablishmentDetailPage({ params }: Props) {
         </Card>
 
         {/* Interlocuteurs */}
-        <Card>
+        <Card id="section-interlocuteurs">
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
               <Users className="w-4 h-4 text-terre" />
@@ -224,17 +243,19 @@ export default async function EstablishmentDetailPage({ params }: Props) {
       </div>
 
       {/* Suivi de mission */}
-      {mission ? (
-        <MissionSummaryCard
-          establishmentId={establishment.id}
-          mission={{ formule: mission.formule, gratuit: mission.gratuit, globalPct: mission.progress.globalPct }}
-        />
-      ) : (
-        <MissionSummaryCard establishmentId={establishment.id} mission={null} />
-      )}
+      <div id="section-mission">
+        {mission ? (
+          <MissionSummaryCard
+            establishmentId={establishment.id}
+            mission={{ formule: mission.formule, gratuit: mission.gratuit, globalPct: mission.progress.globalPct }}
+          />
+        ) : (
+          <MissionSummaryCard establishmentId={establishment.id} mission={null} />
+        )}
+      </div>
 
       {mission && (
-        <Card>
+        <Card id="section-evaluation">
           <CardHeader>
             <CardTitle className="text-base">Auto-évaluation HAS</CardTitle>
             <CardDescription>
@@ -262,7 +283,7 @@ export default async function EstablishmentDetailPage({ params }: Props) {
       )}
 
       {/* Checklist documentaire */}
-      <Card>
+      <Card id="section-checklist">
         <CardHeader>
           <CardTitle className="text-base">Checklist documentaire</CardTitle>
           <CardDescription>
@@ -300,9 +321,35 @@ export default async function EstablishmentDetailPage({ params }: Props) {
         </CardContent>
       </Card>
 
+      {/* Accès direct au contrat depuis la fiche client (demande du 07/09/2026) : il
+          n'existait auparavant que niché dans l'onglet Mission. La route refuse
+          d'elle-même de produire un contrat sans devis signé (canIssueContract) —
+          rien à revérifier ici, le bouton reste toujours proposé. */}
+      {mission && (
+        <Card id="section-contrat">
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <FileText className="w-4 h-4 text-terre" aria-hidden="true" />
+              Contrat d&apos;accompagnement
+            </CardTitle>
+            <CardDescription>
+              Récapitule le devis signé — parties, objet, engagements réciproques.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button size="sm" variant="outline" asChild>
+              <a href={`/imprimer/contrat/${id}?auto=1`} target="_blank" rel="noopener noreferrer">
+                <FileText className="w-3.5 h-3.5" aria-hidden="true" />
+                Éditer le contrat
+              </a>
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Le rapport de mise en conformité — le livrable que le cabinet remet et que la
           structure archive. Seules les analyses RELUES y entrent. */}
-      <Card>
+      <Card id="section-rapport">
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
             <FileBarChart className="w-4 h-4 text-terre" aria-hidden="true" />
@@ -325,7 +372,7 @@ export default async function EstablishmentDetailPage({ params }: Props) {
 
       {/* Fil d'échange avec la structure (CDC §5). Un fil par établissement : les
           échanges restent rattachés à la mission au lieu de se disperser en e-mails. */}
-      <Card>
+      <Card id="section-echanges">
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
             <MessagesSquare className="w-4 h-4 text-terre" aria-hidden="true" />
@@ -348,7 +395,7 @@ export default async function EstablishmentDetailPage({ params }: Props) {
       {/* Relance des pièces manquantes (§12.5). Un geste, jamais une horloge : la
           cadence n'a jamais été spécifiée (§12.7), et un rythme inventé serait soit
           inutile, soit harcelant. */}
-      <Card>
+      <Card id="section-relance">
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
             <Send className="w-4 h-4 text-terre" aria-hidden="true" />
@@ -366,7 +413,7 @@ export default async function EstablishmentDetailPage({ params }: Props) {
 
       {/* Identité visuelle de la structure — apposée sur les documents produits pour
           elle, à côté du logo EODA. */}
-      <Card>
+      <Card id="section-logo">
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
             <ImageIcon className="w-4 h-4 text-terre" aria-hidden="true" />
@@ -388,7 +435,7 @@ export default async function EstablishmentDetailPage({ params }: Props) {
 
       {/* Agenda de la structure — les points programmés avec elle, et de quoi en
           poser un nouveau. Le client verra les mêmes créneaux sur son portail. */}
-      <Card>
+      <Card id="section-rendezvous">
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
             <CalendarDays className="w-4 h-4 text-terre" aria-hidden="true" />
@@ -410,7 +457,7 @@ export default async function EstablishmentDetailPage({ params }: Props) {
       </Card>
 
       {/* Invitation */}
-      <Card>
+      <Card id="section-invitation">
         <CardHeader>
           <CardTitle className="text-base">Inviter un interlocuteur client</CardTitle>
           <CardDescription>

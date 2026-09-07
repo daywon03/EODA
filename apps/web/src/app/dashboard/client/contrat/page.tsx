@@ -2,21 +2,16 @@ import Link from "next/link";
 import {
   AlertTriangle,
   Building2,
-  CheckCircle2,
   FileSignature,
   FileText,
   Info,
-  MessageSquareWarning,
   Package,
   ReceiptText,
-  Search,
   ShieldAlert,
   Sparkles,
-  Upload,
 } from "lucide-react";
 import { getClientContract } from "@/lib/actions/client-contract";
 import { PageHeader } from "@/components/layout/PageHeader";
-import { ProgressBar } from "@/components/ui/progress-bar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { RequestOptionQuoteForm } from "@/components/client/RequestOptionQuoteForm";
@@ -28,7 +23,7 @@ import {
   SUBSCRIPTION_COMMITMENT_NOTICE,
 } from "@/lib/services/subscription-service";
 
-export const metadata = { title: "Mon accompagnement · EODA Conseil" };
+export const metadata = { title: "Mon contrat · EODA Conseil" };
 
 // « Ce que j'ai payé / ce que je dois donner en face. »
 // Périmètre visible par un CLIENT_USER : exception du 20/08/2026, .claude/CLAUDE.md §7.
@@ -67,17 +62,9 @@ function AmountTile({ label, value, hint }: { label: string; value: string; hint
   );
 }
 
-export default async function ClientAccompagnementPage() {
-  const {
-    establishment,
-    offer,
-    contract,
-    subscribedOptions,
-    availableOptions,
-    documents,
-    documentProgressPercent,
-    counters,
-  } = await getClientContract();
+export default async function ClientContratPage() {
+  const { establishment, offer, contract, subscribedOptions, availableOptions } =
+    await getClientContract();
 
   // Dégressivité de l'abonnement portail selon l'offre souscrite (§12.2).
   const subscriptionNotice = describeSubscriptionDiscount(offer?.formule ?? null);
@@ -85,7 +72,7 @@ export default async function ClientAccompagnementPage() {
   if (!establishment) {
     return (
       <div className="space-y-6">
-        <PageHeader title="Mon accompagnement" icon={ReceiptText} accent="ambre" />
+        <PageHeader title="Mon contrat" icon={ReceiptText} accent="ambre" />
         <div className="flex items-start gap-3 bg-ambre/10 border border-ambre/30 rounded-lg px-5 py-4">
           <AlertTriangle className="w-5 h-5 text-ambre flex-shrink-0 mt-0.5" aria-hidden="true" />
           <div className="text-sm">
@@ -103,38 +90,11 @@ export default async function ClientAccompagnementPage() {
     );
   }
 
-  const obligations = [
-    {
-      label: "À déposer",
-      value: documents.toDeposit,
-      icon: Upload,
-      color: "text-rouge-imp bg-rouge-imp/10",
-    },
-    {
-      label: "Commentés, en attente d'arbitrage",
-      value: documents.justified,
-      icon: MessageSquareWarning,
-      color: "text-ambre bg-ambre/10",
-    },
-    {
-      label: "Déposés, en cours de revue",
-      value: documents.inReview,
-      icon: Search,
-      color: "text-brun-moyen bg-gris-light",
-    },
-    {
-      label: "Conformes",
-      value: documents.compliant,
-      icon: CheckCircle2,
-      color: "text-vert-ok bg-vert-ok/10",
-    },
-  ];
-
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Mon accompagnement"
-        subtitle={`${establishment.name} — ce que vous avez souscrit, ce qu'il reste à fournir`}
+        title="Mon contrat"
+        subtitle={`${establishment.name} — ce que vous avez souscrit et son cadre financier`}
         icon={ReceiptText}
         accent="ambre"
       />
@@ -310,58 +270,12 @@ export default async function ClientAccompagnementPage() {
         )}
       </section>
 
-      {/* ── 4. Ce que vous devez fournir ─────────────────────────────────── */}
-      <section className="bg-white border border-gris-light rounded-xl p-5 space-y-4">
-        <SectionTitle
-          icon={FileText}
-          title="Ce que vous devez fournir"
-          hint="La contrepartie documentaire de votre offre — seules les pièces couvertes par votre formule sont demandées."
-        />
+      {/* Le suivi documentaire (progression, pièces à déposer) a déménagé dans
+          l'onglet « Mon suivi » (07/09/2026) : cet onglet ne parle plus que du
+          cadre contractuel et financier — un client qui vient chercher ses
+          montants ne doit plus traverser un indicateur de dépôt de documents. */}
 
-        <div className="flex items-center justify-between text-sm">
-          <span className="font-medium text-brun-ancre">Progression documentaire</span>
-          <span className="text-gris-mid tabular-nums">
-            {documents.compliant} / {documents.total} pièces conformes
-          </span>
-        </div>
-        <ProgressBar value={documentProgressPercent} colorClassName="bg-vert-ok" />
-
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 pt-1">
-          {obligations.map(({ label, value, icon: Icon, color }) => (
-            <div key={label} className="flex items-start gap-2.5">
-              <span
-                className={`flex items-center justify-center w-8 h-8 rounded-lg flex-shrink-0 ${color}`}
-              >
-                <Icon className="w-4 h-4" aria-hidden="true" />
-              </span>
-              <div className="min-w-0">
-                <p className="text-sm font-semibold text-brun-ancre tabular-nums leading-none">
-                  {value}
-                </p>
-                <p className="text-xs text-gris-mid leading-tight mt-1">{label}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {counters && (
-          <p className="text-xs text-gris-mid border-t border-gris-light pt-3">
-            Traitement EODA sur vos dépôts : {counters.deposited} document
-            {counters.deposited > 1 ? "s" : ""} déposé{counters.deposited > 1 ? "s" : ""} ·{" "}
-            {counters.analyzed} analysé{counters.analyzed > 1 ? "s" : ""} · {counters.modified} mis
-            à jour · {counters.compliant} conforme{counters.compliant > 1 ? "s" : ""}.
-          </p>
-        )}
-
-        <Button variant="outline" size="sm" asChild>
-          <Link href="/dashboard/client">
-            <Upload className="w-3.5 h-3.5" aria-hidden="true" />
-            Déposer mes documents
-          </Link>
-        </Button>
-      </section>
-
-      {/* ── 5. Ce qui n'est pas dans votre offre ─────────────────────────── */}
+      {/* ── 4. Ce qui n'est pas dans votre offre ─────────────────────────── */}
       <section className="bg-white border border-gris-light rounded-xl p-5 space-y-4">
         <SectionTitle
           icon={Building2}

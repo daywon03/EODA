@@ -17,25 +17,12 @@ import { MissionClosureSection } from "@/components/mission/MissionClosureSectio
 import { Button } from "@/components/ui/button";
 import { FileSignature, FileText } from "lucide-react";
 import { needsAvenant } from "@/lib/services/avenant-service";
+import { PHASE_LABELS, PHASE_ORDER } from "@/lib/services/mission-progress-service";
 import { AvenantSignatureToggle } from "@/components/mission/AvenantSignatureToggle";
 import { auth } from "@/auth";
 import type { MissionChecklistScope } from "@eoda/database";
 
 type Props = { params: Promise<{ id: string }> };
-
-const PHASE_LABELS: Record<Exclude<MissionChecklistScope, "DIAGNOSTIC">, string> = {
-  FONDATIONS: "Phase 1 — Fondations",
-  DEPLOIEMENT: "Phase 2 — Déploiement",
-  CONSOLIDATION: "Phase 3 — Consolidation",
-  PREPARATION_FINALE: "Phase 4 — Préparation finale",
-};
-
-const PHASE_ORDER: Exclude<MissionChecklistScope, "DIAGNOSTIC">[] = [
-  "FONDATIONS",
-  "DEPLOIEMENT",
-  "CONSOLIDATION",
-  "PREPARATION_FINALE",
-];
 
 const PHASE_DATE_FIELDS: Record<
   Exclude<MissionChecklistScope, "DIAGNOSTIC">,

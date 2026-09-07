@@ -10,7 +10,7 @@ import {
 // modifiés / conformes, §12.4) pour un établissement dont l'offre est déjà connue.
 //
 // Ce module existe parce que DEUX portails affichent les mêmes compteurs : le
-// suivi de mission côté Cabinet (lib/actions/mission.ts) et « Mon accompagnement »
+// suivi de mission côté Cabinet (lib/actions/mission.ts) et « Mon suivi »
 // côté client (lib/actions/client-contract.ts). Deux requêtes parallèles finiraient
 // par diverger — l'une filtrerait par catégorie couverte, l'autre l'oublierait, et
 // le client verrait un compteur que Sandrine ne voit pas (D1).
