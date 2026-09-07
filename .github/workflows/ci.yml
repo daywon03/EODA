@@ -20,7 +20,10 @@ jobs:
 
     services:
       postgres:
-        image: postgres:16-alpine
+        # pgvector/pgvector, pas postgres:16-alpine : la migration
+        # 20260906220000_knowledge_chunks fait `CREATE EXTENSION vector`, absente de
+        # l'image Postgres standard. Image officielle pgvector, même version majeure.
+        image: pgvector/pgvector:pg16
         env:
           POSTGRES_USER: eoda
           POSTGRES_PASSWORD: eoda_dev
