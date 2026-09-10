@@ -1543,6 +1543,13 @@ model TemplateVersion {
   contentType      String @map("content_type")
   sizeBytes        Int    @map("size_bytes")
 
+  // Texte extrait (Markdown) au dépôt — pour un GABARIT comme pour un document de
+  // RÉFÉRENCE, indépendamment de l'indexation dans la base de connaissances
+  // (réservée aux références, cf. KnowledgeChunk). Permet de consulter le contenu
+  // directement dans la plateforme, sans téléchargement (demande de Damon,
+  // 10/09/2026). `null` pour un format non analysable (image, .doc/.xls ancien).
+  extractedText String? @map("extracted_text")
+
   uploadedByUserId String   @map("uploaded_by_user_id")
   createdAt        DateTime @default(now()) @map("created_at")
 

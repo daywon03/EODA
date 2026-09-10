@@ -26,6 +26,7 @@ import {
 import { getFileStoragePort } from "@/lib/storage";
 import { getLLMAnalysisPort, isKnownLlmModelId } from "@/lib/llm";
 import { validateGuidelineNote } from "@/lib/services/criterion-guideline-service";
+import type { FilePreviewData } from "@/lib/services/file-preview-types";
 
 // Cette action reste volontairement mince : autorisation → validation → délégation
 // au service d'ingestion → invalidation de cache. La séquence métier (versioning,
@@ -302,14 +303,11 @@ export async function getDocumentDownloadUrl(documentVersionId: string): Promise
 // proposé au téléchargement par le système, quel que soit le Content-Disposition.
 // Pour les .docx, l'aperçu affiche donc le texte déjà extrait à l'upload
 // (mammoth, cf. text-extraction-service) plutôt que le fichier brut.
-export type DocumentPreviewData =
-  | { kind: "pdf"; url: string; filename: string }
-  | { kind: "text"; text: string; filename: string }
-  | { kind: "unavailable"; filename: string };
+export type { FilePreviewData as DocumentPreviewData } from "@/lib/services/file-preview-types";
 
 export async function getDocumentPreviewData(
   documentVersionId: string
-): Promise<DocumentPreviewData | null> {
+): Promise<FilePreviewData | null> {
   const authorized = await getAuthorizedDocumentVersion(documentVersionId);
   if (!authorized) return null;
 
