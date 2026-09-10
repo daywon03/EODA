@@ -5,7 +5,9 @@ import { revalidatePath } from "next/cache";
 import { notFound } from "next/navigation";
 import {
   requireCabinetAdminSession,
+  requireCabinetSession,
   requireEstablishmentAccess,
+  tryCabinetSession,
   tryEstablishmentAccess,
 } from "@/lib/auth/guards";
 import { canDepositDocuments } from "@/lib/services/mission-access-service";
@@ -22,7 +24,8 @@ import {
   isCategoryCoveredForEstablishment,
 } from "@/lib/services/establishment-offer-service";
 import { getFileStoragePort } from "@/lib/storage";
-import { getLLMAnalysisPort } from "@/lib/llm";
+import { getLLMAnalysisPort, isKnownLlmModelId } from "@/lib/llm";
+import { validateGuidelineNote } from "@/lib/services/criterion-guideline-service";
 
 // Cette action reste volontairement mince : autorisation → validation → délégation
 // au service d'ingestion → invalidation de cache. La séquence métier (versioning,
@@ -120,6 +123,14 @@ export async function uploadDocument(formData: FormData): Promise<UploadDocument
     return { error: OUT_OF_OFFER_ERROR };
   }
 
+  // Entrée non fiable (S8) : un identifiant de modèle hors du catalogue figé est
+  // ignoré plutôt que transmis tel quel — l'adaptateur appliquera son défaut.
+  const requestedModelId = formData.get("modelId");
+  const modelId =
+    typeof requestedModelId === "string" && isKnownLlmModelId(requestedModelId)
+      ? requestedModelId
+      : null;
+
   const result = await ingestDocumentVersion(
     {
       establishmentId,
@@ -130,6 +141,7 @@ export async function uploadDocument(formData: FormData): Promise<UploadDocument
       originalFilename: file.name,
       uploadedByUserId: access.userId,
       extractedText,
+      modelId,
     },
     { storage: getFileStoragePort(), llm: getLLMAnalysisPort() }
   );
@@ -329,6 +341,35 @@ export async function getDocumentPreviewData(
   return { kind: "unavailable", filename: version.originalFilename };
 }
 
+// ── Texte extrait (Markdown) — vérification de l'extraction, côté CABINET ────
+//
+// Contrairement à `getDocumentPreviewData` ci-dessus (qui ne montre le texte extrait
+// que pour les formats qu'un navigateur ne sait pas rendre nativement), celui-ci
+// montre TOUJOURS le texte extrait, y compris pour un PDF — c'est exactement ce que
+// l'IA a reçu à analyser, et c'est ce que Sandrine doit pouvoir comparer à l'original
+// pour repérer une extraction manquée (page scannée, tableau mal reconnu) avant de
+// faire confiance à une analyse qui s'appuierait dessus.
+//
+// Réservé au cabinet : c'est un outil de vérification interne du pipeline IA, pas une
+// pièce à restituer au client.
+export type ExtractedTextData =
+  | { text: string; filename: string }
+  | { error: string };
+
+export async function getExtractedText(documentVersionId: string): Promise<ExtractedTextData | null> {
+  const authorized = await getAuthorizedDocumentVersion(documentVersionId);
+  if (!authorized) return null;
+
+  const { version, access } = authorized;
+  if (access.isClient) return null;
+
+  if (!version.extractedText) {
+    return { error: "Aucun texte n'a pu être extrait de ce document (format image, ou extraction échouée)." };
+  }
+
+  return { text: version.extractedText, filename: version.originalFilename };
+}
+
 
 // ── Suppression d'une version de document ────────────────────────────────────
 // Un fichier déposé sur le mauvais établissement — donc le document d'un AUTRE
@@ -512,6 +553,89 @@ export async function setAnalysisReviewed(
 
   revalidateDocumentViews(version.document.establishmentId);
   return null;
+}
+
+// ── Guidelines du cabinet sur l'analyse IA ───────────────────────────────────
+//
+// « Que la base de connaissance apprenne des commentaires que mettra Sandrine lors
+// des analyses, pour ne pas refaire les mêmes erreurs » (Damon, 10/09/2026), ANCRÉES
+// SUR LE CRITÈRE HAS plutôt que le type de document — cf. CriterionGuideline dans le
+// schéma pour le raisonnement complet, et specs/04-liaison-document-type-critere.md
+// pour la limite actuelle : `document_type_criteria` est vide, donc le critère ne se
+// déduit pas encore automatiquement du document analysé. En attendant, la
+// consultante choisit elle-même le critère concerné dans la liste — d'où
+// `listCriteriaForPicker` ci-dessous.
+//
+// Réservé au cabinet, tenant entier (comme la bibliothèque de modèles) : PAS lié à
+// un établissement ni à une version de document précise, contrairement à
+// setAnalysisReviewed ci-dessus — une guideline vaut pour tous les clients.
+//
+// Append-only : aucune action de modification ni de suppression n'est exposée. Une
+// guideline est une leçon retenue à une date donnée, pas un champ à corriger.
+export type CriterionOption = { id: string; code: string; label: string };
+
+export type CriterionGuidelineItem = {
+  id: string;
+  note: string;
+  createdAt: Date;
+  createdByName: string;
+};
+
+export async function listCriteriaForPicker(): Promise<CriterionOption[] | null> {
+  const cabinet = await tryCabinetSession();
+  if (!cabinet) return null;
+
+  const criteria = await prisma.criterion.findMany({
+    orderBy: { code: "asc" },
+    select: { id: true, code: true, label: true },
+  });
+  return criteria;
+}
+
+export async function addCriterionGuideline(
+  criterionId: string,
+  note: string
+): Promise<{ error: string } | null> {
+  const validated = validateGuidelineNote(note);
+  if (!validated.ok) return { error: validated.error };
+
+  const { tenantId, userId, session } = await requireCabinetSession();
+
+  const criterion = await prisma.criterion.findUnique({ where: { id: criterionId }, select: { id: true } });
+  if (!criterion) return { error: "Critère invalide." };
+
+  await prisma.criterionGuideline.create({
+    data: { tenantId, criterionId, note: validated.value, createdByUserId: userId },
+  });
+
+  await recordAuditEvent({
+    action: "CRITERION_GUIDELINE_ADDED",
+    actorUserId: userId,
+    actorRole: session.user.role,
+    targetId: criterionId,
+  });
+
+  return null;
+}
+
+export async function listCriterionGuidelines(
+  criterionId: string
+): Promise<CriterionGuidelineItem[] | null> {
+  const cabinet = await tryCabinetSession();
+  if (!cabinet) return null;
+
+  const guidelines = await prisma.criterionGuideline.findMany({
+    where: { tenantId: cabinet.tenantId, criterionId },
+    orderBy: { createdAt: "desc" },
+    include: { createdBy: { select: { name: true } } },
+  });
+
+  return guidelines.map((g) => ({
+    id: g.id,
+    note: g.note,
+    createdAt: g.createdAt,
+    createdByName: g.createdBy.name,
+  }));
 }
 
 // ── Validation d'un document ─────────────────────────────────────────────────

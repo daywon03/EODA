@@ -5,6 +5,7 @@ import { anonymizeText } from "@/lib/services/anonymization-service";
 import { deriveDocumentStatus } from "@/lib/services/document-status-service";
 import { buildStorageKey } from "@/lib/security/upload-validation-service";
 import { getKnowledgeRetrievalPort } from "@/lib/knowledge";
+import { MAX_GUIDELINES_INJECTED } from "@/lib/services/criterion-guideline-service";
 
 const KNOWLEDGE_EXCERPTS_LIMIT = 5;
 
@@ -35,6 +36,9 @@ export type IngestDocumentInput = {
   originalFilename: string;
   uploadedByUserId: string;
   extractedText: string | null;
+  // Modèle demandé pour l'analyse (cf. lib/llm/openrouter-models.ts) — comparaison
+  // IA à l'upload. `null`/absent : l'adaptateur actif applique son propre défaut.
+  modelId?: string | null;
 };
 
 export type IngestDocumentOutput = {
@@ -119,6 +123,7 @@ export async function ingestDocumentVersion(
       documentTypeLabel: input.documentTypeLabel,
       documentTypeId: input.documentTypeId,
       extractedText: input.extractedText,
+      ...(input.modelId !== undefined && { modelId: input.modelId }),
     },
     ports.llm
   );
@@ -137,15 +142,29 @@ async function analyzeVersion(
     documentTypeId: string;
     documentTypeLabel: string;
     extractedText: string | null;
+    modelId?: string | null;
   },
   llm: LLMAnalysisPort
 ): Promise<boolean> {
   try {
-    const linkedCriteria = await prisma.documentTypeCriterion.findMany({
-      where: { documentTypeId: params.documentTypeId },
-      include: { criterion: { select: { label: true } } },
-    });
+    const [linkedCriteria, establishment] = await Promise.all([
+      prisma.documentTypeCriterion.findMany({
+        where: { documentTypeId: params.documentTypeId },
+        include: { criterion: { select: { id: true, label: true } } },
+      }),
+      prisma.establishment.findUnique({
+        where: { id: params.establishmentId },
+        select: { tenantId: true },
+      }),
+    ]);
     const criteriaLabels = linkedCriteria.map((c) => c.criterion.label);
+    const criterionIds = linkedCriteria.map((c) => c.criterion.id);
+    const tenantId = establishment?.tenantId ?? null;
+
+    const [knowledgeExcerpts, criterionGuidelines] = await Promise.all([
+      fetchKnowledgeExcerpts(tenantId, params.documentTypeLabel, criteriaLabels),
+      fetchCriterionGuidelines(tenantId, criterionIds),
+    ]);
 
     const analysis = await llm.analyze({
       documentTypeLabel: params.documentTypeLabel,
@@ -153,11 +172,9 @@ async function analyzeVersion(
       // (contrainte RGPD, cf. anonymization-service.ts).
       extractedText: anonymizeText(params.extractedText ?? ""),
       linkedCriteriaLabels: criteriaLabels,
-      knowledgeExcerpts: await fetchKnowledgeExcerpts(
-        params.establishmentId,
-        params.documentTypeLabel,
-        criteriaLabels
-      ),
+      knowledgeExcerpts,
+      criterionGuidelines,
+      ...(params.modelId && { modelId: params.modelId }),
     });
 
     await prisma.documentVersion.update({
@@ -185,25 +202,49 @@ async function analyzeVersion(
 // échouer l'analyse elle-même — seulement la priver d'enrichissement, comme si
 // VOYAGE_API_KEY n'était simplement pas configurée.
 async function fetchKnowledgeExcerpts(
-  establishmentId: string,
+  tenantId: string | null,
   documentTypeLabel: string,
   criteriaLabels: string[]
 ): Promise<string[]> {
+  if (!tenantId) return [];
   const knowledge = getKnowledgeRetrievalPort();
   if (!knowledge) return [];
 
   try {
-    const establishment = await prisma.establishment.findUnique({
-      where: { id: establishmentId },
-      select: { tenantId: true },
-    });
-    if (!establishment) return [];
-
     const query = [documentTypeLabel, ...criteriaLabels].join(" ; ");
-    const excerpts = await knowledge.search(establishment.tenantId, query, KNOWLEDGE_EXCERPTS_LIMIT);
+    const excerpts = await knowledge.search(tenantId, query, KNOWLEDGE_EXCERPTS_LIMIT);
     return excerpts.map((excerpt) => excerpt.content);
   } catch (error) {
     console.error("Base de connaissances IA — recherche échouée, analyse sans enrichissement :", error);
+    return [];
+  }
+}
+
+// Même principe de repli : une base de connaissances qui apprend des guidelines du
+// cabinet est un enrichissement, jamais une condition — une panne ici ne doit
+// jamais faire échouer l'analyse elle-même (cf. fetchKnowledgeExcerpts ci-dessus).
+//
+// `criterionIds` vient de document_type_criteria — VIDE aujourd'hui pour tout type
+// de document (cf. specs/04-liaison-document-type-critere.md) : cette fonction
+// rend alors `[]` sans même interroger la base, exactement comme si aucune
+// guideline n'existait. Elle commencera à en rappeler dès que cette table sera
+// peuplée, sans qu'aucune ligne de ce fichier n'ait besoin de changer.
+async function fetchCriterionGuidelines(
+  tenantId: string | null,
+  criterionIds: string[]
+): Promise<string[]> {
+  if (!tenantId || criterionIds.length === 0) return [];
+
+  try {
+    const guidelines = await prisma.criterionGuideline.findMany({
+      where: { tenantId, criterionId: { in: criterionIds } },
+      orderBy: { createdAt: "desc" },
+      take: MAX_GUIDELINES_INJECTED,
+      select: { note: true },
+    });
+    return guidelines.map((g) => g.note);
+  } catch (error) {
+    console.error("Guidelines du cabinet — lecture échouée, analyse sans elles :", error);
     return [];
   }
 }

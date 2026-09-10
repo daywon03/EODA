@@ -11,6 +11,16 @@ export type DocumentAnalysisInput = {
   // vectorielle. Toujours optionnel : la base de connaissances est un
   // enrichissement, l'analyse fonctionne sans (cf. lib/knowledge/index.ts).
   knowledgeExcerpts?: string[];
+  // Modèle demandé par l'appelant (cf. lib/llm/openrouter-models.ts), pour comparer
+  // les résultats entre IA sur un même document. Honoré uniquement par un
+  // adaptateur multi-modèles (OpenRouterAnalysisAdapter) ; un adaptateur à modèle
+  // fixe (AnthropicAnalysisAdapter) l'ignore silencieusement.
+  modelId?: string;
+  // Guidelines que le cabinet a ajoutées sur les critères HAS rattachés à ce
+  // document (cf. CriterionGuideline) — les plus récentes d'abord. Toujours
+  // optionnel : sans guideline, l'analyse fonctionne comme avant (cf.
+  // criterion-guideline-service.ts).
+  criterionGuidelines?: string[];
 };
 
 export type DocumentAnalysisResult = {

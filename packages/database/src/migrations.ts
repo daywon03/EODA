@@ -61,4 +61,8 @@ export const EXPECTED_MIGRATIONS: readonly string[] = [
   "20260904090000_template_library_categories",
   "20260904090100_template_library_audit",
   "20260906220000_knowledge_chunks",
+  "20260910130000_document_type_corrections",
+  "20260910130100_document_type_correction_audit",
+  "20260910140000_criterion_guideline_audit",
+  "20260910140100_criterion_guidelines",
 ] as const;

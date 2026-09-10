@@ -50,6 +50,11 @@ export type AppEnv = {
   // Analyse documentaire IA. Absent = StubAnalysisAdapter (développement uniquement).
   anthropic: { apiKey: string; model: string | null } | null;
 
+  // Analyse documentaire IA via OpenRouter — passerelle multi-modèles (comparaison
+  // Claude/MiniMax/Qwen/Kimi, cf. lib/llm/openrouter-models.ts). Prend le pas sur
+  // `anthropic` ci-dessus quand renseignée (cf. lib/llm/index.ts).
+  openrouter: { apiKey: string } | null;
+
   // Envoi d'email. Absent = journalisation console (développement uniquement).
   resend: { apiKey: string; from: string } | null;
 
@@ -136,6 +141,7 @@ export function getEnv(): AppEnv {
   );
 
   const anthropicApiKey = process.env.ANTHROPIC_API_KEY?.trim() || null;
+  const openrouterApiKey = process.env.OPENROUTER_API_KEY?.trim() || null;
   const voyageApiKey = process.env.VOYAGE_API_KEY?.trim() || null;
   const nextAuthUrl = process.env.NEXTAUTH_URL?.trim() || null;
 
@@ -160,6 +166,7 @@ export function getEnv(): AppEnv {
     anthropic: anthropicApiKey
       ? { apiKey: anthropicApiKey, model: process.env.ANTHROPIC_MODEL?.trim() || null }
       : null,
+    openrouter: openrouterApiKey ? { apiKey: openrouterApiKey } : null,
     resend: resendGroup
       ? { apiKey: resendGroup.RESEND_API_KEY!, from: resendGroup.RESEND_FROM_EMAIL! }
       : null,

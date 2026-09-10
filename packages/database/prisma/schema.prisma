@@ -264,6 +264,7 @@ model Tenant {
   templateDocuments  TemplateDocument[]
   templateCategories TemplateCategory[]
   knowledgeChunks    KnowledgeChunk[]
+  criterionGuidelines CriterionGuideline[]
 
   @@map("tenants")
 }
@@ -304,6 +305,7 @@ model User {
   validatedDocuments  Document[]              @relation("DocumentValidatedBy")
   missionMessages     MissionMessage[]
   uploadedTemplates   TemplateVersion[]       @relation("TemplateUploadedBy")
+  criterionGuidelines CriterionGuideline[]
 
   @@index([tenantId])
   @@map("users")
@@ -445,6 +447,7 @@ model Criterion {
   objective          Objective               @relation(fields: [objectiveId], references: [id])
   evaluationElements EvaluationElement[]
   documentTypes      DocumentTypeCriterion[]
+  guidelines         CriterionGuideline[]
 
   @@index([objectiveId])
   @@map("criteria")
@@ -497,6 +500,52 @@ model DocumentType {
   Document  Document[]
 
   @@map("document_types")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GUIDELINES DU CABINET SUR L'ANALYSE IA — la base de connaissances apprend des
+// erreurs constatées par Sandrine, PAR CRITÈRE HAS (demande de Damon, 10/09/2026,
+// affinée le même jour : ancrée sur le critère plutôt que le type de document, un
+// même critère étant rattaché à plusieurs types via DocumentTypeCriterion — une
+// leçon apprise sur le DIPC doit aussi valoir pour tout autre document qui répond
+// au même critère, pas seulement être ressaisie type par type).
+//
+// Volontairement PAS un mécanisme de recherche vectorielle comme KnowledgeChunk :
+// une correction sur un critère doit être rappelée à CHAQUE analyse d'un document
+// qui s'y rattache, pas seulement quand une similarité sémantique la fait remonter
+// — prévisible, sans dépendance à Voyage, et gratuit à interroger.
+//
+// Portée TENANT (pas établissement) : l'erreur constatée sur un client doit
+// profiter à l'analyse de TOUS les clients suivants — « pour ne pas refaire les
+// mêmes lors des analyses de documents des clients ».
+//
+// COURTE délibérément (cf. CriterionGuidelineService.MAX_GUIDELINE_LENGTH) : un
+// aide-mémoire d'une phrase, pas un commentaire libre — un modèle retient mieux
+// cinq phrases courtes qu'un paragraphe dense, et ça borne la taille du prompt
+// quel que soit le nombre de guidelines accumulées.
+//
+// Append-only, comme ProspectTimelineEntry : aucune action de modification ni de
+// suppression n'est exposée. Une correction qui se réécrit ne prouve plus qu'on a
+// appris quelque chose à une date donnée.
+model CriterionGuideline {
+  id              String   @id @default(cuid())
+  tenantId        String   @map("tenant_id")
+  criterionId     String   @map("criterion_id")
+  note            String
+  createdByUserId String   @map("created_by_user_id")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  tenant      Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  criterion   Criterion @relation(fields: [criterionId], references: [id], onDelete: Cascade)
+  createdBy   User      @relation(fields: [createdByUserId], references: [id])
+
+  // Requête de réinjection : les N guidelines les plus récentes pour un tenant et
+  // un critère donnés — cet index composite la sert directement. L'index simple
+  // sur criterionId n'est là que pour la convention P6 (couverture de la clé
+  // étrangère) : la requête réelle passe par le composite ci-dessus.
+  @@index([tenantId, criterionId, createdAt])
+  @@index([criterionId])
+  @@map("criterion_guidelines")
 }
 
 model DocumentTypeCriterion {
@@ -1298,6 +1347,15 @@ enum AuditAction {
   // Relance des pièces manquantes envoyée aux interlocuteurs d'une structure.
   // `detail` = le nombre de pièces et de destinataires, jamais leurs adresses.
   DOCUMENT_REMINDER_SENT
+  // Superseded le jour même par CRITERION_GUIDELINE_ADDED ci-dessous (ancrage
+  // repensé sur le critère plutôt que le type de document) — jamais utilisée en
+  // pratique (aucune ligne écrite), conservée telle quelle : PostgreSQL ne permet
+  // pas de retirer une valeur d'enum sans reconstruire le type.
+  DOCUMENT_TYPE_CORRECTION_ADDED
+  // Guideline du cabinet sur une analyse IA, rattachée à un CRITÈRE HAS (§ base de
+  // connaissances qui apprend des erreurs constatées). `targetId` = identifiant du
+  // critère, jamais le contenu de la guideline.
+  CRITERION_GUIDELINE_ADDED
 }
 
 model AuditLogEntry {
