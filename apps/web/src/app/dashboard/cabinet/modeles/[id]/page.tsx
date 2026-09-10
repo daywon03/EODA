@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { CollapsibleSection } from "@/components/ui/collapsible-section";
 import { TemplateVersionUpload } from "@/components/modeles/TemplateVersionUpload";
 import { TemplateDownloadLink } from "@/components/modeles/TemplateDownloadLink";
+import { TemplatePreviewLink } from "@/components/modeles/TemplatePreviewLink";
 import { DeleteTemplateVersionButton } from "@/components/modeles/DeleteTemplateVersionButton";
 import { DeleteTemplateButton } from "@/components/modeles/DeleteTemplateButton";
 import { MoveTemplateForm } from "@/components/modeles/MoveTemplateForm";
@@ -188,6 +189,7 @@ function VersionList({
               </p>
             </div>
             <div className="flex flex-shrink-0 items-center gap-3">
+              <TemplatePreviewLink versionId={version.id} />
               <TemplateDownloadLink versionId={version.id} />
               {isAdmin && (
                 <DeleteTemplateVersionButton

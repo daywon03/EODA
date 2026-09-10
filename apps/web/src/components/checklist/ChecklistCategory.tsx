@@ -189,6 +189,7 @@ export function ChecklistCategory({
                   <DocumentUploadButton
                     establishmentId={establishmentId}
                     documentTypeId={item.documentTypeId}
+                    showModelSelector={canManageVersions}
                   />
                 )}
               </div>

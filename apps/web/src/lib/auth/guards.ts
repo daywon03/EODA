@@ -173,6 +173,23 @@ export async function requireCabinetSession(): Promise<CabinetContext> {
   return { session, userId: session.user.id, tenantId: user.tenantId };
 }
 
+// Variante non-redirigeante de requireCabinetSession() — mêmes contrôles, mais pour
+// les actions appelées depuis un composant client qui doivent répondre `null` plutôt
+// que déclencher une navigation (même raison d'être que tryEstablishmentAccess
+// ci-dessous).
+export async function tryCabinetSession(): Promise<CabinetContext | null> {
+  const session = await auth();
+  if (!session) return null;
+
+  const user = await resolveUser(session.user.id);
+  if (!user) return null;
+  if (isAccountRevoked(user) || user.mustChangePassword || isSessionStale(session, user)) return null;
+  if (user.role === "CLIENT_USER") return null;
+  if (!user.tenantId) return null;
+
+  return { session, userId: session.user.id, tenantId: user.tenantId };
+}
+
 // Garde strict pour le pipeline commercial (prospects/devis/catalogue) — réservé à
 // CABINET_ADMIN. Redirige vers /dashboard/cabinet (pas /login) car un
 // CABINET_EVALUATOR est légitimement connecté, juste non autorisé sur ce module.

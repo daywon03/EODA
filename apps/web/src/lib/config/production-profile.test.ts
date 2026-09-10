@@ -21,6 +21,7 @@ const COMPLETE: AppEnv = {
     secretAccessKey: "secret",
   },
   anthropic: { apiKey: "cle-anthropic", model: null },
+  openrouter: null,
   resend: { apiKey: "cle-resend", from: "contact@exemple.fr" },
   voyage: { apiKey: "cle-voyage" },
 };
@@ -92,11 +93,21 @@ describe("productionConfigWarnings", () => {
     expect(warnings[0]).toContain("ÉCHOUERA");
   });
 
-  it("avertit sans bloquer quand la clé Anthropic est absente, en nommant la conséquence", () => {
-    const warnings = productionConfigWarnings({ ...COMPLETE, anthropic: null });
+  it("avertit sans bloquer quand ni Anthropic ni OpenRouter ne sont configurés, en nommant la conséquence", () => {
+    const warnings = productionConfigWarnings({ ...COMPLETE, anthropic: null, openrouter: null });
     expect(warnings).toHaveLength(1);
     expect(warnings[0]).toContain("ANTHROPIC_API_KEY");
+    expect(warnings[0]).toContain("OPENROUTER_API_KEY");
     expect(warnings[0]).toContain("AUCUNE analyse");
+  });
+
+  it("OPENROUTER_API_KEY seule suffit à ne pas avertir, même sans clé Anthropic", () => {
+    const warnings = productionConfigWarnings({
+      ...COMPLETE,
+      anthropic: null,
+      openrouter: { apiKey: "cle-openrouter" },
+    });
+    expect(warnings).toEqual([]);
   });
 
   it("avertit sans bloquer quand la base de connaissances IA n'est pas configurée", () => {

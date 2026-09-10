@@ -62,6 +62,8 @@ const ACTION_LABELS: Record<AuditAction, string> = {
   TEMPLATE_FOLDER_IMPORTED: "Fichier importé depuis un dossier",
   TEMPLATE_DOCUMENT_MOVED: "Modèle rangé dans un autre dossier",
   TEMPLATE_CATEGORY_DELETED: "Dossier de la bibliothèque supprimé",
+  DOCUMENT_TYPE_CORRECTION_ADDED: "Correction ajoutée sur un type de document (obsolète)",
+  CRITERION_GUIDELINE_ADDED: "Guideline ajoutée sur un critère HAS",
 };
 
 const ROLE_LABELS: Record<string, string> = {

@@ -37,6 +37,7 @@ const UNINDEXED_ON_PURPOSE = new Set([
   "MissionMessage.authorUserId",
   "TemplateVersion.uploadedByUserId",
   "Appointment.createdByUserId",
+  "CriterionGuideline.createdByUserId",
 ]);
 
 const SCHEMA_PATH = path.resolve(__dirname, "../../../../../packages/database/prisma/schema.prisma");

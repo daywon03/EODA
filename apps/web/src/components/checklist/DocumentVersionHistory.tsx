@@ -106,7 +106,7 @@ function VersionRow({
       )}
 
       <span className="flex items-center gap-3">
-        <DocumentPreviewLink documentVersionId={version.id} />
+        <DocumentPreviewLink documentVersionId={version.id} canViewExtractedText={canManageVersions} />
         <DocumentDownloadLink documentVersionId={version.id} />
         {isLatest && version.producedByCabinet === canManageVersions && (
           <DeleteDocumentVersionButton

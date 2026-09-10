@@ -68,9 +68,9 @@ export function productionConfigWarnings(env: AppEnv): string[] {
   // l'analyse rend un résultat VIDE, elle n'invente pas. Un manque non détecté se
   // voit ; une cotation fabriquée se serait retrouvée dans un livrable client. Le
   // jour où le module 1 est ouvert à Sandrine, cette règle redevient bloquante.
-  if (!env.anthropic) {
+  if (!env.anthropic && !env.openrouter) {
     warnings.push(
-      "Analyse documentaire non configurée (ANTHROPIC_API_KEY) : l'adaptateur stub ne produit AUCUNE analyse. Le dépôt de documents fonctionne, la détection des manques face au référentiel HAS non — ne pas présenter ce module à un client dans cet état."
+      "Analyse documentaire non configurée (ANTHROPIC_API_KEY ou OPENROUTER_API_KEY) : l'adaptateur stub ne produit AUCUNE analyse. Le dépôt de documents fonctionne, la détection des manques face au référentiel HAS non — ne pas présenter ce module à un client dans cet état."
     );
   }
 

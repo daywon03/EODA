@@ -2,14 +2,28 @@
 
 import { useRef, useState, useTransition } from "react";
 import { uploadDocument } from "@/lib/actions/document";
+import { LLM_MODEL_OPTIONS, DEFAULT_LLM_MODEL_ID } from "@/lib/llm/openrouter-models";
 import { Button } from "@/components/ui/button";
 import { Loader2, Upload, AlertCircle } from "lucide-react";
 
-type Props = { establishmentId: string; documentTypeId: string };
+type Props = {
+  establishmentId: string;
+  documentTypeId: string;
+  // Côté cabinet uniquement : comparer les résultats entre IA sur un même document
+  // est un usage interne (choix de Damon, 10/09/2026), pas une option à exposer au
+  // client — sans OPENROUTER_API_KEY configurée, ce choix est de toute façon ignoré
+  // par l'adaptateur actif (cf. lib/llm/index.ts).
+  showModelSelector?: boolean;
+};
 
-export function DocumentUploadButton({ establishmentId, documentTypeId }: Props) {
+export function DocumentUploadButton({
+  establishmentId,
+  documentTypeId,
+  showModelSelector = false,
+}: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState<string | null>(null);
+  const [modelId, setModelId] = useState(DEFAULT_LLM_MODEL_ID);
   const [isPending, startTransition] = useTransition();
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -20,6 +34,7 @@ export function DocumentUploadButton({ establishmentId, documentTypeId }: Props)
     formData.set("establishmentId", establishmentId);
     formData.set("documentTypeId", documentTypeId);
     formData.set("file", file);
+    if (showModelSelector) formData.set("modelId", modelId);
 
     setError(null);
     startTransition(async () => {
@@ -31,6 +46,21 @@ export function DocumentUploadButton({ establishmentId, documentTypeId }: Props)
 
   return (
     <div className="flex flex-col items-end gap-1">
+      {showModelSelector && (
+        <select
+          value={modelId}
+          onChange={(e) => setModelId(e.target.value)}
+          disabled={isPending}
+          aria-label="Modèle IA pour l'analyse de ce dépôt"
+          className="text-xs border border-gris-light rounded-md px-1.5 py-0.5 bg-white text-brun-ancre"
+        >
+          {LLM_MODEL_OPTIONS.map((option) => (
+            <option key={option.id} value={option.id}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      )}
       <input
         ref={inputRef}
         type="file"

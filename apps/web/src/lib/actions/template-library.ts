@@ -18,6 +18,7 @@ import { recordAuditEvent } from "@/lib/services/audit-log-service";
 import { extractMarkdown } from "@/lib/services/text-extraction-service";
 import { indexReferenceDocumentVersion } from "@/lib/services/knowledge-indexing-service";
 import { getEmbeddingPort } from "@/lib/embeddings";
+import type { FilePreviewData } from "@/lib/services/file-preview-types";
 import {
   buildTemplateStorageKey,
   categoryNameError,
@@ -555,6 +556,18 @@ async function storeVersion(params: {
   // Un objet stocké sans ligne, lui, reste invisible et sans conséquence.
   await getFileStoragePort().upload(storageKey, buffer, validation.contentType);
 
+  // Extraction pour TOUT type de fichier (gabarit ou référence) : elle ne coûte
+  // qu'un traitement local (pdf2md/mammoth/exceljs, aucun appel payant), et permet
+  // de consulter le contenu directement dans la plateforme sans téléchargement
+  // (demande de Damon, 10/09/2026) — indépendamment de l'indexation dans la base
+  // de connaissances, réservée aux références ci-dessous. `null` pour un format non
+  // analysable (image, .doc/.xls ancien) : ce n'est pas une erreur, juste rien à
+  // afficher en substitut du fichier original.
+  const extractedText = await extractMarkdown(buffer, validation.contentType).catch((error) => {
+    console.error("Extraction du texte échouée — dépôt conservé sans aperçu :", error);
+    return null;
+  });
+
   const version = await prisma.templateVersion.create({
     data: {
       templateDocumentId: templateId,
@@ -566,6 +579,7 @@ async function storeVersion(params: {
       contentType: validation.contentType,
       sizeBytes: buffer.length,
       uploadedByUserId: userId,
+      extractedText,
     },
     select: { id: true },
   });
@@ -581,12 +595,13 @@ async function storeVersion(params: {
   });
 
   // Base de connaissances IA : uniquement les documents de RÉFÉRENCE (manuel HAS,
-  // textes réglementaires), jamais un GABARIT. Best-effort — une panne d'embedding
-  // ne doit jamais faire échouer le dépôt du fichier, cf. knowledge-indexing-service.ts.
+  // textes réglementaires), jamais un GABARIT. Réutilise le texte déjà extrait
+  // ci-dessus — une seconde extraction referait le même travail local pour rien.
+  // Best-effort — une panne d'embedding ne doit jamais faire échouer le dépôt du
+  // fichier, cf. knowledge-indexing-service.ts.
   const embeddings = kind === "REFERENCE" ? getEmbeddingPort() : null;
   if (embeddings) {
     try {
-      const extractedText = await extractMarkdown(buffer, validation.contentType);
       await indexReferenceDocumentVersion({
         tenantId,
         templateDocumentId: templateId,
@@ -718,6 +733,28 @@ async function createCategoryAtEnd(tenantId: string, name: string) {
   }
 }
 
+// ── Créer un nouveau dossier ET y ranger ce modèle, en un geste ──────────────
+//
+// « Un bouton "autre" qui nous permet de nommer le nouveau rangement » (Damon,
+// 10/09/2026) : depuis l'écran « Ranger ce modèle », créer le dossier qui manque
+// sans repasser par « Organiser les dossiers ». Réutilise createCategoryAtEnd
+// (même point d'entrée que l'import de dossier) et moveTemplateToCategory
+// (même validation d'appartenance, même trace d'audit) — un seul endroit pour
+// chacune des deux règles, pas une troisième copie ici.
+export async function createCategoryAndMoveTemplate(
+  templateId: string,
+  rawName: string
+): Promise<ActionResult> {
+  const { tenantId } = await requireCabinetAdminSession();
+
+  const name = normaliseCategoryName(rawName);
+  const nameError = categoryNameError(name);
+  if (nameError) return { error: nameError };
+
+  const category = await createCategoryAtEnd(tenantId, name);
+  return moveTemplateToCategory(templateId, category.id);
+}
+
 export async function getTemplateVersionDownloadUrl(versionId: string): Promise<string | null> {
   const { tenantId } = await requireCabinetSession();
 
@@ -741,6 +778,70 @@ export async function getTemplateVersionDownloadUrl(versionId: string): Promise<
       createdAt: version.createdAt,
     }),
   });
+}
+
+// ── Aperçu d'une version, sans téléchargement ────────────────────────────────
+//
+// « Pouvoir le voir directement sur l'app » (Damon, 10/09/2026) — un PDF s'affiche
+// tel quel, tout le reste (Word, Excel) affiche le texte déjà extrait au dépôt
+// (cf. storeVersion ci-dessus). Même forme que getDocumentPreviewData côté
+// documents clients — même modale à l'affichage (FilePreviewModal, D1).
+export async function getTemplateVersionPreviewData(versionId: string): Promise<FilePreviewData | null> {
+  const { tenantId } = await requireCabinetSession();
+
+  const version = await prisma.templateVersion.findFirst({
+    where: { id: versionId, templateDocument: { tenantId } },
+    select: { fileStorageKey: true, originalFilename: true, extractedText: true },
+  });
+  if (!version) return null;
+
+  const isPdf = version.originalFilename.toLowerCase().endsWith(".pdf");
+
+  if (isPdf) {
+    const url = await getFileStoragePort().getSignedDownloadUrl(version.fileStorageKey, {
+      disposition: "inline",
+      filename: version.originalFilename,
+    });
+    return { kind: "pdf", url, filename: version.originalFilename };
+  }
+
+  if (version.extractedText) {
+    return { kind: "text", text: version.extractedText, filename: version.originalFilename };
+  }
+
+  return { kind: "unavailable", filename: version.originalFilename };
+}
+
+// ── Texte extrait (Markdown), même pour un PDF ───────────────────────────────
+//
+// « Le fichier md du document soit disponible, qu'on puisse le voir directement »
+// (Damon, 10/09/2026) — pour un document de RÉFÉRENCE (souvent un PDF, comme le
+// manuel HAS), getTemplateVersionPreviewData ci-dessus affiche le PDF natif, pas
+// le Markdown : c'est pourtant ce Markdown qui a été chunké et embeddé dans la
+// base de connaissances (cf. knowledge-indexing-service.ts), donc ce qu'il faut
+// pouvoir vérifier. Ce second aperçu montre TOUJOURS le texte extrait, quel que
+// soit le format d'origine — même principe que getExtractedText côté documents
+// clients (lib/actions/document.ts).
+export type TemplateExtractedTextData =
+  | { text: string; filename: string }
+  | { error: string };
+
+export async function getTemplateVersionExtractedText(
+  versionId: string
+): Promise<TemplateExtractedTextData | null> {
+  const { tenantId } = await requireCabinetSession();
+
+  const version = await prisma.templateVersion.findFirst({
+    where: { id: versionId, templateDocument: { tenantId } },
+    select: { originalFilename: true, extractedText: true },
+  });
+  if (!version) return null;
+
+  if (!version.extractedText) {
+    return { error: "Aucun texte n'a pu être extrait de ce fichier (format image, ou extraction échouée)." };
+  }
+
+  return { text: version.extractedText, filename: version.originalFilename };
 }
 
 // Suppression d'une version. Contrairement aux pièces d'un dossier client — où

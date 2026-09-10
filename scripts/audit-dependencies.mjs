@@ -28,8 +28,17 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { spawnSync } from "node:child_process";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 
 const AUDIT_LEVEL = "high";
+
+// Exceptions écrites, avec justification, dans pnpm.auditConfig.ignoreGhsas
+// (racine du dépôt) — cf. CLAUDE.md pour la justification de chaque entrée.
+const ROOT_PACKAGE_JSON = JSON.parse(
+  readFileSync(fileURLToPath(new URL("../package.json", import.meta.url)), "utf8")
+);
+const IGNORE_GHSAS = new Set(ROOT_PACKAGE_JSON.pnpm?.auditConfig?.ignoreGhsas ?? []);
 // Trois tentatives réparties sur environ une minute et demie. pnpm réessaie déjà
 // deux fois dans sa propre fenêtre : les pauses ci-dessous visent une AUTRE
 // fenêtre, sinon on ne fait que répéter la même seconde de panne.
@@ -61,6 +70,60 @@ function runAudit() {
 
 function isRegistryFailure({ report }) {
   return report === null || typeof report.error === "object";
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FAUX POSITIF CONSTATÉ LE 10/09/2026 : `pnpm audit --json` rend un objet
+// `advisories` VIDE depuis que le registre npm sert son nouveau point d'accès
+// « bulk advisories » — les identifiants numériques restent dans
+// `actions[].resolves[]`, mais plus aucun détail (GHSA, sévérité) à côté. Le
+// filtre `ignoreGhsas` de pnpm lui-même opère sur `advisories` : sans ce détail,
+// il ne peut plus rien filtrer, et une exception déjà écrite et acceptée
+// (xlsx, cf. CLAUDE.md) se remet à faire échouer la construction.
+//
+// Ce n'est pas une raison d'abaisser le seuil ni d'ajouter un `|| true` : on
+// interroge nous-mêmes ce même point d'accès bulk (celui qui, lui, répond) pour
+// résoudre l'identifiant numérique de chaque trouvaille en GHSA, et on ne
+// déclare l'audit ignorable que si CHAQUE trouvaille se résout et figure dans
+// `ignoreGhsas`. Une résolution qui échoue (registre injoignable, module non
+// installé) fait échouer l'audit — jamais passer en silence.
+async function resolveGhsaId(moduleName, findingId) {
+  let version;
+  try {
+    const pkgPath = fileURLToPath(new URL(`../node_modules/${moduleName}/package.json`, import.meta.url));
+    version = JSON.parse(readFileSync(pkgPath, "utf8")).version;
+  } catch {
+    return null;
+  }
+
+  const response = await fetch("https://registry.npmjs.org/-/npm/v1/security/advisories/bulk", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ [moduleName]: [version] }),
+  });
+  if (!response.ok) return null;
+
+  const body = await response.json();
+  const entry = (body[moduleName] ?? []).find((advisory) => advisory.id === findingId);
+  if (!entry?.url) return null;
+
+  return entry.url.split("/").pop() ?? null;
+}
+
+// Rend `true` seulement si TOUTES les trouvailles remontées par `pnpm audit`
+// (via `actions[].resolves[]`) se résolvent en un GHSA explicitement accepté.
+// Une seule trouvaille non résolue ou non couverte suffit à refuser.
+async function allFindingsAreIgnored(report) {
+  const findings = (report?.actions ?? []).flatMap((action) =>
+    (action.resolves ?? []).map((resolve) => ({ module: action.module, id: resolve.id }))
+  );
+  if (findings.length === 0) return false;
+
+  for (const finding of findings) {
+    const ghsa = await resolveGhsaId(finding.module, finding.id);
+    if (!ghsa || !IGNORE_GHSAS.has(ghsa)) return false;
+  }
+  return true;
 }
 
 function summarise(report) {
@@ -102,6 +165,15 @@ if (isRegistryFailure(outcome)) {
 }
 
 if (outcome.status !== 0) {
+  if (await allFindingsAreIgnored(outcome.report)) {
+    console.log(
+      "✓ Aucune vulnérabilité non couverte par une exception écrite\n" +
+        "  (advisories vides côté `pnpm audit` — résolues nous-mêmes via le point\n" +
+        "  d'accès bulk du registre npm, cf. commentaire dans ce script)."
+    );
+    process.exit(0);
+  }
+
   const summary = summarise(outcome.report);
   console.error(
     `✗ Vulnérabilités de niveau ${AUDIT_LEVEL} ou supérieur dans les dépendances` +
