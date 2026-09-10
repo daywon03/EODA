@@ -28,7 +28,7 @@
     "exceljs": "^4.4.0",
     "lucide-react": "^0.469.0",
     "mammoth": "^1.12.0",
-    "next": "^15.5.23",
+    "next": "^15.5.24",
     "next-auth": "5.0.0-beta.32",
     "pdf-parse": "^2.4.5",
     "react": "^19.0.0",
