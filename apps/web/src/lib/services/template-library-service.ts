@@ -332,10 +332,18 @@ export function planFolderImport(entries: readonly FolderImportEntry[]): FolderI
       relativePath: entry.relativePath,
       categoryName,
       title,
-      // Par défaut VIERGE, et pas un stade « inconnu » : la bibliothèque a été
-      // demandée d'abord pour « uploader les versions vierges » (call du 01/09).
-      // Le défaut est donc celui du cas majoritaire, et il est signalé comme tel.
-      stage: detected ?? "VIERGE",
+      // Par défaut RÉFÉRENCE (`null`), pas VIERGE : constaté le 15/09/2026 — un
+      // dossier de fiches/référentiels/manuel HAS importé pour la base de
+      // connaissances n'a par nature AUCUN mot de stade dans ses noms de fichier,
+      // donc `detected` y est systématiquement `null`. Défaut à VIERGE (un
+      // GABARIT) y faisait silencieusement manquer l'indexation Voyage AI — un
+      // GABARIT n'est jamais embeddé, par design — pour la totalité d'un import,
+      // avec pour seul signal un « ✨ stade à confirmer » facile à manquer sur
+      // plusieurs lignes. Se tromper vers RÉFÉRENCE est le sens le moins coûteux :
+      // un vrai gabarit mal classé en référence reste visible et se corrige en
+      // renommant/import isolé ; un document de référence classé GABARIT perd
+      // silencieusement son indexation.
+      stage: detected,
       stageDetected: detected !== null,
       versionLabel: detectVersionLabel(filename) ?? "v1",
     };

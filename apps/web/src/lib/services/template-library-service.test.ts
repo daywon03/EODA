@@ -207,13 +207,18 @@ describe("planFolderImport", () => {
     expect(line?.title).toBe("Projet de service");
   });
 
-  it("propose VIERGE par défaut, en le SIGNALANT comme non deviné", () => {
+  it("propose RÉFÉRENCE par défaut quand rien n'est deviné, en le SIGNALANT comme non deviné", () => {
     // La distinction n'est pas cosmétique : une valeur devinée et une valeur par
     // défaut n'appellent pas la même relecture avant confirmation.
+    //
+    // Le défaut n'est PLUS VIERGE (constaté le 15/09/2026) : un dossier de fiches
+    // de référence pour la base de connaissances n'a par nature aucun mot de
+    // stade dans ses noms de fichier — tout y retombait silencieusement en
+    // GABARIT, qui n'est jamais indexé par Voyage AI (par design).
     const [line] = planFolderImport([
       { relativePath: "Phase 4/Livret/livret.docx", sizeBytes: 10 },
     ]);
-    expect(line?.stage).toBe("VIERGE");
+    expect(line?.stage).toBeNull();
     expect(line?.stageDetected).toBe(false);
     expect(line?.versionLabel).toBe("v1");
   });
