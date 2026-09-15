@@ -16,7 +16,8 @@ import { canDeleteVersion,
 } from "@/lib/services/document-workflow-service";
 import { extractMarkdown } from "@/lib/services/text-extraction-service";
 import { suggestDocumentType } from "@/lib/services/document-categorization-service";
-import { ingestDocumentVersion } from "@/lib/services/document-ingestion-service";
+import { ingestDocumentVersion, reanalyzeDocumentVersion } from "@/lib/services/document-ingestion-service";
+import { generateCorrectedDraft, saveCorrectedDraft } from "@/lib/services/document-generation-service";
 import { recordAuditEvent } from "@/lib/services/audit-log-service";
 import { validateUploadedFile } from "@/lib/security/upload-validation-service";
 import {
@@ -553,6 +554,49 @@ export async function setAnalysisReviewed(
   return null;
 }
 
+// ── Analyser / réanalyser à la demande ───────────────────────────────────────
+//
+// « Il faut un bouton analyser » (Damon, 15/09/2026) — deux raisons de vouloir
+// déclencher l'analyse manuellement plutôt que de compter sur le seul dépôt :
+// rattraper une version dont l'extraction avait échoué (cf.
+// reanalyzeDocumentVersion pour l'incident précis), et pouvoir comparer un autre
+// modèle après coup. Réservé au cabinet, comme setAnalysisReviewed ci-dessus.
+export async function reanalyzeDocument(
+  documentVersionId: string,
+  modelId?: string | null
+): Promise<{ error: string } | null> {
+  const version = await prisma.documentVersion.findUnique({
+    where: { id: documentVersionId },
+    select: { document: { select: { establishmentId: true, documentType: { select: { code: true } } } } },
+  });
+  if (!version) notFound();
+
+  const access = await requireEstablishmentAccess(version.document.establishmentId);
+  if (access.isClient) notFound();
+
+  const validatedModelId = modelId && isKnownLlmModelId(modelId) ? modelId : null;
+
+  const result = await reanalyzeDocumentVersion(
+    documentVersionId,
+    { storage: getFileStoragePort(), llm: getLLMAnalysisPort() },
+    validatedModelId
+  );
+
+  if ("error" in result) return { error: result.error };
+
+  await recordAuditEvent({
+    action: "DOCUMENT_REANALYZED",
+    actorUserId: access.userId,
+    actorRole: access.session.user.role,
+    establishmentId: version.document.establishmentId,
+    targetId: documentVersionId,
+    detail: version.document.documentType?.code ?? null,
+  });
+
+  revalidateDocumentViews(version.document.establishmentId);
+  return null;
+}
+
 // ── Guidelines du cabinet sur l'analyse IA ───────────────────────────────────
 //
 // « Que la base de connaissance apprenne des commentaires que mettra Sandrine lors
@@ -723,5 +767,101 @@ export async function setDocumentTypeRequested(
   // La checklist change des DEUX côtés : le client cesse de le voir, ou le découvre.
   revalidatePath("/dashboard/client");
   revalidatePath("/dashboard/cabinet");
+  return null;
+}
+
+// ── Brouillon de document corrigé, généré par l'IA ───────────────────────────
+//
+// « Quand l'analyse est faite, le document est généré par l'IA […] brandé EODA,
+// qu'ils pourront réutiliser ensuite » (Damon, 15/09/2026). Réservé au cabinet,
+// comme reanalyzeDocument ci-dessus : c'est un brouillon de travail, jamais
+// montré au client tel quel — aucune analyse ni document généré n'atteint le
+// client sans revue humaine (CLAUDE.md, même règle que setAnalysisReviewed).
+
+const MAX_DRAFT_MARKDOWN_LENGTH = 200_000;
+
+export type CorrectedDraft = { markdown: string; generatedAt: Date } | null;
+
+export async function getCorrectedDraft(documentVersionId: string): Promise<CorrectedDraft | undefined> {
+  const version = await prisma.documentVersion.findUnique({
+    where: { id: documentVersionId },
+    select: {
+      correctedDraftMarkdown: true,
+      correctedDraftGeneratedAt: true,
+      document: { select: { establishmentId: true } },
+    },
+  });
+  if (!version) return undefined;
+
+  const access = await tryEstablishmentAccess(version.document.establishmentId);
+  if (!access || access.isClient) return undefined;
+
+  if (!version.correctedDraftMarkdown || !version.correctedDraftGeneratedAt) return null;
+  return { markdown: version.correctedDraftMarkdown, generatedAt: version.correctedDraftGeneratedAt };
+}
+
+export async function generateDocumentDraft(
+  documentVersionId: string,
+  modelId?: string | null
+): Promise<{ error: string } | null> {
+  const version = await prisma.documentVersion.findUnique({
+    where: { id: documentVersionId },
+    select: { document: { select: { establishmentId: true, documentType: { select: { code: true } } } } },
+  });
+  if (!version) notFound();
+
+  const access = await requireEstablishmentAccess(version.document.establishmentId);
+  if (access.isClient) notFound();
+
+  const validatedModelId = modelId && isKnownLlmModelId(modelId) ? modelId : null;
+
+  const result = await generateCorrectedDraft(documentVersionId, getLLMAnalysisPort(), validatedModelId);
+  if ("error" in result) return { error: result.error };
+
+  await recordAuditEvent({
+    action: "CORRECTED_DRAFT_GENERATED",
+    actorUserId: access.userId,
+    actorRole: access.session.user.role,
+    establishmentId: version.document.establishmentId,
+    targetId: documentVersionId,
+    detail: version.document.documentType?.code ?? null,
+  });
+
+  revalidateDocumentViews(version.document.establishmentId);
+  return null;
+}
+
+export async function saveDocumentDraft(
+  documentVersionId: string,
+  markdown: string
+): Promise<{ error: string } | null> {
+  if (typeof markdown !== "string" || markdown.trim().length === 0) {
+    return { error: "Le document ne peut pas être vide." };
+  }
+  if (markdown.length > MAX_DRAFT_MARKDOWN_LENGTH) {
+    return { error: "Ce document dépasse la taille maximale autorisée." };
+  }
+
+  const version = await prisma.documentVersion.findUnique({
+    where: { id: documentVersionId },
+    select: { document: { select: { establishmentId: true, documentType: { select: { code: true } } } } },
+  });
+  if (!version) notFound();
+
+  const access = await requireEstablishmentAccess(version.document.establishmentId);
+  if (access.isClient) notFound();
+
+  await saveCorrectedDraft(documentVersionId, markdown.trim());
+
+  await recordAuditEvent({
+    action: "CORRECTED_DRAFT_EDITED",
+    actorUserId: access.userId,
+    actorRole: access.session.user.role,
+    establishmentId: version.document.establishmentId,
+    targetId: documentVersionId,
+    detail: version.document.documentType?.code ?? null,
+  });
+
+  revalidateDocumentViews(version.document.establishmentId);
   return null;
 }

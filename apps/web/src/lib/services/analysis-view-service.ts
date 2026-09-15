@@ -1,4 +1,5 @@
 import type { DocumentAnalysisResult } from "@/lib/llm";
+import { normalizeFindings } from "@/lib/llm/llm-analysis-port";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // LECTURE DU RÉSULTAT D'ANALYSE — la moitié manquante du module n°1.
@@ -32,7 +33,10 @@ export function parseAnalysisResult(value: unknown): DocumentAnalysisResult | nu
   if (typeof value !== "object" || value === null || Array.isArray(value)) return null;
 
   const raw = value as Record<string, unknown>;
-  const elementsPresents = toStringList(raw.elementsPresents);
+  // `normalizeFindings` accepte les deux formes : {text, source} (format actuel) et
+  // une simple chaîne (analyses stockées avant le 15/09/2026, sans citation source —
+  // rendues sans citation plutôt que perdues, cf. son commentaire).
+  const elementsPresents = normalizeFindings(raw.elementsPresents);
   const elementsManquants = toStringList(raw.elementsManquants);
   const suggestionsCorrection = toStringList(raw.suggestionsCorrection);
   const sembleConforme = raw.sembleConforme === true;

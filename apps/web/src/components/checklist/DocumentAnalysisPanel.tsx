@@ -13,7 +13,7 @@ import {
   MessageSquarePlus,
   CheckCircle2,
 } from "lucide-react";
-import type { DocumentAnalysisResult } from "@/lib/llm";
+import type { DocumentAnalysisResult, AnalysisFinding } from "@/lib/llm";
 import { describeAnalysis, summariseAnalysis } from "@/lib/services/analysis-view-service";
 import {
   setAnalysisReviewed,
@@ -101,10 +101,10 @@ export function DocumentAnalysisPanel({
           )}
 
           {summary.presentCount > 0 && (
-            <Section
+            <FindingsSection
               icon={<Check className="w-3.5 h-3.5 text-vert-ok" aria-hidden="true" />}
               title="Éléments retrouvés"
-              entries={analysis.elementsPresents}
+              findings={analysis.elementsPresents}
             />
           )}
 
@@ -332,6 +332,42 @@ function Section({
         {entries.map((entry) => (
           <li key={entry} className="text-xs text-gris-mid list-disc marker:text-gris-light">
             {entry}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+// « Toujours apporter la justification 'source' » (Damon, 15/09/2026) : un élément
+// retrouvé sans citation vérifiable n'est qu'une affirmation du modèle. Une source
+// vide reste possible (analyses stockées avant cette date, ou un modèle qui n'a pas
+// respecté la consigne malgré normalizeFindings) — dans ce cas, on ne l'invente pas,
+// on ne montre simplement pas de citation pour cette entrée.
+function FindingsSection({
+  icon,
+  title,
+  findings,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  findings: AnalysisFinding[];
+}) {
+  return (
+    <div>
+      <p className="flex items-center gap-1.5 text-xs font-medium text-brun-ancre mb-1">
+        {icon}
+        {title}
+      </p>
+      <ul className="space-y-1.5 pl-5">
+        {findings.map((finding, index) => (
+          <li key={`${finding.text}-${index}`} className="text-xs text-gris-mid list-disc marker:text-gris-light">
+            {finding.text}
+            {finding.source && (
+              <blockquote className="mt-0.5 border-l-2 border-gris-light pl-2 italic text-[11px] text-gris-mid">
+                « {finding.source} »
+              </blockquote>
+            )}
           </li>
         ))}
       </ul>

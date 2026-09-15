@@ -66,4 +66,7 @@ export const EXPECTED_MIGRATIONS: readonly string[] = [
   "20260910140000_criterion_guideline_audit",
   "20260910140100_criterion_guidelines",
   "20260910150000_template_version_extracted_text",
+  "20260915170000_document_reanalyzed_audit",
+  "20260915180000_corrected_draft",
+  "20260915190000_corrected_draft_audit",
 ] as const;

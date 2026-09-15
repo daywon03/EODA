@@ -8,7 +8,7 @@ import {
 } from "./analysis-view-service";
 
 const COMPLETE = {
-  elementsPresents: ["Objet du séjour"],
+  elementsPresents: [{ text: "Objet du séjour", source: "Le présent séjour a pour objet…" }],
   elementsManquants: ["Mention des voies de recours"],
   suggestionsCorrection: ["Ajouter un paragraphe sur la personne qualifiée."],
   sembleConforme: false,
@@ -49,7 +49,7 @@ describe("parseAnalysisResult", () => {
     expect(parsed?.sembleConforme).toBe(true);
   });
 
-  it("ignore les entrées non textuelles au lieu de casser la page", () => {
+  it("ignore les entrées non exploitables au lieu de casser la page", () => {
     // Une analyse écrite sous un contrat plus ancien ne doit pas faire tomber toute
     // la checklist six mois plus tard.
     const parsed = parseAnalysisResult({
@@ -60,7 +60,10 @@ describe("parseAnalysisResult", () => {
     });
 
     expect(parsed).toEqual({
-      elementsPresents: ["ok"],
+      // "ok" (une chaîne nue, format d'avant le 15/09/2026) devient un constat sans
+      // citation source plutôt que d'être perdu ; 42, null et {a:1} ne se
+      // rattachent à aucune des deux formes reconnues.
+      elementsPresents: [{ text: "ok", source: "" }],
       elementsManquants: [],
       suggestionsCorrection: ["utile"],
       // Seul `true` vaut vrai : « oui » n'est pas une conformité.

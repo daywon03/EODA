@@ -1,6 +1,17 @@
 import Anthropic from "@anthropic-ai/sdk";
-import type { LLMAnalysisPort, DocumentAnalysisInput, DocumentAnalysisResult } from "./llm-analysis-port";
-import { buildSystemPrompt, buildUserMessage } from "./analysis-prompt";
+import type {
+  LLMAnalysisPort,
+  DocumentAnalysisInput,
+  DocumentAnalysisResult,
+  DocumentGenerationInput,
+} from "./llm-analysis-port";
+import { normalizeFindings } from "./llm-analysis-port";
+import {
+  buildSystemPrompt,
+  buildUserMessage,
+  buildGenerationSystemPrompt,
+  buildGenerationUserMessage,
+} from "./analysis-prompt";
 
 // Modèle par défaut : Claude Opus 5. Surchargeable par ANTHROPIC_MODEL (cf. .env.example)
 // si un arbitrage coût/qualité est décidé — l'appelant métier n'en sait rien.
@@ -10,13 +21,32 @@ const DEFAULT_MODEL = "claude-opus-5";
 // une analyse silencieusement perdue. C'est un piège classique d'une valeur trop basse.
 const MAX_TOKENS = 8000;
 
+// Un document ENTIER régénéré est bien plus long qu'une analyse structurée — la
+// marge de l'analyse (8000) tronquerait un document de plusieurs pages en plein
+// milieu, ce qui est pire ici que pour l'analyse : un document déposé tel quel
+// couperait une section en cours de rédaction.
+const GENERATION_MAX_TOKENS = 16_000;
+
 // Schéma de sortie imposé côté API (structured outputs) : la réponse est garantie
 // conforme, ce qui supprime le grattage de JSON par expression régulière et le risque
 // d'échec d'analyse sur une réponse bavarde.
 const ANALYSIS_SCHEMA = {
   type: "object",
   properties: {
-    elementsPresents: { type: "array", items: { type: "string" } },
+    elementsPresents: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          text: { type: "string" },
+          // Citation mot pour mot du document — cf. buildSystemPrompt : sans elle,
+          // une "présence" affirmée n'est qu'une déduction du modèle.
+          source: { type: "string" },
+        },
+        required: ["text", "source"],
+        additionalProperties: false,
+      },
+    },
     elementsManquants: { type: "array", items: { type: "string" } },
     suggestionsCorrection: { type: "array", items: { type: "string" } },
     sembleConforme: { type: "boolean" },
@@ -67,12 +97,37 @@ export class AnthropicAnalysisAdapter implements LLMAnalysisPort {
     }
 
     return {
-      elementsPresents: parsed.elementsPresents ?? [],
+      elementsPresents: normalizeFindings(parsed.elementsPresents),
       elementsManquants: parsed.elementsManquants ?? [],
       suggestionsCorrection: parsed.suggestionsCorrection ?? [],
       // Défaut prudent : en l'absence de verdict explicite, on ne déclare jamais
       // un document conforme.
       sembleConforme: parsed.sembleConforme ?? false,
     };
+  }
+
+  async generateCorrectedDocument(input: DocumentGenerationInput): Promise<string> {
+    const response = await this.client.messages.create({
+      model: this.model,
+      max_tokens: GENERATION_MAX_TOKENS,
+      system: buildGenerationSystemPrompt(),
+      messages: [{ role: "user", content: buildGenerationUserMessage(input) }],
+      // Pas de `output_config` ici : un document est du texte libre, pas du JSON —
+      // contrairement à `analyze()` ci-dessus.
+    });
+
+    if (response.stop_reason === "refusal") {
+      throw new Error("Génération refusée par le modèle (stop_reason: refusal).");
+    }
+    if (response.stop_reason === "max_tokens") {
+      throw new Error("Document généré tronqué (max_tokens atteint) — document probablement trop long.");
+    }
+
+    const textBlock = response.content.find((block) => block.type === "text");
+    if (!textBlock || textBlock.type !== "text" || textBlock.text.trim().length === 0) {
+      throw new Error("Réponse de génération sans contenu texte exploitable.");
+    }
+
+    return textBlock.text.trim();
   }
 }

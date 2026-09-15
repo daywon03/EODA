@@ -41,6 +41,12 @@ export function getLLMAnalysisPort(): LLMAnalysisPort {
   return cached;
 }
 
-export type { LLMAnalysisPort, DocumentAnalysisInput, DocumentAnalysisResult } from "./llm-analysis-port";
+export type {
+  LLMAnalysisPort,
+  DocumentAnalysisInput,
+  DocumentAnalysisResult,
+  AnalysisFinding,
+  DocumentGenerationInput,
+} from "./llm-analysis-port";
 export { LLM_MODEL_OPTIONS, DEFAULT_LLM_MODEL_ID, isKnownLlmModelId } from "./openrouter-models";
 export type { LlmModelOption } from "./openrouter-models";
