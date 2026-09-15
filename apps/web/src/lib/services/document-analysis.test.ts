@@ -49,7 +49,7 @@ describe("deriveDocumentStatus", () => {
       deriveDocumentStatus({
         sembleConforme: true,
         elementsManquants: [],
-        elementsPresents: ["charte"],
+        elementsPresents: [{ text: "charte", source: "" }],
         suggestionsCorrection: [],
       })
     ).toBe("COMPLIANT");

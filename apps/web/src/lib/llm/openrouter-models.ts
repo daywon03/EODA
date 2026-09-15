@@ -13,15 +13,17 @@ export type LlmModelOption = {
   openRouterSlug: string;
 };
 
+// Défaut choisi par Damon le 15/09/2026 (MiniMax M2.7, à la place de Claude Opus 5)
+// — un arbitrage coût/fournisseur, pas une préférence de qualité mesurée ici.
 const DEFAULT_OPTION: LlmModelOption = {
-  id: "claude-opus-5",
-  label: "Claude Opus 5 (Anthropic)",
-  openRouterSlug: "anthropic/claude-opus-5",
+  id: "minimax-m2.7",
+  label: "MiniMax M2.7",
+  openRouterSlug: "minimax/minimax-m2.7",
 };
 
 export const LLM_MODEL_OPTIONS: LlmModelOption[] = [
+  { id: "claude-opus-5", label: "Claude Opus 5 (Anthropic)", openRouterSlug: "anthropic/claude-opus-5" },
   DEFAULT_OPTION,
-  { id: "minimax-m2.7", label: "MiniMax M2.7", openRouterSlug: "minimax/minimax-m2.7" },
   { id: "qwen3.8-max", label: "Qwen3.8 Max", openRouterSlug: "qwen/qwen3.8-max-0902" },
   { id: "kimi-k3", label: "Kimi K3 (Moonshot AI)", openRouterSlug: "moonshotai/kimi-k3" },
 ];

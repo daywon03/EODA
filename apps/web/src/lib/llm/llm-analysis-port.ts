@@ -23,8 +23,19 @@ export type DocumentAnalysisInput = {
   criterionGuidelines?: string[];
 };
 
+// Un élément retrouvé, avec la citation qui le justifie (demande de Damon,
+// 15/09/2026) : un extrait court, tiré mot pour mot du document, qui confirme la
+// présence affirmée. Sans citation vérifiable, une affirmation de présence n'est
+// qu'une déduction du modèle — exactement ce que "Reste factuel" (le prompt
+// d'analyse) est censé exclure. `elementsManquants` et `suggestionsCorrection`
+// n'ont pas cette forme : on ne cite pas un passage qui n'existe pas.
+export type AnalysisFinding = {
+  text: string;
+  source: string;
+};
+
 export type DocumentAnalysisResult = {
-  elementsPresents: string[];
+  elementsPresents: AnalysisFinding[];
   elementsManquants: string[];
   suggestionsCorrection: string[];
   // true si le document semble globalement satisfaire les attendus (utilisé par
@@ -33,6 +44,49 @@ export type DocumentAnalysisResult = {
   sembleConforme: boolean;
 };
 
+// Entrée de la génération d'un document corrigé (demande de Damon, 15/09/2026) —
+// même forme que l'entrée d'analyse plus ce que l'analyse a déjà relevé (D1 : la
+// génération ne relit pas le document pour redécider ce qui manque, elle complète
+// à partir d'un constat déjà fait ailleurs, cf. analysis-prompt.ts).
+export type DocumentGenerationInput = {
+  documentTypeLabel: string;
+  extractedText: string;
+  linkedCriteriaLabels: string[];
+  knowledgeExcerpts?: string[];
+  criterionGuidelines?: string[];
+  modelId?: string;
+  elementsManquants: string[];
+  suggestionsCorrection: string[];
+};
+
 export interface LLMAnalysisPort {
   analyze(input: DocumentAnalysisInput): Promise<DocumentAnalysisResult>;
+  // Rend le document ENTIER corrigé, en Markdown — cf. buildGenerationSystemPrompt
+  // pour la consigne complète. Aucun schéma structuré ici : c'est un texte libre,
+  // converti en .docx ensuite (markdown-to-docx-service.ts), jamais du JSON.
+  generateCorrectedDocument(input: DocumentGenerationInput): Promise<string>;
+}
+
+// Défensif, partagé par tous les adaptateurs (D1) : un modèle qui ignore le schéma
+// demandé (surtout probable côté OpenRouter, où le schéma structuré n'est qu'une
+// consigne de prompt, pas une garantie d'API comme chez Anthropic) peut renvoyer de
+// simples chaînes au lieu de {text, source}. Une chaîne nue devient un constat sans
+// citation plutôt qu'une entrée rejetée — mieux vaut un élément affiché sans preuve
+// qu'une analyse qui perd cet élément en silence.
+export function normalizeFindings(value: unknown): AnalysisFinding[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((entry): AnalysisFinding | null => {
+      if (typeof entry === "string") {
+        const text = entry.trim();
+        return text.length > 0 ? { text, source: "" } : null;
+      }
+      if (typeof entry === "object" && entry !== null && "text" in entry) {
+        const text = String((entry as { text: unknown }).text).trim();
+        const source = "source" in entry ? String((entry as { source: unknown }).source).trim() : "";
+        return text.length > 0 ? { text, source } : null;
+      }
+      return null;
+    })
+    .filter((entry): entry is AnalysisFinding => entry !== null);
 }

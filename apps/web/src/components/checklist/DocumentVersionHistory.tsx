@@ -7,6 +7,8 @@ import { formatDate } from "@/lib/services/date-format-service";
 import { DocumentPreviewLink } from "./DocumentPreviewLink";
 import { DocumentDownloadLink } from "./DocumentDownloadLink";
 import { DeleteDocumentVersionButton } from "./DeleteDocumentVersionButton";
+import { AnalyzeDocumentButton } from "./AnalyzeDocumentButton";
+import { CorrectedDraftPanel } from "./CorrectedDraftPanel";
 import { INLINE_ACTION_MUTED_CLASS } from "@/components/ui/inline-action";
 
 type Props = {
@@ -108,6 +110,17 @@ function VersionRow({
       <span className="flex items-center gap-3">
         <DocumentPreviewLink documentVersionId={version.id} canViewExtractedText={canManageVersions} />
         <DocumentDownloadLink documentVersionId={version.id} />
+        {/* Réservé au cabinet et à la version courante : réanalyser une version
+            reléguée à l'historique écrirait un résultat qui n'appartient plus au
+            document tel qu'il se présente aujourd'hui. */}
+        {isLatest && canManageVersions && (
+          <AnalyzeDocumentButton documentVersionId={version.id} hasAnalysis={version.hasAnalysis} />
+        )}
+        {/* La génération s'appuie sur les manques/suggestions de l'analyse : sans
+            analyse, il n'y a rien à corriger (cf. document-generation-service.ts). */}
+        {isLatest && canManageVersions && version.hasAnalysis && (
+          <CorrectedDraftPanel documentVersionId={version.id} />
+        )}
         {isLatest && version.producedByCabinet === canManageVersions && (
           <DeleteDocumentVersionButton
             documentVersionId={version.id}

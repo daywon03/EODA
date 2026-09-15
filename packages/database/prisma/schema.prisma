@@ -622,6 +622,19 @@ model DocumentVersion {
   analysisReviewedByUserId String?   @map("analysis_reviewed_by_user_id")
   regeneratedFromVersionId String?   @map("regenerated_from_version_id")
 
+  // BROUILLON DE DOCUMENT CORRIGÉ, généré par l'IA à partir de l'analyse — demande
+  // de Damon, 15/09/2026 : « le document est généré par l'IA en docx, brandé EODA,
+  // qu'ils pourront réutiliser ensuite ». Document ENTIER régénéré en Markdown (pas
+  // seulement les paragraphes correctifs), converti en .docx à l'affichage/au
+  // téléchargement (cf. markdown-to-docx-service.ts) — jamais stocké en .docx en
+  // base, un seul format source à maintenir. Vit sur la version ANALYSÉE (celle du
+  // client), pas sur une nouvelle version : c'est un brouillon de travail, la vraie
+  // version corrigée n'existe que quand le cabinet la redépose lui-même via le
+  // circuit normal (cf. `regeneratedFromVersionId` ci-dessus, prévu pour ce lien,
+  // pas encore renseigné automatiquement).
+  correctedDraftMarkdown    String?   @map("corrected_draft_markdown")
+  correctedDraftGeneratedAt DateTime? @map("corrected_draft_generated_at")
+
   document               Document          @relation("AllVersions", fields: [documentId], references: [id])
   uploadedBy             User              @relation("UploadedBy", fields: [uploadedByUserId], references: [id])
   // SetNull : la désactivation d'un compte ne doit pas dépublier une analyse déjà
@@ -1356,6 +1369,14 @@ enum AuditAction {
   // connaissances qui apprend des erreurs constatées). `targetId` = identifiant du
   // critère, jamais le contenu de la guideline.
   CRITERION_GUIDELINE_ADDED
+  // Ré-analyse à la demande d'une version déjà déposée (bouton « Analyser » côté
+  // cabinet, 15/09/2026) — `targetId` = identifiant de la version de document.
+  DOCUMENT_REANALYZED
+  // Brouillon de document corrigé généré par l'IA (15/09/2026) — `targetId` =
+  // identifiant de la version de document analysée, jamais le contenu généré.
+  CORRECTED_DRAFT_GENERATED
+  CORRECTED_DRAFT_EDITED
+  CORRECTED_DRAFT_DOWNLOADED
 }
 
 model AuditLogEntry {

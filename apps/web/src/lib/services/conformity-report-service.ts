@@ -73,7 +73,10 @@ export function buildReportLine(item: ReportSourceItem): ReportLine {
     state: "ANALYSE",
     missing: item.analysis.elementsManquants,
     suggestions: item.analysis.suggestionsCorrection,
-    present: item.analysis.elementsPresents,
+    // Le rapport externe garde le constat, pas la citation source qui le justifie —
+    // celle-ci reste un outil de vérification interne (cf. DocumentAnalysisPanel),
+    // pas une pièce à remettre telle quelle au client.
+    present: item.analysis.elementsPresents.map((finding) => finding.text),
     seemsCompliant: item.analysis.sembleConforme,
   };
 }

@@ -9,7 +9,7 @@ import {
 } from "./conformity-report-service";
 
 const ANALYSIS = {
-  elementsPresents: ["Objet du séjour"],
+  elementsPresents: [{ text: "Objet du séjour", source: "Le présent séjour a pour objet…" }],
   elementsManquants: ["Mention des voies de recours", "Date de révision"],
   suggestionsCorrection: ["Ajouter un paragraphe sur la personne qualifiée."],
   sembleConforme: false,
@@ -35,6 +35,9 @@ describe("buildReportLine", () => {
     expect(line.state).toBe("ANALYSE");
     expect(line.missing).toHaveLength(2);
     expect(line.suggestions).toHaveLength(1);
+    // Le constat sort du rapport externe, pas la citation source qui le justifie —
+    // celle-ci reste un outil de vérification interne (cf. DocumentAnalysisPanel).
+    expect(line.present).toEqual(["Objet du séjour"]);
     expect(line.criteria[0]?.code).toBe("1.10.6");
   });
 

@@ -1,4 +1,9 @@
-import type { LLMAnalysisPort, DocumentAnalysisInput, DocumentAnalysisResult } from "./llm-analysis-port";
+import type {
+  LLMAnalysisPort,
+  DocumentAnalysisInput,
+  DocumentAnalysisResult,
+  DocumentGenerationInput,
+} from "./llm-analysis-port";
 
 // Fallback dev/tant-que-ANTHROPIC_API_KEY-non-configuré — ne fait aucun appel LLM,
 // renvoie un résultat neutre pour ne pas bloquer le flux d'upload. Ne jamais
@@ -9,5 +14,12 @@ export class StubAnalysisAdapter implements LLMAnalysisPort {
       `[StubAnalysisAdapter] Analyse non exécutée (ANTHROPIC_API_KEY absent) pour "${input.documentTypeLabel}".`
     );
     return { elementsPresents: [], elementsManquants: [], suggestionsCorrection: [], sembleConforme: false };
+  }
+
+  async generateCorrectedDocument(input: DocumentGenerationInput): Promise<string> {
+    console.log(
+      `[StubAnalysisAdapter] Génération non exécutée (ANTHROPIC_API_KEY absent) pour "${input.documentTypeLabel}".`
+    );
+    throw new Error("Génération de document non configurée (adaptateur de repli, développement uniquement).");
   }
 }

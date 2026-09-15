@@ -6,6 +6,8 @@ import { deriveDocumentStatus } from "@/lib/services/document-status-service";
 import { buildStorageKey } from "@/lib/security/upload-validation-service";
 import { getKnowledgeRetrievalPort } from "@/lib/knowledge";
 import { MAX_GUIDELINES_INJECTED } from "@/lib/services/criterion-guideline-service";
+import { extractMarkdown } from "@/lib/services/text-extraction-service";
+import { validateUploadedFile } from "@/lib/security/upload-validation-service";
 
 const KNOWLEDGE_EXCERPTS_LIMIT = 5;
 
@@ -131,6 +133,93 @@ export async function ingestDocumentVersion(
   return { documentId: document.id, documentVersionId: version.id, analysisSucceeded };
 }
 
+// ── Ré-analyse à la demande — bouton « Analyser » côté cabinet ───────────────
+//
+// « Il faut un bouton analyser » (Damon, 15/09/2026), motivé par un vrai bug :
+// une régression de dépendance (@xmldom/xmldom résolu trop récent par un override
+// de sécurité trop large) faisait échouer SILENCIEUSEMENT l'extraction Word pour
+// tout document déposé — texte jamais stocké, analyse jamais tentée. Corrigé,
+// mais les documents déjà déposés pendant que le bug était actif restent sans
+// texte ni analyse ; ce bouton permet de les rattraper SANS nouveau dépôt, et sert
+// aussi de ré-analyse générale (guidelines ajoutées depuis, modèle différent…).
+//
+// Ré-extrait le texte si absent (fichier déjà stocké, re-téléchargé le temps de
+// l'appel — jamais conservé) avant de relancer l'analyse. Si l'extraction échoue
+// encore (format non analysable), retourne une erreur explicite plutôt que de
+// tenter une analyse sur un texte vide.
+export async function reanalyzeDocumentVersion(
+  documentVersionId: string,
+  ports: IngestionPorts,
+  modelId?: string | null
+): Promise<{ ok: true } | { error: string }> {
+  const version = await prisma.documentVersion.findUnique({
+    where: { id: documentVersionId },
+    select: {
+      id: true,
+      fileStorageKey: true,
+      extractedText: true,
+      document: {
+        select: {
+          id: true,
+          establishmentId: true,
+          documentTypeId: true,
+          documentType: { select: { label: true } },
+        },
+      },
+    },
+  });
+  if (!version || !version.document.documentTypeId || !version.document.documentType) {
+    return { error: "Document introuvable." };
+  }
+
+  let extractedText = version.extractedText;
+  if (!extractedText) {
+    try {
+      const url = await ports.storage.getSignedDownloadUrl(version.fileStorageKey, {
+        disposition: "inline",
+        filename: "reanalyse",
+      });
+      const response = await fetch(url);
+      const buffer = Buffer.from(await response.arrayBuffer());
+      // Type réel déterminé par la signature binaire, jamais par l'extension du nom
+      // de fichier d'origine — même règle qu'au dépôt initial.
+      const validation = validateUploadedFile(buffer, buffer.length);
+      if (validation.ok) {
+        extractedText = await extractMarkdown(buffer, validation.contentType);
+        if (extractedText) {
+          await prisma.documentVersion.update({ where: { id: version.id }, data: { extractedText } });
+        }
+      }
+    } catch (error) {
+      console.error("Ré-analyse — nouvelle extraction échouée :", error);
+    }
+  }
+
+  if (!extractedText) {
+    return {
+      error:
+        "Aucun texte n'a pu être extrait de ce document — l'analyse automatique n'est pas possible pour ce format (image, ou extraction échouée).",
+    };
+  }
+
+  await prisma.document.update({ where: { id: version.document.id }, data: { status: "ANALYZING" } });
+
+  const succeeded = await analyzeVersion(
+    {
+      establishmentId: version.document.establishmentId,
+      documentId: version.document.id,
+      documentVersionId: version.id,
+      documentTypeId: version.document.documentTypeId,
+      documentTypeLabel: version.document.documentType.label,
+      extractedText,
+      ...(modelId && { modelId }),
+    },
+    ports.llm
+  );
+
+  return succeeded ? { ok: true } : { error: "L'analyse a échoué. Réessayez dans un instant." };
+}
+
 // Analyse IA synchrone (un seul appel LLM par document, cf. roadmap Jalon 3) —
 // jamais bloquante : en cas d'échec, le document reste UPLOADED plutôt que de
 // faire échouer tout le dépôt.
@@ -201,7 +290,12 @@ async function analyzeVersion(
 // (fournisseur d'embeddings indisponible, par exemple) ne doit jamais faire
 // échouer l'analyse elle-même — seulement la priver d'enrichissement, comme si
 // VOYAGE_API_KEY n'était simplement pas configurée.
-async function fetchKnowledgeExcerpts(
+//
+// Exportée : document-generation-service.ts (génération de brouillon corrigé)
+// a besoin exactement du même enrichissement que l'analyse — même base de
+// connaissances, mêmes guidelines du cabinet. Dupliquer aurait fait diverger les
+// deux le jour où l'une des deux évoluerait (D1).
+export async function fetchKnowledgeExcerpts(
   tenantId: string | null,
   documentTypeLabel: string,
   criteriaLabels: string[]
@@ -229,7 +323,7 @@ async function fetchKnowledgeExcerpts(
 // rend alors `[]` sans même interroger la base, exactement comme si aucune
 // guideline n'existait. Elle commencera à en rappeler dès que cette table sera
 // peuplée, sans qu'aucune ligne de ce fichier n'ait besoin de changer.
-async function fetchCriterionGuidelines(
+export async function fetchCriterionGuidelines(
   tenantId: string | null,
   criterionIds: string[]
 ): Promise<string[]> {
