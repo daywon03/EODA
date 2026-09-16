@@ -239,7 +239,7 @@ async function analyzeVersion(
     const [linkedCriteria, establishment] = await Promise.all([
       prisma.documentTypeCriterion.findMany({
         where: { documentTypeId: params.documentTypeId },
-        include: { criterion: { select: { id: true, label: true } } },
+        include: { criterion: { select: { id: true, code: true, label: true } } },
       }),
       prisma.establishment.findUnique({
         where: { id: params.establishmentId },
@@ -248,6 +248,10 @@ async function analyzeVersion(
     ]);
     const criteriaLabels = linkedCriteria.map((c) => c.criterion.label);
     const criterionIds = linkedCriteria.map((c) => c.criterion.id);
+    const linkedCriteriaOption = linkedCriteria.map((c) => ({
+      code: c.criterion.code,
+      label: c.criterion.label,
+    }));
     const tenantId = establishment?.tenantId ?? null;
 
     const [knowledgeExcerpts, criterionGuidelines] = await Promise.all([
@@ -260,7 +264,7 @@ async function analyzeVersion(
       // Anonymisation best-effort avant tout envoi vers un service externe
       // (contrainte RGPD, cf. anonymization-service.ts).
       extractedText: anonymizeText(params.extractedText ?? ""),
-      linkedCriteriaLabels: criteriaLabels,
+      linkedCriteria: linkedCriteriaOption,
       knowledgeExcerpts,
       criterionGuidelines,
       ...(params.modelId && { modelId: params.modelId }),

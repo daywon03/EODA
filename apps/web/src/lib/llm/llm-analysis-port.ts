@@ -2,10 +2,12 @@
 // jamais directement d'un SDK LLM externe. cf. specs/02-architecture-technique.md §1,
 // même principe que FileStoragePort/EmailPort.
 
+export type LinkedCriterion = { code: string; label: string };
+
 export type DocumentAnalysisInput = {
   documentTypeLabel: string;
   extractedText: string;
-  linkedCriteriaLabels: string[];
+  linkedCriteria: LinkedCriterion[];
   // Extraits de la base de connaissances (documents de RÉFÉRENCE de la bibliothèque
   // de modèles — manuel HAS, textes réglementaires), retrouvés par recherche
   // vectorielle. Toujours optionnel : la base de connaissances est un
@@ -34,6 +36,17 @@ export type AnalysisFinding = {
   source: string;
 };
 
+// Un statut de couverture PAR CRITÈRE rattaché au document (pas un jugement
+// global) : « pour le critère 1.1, ça... » (Sandrine, façon dont elle travaille
+// elle-même, call du 15/09/2026) — jusqu'ici l'analyse listait des manques sans
+// dire à quel critère ils se rattachaient.
+export type CriterionCoverage = {
+  criterionCode: string;
+  criterionLabel: string;
+  status: "couvert" | "partiel" | "absent";
+  note: string;
+};
+
 export type DocumentAnalysisResult = {
   elementsPresents: AnalysisFinding[];
   elementsManquants: string[];
@@ -42,6 +55,9 @@ export type DocumentAnalysisResult = {
   // DocumentStatusService pour dériver COMPLIANT/INCOMPLETE — jamais appliqué
   // sans validation humaine, cf. specs/01-mvp-v1.md §Module 1).
   sembleConforme: boolean;
+  // Absent sur les analyses stockées avant cette date (repli `?? []` partout où
+  // c'est lu) — jamais un champ requis rétroactivement sur des données existantes.
+  criteriaCoverage: CriterionCoverage[];
 };
 
 // Entrée de la génération d'un document corrigé (demande de Damon, 15/09/2026) —
@@ -51,7 +67,7 @@ export type DocumentAnalysisResult = {
 export type DocumentGenerationInput = {
   documentTypeLabel: string;
   extractedText: string;
-  linkedCriteriaLabels: string[];
+  linkedCriteria: LinkedCriterion[];
   knowledgeExcerpts?: string[];
   criterionGuidelines?: string[];
   modelId?: string;
@@ -89,4 +105,24 @@ export function normalizeFindings(value: unknown): AnalysisFinding[] {
       return null;
     })
     .filter((entry): entry is AnalysisFinding => entry !== null);
+}
+
+// Même défense que normalizeFindings : un modèle qui s'écarte du schéma (chaîne
+// au lieu d'objet, statut hors énumération) ne doit jamais faire planter
+// l'analyse entière — l'entrée malformée est simplement ignorée.
+const VALID_COVERAGE_STATUSES = ["couvert", "partiel", "absent"] as const;
+
+export function normalizeCriteriaCoverage(value: unknown): CriterionCoverage[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((entry): entry is CriterionCoverage => {
+    if (typeof entry !== "object" || entry === null) return false;
+    const e = entry as Record<string, unknown>;
+    return (
+      typeof e.criterionCode === "string" &&
+      typeof e.criterionLabel === "string" &&
+      typeof e.note === "string" &&
+      typeof e.status === "string" &&
+      (VALID_COVERAGE_STATUSES as readonly string[]).includes(e.status)
+    );
+  });
 }

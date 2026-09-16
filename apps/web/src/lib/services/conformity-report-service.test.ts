@@ -13,6 +13,7 @@ const ANALYSIS = {
   elementsManquants: ["Mention des voies de recours", "Date de révision"],
   suggestionsCorrection: ["Ajouter un paragraphe sur la personne qualifiée."],
   sembleConforme: false,
+  criteriaCoverage: [],
 };
 
 function item(overrides: Partial<ReportSourceItem> = {}): ReportSourceItem {

@@ -13,7 +13,13 @@ export class StubAnalysisAdapter implements LLMAnalysisPort {
     console.log(
       `[StubAnalysisAdapter] Analyse non exécutée (ANTHROPIC_API_KEY absent) pour "${input.documentTypeLabel}".`
     );
-    return { elementsPresents: [], elementsManquants: [], suggestionsCorrection: [], sembleConforme: false };
+    return {
+      elementsPresents: [],
+      elementsManquants: [],
+      suggestionsCorrection: [],
+      sembleConforme: false,
+      criteriaCoverage: [],
+    };
   }
 
   async generateCorrectedDocument(input: DocumentGenerationInput): Promise<string> {

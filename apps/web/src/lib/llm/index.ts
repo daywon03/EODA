@@ -46,6 +46,8 @@ export type {
   DocumentAnalysisInput,
   DocumentAnalysisResult,
   AnalysisFinding,
+  CriterionCoverage,
+  LinkedCriterion,
   DocumentGenerationInput,
 } from "./llm-analysis-port";
 export { LLM_MODEL_OPTIONS, DEFAULT_LLM_MODEL_ID, isKnownLlmModelId } from "./openrouter-models";

@@ -66,11 +66,15 @@ export async function generateCorrectedDraft(
   const [linkedCriteria] = await Promise.all([
     prisma.documentTypeCriterion.findMany({
       where: { documentTypeId: version.document.documentTypeId },
-      include: { criterion: { select: { label: true, id: true } } },
+      include: { criterion: { select: { label: true, id: true, code: true } } },
     }),
   ]);
   const criteriaLabels = linkedCriteria.map((c) => c.criterion.label);
   const criterionIds = linkedCriteria.map((c) => c.criterion.id);
+  const linkedCriteriaOption = linkedCriteria.map((c) => ({
+    code: c.criterion.code,
+    label: c.criterion.label,
+  }));
   const tenantId = version.document.establishment.tenantId;
 
   const [knowledgeExcerpts, criterionGuidelines] = await Promise.all([
@@ -82,7 +86,7 @@ export async function generateCorrectedDraft(
     const markdown = await llm.generateCorrectedDocument({
       documentTypeLabel: version.document.documentType.label,
       extractedText: anonymizeText(version.extractedText),
-      linkedCriteriaLabels: criteriaLabels,
+      linkedCriteria: linkedCriteriaOption,
       knowledgeExcerpts,
       criterionGuidelines,
       elementsManquants: analysis.elementsManquants,

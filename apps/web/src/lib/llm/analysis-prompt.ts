@@ -1,4 +1,4 @@
-import type { DocumentAnalysisInput } from "./llm-analysis-port";
+import type { DocumentAnalysisInput, DocumentGenerationInput } from "./llm-analysis-port";
 
 // Construction du prompt d'analyse documentaire — partagée par tous les
 // adaptateurs LLM (Anthropic direct, OpenRouter) pour qu'ils analysent le même
@@ -75,6 +75,14 @@ Règles d'analyse :
   on ne cite pas un passage qui n'existe pas dans le document.
 - "suggestionsCorrection" propose des paragraphes-types génériques quand un élément
   manque — jamais de données personnelles inventées (noms, adresses, dates de naissance).
+- "criteriaCoverage" contient UNE entrée par critère listé dans "Critères HAS rattachés à
+  ce type de document" (jamais plus, jamais moins) : {"criterionCode", "criterionLabel",
+  "status", "note"}. "status" vaut "couvert" (le document répond clairement à ce
+  critère), "partiel" (des éléments y répondent mais il en manque), ou "absent" (rien
+  dans le document ne répond à ce critère). "note" est une phrase courte justifiant le
+  statut, en te fondant sur ce que tu as déjà listé dans "elementsPresents"/
+  "elementsManquants" — jamais une nouvelle déduction non reliée à ce que tu as
+  constaté par ailleurs.
 - Cette analyse est une aide à la décision pour l'évaluatrice, jamais une validation
   finale ni une cotation HAS officielle.`;
 }
@@ -86,8 +94,8 @@ export function buildUserMessage(input: DocumentAnalysisInput): string {
     : input.extractedText;
 
   const criteria =
-    input.linkedCriteriaLabels.length > 0
-      ? input.linkedCriteriaLabels.join(" ; ")
+    input.linkedCriteria.length > 0
+      ? input.linkedCriteria.map((c) => `${c.code} — ${c.label}`).join(" ; ")
       : "aucun rattachement connu";
 
   // Même consigne de sécurité que pour <document> ci-dessus : ces extraits viennent
@@ -123,19 +131,6 @@ ${text}
 // consultante relit et complète avant de le redéposer comme version corrigée —
 // même exigence de revue humaine que pour l'analyse elle-même.
 // ─────────────────────────────────────────────────────────────────────────────
-
-export type DocumentGenerationInput = {
-  documentTypeLabel: string;
-  extractedText: string;
-  linkedCriteriaLabels: string[];
-  knowledgeExcerpts?: string[];
-  criterionGuidelines?: string[];
-  // Ce que l'analyse a déjà relevé — la génération n'analyse pas une seconde fois,
-  // elle complète à partir d'un constat déjà fait (D1 : un seul endroit décide de
-  // ce qui manque).
-  elementsManquants: string[];
-  suggestionsCorrection: string[];
-};
 
 export function buildGenerationSystemPrompt(): string {
   return `Tu rédiges la version corrigée d'un document fourni par un établissement social/
@@ -182,7 +177,9 @@ export function buildGenerationUserMessage(input: DocumentGenerationInput): stri
   const text = truncated ? input.extractedText.slice(0, MAX_DOCUMENT_CHARS) : input.extractedText;
 
   const criteria =
-    input.linkedCriteriaLabels.length > 0 ? input.linkedCriteriaLabels.join(" ; ") : "aucun rattachement connu";
+    input.linkedCriteria.length > 0
+      ? input.linkedCriteria.map((c) => `${c.code} — ${c.label}`).join(" ; ")
+      : "aucun rattachement connu";
 
   const knowledge =
     input.knowledgeExcerpts && input.knowledgeExcerpts.length > 0
