@@ -295,6 +295,7 @@ export type TemplateDetail = {
     createdAt: Date;
     uploadedByName: string;
   }[];
+  criteria: { id: string; code: string; label: string }[];
 };
 
 export async function getTemplate(templateId: string): Promise<TemplateDetail> {
@@ -308,6 +309,7 @@ export async function getTemplate(templateId: string): Promise<TemplateDetail> {
     include: {
       category: { select: { id: true, name: true } },
       versions: { include: { uploadedBy: { select: { name: true } } } },
+      criteria: { include: { criterion: { select: { id: true, code: true, label: true } } } },
     },
   });
   if (!template) notFound();
@@ -319,6 +321,9 @@ export async function getTemplate(templateId: string): Promise<TemplateDetail> {
     categoryId: template.category.id,
     categoryName: template.category.name,
     description: template.description,
+    criteria: template.criteria
+      .map((c) => c.criterion)
+      .sort((a, b) => a.code.localeCompare(b.code)),
     versions: [...template.versions]
       // Tri par numéro de version décroissant, segment par segment : « v10 » vient
       // après « v9 », ce qu'un tri de chaînes ferait à l'envers. Un document de
@@ -341,6 +346,37 @@ export async function getTemplate(templateId: string): Promise<TemplateDetail> {
         uploadedByName: version.uploadedBy.name,
       })),
   };
+}
+
+// Remplace la liste complète plutôt que d'attacher/détacher un par un : un seul
+// appel depuis un sélecteur multiple, cohérent avec la façon dont le formulaire
+// soumet "voici la liste actuelle" plutôt qu'une suite d'actions incrémentales.
+export async function setTemplateCriteria(
+  templateDocumentId: string,
+  criterionIds: string[]
+): Promise<{ error: string } | null> {
+  const { tenantId } = await requireCabinetAdminSession();
+
+  const template = await prisma.templateDocument.findFirst({
+    where: { id: templateDocumentId, tenantId },
+    select: { id: true },
+  });
+  if (!template) return { error: "Ce modèle n'existe pas." };
+
+  await prisma.$transaction([
+    prisma.templateDocumentCriterion.deleteMany({
+      where: { templateDocumentId: template.id },
+    }),
+    prisma.templateDocumentCriterion.createMany({
+      data: criterionIds.map((criterionId) => ({
+        templateDocumentId: template.id,
+        criterionId,
+      })),
+    }),
+  ]);
+
+  revalidatePath(`${LIBRARY_PATH}/${template.id}`);
+  return null;
 }
 
 export async function createTemplate(
