@@ -110,30 +110,36 @@ export async function generateCorrectedDraft(
 
 // Images d'origine de la version, prêtes à être passées à `generateBrandedDocx`
 // (annexe, D6) — chargées depuis `DocumentVersionImage` (D4) puis leur contenu
-// récupéré via le port de stockage. Best-effort par image : une image dont le
-// téléchargement échoue est simplement omise de l'annexe, elle ne doit jamais
-// faire échouer la génération du .docx (même principe que fetchImageDescriptions
-// dans document-ingestion-service.ts).
+// récupéré via le port de stockage. Best-effort à deux niveaux : par image (une
+// image dont le téléchargement échoue est omise de l'annexe) et globalement (une
+// panne de lecture de la table, comme fetchImageDescriptions dans
+// document-ingestion-service.ts, ne doit jamais faire échouer le téléchargement
+// du brouillon lui-même — l'annexe est un bonus, pas une condition).
 export async function loadCorrectedDraftImages(
   documentVersionId: string,
   storage: FileStoragePort
 ): Promise<BrandedDocxImageInput[]> {
-  const images = await prisma.documentVersionImage.findMany({
-    where: { documentVersionId },
-    orderBy: { position: "asc" },
-    select: { fileStorageKey: true, contentType: true, description: true },
-  });
+  try {
+    const images = await prisma.documentVersionImage.findMany({
+      where: { documentVersionId },
+      orderBy: { position: "asc" },
+      select: { fileStorageKey: true, contentType: true, description: true },
+    });
 
-  const results: BrandedDocxImageInput[] = [];
-  for (const image of images) {
-    try {
-      const buffer = await storage.download(image.fileStorageKey);
-      results.push({ buffer, contentType: image.contentType, description: image.description });
-    } catch (error) {
-      console.error("Image d'origine — téléchargement échoué, omise de l'annexe :", error);
+    const results: BrandedDocxImageInput[] = [];
+    for (const image of images) {
+      try {
+        const buffer = await storage.download(image.fileStorageKey);
+        results.push({ buffer, contentType: image.contentType, description: image.description });
+      } catch (error) {
+        console.error("Image d'origine — téléchargement échoué, omise de l'annexe :", error);
+      }
     }
+    return results;
+  } catch (error) {
+    console.error("Images d'origine — lecture échouée, brouillon généré sans annexe :", error);
+    return [];
   }
-  return results;
 }
 
 // Édition manuelle du brouillon — le cabinet relit et complète ce que l'IA a

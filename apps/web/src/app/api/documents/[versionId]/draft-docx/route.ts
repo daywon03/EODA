@@ -3,7 +3,9 @@ import { prisma } from "@eoda/database";
 import { tryEstablishmentAccess } from "@/lib/auth/guards";
 import { recordAuditEvent } from "@/lib/services/audit-log-service";
 import { generateBrandedDocx } from "@/lib/services/markdown-to-docx-service";
+import { loadCorrectedDraftImages } from "@/lib/services/document-generation-service";
 import { buildEodaFileName } from "@/lib/services/document-naming-service";
+import { getFileStoragePort } from "@/lib/storage";
 
 // Téléchargement du brouillon corrigé — route et non action serveur, mêmes raisons
 // que /api/export/cotations/[id] : un .docx se sert avec ses en-têtes, pas via un
@@ -37,10 +39,16 @@ export async function GET(_request: Request, context: Context): Promise<Response
   if (!access || access.isClient) notFound();
   if (!version.correctedDraftMarkdown) notFound();
 
+  // Images d'origine du document déposé, jointes en annexe (D6). Best-effort côté
+  // loadCorrectedDraftImages : une image dont le téléchargement échoue est omise,
+  // jamais bloquante pour le téléchargement du brouillon lui-même.
+  const images = await loadCorrectedDraftImages(versionId, getFileStoragePort());
+
   const docBuffer = await generateBrandedDocx({
     markdown: version.correctedDraftMarkdown,
     title: version.document.documentType?.label ?? "Document corrigé",
     establishmentName: version.document.establishment.name,
+    images,
   });
 
   const fileName = buildEodaFileName({
