@@ -56,12 +56,16 @@ export async function describeImage(input: {
       }),
     });
 
-    if (!response.ok) return null;
+    if (!response.ok) {
+      console.error(`Description d'image — appel au modèle de vision échoué (HTTP ${response.status})`);
+      return null;
+    }
 
     const body = (await response.json()) as OpenRouterVisionResponse;
     const content = body.choices?.[0]?.message?.content;
     return content && content.trim().length > 0 ? content.trim() : null;
-  } catch {
+  } catch (error) {
+    console.error("Description d'image — appel au modèle de vision échoué :", error);
     return null;
   }
 }

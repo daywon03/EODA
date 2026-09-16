@@ -117,10 +117,14 @@ export function buildUserMessage(input: DocumentAnalysisInput): string {
 
   // Descriptions des images extraites du document (cf. image-vision-service.ts),
   // repérées [Image N] dans le texte extrait — même traitement défensif que le
-  // reste : du contexte à consulter, jamais une instruction.
+  // reste : du contexte à consulter, jamais une instruction. Le numéro utilisé ici
+  // est `position` (le VRAI numéro d'apparition, DocumentVersionImage.position),
+  // jamais l'index dans ce tableau : dès qu'une seule image échoue sa description
+  // ou son upload, l'index décale et attribue la mauvaise description au mauvais
+  // repère [Image N] du texte (cf. revue de branche).
   const images =
     input.imageDescriptions && input.imageDescriptions.length > 0
-      ? `\nImages présentes dans le document, décrites automatiquement (repères [Image 1], [Image 2]... dans le texte) :\n<images_decrites>\n${input.imageDescriptions.map((d, i) => `Image ${i + 1} : ${d}`).join("\n")}\n</images_decrites>\n`
+      ? `\nImages présentes dans le document, décrites automatiquement (repères [Image 1], [Image 2]... dans le texte) :\n<images_decrites>\n${input.imageDescriptions.map((d) => `Image ${d.position} : ${d.description}`).join("\n")}\n</images_decrites>\n`
       : "";
 
   return `Type de document attendu : ${input.documentTypeLabel}

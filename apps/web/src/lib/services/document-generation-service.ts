@@ -123,14 +123,19 @@ export async function loadCorrectedDraftImages(
     const images = await prisma.documentVersionImage.findMany({
       where: { documentVersionId },
       orderBy: { position: "asc" },
-      select: { fileStorageKey: true, contentType: true, description: true },
+      select: { position: true, fileStorageKey: true, contentType: true, description: true },
     });
 
     const results: BrandedDocxImageInput[] = [];
     for (const image of images) {
       try {
         const buffer = await storage.download(image.fileStorageKey);
-        results.push({ buffer, contentType: image.contentType, description: image.description });
+        results.push({
+          buffer,
+          contentType: image.contentType,
+          description: image.description,
+          position: image.position,
+        });
       } catch (error) {
         console.error("Image d'origine — téléchargement échoué, omise de l'annexe :", error);
       }

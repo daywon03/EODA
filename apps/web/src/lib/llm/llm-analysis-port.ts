@@ -26,7 +26,11 @@ export type DocumentAnalysisInput = {
   // Ce que les images extraites du document représentent (cf. image-vision-service.ts)
   // — un panneau affiché photographié, un organigramme… Toujours optionnel : sans
   // image, ou si leur description a échoué, l'analyse fonctionne comme avant.
-  imageDescriptions?: string[];
+  // `position` est le VRAI numéro d'apparition dans le document (DocumentVersionImage.position),
+  // celui qui correspond au repère `[Image N]` laissé dans le texte extrait — jamais
+  // l'index de ce tableau, qui décale dès qu'une seule image échoue en amont
+  // (cf. fetchImageDescriptions dans document-ingestion-service.ts).
+  imageDescriptions?: { position: number; description: string }[];
 };
 
 // Un élément retrouvé, avec la citation qui le justifie (demande de Damon,

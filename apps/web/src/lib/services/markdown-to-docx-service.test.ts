@@ -25,7 +25,12 @@ describe("generateBrandedDocx", () => {
       title: "Règlement de fonctionnement",
       establishmentName: "ASSAD BENOIT",
       images: [
-        { buffer: Buffer.from(PNG_1X1_BASE64, "base64"), contentType: "image/png", description: "Un logo." },
+        {
+          buffer: Buffer.from(PNG_1X1_BASE64, "base64"),
+          contentType: "image/png",
+          description: "Un logo.",
+          position: 1,
+        },
       ],
     });
     // Un .docx est un zip : vérifier au minimum que la génération ne lève pas et que
@@ -38,7 +43,7 @@ describe("generateBrandedDocx", () => {
       markdown: "# Titre\n\nUn paragraphe.",
       title: "Règlement de fonctionnement",
       establishmentName: "ASSAD BENOIT",
-      images: [{ buffer: Buffer.from("x"), contentType: "image/webp", description: null }],
+      images: [{ buffer: Buffer.from("x"), contentType: "image/webp", description: null, position: 1 }],
     });
     expect(buffer.length).toBeGreaterThan(0);
   });

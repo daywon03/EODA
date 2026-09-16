@@ -128,8 +128,9 @@ export async function ingestDocumentVersion(
               description,
             },
           });
-        } catch {
+        } catch (error) {
           // Best-effort : une image perdue n'empêche pas les autres, ni le dépôt.
+          console.error("Image extraite — stockage échoué, omise du document :", error);
         }
       })
     );
@@ -335,19 +336,25 @@ async function analyzeVersion(
 // Descriptions des images déjà stockées pour cette version (D4,
 // DocumentVersionImage.description) — dans l'ordre d'apparition, seules celles
 // dont la description a réussi (jamais `null`, cf. image-vision-service.ts).
+// `position` est portée jusqu'au prompt (analysis-prompt.ts) : c'est le même
+// numéro que le repère `[Image N]` laissé dans le texte extrait par
+// text-extraction-service.ts — jamais l'index dans ce tableau, qui décale dès
+// qu'une seule image échoue sa description ou son upload (cf. revue de branche).
 // Même principe de repli que fetchKnowledgeExcerpts/fetchCriterionGuidelines :
 // une panne de lecture ne doit jamais faire échouer l'analyse elle-même, elle
 // la prive simplement de cet enrichissement.
-async function fetchImageDescriptions(documentVersionId: string): Promise<string[]> {
+async function fetchImageDescriptions(
+  documentVersionId: string
+): Promise<{ position: number; description: string }[]> {
   try {
     const images = await prisma.documentVersionImage.findMany({
       where: { documentVersionId, description: { not: null } },
       orderBy: { position: "asc" },
-      select: { description: true },
+      select: { position: true, description: true },
     });
     return images
-      .map((image) => image.description)
-      .filter((description): description is string => description !== null);
+      .filter((image): image is { position: number; description: string } => image.description !== null)
+      .map((image) => ({ position: image.position, description: image.description }));
   } catch (error) {
     console.error("Descriptions d'image — lecture échouée, analyse sans elles :", error);
     return [];

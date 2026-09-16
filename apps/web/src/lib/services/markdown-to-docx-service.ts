@@ -108,6 +108,12 @@ export type BrandedDocxImageInput = {
   buffer: Buffer;
   contentType: string;
   description: string | null;
+  // Numéro d'apparition dans le document d'origine (DocumentVersionImage.position)
+  // — utilisé pour légender l'annexe avec le VRAI numéro, celui qui correspond au
+  // repère [Image N] laissé dans le texte extrait, jamais l'index dans ce tableau
+  // (cf. revue de branche : une image omise, best-effort, décalerait sinon la
+  // numérotation de toutes celles qui suivent).
+  position: number;
 };
 
 export type BrandedDocxInput = {
@@ -139,7 +145,7 @@ function buildImageAnnexParagraphs(images: BrandedDocxImageInput[]): Paragraph[]
     }),
   ];
 
-  for (const [index, image] of images.entries()) {
+  for (const image of images) {
     const type = DOCX_IMAGE_TYPES[image.contentType];
     if (!type) continue; // format non supporté par docx (svg, webp...) — ignoré, jamais bloquant.
 
@@ -165,7 +171,7 @@ function buildImageAnnexParagraphs(images: BrandedDocxImageInput[]): Paragraph[]
       paragraphs.push(
         new Paragraph({
           children: [
-            new TextRun({ text: `Image ${index + 1} — ${image.description}`, italics: true, size: 18 }),
+            new TextRun({ text: `Image ${image.position} — ${image.description}`, italics: true, size: 18 }),
           ],
         })
       );
