@@ -34,6 +34,7 @@ const ROLE_LABELS: Record<string, string> = {
   DIRECTEUR: "Directeur / Directrice",
   COORDINATEUR: "Coordinateur / Coordinatrice",
   ASSISTANT_QUALITE: "Assistant(e) qualité",
+  RESPONSABLE_QUALITE: "Responsable Qualité",
   AUTRE: "Autre",
 };
 
@@ -136,6 +137,7 @@ export function ClientUserRow({ establishmentId, user, roleInEstablishment }: Pr
               <option value="DIRECTEUR">Directeur / Directrice</option>
               <option value="COORDINATEUR">Coordinateur / Coordinatrice</option>
               <option value="ASSISTANT_QUALITE">Assistant(e) qualité</option>
+              <option value="RESPONSABLE_QUALITE">Responsable Qualité</option>
               <option value="AUTRE">Autre</option>
             </Select>
           </div>

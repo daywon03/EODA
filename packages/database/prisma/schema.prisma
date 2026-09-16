@@ -191,6 +191,9 @@ enum EstablishmentUserRole {
   DIRECTEUR
   COORDINATEUR
   ASSISTANT_QUALITE
+  // Demande de Sandrine, call du 15/09/2026 : un poste fréquent chez les SAD
+  // accompagnés, absent de la liste d'origine.
+  RESPONSABLE_QUALITE
   AUTRE
 }
 
