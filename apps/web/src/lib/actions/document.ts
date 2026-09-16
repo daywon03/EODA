@@ -27,6 +27,7 @@ import {
 import { getFileStoragePort } from "@/lib/storage";
 import { getLLMAnalysisPort, isKnownLlmModelId } from "@/lib/llm";
 import { validateGuidelineNote } from "@/lib/services/criterion-guideline-service";
+import { buildFilePreview } from "@/lib/services/file-preview-service";
 import type { FilePreviewData } from "@/lib/services/file-preview-types";
 
 // Cette action reste volontairement mince : autorisation → validation → délégation
@@ -323,21 +324,11 @@ export async function getDocumentPreviewData(
     detail: version.document.documentType?.code ?? null,
   });
 
-  const isPdf = version.originalFilename.toLowerCase().endsWith(".pdf");
-
-  if (isPdf) {
-    const url = await getFileStoragePort().getSignedDownloadUrl(version.fileStorageKey, {
-      disposition: "inline",
-      filename: version.originalFilename,
-    });
-    return { kind: "pdf", url, filename: version.originalFilename };
-  }
-
-  if (version.extractedText) {
-    return { kind: "text", text: version.extractedText, filename: version.originalFilename };
-  }
-
-  return { kind: "unavailable", filename: version.originalFilename };
+  return buildFilePreview({
+    originalFilename: version.originalFilename,
+    fileStorageKey: version.fileStorageKey,
+    extractedText: version.extractedText,
+  });
 }
 
 // ── Texte extrait (Markdown) — vérification de l'extraction, côté CABINET ────

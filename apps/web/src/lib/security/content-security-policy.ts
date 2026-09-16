@@ -20,7 +20,12 @@
 //  - `'unsafe-eval'` en développement seulement : le rechargement à chaud en dépend.
 //    Jamais en production, et c'est le test qui le garantit.
 //  - `frame-src https:` : aperçu PDF servi depuis une URL signée du bucket, dont le
-//    domaine varie selon la région et le fournisseur.
+//    domaine varie selon la région et le fournisseur. `img-src` porte désormais la
+//    même exception, pour la même raison : un document déposé au format image
+//    (charte affichée photographiée, organigramme) se prévisualise depuis la même
+//    URL signée — `img-src 'self' data: blob:` sans `https:` la bloquait purement
+//    et simplement (constaté le 16/09/2026 : « violates ... img-src » dans la
+//    console, l'image restait une icône cassée).
 //
 // Fonction PURE : `nonce` et `isProduction` entrent, une chaîne sort. C'est ce qui
 // permet de vérifier mécaniquement qu'aucune version future ne réintroduit
@@ -38,7 +43,7 @@ export function buildContentSecurityPolicy(options: {
     // `'self'` est conservé pour les navigateurs qui ignorent `'strict-dynamic'`.
     `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${isProduction ? "" : " 'unsafe-eval'"}`,
     "style-src 'self' 'unsafe-inline'",
-    "img-src 'self' data: blob:",
+    "img-src 'self' data: blob: https:",
     "font-src 'self' data:",
     "connect-src 'self' https:",
     "frame-src 'self' blob: https:",

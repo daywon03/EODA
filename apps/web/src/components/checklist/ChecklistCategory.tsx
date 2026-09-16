@@ -8,8 +8,10 @@ import { MissingDocumentJustification } from "./MissingDocumentJustification";
 import { DocumentAnalysisPanel } from "./DocumentAnalysisPanel";
 import { DocumentVersionHistory } from "./DocumentVersionHistory";
 import { DocumentStepTrail } from "./DocumentStepTrail";
+import { isImageFile } from "@/lib/services/file-type-service";
 import { DocumentScopeToggle } from "./DocumentScopeToggle";
 import { ProgressBar } from "@/components/ui/progress-bar";
+import { Badge } from "@/components/ui/badge";
 import {
   documentProgressPercent,
   summariseDocumentObligations,
@@ -84,23 +86,30 @@ export function ChecklistCategory({
             ({items.length} document{items.length > 1 ? "s" : ""})
           </span>
         </div>
-        <div className="flex items-center gap-3 text-xs flex-shrink-0">
+        <div className="flex items-center gap-3 flex-shrink-0">
           {/* La jauge de la catégorie, dans l'en-tête : elle se lit accordéon
-              fermé, sinon elle n'aide pas à choisir lequel ouvrir. */}
+              fermé, sinon elle n'aide pas à choisir lequel ouvrir. Couleur alignée
+              sur le statut qu'elle mesure (conformité = vert-ok), pas un vert
+              générique de succès. */}
           <span className="hidden sm:flex items-center gap-2">
             <ProgressBar
               value={categoryPercent}
               colorClassName="bg-vert-ok"
-              className="w-24 h-1.5"
+              className="w-24 h-2"
             />
-            <span className="text-gris-mid tabular-nums">{categoryPercent}%</span>
+            <span className="text-xs text-gris-mid tabular-nums">{categoryPercent}%</span>
           </span>
-          {missing > 0 && (
-            <span className="text-rouge-imp font-medium">{missing} manquant{missing > 1 ? "s" : ""}</span>
-          )}
-          {compliant > 0 && (
-            <span className="text-vert-ok font-medium">{compliant} conforme{compliant > 1 ? "s" : ""}</span>
-          )}
+          {/* Compteurs en badges, pas en texte brut : un chiffre coloré perdu dans
+              une ligne de texte est ce que Sandrine décrivait comme « pas assez
+              voyant » — le même problème que les statuts documentaires eux-mêmes. */}
+          <div className="flex items-center gap-1.5">
+            {missing > 0 && (
+              <Badge variant="missing">{missing} manquant{missing > 1 ? "s" : ""}</Badge>
+            )}
+            {compliant > 0 && (
+              <Badge variant="compliant">{compliant} conforme{compliant > 1 ? "s" : ""}</Badge>
+            )}
+          </div>
         </div>
       </button>
 
@@ -152,6 +161,9 @@ export function ChecklistCategory({
                     establishmentId={establishmentId}
                     documentTypeId={item.documentTypeId}
                     step={item.step}
+                    isImage={
+                      item.currentVersion ? isImageFile(item.currentVersion.originalFilename) : false
+                    }
                   />
                 )}
                 {/* Ce que l'analyse a trouvé — côté client comme côté cabinet : le

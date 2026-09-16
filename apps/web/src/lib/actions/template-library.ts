@@ -18,6 +18,7 @@ import { recordAuditEvent } from "@/lib/services/audit-log-service";
 import { extractMarkdown } from "@/lib/services/text-extraction-service";
 import { indexReferenceDocumentVersion } from "@/lib/services/knowledge-indexing-service";
 import { getEmbeddingPort } from "@/lib/embeddings";
+import { buildFilePreview } from "@/lib/services/file-preview-service";
 import type { FilePreviewData } from "@/lib/services/file-preview-types";
 import {
   buildTemplateStorageKey,
@@ -795,21 +796,11 @@ export async function getTemplateVersionPreviewData(versionId: string): Promise<
   });
   if (!version) return null;
 
-  const isPdf = version.originalFilename.toLowerCase().endsWith(".pdf");
-
-  if (isPdf) {
-    const url = await getFileStoragePort().getSignedDownloadUrl(version.fileStorageKey, {
-      disposition: "inline",
-      filename: version.originalFilename,
-    });
-    return { kind: "pdf", url, filename: version.originalFilename };
-  }
-
-  if (version.extractedText) {
-    return { kind: "text", text: version.extractedText, filename: version.originalFilename };
-  }
-
-  return { kind: "unavailable", filename: version.originalFilename };
+  return buildFilePreview({
+    originalFilename: version.originalFilename,
+    fileStorageKey: version.fileStorageKey,
+    extractedText: version.extractedText,
+  });
 }
 
 // ── Texte extrait (Markdown), même pour un PDF ───────────────────────────────

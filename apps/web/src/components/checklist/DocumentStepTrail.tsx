@@ -17,6 +17,10 @@ type Props = {
   establishmentId: string;
   documentTypeId: string;
   step: DocumentStep;
+  // Une image reste indéfiniment à l'étape DEPOSE (aucune analyse possible) —
+  // le message qui suit le fil d'étapes doit le dire, pas annoncer une analyse
+  // qui ne viendra jamais (call du 15/09/2026).
+  isImage?: boolean;
 };
 
 // Parcours du document côté CABINET : téléchargé → analysé → modifié → relu →
@@ -27,7 +31,7 @@ type Props = {
 // Les étapes franchies sont marquées d'une coche, pas seulement colorées : un fil
 // d'avancement qui ne se lit qu'à la teinte ne se lit pas du tout pour une partie des
 // gens.
-export function DocumentStepTrail({ establishmentId, documentTypeId, step }: Props) {
+export function DocumentStepTrail({ establishmentId, documentTypeId, step, isImage = false }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -65,8 +69,13 @@ export function DocumentStepTrail({ establishmentId, documentTypeId, step }: Pro
               )}
               <span
                 className={cn(
-                  "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs",
-                  reached ? "bg-vert-ok/15 text-brun-ancre" : "text-gris-mid"
+                  "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium",
+                  // Même recette que les badges de statut : bordure + fond, jamais
+                  // un fond seul — sinon la frise retombe dans le même défaut
+                  // "pastel" déjà corrigé sur les badges.
+                  reached
+                    ? "border border-vert-ok/40 bg-vert-ok/12 text-vert-ok"
+                    : "border border-transparent text-gris-mid"
                 )}
               >
                 {reached && <Check className="w-3 h-3 text-vert-ok" aria-hidden="true" />}
@@ -81,7 +90,7 @@ export function DocumentStepTrail({ establishmentId, documentTypeId, step }: Pro
       <div className="flex flex-wrap items-center justify-between gap-2">
         {/* Ce qu'il reste à faire, en toutes lettres : le fil dit où on en est, cette
             phrase dit quoi faire. */}
-        <p className="text-xs text-gris-mid">{describeNextStep(step)}</p>
+        <p className="text-xs text-gris-mid">{describeNextStep(step, isImage)}</p>
 
         <Button
           type="button"
