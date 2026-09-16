@@ -243,7 +243,7 @@ export type LibraryFolder = { id: string; name: string; templates: TemplateSumma
 // La bibliothèque se lit comme une arborescence : les dossiers dans l'ordre décidé à
 // la main, les fiches dedans. Une seule requête — un `findMany` par dossier ferait
 // autant d'allers-retours que de dossiers, pour la même donnée.
-export async function listLibrary(): Promise<LibraryFolder[]> {
+export async function listLibrary(criterionId?: string): Promise<LibraryFolder[]> {
   const { tenantId } = await requireCabinetSession();
 
   const categories = await prisma.templateCategory.findMany({
@@ -251,6 +251,7 @@ export async function listLibrary(): Promise<LibraryFolder[]> {
     orderBy: [{ position: "asc" }, { name: "asc" }],
     include: {
       documents: {
+        ...(criterionId && { where: { criteria: { some: { criterionId } } } }),
         orderBy: { title: "asc" },
         include: { versions: { select: { stage: true } } },
       },
