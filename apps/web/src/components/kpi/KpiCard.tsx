@@ -14,7 +14,9 @@ export function KpiCard({ label, value, icon: Icon, hint }: Props) {
   return (
     <div className="rounded-xl border border-gris-light bg-white p-5">
       <div className="flex items-center gap-4">
-        <span className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-lg bg-ambre/15">
+        {/* Bordure + fond, comme les badges de statut : un fond seul à 15 %
+            d'opacité se noie dans le blanc de la carte. */}
+        <span className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-lg border border-ambre/40 bg-ambre/15">
           <Icon className="h-5 w-5 text-ambre" aria-hidden="true" />
         </span>
         <div className="min-w-0">

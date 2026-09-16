@@ -242,233 +242,260 @@ export default async function EstablishmentDetailPage({ params }: Props) {
         </Card>
       </div>
 
-      {/* Suivi de mission */}
-      <div id="section-mission">
-        {mission ? (
-          <MissionSummaryCard
-            establishmentId={establishment.id}
-            mission={{ formule: mission.formule, gratuit: mission.gratuit, globalPct: mission.progress.globalPct }}
-          />
-        ) : (
-          <MissionSummaryCard establishmentId={establishment.id} mission={null} />
+      {/* Travail en cours — mission, évaluation, checklist : c'est ce pour quoi cette
+          page existe, regroupé sous un même intitulé plutôt que noyé dans une pile de
+          cartes toutes identiques (c'est ce que Sandrine a nommé "trop hangar" le
+          15/09/2026 : rien ne distinguait le travail en cours des outils annexes). */}
+      <div className="space-y-3">
+        <h2 className="text-xs font-semibold uppercase tracking-wide text-gris-mid px-0.5">
+          Suivi documentaire et évaluation
+        </h2>
+
+        <div id="section-mission">
+          {mission ? (
+            <MissionSummaryCard
+              establishmentId={establishment.id}
+              mission={{ formule: mission.formule, gratuit: mission.gratuit, globalPct: mission.progress.globalPct }}
+            />
+          ) : (
+            <MissionSummaryCard establishmentId={establishment.id} mission={null} />
+          )}
+        </div>
+
+        {mission && (
+          <Card id="section-evaluation">
+            <CardHeader>
+              <CardTitle className="text-base">Auto-évaluation HAS</CardTitle>
+              <CardDescription>
+                {accompanimentStarted
+                  ? "Cotation des critères par chapitre (1/2/3/4/★/NC/RI)"
+                  : "Disponible une fois le diagnostic engagé — cochez un premier item de la checklist de mission ou planifiez une phase."}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {accompanimentStarted ? (
+                <Button size="sm" asChild>
+                  <Link href={`/dashboard/cabinet/etablissements/${establishment.id}/evaluation`}>
+                    Ouvrir l&apos;auto-évaluation
+                  </Link>
+                </Button>
+              ) : (
+                <Button size="sm" variant="outline" asChild>
+                  <Link href={`/dashboard/cabinet/etablissements/${establishment.id}/mission`}>
+                    Démarrer le diagnostic
+                  </Link>
+                </Button>
+              )}
+            </CardContent>
+          </Card>
         )}
+
+        {/* Checklist documentaire — le cœur de la page : en-tête teinté ivoire pour
+            se détacher visuellement des cartes d'outils qui suivent, sans recourir à
+            une bordure de couleur sur le côté (refusée par la charte de qualité). */}
+        <Card id="section-checklist">
+          <CardHeader className="bg-ivoire/60 rounded-t-xl">
+            <CardTitle className="text-base">Checklist documentaire</CardTitle>
+            <CardDescription>
+              {compliantCount} conforme{compliantCount > 1 ? "s" : ""} · {uploadedCount} / {totalItems} déposé{uploadedCount > 1 ? "s" : ""} · {missingCount} manquant{missingCount > 1 ? "s" : ""}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-1">
+              <div className="flex items-center justify-between text-xs text-gris-mid">
+                <span>Taux de dépôt documentaire</span>
+                <span className="tabular-nums">{progressPct}%</span>
+              </div>
+              <ProgressBar value={progressPct} colorClassName="bg-ambre" className="h-2" />
+              <p className="text-xs text-gris-mid">
+                % de documents fournis par le client — pas un taux de conformité (voir le
+                détail par document ci-dessous).
+              </p>
+            </div>
+            <div className="space-y-3">
+              {categories.map((cat) => {
+                const items = checklist[cat] ?? [];
+                if (items.length === 0) return null;
+                return (
+                  <ChecklistCategory
+                    key={cat}
+                    title={CATEGORY_LABELS[cat]}
+                    items={items}
+                    establishmentId={establishment.id}
+                    canManageVersions
+                    canEditScope={isAdmin}
+                  />
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
-      {mission && (
-        <Card id="section-evaluation">
-          <CardHeader>
-            <CardTitle className="text-base">Auto-évaluation HAS</CardTitle>
-            <CardDescription>
-              {accompanimentStarted
-                ? "Cotation des critères par chapitre (1/2/3/4/★/NC/RI)"
-                : "Disponible une fois le diagnostic engagé — cochez un premier item de la checklist de mission ou planifiez une phase."}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {accompanimentStarted ? (
-              <Button size="sm" asChild>
-                <Link href={`/dashboard/cabinet/etablissements/${establishment.id}/evaluation`}>
-                  Ouvrir l&apos;auto-évaluation
-                </Link>
-              </Button>
-            ) : (
+      {/* Outils & administration — même contenu et mêmes actions qu'avant, mais en
+          grille compacte plutôt qu'empilés en pleine largeur : c'est ce qui donnait à
+          la page son effet de liste sans fin. Les liens d'ancrage du menu de
+          navigation (section-*) restent tous présents et inchangés. */}
+      <div className="space-y-3">
+        <h2 className="text-xs font-semibold uppercase tracking-wide text-gris-mid px-0.5">
+          Outils &amp; administration
+        </h2>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {/* Accès direct au contrat depuis la fiche client (demande du 07/09/2026) :
+              il n'existait auparavant que niché dans l'onglet Mission. La route
+              refuse d'elle-même de produire un contrat sans devis signé
+              (canIssueContract) — rien à revérifier ici, le bouton reste toujours
+              proposé. */}
+          {mission && (
+            <Card id="section-contrat">
+              <CardHeader className="p-5">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <FileText className="w-4 h-4 text-terre" aria-hidden="true" />
+                  Contrat d&apos;accompagnement
+                </CardTitle>
+                <CardDescription>
+                  Récapitule le devis signé — parties, objet, engagements réciproques.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="p-5 pt-0">
+                <Button size="sm" variant="outline" asChild>
+                  <a href={`/imprimer/contrat/${id}?auto=1`} target="_blank" rel="noopener noreferrer">
+                    <FileText className="w-3.5 h-3.5" aria-hidden="true" />
+                    Éditer le contrat
+                  </a>
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Le rapport de mise en conformité — le livrable que le cabinet remet et
+              que la structure archive. Seules les analyses RELUES y entrent. */}
+          <Card id="section-rapport">
+            <CardHeader className="p-5">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <FileBarChart className="w-4 h-4 text-terre" aria-hidden="true" />
+                Rapport de mise en conformité
+              </CardTitle>
+              <CardDescription>
+                Ce qui manque, document par document, au regard des critères HAS
+                rattachés. Les analyses non encore relues y figurent comme telles.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="p-5 pt-0">
               <Button size="sm" variant="outline" asChild>
-                <Link href={`/dashboard/cabinet/etablissements/${establishment.id}/mission`}>
-                  Démarrer le diagnostic
+                <a href={`/imprimer/rapport/${id}?auto=1`} target="_blank" rel="noopener noreferrer">
+                  <FileBarChart className="w-3.5 h-3.5" aria-hidden="true" />
+                  Éditer le rapport
+                </a>
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* Fil d'échange avec la structure (CDC §5). Un fil par établissement : les
+              échanges restent rattachés à la mission au lieu de se disperser en
+              e-mails. */}
+          <Card id="section-echanges">
+            <CardHeader className="p-5">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <MessagesSquare className="w-4 h-4 text-terre" aria-hidden="true" />
+                Échanges avec la structure
+              </CardTitle>
+              <CardDescription>
+                Questions courtes et suivi. Les messages ne se modifient ni ne se
+                suppriment.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="p-5 pt-0">
+              <Button size="sm" variant="outline" asChild>
+                <Link href={`/dashboard/cabinet/etablissements/${id}/echanges`}>
+                  <MessagesSquare className="w-3.5 h-3.5" aria-hidden="true" />
+                  Ouvrir le fil
                 </Link>
               </Button>
-            )}
-          </CardContent>
-        </Card>
-      )}
+            </CardContent>
+          </Card>
 
-      {/* Checklist documentaire */}
-      <Card id="section-checklist">
-        <CardHeader>
-          <CardTitle className="text-base">Checklist documentaire</CardTitle>
-          <CardDescription>
-            {compliantCount} conforme{compliantCount > 1 ? "s" : ""} · {uploadedCount} / {totalItems} déposé{uploadedCount > 1 ? "s" : ""} · {missingCount} manquant{missingCount > 1 ? "s" : ""}
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-1">
-            <div className="flex items-center justify-between text-xs text-gris-mid">
-              <span>Taux de dépôt documentaire</span>
-              <span className="tabular-nums">{progressPct}%</span>
-            </div>
-            <ProgressBar value={progressPct} colorClassName="bg-ambre" />
-            <p className="text-xs text-gris-mid">
-              % de documents fournis par le client — pas un taux de conformité (voir le
-              détail par document ci-dessous).
-            </p>
-          </div>
-          <div className="space-y-3">
-            {categories.map((cat) => {
-              const items = checklist[cat] ?? [];
-              if (items.length === 0) return null;
-              return (
-                <ChecklistCategory
-                  key={cat}
-                  title={CATEGORY_LABELS[cat]}
-                  items={items}
-                  establishmentId={establishment.id}
-                  canManageVersions
-                  canEditScope={isAdmin}
-                />
-              );
-            })}
-          </div>
-        </CardContent>
-      </Card>
+          {/* Relance des pièces manquantes (§12.5). Un geste, jamais une horloge : la
+              cadence n'a jamais été spécifiée (§12.7), et un rythme inventé serait
+              soit inutile, soit harcelant. */}
+          <Card id="section-relance">
+            <CardHeader className="p-5">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <Send className="w-4 h-4 text-terre" aria-hidden="true" />
+                Relancer les pièces manquantes
+              </CardTitle>
+              <CardDescription>
+                Envoie aux interlocuteurs de la structure la liste des pièces encore
+                attendues. Les pièces déjà justifiées ne sont pas relancées.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="p-5 pt-0">
+              <DocumentReminderForm establishmentId={id} missingCount={reminderCount} />
+            </CardContent>
+          </Card>
 
-      {/* Accès direct au contrat depuis la fiche client (demande du 07/09/2026) : il
-          n'existait auparavant que niché dans l'onglet Mission. La route refuse
-          d'elle-même de produire un contrat sans devis signé (canIssueContract) —
-          rien à revérifier ici, le bouton reste toujours proposé. */}
-      {mission && (
-        <Card id="section-contrat">
-          <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
-              <FileText className="w-4 h-4 text-terre" aria-hidden="true" />
-              Contrat d&apos;accompagnement
+          {/* Identité visuelle de la structure — apposée sur les documents produits
+              pour elle, à côté du logo EODA. */}
+          <Card id="section-logo">
+            <CardHeader className="p-5">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <ImageIcon className="w-4 h-4 text-terre" aria-hidden="true" />
+                Logo de la structure
+              </CardTitle>
+              <CardDescription>
+                Il figure sur les documents que la plateforme produit pour cette
+                structure. Sans logo déposé, c&apos;est son nom qui est écrit.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="p-5 pt-0">
+              <EstablishmentLogoForm
+                establishmentId={establishment.id}
+                establishmentName={establishment.name}
+                logoDataUri={establishment.logoDataUri}
+              />
+            </CardContent>
+          </Card>
+
+          {/* Invitation */}
+          <Card id="section-invitation">
+            <CardHeader className="p-5">
+              <CardTitle className="text-sm">Inviter un interlocuteur client</CardTitle>
+              <CardDescription>
+                Crée un compte d'accès à l'espace client. Le mot de passe temporaire
+                généré sera affiché une seule fois — communiquez-le par email.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="p-5 pt-0">
+              <InviteClientForm establishmentId={establishment.id} />
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Agenda de la structure — pleine largeur : c'est la seule carte de ce
+            groupe avec un contenu de longueur variable (liste de rendez-vous), une
+            colonne de grille la couperait au milieu d'une navigation. */}
+        <Card id="section-rendezvous">
+          <CardHeader className="p-5">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <CalendarDays className="w-4 h-4 text-terre" aria-hidden="true" />
+              Rendez-vous
             </CardTitle>
             <CardDescription>
-              Récapitule le devis signé — parties, objet, engagements réciproques.
+              Visio, sur site ou téléphone — la structure voit ces créneaux depuis son
+              espace.
             </CardDescription>
           </CardHeader>
-          <CardContent>
-            <Button size="sm" variant="outline" asChild>
-              <a href={`/imprimer/contrat/${id}?auto=1`} target="_blank" rel="noopener noreferrer">
-                <FileText className="w-3.5 h-3.5" aria-hidden="true" />
-                Éditer le contrat
-              </a>
-            </Button>
+          <CardContent className="p-5 pt-0 space-y-5">
+            <AppointmentList
+              appointments={appointments}
+              emptyMessage="Aucun rendez-vous programmé avec cette structure pour l'instant."
+            />
+            <div className="border-t border-gris-light pt-5">
+              <AppointmentForm establishmentId={establishment.id} structureName={establishment.name} />
+            </div>
           </CardContent>
         </Card>
-      )}
-
-      {/* Le rapport de mise en conformité — le livrable que le cabinet remet et que la
-          structure archive. Seules les analyses RELUES y entrent. */}
-      <Card id="section-rapport">
-        <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2">
-            <FileBarChart className="w-4 h-4 text-terre" aria-hidden="true" />
-            Rapport de mise en conformité
-          </CardTitle>
-          <CardDescription>
-            Ce qui manque, document par document, au regard des critères HAS rattachés.
-            Les analyses non encore relues y figurent comme telles, sans leur contenu.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Button size="sm" variant="outline" asChild>
-            <a href={`/imprimer/rapport/${id}?auto=1`} target="_blank" rel="noopener noreferrer">
-              <FileBarChart className="w-3.5 h-3.5" aria-hidden="true" />
-              Éditer le rapport
-            </a>
-          </Button>
-        </CardContent>
-      </Card>
-
-      {/* Fil d'échange avec la structure (CDC §5). Un fil par établissement : les
-          échanges restent rattachés à la mission au lieu de se disperser en e-mails. */}
-      <Card id="section-echanges">
-        <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2">
-            <MessagesSquare className="w-4 h-4 text-terre" aria-hidden="true" />
-            Échanges avec la structure
-          </CardTitle>
-          <CardDescription>
-            Questions courtes et suivi. Les messages ne se modifient ni ne se suppriment.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Button size="sm" variant="outline" asChild>
-            <Link href={`/dashboard/cabinet/etablissements/${id}/echanges`}>
-              <MessagesSquare className="w-3.5 h-3.5" aria-hidden="true" />
-              Ouvrir le fil
-            </Link>
-          </Button>
-        </CardContent>
-      </Card>
-
-      {/* Relance des pièces manquantes (§12.5). Un geste, jamais une horloge : la
-          cadence n'a jamais été spécifiée (§12.7), et un rythme inventé serait soit
-          inutile, soit harcelant. */}
-      <Card id="section-relance">
-        <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2">
-            <Send className="w-4 h-4 text-terre" aria-hidden="true" />
-            Relancer les pièces manquantes
-          </CardTitle>
-          <CardDescription>
-            Envoie aux interlocuteurs de la structure la liste des pièces encore
-            attendues. Les pièces déjà justifiées ne sont pas relancées.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <DocumentReminderForm establishmentId={id} missingCount={reminderCount} />
-        </CardContent>
-      </Card>
-
-      {/* Identité visuelle de la structure — apposée sur les documents produits pour
-          elle, à côté du logo EODA. */}
-      <Card id="section-logo">
-        <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2">
-            <ImageIcon className="w-4 h-4 text-terre" aria-hidden="true" />
-            Logo de la structure
-          </CardTitle>
-          <CardDescription>
-            Il figure sur les documents que la plateforme produit pour cette structure.
-            Sans logo déposé, c&apos;est son nom qui est écrit.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <EstablishmentLogoForm
-            establishmentId={establishment.id}
-            establishmentName={establishment.name}
-            logoDataUri={establishment.logoDataUri}
-          />
-        </CardContent>
-      </Card>
-
-      {/* Agenda de la structure — les points programmés avec elle, et de quoi en
-          poser un nouveau. Le client verra les mêmes créneaux sur son portail. */}
-      <Card id="section-rendezvous">
-        <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2">
-            <CalendarDays className="w-4 h-4 text-terre" aria-hidden="true" />
-            Rendez-vous
-          </CardTitle>
-          <CardDescription>
-            Visio, sur site ou téléphone — la structure voit ces créneaux depuis son espace.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-5">
-          <AppointmentList
-            appointments={appointments}
-            emptyMessage="Aucun rendez-vous programmé avec cette structure pour l'instant."
-          />
-          <div className="border-t border-gris-light pt-5">
-            <AppointmentForm establishmentId={establishment.id} structureName={establishment.name} />
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Invitation */}
-      <Card id="section-invitation">
-        <CardHeader>
-          <CardTitle className="text-base">Inviter un interlocuteur client</CardTitle>
-          <CardDescription>
-            Crée un compte d'accès à l'espace client. Le mot de passe temporaire généré sera
-            affiché une seule fois — communiquez-le à l'interlocuteur par email.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <InviteClientForm establishmentId={establishment.id} />
-        </CardContent>
-      </Card>
+      </div>
     </div>
   );
 }

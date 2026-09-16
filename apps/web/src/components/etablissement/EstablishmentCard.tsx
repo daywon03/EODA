@@ -40,7 +40,11 @@ export function EstablishmentCard({
     // sur la fiche. Le lien couvre la carte en superposition (`absolute inset-0`), la
     // carte reste donc entièrement cliquable, et ce qui doit rester actionnable se
     // place au-dessus (`relative z-10`).
-    <Card className="relative border-l-4 border-l-terre transition-all duration-150 hover:-translate-y-0.5 hover:shadow-eoda-md focus-within:ring-2 focus-within:ring-terre focus-within:ring-offset-2 h-full">
+    // Pas de bordure de couleur sur le côté : c'est le lift + l'ombre au survol,
+    // et le logo/icône de la structure, qui portent l'identité de la carte — une
+    // bande terre verticale sur chaque vignette d'une grille de dix ne distingue
+    // rien, elle décore.
+    <Card className="relative transition-all duration-150 hover:-translate-y-0.5 hover:shadow-eoda-md focus-within:ring-2 focus-within:ring-terre focus-within:ring-offset-2 h-full">
       <Link
         href={`/dashboard/cabinet/etablissements/${id}`}
         className="absolute inset-0 z-0 rounded-xl focus:outline-none"
@@ -65,7 +69,7 @@ export function EstablishmentCard({
                 className="h-9 w-9 flex-shrink-0 rounded-lg border border-gris-light bg-white object-contain p-0.5"
               />
             ) : (
-              <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-terre/10">
+              <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg border border-terre/30 bg-terre/10">
                 <Building2 className="h-4 w-4 text-terre" aria-hidden="true" />
               </span>
             )}
