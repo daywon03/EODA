@@ -84,6 +84,36 @@ export function DocumentAnalysisPanel({
 
       {open && (
         <div className="px-3 pb-3 pt-1 space-y-3 animate-fade-in">
+          {analysis.criteriaCoverage.length > 0 && (
+            <div>
+              <p className="flex items-center gap-1.5 text-xs font-medium text-brun-ancre mb-1">
+                <CheckCircle2 className="w-3.5 h-3.5 text-terre" aria-hidden="true" />
+                Couverture par critère HAS
+              </p>
+              <ul className="space-y-1 pl-5">
+                {analysis.criteriaCoverage.map((c) => (
+                  <li key={c.criterionCode} className="text-xs list-disc marker:text-gris-light">
+                    <span className="font-medium text-brun-ancre">{c.criterionCode}</span>
+                    {" — "}
+                    <span
+                      className={
+                        c.status === "couvert"
+                          ? "text-vert-ok"
+                          : c.status === "partiel"
+                            ? "text-ambre"
+                            : "text-rouge-imp"
+                      }
+                    >
+                      {c.status}
+                    </span>
+                    {" : "}
+                    <span className="text-gris-mid">{c.note}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           {summary.missingCount > 0 && (
             <Section
               icon={<AlertCircle className="w-3.5 h-3.5 text-rouge-imp" aria-hidden="true" />}

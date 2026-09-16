@@ -42,6 +42,40 @@ describe("buildReportLine", () => {
     expect(line.criteria[0]?.code).toBe("1.10.6");
   });
 
+  it("porte la couverture par critère jusqu'à la ligne de rapport", () => {
+    const line = buildReportLine(
+      item({
+        analysis: {
+          ...ANALYSIS,
+          criteriaCoverage: [
+            {
+              criterionCode: "2.2.7",
+              criterionLabel: "Le projet de service formalise...",
+              status: "partiel",
+              note: "La trame existe mais les modalités de révision ne sont pas décrites.",
+            },
+          ],
+        },
+      })
+    );
+
+    expect(line.criteriaCoverage).toEqual([
+      {
+        criterionCode: "2.2.7",
+        criterionLabel: "Le projet de service formalise...",
+        status: "partiel",
+        note: "La trame existe mais les modalités de révision ne sont pas décrites.",
+      },
+    ]);
+  });
+
+  it("ne porte aucune couverture par critère tant que l'analyse n'est pas relue ou déposée", () => {
+    expect(buildReportLine(item({ analysisReviewedAt: null })).criteriaCoverage).toEqual([]);
+    expect(
+      buildReportLine(item({ step: "ATTENDU", analysis: null, analysisReviewedAt: null })).criteriaCoverage
+    ).toEqual([]);
+  });
+
   it("annonce l'attente SANS publier l'analyse non relue", () => {
     // Le rapport part chez le client : y verser une analyse que personne n'a vérifiée
     // contournerait la revue humaine par la porte de l'imprimante.

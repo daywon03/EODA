@@ -80,11 +80,40 @@ export function ConformityReportPrintable({
               <li key={line.code} className="break-inside-avoid">
                 <p className="text-sm font-semibold">{line.label}</p>
 
-                {line.criteria.length > 0 && (
-                  <p className="text-xs text-gris-mid">
-                    Critères HAS rattachés :{" "}
-                    {line.criteria.map((criterion) => criterion.code).join(", ")}
-                  </p>
+                {line.criteriaCoverage.length > 0 ? (
+                  <div className="mt-1 space-y-1">
+                    <p className="text-xs font-medium uppercase tracking-wide text-gris-mid">
+                      Couverture par critère HAS
+                    </p>
+                    <ul className="space-y-0.5">
+                      {line.criteriaCoverage.map((c) => (
+                        <li key={c.criterionCode} className="text-xs">
+                          <span className="font-medium">{c.criterionCode}</span>
+                          {" — "}
+                          <span
+                            className={
+                              c.status === "couvert"
+                                ? "text-vert-ok"
+                                : c.status === "partiel"
+                                  ? "text-ambre"
+                                  : "text-rouge-imp"
+                            }
+                          >
+                            {c.status}
+                          </span>
+                          {" : "}
+                          <span className="text-gris-mid">{c.note}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : (
+                  line.criteria.length > 0 && (
+                    <p className="text-xs text-gris-mid">
+                      Critères HAS rattachés :{" "}
+                      {line.criteria.map((criterion) => criterion.code).join(", ")}
+                    </p>
+                  )
                 )}
 
                 {line.state === "MANQUANT" && (
