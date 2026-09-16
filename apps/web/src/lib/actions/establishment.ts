@@ -11,6 +11,7 @@ import {
 import { canDepositDocuments } from "@/lib/services/mission-access-service";
 import { recordAuditEvent } from "@/lib/services/audit-log-service";
 import { validateLogoUpload } from "@/lib/security/upload-validation-service";
+import { getFileStoragePort } from "@/lib/storage";
 import type { PortfolioRow } from "@/lib/services/portfolio-kpi-service";
 import { toPortfolioRow } from "@/lib/db/to-portfolio-row";
 import {
@@ -265,7 +266,10 @@ export async function deleteEstablishment(id: string): Promise<{ error: string }
 
   // Comptes clients devenus orphelins — désactivés (jamais supprimés, la piste
   // d'audit doit survivre), calculés DANS la transaction, journalisés après elle.
-  const deactivatedUserIds = await prisma.$transaction(async (tx) => {
+  // Les clés d'image sont, elles, remontées pour être effacées du stockage APRÈS
+  // la transaction — un appel réseau au stockage à l'intérieur d'une transaction
+  // Prisma la bloquerait sans rien gagner en garantie transactionnelle.
+  const { deactivatedUserIds, imageKeys } = await prisma.$transaction(async (tx) => {
     await tx.elementRating.deleteMany({
       where: { evaluationSession: { establishmentId: id } },
     });
@@ -274,6 +278,19 @@ export async function deleteEstablishment(id: string): Promise<{ error: string }
       where: { establishmentId: id },
       data: { currentVersionId: null },
     });
+    // Récupérées AVANT la suppression : le cascade Prisma (onDelete: Cascade) va
+    // effacer les lignes DocumentVersionImage avec leur DocumentVersion, mais
+    // jamais les objets qu'elles pointent dans le stockage — droit à l'effacement
+    // (cf. même raisonnement que deleteDocumentVersion dans document.ts). Ne
+    // touche PAS au fichier principal de chaque DocumentVersion : gap pré-existant,
+    // plus large que cette correction, hors périmètre ici.
+    const imageKeysToDelete = (
+      await tx.documentVersionImage.findMany({
+        where: { documentVersion: { document: { establishmentId: id } } },
+        select: { fileStorageKey: true },
+      })
+    ).map((image) => image.fileStorageKey);
+
     await tx.documentVersion.deleteMany({ where: { document: { establishmentId: id } } });
     await tx.document.deleteMany({ where: { establishmentId: id } });
 
@@ -328,8 +345,22 @@ export async function deleteEstablishment(id: string): Promise<{ error: string }
     // énumérer ces tables, et une relation ajoutée demain ne la fera plus échouer.
     await tx.establishment.delete({ where: { id } });
 
-    return orphanIds;
+    return { deactivatedUserIds: orphanIds, imageKeys: imageKeysToDelete };
   });
+
+  // Best-effort, après la transaction : le stockage n'est pas transactionnel et
+  // l'échec d'une suppression d'image ne doit jamais faire regretter la
+  // suppression de l'établissement, déjà actée en base.
+  for (const imageKey of imageKeys) {
+    try {
+      await getFileStoragePort().delete(imageKey);
+    } catch (error) {
+      console.error(
+        "Suppression d'une image de document échouée après suppression de l'établissement — objet orphelin dans le stockage :",
+        error
+      );
+    }
+  }
 
   // Journalisé après coup, hors transaction : la trace de suppression ne doit pas
   // être annulée avec la transaction si celle-ci échoue, ni la faire échouer.
