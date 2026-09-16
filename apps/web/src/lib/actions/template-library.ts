@@ -386,16 +386,24 @@ export async function createTemplate(
 ): Promise<ActionResult> {
   const { tenantId } = await requireCabinetAdminSession();
 
-  const title = requiredString(formData, "title", "Le titre du modèle", 200);
+  const titlesRaw = requiredString(formData, "titles", "Le(s) titre(s) du modèle", 4000);
   const categoryId = requiredString(formData, "categoryId", "Le dossier", 40);
   const kind = requiredEnum(formData, "kind", "La nature du document", TemplateDocumentKind);
   const description = optionalString(formData, "description", "La description", 1000);
 
-  const error = firstError(title, categoryId, kind, description);
+  const error = firstError(titlesRaw, categoryId, kind, description);
   if (error) return { error };
-  if (!title.ok || !categoryId.ok || !kind.ok || !description.ok) {
+  if (!titlesRaw.ok || !categoryId.ok || !kind.ok || !description.ok) {
     return { error: "Formulaire invalide." };
   }
+
+  // Un titre par ligne (demande du 16/09/2026) : coller une liste crée autant de
+  // fiches, chacune vide de fichier — comme une fiche créée seule aujourd'hui.
+  const titles = titlesRaw.value
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0);
+  if (titles.length === 0) return { error: "Au moins un titre est requis." };
 
   const category = await prisma.templateCategory.findFirst({
     where: { id: categoryId.value, tenantId },
@@ -403,30 +411,41 @@ export async function createTemplate(
   });
   if (!category) return { error: "Ce dossier n'existe pas." };
 
-  // Contrainte d'unicité rattrapée AVANT l'écriture, pour nommer le vrai problème :
-  // laissée au `catch`, elle sortirait sous un message technique qui n'apprendrait
-  // rien à la personne qui vient de saisir un titre.
-  const existing = await prisma.templateDocument.findFirst({
-    where: { tenantId, title: title.value },
-    select: { id: true },
-  });
-  if (existing) {
-    return { error: "Un modèle porte déjà ce titre. Ajoutez-lui plutôt une version." };
+  // SÉQUENTIEL, jamais en parallèle : un titre en double doit être détecté avant
+  // d'écrire le suivant, pas après coup sur un lot déjà à moitié créé.
+  const createdIds: string[] = [];
+  for (const title of titles) {
+    // Contrainte d'unicité rattrapée AVANT l'écriture, pour nommer le vrai problème :
+    // laissée au `catch`, elle sortirait sous un message technique qui n'apprendrait
+    // rien à la personne qui vient de saisir un titre.
+    const existing = await prisma.templateDocument.findFirst({
+      where: { tenantId, title },
+      select: { id: true },
+    });
+    if (existing) {
+      return { error: `Un modèle porte déjà le titre « ${title} ».` };
+    }
+
+    const template = await prisma.templateDocument.create({
+      data: {
+        tenantId,
+        title,
+        categoryId: category.id,
+        kind: kind.value,
+        description: description.value,
+      },
+      select: { id: true },
+    });
+    createdIds.push(template.id);
   }
 
-  const template = await prisma.templateDocument.create({
-    data: {
-      tenantId,
-      title: title.value,
-      categoryId: category.id,
-      kind: kind.value,
-      description: description.value,
-    },
-    select: { id: true },
-  });
-
   revalidatePath(LIBRARY_PATH);
-  redirect(`${LIBRARY_PATH}/${template.id}`);
+  // Une seule fiche créée : direction sa page, comme avant. Plusieurs : la liste,
+  // il n'y a pas UNE fiche vers laquelle rediriger.
+  if (createdIds.length === 1) {
+    redirect(`${LIBRARY_PATH}/${createdIds[0]}`);
+  }
+  redirect(LIBRARY_PATH);
 }
 
 // « Que l'on puisse ensuite les réarranger » : un import de dossier range au mieux, il
