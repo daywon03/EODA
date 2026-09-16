@@ -430,6 +430,17 @@ export async function deleteDocumentVersion(
     };
   }
 
+  // Récupérées AVANT la transaction : le cascade Prisma (onDelete: Cascade) va
+  // supprimer les lignes DocumentVersionImage, mais jamais les objets qu'elles
+  // pointent dans le stockage — sans quoi ils restent orphelins dans le bucket,
+  // porteurs potentiels de données personnelles (droit à l'effacement).
+  const imageKeys = (
+    await prisma.documentVersionImage.findMany({
+      where: { documentVersionId: version.id },
+      select: { fileStorageKey: true },
+    })
+  ).map((image) => image.fileStorageKey);
+
   try {
     await getFileStoragePort().delete(version.fileStorageKey);
   } catch (error) {
@@ -438,6 +449,18 @@ export async function deleteDocumentVersion(
       error:
         "Le fichier n'a pas pu être supprimé du stockage. Rien n'a été effacé : réessayez, et signalez l'incident si l'erreur persiste.",
     };
+  }
+
+  // Best-effort, image par image : contrairement au fichier principal ci-dessus,
+  // l'échec de suppression d'une image ne bloque JAMAIS la suppression du
+  // document — ce ne sont que des objets déjà orphelins en base une fois le
+  // cascade passé, pas la pièce que le cabinet ou le client vient de retirer.
+  for (const imageKey of imageKeys) {
+    try {
+      await getFileStoragePort().delete(imageKey);
+    } catch (error) {
+      console.error("Suppression d'une image de document échouée — objet orphelin dans le stockage :", error);
+    }
   }
 
   await prisma.$transaction(async (tx) => {
