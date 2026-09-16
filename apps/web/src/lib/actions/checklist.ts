@@ -248,7 +248,7 @@ function toChecklistVersion(
 }
 
 export async function getClientChecklist(): Promise<{
-  establishment: { id: string; name: string; type: string } | null;
+  establishment: { id: string; name: string; type: string; logoDataUri: string | null } | null;
   checklist: ChecklistByCategory;
   // Fin de mission (§12.5) : gouverne ce que le portail PROPOSE. Le refus réel est
   // dans les actions d'écriture — masquer un bouton n'a jamais protégé une route.

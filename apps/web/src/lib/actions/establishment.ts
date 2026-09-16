@@ -3,7 +3,12 @@
 import { prisma, type Prisma, EstablishmentType, StructureType } from "@eoda/database";
 import { redirect, notFound } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { requireCabinetSession, requireEstablishmentInTenant } from "@/lib/auth/guards";
+import {
+  requireCabinetSession,
+  requireEstablishmentInTenant,
+  requireEstablishmentAccess,
+} from "@/lib/auth/guards";
+import { canDepositDocuments } from "@/lib/services/mission-access-service";
 import { recordAuditEvent } from "@/lib/services/audit-log-service";
 import { validateLogoUpload } from "@/lib/security/upload-validation-service";
 import type { PortfolioRow } from "@/lib/services/portfolio-kpi-service";
@@ -158,18 +163,15 @@ export async function updateEstablishment(
 // Apposé à côté de celui d'EODA sur les documents produits pour elle. Déposé par le
 // CABINET et pas par le client : c'est un élément de mise en page de nos livrables,
 // pas une pièce du dossier.
-export async function uploadEstablishmentLogo(
-  _prevState: { error: string } | null,
-  formData: FormData
+// Écriture partagée par les deux origines (cabinet et client) : une seule fonction
+// qui valide le fichier et pose `logoDataUri` (D1 — le cabinet écrivait déjà cette
+// logique, la dupliquer pour le client aurait fini par diverger sur la validation).
+// Les gardes d'AUTORISATION restent séparées et appellent celle-ci une fois
+// l'accès vérifié — jamais l'inverse.
+async function applyLogoUpload(
+  establishmentId: string,
+  file: FormDataEntryValue | null
 ): Promise<{ error: string } | null> {
-  const establishmentIdRaw = formData.get("establishmentId");
-  if (typeof establishmentIdRaw !== "string" || establishmentIdRaw.length === 0) {
-    return { error: "Établissement manquant." };
-  }
-
-  const { establishmentId } = await requireEstablishmentInTenant(establishmentIdRaw);
-
-  const file = formData.get("logo");
   if (!(file instanceof File) || file.size === 0) return { error: "Aucun fichier sélectionné." };
 
   const buffer = Buffer.from(await file.arrayBuffer());
@@ -184,20 +186,78 @@ export async function uploadEstablishmentLogo(
   });
 
   revalidatePath(`/dashboard/cabinet/etablissements/${establishmentId}`);
+  revalidatePath(`/dashboard/client`);
   revalidatePath(`/imprimer/avenant/${establishmentId}`);
   return null;
+}
+
+async function applyLogoRemoval(establishmentId: string): Promise<{ error: string } | null> {
+  await prisma.establishment.update({
+    where: { id: establishmentId },
+    data: { logoDataUri: null },
+  });
+
+  revalidatePath(`/dashboard/cabinet/etablissements/${establishmentId}`);
+  revalidatePath(`/dashboard/client`);
+  revalidatePath(`/imprimer/avenant/${establishmentId}`);
+  return null;
+}
+
+export async function uploadEstablishmentLogo(
+  _prevState: { error: string } | null,
+  formData: FormData
+): Promise<{ error: string } | null> {
+  const establishmentIdRaw = formData.get("establishmentId");
+  if (typeof establishmentIdRaw !== "string" || establishmentIdRaw.length === 0) {
+    return { error: "Établissement manquant." };
+  }
+
+  const { establishmentId } = await requireEstablishmentInTenant(establishmentIdRaw);
+  return applyLogoUpload(establishmentId, formData.get("logo"));
 }
 
 export async function removeEstablishmentLogo(
   establishmentId: string
 ): Promise<{ error: string } | null> {
   const { establishmentId: id } = await requireEstablishmentInTenant(establishmentId);
+  return applyLogoRemoval(id);
+}
 
-  await prisma.establishment.update({ where: { id }, data: { logoDataUri: null } });
+// Variantes CLIENT — « ce serait bien qu'ils puissent l'ajouter » (Sandrine,
+// call du 15/09/2026) : jusqu'ici seul le cabinet pouvait déposer le logo d'une
+// structure, alors que c'est SA structure. Gardées par `requireEstablishmentAccess`
+// (accepte CLIENT_USER via le lien EstablishmentUser, refuse tout établissement qui
+// n'est pas le sien — S2) ET par `canDepositDocuments` : un client dont
+// l'accompagnement est clos ou révoqué peut lire sa bibliothèque, il n'écrit plus
+// rien, pas même son logo — même principe que le dépôt de documents.
+export async function uploadEstablishmentLogoAsClient(
+  _prevState: { error: string } | null,
+  formData: FormData
+): Promise<{ error: string } | null> {
+  const establishmentIdRaw = formData.get("establishmentId");
+  if (typeof establishmentIdRaw !== "string" || establishmentIdRaw.length === 0) {
+    return { error: "Établissement manquant." };
+  }
 
-  revalidatePath(`/dashboard/cabinet/etablissements/${id}`);
-  revalidatePath(`/imprimer/avenant/${id}`);
-  return null;
+  const access = await requireEstablishmentAccess(establishmentIdRaw);
+  if (!access.isClient) return { error: "Réservé à l'espace client." };
+  if (!canDepositDocuments(access.missionAccess)) {
+    return { error: "Votre accompagnement est clos : le logo ne peut plus être modifié." };
+  }
+
+  return applyLogoUpload(access.establishmentId, formData.get("logo"));
+}
+
+export async function removeEstablishmentLogoAsClient(
+  establishmentId: string
+): Promise<{ error: string } | null> {
+  const access = await requireEstablishmentAccess(establishmentId);
+  if (!access.isClient) return { error: "Réservé à l'espace client." };
+  if (!canDepositDocuments(access.missionAccess)) {
+    return { error: "Votre accompagnement est clos : le logo ne peut plus être modifié." };
+  }
+
+  return applyLogoRemoval(access.establishmentId);
 }
 
 export async function deleteEstablishment(id: string): Promise<{ error: string } | void> {

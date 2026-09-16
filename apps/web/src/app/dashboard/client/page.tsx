@@ -2,6 +2,11 @@ import { getClientChecklist } from "@/lib/actions/checklist";
 import { listClientAppointments } from "@/lib/actions/appointment";
 import { AppointmentList } from "@/components/agenda/AppointmentList";
 import { ChecklistCategory } from "@/components/checklist/ChecklistCategory";
+import { EstablishmentLogoForm } from "@/components/etablissement/EstablishmentLogoForm";
+import {
+  uploadEstablishmentLogoAsClient,
+  removeEstablishmentLogoAsClient,
+} from "@/lib/actions/establishment";
 import { ProgressBar } from "@/components/ui/progress-bar";
 import { PageHeader } from "@/components/layout/PageHeader";
 import {
@@ -14,6 +19,7 @@ import {
   Archive,
   BellRing,
   CalendarDays,
+  Image as ImageIcon,
 } from "lucide-react";
 import {
   describeClientNextStep,
@@ -85,30 +91,34 @@ export default async function ClientDashboardPage() {
   //
   // Le service produisait déjà ces quatre nombres séparément ; c'est l'écran qui les
   // recollait.
+  // Même recette que les badges de statut (border/40 + bg/12, palette EODA) : les
+  // pastilles d'icône du tableau de bord étaient les mêmes teintes délavées à 10 %
+  // sans bordure que les badges — le même défaut, au même endroit où Sandrine l'a vu
+  // en premier (l'écran qui ouvre le portail client).
   const stats = [
     {
       label: "À déposer",
       value: summary.toDeposit,
       icon: AlertTriangle,
-      color: "text-rouge-imp bg-rouge-imp/10",
+      color: "text-rouge-imp bg-rouge-imp/12 border border-rouge-imp/40",
     },
     {
       label: "En cours de relecture",
       value: summary.inReview,
       icon: Clock,
-      color: "text-ambre bg-ambre/10",
+      color: "text-terre bg-terre/12 border border-terre/40",
     },
     {
       label: "Conformes",
       value: summary.compliant,
       icon: CheckCircle2,
-      color: "text-vert-ok bg-vert-ok/10",
+      color: "text-vert-ok bg-vert-ok/12 border border-vert-ok/40",
     },
     {
       label: "Non concernés",
       value: summary.justified + summary.notApplicable,
       icon: Archive,
-      color: "text-gris-mid bg-gris-light/40",
+      color: "text-gris-mid bg-gris-light/60 border border-gris-mid/20",
     },
   ];
 
@@ -222,6 +232,29 @@ export default async function ClientDashboardPage() {
         Outil de préparation interne EODA Conseil · Auto-évaluation préparatoire uniquement ·
         Non officiel HAS · Les statuts affichés sont indicatifs et n&apos;engagent pas EODA Conseil.
       </p>
+
+      {/* Logo de la structure — jusqu'ici, seul le cabinet pouvait le déposer, alors
+          que c'est VOTRE identité visuelle. Masqué en bibliothèque (lecture seule) :
+          l'action serveur le refuserait de toute façon (canDepositDocuments). */}
+      {depositOpen && (
+        <div className="bg-white border border-gris-light rounded-xl p-5 space-y-4">
+          <div className="flex items-center gap-2">
+            <ImageIcon className="w-4 h-4 text-terre" aria-hidden="true" />
+            <h2 className="text-sm font-semibold text-brun-ancre">Logo de votre structure</h2>
+          </div>
+          <p className="text-xs text-gris-mid">
+            Il figure sur les documents qu&apos;EODA Conseil produit pour votre
+            structure, à côté du logo EODA. Déposez-en un meilleur à tout moment.
+          </p>
+          <EstablishmentLogoForm
+            establishmentId={establishment.id}
+            establishmentName={establishment.name}
+            logoDataUri={establishment.logoDataUri}
+            uploadAction={uploadEstablishmentLogoAsClient}
+            removeAction={removeEstablishmentLogoAsClient}
+          />
+        </div>
+      )}
 
       {/* Checklist par catégorie */}
       <div className="space-y-3">
