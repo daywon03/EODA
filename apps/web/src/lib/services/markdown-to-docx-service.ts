@@ -7,7 +7,9 @@ import {
   AlignmentType,
   Header,
   Footer,
+  ImageRun,
 } from "docx";
+import { imageSize } from "image-size";
 import { buildOwnershipMention } from "./document-ownership-service";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -18,9 +20,11 @@ import { buildOwnershipMention } from "./document-ownership-service";
 //
 // Sous-ensemble volontairement restreint de Markdown — celui que le prompt de
 // génération demande explicitement (analysis-prompt.ts §buildGenerationSystemPrompt) :
-// titres `#`/`##`/`###`, listes `-`, gras `**`. Pas de tableaux, pas de liens, pas
-// d'images : un document HAS/loi 2002-2 n'en a pas besoin, et chaque construction
-// supplémentaire est une source d'échec de rendu à couvrir.
+// titres `#`/`##`/`###`, listes `-`, gras `**`. Pas de tableaux, pas de liens dans
+// le corps : un document HAS/loi 2002-2 n'en a pas besoin, et chaque construction
+// supplémentaire est une source d'échec de rendu à couvrir. Les images, elles,
+// viennent d'ailleurs (D6) : jamais du Markdown généré par l'IA, toujours les
+// images d'origine du document déposé, rendues en annexe (cf. `images` ci-dessous).
 //
 // Couleurs reprises telles quelles de context/04-charte-eoda.md — jamais
 // redéfinies ici à l'improviste.
@@ -100,11 +104,76 @@ function markdownToParagraphs(markdown: string): Paragraph[] {
   return paragraphs;
 }
 
+export type BrandedDocxImageInput = {
+  buffer: Buffer;
+  contentType: string;
+  description: string | null;
+};
+
 export type BrandedDocxInput = {
   markdown: string;
   title: string;
   establishmentName: string;
+  images?: BrandedDocxImageInput[];
 };
+
+const MAX_IMAGE_WIDTH = 500;
+const DOCX_IMAGE_TYPES: Record<string, "jpg" | "png" | "gif" | "bmp"> = {
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/gif": "gif",
+  "image/bmp": "bmp",
+};
+
+// Annexe des images d'origine, jamais réintégrées dans le flux du texte généré
+// (repositionner une image à sa place exacte dans un document réécrit par l'IA
+// serait fragile — V1 volontairement plus simple : toutes les images d'origine,
+// groupées à la fin, chacune légendée par ce qu'elle représente).
+function buildImageAnnexParagraphs(images: BrandedDocxImageInput[]): Paragraph[] {
+  if (images.length === 0) return [];
+
+  const paragraphs: Paragraph[] = [
+    new Paragraph({
+      heading: HeadingLevel.HEADING_1,
+      children: [new TextRun("Annexes — images du document d'origine")],
+    }),
+  ];
+
+  for (const [index, image] of images.entries()) {
+    const type = DOCX_IMAGE_TYPES[image.contentType];
+    if (!type) continue; // format non supporté par docx (svg, webp...) — ignoré, jamais bloquant.
+
+    let width = MAX_IMAGE_WIDTH;
+    let height = MAX_IMAGE_WIDTH;
+    try {
+      const dimensions = imageSize(image.buffer);
+      if (dimensions.width && dimensions.height) {
+        const scale = Math.min(1, MAX_IMAGE_WIDTH / dimensions.width);
+        width = Math.round(dimensions.width * scale);
+        height = Math.round(dimensions.height * scale);
+      }
+    } catch {
+      // Dimensions illisibles : on garde le carré par défaut plutôt que d'échouer.
+    }
+
+    paragraphs.push(
+      new Paragraph({
+        children: [new ImageRun({ type, data: image.buffer, transformation: { width, height } })],
+      })
+    );
+    if (image.description) {
+      paragraphs.push(
+        new Paragraph({
+          children: [
+            new TextRun({ text: `Image ${index + 1} — ${image.description}`, italics: true, size: 18 }),
+          ],
+        })
+      );
+    }
+  }
+
+  return paragraphs;
+}
 
 // Rend un Buffer .docx prêt à être servi (Content-Type
 // application/vnd.openxmlformats-officedocument.wordprocessingml.document).
@@ -165,6 +234,7 @@ export async function generateBrandedDocx(input: BrandedDocxInput): Promise<Buff
             ],
           }),
           ...markdownToParagraphs(input.markdown),
+          ...buildImageAnnexParagraphs(input.images ?? []),
         ],
       },
     ],

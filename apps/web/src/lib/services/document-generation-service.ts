@@ -1,5 +1,7 @@
 import { prisma } from "@eoda/database";
 import type { LLMAnalysisPort } from "@/lib/llm";
+import type { FileStoragePort } from "@/lib/storage";
+import type { BrandedDocxImageInput } from "@/lib/services/markdown-to-docx-service";
 import { anonymizeText } from "@/lib/services/anonymization-service";
 import { parseAnalysisResult } from "@/lib/services/analysis-view-service";
 import { fetchKnowledgeExcerpts, fetchCriterionGuidelines } from "@/lib/services/document-ingestion-service";
@@ -104,6 +106,34 @@ export async function generateCorrectedDraft(
     console.error("Génération du brouillon corrigé échouée :", error);
     return { error: "La génération a échoué. Réessayez dans un instant." };
   }
+}
+
+// Images d'origine de la version, prêtes à être passées à `generateBrandedDocx`
+// (annexe, D6) — chargées depuis `DocumentVersionImage` (D4) puis leur contenu
+// récupéré via le port de stockage. Best-effort par image : une image dont le
+// téléchargement échoue est simplement omise de l'annexe, elle ne doit jamais
+// faire échouer la génération du .docx (même principe que fetchImageDescriptions
+// dans document-ingestion-service.ts).
+export async function loadCorrectedDraftImages(
+  documentVersionId: string,
+  storage: FileStoragePort
+): Promise<BrandedDocxImageInput[]> {
+  const images = await prisma.documentVersionImage.findMany({
+    where: { documentVersionId },
+    orderBy: { position: "asc" },
+    select: { fileStorageKey: true, contentType: true, description: true },
+  });
+
+  const results: BrandedDocxImageInput[] = [];
+  for (const image of images) {
+    try {
+      const buffer = await storage.download(image.fileStorageKey);
+      results.push({ buffer, contentType: image.contentType, description: image.description });
+    } catch (error) {
+      console.error("Image d'origine — téléchargement échoué, omise de l'annexe :", error);
+    }
+  }
+  return results;
 }
 
 // Édition manuelle du brouillon — le cabinet relit et complète ce que l'IA a

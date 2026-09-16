@@ -9,5 +9,9 @@ export type SignedUrlOptions = {
 export interface FileStoragePort {
   upload(key: string, content: Buffer, contentType: string): Promise<void>;
   getSignedDownloadUrl(key: string, options?: SignedUrlOptions): Promise<string>;
+  // Lecture directe du contenu — jamais une URL signée : sert les cas où le métier
+  // a besoin du buffer lui-même (ex. réintégrer une image d'origine dans un .docx
+  // généré, cf. markdown-to-docx-service.ts), pas d'un lien à transmettre au navigateur.
+  download(key: string): Promise<Buffer>;
   delete(key: string): Promise<void>;
 }
