@@ -3,11 +3,12 @@ import type { FileStoragePort } from "@/lib/storage";
 import type { LLMAnalysisPort } from "@/lib/llm";
 import { anonymizeText } from "@/lib/services/anonymization-service";
 import { deriveDocumentStatus } from "@/lib/services/document-status-service";
-import { buildStorageKey } from "@/lib/security/upload-validation-service";
+import { buildStorageKey, buildDocumentImageStorageKey } from "@/lib/security/upload-validation-service";
 import { getKnowledgeRetrievalPort } from "@/lib/knowledge";
 import { MAX_GUIDELINES_INJECTED } from "@/lib/services/criterion-guideline-service";
-import { extractMarkdown } from "@/lib/services/text-extraction-service";
+import { extractMarkdown, type ExtractedImage } from "@/lib/services/text-extraction-service";
 import { validateUploadedFile } from "@/lib/security/upload-validation-service";
+import { describeImage } from "@/lib/services/image-vision-service";
 
 const KNOWLEDGE_EXCERPTS_LIMIT = 5;
 
@@ -38,6 +39,9 @@ export type IngestDocumentInput = {
   originalFilename: string;
   uploadedByUserId: string;
   extractedText: string | null;
+  // Images extraites par `extractMarkdown` (.docx uniquement à ce jour) — stockées et
+  // décrites ci-dessous, best-effort. `[]`/absent pour tout autre format.
+  extractedImages?: ExtractedImage[];
   // Modèle demandé pour l'analyse (cf. lib/llm/openrouter-models.ts) — comparaison
   // IA à l'upload. `null`/absent : l'adaptateur actif applique son propre défaut.
   modelId?: string | null;
@@ -95,6 +99,41 @@ export async function ingestDocumentVersion(
       extractedText: input.extractedText,
     },
   });
+
+  // Stockage best-effort : une image qui échoue à se décrire ou à s'uploader ne doit
+  // jamais faire échouer le dépôt du document lui-même — c'est un enrichissement.
+  const extractedImages = input.extractedImages ?? [];
+  if (extractedImages.length > 0) {
+    await Promise.all(
+      extractedImages.map(async (image) => {
+        try {
+          const key = buildDocumentImageStorageKey({
+            establishmentId: input.establishmentId,
+            documentTypeId: input.documentTypeId,
+            versionNumber,
+            timestamp: Date.now(),
+            position: image.position,
+          });
+          await ports.storage.upload(key, image.buffer, image.contentType);
+          const description = await describeImage({
+            buffer: image.buffer,
+            contentType: image.contentType,
+          });
+          await prisma.documentVersionImage.create({
+            data: {
+              documentVersionId: version.id,
+              position: image.position,
+              fileStorageKey: key,
+              contentType: image.contentType,
+              description,
+            },
+          });
+        } catch {
+          // Best-effort : une image perdue n'empêche pas les autres, ni le dépôt.
+        }
+      })
+    );
+  }
 
   // Un format non analysable (image, tableur, ancien .doc) est conservé comme PIÈCE :
   // il n'y a pas de texte à confronter au référentiel. Le marquer « en analyse »
@@ -185,7 +224,8 @@ export async function reanalyzeDocumentVersion(
       // de fichier d'origine — même règle qu'au dépôt initial.
       const validation = validateUploadedFile(buffer, buffer.length);
       if (validation.ok) {
-        extractedText = await extractMarkdown(buffer, validation.contentType);
+        const extraction = await extractMarkdown(buffer, validation.contentType);
+        extractedText = extraction ? extraction.markdown : null;
         if (extractedText) {
           await prisma.documentVersion.update({ where: { id: version.id }, data: { extractedText } });
         }

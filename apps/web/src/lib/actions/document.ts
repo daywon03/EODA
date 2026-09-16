@@ -93,7 +93,12 @@ export async function uploadDocument(formData: FormData): Promise<UploadDocument
   const validation = validateUploadedFile(buffer, file.size);
   if (!validation.ok) return { error: validation.error };
 
-  const extractedText = await extractMarkdown(buffer, validation.contentType);
+  const extraction = await extractMarkdown(buffer, validation.contentType);
+  // Les images éventuellement extraites sont stockées plus loin, à l'intérieur de
+  // `ingestDocumentVersion` (seule cette fonction connaît le numéro de version) —
+  // ici on ne garde que le texte, pour la catégorisation automatique ci-dessous.
+  const extractedText = extraction ? extraction.markdown : null;
+  const extractedImages = extraction ? extraction.images : [];
 
   const requestedTypeId = formData.get("documentTypeId");
   let documentTypeId = typeof requestedTypeId === "string" && requestedTypeId ? requestedTypeId : null;
@@ -144,6 +149,7 @@ export async function uploadDocument(formData: FormData): Promise<UploadDocument
       originalFilename: file.name,
       uploadedByUserId: access.userId,
       extractedText,
+      extractedImages,
       modelId,
     },
     { storage: getFileStoragePort(), llm: getLLMAnalysisPort() }

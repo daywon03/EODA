@@ -620,10 +620,14 @@ async function storeVersion(params: {
   // de connaissances, réservée aux références ci-dessous. `null` pour un format non
   // analysable (image, .doc/.xls ancien) : ce n'est pas une erreur, juste rien à
   // afficher en substitut du fichier original.
-  const extractedText = await extractMarkdown(buffer, validation.contentType).catch((error) => {
+  const extraction = await extractMarkdown(buffer, validation.contentType).catch((error) => {
     console.error("Extraction du texte échouée — dépôt conservé sans aperçu :", error);
     return null;
   });
+  // Les images éventuellement extraites (.docx) ne sont pas stockées ici : seule
+  // l'ingestion d'un document analysable (document-ingestion-service.ts) le fait —
+  // un gabarit ou un document de référence n'a pas ce rôle.
+  const extractedText = extraction ? extraction.markdown : null;
 
   const version = await prisma.templateVersion.create({
     data: {
