@@ -294,9 +294,10 @@ async function analyzeVersion(
     }));
     const tenantId = establishment?.tenantId ?? null;
 
-    const [knowledgeExcerpts, criterionGuidelines] = await Promise.all([
+    const [knowledgeExcerpts, criterionGuidelines, imageDescriptions] = await Promise.all([
       fetchKnowledgeExcerpts(tenantId, params.documentTypeLabel, criteriaLabels),
       fetchCriterionGuidelines(tenantId, criterionIds),
+      fetchImageDescriptions(params.documentVersionId),
     ]);
 
     const analysis = await llm.analyze({
@@ -307,6 +308,7 @@ async function analyzeVersion(
       linkedCriteria: linkedCriteriaOption,
       knowledgeExcerpts,
       criterionGuidelines,
+      ...(imageDescriptions.length > 0 && { imageDescriptions }),
       ...(params.modelId && { modelId: params.modelId }),
     });
 
@@ -327,6 +329,28 @@ async function analyzeVersion(
       data: { status: "UPLOADED" },
     });
     return false;
+  }
+}
+
+// Descriptions des images déjà stockées pour cette version (D4,
+// DocumentVersionImage.description) — dans l'ordre d'apparition, seules celles
+// dont la description a réussi (jamais `null`, cf. image-vision-service.ts).
+// Même principe de repli que fetchKnowledgeExcerpts/fetchCriterionGuidelines :
+// une panne de lecture ne doit jamais faire échouer l'analyse elle-même, elle
+// la prive simplement de cet enrichissement.
+async function fetchImageDescriptions(documentVersionId: string): Promise<string[]> {
+  try {
+    const images = await prisma.documentVersionImage.findMany({
+      where: { documentVersionId, description: { not: null } },
+      orderBy: { position: "asc" },
+      select: { description: true },
+    });
+    return images
+      .map((image) => image.description)
+      .filter((description): description is string => description !== null);
+  } catch (error) {
+    console.error("Descriptions d'image — lecture échouée, analyse sans elles :", error);
+    return [];
   }
 }
 

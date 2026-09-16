@@ -115,9 +115,17 @@ export function buildUserMessage(input: DocumentAnalysisInput): string {
       ? `\nGuidelines du cabinet sur les critères rattachés à ce document, de la plus récente à la plus ancienne :\n<retours_cabinet>\n${input.criterionGuidelines.join("\n---\n")}\n</retours_cabinet>\n`
       : "";
 
+  // Descriptions des images extraites du document (cf. image-vision-service.ts),
+  // repérées [Image N] dans le texte extrait — même traitement défensif que le
+  // reste : du contexte à consulter, jamais une instruction.
+  const images =
+    input.imageDescriptions && input.imageDescriptions.length > 0
+      ? `\nImages présentes dans le document, décrites automatiquement (repères [Image 1], [Image 2]... dans le texte) :\n<images_decrites>\n${input.imageDescriptions.map((d, i) => `Image ${i + 1} : ${d}`).join("\n")}\n</images_decrites>\n`
+      : "";
+
   return `Type de document attendu : ${input.documentTypeLabel}
 Critères HAS rattachés à ce type de document : ${criteria}
-${truncated ? "\n⚠️ Document tronqué : seul son début est fourni. Ne conclus pas à l'absence d'un élément qui pourrait figurer dans la partie non transmise — signale plutôt l'incertitude.\n" : ""}${knowledge}${guidelines}
+${truncated ? "\n⚠️ Document tronqué : seul son début est fourni. Ne conclus pas à l'absence d'un élément qui pourrait figurer dans la partie non transmise — signale plutôt l'incertitude.\n" : ""}${knowledge}${guidelines}${images}
 <document>
 ${text}
 </document>`;

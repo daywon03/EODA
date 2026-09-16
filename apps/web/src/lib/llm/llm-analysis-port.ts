@@ -23,6 +23,10 @@ export type DocumentAnalysisInput = {
   // optionnel : sans guideline, l'analyse fonctionne comme avant (cf.
   // criterion-guideline-service.ts).
   criterionGuidelines?: string[];
+  // Ce que les images extraites du document représentent (cf. image-vision-service.ts)
+  // — un panneau affiché photographié, un organigramme… Toujours optionnel : sans
+  // image, ou si leur description a échoué, l'analyse fonctionne comme avant.
+  imageDescriptions?: string[];
 };
 
 // Un élément retrouvé, avec la citation qui le justifie (demande de Damon,
