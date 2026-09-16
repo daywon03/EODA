@@ -451,6 +451,7 @@ model Criterion {
   evaluationElements EvaluationElement[]
   documentTypes      DocumentTypeCriterion[]
   guidelines         CriterionGuideline[]
+  templateDocuments  TemplateDocumentCriterion[]
 
   @@index([objectiveId])
   @@map("criteria")
@@ -561,6 +562,21 @@ model DocumentTypeCriterion {
   @@id([documentTypeId, criterionId])
   @@index([criterionId])
   @@map("document_type_criteria")
+}
+
+// Rattache une fiche de la bibliothèque de modèles à des critères HAS — même
+// patron que DocumentTypeCriterion ci-dessus, pour la bibliothèque de modèles
+// plutôt que pour les documents attendus du client (demande du 16/09/2026).
+model TemplateDocumentCriterion {
+  templateDocumentId String @map("template_document_id")
+  criterionId         String @map("criterion_id")
+
+  templateDocument TemplateDocument @relation(fields: [templateDocumentId], references: [id], onDelete: Cascade)
+  criterion        Criterion        @relation(fields: [criterionId], references: [id], onDelete: Cascade)
+
+  @@id([templateDocumentId, criterionId])
+  @@index([criterionId])
+  @@map("template_document_criteria")
 }
 
 model Document {
@@ -1535,6 +1551,7 @@ model TemplateDocument {
   tenant   Tenant            @relation(fields: [tenantId], references: [id])
   category TemplateCategory  @relation(fields: [categoryId], references: [id])
   versions TemplateVersion[]
+  criteria TemplateDocumentCriterion[]
 
   // Un même titre deux fois dans la bibliothèque, ce sont deux fiches qui divergent :
   // l'une reçoit les mises à jour, l'autre est oubliée. Unicité sur le TENANT et non
