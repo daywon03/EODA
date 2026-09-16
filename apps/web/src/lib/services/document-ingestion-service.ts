@@ -12,6 +12,15 @@ import { describeImage } from "@/lib/services/image-vision-service";
 
 const KNOWLEDGE_EXCERPTS_LIMIT = 5;
 
+// Plafonds décidés par Damon (revue finale, 16/09/2026) : sans borne, un dépôt
+// unique pouvait déclencher un fan-out non borné d'appels payants à OpenRouter
+// en parallèle (Promise.all ci-dessous) — un seul .docx malicieux ou massif
+// suffisait à multiplier la facture et la charge sur une seule requête HTTP.
+// Best-effort : au-delà des plafonds, l'image est ignorée silencieusement,
+// jamais une erreur qui bloquerait le dépôt du document lui-même.
+export const MAX_IMAGES_DESCRIBED = 10;
+export const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
+
 // ─────────────────────────────────────────────────────────────────────────────
 // INGESTION D'UNE VERSION DE DOCUMENT — orchestration
 //
@@ -102,7 +111,15 @@ export async function ingestDocumentVersion(
 
   // Stockage best-effort : une image qui échoue à se décrire ou à s'uploader ne doit
   // jamais faire échouer le dépôt du document lui-même — c'est un enrichissement.
-  const extractedImages = input.extractedImages ?? [];
+  //
+  // Deux plafonds appliqués AVANT tout appel réseau (D4, décision Damon du
+  // 16/09/2026) : au plus MAX_IMAGES_DESCRIBED images par dépôt, par ordre de
+  // position croissant (déjà l'ordre d'extraction) — les suivantes sont ignorées
+  // silencieusement — et aucune image de plus de MAX_IMAGE_SIZE_BYTES n'est ni
+  // uploadée, ni envoyée au modèle de vision, ni enregistrée.
+  const extractedImages = (input.extractedImages ?? [])
+    .filter((image) => image.buffer.length <= MAX_IMAGE_SIZE_BYTES)
+    .slice(0, MAX_IMAGES_DESCRIBED);
   if (extractedImages.length > 0) {
     await Promise.all(
       extractedImages.map(async (image) => {
@@ -115,10 +132,17 @@ export async function ingestDocumentVersion(
             position: image.position,
           });
           await ports.storage.upload(key, image.buffer, image.contentType);
-          const description = await describeImage({
+          const rawDescription = await describeImage({
             buffer: image.buffer,
             contentType: image.contentType,
           });
+          // Anonymisation avant stockage — même règle que tout texte envoyé vers un
+          // service externe ou conservé en vue d'un prompt (cf. analyzeVersion plus
+          // bas) : la description part elle aussi vers le prompt d'analyse (D5), et
+          // un modèle de vision peut transcrire un nom, une adresse ou un numéro
+          // lisible sur l'image. `null` (échec best-effort du modèle) n'est jamais
+          // anonymisé — anonymizeText attend une chaîne.
+          const description = rawDescription !== null ? anonymizeText(rawDescription) : null;
           await prisma.documentVersionImage.create({
             data: {
               documentVersionId: version.id,

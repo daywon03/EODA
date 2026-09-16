@@ -22,7 +22,9 @@ vi.mock("@/lib/services/image-vision-service", () => ({
   describeImage: (...args: unknown[]) => describeImage(...args),
 }));
 
-const { ingestDocumentVersion } = await import("./document-ingestion-service");
+const { ingestDocumentVersion, MAX_IMAGES_DESCRIBED, MAX_IMAGE_SIZE_BYTES } = await import(
+  "./document-ingestion-service"
+);
 
 const ESTABLISHMENT_ID = "etab-1";
 const DOCUMENT_TYPE_ID = "dt-1";
@@ -139,5 +141,68 @@ describe("ingestDocumentVersion — stockage best-effort des images extraites", 
     expect(storage.upload).toHaveBeenCalledTimes(1); // seulement le fichier lui-même
     expect(describeImage).not.toHaveBeenCalled();
     expect(prismaMock.documentVersionImage.create).not.toHaveBeenCalled();
+  });
+
+  // Décision Damon (revue finale, 16/09/2026) : la description générée par le
+  // modèle de vision échappait à l'anonymisation appliquée partout ailleurs dans
+  // le dépôt avant tout envoi/stockage destiné à un prompt (D5).
+  it("anonymise la description d'image avant de la stocker", async () => {
+    const storage = fakeStorage();
+    describeImage.mockResolvedValue("Contact visible sur l'affiche : sandrine@eoda-conseil.fr");
+
+    const image = { position: 1, contentType: "image/png", buffer: Buffer.from("x") };
+    await ingestDocumentVersion(baseInput({ extractedImages: [image] }), { storage, llm: noopLlm });
+
+    expect(prismaMock.documentVersionImage.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        description: "Contact visible sur l'affiche : [email masqué]",
+      }),
+    });
+  });
+
+  // Plafonds décidés par Damon : sans borne, un seul dépôt pouvait déclencher un
+  // fan-out non borné d'appels payants à OpenRouter en parallèle.
+  it("ignore silencieusement les images au-delà du plafond, par ordre de position", async () => {
+    const storage = fakeStorage();
+    describeImage.mockResolvedValue("description");
+
+    const images = Array.from({ length: MAX_IMAGES_DESCRIBED + 1 }, (_, i) => ({
+      position: i + 1,
+      contentType: "image/png",
+      buffer: Buffer.from("x"),
+    }));
+
+    await ingestDocumentVersion(baseInput({ extractedImages: images }), { storage, llm: noopLlm });
+
+    // Un upload pour le fichier lui-même + un par image retenue (le plafond, pas
+    // le plafond + 1).
+    expect(storage.upload).toHaveBeenCalledTimes(1 + MAX_IMAGES_DESCRIBED);
+    expect(prismaMock.documentVersionImage.create).toHaveBeenCalledTimes(MAX_IMAGES_DESCRIBED);
+    // La dernière image (position MAX_IMAGES_DESCRIBED + 1) n'a jamais été traitée.
+    expect(prismaMock.documentVersionImage.create).not.toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ position: MAX_IMAGES_DESCRIBED + 1 }) })
+    );
+  });
+
+  it("ignore silencieusement une image dépassant la taille maximale, sans l'uploader ni la décrire", async () => {
+    const storage = fakeStorage();
+    describeImage.mockResolvedValue("description");
+
+    const tooLarge = {
+      position: 1,
+      contentType: "image/png",
+      buffer: Buffer.alloc(MAX_IMAGE_SIZE_BYTES + 1),
+    };
+    const ok = { position: 2, contentType: "image/png", buffer: Buffer.from("x") };
+
+    await ingestDocumentVersion(baseInput({ extractedImages: [tooLarge, ok] }), { storage, llm: noopLlm });
+
+    // Un upload pour le fichier lui-même + un seul pour l'image de taille correcte.
+    expect(storage.upload).toHaveBeenCalledTimes(2);
+    expect(describeImage).toHaveBeenCalledTimes(1);
+    expect(prismaMock.documentVersionImage.create).toHaveBeenCalledTimes(1);
+    expect(prismaMock.documentVersionImage.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ position: 2 }),
+    });
   });
 });
