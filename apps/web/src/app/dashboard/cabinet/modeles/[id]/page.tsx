@@ -1,5 +1,6 @@
 import { Library } from "lucide-react";
 import { getTemplate, listTemplateCategories } from "@/lib/actions/template-library";
+import { listCriteriaForPicker } from "@/lib/actions/document";
 import { requireCabinetSession } from "@/lib/auth/guards";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card, CardContent } from "@/components/ui/card";
@@ -11,6 +12,7 @@ import { TemplatePreviewLink } from "@/components/modeles/TemplatePreviewLink";
 import { DeleteTemplateVersionButton } from "@/components/modeles/DeleteTemplateVersionButton";
 import { DeleteTemplateButton } from "@/components/modeles/DeleteTemplateButton";
 import { MoveTemplateForm } from "@/components/modeles/MoveTemplateForm";
+import { TemplateCriteriaPicker } from "@/components/modeles/TemplateCriteriaPicker";
 import {
   TEMPLATE_KIND_HINTS,
   TEMPLATE_KIND_LABELS,
@@ -39,10 +41,11 @@ export async function generateMetadata({ params }: Props) {
 //    à faire qui n'existe pas.
 export default async function ModelePage({ params }: Props) {
   const { id } = await params;
-  const [{ session }, template, categories] = await Promise.all([
+  const [{ session }, template, categories, allCriteria] = await Promise.all([
     requireCabinetSession(),
     getTemplate(id),
     listTemplateCategories(),
+    listCriteriaForPicker(),
   ]);
   const isAdmin = session.user.role === "CABINET_ADMIN";
   const isReference = template.kind === "REFERENCE";
@@ -86,6 +89,22 @@ export default async function ModelePage({ params }: Props) {
               templateId={template.id}
               categoryId={template.categoryId}
               categories={categories}
+            />
+          </CollapsibleSection>
+
+          {/* « Savoir quel document est lié à quel critère » (Damon, 16/09/2026) —
+              pour retrouver ce modèle en cherchant par critère, et pour que
+              l'analyse documentaire s'appuie dessus. */}
+          <CollapsibleSection
+            title="Critères HAS rattachés"
+            summary={
+              template.criteria.length > 0 ? `${template.criteria.length} critère(s)` : "Aucun"
+            }
+          >
+            <TemplateCriteriaPicker
+              templateId={template.id}
+              allCriteria={allCriteria ?? []}
+              initialSelected={template.criteria.map((c) => c.id)}
             />
           </CollapsibleSection>
         </>
