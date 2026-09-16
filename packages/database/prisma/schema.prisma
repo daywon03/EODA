@@ -662,9 +662,31 @@ model DocumentVersion {
   regeneratedFromVersion DocumentVersion?  @relation("Regeneration", fields: [regeneratedFromVersionId], references: [id])
   regeneratedVersions    DocumentVersion[] @relation("Regeneration")
   currentForDocument     Document?         @relation("CurrentVersion")
+  images                 DocumentVersionImage[]
 
   @@index([documentId])
   @@map("document_versions")
+}
+
+// Une image extraite d'un document déposé (photo d'un panneau affiché,
+// organigramme, logo…) — jamais réintégrée en base64 dans le texte envoyé à un
+// LLM (cf. text-extraction-service.ts). `description` vient d'un modèle de
+// vision, best-effort : nulle si l'appel a échoué, jamais bloquant.
+model DocumentVersionImage {
+  id                String   @id @default(cuid())
+  documentVersionId String   @map("document_version_id")
+  // Ordre d'apparition dans le document original — c'est cet ordre qui numérote
+  // les repères `[Image N]` laissés dans le texte extrait.
+  position          Int
+  fileStorageKey    String   @map("file_storage_key")
+  contentType       String   @map("content_type")
+  description       String?
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  documentVersion DocumentVersion @relation(fields: [documentVersionId], references: [id], onDelete: Cascade)
+
+  @@index([documentVersionId])
+  @@map("document_version_images")
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
