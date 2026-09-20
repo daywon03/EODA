@@ -13,22 +13,20 @@ import { toSafeFilenameSegment } from "@/lib/security/upload-validation-service"
 
 export const TEMPLATE_STAGE_LABELS: Record<TemplateStage, string> = {
   VIERGE: "Version vierge",
-  INITIALE: "Version initiale",
   FINALE: "Version finale",
 };
 
-// Ce que chaque stade veut dire, affiché à côté du choix. Trois mots qui se
-// ressemblent et dont l'ordre n'est pas évident : sans explication, la bibliothèque
-// se remplit de fichiers rangés au hasard, et c'est précisément la comparaison entre
-// l'état reçu et le résultat produit qui donnera sa valeur à l'entraînement de l'IA.
+// Ce que chaque stade veut dire, affiché à côté du choix. Un troisième stade
+// (INITIALE, l'état reçu du client avant intervention) a existé puis a été retiré
+// (call du 20/09/2026, confirmé sur l'enregistrement Fathom) : l'état reçu du
+// client est le travail du client, pas un état du gabarit EODA.
 export const TEMPLATE_STAGE_HINTS: Record<TemplateStage, string> = {
   VIERGE: "Le gabarit sans données, réutilisable pour une nouvelle structure.",
-  INITIALE: "L'état reçu de la structure, avant intervention.",
   FINALE: "La version produite par EODA, celle qui est restituée.",
 };
 
 // Ordre d'affichage : celui du cycle de production, pas l'ordre alphabétique.
-export const TEMPLATE_STAGES: readonly TemplateStage[] = ["VIERGE", "INITIALE", "FINALE"];
+export const TEMPLATE_STAGES: readonly TemplateStage[] = ["VIERGE", "FINALE"];
 
 // ── Les dossiers ─────────────────────────────────────────────────────────────
 //
@@ -247,7 +245,6 @@ export type FolderImportLine = {
 const STAGE_KEYWORDS: readonly { stage: TemplateStage; words: readonly string[] }[] = [
   { stage: "VIERGE", words: ["vierge", "gabarit", "trame", "template", "modele", "matrice"] },
   { stage: "FINALE", words: ["final", "conforme", "corrige", "restitu", "livrable", "produit", "def"] },
-  { stage: "INITIALE", words: ["initial", "recu", "avant", "brut", "source", "origine", "existant"] },
 ];
 
 // Comparaison sans accents ni casse : « corrigé », « CORRIGE » et « corrige » sont le
@@ -364,4 +361,30 @@ export function markDuplicateLines(lines: readonly FolderImportLine[]): boolean[
     seen.add(key);
     return false;
   });
+}
+
+// ── Jetons de champ client ────────────────────────────────────────────────────
+//
+// Étape « détection de champs client » de la pipeline (Damon, choisi le 20/09/2026
+// entre une convention texte et une balise Word invisible) : la convention
+// `{{JETON}}` l'emporte — aucun outil supplémentaire, elle se lit dans le texte déjà
+// extrait par extractMarkdown (mammoth/pdf-parse), là où une balise Word invisible
+// demanderait de lire le .docx en XML séparément pour un gain (survivre à une
+// réécriture manuelle) qui ne s'est jamais posé comme un problème réel.
+//
+// Purement dérivé de `extractedText`, jamais stocké : le texte est déjà en base
+// (`TemplateVersion.extractedText`), une seconde colonne ne ferait que pouvoir
+// diverger de lui. Aucun catalogue fermé ici (contrairement à
+// criterion-suggestion-service.ts) : ce n'est pas une proposition d'un modèle à
+// revalider contre un référentiel, seulement l'affichage de ce que le fichier
+// contient déjà littéralement — la convention se lit, elle ne s'invente pas.
+const CLIENT_FIELD_TOKEN_PATTERN = /\{\{\s*([A-Z][A-Z0-9_]*)\s*\}\}/g;
+
+export function detectClientFieldTokens(extractedText: string | null): string[] {
+  if (!extractedText) return [];
+  const found = new Set<string>();
+  for (const match of extractedText.matchAll(CLIENT_FIELD_TOKEN_PATTERN)) {
+    found.add(match[1]!);
+  }
+  return [...found].sort();
 }

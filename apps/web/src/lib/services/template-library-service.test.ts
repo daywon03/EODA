@@ -4,6 +4,7 @@ import {
   categoryNameError,
   categoryNameKey,
   compareVersionLabelsDesc,
+  detectClientFieldTokens,
   detectStage,
   detectVersionLabel,
   markDuplicateLines,
@@ -105,8 +106,8 @@ describe("templateDownloadFilename", () => {
 });
 
 describe("TEMPLATE_STAGES", () => {
-  it("suit le cycle de production, pas l'ordre alphabétique", () => {
-    expect([...TEMPLATE_STAGES]).toEqual(["VIERGE", "INITIALE", "FINALE"]);
+  it("suit le cycle de production, pas l'ordre alphabétique — deux stades depuis le 20/09/2026", () => {
+    expect([...TEMPLATE_STAGES]).toEqual(["VIERGE", "FINALE"]);
   });
 });
 
@@ -134,12 +135,15 @@ describe("detectStage", () => {
     expect(detectStage("Phase 4/livret vierge.docx")).toBe("VIERGE");
     expect(detectStage("Phase 4/vierges/livret.docx")).toBe("VIERGE");
     expect(detectStage("Phase 4/livret FINAL.docx")).toBe("FINALE");
-    expect(detectStage("Phase 4/livret reçu du client.docx")).toBe("INITIALE");
   });
 
   it("ignore accents et casse", () => {
     expect(detectStage("Phase 4/livret corrigé.docx")).toBe("FINALE");
-    expect(detectStage("Phase 4/LIVRET RECU.docx")).toBe("INITIALE");
+  });
+
+  it("ne devine plus INITIALE — stade retiré le 20/09/2026", () => {
+    expect(detectStage("Phase 4/livret reçu du client.docx")).toBeNull();
+    expect(detectStage("Phase 4/LIVRET RECU.docx")).toBeNull();
   });
 
   it("tranche au mot le plus spécifique quand plusieurs se présentent", () => {
@@ -272,5 +276,25 @@ describe("clé de stockage et nom de fichier sans stade", () => {
       createdAt: new Date("2026-09-04T10:00:00"),
     });
     expect(filename).toBe("20260904_MODELE_EODA_Manuel-HAS_REFERENCE_Interne.pdf");
+  });
+});
+
+describe("detectClientFieldTokens", () => {
+  it("détecte plusieurs jetons distincts, sans doublon", () => {
+    const text = "Structure : {{ETABLISSEMENT_NOM}}, FINESS {{FINESS}}. Logo : {{LOGO}}. {{FINESS}} encore.";
+    expect(detectClientFieldTokens(text)).toEqual(["ETABLISSEMENT_NOM", "FINESS", "LOGO"]);
+  });
+
+  it("rend un tableau vide sans jeton, ou sans texte extrait", () => {
+    expect(detectClientFieldTokens("Aucune donnée variable ici.")).toEqual([]);
+    expect(detectClientFieldTokens(null)).toEqual([]);
+  });
+
+  it("ignore une accolade simple ou un texte entre accolades non conforme à la convention", () => {
+    expect(detectClientFieldTokens("{note} et { pas un jeton } et {{minuscule}}")).toEqual([]);
+  });
+
+  it("tolère des espaces à l'intérieur des accolades", () => {
+    expect(detectClientFieldTokens("{{ FINESS }}")).toEqual(["FINESS"]);
   });
 });

@@ -26,6 +26,7 @@ import {
   buildTemplateStorageKey,
   categoryNameError,
   compareVersionLabelsDesc,
+  detectClientFieldTokens,
   normaliseCategoryName,
   normaliseVersionLabel,
   templateDownloadFilename,
@@ -297,6 +298,9 @@ export type TemplateDetail = {
     sizeBytes: number;
     createdAt: Date;
     uploadedByName: string;
+    // Jetons `{{FINESS}}`, `{{LOGO}}`… trouvés dans le texte déjà extrait de cette
+    // version (cf. detectClientFieldTokens) — dérivé, jamais stocké.
+    clientFieldTokens: string[];
   }[];
   criteria: { id: string; code: string; label: string }[];
   // Critères HAS supplémentaires détectés par l'IA sur ce gabarit, pas encore
@@ -362,6 +366,7 @@ export async function getTemplate(templateId: string): Promise<TemplateDetail> {
         sizeBytes: version.sizeBytes,
         createdAt: version.createdAt,
         uploadedByName: version.uploadedBy.name,
+        clientFieldTokens: detectClientFieldTokens(version.extractedText),
       })),
   };
 }

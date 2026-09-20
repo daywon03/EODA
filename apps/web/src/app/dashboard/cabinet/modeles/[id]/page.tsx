@@ -217,6 +217,21 @@ function VersionList({
                 {version.originalFilename} · {formatFileSize(version.sizeBytes)} · déposé le{" "}
                 {formatDate(version.createdAt)} par {version.uploadedByName}
               </p>
+              {/* Jetons `{{FINESS}}`, `{{LOGO}}`… détectés dans le fichier lui-même —
+                  utile surtout sur une VIERGE, mais affiché partout où le texte en
+                  contient : rien n'empêche un jeton oublié dans une finale. */}
+              {version.clientFieldTokens.length > 0 && (
+                <p className="flex flex-wrap gap-1.5 pt-1">
+                  {version.clientFieldTokens.map((token) => (
+                    <span
+                      key={token}
+                      className="rounded-md border border-terre/35 bg-terre/10 px-1.5 py-0.5 font-mono text-[10.5px] font-semibold text-terre"
+                    >
+                      {`{{${token}}}`}
+                    </span>
+                  ))}
+                </p>
+              )}
             </div>
             <div className="flex flex-shrink-0 items-center gap-3">
               <TemplatePreviewLink versionId={version.id} />

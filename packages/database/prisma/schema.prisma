@@ -1559,15 +1559,14 @@ model RateLimitCounter {
 // des gabarits internes dans les checklists et les livrables clients.
 // ─────────────────────────────────────────────────────────────────────────────
 
-// Trois états du même document, tels que Sandrine les nomme et les envoie. Ce n'est
-// pas une chronologie de rédaction mais trois usages distincts : le gabarit qu'on
-// réutilise, l'état reçu, le résultat produit. C'est cette distinction qui donnera
-// son intérêt à l'entraînement de l'IA — comparer un avant et un après.
+// Deux états du même document, tels que Sandrine les nomme et les envoie. Un
+// troisième stade (INITIALE, l'état reçu de la structure avant intervention) a
+// existé puis a été retiré (call du 20/09/2026) : « on ne fait que version
+// vierge, qui sera le template en gros, et version finale » — l'état reçu du
+// client est le travail du client, pas un état du gabarit EODA lui-même.
 enum TemplateStage {
   // Gabarit sans données : ce qui sert de base à une nouvelle structure.
   VIERGE
-  // État reçu de la structure, avant intervention.
-  INITIALE
   // Version produite par EODA, celle qui est restituée.
   FINALE
 }
