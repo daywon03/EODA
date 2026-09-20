@@ -70,6 +70,8 @@ const ACTION_LABELS: Record<AuditAction, string> = {
   CORRECTED_DRAFT_DOWNLOADED: "Brouillon de document corrigé téléchargé",
   CRITERION_SUGGESTION_CONFIRMED: "Critère HAS supplémentaire confirmé",
   CRITERION_SUGGESTION_REJECTED: "Critère HAS supplémentaire rejeté",
+  TEMPLATE_CRITERION_SUGGESTION_CONFIRMED: "Critère HAS supplémentaire confirmé sur un gabarit",
+  TEMPLATE_CRITERION_SUGGESTION_REJECTED: "Critère HAS supplémentaire rejeté sur un gabarit",
 };
 
 const ROLE_LABELS: Record<string, string> = {

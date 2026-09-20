@@ -45,6 +45,18 @@ export function buildAdditionalCriteriaCatalog(
     .map((c) => ({ code: c.code, label: c.label }));
 }
 
+// Même chose côté BIBLIOTHÈQUE DE MODÈLES — un gabarit n'appartient à aucune
+// structure (CLAUDE.md §7), donc pas de profil SAD à filtrer : le catalogue est
+// tout le référentiel moins les critères déjà rattachés à ce gabarit.
+export function buildTemplateCriteriaCatalog(
+  allCriteria: CriterionCatalogSource[],
+  alreadyLinkedCriterionIds: ReadonlySet<string>
+): LinkedCriterion[] {
+  return allCriteria
+    .filter((c) => !alreadyLinkedCriterionIds.has(c.id))
+    .map((c) => ({ code: c.code, label: c.label }));
+}
+
 export type ValidatedSuggestion = {
   criterionId: string;
   justification: string;

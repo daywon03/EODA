@@ -18,6 +18,8 @@ import { recordAuditEvent } from "@/lib/services/audit-log-service";
 import { extractMarkdown } from "@/lib/services/text-extraction-service";
 import { indexReferenceDocumentVersion } from "@/lib/services/knowledge-indexing-service";
 import { getEmbeddingPort } from "@/lib/embeddings";
+import { getLLMAnalysisPort } from "@/lib/llm";
+import { detectTemplateCriteria } from "@/lib/services/template-criterion-detection-service";
 import { buildFilePreview } from "@/lib/services/file-preview-service";
 import type { FilePreviewData } from "@/lib/services/file-preview-types";
 import {
@@ -297,6 +299,10 @@ export type TemplateDetail = {
     uploadedByName: string;
   }[];
   criteria: { id: string; code: string; label: string }[];
+  // Critères HAS supplémentaires détectés par l'IA sur ce gabarit, pas encore
+  // tranchés par le cabinet (cf. detectTemplateCriteria) — jamais présents sur un
+  // document de référence, qui ne passe pas par cette détection.
+  criterionSuggestions: { id: string; criterionCode: string; criterionLabel: string; justification: string }[];
 };
 
 export async function getTemplate(templateId: string): Promise<TemplateDetail> {
@@ -311,6 +317,11 @@ export async function getTemplate(templateId: string): Promise<TemplateDetail> {
       category: { select: { id: true, name: true } },
       versions: { include: { uploadedBy: { select: { name: true } } } },
       criteria: { include: { criterion: { select: { id: true, code: true, label: true } } } },
+      criterionSuggestions: {
+        where: { status: "PENDING" },
+        include: { criterion: { select: { code: true, label: true } } },
+        orderBy: { createdAt: "asc" },
+      },
     },
   });
   if (!template) notFound();
@@ -325,6 +336,12 @@ export async function getTemplate(templateId: string): Promise<TemplateDetail> {
     criteria: template.criteria
       .map((c) => c.criterion)
       .sort((a, b) => a.code.localeCompare(b.code)),
+    criterionSuggestions: template.criterionSuggestions.map((s) => ({
+      id: s.id,
+      criterionCode: s.criterion.code,
+      criterionLabel: s.criterion.label,
+      justification: s.justification,
+    })),
     versions: [...template.versions]
       // Tri par numéro de version décroissant, segment par segment : « v10 » vient
       // après « v9 », ce qu'un tri de chaînes ferait à l'envers. Un document de
@@ -673,6 +690,18 @@ async function storeVersion(params: {
     } catch (error) {
       console.error("Base de connaissances IA — indexation échouée, dépôt conservé :", error);
     }
+  }
+
+  // Détection IA de critères HAS supplémentaires — GABARITS uniquement, à l'inverse
+  // de l'indexation ci-dessus qui ne concerne que les RÉFÉRENCES : c'est l'étape
+  // « Détection IA » de la pipeline (dépôt → extraction → détection → cohérence →
+  // revue humaine → publié), demandée dans son intégralité le 20/09/2026. Best-effort
+  // (cf. detectTemplateCriteria) — jamais bloquant pour le dépôt du fichier.
+  if (kind === "GABARIT" && extractedText) {
+    await detectTemplateCriteria(
+      { templateId, templateVersionId: version.id, extractedText },
+      getLLMAnalysisPort()
+    );
   }
 
   revalidatePath(LIBRARY_PATH);

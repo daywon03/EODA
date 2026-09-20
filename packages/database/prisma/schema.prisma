@@ -310,6 +310,7 @@ model User {
   uploadedTemplates   TemplateVersion[]       @relation("TemplateUploadedBy")
   criterionGuidelines CriterionGuideline[]
   suggestionsReviewed DocumentCriterionSuggestion[] @relation("CriterionSuggestionReviewedBy")
+  templateSuggestionsReviewed TemplateCriterionSuggestion[] @relation("TemplateCriterionSuggestionReviewedBy")
 
   @@index([tenantId])
   @@map("users")
@@ -454,6 +455,7 @@ model Criterion {
   guidelines         CriterionGuideline[]
   templateDocuments  TemplateDocumentCriterion[]
   documentSuggestions DocumentCriterionSuggestion[]
+  templateSuggestions TemplateCriterionSuggestion[]
 
   @@index([objectiveId])
   @@map("criteria")
@@ -1483,6 +1485,9 @@ enum AuditAction {
   // (20/09/2026) — `targetId` = identifiant de la suggestion, jamais son contenu.
   CRITERION_SUGGESTION_CONFIRMED
   CRITERION_SUGGESTION_REJECTED
+  // Même décision, côté bibliothèque de modèles (gabarits) — 20/09/2026.
+  TEMPLATE_CRITERION_SUGGESTION_CONFIRMED
+  TEMPLATE_CRITERION_SUGGESTION_REJECTED
 }
 
 model AuditLogEntry {
@@ -1639,6 +1644,7 @@ model TemplateDocument {
   category TemplateCategory  @relation(fields: [categoryId], references: [id])
   versions TemplateVersion[]
   criteria TemplateDocumentCriterion[]
+  criterionSuggestions TemplateCriterionSuggestion[]
 
   // Un même titre deux fois dans la bibliothèque, ce sont deux fiches qui divergent :
   // l'une reçoit les mises à jour, l'autre est oubliée. Unicité sur le TENANT et non
@@ -1647,6 +1653,41 @@ model TemplateDocument {
   @@unique([tenantId, title])
   @@index([categoryId])
   @@map("template_documents")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SUGGESTION DE CRITÈRE SUR UN GABARIT — même principe que
+// DocumentCriterionSuggestion (documents clients), pour la bibliothèque de
+// modèles. « Fait tout ce qu'il y a dans l'artifact » (Damon, 20/09/2026) : la
+// pipeline visuelle proposée (dépôt → extraction → détection IA → cohérence →
+// revue → publié) manquait justement cette dernière brique côté gabarits.
+//
+// Pas de profil SAD ici (contrairement au document client) : un gabarit
+// n'appartient à aucune structure, le catalogue proposé à l'IA est donc TOUT le
+// référentiel moins les critères déjà rattachés — rien à filtrer par type
+// d'établissement.
+model TemplateCriterionSuggestion {
+  id                 String                    @id @default(cuid())
+  templateDocumentId String                    @map("template_document_id")
+  criterionId        String                    @map("criterion_id")
+  templateVersionId  String                    @map("template_version_id")
+  justification      String
+  status             CriterionSuggestionStatus @default(PENDING)
+  reviewedByUserId   String?                   @map("reviewed_by_user_id")
+  reviewedAt         DateTime?                 @map("reviewed_at")
+  createdAt          DateTime                  @default(now()) @map("created_at")
+  updatedAt          DateTime                  @updatedAt @map("updated_at")
+
+  templateDocument TemplateDocument @relation(fields: [templateDocumentId], references: [id], onDelete: Cascade)
+  criterion        Criterion        @relation(fields: [criterionId], references: [id], onDelete: Cascade)
+  templateVersion  TemplateVersion  @relation(fields: [templateVersionId], references: [id], onDelete: Cascade)
+  reviewedBy       User?            @relation("TemplateCriterionSuggestionReviewedBy", fields: [reviewedByUserId], references: [id], onDelete: SetNull)
+
+  @@unique([templateDocumentId, criterionId])
+  @@index([criterionId])
+  @@index([templateDocumentId, status])
+  @@index([templateVersionId])
+  @@map("template_criterion_suggestions")
 }
 
 model TemplateVersion {
@@ -1684,6 +1725,7 @@ model TemplateVersion {
   templateDocument TemplateDocument @relation(fields: [templateDocumentId], references: [id], onDelete: Cascade)
   uploadedBy       User             @relation("TemplateUploadedBy", fields: [uploadedByUserId], references: [id])
   knowledgeChunks  KnowledgeChunk[]
+  criterionSuggestions TemplateCriterionSuggestion[]
 
   // Le même libellé ne peut pas désigner deux fichiers différents au même stade.
   // PostgreSQL considère deux NULL comme distincts : un document de référence peut

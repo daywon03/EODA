@@ -13,6 +13,7 @@ import { DeleteTemplateVersionButton } from "@/components/modeles/DeleteTemplate
 import { DeleteTemplateButton } from "@/components/modeles/DeleteTemplateButton";
 import { MoveTemplateForm } from "@/components/modeles/MoveTemplateForm";
 import { TemplateCriteriaPicker } from "@/components/modeles/TemplateCriteriaPicker";
+import { TemplateCriterionSuggestionsList } from "@/components/modeles/TemplateCriterionSuggestionsList";
 import {
   TEMPLATE_KIND_HINTS,
   TEMPLATE_KIND_LABELS,
@@ -101,11 +102,21 @@ export default async function ModelePage({ params }: Props) {
               template.criteria.length > 0 ? `${template.criteria.length} critère(s)` : "Aucun"
             }
           >
-            <TemplateCriteriaPicker
-              templateId={template.id}
-              allCriteria={allCriteria ?? []}
-              initialSelected={template.criteria.map((c) => c.id)}
-            />
+            <div className="space-y-3">
+              <TemplateCriteriaPicker
+                templateId={template.id}
+                allCriteria={allCriteria ?? []}
+                initialSelected={template.criteria.map((c) => c.id)}
+              />
+              {/* Étape « Détection IA » de la pipeline (dépôt → extraction →
+                  détection → cohérence → revue humaine → publié) : un critère
+                  supplémentaire évoqué par le fichier lui-même, jamais rattaché
+                  sans confirmation du cabinet. */}
+              <TemplateCriterionSuggestionsList
+                templateId={template.id}
+                suggestions={template.criterionSuggestions}
+              />
+            </div>
           </CollapsibleSection>
         </>
       )}
