@@ -52,7 +52,7 @@ export function DocumentUploadButton({
           onChange={(e) => setModelId(e.target.value)}
           disabled={isPending}
           aria-label="Modèle IA pour l'analyse de ce dépôt"
-          className="text-xs border border-gris-light rounded-md px-1.5 py-0.5 bg-white text-brun-ancre"
+          className="text-xs border border-gris-light rounded-md px-1.5 py-0.5 bg-surface text-brun-ancre"
         >
           {LLM_MODEL_OPTIONS.map((option) => (
             <option key={option.id} value={option.id}>

@@ -13,6 +13,7 @@ import { DeleteTemplateVersionButton } from "@/components/modeles/DeleteTemplate
 import { DeleteTemplateButton } from "@/components/modeles/DeleteTemplateButton";
 import { MoveTemplateForm } from "@/components/modeles/MoveTemplateForm";
 import { TemplateCriteriaPicker } from "@/components/modeles/TemplateCriteriaPicker";
+import { TemplateCriterionSuggestionsList } from "@/components/modeles/TemplateCriterionSuggestionsList";
 import {
   TEMPLATE_KIND_HINTS,
   TEMPLATE_KIND_LABELS,
@@ -101,11 +102,21 @@ export default async function ModelePage({ params }: Props) {
               template.criteria.length > 0 ? `${template.criteria.length} critère(s)` : "Aucun"
             }
           >
-            <TemplateCriteriaPicker
-              templateId={template.id}
-              allCriteria={allCriteria ?? []}
-              initialSelected={template.criteria.map((c) => c.id)}
-            />
+            <div className="space-y-3">
+              <TemplateCriteriaPicker
+                templateId={template.id}
+                allCriteria={allCriteria ?? []}
+                initialSelected={template.criteria.map((c) => c.id)}
+              />
+              {/* Étape « Détection IA » de la pipeline (dépôt → extraction →
+                  détection → cohérence → revue humaine → publié) : un critère
+                  supplémentaire évoqué par le fichier lui-même, jamais rattaché
+                  sans confirmation du cabinet. */}
+              <TemplateCriterionSuggestionsList
+                templateId={template.id}
+                suggestions={template.criterionSuggestions}
+              />
+            </div>
           </CollapsibleSection>
         </>
       )}
@@ -206,6 +217,21 @@ function VersionList({
                 {version.originalFilename} · {formatFileSize(version.sizeBytes)} · déposé le{" "}
                 {formatDate(version.createdAt)} par {version.uploadedByName}
               </p>
+              {/* Jetons `{{FINESS}}`, `{{LOGO}}`… détectés dans le fichier lui-même —
+                  utile surtout sur une VIERGE, mais affiché partout où le texte en
+                  contient : rien n'empêche un jeton oublié dans une finale. */}
+              {version.clientFieldTokens.length > 0 && (
+                <p className="flex flex-wrap gap-1.5 pt-1">
+                  {version.clientFieldTokens.map((token) => (
+                    <span
+                      key={token}
+                      className="rounded-md border border-terre/35 bg-terre/10 px-1.5 py-0.5 font-mono text-[10.5px] font-semibold text-terre"
+                    >
+                      {`{{${token}}}`}
+                    </span>
+                  ))}
+                </p>
+              )}
             </div>
             <div className="flex flex-shrink-0 items-center gap-3">
               <TemplatePreviewLink versionId={version.id} />

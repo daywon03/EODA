@@ -12,7 +12,7 @@ export function MissionProgressSummary({ diagnosticPct, phasesPct, globalPct }: 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
       {rows.map(({ label, value, color }) => (
-        <div key={label} className="bg-white border border-gris-light rounded-xl p-4 space-y-2">
+        <div key={label} className="bg-surface border border-gris-light rounded-xl p-4 space-y-2">
           <div className="flex items-center justify-between">
             <p className="text-xs text-gris-mid">{label}</p>
             <p className="text-lg font-bold text-brun-ancre tabular-nums">{value}%</p>

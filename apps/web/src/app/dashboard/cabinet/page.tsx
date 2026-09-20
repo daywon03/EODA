@@ -2,6 +2,7 @@ import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { listEstablishments } from "@/lib/actions/establishment";
+import { getEstablishmentIdsWithUnansweredMessage } from "@/lib/actions/message";
 import { EstablishmentCard } from "@/components/etablissement/EstablishmentCard";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { KpiCard } from "@/components/kpi/KpiCard";
@@ -26,7 +27,10 @@ export default async function CabinetDashboardPage() {
   const session = await auth();
   if (!session || session.user.role === "CLIENT_USER") redirect("/login");
 
-  const establishments = await listEstablishments();
+  const [establishments, establishmentIdsWithUnansweredMessage] = await Promise.all([
+    listEstablishments(),
+    getEstablishmentIdsWithUnansweredMessage(),
+  ]);
   const totalDocuments = establishments.reduce((sum, e) => sum + e._count.documents, 0);
 
   // Comptés à partir des fiches DÉJÀ chargées, avec la même conversion que la page
@@ -95,7 +99,7 @@ export default async function CabinetDashboardPage() {
       )}
 
       {establishments.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-20 text-center border-2 border-dashed border-gris-light rounded-xl bg-white/50">
+        <div className="flex flex-col items-center justify-center py-20 text-center border-2 border-dashed border-gris-light rounded-xl bg-surface/50">
           <Building2 className="w-12 h-12 text-gris-light mb-4" aria-hidden="true" />
           <h2 className="text-lg font-semibold text-brun-ancre mb-1">Aucune fiche client</h2>
           <p className="text-gris-mid text-sm mb-6 max-w-md">
@@ -127,6 +131,7 @@ export default async function CabinetDashboardPage() {
                 mission: toMissionLifecycleFacts(e.mission),
               })}
               beta={isBetaMission(toMissionLifecycleFacts(e.mission))}
+              hasUnansweredMessage={establishmentIdsWithUnansweredMessage.has(e.id)}
             />
           ))}
         </div>

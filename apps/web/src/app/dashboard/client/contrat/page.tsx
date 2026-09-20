@@ -100,7 +100,7 @@ export default async function ClientContratPage() {
       />
 
       {/* ── 1. L'offre souscrite ─────────────────────────────────────────── */}
-      <section className="bg-white border border-gris-light rounded-xl p-5 space-y-4">
+      <section className="bg-surface border border-gris-light rounded-xl p-5 space-y-4">
         <SectionTitle
           icon={Package}
           title="Votre offre"
@@ -132,7 +132,7 @@ export default async function ClientContratPage() {
       </section>
 
       {/* ── 2. Les montants du contrat ───────────────────────────────────── */}
-      <section className="bg-white border border-gris-light rounded-xl p-5 space-y-4">
+      <section className="bg-surface border border-gris-light rounded-xl p-5 space-y-4">
         <SectionTitle
           icon={FileSignature}
           title="Votre contrat"
@@ -221,7 +221,7 @@ export default async function ClientContratPage() {
       </section>
 
       {/* ── 3. Les options souscrites ────────────────────────────────────── */}
-      <section className="bg-white border border-gris-light rounded-xl p-5 space-y-4">
+      <section className="bg-surface border border-gris-light rounded-xl p-5 space-y-4">
         <SectionTitle
           icon={Sparkles}
           title="Vos prestations à la carte"
@@ -276,7 +276,7 @@ export default async function ClientContratPage() {
           montants ne doit plus traverser un indicateur de dépôt de documents. */}
 
       {/* ── 4. Ce qui n'est pas dans votre offre ─────────────────────────── */}
-      <section className="bg-white border border-gris-light rounded-xl p-5 space-y-4">
+      <section className="bg-surface border border-gris-light rounded-xl p-5 space-y-4">
         <SectionTitle
           icon={Building2}
           title="Prestations complémentaires"

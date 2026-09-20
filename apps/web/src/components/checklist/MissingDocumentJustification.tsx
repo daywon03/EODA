@@ -189,7 +189,7 @@ function ChoiceButton({
       className={`inline-flex min-h-11 items-center gap-1.5 rounded-lg border px-3 py-2 text-xs transition-colors disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terre focus-visible:ring-offset-1 ${
         selected
           ? "border-terre bg-terre/10 font-medium text-terre"
-          : "border-gris-light bg-white text-gris-mid hover:border-terre/40 hover:text-brun-ancre"
+          : "border-gris-light bg-surface text-gris-mid hover:border-terre/40 hover:text-brun-ancre"
       }`}
     >
       <Icon

@@ -36,7 +36,7 @@ export function AppointmentList({ appointments, readOnly = false, emptyMessage }
           <h3 className="text-xs font-semibold uppercase tracking-wide text-gris-mid">
             {formatDayHeading(group.date)}
           </h3>
-          <ul className="divide-y divide-gris-light rounded-lg border border-gris-light bg-white">
+          <ul className="divide-y divide-gris-light rounded-lg border border-gris-light bg-surface">
             {group.appointments.map((appointment) => (
               <li
                 key={appointment.id}

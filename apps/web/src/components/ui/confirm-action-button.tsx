@@ -188,7 +188,7 @@ export function ConfirmActionButton({
           // Ancrée SOUS le déclencheur et alignée à droite : elle reste dans le
           // champ de vision sans jamais élargir son conteneur. `max-w` la garde
           // dans l'écran sur un téléphone.
-          className="absolute right-0 top-full z-50 mt-2 flex w-64 max-w-[calc(100vw-2rem)] flex-col gap-2 rounded-lg border border-gris-light bg-white p-3 text-left shadow-eoda-md"
+          className="absolute right-0 top-full z-50 mt-2 flex w-64 max-w-[calc(100vw-2rem)] flex-col gap-2 rounded-lg border border-gris-light bg-surface p-3 text-left shadow-eoda-md"
         >
           <span id={questionId} className="block text-xs leading-snug text-brun-ancre">
             {question}

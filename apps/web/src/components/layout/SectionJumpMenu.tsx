@@ -18,7 +18,7 @@ export function SectionJumpMenu({ sections }: { sections: JumpSection[] }) {
       <select
         defaultValue=""
         aria-label="Aller à une section de la page"
-        className="border border-gris-light rounded-lg px-2.5 py-1.5 text-sm text-brun-ancre bg-white"
+        className="border border-gris-light rounded-lg px-2.5 py-1.5 text-sm text-brun-ancre bg-surface"
         onChange={(event) => {
           const id = event.target.value;
           if (!id) return;

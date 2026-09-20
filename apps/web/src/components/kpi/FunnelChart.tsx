@@ -25,7 +25,7 @@ export function FunnelChart({ steps, lost, indetermine }: Props) {
   const worstStage = biggestDropStage(steps);
 
   return (
-    <section className="rounded-xl border border-gris-light bg-white p-5">
+    <section className="rounded-xl border border-gris-light bg-surface p-5">
       <div className="mb-4">
         <h3 className="text-sm font-semibold text-brun-ancre">Entonnoir commercial</h3>
         <p className="mt-0.5 text-xs text-gris-mid">{describeFunnel({ steps, lost, indetermine })}</p>

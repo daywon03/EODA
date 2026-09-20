@@ -81,7 +81,7 @@ export default async function ClientSuiviPage() {
             globalPct={progressView.progress.globalPct}
           />
 
-          <div className="bg-white border border-gris-light rounded-xl p-5 space-y-3">
+          <div className="bg-surface border border-gris-light rounded-xl p-5 space-y-3">
             <h2 className="text-base font-semibold text-brun-ancre">Détail des phases</h2>
             <ul className="divide-y divide-gris-light">
               {PHASE_ORDER.map((phase) => {
@@ -99,7 +99,7 @@ export default async function ClientSuiviPage() {
           </div>
         </section>
       ) : (
-        <div className="bg-white border border-gris-light rounded-xl p-5">
+        <div className="bg-surface border border-gris-light rounded-xl p-5">
           <p className="text-sm text-gris-mid">
             Le suivi détaillé s&apos;ouvre dès que votre consultant EODA démarre le diagnostic.
           </p>
@@ -108,7 +108,7 @@ export default async function ClientSuiviPage() {
 
       {/* Contrepartie documentaire — déménagée depuis « Mon contrat » (07/09/2026) :
           c'est un indicateur de progression, pas un chiffre financier. */}
-      <section className="bg-white border border-gris-light rounded-xl p-5 space-y-4">
+      <section className="bg-surface border border-gris-light rounded-xl p-5 space-y-4">
         <h2 className="text-base font-semibold text-brun-ancre">Ce que vous devez fournir</h2>
         <p className="text-xs text-gris-mid -mt-2">
           La contrepartie documentaire de votre offre — seules les pièces couvertes par votre

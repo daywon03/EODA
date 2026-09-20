@@ -42,7 +42,7 @@ export default async function EvaluationComparisonPage({ params }: Props) {
       />
 
       {comparison.chapters.length === 0 ? (
-        <div className="rounded-xl border border-gris-light bg-white px-5 py-8 text-center">
+        <div className="rounded-xl border border-gris-light bg-surface px-5 py-8 text-center">
           <p className="text-sm font-semibold text-brun-ancre">Rien à comparer pour l&apos;instant</p>
           <p className="mt-1 text-sm text-gris-mid">
             La comparaison s&apos;affiche dès qu&apos;un chapitre a été coté au cours de deux

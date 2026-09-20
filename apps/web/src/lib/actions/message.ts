@@ -3,7 +3,11 @@
 import { prisma, type MessageAuthorSide } from "@eoda/database";
 import { notFound } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { requireClientEstablishment, requireEstablishmentInTenant } from "@/lib/auth/guards";
+import {
+  requireCabinetSession,
+  requireClientEstablishment,
+  requireEstablishmentInTenant,
+} from "@/lib/auth/guards";
 import {
   canClientPostMessage,
   hasUnansweredMessage,
@@ -153,6 +157,37 @@ export async function getClientHasUnansweredMessage(): Promise<boolean> {
   if (!last) return false;
 
   return hasUnansweredMessage([last], "CLIENT");
+}
+
+// Symétrique côté CABINET, mais pour PLUSIEURS établissements à la fois — un
+// évaluateur suit un portefeuille entier, pas un seul fil. Même logique
+// approchée que côté client : le dernier message vient-il de l'autre côté ?
+// Aucune table de lectures par utilisateur (cf. message-thread-service.ts).
+//
+// « Il faut qu'il y ait des notifications dans l'app » (Damon, 20/09/2026) — ce
+// signal existait déjà côté client depuis le 01/09, jamais étendu au cabinet :
+// un message client pouvait rester sans réponse sans qu'aucun signal visuel ne
+// le dise, seul l'e-mail (notifyNewMessage) le portait.
+//
+// Une ligne par établissement (`distinct` + tri composé établissement/date
+// décroissante = la plus récente en tête de chaque groupe), jamais une ligne
+// par message : borné au nombre d'établissements du tenant, pas à l'historique
+// des conversations (P5/P7).
+export async function getEstablishmentIdsWithUnansweredMessage(): Promise<Set<string>> {
+  const { tenantId } = await requireCabinetSession();
+
+  const latestPerEstablishment = await prisma.missionMessage.findMany({
+    where: { tenantId },
+    distinct: ["establishmentId"],
+    orderBy: [{ establishmentId: "asc" }, { createdAt: "desc" }],
+    select: { establishmentId: true, authorSide: true },
+  });
+
+  return new Set(
+    latestPerEstablishment
+      .filter((message) => hasUnansweredMessage([message], "CABINET"))
+      .map((message) => message.establishmentId)
+  );
 }
 
 export async function postClientMessage(

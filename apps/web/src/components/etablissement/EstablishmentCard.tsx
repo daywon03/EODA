@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Building2, Calendar, FileText, ChevronRight } from "lucide-react";
+import { Building2, Calendar, FileText, ChevronRight, MessageSquare } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import type { EstablishmentType } from "@eoda/database";
@@ -21,6 +21,10 @@ type Props = {
   // Logo déposé par le cabinet. Data URI : il voyage avec la page, sans route de
   // service ni URL signée à renouveler.
   logoDataUri: string | null;
+  // Dernier message du fil consultante ↔ client venu du CLIENT, sans réponse
+  // depuis (message-thread-service.ts) — même signal que côté client sur son
+  // onglet Échanges, jusqu'ici absent côté cabinet.
+  hasUnansweredMessage?: boolean;
 };
 
 export function EstablishmentCard({
@@ -33,6 +37,7 @@ export function EstablishmentCard({
   stage,
   beta,
   logoDataUri,
+  hasUnansweredMessage = false,
 }: Props) {
   return (
     // La carte n'est plus un <a> : elle contient désormais un bouton de suppression, et
@@ -66,7 +71,7 @@ export function EstablishmentCard({
               <img
                 src={logoDataUri}
                 alt=""
-                className="h-9 w-9 flex-shrink-0 rounded-lg border border-gris-light bg-white object-contain p-0.5"
+                className="h-9 w-9 flex-shrink-0 rounded-lg border border-gris-light bg-surface object-contain p-0.5"
               />
             ) : (
               <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg border border-terre/30 bg-terre/10">
@@ -77,7 +82,26 @@ export function EstablishmentCard({
               {name}
             </h3>
           </div>
-          <ChevronRight className="mt-1 h-4 w-4 flex-shrink-0 text-gris-mid" aria-hidden="true" />
+          <div className="flex flex-shrink-0 items-center gap-1.5">
+            {/* Signal discret, jamais un bloc coloré plein : c'est un rappel, pas une
+                alerte. `pointer-events-auto` + lien direct vers le fil — un cabinet
+                qui suit un portefeuille entier ne doit pas ouvrir la fiche en entier
+                pour savoir QUEL fil attend une réponse. */}
+            {hasUnansweredMessage && (
+              <Link
+                href={`/dashboard/cabinet/etablissements/${id}/echanges`}
+                className="pointer-events-auto relative z-10 flex h-6 w-6 items-center justify-center rounded-md text-terre hover:bg-terre/10"
+                aria-label={`Message de ${name} sans réponse`}
+              >
+                <MessageSquare className="h-3.5 w-3.5" aria-hidden="true" />
+                <span
+                  className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-terre"
+                  aria-hidden="true"
+                />
+              </Link>
+            )}
+            <ChevronRight className="mt-0.5 h-4 w-4 text-gris-mid" aria-hidden="true" />
+          </div>
         </div>
 
         {finessNumber && <p className="pl-[46px] text-xs text-gris-mid">FINESS {finessNumber}</p>}

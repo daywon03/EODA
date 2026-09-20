@@ -70,6 +70,8 @@ const ACTION_LABELS: Record<AuditAction, string> = {
   CORRECTED_DRAFT_DOWNLOADED: "Brouillon de document corrigé téléchargé",
   CRITERION_SUGGESTION_CONFIRMED: "Critère HAS supplémentaire confirmé",
   CRITERION_SUGGESTION_REJECTED: "Critère HAS supplémentaire rejeté",
+  TEMPLATE_CRITERION_SUGGESTION_CONFIRMED: "Critère HAS supplémentaire confirmé sur un gabarit",
+  TEMPLATE_CRITERION_SUGGESTION_REJECTED: "Critère HAS supplémentaire rejeté sur un gabarit",
 };
 
 const ROLE_LABELS: Record<string, string> = {
@@ -133,7 +135,7 @@ export default async function AuditLogPage({
           et aucune mutation n'est possible depuis cet écran (lecture seule). */}
       <form
         method="get"
-        className="bg-white border border-gris-light rounded-xl p-4 grid grid-cols-1 sm:grid-cols-4 gap-4 items-end"
+        className="bg-surface border border-gris-light rounded-xl p-4 grid grid-cols-1 sm:grid-cols-4 gap-4 items-end"
       >
         <div className="space-y-1.5">
           <Label htmlFor="establishmentId">Établissement</Label>
@@ -176,7 +178,7 @@ export default async function AuditLogPage({
         </div>
       </form>
 
-      <div className="bg-white border border-gris-light rounded-xl overflow-hidden">
+      <div className="bg-surface border border-gris-light rounded-xl overflow-hidden">
         <div className="px-5 py-3 border-b border-gris-light flex flex-wrap items-center justify-between gap-2">
           <p className="text-sm text-gris-mid">
             {result.total === 0

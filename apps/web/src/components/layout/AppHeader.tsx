@@ -15,7 +15,13 @@ export async function AppHeader() {
       : "Espace Client";
 
   return (
-    <header className="bg-brun-ancre sticky top-0 z-50 border-b border-black/10">
+    // Couleurs LITTÉRALES sur tout ce bandeau, jamais `bg-brun-ancre`/`text-ivoire` :
+    // c'est la marque, elle garde ses couleurs quel que soit le thème système — un
+    // logo qui s'inverserait en mode sombre serait un défaut, pas un raffinement.
+    // Les classes de la charte, elles, s'inversent volontairement ailleurs (cf.
+    // globals.css) ; les y laisser ici rendait ce bandeau clair sur un fond qui
+    // reste sombre partout ailleurs sur la page.
+    <header className="bg-[#3E2C26] sticky top-0 z-50 border-b border-black/10">
       <div className="mx-auto max-w-7xl flex items-center justify-between gap-4 px-6 py-3">
         {/* Logo + marque — CLIQUABLE, et c'est ce qui manquait. Le centre d'aide vit
             hors de /cabinet comme de /client : aucune barre de navigation n'y est
@@ -25,15 +31,15 @@ export async function AppHeader() {
             d'un logo, et ça évite d'avoir à savoir où « chez soi » se trouve. */}
         <Link
           href="/dashboard"
-          className="flex items-center gap-3 min-w-0 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ambre focus-visible:ring-offset-2 focus-visible:ring-offset-brun-ancre"
+          className="flex items-center gap-3 min-w-0 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D69646] focus-visible:ring-offset-2 focus-visible:ring-offset-[#3E2C26]"
           aria-label="EODA conseil — revenir à mon espace"
         >
           <EodaMark size={36} />
           <div className="min-w-0">
-            <span className="text-ivoire font-bold text-base sm:text-lg tracking-wide block truncate">
+            <span className="text-[#F0E8DC] font-bold text-base sm:text-lg tracking-wide block truncate">
               EODA conseil
             </span>
-            <span className="text-ambre text-[10px] sm:text-xs uppercase tracking-widest hidden sm:block">
+            <span className="text-[#D69646] text-[10px] sm:text-xs uppercase tracking-widest hidden sm:block">
               Expliquer · Observer · Démontrer · Accompagner
             </span>
           </div>
@@ -42,12 +48,12 @@ export async function AppHeader() {
         {/* Droite — badge rôle + déconnexion */}
         {session && (
           <div className="flex items-center gap-3 flex-shrink-0">
-            <span className="bg-terre text-ivoire text-xs font-semibold px-3 py-1.5 rounded-full tracking-wide whitespace-nowrap">
+            <span className="bg-[#B45A32] text-[#F0E8DC] text-xs font-semibold px-3 py-1.5 rounded-full tracking-wide whitespace-nowrap">
               {roleBadge}
             </span>
             <Link
               href="/dashboard/profil"
-              className="flex items-center gap-2 rounded px-2 py-1.5 text-sm text-gris-light transition-colors hover:bg-white/10 hover:text-ivoire focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ambre"
+              className="flex items-center gap-2 rounded px-2 py-1.5 text-sm text-[#E8DDD6] transition-colors hover:bg-white/10 hover:text-[#F0E8DC] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D69646]"
               aria-label="Mon profil et mes paramètres"
               title="Mon profil et mes paramètres"
             >
@@ -62,7 +68,7 @@ export async function AppHeader() {
             <Button
               variant="ghost"
               size="icon"
-              className="text-ivoire hover:text-ambre hover:bg-white/10"
+              className="text-[#F0E8DC] hover:text-[#D69646] hover:bg-white/10"
               title="Aide et guide d'utilisation"
               asChild
             >
@@ -76,7 +82,7 @@ export async function AppHeader() {
                 type="submit"
                 variant="ghost"
                 size="icon"
-                className="text-ivoire hover:text-ambre hover:bg-white/10"
+                className="text-[#F0E8DC] hover:text-[#D69646] hover:bg-white/10"
                 title="Se déconnecter"
                 aria-label="Se déconnecter"
               >

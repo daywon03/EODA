@@ -55,7 +55,7 @@ export function ClientNav({ hasUnansweredMessage = false }: { hasUnansweredMessa
   ];
 
   return (
-    <nav className="border-b border-gris-light bg-white" aria-label="Navigation de l'espace client">
+    <nav className="border-b border-gris-light bg-surface" aria-label="Navigation de l'espace client">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 flex gap-1">
         {tabs.map(({ href, label, icon: Icon, match }) => {
           const active = match(pathname);

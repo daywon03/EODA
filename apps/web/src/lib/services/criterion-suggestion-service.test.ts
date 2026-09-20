@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildAdditionalCriteriaCatalog,
+  buildTemplateCriteriaCatalog,
   validateSuggestedCriteria,
   MAX_JUSTIFICATION_LENGTH,
   type CriterionCatalogSource,
@@ -34,6 +35,18 @@ describe("buildAdditionalCriteriaCatalog", () => {
     const mixte = buildAdditionalCriteriaCatalog(CATALOG, "SAD_MIXTE", new Set());
     expect(aide.map((c) => c.code)).toEqual(expect.arrayContaining(["2.2.1", "2.2.7"]));
     expect(mixte.map((c) => c.code)).toEqual(expect.arrayContaining(["2.2.1", "2.2.7"]));
+  });
+});
+
+describe("buildTemplateCriteriaCatalog — pas de profil SAD, un gabarit n'appartient à aucune structure", () => {
+  it("exclut les critères déjà rattachés, garde tout le reste sans filtre de profil", () => {
+    const catalog = buildTemplateCriteriaCatalog(CATALOG, new Set(["c-221"]));
+    expect(catalog.map((c) => c.code)).toEqual(["2.2.7", "3.6.2", "9.9.9"]);
+  });
+
+  it("rend le catalogue complet quand rien n'est encore rattaché", () => {
+    const catalog = buildTemplateCriteriaCatalog(CATALOG, new Set());
+    expect(catalog).toHaveLength(CATALOG.length);
   });
 });
 

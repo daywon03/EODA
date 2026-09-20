@@ -41,7 +41,7 @@ export function CabinetNav({ isAdmin, pendingRequests = 0 }: Props) {
   ];
 
   return (
-    <nav className="border-b border-gris-light bg-white">
+    <nav className="border-b border-gris-light bg-surface">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 flex items-center justify-between">
         <div className="flex gap-1">
           {tabs.map(({ href, label, icon: Icon, match }) => {

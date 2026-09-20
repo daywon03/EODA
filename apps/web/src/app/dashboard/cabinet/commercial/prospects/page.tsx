@@ -37,7 +37,7 @@ export default async function ProspectsPage({ searchParams }: Props) {
       />
 
       {totalCount === 0 ? (
-        <div className="flex flex-col items-center justify-center py-20 text-center border-2 border-dashed border-gris-light rounded-xl bg-white/50">
+        <div className="flex flex-col items-center justify-center py-20 text-center border-2 border-dashed border-gris-light rounded-xl bg-surface/50">
           <Users className="w-12 h-12 text-gris-light mb-4" aria-hidden="true" />
           <h2 className="text-lg font-semibold text-brun-ancre mb-1">Aucun prospect</h2>
           <p className="text-gris-mid text-sm mb-6">Ajoutez votre premier prospect pour démarrer le suivi.</p>

@@ -37,7 +37,7 @@ export function AnalyzeDocumentButton({
           onChange={(e) => setModelId(e.target.value)}
           disabled={isPending}
           aria-label="Modèle IA pour l'analyse"
-          className="rounded-md border border-gris-light bg-white px-1.5 py-0.5 text-xs text-brun-ancre"
+          className="rounded-md border border-gris-light bg-surface px-1.5 py-0.5 text-xs text-brun-ancre"
         >
           {LLM_MODEL_OPTIONS.map((option) => (
             <option key={option.id} value={option.id}>

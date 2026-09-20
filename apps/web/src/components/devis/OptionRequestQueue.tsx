@@ -26,7 +26,7 @@ export function OptionRequestQueue({ requests }: { requests: PendingOptionReques
   }
 
   return (
-    <section className="bg-white border border-gris-light rounded-xl p-5 space-y-4">
+    <section className="bg-surface border border-gris-light rounded-xl p-5 space-y-4">
       <div className="flex items-center gap-2.5">
         <Inbox className="w-5 h-5 text-terre flex-shrink-0" aria-hidden="true" />
         <h2 className="text-base font-semibold text-brun-ancre">

@@ -25,7 +25,7 @@ export function MonthGrid({ year, month, appointments, now, basePath }: Props) {
   const label = MONTH_LABEL.format(new Date(year, month, 1));
 
   return (
-    <div className="rounded-xl border border-gris-light bg-white overflow-hidden">
+    <div className="rounded-xl border border-gris-light bg-surface overflow-hidden">
       <div className="flex items-center justify-between gap-3 border-b border-gris-light px-4 py-3">
         <Link
           href={`${basePath}?mois=${previous.y}-${String(previous.m + 1).padStart(2, "0")}`}

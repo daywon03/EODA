@@ -6,7 +6,7 @@ type Props = { chapterScore: number | null; imperatifsAtRisk: EvaluationChapterD
 
 export function ChapterResultsSummary({ chapterScore, imperatifsAtRisk }: Props) {
   return (
-    <div className="bg-white border border-gris-light rounded-xl p-5 space-y-4">
+    <div className="bg-surface border border-gris-light rounded-xl p-5 space-y-4">
       <div className="flex items-center justify-between">
         <span className="text-sm font-medium text-brun-ancre">Score du chapitre</span>
         <span className="text-2xl font-bold text-brun-ancre tabular-nums">
