@@ -7,7 +7,10 @@ import {
   getTemplateVersionExtractedText,
 } from "@/lib/actions/template-library";
 import type { FilePreviewData } from "@/lib/services/file-preview-types";
-import { FilePreviewModal } from "@/components/shared/FilePreviewModal";
+import {
+  FilePreviewModal,
+  preloadFilePreviewModal,
+} from "@/components/shared/FilePreviewModalLazy";
 import { INLINE_ACTION_CLASS } from "@/components/ui/inline-action";
 
 // « Pouvoir le voir directement sur l'app, au lieu de devoir le télécharger »
@@ -22,6 +25,7 @@ export function TemplatePreviewLink({ versionId }: { versionId: string }) {
   const [preview, setPreview] = useState<FilePreviewData | null>(null);
 
   function handleOpen() {
+    preloadFilePreviewModal();
     startTransition(async () => {
       const data = await getTemplateVersionPreviewData(versionId);
       if (data) setPreview(data);
@@ -29,6 +33,7 @@ export function TemplatePreviewLink({ versionId }: { versionId: string }) {
   }
 
   function handleOpenExtracted() {
+    preloadFilePreviewModal();
     startTransition(async () => {
       const data = await getTemplateVersionExtractedText(versionId);
       if (!data) return;

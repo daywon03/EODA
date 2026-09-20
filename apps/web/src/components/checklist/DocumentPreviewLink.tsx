@@ -7,7 +7,10 @@ import {
   getExtractedText,
   type DocumentPreviewData,
 } from "@/lib/actions/document";
-import { FilePreviewModal } from "@/components/shared/FilePreviewModal";
+import {
+  FilePreviewModal,
+  preloadFilePreviewModal,
+} from "@/components/shared/FilePreviewModalLazy";
 import { INLINE_ACTION_CLASS } from "@/components/ui/inline-action";
 
 type Props = {
@@ -23,6 +26,7 @@ export function DocumentPreviewLink({ documentVersionId, canViewExtractedText = 
   const [preview, setPreview] = useState<DocumentPreviewData | null>(null);
 
   function handleOpen() {
+    preloadFilePreviewModal();
     startTransition(async () => {
       const data = await getDocumentPreviewData(documentVersionId);
       if (data) setPreview(data);
@@ -30,6 +34,7 @@ export function DocumentPreviewLink({ documentVersionId, canViewExtractedText = 
   }
 
   function handleOpenExtracted() {
+    preloadFilePreviewModal();
     startTransition(async () => {
       const data = await getExtractedText(documentVersionId);
       if (!data) return;
