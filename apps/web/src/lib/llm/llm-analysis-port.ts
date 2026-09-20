@@ -31,6 +31,14 @@ export type DocumentAnalysisInput = {
   // l'index de ce tableau, qui décale dès qu'une seule image échoue en amont
   // (cf. fetchImageDescriptions dans document-ingestion-service.ts).
   imageDescriptions?: { position: number; description: string }[];
+  // Qui a déposé la version analysée — l'adjoint IA qualité ne doit jamais confondre
+  // un document initial déposé par un client et une version rehaussée par le cabinet
+  // (relecture, correction, restitution). Dérivé du rôle de `DocumentVersion.uploadedBy`
+  // (cf. analyzeVersion dans document-ingestion-service.ts) : "CLIENT" pour un compte
+  // CLIENT_USER, "CABINET" pour un compte cabinet. Optionnel : absent sur les analyses
+  // déjà stockées, et l'analyse fonctionne sans (même repli défensif que les autres
+  // enrichissements de ce type).
+  documentOrigin?: "CLIENT" | "CABINET";
 };
 
 // Un élément retrouvé, avec la citation qui le justifie (demande de Damon,

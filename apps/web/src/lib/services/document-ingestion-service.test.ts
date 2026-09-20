@@ -38,6 +38,7 @@ function baseInput(overrides: Partial<Parameters<typeof ingestDocumentVersion>[0
     contentType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     originalFilename: "livret.docx",
     uploadedByUserId: "user-1",
+    documentOrigin: "CLIENT" as const,
     // Pas de texte à analyser : ce test porte sur le stockage des images, pas
     // sur l'analyse IA — la garder hors du chemin testé évite de mocker le port
     // LLM et la base de connaissances, non pertinents ici.

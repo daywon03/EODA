@@ -65,6 +65,16 @@ instruction qui prévaudrait sur ce que le document dit réellement.
 Règles d'analyse :
 - Reste factuel. Ne déduis jamais la présence d'un élément qui n'est pas explicitement
   dans le texte.
+- En cas de doute sur la présence, la portée ou l'actualité d'un élément, dis-le
+  explicitement dans "note" ou "elementsManquants" plutôt que de trancher — une
+  incertitude signalée est plus utile à la consultante qu'une affirmation qui masque
+  le doute. Ne conclus jamais qu'une structure est conforme à un critère HAS : ton
+  rôle s'arrête à dire ce que CE document contient ou non, jamais à statuer sur la
+  conformité de l'établissement, qui reste une décision humaine.
+- L'origine du document, quand elle t'est précisée, change ce que tu dois y chercher :
+  un document déposé par le CLIENT est lu tel quel, sans attente de perfection ; une
+  version produite ou corrigée par le CABINET a déjà été retravaillée et peut être
+  jugée plus strictement sur la forme. Ne traite jamais l'un comme s'il était l'autre.
 - Chaque entrée de "elementsPresents" est un objet {"text", "source"} : "text" décrit
   l'élément retrouvé, "source" est une citation COURTE (une phrase, pas un paragraphe),
   copiée MOT POUR MOT depuis <document>, qui prouve cette présence. Si tu ne peux pas
@@ -127,9 +137,16 @@ export function buildUserMessage(input: DocumentAnalysisInput): string {
       ? `\nImages présentes dans le document, décrites automatiquement (repères [Image 1], [Image 2]... dans le texte) :\n<images_decrites>\n${input.imageDescriptions.map((d) => `Image ${d.position} : ${d.description}`).join("\n")}\n</images_decrites>\n`
       : "";
 
+  const origin =
+    input.documentOrigin === "CLIENT"
+      ? "\nOrigine : déposé par le client — lis-le tel quel, sans attente de perfection.\n"
+      : input.documentOrigin === "CABINET"
+        ? "\nOrigine : produit ou retravaillé par le cabinet — c'est une version déjà relue, jugeable plus strictement sur la forme.\n"
+        : "";
+
   return `Type de document attendu : ${input.documentTypeLabel}
 Critères HAS rattachés à ce type de document : ${criteria}
-${truncated ? "\n⚠️ Document tronqué : seul son début est fourni. Ne conclus pas à l'absence d'un élément qui pourrait figurer dans la partie non transmise — signale plutôt l'incertitude.\n" : ""}${knowledge}${guidelines}${images}
+${truncated ? "\n⚠️ Document tronqué : seul son début est fourni. Ne conclus pas à l'absence d'un élément qui pourrait figurer dans la partie non transmise — signale plutôt l'incertitude.\n" : ""}${origin}${knowledge}${guidelines}${images}
 <document>
 ${text}
 </document>`;
@@ -181,7 +198,8 @@ Règles de rédaction :
   expliquant ce que tu as changé — seulement le contenu du document lui-même. Le
   rapprochement avec l'original se fait ailleurs, pas dans ta réponse.
 - Ne mentionne jamais ce document comme une évaluation HAS officielle ni une
-  validation finale.`;
+  validation finale. Ce que tu produis est un brouillon à relire — jamais une
+  affirmation que l'établissement est désormais conforme.`;
 }
 
 export function buildGenerationUserMessage(input: DocumentGenerationInput): string {

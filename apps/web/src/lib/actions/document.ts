@@ -148,6 +148,7 @@ export async function uploadDocument(formData: FormData): Promise<UploadDocument
       contentType: validation.contentType,
       originalFilename: file.name,
       uploadedByUserId: access.userId,
+      documentOrigin: access.isClient ? "CLIENT" : "CABINET",
       extractedText,
       extractedImages,
       modelId,

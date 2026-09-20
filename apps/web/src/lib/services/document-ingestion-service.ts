@@ -47,6 +47,11 @@ export type IngestDocumentInput = {
   contentType: string;
   originalFilename: string;
   uploadedByUserId: string;
+  // Qui dépose cette version — connu de l'appelant (la session en cours), jamais
+  // recalculé ici. Transmis jusqu'au prompt d'analyse (cf. llm-analysis-port.ts) :
+  // l'adjoint IA qualité ne doit pas juger un dépôt client comme s'il était une
+  // version déjà retravaillée par le cabinet.
+  documentOrigin: "CLIENT" | "CABINET";
   extractedText: string | null;
   // Images extraites par `extractMarkdown` (.docx uniquement à ce jour) — stockées et
   // décrites ci-dessous, best-effort. `[]`/absent pour tout autre format.
@@ -189,6 +194,7 @@ export async function ingestDocumentVersion(
       documentTypeLabel: input.documentTypeLabel,
       documentTypeId: input.documentTypeId,
       extractedText: input.extractedText,
+      documentOrigin: input.documentOrigin,
       ...(input.modelId !== undefined && { modelId: input.modelId }),
     },
     ports.llm
@@ -222,6 +228,9 @@ export async function reanalyzeDocumentVersion(
       id: true,
       fileStorageKey: true,
       extractedText: true,
+      // Auteur de CETTE version, pas de la personne qui clique « Réanalyser » —
+      // c'est le dépôt d'origine qui détermine l'origine du contenu.
+      uploadedBy: { select: { role: true } },
       document: {
         select: {
           id: true,
@@ -277,6 +286,7 @@ export async function reanalyzeDocumentVersion(
       documentTypeId: version.document.documentTypeId,
       documentTypeLabel: version.document.documentType.label,
       extractedText,
+      documentOrigin: version.uploadedBy.role === "CLIENT_USER" ? "CLIENT" : "CABINET",
       ...(modelId && { modelId }),
     },
     ports.llm
@@ -296,6 +306,11 @@ async function analyzeVersion(
     documentTypeId: string;
     documentTypeLabel: string;
     extractedText: string | null;
+    // Optionnel ici (contrairement à IngestDocumentInput) : une ré-analyse porte sur
+    // une version DÉJÀ déposée, dont l'auteur d'origine se relit en base plutôt que
+    // d'être supposé — cf. reanalyzeDocumentVersion, seul appelant qui ne le connaît
+    // pas d'avance.
+    documentOrigin?: "CLIENT" | "CABINET";
     modelId?: string | null;
   },
   llm: LLMAnalysisPort
@@ -334,6 +349,7 @@ async function analyzeVersion(
       knowledgeExcerpts,
       criterionGuidelines,
       ...(imageDescriptions.length > 0 && { imageDescriptions }),
+      ...(params.documentOrigin && { documentOrigin: params.documentOrigin }),
       ...(params.modelId && { modelId: params.modelId }),
     });
 
