@@ -9,6 +9,11 @@ import { MAX_GUIDELINES_INJECTED } from "@/lib/services/criterion-guideline-serv
 import { extractMarkdown, type ExtractedImage } from "@/lib/services/text-extraction-service";
 import { validateUploadedFile } from "@/lib/security/upload-validation-service";
 import { describeImage } from "@/lib/services/image-vision-service";
+import {
+  buildAdditionalCriteriaCatalog,
+  validateSuggestedCriteria,
+  type ValidatedSuggestion,
+} from "@/lib/services/criterion-suggestion-service";
 
 const KNOWLEDGE_EXCERPTS_LIMIT = 5;
 
@@ -316,15 +321,20 @@ async function analyzeVersion(
   llm: LLMAnalysisPort
 ): Promise<boolean> {
   try {
-    const [linkedCriteria, establishment] = await Promise.all([
+    const [linkedCriteria, establishment, allCriteria] = await Promise.all([
       prisma.documentTypeCriterion.findMany({
         where: { documentTypeId: params.documentTypeId },
         include: { criterion: { select: { id: true, code: true, label: true } } },
       }),
       prisma.establishment.findUnique({
         where: { id: params.establishmentId },
-        select: { tenantId: true },
+        select: { tenantId: true, type: true },
       }),
+      // Catalogue fermé des critères que l'IA peut proposer EN PLUS de
+      // `linkedCriteria` (cf. criterion-suggestion-service.ts). Chargé à chaque
+      // analyse plutôt que mis en cache : ~140 lignes, un montant négligeable à
+      // côté du texte du document lui-même, et le référentiel évolue (CLAUDE.md §6).
+      prisma.criterion.findMany({ select: { id: true, code: true, label: true, applicableTo: true } }),
     ]);
     const criteriaLabels = linkedCriteria.map((c) => c.criterion.label);
     const criterionIds = linkedCriteria.map((c) => c.criterion.id);
@@ -333,6 +343,12 @@ async function analyzeVersion(
       label: c.criterion.label,
     }));
     const tenantId = establishment?.tenantId ?? null;
+    // Sans profil SAD connu (établissement introuvable — ne devrait pas arriver
+    // pour une analyse en cours), aucune suggestion supplémentaire n'est demandée
+    // plutôt que de proposer un catalogue non filtré par profil.
+    const additionalCriteriaCatalog = establishment
+      ? buildAdditionalCriteriaCatalog(allCriteria, establishment.type, new Set(criterionIds))
+      : [];
 
     const [knowledgeExcerpts, criterionGuidelines, imageDescriptions] = await Promise.all([
       fetchKnowledgeExcerpts(tenantId, params.documentTypeLabel, criteriaLabels),
@@ -351,7 +367,16 @@ async function analyzeVersion(
       ...(imageDescriptions.length > 0 && { imageDescriptions }),
       ...(params.documentOrigin && { documentOrigin: params.documentOrigin }),
       ...(params.modelId && { modelId: params.modelId }),
+      ...(additionalCriteriaCatalog.length > 0 && { additionalCriteriaCatalog }),
     });
+
+    // Best-effort, comme les autres enrichissements de cette fonction : une
+    // suggestion perdue ne doit jamais faire échouer l'analyse elle-même.
+    await persistCriterionSuggestions(
+      params.documentId,
+      params.documentVersionId,
+      validateSuggestedCriteria(analysis.criteresSupplementaires, allCriteria)
+    );
 
     await prisma.documentVersion.update({
       where: { id: params.documentVersionId },
@@ -398,6 +423,54 @@ async function fetchImageDescriptions(
   } catch (error) {
     console.error("Descriptions d'image — lecture échouée, analyse sans elles :", error);
     return [];
+  }
+}
+
+// Persiste les critères supplémentaires détectés par l'IA (déjà revalidés contre
+// le catalogue réel par validateSuggestedCriteria — jamais une suggestion brute du
+// modèle) comme DocumentCriterionSuggestion, statut PENDING.
+//
+// NE TOUCHE JAMAIS une suggestion déjà CONFIRMED ou REJECTED : c'est une décision
+// humaine, un fait stocké, jamais recalculé (même doctrine que Document.validatedAt).
+// Une suggestion encore PENDING voit sa justification et sa version d'origine
+// rafraîchies — c'est la même question posée à nouveau, pas une nouvelle question.
+//
+// Best-effort, comme fetchImageDescriptions ci-dessus : une suggestion perdue ne
+// doit jamais faire échouer l'analyse elle-même.
+async function persistCriterionSuggestions(
+  documentId: string,
+  documentVersionId: string,
+  validated: ValidatedSuggestion[]
+): Promise<void> {
+  if (validated.length === 0) return;
+  try {
+    const existing = await prisma.documentCriterionSuggestion.findMany({
+      where: { documentId, criterionId: { in: validated.map((v) => v.criterionId) } },
+      select: { criterionId: true, status: true },
+    });
+    const decided = new Set(
+      existing.filter((s) => s.status !== "PENDING").map((s) => s.criterionId)
+    );
+
+    const toWrite = validated.filter((v) => !decided.has(v.criterionId));
+    if (toWrite.length === 0) return;
+
+    await prisma.$transaction(
+      toWrite.map((v) =>
+        prisma.documentCriterionSuggestion.upsert({
+          where: { documentId_criterionId: { documentId, criterionId: v.criterionId } },
+          create: {
+            documentId,
+            criterionId: v.criterionId,
+            documentVersionId,
+            justification: v.justification,
+          },
+          update: { documentVersionId, justification: v.justification },
+        })
+      )
+    );
+  } catch (error) {
+    console.error("Suggestions de critères — écriture échouée, analyse conservée sans elles :", error);
   }
 }
 

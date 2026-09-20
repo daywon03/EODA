@@ -4,7 +4,11 @@ import type {
   DocumentAnalysisResult,
   DocumentGenerationInput,
 } from "./llm-analysis-port";
-import { normalizeFindings, normalizeCriteriaCoverage } from "./llm-analysis-port";
+import {
+  normalizeFindings,
+  normalizeCriteriaCoverage,
+  normalizeCriterionSuggestions,
+} from "./llm-analysis-port";
 import {
   buildSystemPrompt,
   buildUserMessage,
@@ -47,6 +51,9 @@ const JSON_SCHEMA_INSTRUCTION = `Réponds UNIQUEMENT avec un objet JSON, sans te
   "sembleConforme": false,
   "criteriaCoverage": [
     { "criterionCode": "2.2.7", "criterionLabel": "Le projet de service formalise...", "status": "partiel", "note": "La trame existe mais les modalités de révision annuelle ne sont pas décrites." }
+  ],
+  "criteresSupplementaires": [
+    { "criterionCode": "2.2.6", "justification": "Le document décrit la procédure de recueil des plaintes, qui répond aussi à ce critère." }
   ]
 }
 Chaque élément de "elementsPresents" est TOUJOURS un objet avec exactement ces deux
@@ -55,7 +62,11 @@ depuis le document (jamais une paraphrase, jamais une chaîne vide) : si tu ne p
 pas citer un passage réel à l'appui d'un élément, place-le dans "elementsManquants"
 au lieu de "elementsPresents".
 "criteriaCoverage" contient une entrée par critère rattaché listé plus haut, ni plus ni
-moins — jamais un critère qui n'a pas été transmis, jamais un critère absent de la liste.`;
+moins — jamais un critère qui n'a pas été transmis, jamais un critère absent de la liste.
+"criteresSupplementaires" est TOUJOURS présent, même vide ([]) : n'y mets QUE des
+critères pris dans le catalogue supplémentaire fourni plus bas (jamais un code que tu
+inventes), et seulement s'ils sont réellement évoqués par CE document — un document
+peut en concerner plusieurs, parfois jusqu'à dix, ne t'arrête jamais au premier trouvé.`;
 
 // Constaté à l'usage (15/09/2026, MiniMax M2.7) : malgré `response_format:
 // json_object` ET une consigne "sans texte ni balise autour", un modèle peut quand
@@ -131,6 +142,7 @@ export class OpenRouterAnalysisAdapter implements LLMAnalysisPort {
       // un document conforme.
       sembleConforme: parsed.sembleConforme ?? false,
       criteriaCoverage: normalizeCriteriaCoverage(parsed.criteriaCoverage),
+      criteresSupplementaires: normalizeCriterionSuggestions(parsed.criteresSupplementaires),
     };
   }
 

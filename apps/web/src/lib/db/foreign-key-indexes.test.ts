@@ -38,6 +38,7 @@ const UNINDEXED_ON_PURPOSE = new Set([
   "TemplateVersion.uploadedByUserId",
   "Appointment.createdByUserId",
   "CriterionGuideline.createdByUserId",
+  "DocumentCriterionSuggestion.reviewedByUserId",
 ]);
 
 const SCHEMA_PATH = path.resolve(__dirname, "../../../../../packages/database/prisma/schema.prisma");

@@ -19,6 +19,7 @@ export class StubAnalysisAdapter implements LLMAnalysisPort {
       suggestionsCorrection: [],
       sembleConforme: false,
       criteriaCoverage: [],
+      criteresSupplementaires: [],
     };
   }
 

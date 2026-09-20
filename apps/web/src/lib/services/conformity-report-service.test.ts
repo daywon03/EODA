@@ -14,6 +14,7 @@ const ANALYSIS = {
   suggestionsCorrection: ["Ajouter un paragraphe sur la personne qualifiée."],
   sembleConforme: false,
   criteriaCoverage: [],
+  criteresSupplementaires: [],
 };
 
 function item(overrides: Partial<ReportSourceItem> = {}): ReportSourceItem {

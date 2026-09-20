@@ -94,7 +94,17 @@ Règles d'analyse :
   "elementsManquants" — jamais une nouvelle déduction non reliée à ce que tu as
   constaté par ailleurs.
 - Cette analyse est une aide à la décision pour l'évaluatrice, jamais une validation
-  finale ni une cotation HAS officielle.`;
+  finale ni une cotation HAS officielle.
+- Si un catalogue de critères SUPPLÉMENTAIRES t'est transmis entre les balises
+  <catalogue_criteres>, identifie TOUS ceux que ce document évoque réellement — un
+  document peut en concerner plusieurs, parfois jusqu'à dix, ne t'arrête jamais au
+  premier trouvé. Chaque entrée de "criteresSupplementaires" est un objet
+  {"criterionCode", "justification"} : "criterionCode" est copié EXACTEMENT depuis
+  le catalogue (jamais un code inventé, jamais un code hors catalogue), et
+  "justification" est une phrase courte citant ce qui, dans le document, justifie
+  ce rattachement. Un critère déjà couvert par "criteriaCoverage" n'y figure pas —
+  les deux listes sont disjointes. Un document qui n'en évoque aucun rend un
+  tableau vide, jamais un critère forcé pour "remplir".`;
 }
 
 export function buildUserMessage(input: DocumentAnalysisInput): string {
@@ -107,6 +117,15 @@ export function buildUserMessage(input: DocumentAnalysisInput): string {
     input.linkedCriteria.length > 0
       ? input.linkedCriteria.map((c) => `${c.code} — ${c.label}`).join(" ; ")
       : "aucun rattachement connu";
+
+  // Catalogue FERMÉ des critères que ce document pourrait concerner EN PLUS des
+  // critères déjà rattachés — jamais un texte de référence à interpréter, une
+  // liste de codes valides dans laquelle piocher (cf. buildSystemPrompt). Un
+  // catalogue vide ou absent ne demande aucune suggestion supplémentaire.
+  const additionalCatalog =
+    input.additionalCriteriaCatalog && input.additionalCriteriaCatalog.length > 0
+      ? `\nCatalogue de critères supplémentaires possibles (code — intitulé), un par ligne :\n<catalogue_criteres>\n${input.additionalCriteriaCatalog.map((c) => `${c.code} — ${c.label}`).join("\n")}\n</catalogue_criteres>\n`
+      : "";
 
   // Même consigne de sécurité que pour <document> ci-dessus : ces extraits viennent
   // de la bibliothèque de modèles du cabinet, contrôlée par lui, mais restent traités
@@ -146,7 +165,7 @@ export function buildUserMessage(input: DocumentAnalysisInput): string {
 
   return `Type de document attendu : ${input.documentTypeLabel}
 Critères HAS rattachés à ce type de document : ${criteria}
-${truncated ? "\n⚠️ Document tronqué : seul son début est fourni. Ne conclus pas à l'absence d'un élément qui pourrait figurer dans la partie non transmise — signale plutôt l'incertitude.\n" : ""}${origin}${knowledge}${guidelines}${images}
+${truncated ? "\n⚠️ Document tronqué : seul son début est fourni. Ne conclus pas à l'absence d'un élément qui pourrait figurer dans la partie non transmise — signale plutôt l'incertitude.\n" : ""}${origin}${additionalCatalog}${knowledge}${guidelines}${images}
 <document>
 ${text}
 </document>`;

@@ -39,6 +39,18 @@ export type DocumentAnalysisInput = {
   // déjà stockées, et l'analyse fonctionne sans (même repli défensif que les autres
   // enrichissements de ce type).
   documentOrigin?: "CLIENT" | "CABINET";
+  // Catalogue FERMÉ des critères que le modèle peut proposer en plus de
+  // `linkedCriteria` (cf. `criteresSupplementaires` sur le résultat) — un document
+  // peut concerner un critère jamais configuré sur son type, et l'adjoint IA
+  // qualité ne doit jamais se limiter aux critères déjà rattachés (persona du
+  // 20/09/2026 : « parfois jusqu'à 10 critères, jamais un seul »). Filtré au
+  // périmètre de l'établissement (SAD Aide/Mixte) et déjà privé des critères
+  // déjà dans `linkedCriteria`, côté appelant (cf. criterion-suggestion-service.ts)
+  // — donner un catalogue fermé réduit le risque qu'il invente un code hors
+  // référentiel ; la validation contre ce même catalogue se refait après coup,
+  // jamais sur la seule confiance dans le prompt. Optionnel : sans catalogue,
+  // aucune suggestion supplémentaire n'est demandée.
+  additionalCriteriaCatalog?: LinkedCriterion[];
 };
 
 // Un élément retrouvé, avec la citation qui le justifie (demande de Damon,
@@ -63,6 +75,17 @@ export type CriterionCoverage = {
   note: string;
 };
 
+// Un critère détecté par le modèle en dehors de `linkedCriteria` — jamais
+// appliqué directement : `criterion-suggestion-service.ts` le revalide contre le
+// catalogue fermé transmis avant de le persister en `DocumentCriterionSuggestion`
+// (statut PENDING), et seule une confirmation humaine le fait compter. `criterionCode`
+// est un CODE ("2.2.7"), jamais un identifiant de base — le modèle ne connaît pas
+// les identifiants internes.
+export type RawCriterionSuggestion = {
+  criterionCode: string;
+  justification: string;
+};
+
 export type DocumentAnalysisResult = {
   elementsPresents: AnalysisFinding[];
   elementsManquants: string[];
@@ -74,6 +97,10 @@ export type DocumentAnalysisResult = {
   // Absent sur les analyses stockées avant cette date (repli `?? []` partout où
   // c'est lu) — jamais un champ requis rétroactivement sur des données existantes.
   criteriaCoverage: CriterionCoverage[];
+  // Critères HAS évoqués par CE document mais non déjà rattachés à son type — cf.
+  // RawCriterionSuggestion. Absent sur les analyses stockées avant cette date et
+  // sur toute analyse sans `additionalCriteriaCatalog` fourni (repli `?? []`).
+  criteresSupplementaires: RawCriterionSuggestion[];
 };
 
 // Entrée de la génération d'un document corrigé (demande de Damon, 15/09/2026) —
@@ -141,4 +168,24 @@ export function normalizeCriteriaCoverage(value: unknown): CriterionCoverage[] {
       (VALID_COVERAGE_STATUSES as readonly string[]).includes(e.status)
     );
   });
+}
+
+// Même défense que les deux normaliseurs ci-dessus. Ne valide QUE la forme —
+// {criterionCode, justification} non vides ; la validation contre le catalogue
+// réel de critères (un code qui existe vraiment, pas déjà rattaché) se fait dans
+// criterion-suggestion-service.ts, qui seul a accès à la base.
+export function normalizeCriterionSuggestions(value: unknown): RawCriterionSuggestion[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((entry): RawCriterionSuggestion | null => {
+      if (typeof entry !== "object" || entry === null) return null;
+      const e = entry as Record<string, unknown>;
+      if (typeof e.criterionCode !== "string" || typeof e.justification !== "string") return null;
+      const criterionCode = e.criterionCode.trim();
+      const justification = e.justification.trim();
+      return criterionCode.length > 0 && justification.length > 0
+        ? { criterionCode, justification }
+        : null;
+    })
+    .filter((entry): entry is RawCriterionSuggestion => entry !== null);
 }

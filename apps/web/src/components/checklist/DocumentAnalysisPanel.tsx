@@ -27,6 +27,8 @@ import { MAX_GUIDELINE_LENGTH } from "@/lib/services/criterion-guideline-service
 import { formatDate } from "@/lib/services/date-format-service";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { CriterionSuggestionsList } from "@/components/checklist/CriterionSuggestionsList";
+import type { CriterionSuggestionItem } from "@/lib/actions/checklist";
 
 // Résultat de l'analyse automatique d'une version déposée. Replié par défaut : la
 // checklist doit rester lisible en une page, l'analyse s'ouvre pour le document qu'on
@@ -39,6 +41,11 @@ type Props = {
   documentVersionId?: string;
   reviewedAt?: Date | null;
   canReview?: boolean;
+  // Critères HAS supplémentaires détectés par l'IA, en attente de revue — jamais
+  // transmis côté client (cf. buildChecklist). establishmentId n'est nécessaire
+  // que pour confirmer/rejeter, donc absent si canReview l'est aussi.
+  establishmentId?: string;
+  criterionSuggestions?: CriterionSuggestionItem[];
 };
 
 export function DocumentAnalysisPanel({
@@ -46,6 +53,8 @@ export function DocumentAnalysisPanel({
   documentVersionId,
   reviewedAt = null,
   canReview = false,
+  establishmentId,
+  criterionSuggestions = [],
 }: Props) {
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -112,6 +121,10 @@ export function DocumentAnalysisPanel({
                 ))}
               </ul>
             </div>
+          )}
+
+          {canReview && establishmentId && (
+            <CriterionSuggestionsList establishmentId={establishmentId} suggestions={criterionSuggestions} />
           )}
 
           {summary.missingCount > 0 && (

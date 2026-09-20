@@ -52,6 +52,7 @@ describe("deriveDocumentStatus", () => {
         elementsPresents: [{ text: "charte", source: "" }],
         suggestionsCorrection: [],
         criteriaCoverage: [],
+        criteresSupplementaires: [],
       })
     ).toBe("COMPLIANT");
   });
@@ -66,6 +67,7 @@ describe("deriveDocumentStatus", () => {
         elementsPresents: [],
         suggestionsCorrection: [],
         criteriaCoverage: [],
+        criteresSupplementaires: [],
       })
     ).toBe("INCOMPLETE");
   });
@@ -78,6 +80,7 @@ describe("deriveDocumentStatus", () => {
         elementsPresents: [],
         suggestionsCorrection: [],
         criteriaCoverage: [],
+        criteresSupplementaires: [],
       })
     ).toBe("INCOMPLETE");
   });

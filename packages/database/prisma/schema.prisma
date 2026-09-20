@@ -309,6 +309,7 @@ model User {
   missionMessages     MissionMessage[]
   uploadedTemplates   TemplateVersion[]       @relation("TemplateUploadedBy")
   criterionGuidelines CriterionGuideline[]
+  suggestionsReviewed DocumentCriterionSuggestion[] @relation("CriterionSuggestionReviewedBy")
 
   @@index([tenantId])
   @@map("users")
@@ -452,9 +453,67 @@ model Criterion {
   documentTypes      DocumentTypeCriterion[]
   guidelines         CriterionGuideline[]
   templateDocuments  TemplateDocumentCriterion[]
+  documentSuggestions DocumentCriterionSuggestion[]
 
   @@index([objectiveId])
   @@map("criteria")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SUGGESTION DE CRITÈRE — l'IA détecte qu'un document CLIENT semble concerner un
+// critère HAS non déjà rattaché à son TYPE (`DocumentTypeCriterion`, configuré une
+// fois pour toutes par le cabinet). Persona « adjoint IA qualité HAS » (Damon,
+// 20/09/2026) : « un même document peut répondre à plusieurs critères — parfois
+// jusqu'à 10 — et l'IA doit les détecter tous, jamais se limiter à un seul ».
+//
+// Ancrée sur `Document` (pas `DocumentVersion`) : le rattachement supplémentaire
+// est une propriété du document dans son ensemble, comme `DocumentTypeCriterion`
+// l'est du type — une nouvelle version ne doit pas faire perdre la trace d'une
+// décision déjà prise. `documentVersionId` reste la PREUVE (quelle version a
+// motivé la suggestion), jamais la clé du rattachement.
+//
+// PENDING tant qu'aucun humain n'a tranché — jamais appliqué ni affiché au client
+// avant confirmation (même doctrine que `Document.validatedAt`,
+// `analysisReviewedAt` : une décision humaine est un FAIT STOCKÉ, jamais dérivé).
+// Une réanalyse ne touche JAMAIS une suggestion déjà CONFIRMED ou REJECTED — voir
+// criterion-suggestion-service.ts.
+model DocumentCriterionSuggestion {
+  id                String                    @id @default(cuid())
+  documentId        String                    @map("document_id")
+  criterionId       String                    @map("criterion_id")
+  documentVersionId String                    @map("document_version_id")
+  // Courte citation du document qui justifie ce rattachement — même exigence de
+  // preuve vérifiable que `AnalysisFinding` (llm-analysis-port.ts) : jamais une
+  // déduction non sourcée.
+  justification     String
+  status            CriterionSuggestionStatus @default(PENDING)
+  reviewedByUserId  String?                   @map("reviewed_by_user_id")
+  reviewedAt        DateTime?                 @map("reviewed_at")
+  createdAt         DateTime                  @default(now()) @map("created_at")
+  updatedAt         DateTime                  @updatedAt @map("updated_at")
+
+  document        Document        @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  criterion       Criterion       @relation(fields: [criterionId], references: [id], onDelete: Cascade)
+  documentVersion DocumentVersion @relation(fields: [documentVersionId], references: [id], onDelete: Cascade)
+  // SetNull : la désactivation d'un compte ne doit pas effacer la trace de qui a
+  // confirmé ou rejeté une suggestion.
+  reviewedBy      User?           @relation("CriterionSuggestionReviewedBy", fields: [reviewedByUserId], references: [id], onDelete: SetNull)
+
+  // Une seule suggestion active par (document, critère) : une nouvelle analyse MET
+  // À JOUR la justification d'une suggestion existante plutôt que d'en empiler une
+  // autre — sinon rejeter un critère une fois n'empêcherait pas d'en revoir un
+  // doublon identique à la prochaine réanalyse.
+  @@unique([documentId, criterionId])
+  @@index([criterionId])
+  @@index([documentId, status])
+  @@index([documentVersionId])
+  @@map("document_criterion_suggestions")
+}
+
+enum CriterionSuggestionStatus {
+  PENDING
+  CONFIRMED
+  REJECTED
 }
 
 model EvaluationElement {
@@ -610,6 +669,7 @@ model Document {
   versions       DocumentVersion[] @relation("AllVersions")
   // SetNull : la désactivation d'un compte ne dévalide pas un document déjà validé.
   validatedBy    User?             @relation("DocumentValidatedBy", fields: [validatedByUserId], references: [id], onDelete: SetNull)
+  criterionSuggestions DocumentCriterionSuggestion[]
 
   @@unique([establishmentId, documentTypeId])
   @@index([documentTypeId])
@@ -663,6 +723,7 @@ model DocumentVersion {
   regeneratedVersions    DocumentVersion[] @relation("Regeneration")
   currentForDocument     Document?         @relation("CurrentVersion")
   images                 DocumentVersionImage[]
+  criterionSuggestions   DocumentCriterionSuggestion[]
 
   @@index([documentId])
   @@map("document_versions")
@@ -1418,6 +1479,10 @@ enum AuditAction {
   CORRECTED_DRAFT_GENERATED
   CORRECTED_DRAFT_EDITED
   CORRECTED_DRAFT_DOWNLOADED
+  // Décision humaine sur un critère HAS supplémentaire détecté par l'IA
+  // (20/09/2026) — `targetId` = identifiant de la suggestion, jamais son contenu.
+  CRITERION_SUGGESTION_CONFIRMED
+  CRITERION_SUGGESTION_REJECTED
 }
 
 model AuditLogEntry {

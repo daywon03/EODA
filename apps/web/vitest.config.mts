@@ -29,6 +29,11 @@ export default defineConfig({
         "src/lib/services/mission-document-counters-service.ts",
         "src/lib/services/offer-scope-service.ts",
         "src/lib/services/document-status-service.ts",
+        // Validation des suggestions de critères HAS détectées par l'IA (persona
+        // « adjoint IA qualité HAS », 20/09/2026) : un code accepté à tort est un
+        // rattachement HAS inventé qui atteint la revue humaine sous une fausse
+        // apparence de véracité.
+        "src/lib/services/criterion-suggestion-service.ts",
         // Lecture du JSON d'analyse : c'est une entrée non fiable (colonne Json
         // écrite par un modèle, sous un contrat qui a pu changer). Un parseur trop
         // permissif afficherait une analyse vide comme un document sans reproche.

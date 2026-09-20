@@ -175,6 +175,8 @@ export function ChecklistCategory({
                     documentVersionId={item.currentVersion.id}
                     reviewedAt={item.currentVersion.analysisReviewedAt}
                     canReview={canManageVersions}
+                    {...(establishmentId && { establishmentId })}
+                    criterionSuggestions={item.currentVersion.criterionSuggestions}
                   />
                 )}
                 {/* Côté client, une analyse non relue n'est PAS montrée — mais le

@@ -5,7 +5,11 @@ import type {
   DocumentAnalysisResult,
   DocumentGenerationInput,
 } from "./llm-analysis-port";
-import { normalizeFindings, normalizeCriteriaCoverage } from "./llm-analysis-port";
+import {
+  normalizeFindings,
+  normalizeCriteriaCoverage,
+  normalizeCriterionSuggestions,
+} from "./llm-analysis-port";
 import {
   buildSystemPrompt,
   buildUserMessage,
@@ -64,6 +68,22 @@ const ANALYSIS_SCHEMA = {
         additionalProperties: false,
       },
     },
+    // Critères NON déjà rattachés au type, que ce document précis semble
+    // concerner en plus — cf. RawCriterionSuggestion. Toujours présent dans le
+    // schéma (structured outputs exige `required` exhaustif), mais peut être un
+    // tableau vide : rien à ajouter n'est une réponse valide.
+    criteresSupplementaires: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          criterionCode: { type: "string" },
+          justification: { type: "string" },
+        },
+        required: ["criterionCode", "justification"],
+        additionalProperties: false,
+      },
+    },
   },
   required: [
     "elementsPresents",
@@ -71,6 +91,7 @@ const ANALYSIS_SCHEMA = {
     "suggestionsCorrection",
     "sembleConforme",
     "criteriaCoverage",
+    "criteresSupplementaires",
   ],
   additionalProperties: false,
 } as const;
@@ -124,6 +145,7 @@ export class AnthropicAnalysisAdapter implements LLMAnalysisPort {
       // un document conforme.
       sembleConforme: parsed.sembleConforme ?? false,
       criteriaCoverage: normalizeCriteriaCoverage(parsed.criteriaCoverage),
+      criteresSupplementaires: normalizeCriterionSuggestions(parsed.criteresSupplementaires),
     };
   }
 
