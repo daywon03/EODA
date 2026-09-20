@@ -390,3 +390,116 @@ tarifaire).
   priorité souhaitable. Un fil par établissement, append-only, sans pièce jointe.
   Le client garde la parole en bibliothèque (§12.5) ; seul un accès révoqué le ferme.
   L'e-mail de notification ne transporte pas le contenu du message.
+
+---
+
+## Jalon 7 — Bibliothèque de modèles, base de connaissances et production documentaire par l'IA — 🟡 EN COURS (2026-09-20)
+
+Source : calls des 03, 07, 15 et 16/09/2026. Ce jalon n'existait pas au plan d'origine :
+il est né du constat du call du 07/09 — « la désorganisation des documents et les erreurs
+de l'IA bloquent le projet ». La réponse produit est la même dans les deux cas : sortir les
+gabarits du poste de Sandrine, les rendre relisibles par la machine, et s'en servir comme
+contexte d'analyse au lieu de faire deviner le modèle.
+
+### Bibliothèque de modèles *(03 → 16/09/2026)*
+
+- [x] **La bibliothèque sort du PC de la consultante** — `TemplateCategory` (dossiers créés
+  et ordonnés à la main, jamais l'enum `DocumentCategory`), `TemplateDocument` de deux
+  natures (`GABARIT` à trois stades et numéros de version / document de `RÉFÉRENCE` sans
+  aucun des deux), `TemplateVersion.stage` et `versionLabel` nullables parce que
+  l'obligation dépend du parent. Règles dans `template-library-service.ts`.
+- [x] **Import d'un dossier entier** — `planFolderImport` PROPOSE un rangement que Sandrine
+  corrige avant écriture, distingue un stade **deviné** d'un stade **par défaut**
+  (`stageDetected`), et envoie **un appel par fichier**, séquentiellement.
+- [x] **Sélection multiple et dossier entier** sur un document de référence *(15/09)*, puis
+  **création de plusieurs fiches en un geste** *(16/09)*.
+- [x] **Aperçu en ligne des fichiers** *(10/09)* — Markdown compris, au lieu du
+  téléchargement obligatoire.
+- [x] **Rattachement aux critères HAS** *(16/09)* — liaison fiche de modèle ↔ critère, filtre
+  de la bibliothèque par critère.
+
+### Base de connaissances (RAG) *(07 → 10/09/2026)*
+
+- [x] **Une bibliothèque de référence qui se relit elle-même** *(07/09)* — `KnowledgeChunk` +
+  `pgvector`, indexation à partir du Markdown extrait, jamais mélangée aux dossiers clients.
+  Migration `20260906220000_knowledge_chunks` ; l'image CI est passée à `pgvector/pgvector:pg16`,
+  `postgres:16-alpine` ne connaissant pas `CREATE EXTENSION vector`.
+- [x] **Passerelle OpenRouter multi-modèles** *(10/09)* + **guidelines du cabinet par critère**
+  (`criterion-guideline-service.ts`) : ce que Sandrine attend d'un critère devient du
+  contexte, pas une consigne réécrite dans le prompt à chaque fois.
+
+### Production documentaire par l'IA *(15 → 16/09/2026)*
+
+- [x] **Génération d'un document corrigé** *(15/09)* — `document-generation-service.ts`,
+  diff avant/après (`document-diff-service.ts`), export DOCX brandé EODA
+  (`markdown-to-docx-service.ts`), téléchargement par `/api/documents/[versionId]/draft-docx`.
+- [x] **Couverture par critère HAS dans l'analyse** *(16/09)* — ajoutée au résultat d'analyse
+  et rendue côté cabinet comme dans le rapport imprimé.
+- [x] **Les images du document d'origine sont préservées** *(16/09)* — `DocumentVersionImage`
+  (objets de stockage, **jamais de base64 en base**), extraction `.docx` qui ne pollue plus
+  le texte envoyé à l'IA, description par un modèle de vision, descriptions réinjectées comme
+  contexte d'analyse, images d'origine rattachées au brouillon corrigé en annexe, numérotation
+  par position réelle, anonymisation de la description et plafond de fan-out, effacement des
+  objets à la suppression d'une version comme d'une fiche.
+
+### Portail et CRM *(02 → 16/09/2026)*
+
+- [x] Identité de la structure notée dès le premier contact, **SIRET** compris *(02/09)*.
+- [x] **Vraie grille d'entretien découverte** en remplacement du gabarit d'attente *(02/09)*,
+  question « siège et antennes » comprise.
+- [x] **« Mon accompagnement » scindé** en « Mon suivi » et « Mon contrat » *(07/09)*, devis
+  signé et contrat visibles dans l'espace client *(03/09)*.
+- [x] **Cloche de notification** autonome et menu d'ancres sur la fiche client *(07/09)*.
+- [x] **Espace paramètres** et retour depuis l'aide *(03/09)* ; confirmation d'action sortie
+  des dialogues natifs du navigateur *(01–03/09)*.
+- [x] **Retours du call du 15/09 traités le 16/09** — « Responsable Qualité » dans les
+  fonctions d'interlocuteur, dépôt du logo de la structure **par le client lui-même**,
+  « Voir » qui montre enfin le document d'origine et non le texte extrait, statuts
+  documentaires recolorés.
+
+### Chaîne de contrôle *(03 → 20/09/2026)*
+
+- [x] **Budget de JavaScript par route** qui échoue *(03/09)* — `check:bundle` en CI.
+- [x] **Index des clés étrangères** rendu vérifiable par test *(03/09, convention P6)*.
+- [x] **Audit de dépendances qui distingue** « vulnérabilité trouvée » de « registre npm
+  injoignable » *(04/09)* ; deux CVE critiques Next.js corrigées *(10/09)*.
+- [x] **Aperçu chargé à la demande** *(20/09)* — `react-markdown` + `remark-gfm` sortis de la
+  première charge des quatre écrans portant un bouton « Voir ». Le budget de paquet avait
+  basculé en rouge au lot du 16/09 ; il est le seul garde-fou qui l'ait vu.
+
+### Restant dû sur ce jalon — demandes explicites des calls, non implémentées
+
+- [ ] **Aperçu avant envoi de l'e-mail de devis** *(15/09)* — « le devis part sans aperçu ;
+  ajouter un bouton **Aperçu et envoi** ». ⚠️ **Décision à trancher** : la décision du
+  26/08 (Damon) interdit tout envoi serveur d'un devis — `mailto:` + téléchargement
+  uniquement. Le retour du 15/09 la contredit. L'une des deux doit être réécrite.
+- [ ] **Deux des sept documents loi 2002-2 ne sont pas réclamés au client** — la migration
+  `20260827140000_document_types_requested` en marque **cinq** ; `L2002_CR_CVS` et
+  `L2002_PERSONNES_QUALIFIEES` restent à `false`. Le call du 15/09 demande les sept. Le
+  drapeau est modifiable depuis l'écran (`CABINET_ADMIN`), donc corrigeable sans migration —
+  mais le **défaut d'un nouveau client** reste à cinq.
+- [ ] **Analyse IA désactivable par type de document** *(15/09)* — « Charte des droits et
+  libertés » et « Liste des personnes qualifiées » sont des documents AFFICHÉS : ce qu'il faut
+  vérifier est une photo d'affichage, pas un texte. Aucun mécanisme aujourd'hui : tout type
+  déposé est analysé.
+- [ ] **Validation du document final par le CLIENT** *(15/09, étape 5 du workflow défini en
+  séance)* — `setDocumentValidated` est réservée au cabinet (`if (access.isClient) notFound()`),
+  conformément à la décision du 26/08 « valider engage la parole de l'évaluatrice ». Il manque
+  donc une **seconde** notion : l'acceptation par le client de ce qui lui est restitué. Ne pas
+  fusionner les deux.
+- [ ] **Notification d'un nouveau livrable / rapport** *(15/09)* — les quatre notifications
+  existantes couvrent invitation, demande d'option, relance de pièces et nouveau message.
+  Rien ne prévient le client qu'un document a été produit pour lui.
+- [ ] **Forfait déplacement / hébergement** *(15/09)* — aucune ligne de catalogue. Sandrine
+  doit fournir les montants (IDF vs hors IDF) avant implémentation.
+- [ ] **Accès au portail en option payante sur l'offre de base** *(15/09)* — l'abonnement
+  `VEILLE_PORTAIL_EODA` est chiffré et vendu (`subscription-service.ts`), mais **aucune garde
+  ne conditionne l'accès au portail à sa souscription**. Aujourd'hui l'option se facture sans
+  rien ouvrir ni fermer.
+- [ ] **Plans d'action et comptes rendus imprimables dans « Mon suivi »** *(07/09)*.
+- [ ] **Mise en page du document d'origine préservée** *(15/09)* — les images le sont depuis le
+  16/09, la mise en page non : le chemin passe par Markdown, qui l'aplatit par construction.
+- [ ] **Surlignage vert des modifications** dans le document généré *(15/09)* — le diff est
+  calculé et affiché à l'écran, il ne voyage pas dans le DOCX.
+- [ ] **CGP en annexe du contrat, politique de déplacement, politique RSE** *(15/09)* — dû par
+  Sandrine, pas par le dépôt.

@@ -9,6 +9,7 @@ import { DocumentDownloadLink } from "./DocumentDownloadLink";
 import { DeleteDocumentVersionButton } from "./DeleteDocumentVersionButton";
 import { AnalyzeDocumentButton } from "./AnalyzeDocumentButton";
 import { CorrectedDraftPanel } from "./CorrectedDraftPanel";
+import { isImageFile } from "@/lib/services/file-type-service";
 import { INLINE_ACTION_MUTED_CLASS } from "@/components/ui/inline-action";
 
 type Props = {
@@ -112,13 +113,16 @@ function VersionRow({
         <DocumentDownloadLink documentVersionId={version.id} />
         {/* Réservé au cabinet et à la version courante : réanalyser une version
             reléguée à l'historique écrirait un résultat qui n'appartient plus au
-            document tel qu'il se présente aujourd'hui. */}
-        {isLatest && canManageVersions && (
+            document tel qu'il se présente aujourd'hui. Absent pour une image :
+            aucun texte à en extraire, donc rien pour une IA à analyser (call du
+            15/09/2026) — le bouton n'aurait fait qu'échouer avec une erreur. */}
+        {isLatest && canManageVersions && !isImageFile(version.originalFilename) && (
           <AnalyzeDocumentButton documentVersionId={version.id} hasAnalysis={version.hasAnalysis} />
         )}
         {/* La génération s'appuie sur les manques/suggestions de l'analyse : sans
-            analyse, il n'y a rien à corriger (cf. document-generation-service.ts). */}
-        {isLatest && canManageVersions && version.hasAnalysis && (
+            analyse, il n'y a rien à corriger (cf. document-generation-service.ts) —
+            et une image n'en a jamais. */}
+        {isLatest && canManageVersions && version.hasAnalysis && !isImageFile(version.originalFilename) && (
           <CorrectedDraftPanel documentVersionId={version.id} />
         )}
         {isLatest && version.producedByCabinet === canManageVersions && (

@@ -177,6 +177,20 @@ export function buildStorageKey(params: {
   return `${establishmentId}/${documentTypeId}/v${versionNumber}-${timestamp}-${safeName}`;
 }
 
+// Une image extraite d'un document (.docx) — clé distincte de `buildStorageKey`
+// puisqu'il n'y a pas de nom de fichier d'origine à assainir, seulement une
+// position d'apparition dans le document.
+export function buildDocumentImageStorageKey(params: {
+  establishmentId: string;
+  documentTypeId: string;
+  versionNumber: number;
+  timestamp: number;
+  position: number;
+}): string {
+  const { establishmentId, documentTypeId, versionNumber, timestamp, position } = params;
+  return `${establishmentId}/${documentTypeId}/v${versionNumber}-${timestamp}-images/image-${position}`;
+}
+
 // ── Logo de structure ────────────────────────────────────────────────────────
 //
 // Un logo n'est pas un document : il est stocké en data URI et RENDU dans une page.

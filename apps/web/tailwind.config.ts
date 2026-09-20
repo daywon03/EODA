@@ -1,4 +1,5 @@
 import type { Config } from "tailwindcss";
+import typography from "@tailwindcss/typography";
 
 const config: Config = {
   darkMode: ["class"],
@@ -100,7 +101,10 @@ const config: Config = {
       },
     },
   },
-  plugins: [],
+  // Rendu de l'aperçu Markdown d'un document déposé (FilePreviewModal) — un .docx
+  // n'est plus affiché en texte brut mais formaté (titres, tableaux, images
+  // inline). Pas de contenu utilisateur-libre en dehors de cet aperçu.
+  plugins: [typography],
 };
 
 export default config;

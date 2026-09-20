@@ -23,10 +23,14 @@ import {
 
 const turndown = new TurndownService({ headingStyle: "atx" });
 
-export async function extractMarkdown(content: Buffer, mimeType: string): Promise<string | null> {
+export type ExtractedImage = { position: number; contentType: string; buffer: Buffer };
+export type ExtractionResult = { markdown: string; images: ExtractedImage[] };
+
+export async function extractMarkdown(content: Buffer, mimeType: string): Promise<ExtractionResult | null> {
   try {
     if (mimeType === PDF_MIME_TYPE) {
-      return await extractPdf(content);
+      const markdown = await extractPdf(content);
+      return markdown ? { markdown, images: [] } : null;
     }
 
     if (mimeType === DOCX_MIME_TYPE) {
@@ -34,7 +38,8 @@ export async function extractMarkdown(content: Buffer, mimeType: string): Promis
     }
 
     if (mimeType === XLSX_MIME_TYPE) {
-      return await extractXlsx(content);
+      const markdown = await extractXlsx(content);
+      return markdown ? { markdown, images: [] } : null;
     }
 
     return null;
@@ -51,11 +56,28 @@ async function extractPdf(content: Buffer): Promise<string | null> {
   return markdown.trim() || null;
 }
 
-async function extractDocx(content: Buffer): Promise<string | null> {
+async function extractDocx(content: Buffer): Promise<ExtractionResult | null> {
   const mammoth = await import("mammoth");
-  const { value: html } = await mammoth.convertToHtml({ buffer: content });
-  const markdown = turndown.turndown(html);
-  return markdown.trim() || null;
+  const images: ExtractedImage[] = [];
+  let position = 0;
+
+  // Repère `[Image N]` plutôt qu'un <img> en base64 : c'est ce qui évitait jusqu'ici
+  // que le texte envoyé à l'IA gonfle d'images entières encodées en base64 — cause
+  // constatée de la troncature d'un document long avant même d'atteindre son texte
+  // (15/09/2026). L'image elle-même est capturée à part, jamais dans ce texte.
+  const imageConverter = mammoth.images.imgElement(async (image) => {
+    position += 1;
+    const buffer = await image.readAsBuffer();
+    images.push({ position, contentType: image.contentType, buffer });
+    return { src: `image-placeholder-${position}` };
+  });
+
+  const { value: html } = await mammoth.convertToHtml({ buffer: content }, { convertImage: imageConverter });
+  const rawMarkdown = turndown.turndown(html);
+  // turndown a transformé le <img src="image-placeholder-N"> en `![](image-placeholder-N)` —
+  // remplacé ici par un repère texte propre, sans URL ni base64.
+  const markdown = rawMarkdown.replace(/!\[[^\]]*\]\(image-placeholder-(\d+)\)/g, "[Image $1]");
+  return { markdown: markdown.trim(), images };
 }
 
 // Un tableau Markdown par feuille, séparés par un titre — une feuille de calcul

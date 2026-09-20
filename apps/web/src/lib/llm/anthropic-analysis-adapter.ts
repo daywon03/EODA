@@ -5,7 +5,11 @@ import type {
   DocumentAnalysisResult,
   DocumentGenerationInput,
 } from "./llm-analysis-port";
-import { normalizeFindings } from "./llm-analysis-port";
+import {
+  normalizeFindings,
+  normalizeCriteriaCoverage,
+  normalizeCriterionSuggestions,
+} from "./llm-analysis-port";
 import {
   buildSystemPrompt,
   buildUserMessage,
@@ -50,8 +54,45 @@ const ANALYSIS_SCHEMA = {
     elementsManquants: { type: "array", items: { type: "string" } },
     suggestionsCorrection: { type: "array", items: { type: "string" } },
     sembleConforme: { type: "boolean" },
+    criteriaCoverage: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          criterionCode: { type: "string" },
+          criterionLabel: { type: "string" },
+          status: { type: "string", enum: ["couvert", "partiel", "absent"] },
+          note: { type: "string" },
+        },
+        required: ["criterionCode", "criterionLabel", "status", "note"],
+        additionalProperties: false,
+      },
+    },
+    // Critères NON déjà rattachés au type, que ce document précis semble
+    // concerner en plus — cf. RawCriterionSuggestion. Toujours présent dans le
+    // schéma (structured outputs exige `required` exhaustif), mais peut être un
+    // tableau vide : rien à ajouter n'est une réponse valide.
+    criteresSupplementaires: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          criterionCode: { type: "string" },
+          justification: { type: "string" },
+        },
+        required: ["criterionCode", "justification"],
+        additionalProperties: false,
+      },
+    },
   },
-  required: ["elementsPresents", "elementsManquants", "suggestionsCorrection", "sembleConforme"],
+  required: [
+    "elementsPresents",
+    "elementsManquants",
+    "suggestionsCorrection",
+    "sembleConforme",
+    "criteriaCoverage",
+    "criteresSupplementaires",
+  ],
   additionalProperties: false,
 } as const;
 
@@ -103,6 +144,8 @@ export class AnthropicAnalysisAdapter implements LLMAnalysisPort {
       // Défaut prudent : en l'absence de verdict explicite, on ne déclare jamais
       // un document conforme.
       sembleConforme: parsed.sembleConforme ?? false,
+      criteriaCoverage: normalizeCriteriaCoverage(parsed.criteriaCoverage),
+      criteresSupplementaires: normalizeCriterionSuggestions(parsed.criteresSupplementaires),
     };
   }
 

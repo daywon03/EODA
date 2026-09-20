@@ -67,6 +67,13 @@ export class S3StorageAdapter implements FileStoragePort {
     );
   }
 
+  async download(key: string): Promise<Buffer> {
+    const response = await this.client.send(new GetObjectCommand({ Bucket: this.bucket, Key: key }));
+    const bytes = await response.Body?.transformToByteArray();
+    if (!bytes) throw new Error(`Objet introuvable ou vide : ${key}`);
+    return Buffer.from(bytes);
+  }
+
   async delete(key: string): Promise<void> {
     await this.client.send(new DeleteObjectCommand({ Bucket: this.bucket, Key: key }));
   }

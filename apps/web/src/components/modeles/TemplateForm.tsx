@@ -8,7 +8,6 @@ import {
   TEMPLATE_KIND_LABELS,
 } from "@/lib/services/template-library-service";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
@@ -37,21 +36,27 @@ export function TemplateForm({ categories }: { categories: CategorySummary[] }) 
 
   return (
     <form action={formAction} className="space-y-4">
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <div className="space-y-1.5">
-          <Label htmlFor="title">
-            Titre du modèle <span className="text-rouge-imp">*</span>
-          </Label>
-          <Input
-            id="title"
-            name="title"
-            placeholder="ex : Projet de service"
-            maxLength={200}
-            required
-            disabled={isPending}
-          />
-        </div>
+      <div className="space-y-1.5">
+        <Label htmlFor="titles">
+          Titre(s) du modèle <span className="text-rouge-imp">*</span>
+        </Label>
+        <Textarea
+          id="titles"
+          name="titles"
+          rows={3}
+          maxLength={4000}
+          placeholder={"ex : Projet de service\nLivret d'accueil\nRèglement de fonctionnement"}
+          required
+          disabled={isPending}
+        />
+        <p className="text-xs text-gris-mid">
+          Un titre par ligne pour créer plusieurs fiches d&apos;un coup — toutes dans le
+          même dossier, de la même nature. Chaque fiche reste à remplir de fichiers
+          ensuite.
+        </p>
+      </div>
 
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="space-y-1.5">
           <Label htmlFor="categoryId">
             Dossier <span className="text-rouge-imp">*</span>

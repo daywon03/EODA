@@ -1,5 +1,7 @@
 import { prisma } from "@eoda/database";
 import type { LLMAnalysisPort } from "@/lib/llm";
+import type { FileStoragePort } from "@/lib/storage";
+import type { BrandedDocxImageInput } from "@/lib/services/markdown-to-docx-service";
 import { anonymizeText } from "@/lib/services/anonymization-service";
 import { parseAnalysisResult } from "@/lib/services/analysis-view-service";
 import { fetchKnowledgeExcerpts, fetchCriterionGuidelines } from "@/lib/services/document-ingestion-service";
@@ -66,11 +68,15 @@ export async function generateCorrectedDraft(
   const [linkedCriteria] = await Promise.all([
     prisma.documentTypeCriterion.findMany({
       where: { documentTypeId: version.document.documentTypeId },
-      include: { criterion: { select: { label: true, id: true } } },
+      include: { criterion: { select: { label: true, id: true, code: true } } },
     }),
   ]);
   const criteriaLabels = linkedCriteria.map((c) => c.criterion.label);
   const criterionIds = linkedCriteria.map((c) => c.criterion.id);
+  const linkedCriteriaOption = linkedCriteria.map((c) => ({
+    code: c.criterion.code,
+    label: c.criterion.label,
+  }));
   const tenantId = version.document.establishment.tenantId;
 
   const [knowledgeExcerpts, criterionGuidelines] = await Promise.all([
@@ -82,7 +88,7 @@ export async function generateCorrectedDraft(
     const markdown = await llm.generateCorrectedDocument({
       documentTypeLabel: version.document.documentType.label,
       extractedText: anonymizeText(version.extractedText),
-      linkedCriteriaLabels: criteriaLabels,
+      linkedCriteria: linkedCriteriaOption,
       knowledgeExcerpts,
       criterionGuidelines,
       elementsManquants: analysis.elementsManquants,
@@ -99,6 +105,45 @@ export async function generateCorrectedDraft(
   } catch (error) {
     console.error("Génération du brouillon corrigé échouée :", error);
     return { error: "La génération a échoué. Réessayez dans un instant." };
+  }
+}
+
+// Images d'origine de la version, prêtes à être passées à `generateBrandedDocx`
+// (annexe, D6) — chargées depuis `DocumentVersionImage` (D4) puis leur contenu
+// récupéré via le port de stockage. Best-effort à deux niveaux : par image (une
+// image dont le téléchargement échoue est omise de l'annexe) et globalement (une
+// panne de lecture de la table, comme fetchImageDescriptions dans
+// document-ingestion-service.ts, ne doit jamais faire échouer le téléchargement
+// du brouillon lui-même — l'annexe est un bonus, pas une condition).
+export async function loadCorrectedDraftImages(
+  documentVersionId: string,
+  storage: FileStoragePort
+): Promise<BrandedDocxImageInput[]> {
+  try {
+    const images = await prisma.documentVersionImage.findMany({
+      where: { documentVersionId },
+      orderBy: { position: "asc" },
+      select: { position: true, fileStorageKey: true, contentType: true, description: true },
+    });
+
+    const results: BrandedDocxImageInput[] = [];
+    for (const image of images) {
+      try {
+        const buffer = await storage.download(image.fileStorageKey);
+        results.push({
+          buffer,
+          contentType: image.contentType,
+          description: image.description,
+          position: image.position,
+        });
+      } catch (error) {
+        console.error("Image d'origine — téléchargement échoué, omise de l'annexe :", error);
+      }
+    }
+    return results;
+  } catch (error) {
+    console.error("Images d'origine — lecture échouée, brouillon généré sans annexe :", error);
+    return [];
   }
 }
 

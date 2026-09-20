@@ -1,4 +1,4 @@
-import type { DocumentAnalysisResult } from "@/lib/llm";
+import type { DocumentAnalysisResult, CriterionCoverage } from "@/lib/llm";
 import { buildEodaFileName } from "./document-naming-service";
 import type { DocumentStep } from "./document-workflow-service";
 
@@ -37,6 +37,10 @@ export type ReportLine = {
   label: string;
   category: string;
   criteria: { code: string; label: string }[];
+  // Couverture par critère, vide tant qu'aucune analyse relue n'existe — c'est
+  // ELLE qui dit ce que chaque critère rattaché doit à ce document, pas
+  // seulement lesquels sont rattachés (cf. `criteria` ci-dessus).
+  criteriaCoverage: CriterionCoverage[];
   // Trois états, et trois seulement, du point de vue du rapport.
   state: "MANQUANT" | "EN_RELECTURE" | "ANALYSE";
   missing: string[];
@@ -51,6 +55,7 @@ export function buildReportLine(item: ReportSourceItem): ReportLine {
     label: item.label,
     category: item.category,
     criteria: item.criteria,
+    criteriaCoverage: [] as CriterionCoverage[],
     missing: [] as string[],
     suggestions: [] as string[],
     present: [] as string[],
@@ -78,6 +83,7 @@ export function buildReportLine(item: ReportSourceItem): ReportLine {
     // pas une pièce à remettre telle quelle au client.
     present: item.analysis.elementsPresents.map((finding) => finding.text),
     seemsCompliant: item.analysis.sembleConforme,
+    criteriaCoverage: item.analysis.criteriaCoverage,
   };
 }
 

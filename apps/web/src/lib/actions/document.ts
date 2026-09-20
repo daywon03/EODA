@@ -27,6 +27,7 @@ import {
 import { getFileStoragePort } from "@/lib/storage";
 import { getLLMAnalysisPort, isKnownLlmModelId } from "@/lib/llm";
 import { validateGuidelineNote } from "@/lib/services/criterion-guideline-service";
+import { buildFilePreview } from "@/lib/services/file-preview-service";
 import type { FilePreviewData } from "@/lib/services/file-preview-types";
 
 // Cette action reste volontairement mince : autorisation → validation → délégation
@@ -92,7 +93,12 @@ export async function uploadDocument(formData: FormData): Promise<UploadDocument
   const validation = validateUploadedFile(buffer, file.size);
   if (!validation.ok) return { error: validation.error };
 
-  const extractedText = await extractMarkdown(buffer, validation.contentType);
+  const extraction = await extractMarkdown(buffer, validation.contentType);
+  // Les images éventuellement extraites sont stockées plus loin, à l'intérieur de
+  // `ingestDocumentVersion` (seule cette fonction connaît le numéro de version) —
+  // ici on ne garde que le texte, pour la catégorisation automatique ci-dessous.
+  const extractedText = extraction ? extraction.markdown : null;
+  const extractedImages = extraction ? extraction.images : [];
 
   const requestedTypeId = formData.get("documentTypeId");
   let documentTypeId = typeof requestedTypeId === "string" && requestedTypeId ? requestedTypeId : null;
@@ -142,7 +148,9 @@ export async function uploadDocument(formData: FormData): Promise<UploadDocument
       contentType: validation.contentType,
       originalFilename: file.name,
       uploadedByUserId: access.userId,
+      documentOrigin: access.isClient ? "CLIENT" : "CABINET",
       extractedText,
+      extractedImages,
       modelId,
     },
     { storage: getFileStoragePort(), llm: getLLMAnalysisPort() }
@@ -323,21 +331,11 @@ export async function getDocumentPreviewData(
     detail: version.document.documentType?.code ?? null,
   });
 
-  const isPdf = version.originalFilename.toLowerCase().endsWith(".pdf");
-
-  if (isPdf) {
-    const url = await getFileStoragePort().getSignedDownloadUrl(version.fileStorageKey, {
-      disposition: "inline",
-      filename: version.originalFilename,
-    });
-    return { kind: "pdf", url, filename: version.originalFilename };
-  }
-
-  if (version.extractedText) {
-    return { kind: "text", text: version.extractedText, filename: version.originalFilename };
-  }
-
-  return { kind: "unavailable", filename: version.originalFilename };
+  return buildFilePreview({
+    originalFilename: version.originalFilename,
+    fileStorageKey: version.fileStorageKey,
+    extractedText: version.extractedText,
+  });
 }
 
 // ── Texte extrait (Markdown) — vérification de l'extraction, côté CABINET ────
@@ -433,6 +431,17 @@ export async function deleteDocumentVersion(
     };
   }
 
+  // Récupérées AVANT la transaction : le cascade Prisma (onDelete: Cascade) va
+  // supprimer les lignes DocumentVersionImage, mais jamais les objets qu'elles
+  // pointent dans le stockage — sans quoi ils restent orphelins dans le bucket,
+  // porteurs potentiels de données personnelles (droit à l'effacement).
+  const imageKeys = (
+    await prisma.documentVersionImage.findMany({
+      where: { documentVersionId: version.id },
+      select: { fileStorageKey: true },
+    })
+  ).map((image) => image.fileStorageKey);
+
   try {
     await getFileStoragePort().delete(version.fileStorageKey);
   } catch (error) {
@@ -441,6 +450,18 @@ export async function deleteDocumentVersion(
       error:
         "Le fichier n'a pas pu être supprimé du stockage. Rien n'a été effacé : réessayez, et signalez l'incident si l'erreur persiste.",
     };
+  }
+
+  // Best-effort, image par image : contrairement au fichier principal ci-dessus,
+  // l'échec de suppression d'une image ne bloque JAMAIS la suppression du
+  // document — ce ne sont que des objets déjà orphelins en base une fois le
+  // cascade passé, pas la pièce que le cabinet ou le client vient de retirer.
+  for (const imageKey of imageKeys) {
+    try {
+      await getFileStoragePort().delete(imageKey);
+    } catch (error) {
+      console.error("Suppression d'une image de document échouée — objet orphelin dans le stockage :", error);
+    }
   }
 
   await prisma.$transaction(async (tx) => {

@@ -71,6 +71,14 @@ describe("describeNextStep", () => {
   it("ne réclame rien sur un document validé", () => {
     expect(describeNextStep("VALIDE")).toContain("rien à faire");
   });
+
+  it("n'annonce jamais d'analyse pour une image (call du 15/09/2026)", () => {
+    // Une image reste indéfiniment à DEPOSE (aucune extraction possible) — le
+    // message par défaut ("à analyser") mentirait sur ce qui va se passer.
+    expect(describeNextStep("DEPOSE", true)).not.toContain("analyser");
+    expect(describeNextStep("DEPOSE", true)).toContain("Image déposée");
+    expect(describeNextStep("DEPOSE", false)).toContain("À analyser");
+  });
 });
 
 describe("countByStep", () => {

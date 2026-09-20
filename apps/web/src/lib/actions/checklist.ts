@@ -61,7 +61,18 @@ export type ChecklistItem = {
     // Vrai quand une analyse existe mais attend la relecture. Côté client, permet de
     // dire « en cours de relecture » sans rien montrer du contenu.
     analysisAwaitingReview: boolean;
+    // Critères HAS supplémentaires détectés par l'IA, en attente de revue —
+    // CABINET uniquement, toujours vide côté client (une suggestion non tranchée
+    // est une hypothèse de travail, pas une restitution, cf. CDC §5, §7).
+    criterionSuggestions: CriterionSuggestionItem[];
   } | null;
+};
+
+export type CriterionSuggestionItem = {
+  id: string;
+  criterionCode: string;
+  criterionLabel: string;
+  justification: string;
 };
 
 // Une version telle qu'elle s'affiche dans l'historique.
@@ -123,6 +134,14 @@ async function buildChecklist(
           analysisReviewedAt: true,
         },
       },
+      // Toujours lu, jamais montré tel quel : même discipline que
+      // analysisResultJson ci-dessus, gatée à la sortie par toChecklistVersion
+      // (audience CABINET uniquement) plutôt qu'à la lecture — un `select`
+      // conditionnel sur une variable d'exécution perd le typage précis de Prisma.
+      criterionSuggestions: {
+        where: { status: "PENDING" },
+        select: { id: true, justification: true, criterion: { select: { code: true, label: true } } },
+      },
       // L'historique complet. Ordonné du plus récent au plus ancien : on cherche
       // presque toujours la dernière version, et le reste est de la trace.
       versions: {
@@ -177,7 +196,14 @@ async function buildChecklist(
       // Le JSON brut ne sort jamais de cette couche : il est validé ici, une fois,
       // et le composant ne reçoit qu'une forme sûre (D2).
       currentVersion: doc?.currentVersion
-        ? toChecklistVersion(doc.currentVersion, audience)
+        ? toChecklistVersion(
+            doc.currentVersion,
+            audience,
+            // Jamais transmis au CLIENT : une suggestion non tranchée est une
+            // hypothèse de travail interne (CDC §5, §7), gatée ici plutôt qu'à la
+            // lecture (cf. commentaire sur le `select` ci-dessus).
+            audience === "CABINET" ? doc.criterionSuggestions : []
+          )
         : null,
       versions: (doc?.versions ?? []).map((version) => ({
         id: version.id,
@@ -229,7 +255,11 @@ function toChecklistVersion(
     analysisResultJson: unknown;
     analysisReviewedAt: Date | null;
   },
-  audience: AnalysisAudience
+  audience: AnalysisAudience,
+  // Déjà filtré au statut PENDING et à l'audience CABINET par la requête
+  // appelante (jamais sélectionné du tout côté client) — cette fonction ne fait
+  // que mettre en forme, pas de second contrôle de périmètre ici.
+  criterionSuggestions: { id: string; justification: string; criterion: { code: string; label: string } }[]
 ): NonNullable<ChecklistItem["currentVersion"]> {
   const reviewable = {
     analysis: parseAnalysisResult(version.analysisResultJson),
@@ -244,11 +274,17 @@ function toChecklistVersion(
     analysis: analysisVisibleTo(audience, reviewable),
     analysisReviewedAt: version.analysisReviewedAt,
     analysisAwaitingReview: isAnalysisAwaitingReview(reviewable),
+    criterionSuggestions: criterionSuggestions.map((s) => ({
+      id: s.id,
+      criterionCode: s.criterion.code,
+      criterionLabel: s.criterion.label,
+      justification: s.justification,
+    })),
   };
 }
 
 export async function getClientChecklist(): Promise<{
-  establishment: { id: string; name: string; type: string } | null;
+  establishment: { id: string; name: string; type: string; logoDataUri: string | null } | null;
   checklist: ChecklistByCategory;
   // Fin de mission (§12.5) : gouverne ce que le portail PROPOSE. Le refus réel est
   // dans les actions d'écriture — masquer un bouton n'a jamais protégé une route.

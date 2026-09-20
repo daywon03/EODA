@@ -163,6 +163,7 @@ export function InviteClientForm({ establishmentId, defaultEmail, defaultName }:
           <option value="DIRECTEUR">Directeur / Directrice</option>
           <option value="COORDINATEUR">Coordinateur / Coordinatrice</option>
           <option value="ASSISTANT_QUALITE">Assistant(e) qualité</option>
+          <option value="RESPONSABLE_QUALITE">Responsable Qualité</option>
           <option value="AUTRE">Autre</option>
         </Select>
       </div>

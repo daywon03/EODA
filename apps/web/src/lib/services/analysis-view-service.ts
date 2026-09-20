@@ -1,5 +1,9 @@
 import type { DocumentAnalysisResult } from "@/lib/llm";
-import { normalizeFindings } from "@/lib/llm/llm-analysis-port";
+import {
+  normalizeFindings,
+  normalizeCriteriaCoverage,
+  normalizeCriterionSuggestions,
+} from "@/lib/llm/llm-analysis-port";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // LECTURE DU RÉSULTAT D'ANALYSE — la moitié manquante du module n°1.
@@ -40,6 +44,13 @@ export function parseAnalysisResult(value: unknown): DocumentAnalysisResult | nu
   const elementsManquants = toStringList(raw.elementsManquants);
   const suggestionsCorrection = toStringList(raw.suggestionsCorrection);
   const sembleConforme = raw.sembleConforme === true;
+  // Absent sur toute analyse stockée avant le 16/09/2026 : `[]`, jamais une
+  // exception — une checklist qui affiche un document analysé il y a six mois ne
+  // doit pas casser parce que ce champ n'existait pas ce jour-là.
+  const criteriaCoverage = normalizeCriteriaCoverage(raw.criteriaCoverage);
+  // Même repli : absent sur toute analyse stockée avant l'ajout du catalogue
+  // supplémentaire (20/09/2026).
+  const criteresSupplementaires = normalizeCriterionSuggestions(raw.criteresSupplementaires);
 
   const hasContent =
     elementsPresents.length > 0 ||
@@ -52,7 +63,14 @@ export function parseAnalysisResult(value: unknown): DocumentAnalysisResult | nu
   // reproche.
   if (!hasContent && !sembleConforme) return null;
 
-  return { elementsPresents, elementsManquants, suggestionsCorrection, sembleConforme };
+  return {
+    elementsPresents,
+    elementsManquants,
+    suggestionsCorrection,
+    sembleConforme,
+    criteriaCoverage,
+    criteresSupplementaires,
+  };
 }
 
 // ── Frontière de restitution ─────────────────────────────────────────────────

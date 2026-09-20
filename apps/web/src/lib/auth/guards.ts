@@ -333,7 +333,7 @@ export async function tryEstablishmentAccess(
 export async function requireClientEstablishment(): Promise<{
   session: Session;
   userId: string;
-  establishment: { id: string; name: string; type: string } | null;
+  establishment: { id: string; name: string; type: string; logoDataUri: string | null } | null;
   // Gouverne ce que le portail client propose : dépôt ouvert, bibliothèque en
   // lecture seule, ou rien du tout.
   missionAccess: MissionAccessState;
@@ -351,7 +351,9 @@ export async function requireClientEstablishment(): Promise<{
 
   const link = await prisma.establishmentUser.findFirst({
     where: { userId: session.user.id },
-    include: { establishment: { select: { id: true, name: true, type: true } } },
+    include: {
+      establishment: { select: { id: true, name: true, type: true, logoDataUri: true } },
+    },
   });
 
   if (!link?.establishment) {

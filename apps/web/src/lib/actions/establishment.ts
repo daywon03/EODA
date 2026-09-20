@@ -3,9 +3,15 @@
 import { prisma, type Prisma, EstablishmentType, StructureType } from "@eoda/database";
 import { redirect, notFound } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { requireCabinetSession, requireEstablishmentInTenant } from "@/lib/auth/guards";
+import {
+  requireCabinetSession,
+  requireEstablishmentInTenant,
+  requireEstablishmentAccess,
+} from "@/lib/auth/guards";
+import { canDepositDocuments } from "@/lib/services/mission-access-service";
 import { recordAuditEvent } from "@/lib/services/audit-log-service";
 import { validateLogoUpload } from "@/lib/security/upload-validation-service";
+import { getFileStoragePort } from "@/lib/storage";
 import type { PortfolioRow } from "@/lib/services/portfolio-kpi-service";
 import { toPortfolioRow } from "@/lib/db/to-portfolio-row";
 import {
@@ -158,18 +164,15 @@ export async function updateEstablishment(
 // Apposé à côté de celui d'EODA sur les documents produits pour elle. Déposé par le
 // CABINET et pas par le client : c'est un élément de mise en page de nos livrables,
 // pas une pièce du dossier.
-export async function uploadEstablishmentLogo(
-  _prevState: { error: string } | null,
-  formData: FormData
+// Écriture partagée par les deux origines (cabinet et client) : une seule fonction
+// qui valide le fichier et pose `logoDataUri` (D1 — le cabinet écrivait déjà cette
+// logique, la dupliquer pour le client aurait fini par diverger sur la validation).
+// Les gardes d'AUTORISATION restent séparées et appellent celle-ci une fois
+// l'accès vérifié — jamais l'inverse.
+async function applyLogoUpload(
+  establishmentId: string,
+  file: FormDataEntryValue | null
 ): Promise<{ error: string } | null> {
-  const establishmentIdRaw = formData.get("establishmentId");
-  if (typeof establishmentIdRaw !== "string" || establishmentIdRaw.length === 0) {
-    return { error: "Établissement manquant." };
-  }
-
-  const { establishmentId } = await requireEstablishmentInTenant(establishmentIdRaw);
-
-  const file = formData.get("logo");
   if (!(file instanceof File) || file.size === 0) return { error: "Aucun fichier sélectionné." };
 
   const buffer = Buffer.from(await file.arrayBuffer());
@@ -184,20 +187,78 @@ export async function uploadEstablishmentLogo(
   });
 
   revalidatePath(`/dashboard/cabinet/etablissements/${establishmentId}`);
+  revalidatePath(`/dashboard/client`);
   revalidatePath(`/imprimer/avenant/${establishmentId}`);
   return null;
+}
+
+async function applyLogoRemoval(establishmentId: string): Promise<{ error: string } | null> {
+  await prisma.establishment.update({
+    where: { id: establishmentId },
+    data: { logoDataUri: null },
+  });
+
+  revalidatePath(`/dashboard/cabinet/etablissements/${establishmentId}`);
+  revalidatePath(`/dashboard/client`);
+  revalidatePath(`/imprimer/avenant/${establishmentId}`);
+  return null;
+}
+
+export async function uploadEstablishmentLogo(
+  _prevState: { error: string } | null,
+  formData: FormData
+): Promise<{ error: string } | null> {
+  const establishmentIdRaw = formData.get("establishmentId");
+  if (typeof establishmentIdRaw !== "string" || establishmentIdRaw.length === 0) {
+    return { error: "Établissement manquant." };
+  }
+
+  const { establishmentId } = await requireEstablishmentInTenant(establishmentIdRaw);
+  return applyLogoUpload(establishmentId, formData.get("logo"));
 }
 
 export async function removeEstablishmentLogo(
   establishmentId: string
 ): Promise<{ error: string } | null> {
   const { establishmentId: id } = await requireEstablishmentInTenant(establishmentId);
+  return applyLogoRemoval(id);
+}
 
-  await prisma.establishment.update({ where: { id }, data: { logoDataUri: null } });
+// Variantes CLIENT — « ce serait bien qu'ils puissent l'ajouter » (Sandrine,
+// call du 15/09/2026) : jusqu'ici seul le cabinet pouvait déposer le logo d'une
+// structure, alors que c'est SA structure. Gardées par `requireEstablishmentAccess`
+// (accepte CLIENT_USER via le lien EstablishmentUser, refuse tout établissement qui
+// n'est pas le sien — S2) ET par `canDepositDocuments` : un client dont
+// l'accompagnement est clos ou révoqué peut lire sa bibliothèque, il n'écrit plus
+// rien, pas même son logo — même principe que le dépôt de documents.
+export async function uploadEstablishmentLogoAsClient(
+  _prevState: { error: string } | null,
+  formData: FormData
+): Promise<{ error: string } | null> {
+  const establishmentIdRaw = formData.get("establishmentId");
+  if (typeof establishmentIdRaw !== "string" || establishmentIdRaw.length === 0) {
+    return { error: "Établissement manquant." };
+  }
 
-  revalidatePath(`/dashboard/cabinet/etablissements/${id}`);
-  revalidatePath(`/imprimer/avenant/${id}`);
-  return null;
+  const access = await requireEstablishmentAccess(establishmentIdRaw);
+  if (!access.isClient) return { error: "Réservé à l'espace client." };
+  if (!canDepositDocuments(access.missionAccess)) {
+    return { error: "Votre accompagnement est clos : le logo ne peut plus être modifié." };
+  }
+
+  return applyLogoUpload(access.establishmentId, formData.get("logo"));
+}
+
+export async function removeEstablishmentLogoAsClient(
+  establishmentId: string
+): Promise<{ error: string } | null> {
+  const access = await requireEstablishmentAccess(establishmentId);
+  if (!access.isClient) return { error: "Réservé à l'espace client." };
+  if (!canDepositDocuments(access.missionAccess)) {
+    return { error: "Votre accompagnement est clos : le logo ne peut plus être modifié." };
+  }
+
+  return applyLogoRemoval(access.establishmentId);
 }
 
 export async function deleteEstablishment(id: string): Promise<{ error: string } | void> {
@@ -205,7 +266,10 @@ export async function deleteEstablishment(id: string): Promise<{ error: string }
 
   // Comptes clients devenus orphelins — désactivés (jamais supprimés, la piste
   // d'audit doit survivre), calculés DANS la transaction, journalisés après elle.
-  const deactivatedUserIds = await prisma.$transaction(async (tx) => {
+  // Les clés d'image sont, elles, remontées pour être effacées du stockage APRÈS
+  // la transaction — un appel réseau au stockage à l'intérieur d'une transaction
+  // Prisma la bloquerait sans rien gagner en garantie transactionnelle.
+  const { deactivatedUserIds, imageKeys } = await prisma.$transaction(async (tx) => {
     await tx.elementRating.deleteMany({
       where: { evaluationSession: { establishmentId: id } },
     });
@@ -214,6 +278,19 @@ export async function deleteEstablishment(id: string): Promise<{ error: string }
       where: { establishmentId: id },
       data: { currentVersionId: null },
     });
+    // Récupérées AVANT la suppression : le cascade Prisma (onDelete: Cascade) va
+    // effacer les lignes DocumentVersionImage avec leur DocumentVersion, mais
+    // jamais les objets qu'elles pointent dans le stockage — droit à l'effacement
+    // (cf. même raisonnement que deleteDocumentVersion dans document.ts). Ne
+    // touche PAS au fichier principal de chaque DocumentVersion : gap pré-existant,
+    // plus large que cette correction, hors périmètre ici.
+    const imageKeysToDelete = (
+      await tx.documentVersionImage.findMany({
+        where: { documentVersion: { document: { establishmentId: id } } },
+        select: { fileStorageKey: true },
+      })
+    ).map((image) => image.fileStorageKey);
+
     await tx.documentVersion.deleteMany({ where: { document: { establishmentId: id } } });
     await tx.document.deleteMany({ where: { establishmentId: id } });
 
@@ -268,8 +345,22 @@ export async function deleteEstablishment(id: string): Promise<{ error: string }
     // énumérer ces tables, et une relation ajoutée demain ne la fera plus échouer.
     await tx.establishment.delete({ where: { id } });
 
-    return orphanIds;
+    return { deactivatedUserIds: orphanIds, imageKeys: imageKeysToDelete };
   });
+
+  // Best-effort, après la transaction : le stockage n'est pas transactionnel et
+  // l'échec d'une suppression d'image ne doit jamais faire regretter la
+  // suppression de l'établissement, déjà actée en base.
+  for (const imageKey of imageKeys) {
+    try {
+      await getFileStoragePort().delete(imageKey);
+    } catch (error) {
+      console.error(
+        "Suppression d'une image de document échouée après suppression de l'établissement — objet orphelin dans le stockage :",
+        error
+      );
+    }
+  }
 
   // Journalisé après coup, hors transaction : la trace de suppression ne doit pas
   // être annulée avec la transaction si celle-ci échoue, ni la faire échouer.

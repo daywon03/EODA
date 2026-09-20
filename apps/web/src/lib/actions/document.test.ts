@@ -83,7 +83,7 @@ beforeEach(() => {
     // Mission en cours par défaut : le dépôt s'arrête à la clôture (§12.5).
     missionAccess: "ACTIVE",
   });
-  extractMarkdown.mockResolvedValue("texte extrait");
+  extractMarkdown.mockResolvedValue({ markdown: "texte extrait", images: [] });
   ingestDocumentVersion.mockResolvedValue({ documentVersionId: "dv-1" });
   recordAuditEvent.mockResolvedValue(undefined);
   prismaMock.document.upsert.mockResolvedValue({});
@@ -111,6 +111,20 @@ describe("uploadDocument — périmètre de l'offre", () => {
 
     expect(result).toEqual({ success: true, documentTypeId: LOI_TYPE.id });
     expect(ingestDocumentVersion).toHaveBeenCalledTimes(1);
+  });
+
+  it("déstructure { markdown, images } de extractMarkdown et transmet les deux à l'ingestion", async () => {
+    givenMission("ESSENTIEL");
+    prismaMock.documentType.findUnique.mockResolvedValue(LOI_TYPE);
+    const image = { position: 1, contentType: "image/png", buffer: Buffer.from("x") };
+    extractMarkdown.mockResolvedValue({ markdown: "texte [Image 1]", images: [image] });
+
+    await uploadDocument(uploadForm(LOI_TYPE.id));
+
+    expect(ingestDocumentVersion).toHaveBeenCalledWith(
+      expect.objectContaining({ extractedText: "texte [Image 1]", extractedImages: [image] }),
+      expect.anything()
+    );
   });
 
   it("n'oppose aucun périmètre à un établissement sans mission (avant-vente)", async () => {

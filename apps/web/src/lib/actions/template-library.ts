@@ -18,6 +18,7 @@ import { recordAuditEvent } from "@/lib/services/audit-log-service";
 import { extractMarkdown } from "@/lib/services/text-extraction-service";
 import { indexReferenceDocumentVersion } from "@/lib/services/knowledge-indexing-service";
 import { getEmbeddingPort } from "@/lib/embeddings";
+import { buildFilePreview } from "@/lib/services/file-preview-service";
 import type { FilePreviewData } from "@/lib/services/file-preview-types";
 import {
   buildTemplateStorageKey,
@@ -242,7 +243,7 @@ export type LibraryFolder = { id: string; name: string; templates: TemplateSumma
 // La bibliothèque se lit comme une arborescence : les dossiers dans l'ordre décidé à
 // la main, les fiches dedans. Une seule requête — un `findMany` par dossier ferait
 // autant d'allers-retours que de dossiers, pour la même donnée.
-export async function listLibrary(): Promise<LibraryFolder[]> {
+export async function listLibrary(criterionId?: string): Promise<LibraryFolder[]> {
   const { tenantId } = await requireCabinetSession();
 
   const categories = await prisma.templateCategory.findMany({
@@ -250,6 +251,7 @@ export async function listLibrary(): Promise<LibraryFolder[]> {
     orderBy: [{ position: "asc" }, { name: "asc" }],
     include: {
       documents: {
+        ...(criterionId && { where: { criteria: { some: { criterionId } } } }),
         orderBy: { title: "asc" },
         include: { versions: { select: { stage: true } } },
       },
@@ -294,6 +296,7 @@ export type TemplateDetail = {
     createdAt: Date;
     uploadedByName: string;
   }[];
+  criteria: { id: string; code: string; label: string }[];
 };
 
 export async function getTemplate(templateId: string): Promise<TemplateDetail> {
@@ -307,6 +310,7 @@ export async function getTemplate(templateId: string): Promise<TemplateDetail> {
     include: {
       category: { select: { id: true, name: true } },
       versions: { include: { uploadedBy: { select: { name: true } } } },
+      criteria: { include: { criterion: { select: { id: true, code: true, label: true } } } },
     },
   });
   if (!template) notFound();
@@ -318,6 +322,9 @@ export async function getTemplate(templateId: string): Promise<TemplateDetail> {
     categoryId: template.category.id,
     categoryName: template.category.name,
     description: template.description,
+    criteria: template.criteria
+      .map((c) => c.criterion)
+      .sort((a, b) => a.code.localeCompare(b.code)),
     versions: [...template.versions]
       // Tri par numéro de version décroissant, segment par segment : « v10 » vient
       // après « v9 », ce qu'un tri de chaînes ferait à l'envers. Un document de
@@ -342,22 +349,61 @@ export async function getTemplate(templateId: string): Promise<TemplateDetail> {
   };
 }
 
+// Remplace la liste complète plutôt que d'attacher/détacher un par un : un seul
+// appel depuis un sélecteur multiple, cohérent avec la façon dont le formulaire
+// soumet "voici la liste actuelle" plutôt qu'une suite d'actions incrémentales.
+export async function setTemplateCriteria(
+  templateDocumentId: string,
+  criterionIds: string[]
+): Promise<{ error: string } | null> {
+  const { tenantId } = await requireCabinetAdminSession();
+
+  const template = await prisma.templateDocument.findFirst({
+    where: { id: templateDocumentId, tenantId },
+    select: { id: true },
+  });
+  if (!template) return { error: "Ce modèle n'existe pas." };
+
+  await prisma.$transaction([
+    prisma.templateDocumentCriterion.deleteMany({
+      where: { templateDocumentId: template.id },
+    }),
+    prisma.templateDocumentCriterion.createMany({
+      data: criterionIds.map((criterionId) => ({
+        templateDocumentId: template.id,
+        criterionId,
+      })),
+    }),
+  ]);
+
+  revalidatePath(`${LIBRARY_PATH}/${template.id}`);
+  return null;
+}
+
 export async function createTemplate(
   _prevState: ActionResult,
   formData: FormData
 ): Promise<ActionResult> {
   const { tenantId } = await requireCabinetAdminSession();
 
-  const title = requiredString(formData, "title", "Le titre du modèle", 200);
+  const titlesRaw = requiredString(formData, "titles", "Le(s) titre(s) du modèle", 4000);
   const categoryId = requiredString(formData, "categoryId", "Le dossier", 40);
   const kind = requiredEnum(formData, "kind", "La nature du document", TemplateDocumentKind);
   const description = optionalString(formData, "description", "La description", 1000);
 
-  const error = firstError(title, categoryId, kind, description);
+  const error = firstError(titlesRaw, categoryId, kind, description);
   if (error) return { error };
-  if (!title.ok || !categoryId.ok || !kind.ok || !description.ok) {
+  if (!titlesRaw.ok || !categoryId.ok || !kind.ok || !description.ok) {
     return { error: "Formulaire invalide." };
   }
+
+  // Un titre par ligne (demande du 16/09/2026) : coller une liste crée autant de
+  // fiches, chacune vide de fichier — comme une fiche créée seule aujourd'hui.
+  const titles = titlesRaw.value
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0);
+  if (titles.length === 0) return { error: "Au moins un titre est requis." };
 
   const category = await prisma.templateCategory.findFirst({
     where: { id: categoryId.value, tenantId },
@@ -365,30 +411,41 @@ export async function createTemplate(
   });
   if (!category) return { error: "Ce dossier n'existe pas." };
 
-  // Contrainte d'unicité rattrapée AVANT l'écriture, pour nommer le vrai problème :
-  // laissée au `catch`, elle sortirait sous un message technique qui n'apprendrait
-  // rien à la personne qui vient de saisir un titre.
-  const existing = await prisma.templateDocument.findFirst({
-    where: { tenantId, title: title.value },
-    select: { id: true },
-  });
-  if (existing) {
-    return { error: "Un modèle porte déjà ce titre. Ajoutez-lui plutôt une version." };
+  // SÉQUENTIEL, jamais en parallèle : un titre en double doit être détecté avant
+  // d'écrire le suivant, pas après coup sur un lot déjà à moitié créé.
+  const createdIds: string[] = [];
+  for (const title of titles) {
+    // Contrainte d'unicité rattrapée AVANT l'écriture, pour nommer le vrai problème :
+    // laissée au `catch`, elle sortirait sous un message technique qui n'apprendrait
+    // rien à la personne qui vient de saisir un titre.
+    const existing = await prisma.templateDocument.findFirst({
+      where: { tenantId, title },
+      select: { id: true },
+    });
+    if (existing) {
+      return { error: `Un modèle porte déjà le titre « ${title} ».` };
+    }
+
+    const template = await prisma.templateDocument.create({
+      data: {
+        tenantId,
+        title,
+        categoryId: category.id,
+        kind: kind.value,
+        description: description.value,
+      },
+      select: { id: true },
+    });
+    createdIds.push(template.id);
   }
 
-  const template = await prisma.templateDocument.create({
-    data: {
-      tenantId,
-      title: title.value,
-      categoryId: category.id,
-      kind: kind.value,
-      description: description.value,
-    },
-    select: { id: true },
-  });
-
   revalidatePath(LIBRARY_PATH);
-  redirect(`${LIBRARY_PATH}/${template.id}`);
+  // Une seule fiche créée : direction sa page, comme avant. Plusieurs : la liste,
+  // il n'y a pas UNE fiche vers laquelle rediriger.
+  if (createdIds.length === 1) {
+    redirect(`${LIBRARY_PATH}/${createdIds[0]}`);
+  }
+  redirect(LIBRARY_PATH);
 }
 
 // « Que l'on puisse ensuite les réarranger » : un import de dossier range au mieux, il
@@ -563,10 +620,14 @@ async function storeVersion(params: {
   // de connaissances, réservée aux références ci-dessous. `null` pour un format non
   // analysable (image, .doc/.xls ancien) : ce n'est pas une erreur, juste rien à
   // afficher en substitut du fichier original.
-  const extractedText = await extractMarkdown(buffer, validation.contentType).catch((error) => {
+  const extraction = await extractMarkdown(buffer, validation.contentType).catch((error) => {
     console.error("Extraction du texte échouée — dépôt conservé sans aperçu :", error);
     return null;
   });
+  // Les images éventuellement extraites (.docx) ne sont pas stockées ici : seule
+  // l'ingestion d'un document analysable (document-ingestion-service.ts) le fait —
+  // un gabarit ou un document de référence n'a pas ce rôle.
+  const extractedText = extraction ? extraction.markdown : null;
 
   const version = await prisma.templateVersion.create({
     data: {
@@ -795,21 +856,11 @@ export async function getTemplateVersionPreviewData(versionId: string): Promise<
   });
   if (!version) return null;
 
-  const isPdf = version.originalFilename.toLowerCase().endsWith(".pdf");
-
-  if (isPdf) {
-    const url = await getFileStoragePort().getSignedDownloadUrl(version.fileStorageKey, {
-      disposition: "inline",
-      filename: version.originalFilename,
-    });
-    return { kind: "pdf", url, filename: version.originalFilename };
-  }
-
-  if (version.extractedText) {
-    return { kind: "text", text: version.extractedText, filename: version.originalFilename };
-  }
-
-  return { kind: "unavailable", filename: version.originalFilename };
+  return buildFilePreview({
+    originalFilename: version.originalFilename,
+    fileStorageKey: version.fileStorageKey,
+    extractedText: version.extractedText,
+  });
 }
 
 // ── Texte extrait (Markdown), même pour un PDF ───────────────────────────────

@@ -18,6 +18,7 @@ const prismaMock = {
     updateMany: vi.fn(),
     delete: vi.fn(),
   },
+  documentVersionImage: { findMany: vi.fn() },
   document: { update: vi.fn() },
   // Le rôle de l'AUTEUR du dépôt décide qui peut le supprimer.
   user: { findUnique: vi.fn() },
@@ -85,6 +86,7 @@ beforeEach(() => {
   prismaMock.user.findUnique.mockResolvedValue({ role: "CABINET_ADMIN" });
   storageDelete.mockResolvedValue(undefined);
   prismaMock.documentVersion.findFirst.mockResolvedValue(null);
+  prismaMock.documentVersionImage.findMany.mockResolvedValue([]);
   prismaMock.$transaction.mockImplementation(async (arg: TxCallback<unknown>) => arg(prismaMock));
 });
 
@@ -206,5 +208,47 @@ describe("qui peut supprimer quoi", () => {
 
     expect(result).toMatchObject({ error: expect.stringContaining("dernière") });
     expect(prismaMock.documentVersion.delete).not.toHaveBeenCalled();
+  });
+});
+
+// Droit à l'effacement : les objets d'image restaient orphelins dans le stockage
+// après suppression d'une version, le cascade Prisma n'effaçant que les lignes.
+describe("nettoyage des images du storage", () => {
+  it("supprime aussi les objets image du stockage", async () => {
+    givenVersion();
+    prismaMock.documentVersionImage.findMany.mockResolvedValue([
+      { fileStorageKey: "etab-1/doc/v1-image-1.png" },
+      { fileStorageKey: "etab-1/doc/v1-image-2.png" },
+    ]);
+
+    const result = await deleteDocumentVersion(VERSION_ID);
+
+    expect(result).toBeNull();
+    expect(storageDelete).toHaveBeenCalledWith("etab-1/doc/v1.pdf");
+    expect(storageDelete).toHaveBeenCalledWith("etab-1/doc/v1-image-1.png");
+    expect(storageDelete).toHaveBeenCalledWith("etab-1/doc/v1-image-2.png");
+    expect(prismaMock.documentVersion.delete).toHaveBeenCalled();
+  });
+
+  it("ne bloque pas la suppression du document si une image échoue à se supprimer", async () => {
+    givenVersion();
+    prismaMock.documentVersionImage.findMany.mockResolvedValue([
+      { fileStorageKey: "etab-1/doc/v1-image-1.png" },
+    ]);
+    storageDelete.mockImplementation(async (key: string) => {
+      if (key === "etab-1/doc/v1-image-1.png") throw new Error("bucket indisponible pour cette image");
+      return undefined;
+    });
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    const result = await deleteDocumentVersion(VERSION_ID);
+
+    expect(result).toBeNull();
+    expect(prismaMock.documentVersion.delete).toHaveBeenCalled();
+    // La suppression du document elle-même reste journalisée normalement — seule
+    // l'image orpheline est signalée en console, jamais remontée à l'appelant.
+    expect(recordAuditEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ action: "DOCUMENT_VERSION_DELETED" })
+    );
   });
 });

@@ -12,6 +12,8 @@ const COMPLETE = {
   elementsManquants: ["Mention des voies de recours"],
   suggestionsCorrection: ["Ajouter un paragraphe sur la personne qualifiée."],
   sembleConforme: false,
+  criteriaCoverage: [],
+  criteresSupplementaires: [],
 };
 
 describe("parseAnalysisResult", () => {
@@ -68,6 +70,8 @@ describe("parseAnalysisResult", () => {
       suggestionsCorrection: ["utile"],
       // Seul `true` vaut vrai : « oui » n'est pas une conformité.
       sembleConforme: false,
+      criteriaCoverage: [],
+      criteresSupplementaires: [],
     });
   });
 });

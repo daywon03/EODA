@@ -43,6 +43,15 @@ describe("buildContentSecurityPolicy", () => {
     expect(production).toContain("object-src 'none'");
   });
 
+  it("autorise l'aperçu d'un document image depuis l'URL signée du bucket", () => {
+    // Régression du 16/09/2026 : `img-src 'self' data: blob:` sans `https:`
+    // bloquait le chargement d'un document déposé en .jpg/.png depuis l'URL
+    // signée (domaine Supabase Storage) — l'aperçu restait une icône cassée.
+    // Même exception que `frame-src`, pour la même raison (domaine variable
+    // selon la région/le fournisseur de stockage).
+    expect(directive(production, "img-src")).toContain("https:");
+  });
+
   it("garde les styles inline — Tailwind et styled-jsx en produisent", () => {
     // Documenté comme un écart assumé : le risque est d'une autre nature que
     // l'exécution de code.

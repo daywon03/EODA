@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ChevronRight, FolderOpen, Library } from "lucide-react";
 import { listLibrary, listTemplateCategories } from "@/lib/actions/template-library";
+import { listCriteriaForPicker } from "@/lib/actions/document";
 import { requireCabinetSession } from "@/lib/auth/guards";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card, CardContent } from "@/components/ui/card";
@@ -8,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { TemplateForm } from "@/components/modeles/TemplateForm";
 import { CategoryManager } from "@/components/modeles/CategoryManager";
 import { FolderImport } from "@/components/modeles/FolderImport";
+import { TemplateCriterionFilter } from "@/components/modeles/TemplateCriterionFilter";
 import { CollapsibleSection } from "@/components/ui/collapsible-section";
 import {
   TEMPLATE_STAGES,
@@ -29,13 +31,18 @@ export const metadata = { title: "Modèles EODA · EODA Conseil" };
 // écriture réservée à CABINET_ADMIN : publier une nouvelle version, c'est décider que
 // tout le monde travaillera désormais dessus.
 // ─────────────────────────────────────────────────────────────────────────────
-export default async function ModelesPage() {
-  // Trois lectures indépendantes : elles partent ensemble. En série, l'écran attend
-  // trois allers-retours de base au lieu d'un.
-  const [{ session }, folders, categories] = await Promise.all([
+type Props = { searchParams: Promise<{ critere?: string }> };
+
+export default async function ModelesPage({ searchParams }: Props) {
+  const { critere } = await searchParams;
+
+  // Quatre lectures indépendantes : elles partent ensemble. En série, l'écran
+  // attend quatre allers-retours de base au lieu d'un.
+  const [{ session }, folders, categories, allCriteria] = await Promise.all([
     requireCabinetSession(),
-    listLibrary(),
+    listLibrary(critere),
     listTemplateCategories(),
+    listCriteriaForPicker(),
   ]);
   const isAdmin = session.user.role === "CABINET_ADMIN";
   const templateCount = folders.reduce((total, folder) => total + folder.templates.length, 0);
@@ -46,6 +53,7 @@ export default async function ModelesPage() {
         title="Modèles EODA"
         icon={Library}
         subtitle="Les gabarits du cabinet et ses documents de référence. Aucun n'appartient à une structure."
+        action={<TemplateCriterionFilter allCriteria={allCriteria ?? []} selectedCriterionId={critere} />}
       />
 
       {isAdmin && (
@@ -73,7 +81,16 @@ export default async function ModelesPage() {
         </>
       )}
 
-      {templateCount === 0 ? (
+      {templateCount === 0 && critere ? (
+        // Une bibliothèque non vide filtrée à zéro résultat n'est pas une
+        // bibliothèque vide : le message d'amorçage ("importez un dossier…")
+        // serait faux et ferait croire qu'il n'y a rien du tout à ranger.
+        <Card>
+          <CardContent className="pt-6 text-sm text-gris-mid">
+            <p>Aucun modèle rattaché à ce critère pour l&apos;instant.</p>
+          </CardContent>
+        </Card>
+      ) : templateCount === 0 ? (
         <Card>
           <CardContent className="space-y-2 pt-6 text-sm text-gris-mid">
             <p className="flex items-center gap-2 font-medium text-brun-ancre">

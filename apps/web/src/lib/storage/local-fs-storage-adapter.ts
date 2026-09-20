@@ -1,4 +1,4 @@
-import { mkdir, writeFile, unlink } from "node:fs/promises";
+import { mkdir, writeFile, unlink, readFile } from "node:fs/promises";
 import path from "node:path";
 import type { FileStoragePort, SignedUrlOptions } from "./file-storage-port";
 
@@ -34,6 +34,10 @@ export class LocalFsStorageAdapter implements FileStoragePort {
     // (un nom fourni par l'appelant permettrait d'injecter dans Content-Disposition).
     const query = new URLSearchParams({ disposition });
     return `/api/local-storage/${key.split("/").map(encodeURIComponent).join("/")}?${query.toString()}`;
+  }
+
+  async download(key: string): Promise<Buffer> {
+    return readFile(resolveWithinRoot(key));
   }
 
   async delete(key: string): Promise<void> {

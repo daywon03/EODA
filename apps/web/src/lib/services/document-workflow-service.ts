@@ -78,12 +78,18 @@ export function isStepReached(current: DocumentStep, step: DocumentStep): boolea
 // Ce qu'il reste à faire, en une phrase, à la première personne du cabinet. Un fil
 // d'étapes dit OÙ on en est ; cette phrase dit QUOI FAIRE, et c'est elle qu'on lit
 // quand on ouvre la fiche pour travailler.
-export function describeNextStep(step: DocumentStep): string {
+export function describeNextStep(step: DocumentStep, isImage = false): string {
   switch (step) {
     case "ATTENDU":
       return "En attente du dépôt par le client.";
     case "DEPOSE":
-      return "À analyser — l'analyse se lance au dépôt, relancez-la si elle a échoué.";
+      // Une image n'a pas de texte à en extraire — donc rien pour une IA à
+      // analyser (call du 15/09/2026, explicite sur ce point). Elle reste à ce
+      // stade indéfiniment : le dire, plutôt que d'annoncer une analyse qui ne
+      // viendra jamais.
+      return isImage
+        ? "Image déposée — aucune analyse automatique pour ce format, passez à la relecture directement."
+        : "À analyser — l'analyse se lance au dépôt, relancez-la si elle a échoué.";
     case "ANALYSE":
       return "À modifier : corriger le document au regard des manques relevés.";
     case "MODIFIE":

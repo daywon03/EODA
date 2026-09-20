@@ -51,6 +51,8 @@ describe("deriveDocumentStatus", () => {
         elementsManquants: [],
         elementsPresents: [{ text: "charte", source: "" }],
         suggestionsCorrection: [],
+        criteriaCoverage: [],
+        criteresSupplementaires: [],
       })
     ).toBe("COMPLIANT");
   });
@@ -64,6 +66,8 @@ describe("deriveDocumentStatus", () => {
         elementsManquants: ["mention du CVS"],
         elementsPresents: [],
         suggestionsCorrection: [],
+        criteriaCoverage: [],
+        criteresSupplementaires: [],
       })
     ).toBe("INCOMPLETE");
   });
@@ -75,6 +79,8 @@ describe("deriveDocumentStatus", () => {
         elementsManquants: [],
         elementsPresents: [],
         suggestionsCorrection: [],
+        criteriaCoverage: [],
+        criteresSupplementaires: [],
       })
     ).toBe("INCOMPLETE");
   });

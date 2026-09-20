@@ -68,6 +68,8 @@ const ACTION_LABELS: Record<AuditAction, string> = {
   CORRECTED_DRAFT_GENERATED: "Brouillon de document corrigé généré par l'IA",
   CORRECTED_DRAFT_EDITED: "Brouillon de document corrigé modifié",
   CORRECTED_DRAFT_DOWNLOADED: "Brouillon de document corrigé téléchargé",
+  CRITERION_SUGGESTION_CONFIRMED: "Critère HAS supplémentaire confirmé",
+  CRITERION_SUGGESTION_REJECTED: "Critère HAS supplémentaire rejeté",
 };
 
 const ROLE_LABELS: Record<string, string> = {

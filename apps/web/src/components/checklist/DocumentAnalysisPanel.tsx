@@ -27,6 +27,8 @@ import { MAX_GUIDELINE_LENGTH } from "@/lib/services/criterion-guideline-service
 import { formatDate } from "@/lib/services/date-format-service";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { CriterionSuggestionsList } from "@/components/checklist/CriterionSuggestionsList";
+import type { CriterionSuggestionItem } from "@/lib/actions/checklist";
 
 // Résultat de l'analyse automatique d'une version déposée. Replié par défaut : la
 // checklist doit rester lisible en une page, l'analyse s'ouvre pour le document qu'on
@@ -39,6 +41,11 @@ type Props = {
   documentVersionId?: string;
   reviewedAt?: Date | null;
   canReview?: boolean;
+  // Critères HAS supplémentaires détectés par l'IA, en attente de revue — jamais
+  // transmis côté client (cf. buildChecklist). establishmentId n'est nécessaire
+  // que pour confirmer/rejeter, donc absent si canReview l'est aussi.
+  establishmentId?: string;
+  criterionSuggestions?: CriterionSuggestionItem[];
 };
 
 export function DocumentAnalysisPanel({
@@ -46,6 +53,8 @@ export function DocumentAnalysisPanel({
   documentVersionId,
   reviewedAt = null,
   canReview = false,
+  establishmentId,
+  criterionSuggestions = [],
 }: Props) {
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -84,6 +93,40 @@ export function DocumentAnalysisPanel({
 
       {open && (
         <div className="px-3 pb-3 pt-1 space-y-3 animate-fade-in">
+          {analysis.criteriaCoverage.length > 0 && (
+            <div>
+              <p className="flex items-center gap-1.5 text-xs font-medium text-brun-ancre mb-1">
+                <CheckCircle2 className="w-3.5 h-3.5 text-terre" aria-hidden="true" />
+                Couverture par critère HAS
+              </p>
+              <ul className="space-y-1 pl-5">
+                {analysis.criteriaCoverage.map((c) => (
+                  <li key={c.criterionCode} className="text-xs list-disc marker:text-gris-light">
+                    <span className="font-medium text-brun-ancre">{c.criterionCode}</span>
+                    {" — "}
+                    <span
+                      className={
+                        c.status === "couvert"
+                          ? "text-vert-ok"
+                          : c.status === "partiel"
+                            ? "text-ambre"
+                            : "text-rouge-imp"
+                      }
+                    >
+                      {c.status}
+                    </span>
+                    {" : "}
+                    <span className="text-gris-mid">{c.note}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {canReview && establishmentId && (
+            <CriterionSuggestionsList establishmentId={establishmentId} suggestions={criterionSuggestions} />
+          )}
+
           {summary.missingCount > 0 && (
             <Section
               icon={<AlertCircle className="w-3.5 h-3.5 text-rouge-imp" aria-hidden="true" />}

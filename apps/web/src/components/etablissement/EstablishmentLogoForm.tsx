@@ -5,20 +5,35 @@ import { uploadEstablishmentLogo, removeEstablishmentLogo } from "@/lib/actions/
 import { Button } from "@/components/ui/button";
 import { AlertCircle, ImageUp, Loader2, Trash2 } from "lucide-react";
 
+type LogoActionState = { error: string } | null;
+type UploadAction = (state: LogoActionState, formData: FormData) => Promise<LogoActionState>;
+type RemoveAction = (establishmentId: string) => Promise<LogoActionState>;
+
 type Props = {
   establishmentId: string;
   establishmentName: string;
   logoDataUri: string | null;
+  // Par défaut les actions CABINET : le seul appelant jusqu'ici. Le portail
+  // client passe les variantes `...AsClient` (mêmes règles de validation de
+  // fichier, garde d'autorisation différente — cf. lib/actions/establishment.ts) ;
+  // même composant, même expérience, D1 oblige.
+  uploadAction?: UploadAction;
+  removeAction?: RemoveAction;
 };
 
 // Dépôt du logo de la structure — apposé à côté de celui d'EODA sur les documents
-// produits pour elle.
-//
-// Déposé par le CABINET et non par le client : c'est un élément de mise en page de nos
-// livrables, pas une pièce de son dossier. Un aperçu remplace la description : sur un
-// logo, ce qui compte est de voir ce qui sortira sur le document.
-export function EstablishmentLogoForm({ establishmentId, establishmentName, logoDataUri }: Props) {
-  const [state, formAction, isUploading] = useActionState(uploadEstablishmentLogo, null);
+// produits pour elle. Historiquement réservé au cabinet ; ouvert au client depuis le
+// 16/09/2026 (Sandrine, call du 15/09 : « ça aurait été bien qu'ils soient en
+// capacité de le mettre »). Un aperçu remplace la description : sur un logo, ce qui
+// compte est de voir ce qui sortira sur le document.
+export function EstablishmentLogoForm({
+  establishmentId,
+  establishmentName,
+  logoDataUri,
+  uploadAction = uploadEstablishmentLogo,
+  removeAction = removeEstablishmentLogo,
+}: Props) {
+  const [state, formAction, isUploading] = useActionState(uploadAction, null);
   const [removeError, setRemoveError] = useState<string | null>(null);
   const [isRemoving, startRemove] = useTransition();
   const formRef = useRef<HTMLFormElement>(null);
@@ -70,7 +85,7 @@ export function EstablishmentLogoForm({ establishmentId, establishmentName, logo
               onClick={() => {
                 setRemoveError(null);
                 startRemove(async () => {
-                  const result = await removeEstablishmentLogo(establishmentId);
+                  const result = await removeAction(establishmentId);
                   if (result && "error" in result) setRemoveError(result.error);
                 });
               }}
