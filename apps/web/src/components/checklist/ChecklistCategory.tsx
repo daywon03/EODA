@@ -67,7 +67,7 @@ export function ChecklistCategory({
   const panelId = `checklist-panel-${title.replace(/\s+/g, "-").toLowerCase()}`;
 
   return (
-    <div className="border border-gris-light rounded-xl overflow-hidden bg-white">
+    <div className="border border-gris-light rounded-xl overflow-hidden bg-surface">
       {/* En-tête accordéon */}
       <button
         type="button"

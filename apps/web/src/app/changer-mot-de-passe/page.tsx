@@ -12,7 +12,7 @@ export default async function ChangePasswordPage() {
   return (
     <div className="min-h-dvh flex items-center justify-center px-6 py-12 bg-ivoire-light">
       <div className="w-full max-w-md">
-        <div className="bg-white rounded-xl shadow-eoda-lg p-8">
+        <div className="bg-surface rounded-xl shadow-eoda-lg p-8">
           <div className="flex items-center gap-3 mb-1">
             <span className="flex items-center justify-center w-10 h-10 rounded-full bg-ambre/15 flex-shrink-0">
               <KeyRound className="w-5 h-5 text-ambre" aria-hidden="true" />

@@ -78,7 +78,7 @@ export default async function ClientDeliverablesPage() {
       )}
 
       {deliverables.length === 0 ? (
-        <div className="rounded-xl border border-gris-light bg-white px-5 py-8 text-center">
+        <div className="rounded-xl border border-gris-light bg-surface px-5 py-8 text-center">
           <p className="text-sm font-semibold text-brun-ancre">Aucun livrable disponible</p>
           <p className="mt-1 text-sm text-gris-mid">
             Les documents produits par EODA Conseil dans le cadre de votre accompagnement
@@ -88,7 +88,7 @@ export default async function ClientDeliverablesPage() {
       ) : (
         <div className="space-y-4">
           {[...grouped.entries()].map(([category, categoryDeliverables]) => (
-            <section key={category} className="rounded-xl border border-gris-light bg-white">
+            <section key={category} className="rounded-xl border border-gris-light bg-surface">
               <h2 className="border-b border-gris-light px-5 py-3 text-sm font-semibold text-brun-ancre">
                 {CATEGORY_LABELS[category]}
               </h2>

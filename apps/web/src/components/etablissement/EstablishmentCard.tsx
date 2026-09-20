@@ -71,7 +71,7 @@ export function EstablishmentCard({
               <img
                 src={logoDataUri}
                 alt=""
-                className="h-9 w-9 flex-shrink-0 rounded-lg border border-gris-light bg-white object-contain p-0.5"
+                className="h-9 w-9 flex-shrink-0 rounded-lg border border-gris-light bg-surface object-contain p-0.5"
               />
             ) : (
               <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg border border-terre/30 bg-terre/10">

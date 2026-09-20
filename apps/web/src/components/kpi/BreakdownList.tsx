@@ -13,7 +13,7 @@ export function BreakdownList({ title, entries, emptyMessage }: Props) {
   const max = Math.max(1, ...entries.map((entry) => entry.count));
 
   return (
-    <section className="rounded-xl border border-gris-light bg-white p-5">
+    <section className="rounded-xl border border-gris-light bg-surface p-5">
       <h3 className="mb-3 text-sm font-semibold text-brun-ancre">{title}</h3>
 
       {total === 0 ? (

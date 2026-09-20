@@ -24,7 +24,7 @@ type Props = {
 };
 
 const TEXTAREA_CLASS =
-  "w-full rounded-md border border-gris-light bg-white px-3 py-2 text-sm text-brun-ancre placeholder:text-gris-mid focus:outline-none focus:ring-2 focus:ring-terre/40 focus:border-terre disabled:opacity-60";
+  "w-full rounded-md border border-gris-light bg-surface px-3 py-2 text-sm text-brun-ancre placeholder:text-gris-mid focus:outline-none focus:ring-2 focus:ring-terre/40 focus:border-terre disabled:opacity-60";
 
 // Grille de découverte, saisie EN SÉANCE — mêmes partis pris que l'évaluation des
 // besoins : une seule page, aucun assistant multi-étapes (on parle en même temps),
@@ -40,7 +40,7 @@ export function DiscoveryGridForm({ prospectId, grid, answers, updatedAt }: Prop
 
   return (
     <form action={formAction} className="space-y-6">
-      <div className="space-y-2 rounded-lg border border-gris-light bg-white p-4">
+      <div className="space-y-2 rounded-lg border border-gris-light bg-surface p-4">
         <div className="flex items-center justify-between text-sm">
           <span className="font-medium text-brun-ancre">Grille renseignée</span>
           <span className="tabular-nums text-gris-mid">{percent}%</span>
@@ -55,7 +55,7 @@ export function DiscoveryGridForm({ prospectId, grid, answers, updatedAt }: Prop
       </div>
 
       {grid.sections.map((section) => (
-        <fieldset key={section.id} className="space-y-4 rounded-lg border border-gris-light bg-white p-5">
+        <fieldset key={section.id} className="space-y-4 rounded-lg border border-gris-light bg-surface p-5">
           <legend className="px-1">
             <span className="text-sm font-semibold text-brun-ancre">{section.title}</span>
           </legend>

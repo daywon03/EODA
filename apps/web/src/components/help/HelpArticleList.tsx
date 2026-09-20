@@ -33,12 +33,12 @@ export function HelpArticleList({ articles }: { articles: readonly HelpArticle[]
           onChange={(event) => setQuery(event.target.value)}
           placeholder="Rechercher : déposer un document, cotation, mot de passe…"
           aria-label="Rechercher dans le guide"
-          className="w-full rounded-lg border border-gris-light bg-white pl-9 pr-3 py-2.5 text-sm text-brun-ancre placeholder:text-gris-mid focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terre"
+          className="w-full rounded-lg border border-gris-light bg-surface pl-9 pr-3 py-2.5 text-sm text-brun-ancre placeholder:text-gris-mid focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terre"
         />
       </div>
 
       {groups.length === 0 ? (
-        <p className="text-sm text-gris-mid bg-white border border-gris-light rounded-xl px-5 py-8 text-center">
+        <p className="text-sm text-gris-mid bg-surface border border-gris-light rounded-xl px-5 py-8 text-center">
           Aucun article ne correspond à cette recherche. Écrivez à{" "}
           <a href="mailto:EODAconseil@outlook.com" className="text-terre underline">
             EODAconseil@outlook.com
@@ -51,7 +51,7 @@ export function HelpArticleList({ articles }: { articles: readonly HelpArticle[]
             <h2 className="text-xs font-semibold uppercase tracking-widest text-gris-mid">
               {group.label}
             </h2>
-            <ul className="divide-y divide-gris-light border border-gris-light rounded-xl bg-white overflow-hidden">
+            <ul className="divide-y divide-gris-light border border-gris-light rounded-xl bg-surface overflow-hidden">
               {group.articles.map((article) => (
                 <li key={article.slug}>
                   <Link

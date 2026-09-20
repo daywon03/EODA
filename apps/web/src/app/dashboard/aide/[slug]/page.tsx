@@ -35,7 +35,7 @@ export default async function HelpArticlePage({ params }: Props) {
         </span>
       </p>
 
-      <div className="bg-white border border-gris-light rounded-xl p-5 sm:p-6">
+      <div className="bg-surface border border-gris-light rounded-xl p-5 sm:p-6">
         <HelpArticleBody blocks={article.body} />
       </div>
     </article>

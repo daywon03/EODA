@@ -25,7 +25,7 @@ export default async function DevisListPage({ searchParams }: Props) {
       />
 
       {totalCount === 0 ? (
-        <div className="flex flex-col items-center justify-center py-20 text-center border-2 border-dashed border-gris-light rounded-xl bg-white/50">
+        <div className="flex flex-col items-center justify-center py-20 text-center border-2 border-dashed border-gris-light rounded-xl bg-surface/50">
           <FileText className="w-12 h-12 text-gris-light mb-4" aria-hidden="true" />
           <h2 className="text-lg font-semibold text-brun-ancre mb-1">Aucun devis</h2>
           <p className="text-gris-mid text-sm">Créez un devis depuis la fiche d&apos;un prospect.</p>

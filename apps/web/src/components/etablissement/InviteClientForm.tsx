@@ -79,7 +79,7 @@ export function InviteClientForm({ establishmentId, defaultEmail, defaultName }:
             Mot de passe temporaire — à communiquer à l&apos;interlocuteur
           </p>
           <div className="flex items-center gap-2">
-            <code className="flex-1 bg-white border border-gris-light rounded px-3 py-2.5 text-sm font-mono text-brun-ancre tracking-wider tabular-nums">
+            <code className="flex-1 bg-surface border border-gris-light rounded px-3 py-2.5 text-sm font-mono text-brun-ancre tracking-wider tabular-nums">
               {result.tempPassword}
             </code>
             <Button

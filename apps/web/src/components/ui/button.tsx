@@ -10,7 +10,7 @@ const buttonVariants = cva(
       variant: {
         default: "bg-terre text-ivoire-light shadow-eoda-sm hover:bg-brun-moyen hover:shadow-eoda-md",
         destructive: "bg-rouge-imp text-white shadow-eoda-sm hover:opacity-90",
-        outline: "border border-gris-light bg-white hover:bg-ivoire hover:border-terre/40 text-brun-ancre",
+        outline: "border border-gris-light bg-surface hover:bg-ivoire hover:border-terre/40 text-brun-ancre",
         secondary: "bg-brun-moyen text-ivoire hover:opacity-90",
         ghost: "hover:bg-ivoire text-brun-ancre",
         link: "text-terre underline-offset-4 hover:underline",

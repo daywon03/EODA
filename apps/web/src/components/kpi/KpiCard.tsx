@@ -12,7 +12,7 @@ type Props = {
 
 export function KpiCard({ label, value, icon: Icon, hint }: Props) {
   return (
-    <div className="rounded-xl border border-gris-light bg-white p-5">
+    <div className="rounded-xl border border-gris-light bg-surface p-5">
       <div className="flex items-center gap-4">
         {/* Bordure + fond, comme les badges de statut : un fond seul à 15 %
             d'opacité se noie dans le blanc de la carte. */}

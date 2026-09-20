@@ -17,16 +17,28 @@ const config: Config = {
     extend: {
       colors: {
         // Charte EODA officielle — context/04-charte-eoda.md
-        "brun-ancre": "#3E2C26",
-        "brun-moyen": "#5C3D2E",
-        terre: "#B45A32",
-        ambre: "#D69646",
-        ivoire: "#F0E8DC",
-        "ivoire-light": "#FAF3EB",
-        "rouge-imp": "#C0392B",
-        "vert-ok": "#27AE60",
-        "gris-mid": "#8A7B72",
-        "gris-light": "#E8DDD6",
+        //
+        // `rgb(var(--x) / <alpha-value>)` plutôt qu'un hex figé : c'est ce qui
+        // permet à `--brun-ancre` etc. (globals.css) de changer de valeur en mode
+        // sombre système, sans toucher un seul composant qui écrit `bg-terre` ou
+        // `text-brun-ancre` — et `<alpha-value>` conserve les modificateurs
+        // d'opacité déjà utilisés partout (`bg-terre/12`, `border-rouge-imp/50`).
+        // La variable CSS doit rester des CANAUX bruts ("62 44 38"), jamais un hex
+        // ni un mot-clé : `rgb(#3E2C26 / 0.1)` n'est pas du CSS valide.
+        "brun-ancre": "rgb(var(--brun-ancre) / <alpha-value>)",
+        "brun-moyen": "rgb(var(--brun-moyen) / <alpha-value>)",
+        terre: "rgb(var(--terre) / <alpha-value>)",
+        ambre: "rgb(var(--ambre) / <alpha-value>)",
+        ivoire: "rgb(var(--ivoire) / <alpha-value>)",
+        "ivoire-light": "rgb(var(--ivoire-light) / <alpha-value>)",
+        "rouge-imp": "rgb(var(--rouge-imp) / <alpha-value>)",
+        "vert-ok": "rgb(var(--vert-ok) / <alpha-value>)",
+        "gris-mid": "rgb(var(--gris-mid) / <alpha-value>)",
+        "gris-light": "rgb(var(--gris-light) / <alpha-value>)",
+        // Fond de carte/panneau — remplace les ~150 usages de `bg-white` (blanc en
+        // clair, brun très sombre en sombre) : la SEULE couleur de cette liste qui
+        // n'existait pas dans la charte d'origine, ajoutée pour ce motif précis.
+        surface: "rgb(var(--surface) / <alpha-value>)",
         // Couleurs de cotation HAS — réservées, ne pas réutiliser ailleurs
         "cot-1": "#C0392B",
         "cot-2": "#E67E22",

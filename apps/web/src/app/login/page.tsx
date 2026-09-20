@@ -32,30 +32,34 @@ export default function LoginPage() {
               tiendrait pas sur ce fond. */}
           <EodaMark size={44} />
           <div>
-            <span className="text-ivoire font-bold text-lg tracking-wide block">EODA conseil</span>
-            <span className="text-ambre text-[11px] uppercase tracking-widest block">
+            {/* Couleurs LITTÉRALES, jamais `text-ivoire`/`text-ambre` : ce panneau a
+                un fond dégradé fixe en hex (ci-dessus), qui ne suit pas le thème.
+                Les classes de la charte, elles, s'inversent en mode sombre — les y
+                laisser rendait ce texte sombre sur un fond qui reste sombre. */}
+            <span className="text-[#F0E8DC] font-bold text-lg tracking-wide block">EODA conseil</span>
+            <span className="text-[#D69646] text-[11px] uppercase tracking-widest block">
               Expliquer · Observer · Démontrer · Accompagner
             </span>
           </div>
         </div>
 
         <div className="relative max-w-md">
-          <h2 className="text-ivoire text-3xl font-bold leading-snug mb-4">
+          <h2 className="text-[#F0E8DC] text-3xl font-bold leading-snug mb-4">
             Préparez votre évaluation qualité HAS en toute sérénité
           </h2>
           <ul className="space-y-4">
             {HIGHLIGHTS.map(({ icon: Icon, text }) => (
               <li key={text} className="flex items-center gap-3">
                 <span className="flex items-center justify-center w-9 h-9 rounded-full bg-white/10 flex-shrink-0">
-                  <Icon className="w-4 h-4 text-ambre" aria-hidden="true" />
+                  <Icon className="w-4 h-4 text-[#D69646]" aria-hidden="true" />
                 </span>
-                <span className="text-ivoire/90 text-sm leading-snug">{text}</span>
+                <span className="text-[#F0E8DC]/90 text-sm leading-snug">{text}</span>
               </li>
             ))}
           </ul>
         </div>
 
-        <p className="relative text-ivoire/50 text-xs">
+        <p className="relative text-[#F0E8DC]/50 text-xs">
           © 2026 EODA Conseil · Outil de préparation interne · Non officiel HAS
         </p>
       </div>
@@ -69,7 +73,7 @@ export default function LoginPage() {
             <EodaLockup width={260} className="h-auto max-w-full" />
           </div>
 
-          <div className="bg-white rounded-xl shadow-eoda-lg p-8">
+          <div className="bg-surface rounded-xl shadow-eoda-lg p-8">
             <h2 className="text-brun-ancre text-lg font-semibold mb-1">Connexion</h2>
             <p className="text-gris-mid text-sm mb-6">
               Outil de préparation à l&apos;évaluation qualité HAS

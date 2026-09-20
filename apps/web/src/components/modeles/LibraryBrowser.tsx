@@ -250,7 +250,7 @@ function FolderTile({ name, count, onOpen }: { name: string; count: number; onOp
     <button
       type="button"
       onClick={onOpen}
-      className="flex flex-col items-start gap-2 rounded-xl border border-gris-light bg-white p-3.5 text-left transition-all duration-150 hover:-translate-y-0.5 hover:shadow-eoda-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terre focus-visible:ring-offset-2"
+      className="flex flex-col items-start gap-2 rounded-xl border border-gris-light bg-surface p-3.5 text-left transition-all duration-150 hover:-translate-y-0.5 hover:shadow-eoda-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terre focus-visible:ring-offset-2"
     >
       <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-terre/10">
         <Folder className="h-4.5 w-4.5 text-terre" aria-hidden="true" />
@@ -269,7 +269,7 @@ function TemplateTile({ template, subtitle }: { template: TemplateSummary; subti
   return (
     <Link
       href={`/dashboard/cabinet/modeles/${template.id}`}
-      className="flex flex-col items-start gap-2 rounded-xl border border-gris-light bg-white p-3.5 text-left transition-all duration-150 hover:-translate-y-0.5 hover:shadow-eoda-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terre focus-visible:ring-offset-2"
+      className="flex flex-col items-start gap-2 rounded-xl border border-gris-light bg-surface p-3.5 text-left transition-all duration-150 hover:-translate-y-0.5 hover:shadow-eoda-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terre focus-visible:ring-offset-2"
     >
       <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-brun-ancre/10">
         <FileText className="h-4.5 w-4.5 text-brun-moyen" aria-hidden="true" />

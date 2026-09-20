@@ -59,7 +59,7 @@ export default async function EvaluationOverviewPage({ params }: Props) {
         {/* Seconde auto-évaluation « comparable à la première » (§12.6, promesse de
             l'offre Excellence). Le lien est toujours là : la page dit elle-même
             qu'il n'y a rien à comparer tant qu'un chapitre n'a qu'une session. */}
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-gris-light bg-white px-5 py-4">
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-gris-light bg-surface px-5 py-4">
           <div className="text-sm">
             <p className="font-semibold text-brun-ancre">Comparer avec la session précédente</p>
             <p className="text-gris-mid">
@@ -79,7 +79,7 @@ export default async function EvaluationOverviewPage({ params }: Props) {
             réel de Synaé n'est toujours pas spécifié — l'écran le DIT plutôt que de
             laisser croire à une compatibilité qui se découvrirait fausse le jour de
             la saisie officielle. */}
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-gris-light bg-white px-5 py-4">
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-gris-light bg-surface px-5 py-4">
           <div className="text-sm">
             <p className="font-semibold text-brun-ancre">Exporter les cotations</p>
             <p className="text-gris-mid">

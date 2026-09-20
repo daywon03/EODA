@@ -54,7 +54,7 @@ export function LibraryToolbar({ categories }: { categories: CategorySummary[] }
       {menuOpen && (
         <div
           role="menu"
-          className="absolute right-0 top-full z-20 mt-2 w-64 rounded-lg border border-gris-light bg-white p-1.5 shadow-eoda-md"
+          className="absolute right-0 top-full z-20 mt-2 w-64 rounded-lg border border-gris-light bg-surface p-1.5 shadow-eoda-md"
         >
           <MenuItem
             icon={FolderUp}

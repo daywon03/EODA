@@ -141,7 +141,7 @@ export default async function ClientDashboardPage() {
           className={`flex items-start gap-3 rounded-lg border px-5 py-4 ${
             nextStep.tone === "ACTION"
               ? "border-terre/40 bg-terre/[0.07]"
-              : "border-gris-light bg-white"
+              : "border-gris-light bg-surface"
           }`}
         >
           {nextStep.tone === "ACTION" ? (
@@ -190,7 +190,7 @@ export default async function ClientDashboardPage() {
 
       {/* Prochains rendez-vous, avant la checklist : c'est la question qu'on se pose
           en ouvrant son espace, et la seule à laquelle une date répond. */}
-      <section className="bg-white border border-gris-light rounded-xl p-5 space-y-4">
+      <section className="bg-surface border border-gris-light rounded-xl p-5 space-y-4">
         <div className="flex items-center gap-2">
           <CalendarDays className="w-4 h-4 text-terre" aria-hidden="true" />
           <h2 className="text-sm font-semibold text-brun-ancre">Vos prochains rendez-vous</h2>
@@ -203,7 +203,7 @@ export default async function ClientDashboardPage() {
       </section>
 
       {/* Progression globale */}
-      <div className="bg-white border border-gris-light rounded-xl p-5 space-y-4">
+      <div className="bg-surface border border-gris-light rounded-xl p-5 space-y-4">
         <div className="flex items-center justify-between text-sm">
           <span className="font-medium text-brun-ancre">Progression globale</span>
           <span className="text-gris-mid tabular-nums">
@@ -237,7 +237,7 @@ export default async function ClientDashboardPage() {
           que c'est VOTRE identité visuelle. Masqué en bibliothèque (lecture seule) :
           l'action serveur le refuserait de toute façon (canDepositDocuments). */}
       {depositOpen && (
-        <div className="bg-white border border-gris-light rounded-xl p-5 space-y-4">
+        <div className="bg-surface border border-gris-light rounded-xl p-5 space-y-4">
           <div className="flex items-center gap-2">
             <ImageIcon className="w-4 h-4 text-terre" aria-hidden="true" />
             <h2 className="text-sm font-semibold text-brun-ancre">Logo de votre structure</h2>

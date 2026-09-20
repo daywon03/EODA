@@ -32,7 +32,7 @@ export function TemplateCriterionFilter({
               : "/dashboard/cabinet/modeles"
           );
         }}
-        className="rounded-md border border-gris-light bg-white px-2 py-1.5 text-xs text-brun-ancre"
+        className="rounded-md border border-gris-light bg-surface px-2 py-1.5 text-xs text-brun-ancre"
       >
         <option value="">Tous les modèles</option>
         {allCriteria.map((c) => (

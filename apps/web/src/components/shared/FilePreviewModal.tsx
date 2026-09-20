@@ -46,7 +46,7 @@ export function FilePreviewModal({
       onClick={onClose}
     >
       <div
-        className="flex flex-col w-full max-w-4xl h-full max-h-[85vh] bg-white rounded-xl overflow-hidden shadow-xl"
+        className="flex flex-col w-full max-w-4xl h-full max-h-[85vh] bg-surface rounded-xl overflow-hidden shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between gap-3 px-5 py-3 border-b border-gris-light flex-shrink-0">

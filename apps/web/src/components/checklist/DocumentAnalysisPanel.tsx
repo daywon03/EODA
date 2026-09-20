@@ -274,7 +274,7 @@ function AnalysisGuidelines({ open }: { open: boolean }) {
             value={criterionId}
             onChange={(e) => handleCriterionChange(e.target.value)}
             disabled={isPending || criteria === null}
-            className="w-full rounded-md border border-gris-light bg-white px-2 py-1.5 text-xs text-brun-ancre"
+            className="w-full rounded-md border border-gris-light bg-surface px-2 py-1.5 text-xs text-brun-ancre"
           >
             <option value="">— Sélectionner un critère —</option>
             {criteria?.map((c) => (
@@ -287,7 +287,7 @@ function AnalysisGuidelines({ open }: { open: boolean }) {
           {existing && existing.length > 0 && (
             <ul className="space-y-1.5">
               {existing.map((g) => (
-                <li key={g.id} className="rounded-md bg-white/70 px-2 py-1.5 text-xs text-brun-ancre">
+                <li key={g.id} className="rounded-md bg-surface/70 px-2 py-1.5 text-xs text-brun-ancre">
                   <p>{g.note}</p>
                   <p className="mt-0.5 text-[11px] text-gris-mid">
                     {g.createdByName} · {formatDate(g.createdAt)}

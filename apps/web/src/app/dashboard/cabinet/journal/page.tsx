@@ -133,7 +133,7 @@ export default async function AuditLogPage({
           et aucune mutation n'est possible depuis cet écran (lecture seule). */}
       <form
         method="get"
-        className="bg-white border border-gris-light rounded-xl p-4 grid grid-cols-1 sm:grid-cols-4 gap-4 items-end"
+        className="bg-surface border border-gris-light rounded-xl p-4 grid grid-cols-1 sm:grid-cols-4 gap-4 items-end"
       >
         <div className="space-y-1.5">
           <Label htmlFor="establishmentId">Établissement</Label>
@@ -176,7 +176,7 @@ export default async function AuditLogPage({
         </div>
       </form>
 
-      <div className="bg-white border border-gris-light rounded-xl overflow-hidden">
+      <div className="bg-surface border border-gris-light rounded-xl overflow-hidden">
         <div className="px-5 py-3 border-b border-gris-light flex flex-wrap items-center justify-between gap-2">
           <p className="text-sm text-gris-mid">
             {result.total === 0

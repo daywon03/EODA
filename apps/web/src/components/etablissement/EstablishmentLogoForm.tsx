@@ -65,7 +65,7 @@ export function EstablishmentLogoForm({
               accept="image/png,image/jpeg"
               disabled={isPending}
               onChange={() => formRef.current?.requestSubmit()}
-              className="block w-full text-xs text-gris-mid file:mr-3 file:cursor-pointer file:rounded-md file:border file:border-gris-light file:bg-white file:px-3 file:py-2 file:text-xs file:font-medium file:text-brun-ancre hover:file:border-terre/40 disabled:opacity-50"
+              className="block w-full text-xs text-gris-mid file:mr-3 file:cursor-pointer file:rounded-md file:border file:border-gris-light file:bg-surface file:px-3 file:py-2 file:text-xs file:font-medium file:text-brun-ancre hover:file:border-terre/40 disabled:opacity-50"
               aria-label="Déposer le logo de la structure"
             />
           </form>

@@ -98,7 +98,7 @@ function DraftDrawer({ documentVersionId, onClose }: { documentVersionId: string
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-brun-ancre/30" role="dialog" aria-modal="true">
-      <div className="flex h-full w-full max-w-xl flex-col bg-white shadow-xl">
+      <div className="flex h-full w-full max-w-xl flex-col bg-surface shadow-xl">
         <header className="flex items-center justify-between border-b border-gris-light px-4 py-3">
           <div className="flex items-center gap-2">
             <Sparkles className="h-4 w-4 text-ambre" aria-hidden="true" />
@@ -129,7 +129,7 @@ function DraftDrawer({ documentVersionId, onClose }: { documentVersionId: string
                   onChange={(e) => setModelId(e.target.value)}
                   disabled={isPending}
                   aria-label="Modèle IA pour la génération"
-                  className="rounded-md border border-gris-light bg-white px-1.5 py-1 text-xs text-brun-ancre"
+                  className="rounded-md border border-gris-light bg-surface px-1.5 py-1 text-xs text-brun-ancre"
                 >
                   {LLM_MODEL_OPTIONS.map((option) => (
                     <option key={option.id} value={option.id}>
@@ -222,7 +222,7 @@ function DraftDrawer({ documentVersionId, onClose }: { documentVersionId: string
                     onChange={(e) => setModelId(e.target.value)}
                     disabled={isPending}
                     aria-label="Modèle IA pour la régénération"
-                    className="rounded-md border border-gris-light bg-white px-1.5 py-1 text-xs text-brun-ancre"
+                    className="rounded-md border border-gris-light bg-surface px-1.5 py-1 text-xs text-brun-ancre"
                   >
                     {LLM_MODEL_OPTIONS.map((option) => (
                       <option key={option.id} value={option.id}>

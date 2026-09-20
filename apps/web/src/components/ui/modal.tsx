@@ -39,7 +39,7 @@ export function Modal({
       onClick={onClose}
     >
       <div
-        className={`flex max-h-[85vh] w-full ${maxWidthClassName} flex-col overflow-hidden rounded-xl bg-white shadow-xl`}
+        className={`flex max-h-[85vh] w-full ${maxWidthClassName} flex-col overflow-hidden rounded-xl bg-surface shadow-xl`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex flex-shrink-0 items-center justify-between gap-3 border-b border-gris-light px-5 py-3">
