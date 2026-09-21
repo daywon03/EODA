@@ -100,7 +100,7 @@ export function CriterionSuggestionsList({
           <li key={s.id} className="flex items-start justify-between gap-3 text-xs">
             <div className="min-w-0">
               <p className="font-medium text-brun-ancre">
-                {s.criterionRequirementLevel === "IMPERATIF" && (
+                {s.criterionIsImperative && (
                   <span
                     className="mr-1 rounded bg-terre px-1 py-0.5 text-[10px] font-semibold uppercase text-white"
                     title="Critère impératif HAS — obligatoire pour l'évaluation"

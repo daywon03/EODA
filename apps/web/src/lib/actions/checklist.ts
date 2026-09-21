@@ -5,7 +5,8 @@ import { notFound } from "next/navigation";
 import { requireClientEstablishment, requireEstablishmentInTenant } from "@/lib/auth/guards";
 import type { ReportSourceItem } from "@/lib/services/conformity-report-service";
 import { getEstablishmentCoveredCategories } from "@/lib/services/establishment-offer-service";
-import type { DocumentCategory, DocumentStatus } from "@eoda/database";
+import { isCriterionImperativeForEstablishment } from "@/lib/services/criterion-imperativeness-service";
+import type { DocumentCategory, DocumentStatus, EstablishmentType } from "@eoda/database";
 import {
   deriveDocumentStep,
   type DocumentStep,
@@ -72,7 +73,10 @@ export type CriterionSuggestionItem = {
   id: string;
   criterionCode: string;
   criterionLabel: string;
-  criterionRequirementLevel: "IMPERATIF" | "STANDARD";
+  // Résolu selon le profil réel de l'établissement (cf. criterion-imperativeness-service) —
+  // ne PAS relire criterionRequirementLevel seul côté écran, sinon 3.6.2 apparaît
+  // "standard" pour un SAD Mixte alors qu'il y est impératif.
+  criterionIsImperative: boolean;
   justification: string;
 };
 
@@ -100,6 +104,7 @@ export type ChecklistByCategory = Record<DocumentCategory, ChecklistItem[]>;
 // oublierait de la préciser.
 async function buildChecklist(
   establishmentId: string,
+  establishmentType: EstablishmentType,
   audience: AnalysisAudience
 ): Promise<ChecklistByCategory> {
   // Une seule lecture d'horloge par construction de checklist : deux documents
@@ -207,7 +212,8 @@ async function buildChecklist(
             // Jamais transmis au CLIENT : une suggestion non tranchée est une
             // hypothèse de travail interne (CDC §5, §7), gatée ici plutôt qu'à la
             // lecture (cf. commentaire sur le `select` ci-dessus).
-            audience === "CABINET" ? doc.criterionSuggestions : []
+            audience === "CABINET" ? doc.criterionSuggestions : [],
+            establishmentType
           )
         : null,
       versions: (doc?.versions ?? []).map((version) => ({
@@ -268,7 +274,8 @@ function toChecklistVersion(
     id: string;
     justification: string;
     criterion: { code: string; label: string; requirementLevel: "IMPERATIF" | "STANDARD" };
-  }[]
+  }[],
+  establishmentType: EstablishmentType
 ): NonNullable<ChecklistItem["currentVersion"]> {
   const reviewable = {
     analysis: parseAnalysisResult(version.analysisResultJson),
@@ -287,7 +294,10 @@ function toChecklistVersion(
       id: s.id,
       criterionCode: s.criterion.code,
       criterionLabel: s.criterion.label,
-      criterionRequirementLevel: s.criterion.requirementLevel,
+      criterionIsImperative: isCriterionImperativeForEstablishment(
+        { code: s.criterion.code, requirementLevel: s.criterion.requirementLevel },
+        establishmentType
+      ),
       justification: s.justification,
     })),
   };
@@ -318,7 +328,11 @@ export async function getClientChecklist(): Promise<{
     };
   }
 
-  const checklist = await buildChecklist(establishment.id, "CLIENT");
+  const checklist = await buildChecklist(
+    establishment.id,
+    establishment.type as EstablishmentType,
+    "CLIENT"
+  );
 
   return { establishment, checklist, missionAccess, libraryUpdateAlert };
 }
@@ -329,9 +343,9 @@ export async function getEstablishmentChecklist(
   // Vérifie l'appartenance de l'établissement au tenant de l'appelant — sans ce
   // contrôle, un utilisateur Cabinet lisait la checklist de n'importe quel
   // établissement, tous tenants confondus.
-  await requireEstablishmentInTenant(establishmentId);
+  const { establishmentType } = await requireEstablishmentInTenant(establishmentId);
 
-  return buildChecklist(establishmentId, "CABINET");
+  return buildChecklist(establishmentId, establishmentType, "CABINET");
 }
 
 // ── Rapport de mise en conformité ────────────────────────────────────────────
@@ -352,11 +366,11 @@ export async function getConformityReportData(
 
   const establishment = await prisma.establishment.findFirst({
     where: { id: establishmentId, tenantId },
-    select: { name: true, logoDataUri: true },
+    select: { name: true, logoDataUri: true, type: true },
   });
   if (!establishment) notFound();
 
-  const checklist = await buildChecklist(establishmentId, "CABINET");
+  const checklist = await buildChecklist(establishmentId, establishment.type, "CABINET");
   // La catégorie est la CLÉ de la checklist, pas un champ de l'item : on la rattache
   // ici plutôt que de l'ajouter partout dans le modèle.
   const items = Object.entries(checklist).flatMap(([category, categoryItems]) =>
