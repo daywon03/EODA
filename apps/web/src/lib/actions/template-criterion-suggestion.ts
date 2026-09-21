@@ -26,7 +26,12 @@ async function reviewTemplateSuggestion(
 
   const suggestion = await prisma.templateCriterionSuggestion.findUnique({
     where: { id: suggestionId },
-    select: { id: true, status: true, templateDocument: { select: { id: true, tenantId: true } } },
+    select: {
+      id: true,
+      status: true,
+      criterionId: true,
+      templateDocument: { select: { id: true, tenantId: true } },
+    },
   });
   if (
     !suggestion ||
@@ -39,10 +44,32 @@ async function reviewTemplateSuggestion(
   // Déjà tranchée : on ne réécrit pas une décision humaine, on le dit simplement.
   if (suggestion.status !== "PENDING") return null;
 
-  await prisma.templateCriterionSuggestion.update({
-    where: { id: suggestionId },
-    data: { status: decision, reviewedByUserId: userId, reviewedAt: new Date() },
-  });
+  // « Coche les critères » (Damon, revue du 21/09/2026) : confirmer une suggestion
+  // ne se limite pas à faire disparaître la ligne, ça RATTACHE réellement le
+  // critère au gabarit — sinon TemplateCriteriaPicker et le futur écran « par
+  // critère » ne le voient jamais. Une seule transaction : sans elle, un crash
+  // entre les deux écritures laisserait une suggestion CONFIRMED sans son
+  // rattachement, l'exact symptôme qu'on corrige ici.
+  await prisma.$transaction([
+    prisma.templateCriterionSuggestion.update({
+      where: { id: suggestionId },
+      data: { status: decision, reviewedByUserId: userId, reviewedAt: new Date() },
+    }),
+    ...(decision === "CONFIRMED"
+      ? [
+          prisma.templateDocumentCriterion.upsert({
+            where: {
+              templateDocumentId_criterionId: {
+                templateDocumentId: templateId,
+                criterionId: suggestion.criterionId,
+              },
+            },
+            create: { templateDocumentId: templateId, criterionId: suggestion.criterionId },
+            update: {},
+          }),
+        ]
+      : []),
+  ]);
 
   await recordAuditEvent({
     action:

@@ -104,6 +104,11 @@ export default async function ModelePage({ params }: Props) {
           >
             <div className="space-y-3">
               <TemplateCriteriaPicker
+                // Remonte quand la liste rattachée change réellement — sinon
+                // confirmer une suggestion IA écrit bien en base (cf.
+                // template-criterion-suggestion.ts) mais le picker garde son état
+                // local de montage, coché comme avant jusqu'au prochain F5.
+                key={template.criteria.map((c) => c.id).sort().join(",")}
                 templateId={template.id}
                 allCriteria={allCriteria ?? []}
                 initialSelected={template.criteria.map((c) => c.id)}
