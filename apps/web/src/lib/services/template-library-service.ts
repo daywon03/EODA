@@ -86,7 +86,7 @@ export const TEMPLATE_KIND_LABELS: Record<TemplateDocumentKind, string> = {
 
 export const TEMPLATE_KIND_HINTS: Record<TemplateDocumentKind, string> = {
   GABARIT:
-    "Un document que vous produisez : il a une version vierge, l'état reçu de la structure, et la version restituée.",
+    "Un document que vous produisez : il a une version vierge, réutilisable, et la version restituée à la structure.",
   REFERENCE:
     "Un document que vous ne produisez pas — manuel HAS, texte réglementaire, grille Synaé. Un ou plusieurs fichiers, sans stade ni numéro de version imposé.",
 };
