@@ -98,3 +98,56 @@ export async function rejectTemplateCriterionSuggestion(
 ): Promise<{ error: string } | null> {
   return reviewTemplateSuggestion(templateId, suggestionId, "REJECTED");
 }
+
+// « Un bouton qui accepte tous les critères trouvés par l'IA » (Damon, 21/09/2026) —
+// confirmer une par une une liste qui peut aller jusqu'à dix lignes est le point de
+// friction qui fait que la revue humaine se fait à moitié. Même garde tenant que
+// reviewTemplateSuggestion ; ne touche QUE les suggestions encore PENDING au moment
+// de l'appel, jamais celles déjà REJECTED par un choix humain antérieur.
+export async function confirmAllTemplateCriterionSuggestions(
+  templateId: string
+): Promise<{ error: string } | null> {
+  const { tenantId, userId, session } = await requireCabinetAdminSession();
+
+  const template = await prisma.templateDocument.findFirst({
+    where: { id: templateId, tenantId },
+    select: { id: true },
+  });
+  if (!template) notFound();
+
+  const pending = await prisma.templateCriterionSuggestion.findMany({
+    where: { templateDocumentId: templateId, status: "PENDING" },
+    select: { id: true, criterionId: true },
+  });
+  if (pending.length === 0) return null;
+
+  await prisma.$transaction([
+    prisma.templateCriterionSuggestion.updateMany({
+      where: { id: { in: pending.map((s) => s.id) } },
+      data: { status: "CONFIRMED", reviewedByUserId: userId, reviewedAt: new Date() },
+    }),
+    ...pending.map((s) =>
+      prisma.templateDocumentCriterion.upsert({
+        where: {
+          templateDocumentId_criterionId: { templateDocumentId: templateId, criterionId: s.criterionId },
+        },
+        create: { templateDocumentId: templateId, criterionId: s.criterionId },
+        update: {},
+      })
+    ),
+  ]);
+
+  await Promise.all(
+    pending.map((s) =>
+      recordAuditEvent({
+        action: "TEMPLATE_CRITERION_SUGGESTION_CONFIRMED",
+        actorUserId: userId,
+        actorRole: session.user.role,
+        targetId: s.id,
+      })
+    )
+  );
+
+  revalidatePath(`/dashboard/cabinet/modeles/${templateId}`);
+  return null;
+}

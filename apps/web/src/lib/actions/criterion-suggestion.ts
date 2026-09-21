@@ -68,3 +68,47 @@ export async function rejectCriterionSuggestion(
 ): Promise<{ error: string } | null> {
   return reviewSuggestion(establishmentId, suggestionId, "REJECTED");
 }
+
+// « Un bouton qui accepte tous les critères trouvés par l'IA » (Damon, 21/09/2026),
+// pendant client de confirmAllTemplateCriterionSuggestions. `suggestionIds` vient
+// de la liste déjà affichée à l'écran (un seul document/version) plutôt que « tout
+// ce qui est PENDING pour l'établissement » : cet établissement peut avoir
+// plusieurs documents en cours d'analyse en même temps, et « tout accepter » sur
+// cet écran ne doit trancher QUE ce qui y est visible.
+export async function confirmAllCriterionSuggestions(
+  establishmentId: string,
+  suggestionIds: string[]
+): Promise<{ error: string } | null> {
+  const access = await requireEstablishmentAccess(establishmentId);
+  if (access.isClient) notFound();
+  if (suggestionIds.length === 0) return null;
+
+  const suggestions = await prisma.documentCriterionSuggestion.findMany({
+    where: { id: { in: suggestionIds }, status: "PENDING" },
+    select: { id: true, document: { select: { establishmentId: true } } },
+  });
+  // IDOR : n'importe quel id qui n'appartient pas à CET établissement est
+  // silencieusement écarté plutôt que de faire échouer tout le lot.
+  const owned = suggestions.filter((s) => s.document.establishmentId === establishmentId);
+  if (owned.length === 0) return null;
+
+  await prisma.documentCriterionSuggestion.updateMany({
+    where: { id: { in: owned.map((s) => s.id) } },
+    data: { status: "CONFIRMED", reviewedByUserId: access.userId, reviewedAt: new Date() },
+  });
+
+  await Promise.all(
+    owned.map((s) =>
+      recordAuditEvent({
+        action: "CRITERION_SUGGESTION_CONFIRMED",
+        actorUserId: access.userId,
+        actorRole: access.session.user.role,
+        establishmentId,
+        targetId: s.id,
+      })
+    )
+  );
+
+  revalidatePath(`/dashboard/cabinet/etablissements/${establishmentId}`);
+  return null;
+}

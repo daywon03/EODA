@@ -635,7 +635,12 @@ export async function reanalyzeDocument(
 //
 // Append-only : aucune action de modification ni de suppression n'est exposée. Une
 // guideline est une leçon retenue à une date donnée, pas un champ à corriger.
-export type CriterionOption = { id: string; code: string; label: string };
+export type CriterionOption = {
+  id: string;
+  code: string;
+  label: string;
+  requirementLevel: "IMPERATIF" | "STANDARD";
+};
 
 export type CriterionGuidelineItem = {
   id: string;
@@ -650,7 +655,7 @@ export async function listCriteriaForPicker(): Promise<CriterionOption[] | null>
 
   const criteria = await prisma.criterion.findMany({
     orderBy: { code: "asc" },
-    select: { id: true, code: true, label: true },
+    select: { id: true, code: true, label: true, requirementLevel: true },
   });
   return criteria;
 }

@@ -72,6 +72,7 @@ export type CriterionSuggestionItem = {
   id: string;
   criterionCode: string;
   criterionLabel: string;
+  criterionRequirementLevel: "IMPERATIF" | "STANDARD";
   justification: string;
 };
 
@@ -140,7 +141,11 @@ async function buildChecklist(
       // conditionnel sur une variable d'exécution perd le typage précis de Prisma.
       criterionSuggestions: {
         where: { status: "PENDING" },
-        select: { id: true, justification: true, criterion: { select: { code: true, label: true } } },
+        select: {
+          id: true,
+          justification: true,
+          criterion: { select: { code: true, label: true, requirementLevel: true } },
+        },
       },
       // L'historique complet. Ordonné du plus récent au plus ancien : on cherche
       // presque toujours la dernière version, et le reste est de la trace.
@@ -259,7 +264,11 @@ function toChecklistVersion(
   // Déjà filtré au statut PENDING et à l'audience CABINET par la requête
   // appelante (jamais sélectionné du tout côté client) — cette fonction ne fait
   // que mettre en forme, pas de second contrôle de périmètre ici.
-  criterionSuggestions: { id: string; justification: string; criterion: { code: string; label: string } }[]
+  criterionSuggestions: {
+    id: string;
+    justification: string;
+    criterion: { code: string; label: string; requirementLevel: "IMPERATIF" | "STANDARD" };
+  }[]
 ): NonNullable<ChecklistItem["currentVersion"]> {
   const reviewable = {
     analysis: parseAnalysisResult(version.analysisResultJson),
@@ -278,6 +287,7 @@ function toChecklistVersion(
       id: s.id,
       criterionCode: s.criterion.code,
       criterionLabel: s.criterion.label,
+      criterionRequirementLevel: s.criterion.requirementLevel,
       justification: s.justification,
     })),
   };

@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { AlertCircle, Loader2, Sparkles } from "lucide-react";
 import { reanalyzeDocument } from "@/lib/actions/document";
 import { LLM_MODEL_OPTIONS, DEFAULT_LLM_MODEL_ID } from "@/lib/llm/openrouter-models";
-import { INLINE_ACTION_CLASS } from "@/components/ui/inline-action";
+import { Button } from "@/components/ui/button";
 
 // « Il faut un bouton analyser » (Damon, 15/09/2026) — cabinet uniquement, comme le
 // sélecteur de modèle au dépôt (DocumentUploadButton). Sert à rattraper une version
@@ -45,14 +45,14 @@ export function AnalyzeDocumentButton({
             </option>
           ))}
         </select>
-        <button type="button" onClick={handleClick} disabled={isPending} className={INLINE_ACTION_CLASS}>
+        <Button type="button" size="sm" onClick={handleClick} disabled={isPending}>
           {isPending ? (
-            <Loader2 className="h-3 w-3 flex-shrink-0 animate-spin" aria-hidden="true" />
+            <Loader2 className="h-3.5 w-3.5 flex-shrink-0 animate-spin" aria-hidden="true" />
           ) : (
-            <Sparkles className="h-3 w-3 flex-shrink-0" aria-hidden="true" />
+            <Sparkles className="h-3.5 w-3.5 flex-shrink-0" aria-hidden="true" />
           )}
           {hasAnalysis ? "Réanalyser" : "Analyser"}
-        </button>
+        </Button>
       </div>
       {error && (
         <p role="alert" className="flex items-start gap-1 text-xs text-rouge-imp">
