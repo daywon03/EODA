@@ -2,7 +2,11 @@
 
 import { useState, useTransition } from "react";
 import { Check, X, Sparkles, Loader2 } from "lucide-react";
-import { confirmCriterionSuggestion, rejectCriterionSuggestion } from "@/lib/actions/criterion-suggestion";
+import {
+  confirmAllCriterionSuggestions,
+  confirmCriterionSuggestion,
+  rejectCriterionSuggestion,
+} from "@/lib/actions/criterion-suggestion";
 import type { CriterionSuggestionItem } from "@/lib/actions/checklist";
 import { Button } from "@/components/ui/button";
 
@@ -21,6 +25,7 @@ export function CriterionSuggestionsList({
 }) {
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
   const [pendingId, setPendingId] = useState<string | null>(null);
+  const [isConfirmingAll, setIsConfirmingAll] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [, startTransition] = useTransition();
 
@@ -46,17 +51,63 @@ export function CriterionSuggestionsList({
     });
   }
 
+  function confirmAll() {
+    setError(null);
+    setIsConfirmingAll(true);
+    startTransition(async () => {
+      const result = await confirmAllCriterionSuggestions(
+        establishmentId,
+        visible.map((s) => s.id)
+      );
+      setIsConfirmingAll(false);
+      if (result && "error" in result) {
+        setError(result.error);
+        return;
+      }
+      setDismissed((prev) => {
+        const next = new Set(prev);
+        visible.forEach((s) => next.add(s.id));
+        return next;
+      });
+    });
+  }
+
   return (
     <div className="mt-2 rounded-lg border border-terre/30 bg-terre/5 p-3">
-      <p className="flex items-center gap-1.5 text-xs font-semibold text-brun-ancre">
-        <Sparkles className="h-3.5 w-3.5 text-terre" aria-hidden="true" />
-        Critères HAS supplémentaires détectés — à confirmer
-      </p>
+      <div className="flex items-center justify-between gap-3">
+        <p className="flex items-center gap-1.5 text-xs font-semibold text-brun-ancre">
+          <Sparkles className="h-3.5 w-3.5 text-terre" aria-hidden="true" />
+          Critères HAS supplémentaires détectés — à confirmer
+        </p>
+        <Button
+          type="button"
+          size="sm"
+          variant="ghost"
+          disabled={isConfirmingAll || pendingId !== null}
+          onClick={confirmAll}
+          className="flex-shrink-0 text-xs"
+        >
+          {isConfirmingAll ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+          ) : (
+            <Check className="h-3.5 w-3.5 text-vert-ok" aria-hidden="true" />
+          )}
+          Tout accepter ({visible.length})
+        </Button>
+      </div>
       <ul className="mt-2 space-y-2">
         {visible.map((s) => (
           <li key={s.id} className="flex items-start justify-between gap-3 text-xs">
             <div className="min-w-0">
               <p className="font-medium text-brun-ancre">
+                {s.criterionIsImperative && (
+                  <span
+                    className="mr-1 rounded bg-terre px-1 py-0.5 text-[10px] font-semibold uppercase text-white"
+                    title="Critère impératif HAS — obligatoire pour l'évaluation"
+                  >
+                    Impératif
+                  </span>
+                )}
                 {s.criterionCode} — {s.criterionLabel}
               </p>
               <p className="mt-0.5 text-gris-mid">{s.justification}</p>

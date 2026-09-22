@@ -306,7 +306,13 @@ export type TemplateDetail = {
   // Critères HAS supplémentaires détectés par l'IA sur ce gabarit, pas encore
   // tranchés par le cabinet (cf. detectTemplateCriteria) — jamais présents sur un
   // document de référence, qui ne passe pas par cette détection.
-  criterionSuggestions: { id: string; criterionCode: string; criterionLabel: string; justification: string }[];
+  criterionSuggestions: {
+    id: string;
+    criterionCode: string;
+    criterionLabel: string;
+    criterionRequirementLevel: "IMPERATIF" | "STANDARD";
+    justification: string;
+  }[];
 };
 
 export async function getTemplate(templateId: string): Promise<TemplateDetail> {
@@ -323,7 +329,7 @@ export async function getTemplate(templateId: string): Promise<TemplateDetail> {
       criteria: { include: { criterion: { select: { id: true, code: true, label: true } } } },
       criterionSuggestions: {
         where: { status: "PENDING" },
-        include: { criterion: { select: { code: true, label: true } } },
+        include: { criterion: { select: { code: true, label: true, requirementLevel: true } } },
         orderBy: { createdAt: "asc" },
       },
     },
@@ -344,6 +350,7 @@ export async function getTemplate(templateId: string): Promise<TemplateDetail> {
       id: s.id,
       criterionCode: s.criterion.code,
       criterionLabel: s.criterion.label,
+      criterionRequirementLevel: s.criterion.requirementLevel,
       justification: s.justification,
     })),
     versions: [...template.versions]

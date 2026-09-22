@@ -1,5 +1,5 @@
 import { cache } from "react";
-import { prisma, type UserRole } from "@eoda/database";
+import { prisma, type EstablishmentType, type UserRole } from "@eoda/database";
 import type { Session } from "next-auth";
 import { auth } from "@/auth";
 import { redirect, notFound } from "next/navigation";
@@ -214,16 +214,16 @@ export async function requireCabinetAdminSession(): Promise<CabinetContext> {
 // dans un autre tenant.
 export async function requireEstablishmentInTenant(
   establishmentId: string
-): Promise<CabinetContext & { establishmentId: string }> {
+): Promise<CabinetContext & { establishmentId: string; establishmentType: EstablishmentType }> {
   const context = await requireCabinetSession();
 
   const establishment = await prisma.establishment.findFirst({
     where: { id: establishmentId, tenantId: context.tenantId },
-    select: { id: true },
+    select: { id: true, type: true },
   });
   if (!establishment) notFound();
 
-  return { ...context, establishmentId: establishment.id };
+  return { ...context, establishmentId: establishment.id, establishmentType: establishment.type };
 }
 
 // Accès à un établissement depuis les deux côtés :

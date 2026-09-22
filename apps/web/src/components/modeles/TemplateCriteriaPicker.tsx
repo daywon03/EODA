@@ -67,7 +67,11 @@ export function TemplateCriteriaPicker({
       <ul className="max-h-64 space-y-1 overflow-y-auto rounded-md border border-gris-light p-2">
         {filtered.map((c) => (
           <li key={c.id}>
-            <label className="flex items-start gap-2 text-xs text-brun-ancre">
+            <label
+              className={`flex items-start gap-2 rounded px-1 py-0.5 text-xs text-brun-ancre ${
+                c.requirementLevel === "IMPERATIF" ? "bg-terre/10" : ""
+              }`}
+            >
               <input
                 type="checkbox"
                 checked={selected.has(c.id)}
@@ -75,6 +79,14 @@ export function TemplateCriteriaPicker({
                 className="mt-0.5"
               />
               <span>
+                {c.requirementLevel === "IMPERATIF" && (
+                  <span
+                    className="mr-1 rounded bg-terre px-1 py-0.5 text-[10px] font-semibold uppercase text-white"
+                    title="Critère impératif HAS — obligatoire pour l'évaluation"
+                  >
+                    Impératif
+                  </span>
+                )}
                 <span className="font-medium">{c.code}</span> — {c.label}
               </span>
             </label>
