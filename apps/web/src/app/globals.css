@@ -48,20 +48,27 @@
     --radius: 0.5rem;
   }
 
-  /* MODE SOMBRE — piloté par le système (aucun bouton de bascule dans l'app, donc
-   * aucune raison d'exiger une classe JS pour l'activer). Redéfinit EXACTEMENT les
-   * mêmes variables que :root ci-dessus, jamais de nouveau nom : c'est ce qui
-   * permet à chaque composant existant (`bg-terre`, `text-brun-ancre`,
-   * `border-gris-light`, `bg-surface`…) de re-teinter automatiquement, sans
-   * modification.
+  /* MODE SOMBRE — piloté par le système PAR DÉFAUT, ou par le choix explicite de
+   * l'utilisateur (ThemeToggle, 22/09/2026 : `data-theme` posé sur <html> par
+   * theme-storage.ts). Redéfinit EXACTEMENT les mêmes variables que :root
+   * ci-dessus, jamais de nouveau nom : c'est ce qui permet à chaque composant
+   * existant (`bg-terre`, `text-brun-ancre`, `border-gris-light`, `bg-surface`…)
+   * de re-teinter automatiquement, sans modification.
    *
    * Inversion complète encre/papier, pas un simple assombrissement : brun-ancre
    * (texte principal) devient clair, ivoire-light (fond de page) devient le plus
    * sombre — sinon le texte le plus lu de l'app resterait sombre sur fond sombre.
    * Mêmes valeurs que la proposition validée le 20/09/2026
-   * (https://claude.ai/artifact/8bDNcpfcBEQaBn7tG6KPk1). */
+   * (https://claude.ai/artifact/8bDNcpfcBEQaBn7tG6KPk1).
+   *
+   * Deux voies vers les mêmes variables : la media query système, désactivée
+   * par un choix explicite CLAIR (`:not([data-theme="light"])`) ; et le
+   * sélecteur `[data-theme="dark"]`, qui force le sombre même sur un système
+   * resté en clair. Sans ce second bloc, choisir "sombre" sur un système clair
+   * n'aurait aucun effet — exactement le bug qu'un bouton de bascule existe
+   * pour corriger. */
   @media (prefers-color-scheme: dark) {
-    :root {
+    :root:not([data-theme="light"]) {
       --brun-ancre: 240 232 220;   /* devient le texte clair */
       --brun-moyen: 217 198 184;
       --terre: 224 138 87;        /* éclairci : le terre clair d'origine manque de contraste sur fond sombre */
@@ -75,6 +82,21 @@
       --surface: 43 31 26;        /* carte légèrement plus claire que le fond de page */
       --shadow: rgba(0, 0, 0, 0.4);
     }
+  }
+
+  :root[data-theme="dark"] {
+    --brun-ancre: 240 232 220;
+    --brun-moyen: 217 198 184;
+    --terre: 224 138 87;
+    --ambre: 230 179 110;
+    --ivoire: 43 31 26;
+    --ivoire-light: 34 24 21;
+    --rouge-imp: 226 105 92;
+    --vert-ok: 63 190 119;
+    --gris-mid: 179 164 153;
+    --gris-light: 56 44 38;
+    --surface: 43 31 26;
+    --shadow: rgba(0, 0, 0, 0.4);
   }
 }
 
