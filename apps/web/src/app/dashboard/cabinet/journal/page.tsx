@@ -37,6 +37,7 @@ const ACTION_LABELS: Record<AuditAction, string> = {
   PASSWORD_CHANGE_RATE_LIMITED: "Changement de mot de passe bloqué",
   DEVIS_DELETED: "Devis supprimé",
   DEVIS_CANCELLED: "Devis annulé",
+  DEVIS_EMAIL_SENT: "Devis envoyé par e-mail",
   CATALOGUE_ITEM_RETIRED: "Ligne de catalogue retirée",
   CATALOGUE_ITEM_RESTORED: "Ligne de catalogue restaurée",
   OPTION_QUOTE_REQUESTED: "Demande de devis d'option (client)",

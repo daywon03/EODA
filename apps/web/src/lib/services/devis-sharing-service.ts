@@ -1,16 +1,16 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// PARTAGE D'UN DEVIS — au plus simple, et sans rien inventer d'irréversible.
+// PARTAGE D'UN DEVIS.
 //
-// Décision de Damon (26/08) : pas d'envoi serveur, pas de jeton de partage public,
-// pas de moteur PDF. Deux gestes seulement :
-//   1. télécharger le devis (impression navigateur → PDF, nommé selon la convention
-//      EODA pour que la pièce jointe soit correcte sans renommage manuel) ;
-//   2. ouvrir le brouillon d'e-mail déjà rempli, dans la messagerie de Sandrine.
+// Décision initiale de Damon (26/08) : pas d'envoi serveur, un `mailto:` qui
+// prépare un brouillon dans la vraie boîte de Sandrine, PDF téléchargé à part.
+// SUPERSEDÉE le 22/09/2026 (retour du call Sandrine/Assad Benoît : « Préparer
+// l'e-mail n'envoie pas l'e-mail ») — l'envoi réel passe désormais par
+// sendDevisEmail (lib/actions/devis.ts), Resend + pièce jointe PDF générée par
+// devis-pdf-service.ts, Sandrine en copie plutôt qu'expéditrice.
 //
-// Un `mailto:` n'envoie rien : il prépare. C'est délibéré — l'e-mail part de la
-// vraie boîte de Sandrine, avec sa signature et son historique, et elle relit avant
-// d'envoyer. Un envoi serveur aurait exigé une adresse d'expédition, un moteur PDF et
-// une file de reprise sur échec pour rendre le même service.
+// `buildDevisMailDraft`/`buildMailtoUrl` restent ici, pures et testées : un
+// repli manuel encore possible si l'envoi serveur échoue, pas le chemin
+// principal. `buildDevisFileName` sert toujours à nommer la pièce jointe.
 //
 // Règles PURES : rien d'autre que des chaînes. Testable sans navigateur.
 // ─────────────────────────────────────────────────────────────────────────────

@@ -1393,6 +1393,7 @@ enum AuditAction {
   // numéro ou son code : clés techniques, jamais une donnée personnelle.
   DEVIS_DELETED
   DEVIS_CANCELLED
+  DEVIS_EMAIL_SENT
   CATALOGUE_ITEM_RETIRED
   CATALOGUE_ITEM_RESTORED
   // Révocation d'accès et cycle de vie d'un compte (audit CRUD du 20/08/2026).

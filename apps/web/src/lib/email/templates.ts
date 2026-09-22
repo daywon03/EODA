@@ -240,3 +240,41 @@ export function buildNewMessageEmail(input: {
     html: layout("Vous avez un nouveau message", body, input.brand),
   };
 }
+
+// Envoi réel du devis (22/09/2026) — remplace le brouillon `mailto:` qui ne
+// pouvait pas attacher de fichier. Le PDF (devis-pdf-service.ts) voyage en
+// pièce jointe ; ce message ne fait qu'annoncer ce qu'il contient, jamais
+// recopier les montants (une seule source pour eux : le PDF lui-même).
+export function buildDevisEmail(input: {
+  structureName: string;
+  devisNumber: string;
+  senderName: string;
+  validUntil: Date;
+  brand?: BrandAssets;
+}): EmailContent {
+  const validUntilLabel = input.validUntil.toLocaleDateString("fr-FR", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+
+  const body = `
+    <p style="color:${BRUN_ANCRE};font-size:15px;line-height:1.6">
+      Bonjour,
+    </p>
+    <p style="color:${BRUN_ANCRE};font-size:15px;line-height:1.6">
+      Vous trouverez ci-joint notre proposition ${escapeHtml(input.devisNumber)} pour
+      ${escapeHtml(input.structureName)}, valable jusqu'au ${escapeHtml(validUntilLabel)}.
+    </p>
+    <p style="color:#6B5648;font-size:14px;line-height:1.6">
+      N'hésitez pas à revenir vers nous pour toute question.
+    </p>
+    <p style="color:${BRUN_ANCRE};font-size:15px;line-height:1.6;margin-top:24px">
+      Cordialement,<br>${escapeHtml(input.senderName)}
+    </p>`;
+
+  return {
+    subject: `Votre devis ${input.devisNumber} — EODA Conseil`,
+    html: layout(`Devis ${input.devisNumber}`, body, input.brand),
+  };
+}

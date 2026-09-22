@@ -63,6 +63,12 @@ export type AppEnv = {
   // désactivée : l'analyse documentaire continue de fonctionner SANS enrichissement,
   // c'est un renfort, jamais une condition (cf. lib/knowledge/index.ts).
   voyage: { apiKey: string } | null;
+
+  // Repli LOCAL uniquement (devis-pdf-service.ts) : le binaire de @sparticuz/chromium
+  // est compilé pour l'environnement serverless (Vercel/Lambda) et ne tourne pas tel
+  // quel sur un poste de développement. Absent = chromium.executablePath() (le
+  // binaire serverless), utilisé tel quel en production.
+  puppeteerExecutablePath: string | null;
 };
 
 class ConfigurationError extends Error {
@@ -144,6 +150,7 @@ export function getEnv(): AppEnv {
   const openrouterApiKey = process.env.OPENROUTER_API_KEY?.trim() || null;
   const voyageApiKey = process.env.VOYAGE_API_KEY?.trim() || null;
   const nextAuthUrl = process.env.NEXTAUTH_URL?.trim() || null;
+  const puppeteerExecutablePath = process.env.PUPPETEER_EXECUTABLE_PATH?.trim() || null;
 
   if (problems.length > 0) throw new ConfigurationError(problems);
 
@@ -171,6 +178,7 @@ export function getEnv(): AppEnv {
       ? { apiKey: resendGroup.RESEND_API_KEY!, from: resendGroup.RESEND_FROM_EMAIL! }
       : null,
     voyage: voyageApiKey ? { apiKey: voyageApiKey } : null,
+    puppeteerExecutablePath,
   };
 
   return cached;
