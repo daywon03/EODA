@@ -98,7 +98,10 @@ function VersionRow({
         {version.producedByCabinet ? "EODA" : version.uploadedByName}
       </p>
 
-      {version.hasAnalysis && (
+      {/* Réservé au cabinet, comme AnalyzeDocumentButton juste en dessous : côté
+          client, un dépôt doit rester un dépôt — révéler qu'une analyse IA a
+          tourné dessus n'a rien à faire dans cet écran (Damon, 22/09/2026). */}
+      {canManageVersions && version.hasAnalysis && (
         <span
           className="inline-flex items-center gap-1 text-xs text-ambre"
           title="Cette version a été analysée"
