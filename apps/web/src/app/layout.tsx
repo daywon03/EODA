@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { ThemeInit } from "@/components/theme/ThemeInit";
 
 export const metadata: Metadata = {
   title: "EODA Conseil · Plateforme Qualité HAS",
@@ -25,7 +26,10 @@ export const dynamic = "force-dynamic";
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="fr">
-      <body className="min-h-screen bg-ivoire-light">{children}</body>
+      <body className="min-h-screen bg-ivoire-light">
+        <ThemeInit />
+        {children}
+      </body>
     </html>
   );
 }

@@ -4,6 +4,7 @@ import { logoutAction } from "@/lib/auth-actions";
 import { Button } from "@/components/ui/button";
 import { Info, LogOut, UserRound } from "lucide-react";
 import { EodaMark } from "./EodaLogo";
+import { ThemeToggle } from "@/components/theme/ThemeToggle";
 
 export async function AppHeader() {
   const session = await auth();
@@ -62,6 +63,10 @@ export async function AppHeader() {
                 {session.user?.name ?? session.user?.email}
               </span>
             </Link>
+            {/* Bascule clair/sombre — le seul bandeau commun aux deux espaces,
+                donc le seul endroit à couvrir pour que le bouton existe partout. */}
+            <ThemeToggle />
+
             {/* Point d'entrée unique du centre d'aide — ouvert aux trois rôles, jamais
                 conditionné à l'offre (context/07-outil-pilotage-missions.md §12.5).
                 Bouton à icône seule : le libellé accessible est obligatoire. */}
