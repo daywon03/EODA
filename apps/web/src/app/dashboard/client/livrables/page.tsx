@@ -1,4 +1,6 @@
 import { getClientChecklist } from "@/lib/actions/checklist";
+import { getClientDeliverablesSeenAt } from "@/lib/actions/deliverables";
+import { MarkDeliverablesSeen } from "@/components/checklist/MarkDeliverablesSeen";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { DocumentDownloadLink } from "@/components/checklist/DocumentDownloadLink";
 import { DocumentPreviewLink } from "@/components/checklist/DocumentPreviewLink";
@@ -6,6 +8,7 @@ import { formatDate } from "@/lib/services/date-format-service";
 import {
   countDeliverablesInProgress,
   groupDeliverablesByCategory,
+  isNewDeliverable,
   selectDeliverables,
 } from "@/lib/services/deliverables-service";
 import type { DocumentCategory } from "@eoda/database";
@@ -29,7 +32,13 @@ const CATEGORY_LABELS: Record<DocumentCategory, string> = {
 // dans `deliverables-service`, pur et testé — un document non VALIDÉ n'apparaît pas.
 // ─────────────────────────────────────────────────────────────────────────────
 export default async function ClientDeliverablesPage() {
-  const { establishment, checklist } = await getClientChecklist();
+  // La date de la précédente visite est lue AVANT d'être remplacée
+  // (MarkDeliverablesSeen, une fois la page affichée) : c'est elle qui dit ce qui
+  // est nouveau pour cette personne.
+  const [{ establishment, checklist }, seenAt] = await Promise.all([
+    getClientChecklist(),
+    getClientDeliverablesSeenAt(),
+  ]);
 
   if (!establishment) {
     return (
@@ -57,6 +66,7 @@ export default async function ClientDeliverablesPage() {
 
   return (
     <div className="space-y-6">
+      <MarkDeliverablesSeen />
       <PageHeader
         title="Mes livrables"
         subtitle="Documents produits et validés par EODA Conseil"
@@ -99,7 +109,14 @@ export default async function ClientDeliverablesPage() {
                     className="flex flex-col gap-2 px-5 py-3.5 sm:flex-row sm:items-center sm:justify-between"
                   >
                     <div className="min-w-0">
-                      <p className="text-sm text-brun-ancre">{deliverable.label}</p>
+                      <p className="flex flex-wrap items-center gap-2 text-sm text-brun-ancre">
+                        {deliverable.label}
+                        {isNewDeliverable(deliverable, seenAt) && (
+                          <span className="rounded-full border border-terre/40 bg-terre/10 px-2 py-px text-[11px] font-semibold text-terre">
+                            Nouveau
+                          </span>
+                        )}
+                      </p>
                       <p className="text-xs text-gris-mid">
                         {deliverable.filename} · remis le {formatDate(deliverable.remittedOn)}
                       </p>

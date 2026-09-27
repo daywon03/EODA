@@ -37,6 +37,10 @@ export type DeliverableSourceItem = {
   label: string;
   category: DocumentCategory;
   step: DocumentStep;
+  // Date de validation par la consultante (Document.validatedAt). La remise a lieu
+  // quand le document est À LA FOIS produit et validé : c'est la plus tardive des
+  // deux dates qui dit quand le client l'a reçu.
+  validatedAt: Date | null;
   versions: readonly DeliverableSourceVersion[];
 };
 
@@ -61,6 +65,14 @@ function latestCabinetVersion(
   return produced[0] ?? null;
 }
 
+// Un fichier déposé le 3 et validé le 10 est remis le 10 : c'est ce jour-là qu'il
+// apparaît au client. À l'inverse, une nouvelle version déposée sur un document déjà
+// validé est remise le jour de son dépôt.
+function remittanceDate(uploadedAt: Date, validatedAt: Date | null): Date {
+  if (validatedAt === null) return uploadedAt;
+  return validatedAt.getTime() > uploadedAt.getTime() ? validatedAt : uploadedAt;
+}
+
 export function selectDeliverables(items: readonly DeliverableSourceItem[]): Deliverable[] {
   const deliverables: Deliverable[] = [];
 
@@ -79,7 +91,7 @@ export function selectDeliverables(items: readonly DeliverableSourceItem[]): Del
       category: item.category,
       documentVersionId: version.id,
       filename: version.originalFilename,
-      remittedOn: version.uploadedAt,
+      remittedOn: remittanceDate(version.uploadedAt, item.validatedAt),
     });
   }
 
@@ -105,4 +117,21 @@ export function groupDeliverablesByCategory(
     grouped.set(deliverable.category, bucket);
   }
   return grouped;
+}
+
+// ── Nouveauté dans le portail ────────────────────────────────────────────────
+//
+// « Nouveau » n'est pas stocké par livrable : c'est ce qui a été remis après la
+// dernière ouverture de « Mes livrables » par la personne
+// (EstablishmentUser.deliverablesSeenAt). Jamais ouverte (null) : tout est nouveau
+// — la personne n'a encore rien vu.
+export function isNewDeliverable(deliverable: Deliverable, seenAt: Date | null): boolean {
+  return seenAt === null || deliverable.remittedOn.getTime() > seenAt.getTime();
+}
+
+export function countNewDeliverables(
+  deliverables: readonly Deliverable[],
+  seenAt: Date | null
+): number {
+  return deliverables.filter((deliverable) => isNewDeliverable(deliverable, seenAt)).length;
 }

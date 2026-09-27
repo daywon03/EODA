@@ -1,0 +1,14 @@
+-- Notification des livrables dans le portail client (27/09/2026, demande de Damon :
+-- « il faudrait que le client et ceux qui ont un espace soient notifiés par mail et
+-- sur l'app pour savoir quel doc a été déposé par Sandrine pour eux »).
+--
+-- Une seule colonne, nullable : la date à laquelle la personne a ouvert « Mes
+-- livrables » pour la dernière fois. Ce qui est « nouveau » se dérive de cette date
+-- (deliverables-service.ts) — aucune table de notifications à remplir ni à purger.
+-- NULL = jamais ouvert : tous les livrables existants sont alors annoncés comme
+-- nouveaux, une fois.
+--
+-- Migration écrite à la main : `prisma migrate dev` / `migrate diff` sont interdits
+-- sur ce dépôt (destruction de la base désignée en shadow database, incident du
+-- 19/08/2026). Application : `pnpm db:migrate:deploy` uniquement.
+ALTER TABLE "establishment_users" ADD COLUMN "deliverables_seen_at" TIMESTAMP(3);

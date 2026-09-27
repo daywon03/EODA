@@ -11,8 +11,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const prismaMock = {
   mission: { findUnique: vi.fn() },
   documentType: { findMany: vi.fn(), findUnique: vi.fn() },
-  document: { upsert: vi.fn() },
+  document: { upsert: vi.fn(), findUnique: vi.fn(), update: vi.fn() },
+  establishment: { findUnique: vi.fn() },
 };
+
+const notifyDocumentAvailable = vi.fn();
 
 const ingestDocumentVersion = vi.fn();
 const recordAuditEvent = vi.fn();
@@ -43,8 +46,13 @@ vi.mock("@/lib/security/upload-validation-service", () => ({
 }));
 vi.mock("@/lib/storage", () => ({ getFileStoragePort: () => ({}) }));
 vi.mock("@/lib/llm", () => ({ getLLMAnalysisPort: () => ({}) }));
+vi.mock("@/lib/email/notifications", () => ({
+  notifyDocumentAvailable: (...args: unknown[]) => notifyDocumentAvailable(...args),
+}));
 
-const { uploadDocument, respondToMissingDocument } = await import("./document");
+const { uploadDocument, respondToMissingDocument, setDocumentValidated } = await import(
+  "./document"
+);
 
 const ESTABLISHMENT_ID = "etab-1";
 
@@ -80,9 +88,12 @@ beforeEach(() => {
   requireEstablishmentAccess.mockResolvedValue({
     userId: "user-1",
     session: { user: { role: "CLIENT_USER" } },
+    isClient: true,
     // Mission en cours par défaut : le dépôt s'arrête à la clôture (§12.5).
     missionAccess: "ACTIVE",
   });
+  notifyDocumentAvailable.mockResolvedValue({ sent: 2, total: 2 });
+  prismaMock.establishment.findUnique.mockResolvedValue({ name: "Structure test" });
   extractMarkdown.mockResolvedValue({ markdown: "texte extrait", images: [] });
   ingestDocumentVersion.mockResolvedValue({ documentVersionId: "dv-1" });
   recordAuditEvent.mockResolvedValue(undefined);
@@ -214,5 +225,120 @@ describe("uploadDocument — fin de mission", () => {
     expect(result).toMatchObject({ error: expect.stringContaining("terminé") });
     expect(ingestDocumentVersion).not.toHaveBeenCalled();
     expect(extractMarkdown).not.toHaveBeenCalled();
+  });
+});
+
+// ── Annonce au client d'un document validé (27/09/2026) ─────────────────────
+
+function asCabinet(missionAccess = "ACTIVE"): void {
+  requireEstablishmentAccess.mockResolvedValue({
+    userId: "sandrine",
+    session: { user: { role: "CABINET_ADMIN" } },
+    isClient: false,
+    missionAccess,
+  });
+}
+
+// Lecture faite par l'annonce : intitulé du type et versions produites par EODA.
+function givenAnnouncedDocument(hasCabinetVersion: boolean): void {
+  prismaMock.document.findUnique.mockResolvedValue({
+    id: "doc-1",
+    validatedAt: null,
+    currentVersionId: "dv-1",
+    documentType: { label: LOI_TYPE.label },
+    versions: hasCabinetVersion ? [{ id: "dv-2" }] : [],
+  });
+}
+
+describe("setDocumentValidated — le client est prévenu", () => {
+  it("annonce un LIVRABLE quand EODA a produit une version, et rend le nombre de personnes prévenues", async () => {
+    asCabinet();
+    givenAnnouncedDocument(true);
+
+    const result = await setDocumentValidated(ESTABLISHMENT_ID, LOI_TYPE.id, true);
+
+    expect(result).toEqual({ notified: { sent: 2, total: 2 } });
+    expect(notifyDocumentAvailable).toHaveBeenCalledWith({
+      establishmentId: ESTABLISHMENT_ID,
+      establishmentName: "Structure test",
+      documentLabel: LOI_TYPE.label,
+      kind: "DELIVERABLE",
+    });
+  });
+
+  it("annonce une PIÈCE VALIDÉE quand seul le client a déposé — EODA n'a rien remis", async () => {
+    asCabinet();
+    givenAnnouncedDocument(false);
+
+    await setDocumentValidated(ESTABLISHMENT_ID, LOI_TYPE.id, true);
+
+    expect(notifyDocumentAvailable).toHaveBeenCalledWith(
+      expect.objectContaining({ kind: "VALIDATED_PIECE" })
+    );
+  });
+
+  it("ne prévient personne quand la validation est RETIRÉE", async () => {
+    asCabinet();
+    prismaMock.document.findUnique.mockResolvedValue({
+      id: "doc-1",
+      validatedAt: new Date("2026-09-20T09:00:00Z"),
+      currentVersionId: "dv-1",
+    });
+
+    const result = await setDocumentValidated(ESTABLISHMENT_ID, LOI_TYPE.id, false);
+
+    expect(result).toBeNull();
+    expect(notifyDocumentAvailable).not.toHaveBeenCalled();
+  });
+
+  it("ne prévient pas un client dont l'accès est révoqué", async () => {
+    asCabinet("REVOKED");
+    givenAnnouncedDocument(true);
+
+    const result = await setDocumentValidated(ESTABLISHMENT_ID, LOI_TYPE.id, true);
+
+    expect(result).toEqual({ notified: { sent: 0, total: 0 } });
+    expect(notifyDocumentAvailable).not.toHaveBeenCalled();
+  });
+});
+
+describe("uploadDocument — annonce d'une nouvelle version", () => {
+  it("prévient le client quand EODA dépose sur un document DÉJÀ validé", async () => {
+    // La nouvelle version devient le livrable sur-le-champ.
+    asCabinet();
+    givenMission("ESSENTIEL");
+    prismaMock.documentType.findUnique.mockResolvedValue(LOI_TYPE);
+    prismaMock.document.findUnique.mockResolvedValue({
+      validatedAt: new Date("2026-09-20T09:00:00Z"),
+      documentType: { label: LOI_TYPE.label },
+      versions: [{ id: "dv-2" }],
+    });
+
+    await uploadDocument(uploadForm(LOI_TYPE.id));
+
+    expect(notifyDocumentAvailable).toHaveBeenCalledWith(
+      expect.objectContaining({ kind: "DELIVERABLE" })
+    );
+  });
+
+  it("ne prévient personne quand EODA dépose sur un document non validé — travail en cours", async () => {
+    asCabinet();
+    givenMission("ESSENTIEL");
+    prismaMock.documentType.findUnique.mockResolvedValue(LOI_TYPE);
+    prismaMock.document.findUnique.mockResolvedValue({ validatedAt: null });
+
+    await uploadDocument(uploadForm(LOI_TYPE.id));
+
+    expect(notifyDocumentAvailable).not.toHaveBeenCalled();
+  });
+
+  it("ne s'annonce pas à lui-même un dépôt du client", async () => {
+    givenMission("ESSENTIEL");
+    prismaMock.documentType.findUnique.mockResolvedValue(LOI_TYPE);
+
+    await uploadDocument(uploadForm(LOI_TYPE.id));
+
+    expect(prismaMock.document.findUnique).not.toHaveBeenCalled();
+    expect(notifyDocumentAvailable).not.toHaveBeenCalled();
   });
 });

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildClientInvitationEmail,
+  buildDocumentAvailableEmail,
   buildDocumentReminderEmail,
   buildOptionRequestEmail,
   escapeHtml,
@@ -168,5 +169,45 @@ describe("buildDocumentReminderEmail", () => {
 
   it("n'affiche aucun bloc de citation sans message", () => {
     expect(buildDocumentReminderEmail(base).html).not.toContain("blockquote");
+  });
+});
+
+describe("buildDocumentAvailableEmail", () => {
+  const base = {
+    recipientName: "Camille Martin",
+    establishmentName: "Structure test",
+    documentLabel: "Livret d'accueil",
+    kind: "DELIVERABLE" as const,
+    portalUrl: "https://portail.test/dashboard/client/livrables",
+  };
+
+  it("nomme le document dans l'objet — la personne doit savoir LEQUEL a été déposé", () => {
+    expect(buildDocumentAvailableEmail(base).subject).toBe(
+      "Nouveau livrable disponible — Livret d'accueil"
+    );
+  });
+
+  it("renvoie vers « Mes livrables » pour un document produit par EODA", () => {
+    const email = buildDocumentAvailableEmail(base);
+    expect(email.html).toContain("Mes livrables");
+    expect(email.html).toContain("https://portail.test/dashboard/client/livrables");
+  });
+
+  it("n'annonce pas un livrable quand c'est la pièce du client qui a été validée", () => {
+    // EODA n'a rien remis : parler de « livrable » gonflerait la prestation.
+    const email = buildDocumentAvailableEmail({ ...base, kind: "VALIDATED_PIECE" });
+    expect(email.subject).toBe("Document validé — Livret d'accueil");
+    expect(email.html).not.toContain("Mes livrables");
+    expect(email.html).toContain("https://portail.test/dashboard/client/livrables");
+  });
+
+  it("échappe un intitulé et un nom de structure venus d'une saisie", () => {
+    const email = buildDocumentAvailableEmail({
+      ...base,
+      documentLabel: '<img src=x onerror="alert(1)">',
+      establishmentName: "<script>alert(2)</script>",
+    });
+    expect(email.html).not.toContain("<img src=x");
+    expect(email.html).not.toContain("<script>");
   });
 });

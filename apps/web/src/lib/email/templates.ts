@@ -241,6 +241,60 @@ export function buildNewMessageEmail(input: {
   };
 }
 
+// Document validé par la consultante (27/09/2026) — deux cas, deux phrases :
+//   - LIVRABLE : EODA a produit le document, il est désormais dans « Mes
+//     livrables » ;
+//   - PIÈCE VALIDÉE : la pièce déposée par la structure a été jugée conforme telle
+//     quelle, EODA n'a rien remis — annoncer « un nouveau livrable » serait faux.
+//
+// Seul l'INTITULÉ du type de document voyage (« Livret d'accueil »), comme dans la
+// relance : ni nom de fichier (saisi librement, il peut nommer une personne), ni
+// contenu, ni analyse. Le fichier se télécharge dans la plateforme, pas depuis une
+// boîte mail.
+export type DocumentAvailableKind = "DELIVERABLE" | "VALIDATED_PIECE";
+
+export function buildDocumentAvailableEmail(input: {
+  recipientName: string;
+  establishmentName: string;
+  documentLabel: string;
+  kind: DocumentAvailableKind;
+  portalUrl: string;
+  brand?: BrandAssets;
+}): EmailContent {
+  const isDeliverable = input.kind === "DELIVERABLE";
+  const label = escapeHtml(input.documentLabel);
+
+  const announcement = isDeliverable
+    ? `EODA Conseil a finalisé et validé le document <strong>${label}</strong> pour
+       ${escapeHtml(input.establishmentName)}. Il est disponible dans votre espace,
+       rubrique « Mes livrables ».`
+    : `La pièce <strong>${label}</strong> déposée pour ${escapeHtml(input.establishmentName)}
+       a été relue et validée par EODA Conseil.`;
+
+  const body = `
+    <p style="color:${BRUN_ANCRE};font-size:15px;line-height:1.6">
+      Bonjour ${escapeHtml(input.recipientName)},
+    </p>
+    <p style="color:${BRUN_ANCRE};font-size:15px;line-height:1.6">${announcement}</p>
+    <p style="margin:24px 0">
+      <a href="${escapeHtml(input.portalUrl)}"
+         style="background:${TERRE};color:#ffffff;text-decoration:none;padding:12px 20px;border-radius:8px;display:inline-block;font-weight:bold">
+        ${isDeliverable ? "Voir mes livrables" : "Voir mes documents"}
+      </a>
+    </p>`;
+
+  return {
+    subject: isDeliverable
+      ? `Nouveau livrable disponible — ${input.documentLabel}`
+      : `Document validé — ${input.documentLabel}`,
+    html: layout(
+      isDeliverable ? "Un nouveau document vous attend" : "Votre document a été validé",
+      body,
+      input.brand
+    ),
+  };
+}
+
 // Envoi réel du devis (22/09/2026) — remplace le brouillon `mailto:` qui ne
 // pouvait pas attacher de fichier. Le PDF (devis-pdf-service.ts) voyage en
 // pièce jointe ; ce message ne fait qu'annoncer ce qu'il contient, jamais

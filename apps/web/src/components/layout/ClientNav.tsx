@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useState } from "react";
 import { FileText, MessagesSquare, PackageOpen, ReceiptText, TrendingUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -18,8 +19,26 @@ import { cn } from "@/lib/utils";
 // l'onglet actif) sans en partager le composant : les deux portails n'ont pas les
 // mêmes règles de visibilité, les fusionner ferait apparaître un jour un onglet
 // Cabinet dans la barre d'un client.
-export function ClientNav({ hasUnansweredMessage = false }: { hasUnansweredMessage?: boolean }) {
+const DELIVERABLES_HREF = "/dashboard/client/livrables";
+
+export function ClientNav({
+  hasUnansweredMessage = false,
+  newDeliverablesCount = 0,
+}: {
+  hasUnansweredMessage?: boolean;
+  // Livrables remis depuis la dernière ouverture de « Mes livrables »
+  // (lib/actions/deliverables.ts).
+  newDeliverablesCount?: number;
+}) {
   const pathname = usePathname();
+
+  // Le layout n'est pas rejoué d'une page du portail à l'autre : son compteur resterait
+  // affiché après la lecture. Une fois l'onglet ouvert, la pastille s'éteint pour de
+  // bon dans cette navigation — la date de lecture est déjà enregistrée en base.
+  const isOnDeliverables = pathname.startsWith(DELIVERABLES_HREF);
+  const [deliverablesOpened, setDeliverablesOpened] = useState(isOnDeliverables);
+  if (isOnDeliverables && !deliverablesOpened) setDeliverablesOpened(true);
+  const unseenDeliverables = deliverablesOpened ? 0 : newDeliverablesCount;
 
   const tabs = [
     {
@@ -29,10 +48,10 @@ export function ClientNav({ hasUnansweredMessage = false }: { hasUnansweredMessa
       match: (p: string) => p === "/dashboard/client",
     },
     {
-      href: "/dashboard/client/livrables",
+      href: DELIVERABLES_HREF,
       label: "Mes livrables",
       icon: PackageOpen,
-      match: (p: string) => p.startsWith("/dashboard/client/livrables"),
+      match: (p: string) => p.startsWith(DELIVERABLES_HREF),
     },
     {
       href: "/dashboard/client/suivi",
@@ -83,6 +102,16 @@ export function ClientNav({ hasUnansweredMessage = false }: { hasUnansweredMessa
               {label}
               {href === "/dashboard/client/echanges" && hasUnansweredMessage && (
                 <span className="sr-only"> (nouveau message)</span>
+              )}
+              {href === DELIVERABLES_HREF && unseenDeliverables > 0 && (
+                <span className="rounded-full bg-terre px-1.5 py-px text-[11px] font-semibold leading-4 text-white">
+                  {unseenDeliverables}
+                  <span className="sr-only">
+                    {" "}
+                    nouveau{unseenDeliverables > 1 ? "x" : ""} document
+                    {unseenDeliverables > 1 ? "s" : ""}
+                  </span>
+                </span>
               )}
             </Link>
           );

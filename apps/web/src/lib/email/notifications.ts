@@ -3,9 +3,11 @@ import { getEnv } from "@/lib/config/env";
 import { getEmailPort } from "./index";
 import {
   buildClientInvitationEmail,
+  buildDocumentAvailableEmail,
   buildDocumentReminderEmail,
   buildNewMessageEmail,
   buildOptionRequestEmail,
+  type DocumentAvailableKind,
 } from "./templates";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -106,19 +108,32 @@ export async function notifyOptionRequest(input: {
 //
 // Rend le nombre d'envois réussis : l'écran doit pouvoir dire « relance envoyée à
 // 2 personnes » ou « aucune adresse joignable », jamais un succès muet.
+// Les interlocuteurs d'UN établissement : les comptes rattachés par le lien
+// `EstablishmentUser`, et eux seuls — jamais une adresse saisie. Partagé par la
+// relance, le fil d'échange et l'annonce d'un document validé : trois copies de ce
+// filtre finiraient par ne plus exclure la même chose.
+async function findClientRecipients(
+  establishmentId: string
+): Promise<{ name: string | null; email: string }[]> {
+  const links = await prisma.establishmentUser.findMany({
+    where: { establishmentId },
+    select: { user: { select: { name: true, email: true, isActive: true } } },
+  });
+  // Un compte désactivé ne reçoit rien : sa désactivation est précisément la décision
+  // de couper le lien.
+  return links
+    .map((link) => link.user)
+    .filter((user) => user.isActive)
+    .map(({ name, email }) => ({ name, email }));
+}
+
 export async function sendDocumentReminderEmails(input: {
   establishmentId: string;
   establishmentName: string;
   missingLabels: readonly string[];
   message: string | null;
 }): Promise<{ sent: number; total: number }> {
-  const links = await prisma.establishmentUser.findMany({
-    where: { establishmentId: input.establishmentId },
-    select: { user: { select: { name: true, email: true, isActive: true } } },
-  });
-  // Un compte désactivé ne reçoit rien : sa désactivation est précisément la décision
-  // de couper le lien.
-  const recipients = links.map((link) => link.user).filter((user) => user.isActive);
+  const recipients = await findClientRecipients(input.establishmentId);
   if (recipients.length === 0) return { sent: 0, total: 0 };
 
   const port = getEmailPort();
@@ -162,16 +177,8 @@ export async function notifyNewMessage(input: {
   const fromCabinet = input.authorSide === "CABINET";
 
   const recipients = fromCabinet
-    ? // Message du cabinet → les interlocuteurs de CET établissement, lus par le lien
-      // EstablishmentUser (jamais une adresse saisie).
-      (
-        await prisma.establishmentUser.findMany({
-          where: { establishmentId: input.establishmentId },
-          select: { user: { select: { email: true, isActive: true } } },
-        })
-      )
-        .map((link) => link.user)
-        .filter((user) => user.isActive)
+    ? // Message du cabinet → les interlocuteurs de CET établissement.
+      await findClientRecipients(input.establishmentId)
     : // Message du client → les comptes CABINET_ADMIN du tenant. Même choix que les
       // demandes d'option : la personne reçoit les alertes parce qu'elle a un compte,
       // pas parce qu'on a pensé à modifier une variable d'environnement.
@@ -207,4 +214,45 @@ export async function notifyNewMessage(input: {
     );
   }
   return failures.length < recipients.length;
+}
+
+// Document validé par la consultante → chaque interlocuteur de l'établissement est
+// prévenu, avec l'intitulé du document (cf. `buildDocumentAvailableEmail`).
+//
+// Rend le nombre d'envois réussis, comme la relance : l'écran de validation doit
+// pouvoir dire « 2 personnes prévenues » ou « aucun compte client à prévenir ».
+export async function notifyDocumentAvailable(input: {
+  establishmentId: string;
+  establishmentName: string;
+  documentLabel: string;
+  kind: DocumentAvailableKind;
+}): Promise<{ sent: number; total: number }> {
+  const recipients = await findClientRecipients(input.establishmentId);
+  if (recipients.length === 0) return { sent: 0, total: 0 };
+
+  const portalUrl = appUrl(
+    input.kind === "DELIVERABLE" ? "/dashboard/client/livrables" : "/dashboard/client"
+  );
+  const port = getEmailPort();
+  const results = await Promise.allSettled(
+    recipients.map((recipient) => {
+      const content = buildDocumentAvailableEmail({
+        recipientName: recipient.name ?? "Madame, Monsieur",
+        establishmentName: input.establishmentName,
+        documentLabel: input.documentLabel,
+        kind: input.kind,
+        portalUrl,
+        brand: { logoUrl: appUrl("/logo-eoda.png") },
+      });
+      return port.send({ to: recipient.email, subject: content.subject, html: content.html });
+    })
+  );
+
+  const sent = results.filter((result) => result.status === "fulfilled").length;
+  if (sent < recipients.length) {
+    console.error(
+      `Annonce de document validé — ${recipients.length - sent}/${recipients.length} envoi(s) échoué(s).`
+    );
+  }
+  return { sent, total: recipients.length };
 }

@@ -10,7 +10,12 @@ import {
   tryCabinetSession,
   tryEstablishmentAccess,
 } from "@/lib/auth/guards";
-import { canDepositDocuments } from "@/lib/services/mission-access-service";
+import {
+  canClientRead,
+  canDepositDocuments,
+  type MissionAccessState,
+} from "@/lib/services/mission-access-service";
+import { notifyDocumentAvailable } from "@/lib/email/notifications";
 import { canDeleteVersion,
   MAX_JUSTIFICATION_LENGTH,
 } from "@/lib/services/document-workflow-service";
@@ -166,6 +171,21 @@ export async function uploadDocument(formData: FormData): Promise<UploadDocument
   });
 
   revalidateDocumentViews(establishmentId);
+
+  // Dépôt du cabinet sur un document DÉJÀ validé : la nouvelle version devient le
+  // livrable sur-le-champ (deliverables-service prend la dernière version d'EODA),
+  // donc le client est prévenu comme à la validation. Un dépôt sur un document non
+  // validé ne prévient personne : c'est un travail en cours, et l'annoncer serait
+  // promettre à la place de la consultante — l'annonce part quand elle valide.
+  if (!access.isClient) {
+    const document = await prisma.document.findUnique({
+      where: { establishmentId_documentTypeId: { establishmentId, documentTypeId: documentType.id } },
+      select: { validatedAt: true },
+    });
+    if (document?.validatedAt) {
+      await announceValidatedDocument(establishmentId, documentType.id, access.missionAccess);
+    }
+  }
 
   return { success: true, documentTypeId: documentType.id };
 }
@@ -712,11 +732,18 @@ export async function listCriterionGuidelines(
 // c'est uploadé, analysé, modifié, relu et validé ». Réservée au CABINET : valider,
 // c'est engager la parole de l'évaluatrice sur un document qui partira à la HAS.
 // Réversible — une validation posée trop tôt doit pouvoir être retirée.
+export type SetDocumentValidatedResult =
+  | { error: string }
+  // Validation posée : combien d'interlocuteurs du client ont été prévenus par
+  // e-mail, pour que l'écran le dise au lieu de laisser croire que c'est parti.
+  | { notified: { sent: number; total: number } }
+  | null;
+
 export async function setDocumentValidated(
   establishmentId: string,
   documentTypeId: string,
   validated: boolean
-): Promise<{ error: string } | null> {
+): Promise<SetDocumentValidatedResult> {
   if (typeof validated !== "boolean") return { error: "Valeur invalide." };
 
   const access = await requireEstablishmentAccess(establishmentId);
@@ -751,7 +778,59 @@ export async function setDocumentValidated(
   });
 
   revalidateDocumentViews(establishmentId);
-  return null;
+
+  // Retirer une validation ne prévient personne : le document disparaît des
+  // livrables, on n'écrit pas au client pour lui annoncer un retour en arrière.
+  if (!validated) return null;
+  const notified = await announceValidatedDocument(
+    establishmentId,
+    documentTypeId,
+    access.missionAccess
+  );
+  return { notified };
+}
+
+// Prévenir le client qu'un document validé l'attend — par e-mail ; dans
+// l'application, la pastille « Mes livrables » se dérive seule
+// (deliverables-service).
+//
+// NON exporté, et c'est une règle de sécurité : tout export d'un fichier
+// "use server" est une route HTTP publique. Les appelants ont déjà passé la garde.
+//
+// Un accès RÉVOQUÉ ne reçoit rien : on n'invite pas à ouvrir un portail qui est
+// fermé. La bibliothèque (mission clôturée) reste lisible, elle, donc prévenue.
+async function announceValidatedDocument(
+  establishmentId: string,
+  documentTypeId: string,
+  missionAccess: MissionAccessState
+): Promise<{ sent: number; total: number }> {
+  if (!canClientRead(missionAccess)) return { sent: 0, total: 0 };
+
+  const [establishment, document] = await Promise.all([
+    prisma.establishment.findUnique({ where: { id: establishmentId }, select: { name: true } }),
+    prisma.document.findUnique({
+      where: { establishmentId_documentTypeId: { establishmentId, documentTypeId } },
+      select: {
+        documentType: { select: { label: true } },
+        // Existe-t-il une version produite par EODA ? C'est ce qui sépare un
+        // livrable d'une pièce du client simplement jugée conforme — même critère
+        // que deliverables-service (auteur non CLIENT_USER).
+        versions: {
+          where: { uploadedBy: { role: { not: "CLIENT_USER" } } },
+          select: { id: true },
+          take: 1,
+        },
+      },
+    }),
+  ]);
+  if (!establishment || !document?.documentType) return { sent: 0, total: 0 };
+
+  return notifyDocumentAvailable({
+    establishmentId,
+    establishmentName: establishment.name,
+    documentLabel: document.documentType.label,
+    kind: document.versions.length > 0 ? "DELIVERABLE" : "VALIDATED_PIECE",
+  });
 }
 
 // ── Réclamé au client, ou produit par EODA ───────────────────────────────────
