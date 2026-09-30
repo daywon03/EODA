@@ -1,3 +1,12 @@
+> **Note du 30/09/2026 (Damon).** Le **contenu** de cette offre tient toujours : modules,
+> méthode en 5 phases, formules Essentiel / Performance / Excellence, prestations à la
+> carte. Ce qui change, c'est sa **mise en marché** : le portail EODA devient le produit
+> (abonnement), et ces formules deviennent un **supplément d'accompagnement** pour les
+> structures qui n'ont personne de dédié. Les prix ci-dessous restent la base tant qu'une
+> nouvelle grille n'est pas validée par Sandrine — proposition dans
+> `09-vision-produit.md` §4. Ne pas modifier ce fichier : c'est la transcription d'un
+> document remis à des clients.
+
 # Offre d'accompagnement Qualité HAS — Services Autonomie à Domicile (SAD)
 
 **EODA Conseil — Votre partenaire qualité HAS de A à Z**

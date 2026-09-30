@@ -66,7 +66,17 @@ internes et externes d'EODA — cf. `context/06-mode-operatoire-eoda.md` §Gouve
 
 **Quoi :** EODA accompagne les **SAD** (Services Autonomie à Domicile — un type d'ESSMS)
 dans leur préparation à l'**évaluation qualité HAS** (Haute Autorité de Santé), obligatoire
-pour tous les ESSMS, sur un cycle de 15 ans (3 évaluations).
+pour tous les ESSMS : **une évaluation tous les 5 ans** (soit 3 sur 15 ans).
+
+**Positionnement (décision Damon, 30/09/2026) — lire `context/09-vision-produit.md` :**
+EODA est **à la fois la SaaS et le cabinet**. Le portail est le produit (abonnement payé par
+la structure) ; le contenu des offres v10 (Essentiel, Performance, Excellence, prestations à
+la carte) **tient toujours** et devient un **supplément d'accompagnement** pour les
+structures qui n'ont personne de dédié à la mise en place des processus. **L'IA n'est pas un
+argument** : elle travaille en coulisse, l'interface ne parle que de « propositions à
+vérifier » et de validation humaine. Cible inchangée : les SAD du 93, 78, 28. Ordre de
+construction : **la conformité d'abord, les fonctionnalités métier ensuite.** Les nouveaux
+prix SaaS sont des **propositions**, pas des décisions.
 
 **Client pilote (beta-test gratuit) :** ASSAD BENOIT, association loi 1901, FINESS 930034459,
 Le Blanc-Mesnil (93). Échéance évaluation HAS visée : **janvier 2027**.
@@ -100,6 +110,18 @@ préparation interne, jamais présentée comme une évaluation HAS officielle.
 
 Le détail fonctionnel complet de chaque module est dans `specs/01-mvp-v1.md`.
 
+**Suite (arrêtée le 30/09/2026)** — ces trois modules existent ; la suite est découpée en
+lots dans `context/09-vision-produit.md` §7 :
+- **Lot A — refonte et socle conformité** : nouveau design (brief :
+  `.claude/design/20260930_DOC_EODA_Brief-Claude-Design-Refonte_v01_Interne.md`), critères
+  & preuves, plan d'action (PAC), échéancier des documents, file « À relire ».
+- **Lot B — équipe et sensibilisation** : quiz par QR code **dans la plateforme** (remplace
+  le renvoi vers Kahoot du doc 07 §12.5), fiches, preuve de sensibilisation par salarié.
+- **Lot C — terrain** (signature sur tablette, enquêtes) : **bloqué par la décision HDS**
+  (§6 ci-dessous).
+- **Lot D — offre SaaS** : paliers d'abonnement, **après** validation des prix par Sandrine.
+- Ensuite seulement : fonctionnalités métier (registres EI / plaintes, KPI, liens ERP).
+
 ## 3. Documents de référence (lire dans cet ordre)
 
 | Ordre | Fichier | Contenu |
@@ -111,9 +133,13 @@ Le détail fonctionnel complet de chaque module est dans `specs/01-mvp-v1.md`.
 | 5 | `context/05-prototype-existant.md` | Ce qui existe déjà (HTML statique auto-éval) et pourquoi on le réécrit proprement |
 | 6 | `context/06-mode-operatoire-eoda.md` | Mode opératoire humain : contrôle croisé documentaire (matrice, champs critiques, détection d'écarts) + déroulé complet de la mission ASSAD BENOIT (8 phases, gouvernance, vigilances juridiques) — process métier, complémentaire aux fichiers ci-dessus qui documentent les règles produit |
 | 7 | `context/07-outil-pilotage-missions.md` | Pipeline commercial (prospects, devis, catalogue, KPI — `/dashboard/cabinet/commercial`, CABINET_ADMIN uniquement) et suivi de mission (checklist diagnostic 12 items + 4 phases — `/dashboard/cabinet/etablissements/[id]/mission`, CABINET_ADMIN + CABINET_EVALUATOR) sont tous deux implémentés dans la plateforme. **§12 = refonte des offres décidée au call du 16/08/2026 (prix, périmètres, portails), pas encore implémentée — elle remplace le §4 : lire §12 avant de toucher au catalogue, aux offres ou aux portails.** |
-| 8 | `specs/01-mvp-v1.md` | Spécification fonctionnelle détaillée des 3 modules V1 |
-| 9 | `specs/02-architecture-technique.md` | Stack, schéma BDD, architecture, ADRs |
-| 10 | `specs/03-roadmap-developpement.md` | Ordre de build, jalons, definition of done |
+| 8 | `context/08-offre-commerciale-v10.md` | Plaquette commerciale v10 (modules, méthode, formules, options). Contenu toujours valide ; sa **mise en marché** change (supplément d'un abonnement) — voir 09 §4 |
+| 9 | `context/09-vision-produit.md` | **Vision arrêtée le 30/09/2026** : SaaS + cabinet, marché et concurrence sourcés, proposition de prix, doctrine IA (vue CTO), exigence d'accessibilité, **décision HDS bloquante**, lots A→D |
+| 10 | `specs/01-mvp-v1.md` | Spécification fonctionnelle détaillée des 3 modules V1 (+ modules suivants en fin de fichier) |
+| 11 | `specs/02-architecture-technique.md` | Stack, schéma BDD, architecture, ADRs |
+| 12 | `specs/03-roadmap-developpement.md` | Ordre de build, jalons, definition of done |
+| — | `PRODUCT.md` (racine) | Vérité produit lue par la skill impeccable (utilisateurs, positionnement, principes, accessibilité) |
+| — | `.claude/design/…Brief-Claude-Design-Refonte_v01_Interne.md` | Brief de refonte remis à Claude Design ; **toute implémentation d'écran s'y conforme** jusqu'à ce qu'un DESIGN.md le remplace |
 
 **Règle :** avant de générer du code touchant au métier HAS (cotation, critères, documents
 obligatoires), Claude Code doit relire `context/02-referentiel-has.md` et
@@ -206,6 +232,20 @@ Détail complet et état d'avancement : `specs/02-architecture-technique.md` §4
 - 🧩 **Le référentiel HAS évolue** (dernière MAJ juillet 2025) — ne jamais hardcoder les
   règles de cotation dans la logique applicative sans passer par une couche de configuration
   versionnée (cf. `specs/02-architecture-technique.md` §moteur-regles-has)
+- ♿ **Accessibilité : « même un enfant de 12 ans doit pouvoir s'en servir »** (Damon,
+  30/09/2026). Objectif WCAG 2.2 AA + règles FALC sur le portail client et l'espace équipe.
+  Règles d'usage de la charte (contrastes mesurés, tailles minimales) :
+  `context/04-charte-eoda.md` §7. **Contrôle mécanique : aucun à ce jour — dette déclarée.**
+  À brancher : `eslint-plugin-jsx-a11y` en error, un test qui refuse `text-[10px]` /
+  `text-[11px]` et le gris `--gris-mid` en couleur de texte, un passage axe-core en CI sur
+  les pages client. D'ici là, c'est un point de revue obligatoire, pas une règle vérifiée.
+- 🏥 **Données de santé (HDS) — décision bloquante.** Un DIPC signé, un PAP, une évaluation
+  des besoins sont en pratique des données de santé (CSP L1111-8, référentiel CNIL
+  médico-social) ; Supabase et Vercel **ne sont pas certifiés HDS**. Aucune fonctionnalité
+  qui stocke une pièce nominative de personne accompagnée (signature sur tablette, dossier
+  usager) ne part en production sans décision explicite de Damon
+  (`context/09-vision-produit.md` §8). Les documents institutionnels restent dans le
+  périmètre actuel.
 
 ## 7. Ce que Claude Code ne doit PAS faire
 
@@ -216,6 +256,15 @@ Détail complet et état d'avancement : `specs/02-architecture-technique.md` §4
   applicables à tous les types d'ESSMS) — toujours préciser le périmètre.
 - Ne pas présenter la plateforme comme un outil d'évaluation HAS officiel — c'est un outil
   de préparation/conseil.
+- **Ne jamais mettre l'IA en avant dans l'interface** (décision Damon, 30/09/2026) : aucun
+  badge « IA », aucune icône ✨, aucun « généré par l'IA » dans une copie d'écran, un e-mail
+  ou un export. Une sortie de modèle s'affiche comme **« Proposition à vérifier »**, avec les
+  gestes Accepter / Corriger, et reste soumise à `analysisVisibleTo`. Les concurrents vendent
+  un « copilote » ; EODA vend la relecture humaine.
+- Ne pas utiliser de pictogrammes **ARASAAC** ni **SantéBD** : leurs licences interdisent
+  l'usage commercial (vérifié le 30/09/2026). Icônes Lucide, ou pictogrammes propres à EODA.
+- Ne pas apposer le **logo FALC européen** tant que les textes n'ont pas été relus par des
+  personnes concernées (condition d'usage d'Inclusion Europe).
 - **Ne jamais passer `DATABASE_URL` (ni `DIRECT_URL`) comme `--shadow-database-url`.** Prisma
   *détruit et rejoue* la base désignée comme shadow database. `prisma migrate diff
   --shadow-database-url "$DATABASE_URL"` a effacé la base de développement partagée le
@@ -365,11 +414,14 @@ Détail complet et état d'avancement : `specs/02-architecture-technique.md` §4
   est effacée si la valeur cesse d'être `AUTRE`. Même principe pour la civilité et la
   fonction : elles ne se recopient jamais dans `contactName`, un nom qui contient sa
   civilité ne se trie ni ne s'adresse.
-- **Le partage d'un devis ne passe par aucun envoi serveur** (décision Damon,
-  26/08/2026) : `mailto:` pré-rempli + téléchargement via la vue imprimable, nommé
-  selon la convention EODA (`devis-sharing-service.ts`). Ne pas « améliorer » en
-  ajoutant un jeton de partage public ou un moteur PDF sans que ce soit redemandé —
-  c'est une route publique et une dépendance lourde, pour un service déjà rendu.
+- **Le devis part par un vrai e-mail, PDF joint** (depuis le 22/09/2026, commit
+  `6ffeff6`, qui remplace la décision « `mailto:` seulement » du 26/08 après le retour
+  « préparer l'e-mail n'envoie pas l'e-mail »). Le PDF est produit en naviguant vers
+  `/imprimer/devis/[id]` — la même page que « Télécharger » — par Chromium headless
+  (`devis-pdf-service.ts`), envoyé via Resend (`email-port.ts`), Sandrine en copie ; le
+  corps du mail ne recopie pas les montants (le PDF fait foi) ; l'envoi passe le devis
+  BROUILLON → ENVOYE et se journalise (`DEVIS_EMAIL_SENT`). Toujours **pas de jeton de
+  partage public** : aucune route publique pour consulter un devis.
 - **`StructureType` (statut juridique) et `EstablishmentType` (type SAD) sont deux axes
   indépendants**, portés par `Prospect` *et* `Establishment` pour le premier. Le support
   commercial les aligne sur une même ligne (« SAD Aide · SAD Mixtes · Associations loi

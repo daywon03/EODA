@@ -122,6 +122,50 @@ réglementaire RH complémentaire" pour éviter toute confusion avec les critèr
 | Périmé | `EXPIRED` | Date de révision dépassée par rapport à la fréquence attendue (ex : CR CVS, enquêtes satisfaction) |
 | Non applicable | `NOT_APPLICABLE` | Document marqué "si concerné" et non pertinent pour cet établissement |
 
+## Référentiel documentaire EODA en cours (septembre 2026) — à intégrer une fois validé
+
+> Séances du 20, 22 et 25/09/2026. **Non validé** : ne pas le coder avant la validation.
+
+- Un référentiel de **~39 à 41 documents** destinés aux SAD est en cours de création par
+  Sandrine : procédures (« P ») et documents (« D ») — émargements, fiches de
+  sensibilisation, comptes rendus. Les procédures sont en validation chez Sonia (côté
+  client) ; la liste finale en dépend.
+- **Trois paliers de service** évoqués lors de la démo du 22/09 : palier 1 = les 7 documents
+  loi 2002-2 + rapport de conformité + plan d'action, la structure se débrouille ;
+  palier 2 = accompagnement partiel ; palier 3 = EODA gère les ~41 documents jusqu'à
+  l'évaluation. (À rapprocher de la vision SaaS + cabinet, `09-vision-produit.md` §4.)
+- Un critère HAS demande **3 à 7 preuves** (document, formation, émargement, quiz,
+  procédure, preuve d'application) ; un document couvre **2 à 10 critères**. La relation
+  many-to-many ci-dessous doit donc accepter des preuves qui ne sont pas des documents.
+
+### Périodicités à suivre (alertes à programmer, cadence à confirmer)
+
+| Document | Périodicité évoquée | Source |
+|---|---|---|
+| DIPC | révision annuelle | critère 1.10.6, séances de septembre |
+| Projet de service | tous les 5 ans | séances de septembre |
+| Documents de suivi signés par la personne | une fois par an | réunion du 25/09 |
+| Questions sensibles de l'évaluation des besoins (maltraitance, abus financier…) | à reposer chaque année | séance du 22/09 |
+| Quiz de sensibilisation des équipes | retest tous les 6 mois | démo du 22/09 |
+
+La règle « les relances sont un geste, pas un automate » (CLAUDE.md) tient toujours : ces
+périodicités alimentent un **échéancier visible** et un rappel annuel doux au client ; elles
+ne déclenchent aucun envoi automatique tant que la cadence n'est pas décidée.
+
+### Règles de rédaction retenues avec le client pilote (22/09/2026)
+
+- Documents courts : « 2 lignes, pas 20 » ; ne pas répéter dans le corps ce que porte déjà le
+  tableau de référence (référence, version, date).
+- Champ « Responsable » : remplacé par une mention générique (« disponible sur demande ») —
+  une personne nommée finit par partir. **Seuls le référent qualité et le DPO sont nommés.**
+- Lieu de conservation (RGPD) : formulation volontairement large — « accessible à l'accueil /
+  au siège social ».
+- Annexe transverse **« Qui contacter ? »** (fatigue de l'aidant, conflit familial,
+  suspicion de maltraitance, numéro d'astreinte, aides financières), en schéma lisible,
+  insérable dans le livret d'accueil, le livret salarié, le DIPC et le règlement.
+- Un seul document fait foi : deux versions divergentes d'un même document (poste local /
+  partage) sont à fusionner — c'est exactement ce que le versioning de la plateforme évite.
+
 ## Principe de mapping document → critère(s) HAS
 
 Chaque document attendu doit être rattaché en base à **un ou plusieurs critères HAS**

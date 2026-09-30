@@ -469,10 +469,9 @@ contexte d'analyse au lieu de faire deviner le modèle.
 
 ### Restant dû sur ce jalon — demandes explicites des calls, non implémentées
 
-- [ ] **Aperçu avant envoi de l'e-mail de devis** *(15/09)* — « le devis part sans aperçu ;
-  ajouter un bouton **Aperçu et envoi** ». ⚠️ **Décision à trancher** : la décision du
-  26/08 (Damon) interdit tout envoi serveur d'un devis — `mailto:` + téléchargement
-  uniquement. Le retour du 15/09 la contredit. L'une des deux doit être réécrite.
+- [x] **Aperçu avant envoi de l'e-mail de devis** *(15/09)* — tranché et livré le 22/09
+  (commit `6ffeff6`) : envoi serveur réel via Resend, PDF joint, la confirmation fait
+  office d'aperçu. La décision `mailto:` du 26/08 est remplacée (CLAUDE.md mis à jour).
 - [ ] **Deux des sept documents loi 2002-2 ne sont pas réclamés au client** — la migration
   `20260827140000_document_types_requested` en marque **cinq** ; `L2002_CR_CVS` et
   `L2002_PERSONNES_QUALIFIEES` restent à `false`. Le call du 15/09 demande les sept. Le
@@ -503,3 +502,32 @@ contexte d'analyse au lieu de faire deviner le modèle.
   calculé et affiché à l'écran, il ne voyage pas dans le DOCX.
 - [ ] **CGP en annexe du contrat, politique de déplacement, politique RSE** *(15/09)* — dû par
   Sandrine, pas par le dépôt.
+
+---
+
+## Jalon 8 — Vision SaaS + cabinet, refonte, conformité d'abord — 🔵 CADRÉ (2026-09-30)
+
+Source : `context/09-vision-produit.md` (décision de positionnement du 30/09, lots A→D) et
+brief de refonte `.claude/design/20260930_DOC_EODA_Brief-Claude-Design-Refonte_v01_Interne.md`.
+Aucune ligne de code n'est encore écrite pour ce jalon.
+
+- [ ] **Maquettes Claude Design** produites à partir du brief, présentées à Sandrine,
+  corrigées — **préalable** à tout écran du lot A.
+- [ ] **Lot A — refonte et socle conformité** : tokens et composants (un seul
+  `StatusPill`, `EmptyState`, `Callout`, `DataTable`, `Tabs` à compteurs, `Sheet`),
+  navigation latérale cabinet, fiche structure en onglets, file « À relire », onglet
+  Critères & preuves, plan d'action (PAC — attend le fichier de Sandrine), échéancier des
+  documents avec rappel annuel, agenda commenté, journal des modifications d'un document.
+- [ ] **Lot B — équipe et sensibilisation** : liste de l'équipe, quiz par QR code dans la
+  plateforme (remplace le renvoi Kahoot du doc 07 §12.5), fiches, matrice de preuve, retest
+  à 6 mois, accusé de lecture des procédures.
+- [ ] **Lot C — terrain** : signature sur tablette + dossier de preuve, enquête de
+  satisfaction en ligne et papier. **Bloqué par la décision HDS** (09 §8).
+- [ ] **Lot D — offre SaaS** : paliers d'abonnement remplaçant la dégressivité de
+  `subscription-service.ts`. **Bloqué par la validation des prix** (09 §4).
+- [ ] **Chaîne de contrôle accessibilité** (Règle zéro) : `eslint-plugin-jsx-a11y` en error,
+  test refusant `text-[10px]`/`text-[11px]` et `--gris-mid` en couleur de texte, axe-core
+  en CI sur les pages client. Tant que ce n'est pas branché, l'accessibilité reste une dette
+  déclarée (CLAUDE.md §6).
+- [ ] **Vérification HDS immédiate** : s'assurer qu'aucune pièce nominative (DIPC signé,
+  PAP) n'est déposée dans la checklist actuelle ; durcir l'avertissement à l'upload.
