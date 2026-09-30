@@ -414,6 +414,47 @@ Accueil · Mes documents · Mon équipe · Mes rendez-vous · Messages
 | **Rappel annuel** (nouveau) | Une fois par an, une fenêtre douce : « Vos procédures sont-elles toujours à jour ? » + liste des documents à revoir (DIPC chaque année, projet de service tous les 5 ans…). | Vérifier |
 | **Bandeaux d'état** | Bêta-test gratuit · Bibliothèque (lecture seule) · Accès fermé · Pas encore de structure rattachée. | — |
 
+### 7.4 bis Deux modes du même portail client : « Autonome » et « Accompagné »
+
+> **Proposition à valider avec Sandrine** — la dessiner pour pouvoir la lui montrer.
+
+Une structure peut s'abonner **seule** (palier Autonomie) ou **avec EODA** (palier
+Accompagné, ou une offre Essentiel / Performance / Excellence en plus). C'est **le même
+portail**, pas deux produits : mêmes écrans, même navigation. Seuls certains blocs changent.
+
+| | Autonome (seul) | Accompagné (avec EODA) |
+|---|---|---|
+| Accueil | « Votre prochaine étape » calculée à partir de la checklist, de l'auto-évaluation et du plan d'action | Idem + visage et nom de la consultante, prochain rendez-vous, derniers documents relus |
+| Mes documents | Dépôt, modèles vierges, échéances. **Pas d'analyse automatique** : aucune relecture humaine n'est possible | Dépôt + analyse **relue par Sandrine** (« C'est bon · Relu par Sandrine ») |
+| Auto-évaluation | La structure cote elle-même, avec les questions reformulées et l'aide de chaque critère | Idem, ou cotée avec la consultante en entretien |
+| Plan d'action | La structure le tient seule | Co-construit, suivi en réunion |
+| Messages, rendez-vous | Remplacés par « Aide » et « Être accompagné » | Fil avec EODA, agenda partagé |
+| Mon équipe (quiz, fiches) | Inclus | Inclus |
+
+**L'invitation à se faire accompagner** doit être utile, jamais un mur de cadenas :
+- un encart discret, placé là où la structure bloque : « Ce document est long à mettre en
+  conformité ? Sandrine peut le relire pour vous. » ;
+- un bouton « Être accompagné » dans le menu du compte ;
+- le parcours : **demander** → confirmation (« Sandrine vous recontacte ») → côté cabinet,
+  la demande arrive dans la file des demandes → Sandrine prépare le devis. **Le client ne
+  s'active jamais un accompagnement seul** : il demande, Sandrine déclenche.
+- Après signature : le portail bascule en mode Accompagné **sans rien perdre** (documents,
+  cotations et plan d'action déjà saisis restent). Un bandeau d'accueil l'annonce :
+  « Bienvenue, Sandrine vous accompagne désormais. »
+
+**Côté cabinet :**
+- Une structure autonome apparaît dans la liste des structures avec l'étiquette
+  « Autonome », mais **sans accès à ses documents** : la consultante voit seulement le
+  compte, l'abonnement et l'avancement global. Le contenu s'ouvre quand l'accompagnement est
+  signé. Dessine cet état « fiche fermée » (« Accessible après signature d'un
+  accompagnement »).
+- Les demandes « Être accompagné » arrivent dans l'accueil de Sandrine, rubrique
+  « À surveiller », et dans la file des demandes existante.
+- Une structure accompagnée affiche la fiche complète (§7.2).
+
+À dessiner : l'accueil client dans les deux modes, l'encart d'invitation, le parcours de
+demande, le bandeau de bascule, et côté cabinet la fiche « Autonome » fermée.
+
 ### 7.5 Espace équipe (AVS / ADVF) — nouveau, mobile d'abord
 
 Accès par **QR code** (affiché en réunion, imprimé, envoyé par SMS). Décision ouverte :
@@ -536,3 +577,5 @@ client pilote réel ni de vraies personnes.** Prix de l'abonnement : « xx € /
 5. La matrice de l'équipe : visible de la direction seulement, ou aussi des salariés ?
 6. Faire relire les écrans « équipe » par des aides à domicile de la structure pilote avant
    de les construire ?
+7. Client autonome : pas d'analyse automatique des documents (faute de relecture), et fiche
+   fermée côté cabinet tant qu'aucun accompagnement n'est signé — d'accord ?
