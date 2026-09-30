@@ -406,6 +406,13 @@ Accueil · Mes documents · Mon équipe · Mes rendez-vous · Messages
 (profil, contrat, aide dans le menu du compte ; bouton d'aide toujours visible)
 ```
 
+En palier **Pilotage** (§7.4 quater), la navigation devient, toujours cinq entrées :
+
+```
+Accueil · Documents · Plan d'action · Mon équipe · Indicateurs
+(« Plus » : Auto-évaluation, Revue qualité, Registres, Rendez-vous, Messages)
+```
+
 ### 7.4 Portail client — écrans
 
 | Écran | Intention | Action principale |
@@ -421,23 +428,28 @@ Accueil · Mes documents · Mon équipe · Mes rendez-vous · Messages
 | **Rappel annuel** (nouveau) | Une fois par an, une fenêtre douce : « Vos procédures sont-elles toujours à jour ? » + liste des documents à revoir (DIPC chaque année, projet de service tous les 5 ans…). | Vérifier |
 | **Bandeaux d'état** | Bêta-test gratuit · Bibliothèque (lecture seule) · Accès fermé · Pas encore de structure rattachée. | — |
 
-### 7.4 bis Trois façons d'utiliser le même portail : Diagnostic, Mise en conformité, Accompagné
+### 7.4 bis Quatre façons d'utiliser le même portail
 
 > Décision Damon du 30/09/2026 ; montants et détails à valider avec Sandrine. **C'est le même
-> portail** — mêmes écrans, même navigation. Seuls certains blocs changent selon le mode.
-> Rien n'y est présenté comme « IA » : on parle de ce que la plateforme **fait**.
+> portail** — mêmes écrans, même navigation. Seuls certains blocs s'ouvrent selon le mode.
+> Les trois paliers « seuls » reprennent **le contenu des offres Essentiel, Performance et
+> Excellence, piloté par la structure elle-même**. Rien n'y est présenté comme « IA » : on
+> parle de ce que la plateforme **fait**.
 
-| | **1. Diagnostic** (seul) | **2. Mise en conformité** (seul) | **3. Accompagné** (avec EODA) |
-|---|---|---|---|
-| Ce que c'est | **Le contenu de l'offre Essentiel, en autonomie** : les 16 (ou 17) critères impératifs + les 7 documents loi 2002-2 | Tout le Diagnostic, **sur tout le référentiel**, et la plateforme corrige les documents | Le Diagnostic ou la Mise en conformité **+ Sandrine** (Performance, Excellence, prestations à la carte) |
-| Documents | La structure dépose ; la plateforme les analyse et dit ce qui manque | + bouton **« Mettre en conformité »** sur chaque document → une version corrigée à relire ; + **« Créer ce document »** à partir d'un modèle EODA quand il manque | Idem, **relu et validé par Sandrine** avant de revenir au client |
-| Pratiques (§7.4 ter) | Questions sur les 16 impératifs | Questions sur tous les critères | Posées avec Sandrine en entretien |
-| Résultat | **Rapport de diagnostic + plan d'action** générés, à appliquer seul | + documents mis en conformité, plan d'action suivi | + visite, ateliers, suivi hebdomadaire selon l'offre |
-| Qui valide | **La structure elle-même** — chaque production porte « À vérifier par vous · non relu par EODA » et un bouton « Je valide » | Idem | **Sandrine** (« Relu par Sandrine le… ») puis la structure accepte |
-| Messages, rendez-vous | « Aide » + « Être accompagné » | Idem | Fil avec EODA, agenda partagé, visage et nom de la consultante |
-| Équipe (quiz, fiches) | Inclus | Inclus | Inclus |
+| | **1. Diagnostic** (seul) | **2. Mise en conformité** (seul) | **3. Pilotage** (seul) | **4. Accompagné** (avec EODA) |
+|---|---|---|---|---|
+| Équivalent v10 | **Essentiel** en autonomie | **Performance** en autonomie | **Excellence** en autonomie | Essentiel / Performance / Excellence **avec Sandrine** |
+| Périmètre | 16 (ou 17) impératifs + 7 documents loi 2002-2 | Tout le référentiel | Tout le référentiel | Selon l'offre |
+| Documents | La structure dépose ; la plateforme analyse et dit ce qui manque | + **« Mettre en conformité »** sur chaque document ; + **« Créer ce document »** depuis un modèle EODA | Idem + échéancier et renouvellements pilotés | Idem, **relu et validé par Sandrine** |
+| Pratiques (§7.4 ter) | Questions sur les impératifs | Questions sur tous les critères | Idem + preuves d'application suivies dans le temps | Posées avec Sandrine en entretien |
+| Plan d'action | Généré, à appliquer seul | Suivi | **Piloté en PDCA** : pilotes, échéances, revue mensuelle (§7.4 quater) | Co-construit, réunion hebdo selon l'offre |
+| Équipe | Quiz et fiches | Quiz et fiches | **Gestion complète** : rôles, pilotes, campagnes de quiz, retests, matrice de preuve | Idem, animé avec Sandrine |
+| Indicateurs | Avancement de conformité | Idem | **Les 24 KPI qualité en 6 domaines** + rapport mensuel (§7.4 quater) | Idem, commentés par Sandrine |
+| Seconde auto-évaluation | — | — | **Oui**, comparée à la première + « simulation de visite » guidée | Oui, avec Sandrine |
+| Qui valide | **La structure** — « À vérifier par vous · non relu par EODA » + « Je valide » | Idem | Idem | **Sandrine** (« Relu par Sandrine le… »), puis la structure |
+| Messages, rendez-vous | « Aide » + « Être accompagné » | Idem | Idem | Fil avec EODA, agenda partagé, visage de la consultante |
 
-**Le bouton « Mettre en conformité »** (mode 2 et 3) :
+**Le bouton « Mettre en conformité »** (modes 2, 3 et 4) :
 - visible sur la ligne d'un document analysé qui a des manques ;
 - ouvre une vue côte à côte : à gauche le document d'origine, à droite la version proposée,
   **les ajouts surlignés** ; chaque ajout indique le critère qu'il sert ;
@@ -454,13 +466,70 @@ devis. Le client **demande**, Sandrine **déclenche**. Après signature, le port
 
 **Côté cabinet — voir d'un coup d'œil qui est seul et qui est accompagné :**
 - une **étiquette de mode** sur chaque structure, partout où elle apparaît (liste, accueil,
-  fiche) : « Diagnostic · seul », « Mise en conformité · seul », « Accompagné · Performance »… ;
+  fiche) : « Diagnostic · seul », « Mise en conformité · seul », « Pilotage · seul »,
+  « Accompagné · Performance »… ;
 - un **filtre** et un **compteur** par mode dans la liste des structures et sur l'accueil ;
 - pour une structure **seule** : la fiche montre le compte, l'abonnement, l'avancement
   global et la date de dernière activité — **pas le contenu de ses documents ni ses
   réponses** (confidentialité) ; dessine cet état « fiche en autonomie » ;
 - pour une structure **accompagnée** : la fiche complète (§7.2) et la file « À relire » ;
 - les demandes « Être accompagné » remontent dans l'accueil de Sandrine (« À surveiller »).
+
+### 7.4 quater Le palier « Pilotage » — l'Excellence pilotée par la structure
+
+L'idée : la directrice (ou le référent qualité) dispose **à peu près des mêmes outils que
+Sandrine**, pour sa seule structure. Chaque module de l'offre Excellence v10 a son écran :
+
+| Module Excellence v10 | Ce qu'il devient en Pilotage seul | Écran |
+|---|---|---|
+| M4 — réunion hebdomadaire de suivi du plan d'action | **Revue qualité** guidée : chaque semaine (ou mois), l'écran liste les actions dues, en retard, terminées ; on coche, on note, on génère le compte rendu | Revue qualité |
+| M5-M6 — création des documents, procédures, registres | « Mettre en conformité » + « Créer ce document » + **registres** plaintes / événements indésirables tenus dans la plateforme | Documents, Registres |
+| M7 — reporting KPI Excel / Power BI | **Tableau de bord des 24 KPI** en 6 domaines + rapport mensuel exportable (PDF, Excel) | Indicateurs |
+| M8 — ateliers et sensibilisation des équipes | **Campagnes de quiz** (QR code), fiches, émargement numérique, retest à 6 mois | Mon équipe |
+| M10 — seconde auto-évaluation et simulation de visite | **Seconde session comparée** à la première + « Répétition de l'évaluation » : les questions posées par l'évaluateur, chapitre par chapitre, avec les preuves à montrer | Auto-évaluation |
+
+**Les écrans à dessiner pour ce palier :**
+
+1. **Tableau de bord Pilotage** (accueil du palier) : en tête, les 3 à 4 chiffres qui
+   comptent (impératifs à 4 : x/16 · actions en retard · équipe à jour des quiz · échéance de
+   l'évaluation) ; puis les **6 domaines de KPI** en cartes cliquables ; puis « Cette
+   semaine » (actions dues, quiz à relancer, documents à renouveler).
+2. **Indicateurs** — les 24 KPI de la plaquette v10, en 6 domaines :
+   - *Conformité* : % impératifs cotés 4 · % standards ≥ 3 · critères nécessitant une action ·
+     estimation indicative Qualiscope (affichée comme estimation, jamais saisie) ;
+   - *Gestion des risques* : EI déclarés par trimestre · délai moyen de traitement ·
+     signalements de maltraitance traités · % actions correctives réalisées ;
+   - *Droits et satisfaction* : plaintes reçues · délai moyen de réponse · taux de résolution ·
+     % personnes avec DIPC / projet personnalisé à jour ;
+   - *Équipes et formation* : % professionnels sensibilisés · réunions de sensibilisation par
+     an · taux de participation · % nouveaux arrivants formés ;
+   - *Plan d'action PDCA* : % actions dans les délais · actions en retard (> 30 j) · ouvertes /
+     fermées · avancement global ;
+   - *Continuité et crise* : date de dernière révision du PCA · exercices par an · %
+     partenaires informés · délai de reprise simulé.
+   Chaque KPI : valeur, tendance sur 12 mois, cible, **d'où vient le chiffre** (quel registre,
+   quel quiz, quelle action) et un lien vers le détail. Un KPI sans donnée affiche
+   « Pas encore de données — commencez par… » plutôt qu'un zéro.
+3. **Plan d'action PDCA** : vue tableau et vue colonnes (À faire · En cours · À vérifier ·
+   Terminé) ; chaque action a un **pilote** choisi dans l'équipe, une échéance, le critère
+   d'origine, la preuve attendue ; les actions issues d'un impératif < 4 sont marquées
+   « Critique » et restent en tête.
+4. **Revue qualité** : l'écran de la réunion — ordre du jour généré, actions à passer en revue
+   une par une, décisions notées, **compte rendu généré** et rangé comme preuve.
+5. **Mon équipe (version complète)** : liste importée (tableur), **rôles** (direction,
+   référent qualité, coordination, intervenant·e), pilotes d'actions, campagnes de quiz par
+   thème, matrice personnes × quiz / fiches / procédures lues, relance des retardataires,
+   arrivées et départs (remise à zéro propre).
+6. **Registres** : plaintes et réclamations, événements indésirables — saisie courte, suivi
+   jusqu'à la clôture, analyse en équipe ; ce sont trois critères impératifs et les points les
+   plus faibles au niveau national. Aucun nom de personne accompagnée dans les champs libres
+   (rappel à l'écran).
+7. **Répétition de l'évaluation** : mode entraînement chapitre par chapitre, questions de
+   l'évaluateur reformulées, réponse orale ou écrite, preuves à préparer.
+
+Le tout reste en densité « guidée » (§4.3) : la directrice n'est pas une consultante. Même
+richesse d'information que le cabinet, mais une action principale par écran et des phrases
+qui disent quoi faire.
 
 ### 7.4 ter Les pratiques, pas seulement les documents
 
@@ -483,7 +552,9 @@ corrections apportées, reste à traiter, pilote, échéance).
   Sandrine les relit.
 - Rappel en tête de chaque questionnaire : « Ne citez aucun nom de personne accompagnée. »
 
-À dessiner : l'accueil client dans les trois modes, la vue « Mettre en conformité »
+À dessiner : l'accueil client dans les quatre modes, le tableau de bord Pilotage, les
+Indicateurs, le plan d'action PDCA, la revue qualité, les registres, la répétition de
+l'évaluation, la vue « Mettre en conformité »
 côte à côte, un questionnaire de pratiques avec la dictée, l'encart « Être accompagné », le
 bandeau de bascule, et côté cabinet la liste filtrée par mode + la fiche « en autonomie ».
 
