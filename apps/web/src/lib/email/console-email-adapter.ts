@@ -6,6 +6,7 @@ export class ConsoleEmailAdapter implements EmailPort {
   async send(message: EmailMessage): Promise<void> {
     console.log("[ConsoleEmailAdapter] Email non envoyé (RESEND_API_KEY absent) :", {
       to: message.to,
+      cc: message.cc,
       subject: message.subject,
       attachments: message.attachments?.map((a) => a.filename),
     });

@@ -5,6 +5,9 @@ export type EmailAttachment = { filename: string; content: Buffer; contentType: 
 
 export type EmailMessage = {
   to: string;
+  // Copie — ex. l'expéditeur cabinet en copie d'un devis parti au prospect, pour
+  // qu'il ait une trace dans sa propre boîte sans être le destinataire principal.
+  cc?: string;
   subject: string;
   html: string;
   attachments?: EmailAttachment[];

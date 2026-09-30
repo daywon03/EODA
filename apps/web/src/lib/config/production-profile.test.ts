@@ -24,6 +24,7 @@ const COMPLETE: AppEnv = {
   openrouter: null,
   resend: { apiKey: "cle-resend", from: "contact@exemple.fr" },
   voyage: { apiKey: "cle-voyage" },
+  puppeteerExecutablePath: null,
 };
 
 describe("productionConfigProblems", () => {

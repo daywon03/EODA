@@ -14,6 +14,7 @@ export class ResendEmailAdapter implements EmailPort {
     const { error } = await this.client.emails.send({
       from: this.from,
       to: message.to,
+      ...(message.cc && { cc: message.cc }),
       subject: message.subject,
       html: message.html,
       ...(message.attachments && {

@@ -4,6 +4,12 @@ import { prisma, CommercialTier, DevisStatus, type Prisma } from "@eoda/database
 import { requireCabinetAdminSession } from "@/lib/auth/guards";
 import { redirect, notFound } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import { cookies } from "next/headers";
+import { getEmailPort } from "@/lib/email";
+import { buildDevisEmail } from "@/lib/email/templates";
+import { renderDevisPdf } from "@/lib/services/devis-pdf-service";
+import { buildDevisFileName } from "@/lib/services/devis-sharing-service";
+import { getEnv } from "@/lib/config/env";
 import {
   computeDevisAmounts,
   computeValidUntil,
@@ -351,6 +357,93 @@ export async function changeDevisStatus(
   revalidatePath(`${DEVIS_LIST_PATH}/${id}`);
   revalidatePath(PROSPECT_LIST_PATH);
   revalidatePath(COMMERCIAL_DASHBOARD_PATH);
+  return null;
+}
+
+// Envoi réel du devis par e-mail (22/09/2026, retour du call Sandrine/Assad
+// Benoît : « Préparer l'e-mail n'envoie pas l'e-mail »). Remplace le brouillon
+// `mailto:` — voir devis-sharing-service.ts pour l'historique de la décision.
+//
+// Sandrine (ou qui envoie) est mise en COPIE, jamais en expéditrice : le mail
+// part d'EODA (adresse Resend configurée), pas de sa boîte personnelle — c'est
+// le prix du PDF en pièce jointe, qu'un `mailto:` ne sait pas produire.
+export async function sendDevisEmail(id: string): Promise<{ error: string } | null> {
+  const { tenantId, session } = await requireCabinetAdminSession();
+
+  const devis = await prisma.devis.findFirst({
+    where: { id, tenantId },
+    include: { prospect: { select: { structureName: true, contactEmail: true } } },
+  });
+  if (!devis) notFound();
+
+  if (!devis.prospect.contactEmail) {
+    return { error: "Ce prospect n'a pas d'adresse e-mail renseignée." };
+  }
+
+  // Seuls un brouillon ou un devis déjà envoyé peuvent repartir par e-mail — un
+  // devis signé, refusé ou annulé est une décision déjà prise, le renvoyer
+  // laisserait croire à une nouvelle proposition.
+  if (devis.status !== "BROUILLON" && devis.status !== "ENVOYE") {
+    return { error: "Ce devis n'est plus à l'étape de l'envoi." };
+  }
+
+  const senderName = session.user.name ?? "EODA Conseil";
+  const senderEmail = session.user.email;
+
+  let pdf: Buffer;
+  try {
+    const cookieStore = await cookies();
+    const cookieHeader = cookieStore
+      .getAll()
+      .map((c) => `${c.name}=${c.value}`)
+      .join("; ");
+    pdf = await renderDevisPdf(id, cookieHeader);
+  } catch (err) {
+    console.error("Génération du PDF du devis échouée :", err);
+    return { error: "Le PDF du devis n'a pas pu être généré. Réessayez dans un instant." };
+  }
+
+  const content = buildDevisEmail({
+    structureName: devis.prospect.structureName,
+    devisNumber: devis.number,
+    senderName,
+    validUntil: devis.validUntil,
+    brand: { logoUrl: `${(getEnv().nextAuthUrl ?? "http://localhost:3000").replace(/\/+$/, "")}/logo-eoda.png` },
+  });
+
+  const fileName = buildDevisFileName({
+    number: devis.number,
+    structureName: devis.prospect.structureName,
+    issuedOn: devis.createdAt,
+  });
+
+  try {
+    await getEmailPort().send({
+      to: devis.prospect.contactEmail,
+      ...(senderEmail && { cc: senderEmail }),
+      subject: content.subject,
+      html: content.html,
+      attachments: [{ filename: fileName, content: pdf, contentType: "application/pdf" }],
+    });
+  } catch (err) {
+    console.error("Envoi de l'e-mail du devis échoué :", err);
+    return { error: "L'e-mail n'a pas pu être envoyé. Réessayez dans un instant." };
+  }
+
+  if (devis.status === "BROUILLON") {
+    await prisma.devis.update({ where: { id }, data: { status: "ENVOYE" } });
+  }
+
+  await recordAuditEvent({
+    action: "DEVIS_EMAIL_SENT",
+    actorUserId: session.user.id,
+    actorRole: "CABINET_ADMIN",
+    targetId: id,
+    detail: devis.number,
+  });
+
+  revalidatePath(DEVIS_LIST_PATH);
+  revalidatePath(`${DEVIS_LIST_PATH}/${id}`);
   return null;
 }
 
