@@ -169,6 +169,25 @@ fiabilise la cotation et accélère le travail, en particulier sur les critères
 
 ---
 
+## Après la V1 — modules suivants (cadrés le 30/09/2026)
+
+> Les trois modules ci-dessus sont livrés (voir `specs/03-roadmap-developpement.md`). La
+> suite suit la règle **« conformité d'abord, métier ensuite »** et le découpage en lots de
+> `context/09-vision-produit.md` §7. Le design de chaque écran suit le brief
+> `.claude/design/20260930_DOC_EODA_Brief-Claude-Design-Refonte_v01_Interne.md`.
+
+| Module | Objectif | Règles déjà connues |
+|---|---|---|
+| **Critères & preuves** | Voir, par critère, les preuves rattachées (documents, quiz, CR, émargements) et ce qui manque | Un critère = 3 à 7 preuves ; un document = 2 à 10 critères ; les propositions de rattachement sont des **propositions à vérifier** |
+| **Plan d'action (PAC)** | Transformer les critères cotés < 4 en actions suivies | Seuls les critères < 4 génèrent une action (doc 07 §12.6) ; impératifs en tête, statut critique ; ligne « comprise » ou « en option » ; schéma de colonnes imposé par le fichier de Sandrine (attendu) |
+| **Échéancier des documents** | Savoir ce qui doit être renouvelé et quand | Périodicités du doc 03 ; rappel annuel doux au client ; **aucun envoi automatique** tant que la cadence n'est pas décidée |
+| **Équipe & sensibilisation** | Prouver que les équipes sont sensibilisées | Quiz par QR code dans la plateforme, suivi par salarié, retest à 6 mois, remise à zéro propre au départ d'un salarié ; fiches et bibliothèque d'auto-formation ; FALC obligatoire |
+| **Agenda commenté, journal des modifications** | Demandes de la démo du 22/09 | Commentaires sur une date visibles des deux portails ; récapitulatif « ce qui a changé » par version |
+| **Signature sur tablette, enquête de satisfaction** | Produire la preuve au passage, chez la personne | **Bloqué par la décision HDS** (09 §8) pour tout ce qui est nominatif ; dossier de preuve ; signature possible par le représentant légal |
+
+Règle transverse : aucune sortie automatique n'est présentée comme « IA » ni ne
+parvient au client sans validation humaine (CLAUDE.md §7).
+
 ## Articulation entre les 3 modules (pourquoi l'ordre de build compte)
 
 ```

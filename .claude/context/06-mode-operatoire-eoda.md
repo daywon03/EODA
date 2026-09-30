@@ -177,6 +177,56 @@ conservé comme cas d'école (référence croisée directe avec la Partie 1, poi
 
 ---
 
+## Partie 3 — Apprentissages terrain de septembre 2026 (ateliers ASSAD BENOIT)
+
+> Séances du 20, 22 et 25/09/2026 (transcriptions Granola de Damon). Ce qui suit est du
+> process métier observé ; ce qui en découle pour le produit est dans
+> `09-vision-produit.md` et dans le brief de refonte.
+
+- **Semaine d'atelier centrée sur les 16 impératifs** (décision du 20/09) : démo du portail,
+  entretien avec une personne accompagnée à domicile (chapitre 1), entretien avec un
+  professionnel (chapitre 2), puis un document socle par demi-journée. Objectif : savoir
+  combien de preuves existent par critère.
+- **Visite d'entrée d'un nouveau bénéficiaire trop longue** : signer 6 documents un par un
+  prend ~40 minutes (1 à 2 visites par après-midi au lieu de 4 à 5). Piste retenue :
+  synthétiser à l'oral, laisser les documents à lire, faire signer **une seule feuille de
+  réception**. Le DIPC est remis au plus tard sous 15 jours ; la structure peut choisir la
+  remise immédiate.
+- **Signature sur tablette** (25/09) : récupérer le gabarit DIPC dans EODA, le personnaliser
+  pour la personne, le faire signer chez elle, le verser dans son dossier (aujourd'hui dans
+  Ximi). Deux intervenants terrain, trois tablettes commandées. ⚠️ Une pièce nominative
+  signée est une **donnée de santé** : module conditionné à la décision HDS
+  (`09-vision-produit.md` §8).
+- **Questions sensibles** de l'évaluation des besoins (harcèlement, radicalisation, abus
+  financier) : à poser, sans interrogatoire ; un « non » couvre la structure ; à reposer
+  chaque année. L'abus le plus fréquent observé : **financier** (procurations, accès
+  administratifs).
+- **Signalement** : toujours d'abord en interne (le SAD ouvre, analyse, oriente) ; la FAMO
+  pour les situations graves, remplie sur le portail ; signalements au DAC (~5 par an).
+  Le dispositif départemental de médiation est retiré des documents (lent, inutilisé).
+- **Chaque droit annoncé à la personne doit correspondre à un processus interne**, une note
+  ou une formation. Une clause bien écrite peut couvrir 5 à 6 critères à la fois.
+- **CVS** : critère impératif ; format court et convivial (1 à 2 fois par an, ~10 minutes),
+  délégable ; tout bénéficiaire peut demander à y participer.
+- **Enquête de satisfaction** : version en ligne et version papier ; les AVS aident à la
+  remplir en visite ; les réponses papier pourront être photographiées et lues par la
+  plateforme.
+- **Sensibilisation des AVS** : fiches (douleur, questionnement éthique, risque infectieux,
+  isolement…) rangées dans les casiers et à mettre en e-learning ; formation obligatoire
+  avant la prise de poste ; vocabulaire aligné par cartes mémoire ; quiz retestés tous les
+  6 mois — la rotation des équipes impose de pouvoir recommencer proprement.
+- **Face à l'évaluateur** : présenter honnêtement les manques d'avant, puis montrer que les
+  nouvelles procédures les couvrent.
+- **Démo du 22/09** : Sonia et Julien (côté client) ont reçu des profils de test. Retours :
+  mode sombre, agenda commentable, récapitulatif « ce qui a changé » par document, trace des
+  modifications (qui, quoi, quand), e-learning, rappel annuel « vos processus sont-ils
+  toujours valides ? », version mobile par QR code plutôt qu'une application.
+- ⚠️ Le résumé automatique de la démo mentionne une « grille de cotation ABCD » visible en
+  interne : c'est la lettre **Qualiscope** (estimation indicative), jamais une unité de
+  saisie — la cotation reste 1/2/3/4/★/NC/RI (CLAUDE.md §7).
+
+---
+
 ## Analyse de cohérence avec les fichiers de contexte du projet
 
 J'ai comparé ces deux documents avec les 5 fichiers `context/*.md` déjà présents dans le

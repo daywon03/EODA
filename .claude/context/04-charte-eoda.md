@@ -94,3 +94,51 @@ Base légale : licence d'utilisation non exclusive avec mention obligatoire de s
 - Vocabulaire HAS exact partout : ESSMS, SAD, E.E., critère impératif/standard — jamais de
   substitution Qualiscope (A/B/C/D) dans une zone de saisie ou de cotation
 - Contact générique de la marque : `EODAconseil@outlook.com`
+- **Jamais « IA »** dans une copie d'interface, un e-mail ou un export (décision du
+  30/09/2026) : une sortie automatique est une « proposition à vérifier ».
+
+## 7. Accessibilité — règles d'usage de la charte (30/09/2026)
+
+> La charte ne change pas (confirmé par Damon le 30/09/2026 : « garde le logo et la charte
+> graphique actuels, il faut juste que tout soit bien cohérent, facile d'utilisation et
+> accessible »). Ce sont ses **usages** qui s'ajustent, parce que les contrastes mesurés
+> ci-dessous rendent certaines combinaisons illisibles. Objectif : WCAG 2.2 AA + FALC.
+
+### 7.1 Contrastes mesurés (formule WCAG, seuil AA texte courant = 4,5:1)
+
+| Couleur en texte | sur blanc | sur `--ivoire-light` | Usage autorisé |
+|---|---|---|---|
+| `--brun-ancre` | 13,2 | 12,0 | Texte principal partout |
+| `--brun-moyen` | 9,7 | 8,8 | **Texte secondaire** (remplace le gris) |
+| `--terre` | 4,7 | **4,3** | Texte seulement sur **surface blanche**, ou en titre ≥ 24 px (≥ 19 px gras) |
+| `--gris-mid` | **4,1** | **3,7** | **Jamais du texte à lire** : icônes décoratives, bordures, placeholders |
+| `--ambre` | 2,5 | 2,3 | Jamais en texte sur fond clair ; aplat avec texte brun-ancre (5,2) ou texte sur fond brun-ancre (5,2) |
+| `--vert-ok`, `--cot-2` | 2,9 | 2,6 | Aplat + texte brun-ancre (4,6), ou pastille + icône + libellé brun |
+| `--rouge-imp` | 5,4 | 4,9 | Texte d'alerte |
+| Blanc sur `--terre` | 4,7 | — | Bouton principal |
+
+### 7.2 Tailles et cibles
+- Texte courant ≥ 16 px (cabinet), ≥ 18 px (portail client, espace équipe) ; **rien sous
+  14 px**. Le code compte aujourd'hui ~18 `text-[10px]` / `text-[11px]` — à supprimer.
+- Interligne ≥ 1,5 ; texte aligné à gauche ; pas d'italique ni de mot entier en majuscules
+  pour du texte à lire.
+- Cibles tactiles ≥ 48 × 48 px côté client et équipe, ≥ 44 px côté cabinet.
+- Aucun statut porté par la couleur seule : icône + mot + couleur.
+
+### 7.3 FALC (portail client, espace équipe)
+Une idée par phrase, phrases courtes, « vous », mots du quotidien, sigles expliqués,
+pictogramme + texte, pas d'abréviation, pas de pourcentage côté équipe, pas d'image
+enfantine. Source : [« L'information pour tous », Unapei](https://www.unapei.org/publication/linformation-pour-tous-regles-europeennes-pour-une-information-facile-a-lire-et-a-comprendre/).
+Le **logo FALC** n'est apposé qu'après relecture par des personnes concernées.
+
+### 7.4 Pictogrammes
+Lucide pour l'interface. **Interdits** : ARASAAC (CC BY-NC-SA) et SantéBD (usage
+commercial exclu). Sclera exige un accord écrit. Préférer des pictogrammes propres à EODA.
+
+### 7.5 Dette relevée dans le code (30/09/2026)
+~14 couleurs hex codées en dur dans `AppHeader.tsx`, 9 dans l'écran de connexion, 2 dans
+`ThemeToggle.tsx` ; ~6 `bg-white` ; les tokens shadcn (`--card`, `--background`…) ne sont
+pas redéfinis en sombre. À corriger avec la refonte, via les tokens — jamais en ajoutant
+d'autres valeurs en dur.
+
+Brief de refonte complet : `.claude/design/20260930_DOC_EODA_Brief-Claude-Design-Refonte_v01_Interne.md`.
