@@ -105,16 +105,41 @@ demain le portail est le produit, et le conseil s'y ajoute.
 
 | Palier | Pour qui | Contenu | Prix proposé |
 |---|---|---|---|
-| **Portail EODA — Autonomie** | SAD qui a une personne pour porter la qualité | Référentiel SAD (Aide/Mixte), checklist documentaire + modèles vierges EODA, auto-évaluation et comparaison, plan d'action, échéancier des documents, équipe & quiz, veille HAS | **129 €/mois**, engagement 12 mois (1 548 €/an) |
-| **Portail EODA — Accompagné** | SAD sans personne dédiée | Autonomie + **relecture humaine par EODA** des documents déposés (quota annuel à fixer), point visio mensuel, rapport de conformité trimestriel | **249 €/mois**, engagement 12 mois (2 988 €/an) |
-| **Réseau / multi-sites** | Associations multi-SAD, fédérations | Tableau de bord consolidé | Sur devis |
-| **Accompagnement** (offres v10) | Toute structure abonnée | Essentiel, Performance, Excellence, prestations à la carte — **contenu inchangé** | Prix « à partir de » actuels **conservés comme base** ; remise abonné à décider |
+**Structure arrêtée par Damon le 30/09/2026** (montants toujours à valider) :
+
+| Palier | Pour qui | Contenu | Qui valide | Prix proposé |
+|---|---|---|---|---|
+| **1. Portail — Diagnostic** (seul) | SAD qui veut savoir où il en est et agir seul | **Le contenu de l'offre Essentiel, en autonomie** : 16/17 impératifs + 7 documents loi 2002-2 analysés, questions sur les pratiques, rapport de diagnostic + plan d'action générés, modèles vierges, échéancier, équipe & quiz, veille HAS | La structure (« non relu par EODA ») | **129 €/mois**, engagement 12 mois |
+| **2. Portail — Mise en conformité** (seul) | SAD qui veut des documents conformes sans consultant | Diagnostic **sur tout le référentiel** + bouton « Mettre en conformité » sur chaque document + création des documents manquants à partir des modèles EODA | La structure | **249 €/mois**, engagement 12 mois |
+| **3. Accompagnement** (en supplément) | SAD sans personne dédiée à la mise en place des processus | Essentiel, Performance, Excellence, prestations à la carte — **contenu v10 inchangé**, relecture humaine de Sandrine | **Sandrine**, puis la structure | Prix « à partir de » v10 **conservés comme base** ; remise abonné à décider |
+| **Réseau / multi-sites** | Associations multi-SAD, fédérations | Tableau de bord consolidé | — | Sur devis |
+
+Ce que ça change par rapport à la v10 : la **visite** et la **cotation par Sandrine** de
+l'offre Essentiel restent dans l'accompagnement ; en palier Diagnostic, c'est la structure
+qui répond aux questions et cote, guidée par la plateforme.
 
 Repères : la zone crédible pour un SAD de ~50 personnes accompagnées est **79–250 €/mois**
-(recherche du 30/09) ; le palier Accompagné n'est défendable au-dessus de 200 € que parce
-qu'il contient du temps de consultante (modèle Bastion). L'objectif du cahier des charges
-(CA mensuel > 4 000 €) est atteint avec **~16 abonnés Accompagné**, ou 31 Autonomie, avant
-toute mission de conseil.
+(recherche du 30/09). L'objectif du cahier des charges (CA mensuel > 4 000 €) est atteint
+avec ~16 abonnés Mise en conformité ou ~31 abonnés Diagnostic, avant toute mission de
+conseil.
+
+**⚠️ Deux règles actuelles sont renversées pour les paliers seuls — à confirmer avec
+Sandrine, qui les avait posées :** « aucune analyse automatique n'atteint le client sans
+revue humaine » (CDC du 20/08) et « le client n'appuie jamais lui-même sur générer » (call du
+16/08, pour justifier la facturation de l'accompagnement). Elles **restent vraies** pour une
+structure accompagnée ; pour une structure seule, c'est elle qui déclenche et qui valide,
+avec la mention « non relu par EODA ». Tant que ce n'est pas implémenté, le code applique la
+règle stricte pour tout le monde.
+
+### 4.2 bis Les pratiques, pas seulement les documents
+La HAS vérifie aussi que les processus sont appliqués. Le portail pose donc, par critère ou
+par thématique, des questions sur les pratiques (« Ce processus est-il en place ?
+Expliquez-le »), avec **réponse écrite ou dictée** (transcription vocale). Base : la structure
+des grilles Synaé (E.E., éléments de preuve, commentaires) et du classeur de suivi de
+Sandrine (preuves, statut, action prioritaire, écart / corrections / reste à traiter pour
+les impératifs), plus le manuel HAS. Point de vigilance : une réponse dictée peut citer une
+personne accompagnée — rappel à l'écran, pas de conservation de l'audio, transcription par
+un prestataire européen (à choisir).
 
 ### 4.3 Ce que ça implique dans le code (à ne pas faire avant validation)
 - `subscription-service.ts` porte aujourd'hui la dégressivité -10 % / -30 % d'une ligne

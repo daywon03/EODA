@@ -395,6 +395,13 @@ Détail complet et état d'avancement : `specs/02-architecture-technique.md` §4
   refuse un appelant client. Une mention de réserve à l'écran NE remplace PAS cette
   revue : EODA engage sa parole professionnelle sur ce qu'elle restitue, sur des
   documents qui seront présentés à la HAS.
+  **Évolution décidée par Damon le 30/09/2026, pas encore implémentée ni confirmée par
+  Sandrine** (`context/09-vision-produit.md` §4.2) : pour les paliers **seuls** du portail
+  (Diagnostic, Mise en conformité), c'est la **structure** qui déclenche (« Mettre en
+  conformité ») et qui valide, avec la mention « À vérifier par vous · non relu par EODA » —
+  jamais « Relu par Sandrine ». La règle stricte ci-dessus reste celle des structures
+  **accompagnées**, et **reste appliquée à tous** tant que le mode (seul / accompagné) n'est
+  pas modélisé : ne pas l'assouplir dans `analysisVisibleTo` avant.
 - **La fin de mission ne supprime rien, et la clôture ne coupe rien.** Trois états
   d'accès dérivés de deux faits (`Mission.closedAt`, `Mission.clientAccessRevokedAt`)
   par `lib/services/mission-access-service.ts` : `ACTIVE` / `LIBRARY` (lecture seule)

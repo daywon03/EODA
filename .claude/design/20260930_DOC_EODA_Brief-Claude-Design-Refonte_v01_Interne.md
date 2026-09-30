@@ -286,11 +286,16 @@ quotidien**, pas en ressaisissant après coup.
   (+ « Non concerné »). Jamais les étapes internes.
 
 ### 6.2 La validation humaine est un moment fort
-Aucune analyse automatique n'atteint le client sans que Sandrine l'ait **relue et validée**.
-Côté cabinet, « À relire » est une file prioritaire avec un geste clair « Valider pour le
-client ». Côté client, ce qui arrive porte une mention humaine : « Relu par Sandrine, le
-28/09 ». C'est l'argument de confiance d'EODA face aux concurrents : rends-le visible et
-chaleureux.
+Pour une structure **accompagnée**, aucune analyse automatique ne lui parvient sans que
+Sandrine l'ait **relue et validée**. Côté cabinet, « À relire » est une file prioritaire avec
+un geste clair « Valider pour le client ». Côté client, ce qui arrive porte une mention
+humaine : « Relu par Sandrine, le 28/09 ». C'est l'argument de confiance d'EODA face aux
+concurrents : rends-le visible et chaleureux.
+
+Pour une structure **seule** (Diagnostic, Mise en conformité — §7.4 bis), c'est **elle** qui
+valide : chaque production porte « À vérifier par vous · non relu par EODA » et un bouton
+« Je valide ». Les deux mentions ne se ressemblent jamais : « Relu par Sandrine » est un
+engagement d'EODA, « À vérifier par vous » n'en est pas un.
 
 ### 6.3 La cotation HAS (écran d'auto-évaluation)
 - Valeurs : **1, 2, 3, 4, ★, NC, RI** — couleurs réservées du §3.1, chaque bouton avec son
@@ -312,7 +317,9 @@ toujours présenté comme **une proposition à vérifier** :
 - vocabulaire : « Proposition », « À vérifier », « Suggestion » — jamais « IA » ;
 - visuel : discret (liseré ambre, icône de brouillon), avec les deux gestes **Accepter** /
   **Corriger**, et « Tout accepter » quand il y a plusieurs propositions ;
-- une proposition n'a jamais l'air d'une décision, et n'est jamais visible du client.
+- une proposition n'a jamais l'air d'une décision ; pour une structure accompagnée, elle
+  n'est visible du client qu'après la relecture de Sandrine ; pour une structure seule, elle
+  lui arrive comme un brouillon « À vérifier par vous ».
 
 ### 6.5 Contrat, prix, offres
 - Le client voit **son** contrat : offre souscrite, options, montant signé, acompte, solde.
@@ -414,46 +421,71 @@ Accueil · Mes documents · Mon équipe · Mes rendez-vous · Messages
 | **Rappel annuel** (nouveau) | Une fois par an, une fenêtre douce : « Vos procédures sont-elles toujours à jour ? » + liste des documents à revoir (DIPC chaque année, projet de service tous les 5 ans…). | Vérifier |
 | **Bandeaux d'état** | Bêta-test gratuit · Bibliothèque (lecture seule) · Accès fermé · Pas encore de structure rattachée. | — |
 
-### 7.4 bis Deux modes du même portail client : « Autonome » et « Accompagné »
+### 7.4 bis Trois façons d'utiliser le même portail : Diagnostic, Mise en conformité, Accompagné
 
-> **Proposition à valider avec Sandrine** — la dessiner pour pouvoir la lui montrer.
+> Décision Damon du 30/09/2026 ; montants et détails à valider avec Sandrine. **C'est le même
+> portail** — mêmes écrans, même navigation. Seuls certains blocs changent selon le mode.
+> Rien n'y est présenté comme « IA » : on parle de ce que la plateforme **fait**.
 
-Une structure peut s'abonner **seule** (palier Autonomie) ou **avec EODA** (palier
-Accompagné, ou une offre Essentiel / Performance / Excellence en plus). C'est **le même
-portail**, pas deux produits : mêmes écrans, même navigation. Seuls certains blocs changent.
+| | **1. Diagnostic** (seul) | **2. Mise en conformité** (seul) | **3. Accompagné** (avec EODA) |
+|---|---|---|---|
+| Ce que c'est | **Le contenu de l'offre Essentiel, en autonomie** : les 16 (ou 17) critères impératifs + les 7 documents loi 2002-2 | Tout le Diagnostic, **sur tout le référentiel**, et la plateforme corrige les documents | Le Diagnostic ou la Mise en conformité **+ Sandrine** (Performance, Excellence, prestations à la carte) |
+| Documents | La structure dépose ; la plateforme les analyse et dit ce qui manque | + bouton **« Mettre en conformité »** sur chaque document → une version corrigée à relire ; + **« Créer ce document »** à partir d'un modèle EODA quand il manque | Idem, **relu et validé par Sandrine** avant de revenir au client |
+| Pratiques (§7.4 ter) | Questions sur les 16 impératifs | Questions sur tous les critères | Posées avec Sandrine en entretien |
+| Résultat | **Rapport de diagnostic + plan d'action** générés, à appliquer seul | + documents mis en conformité, plan d'action suivi | + visite, ateliers, suivi hebdomadaire selon l'offre |
+| Qui valide | **La structure elle-même** — chaque production porte « À vérifier par vous · non relu par EODA » et un bouton « Je valide » | Idem | **Sandrine** (« Relu par Sandrine le… ») puis la structure accepte |
+| Messages, rendez-vous | « Aide » + « Être accompagné » | Idem | Fil avec EODA, agenda partagé, visage et nom de la consultante |
+| Équipe (quiz, fiches) | Inclus | Inclus | Inclus |
 
-| | Autonome (seul) | Accompagné (avec EODA) |
-|---|---|---|
-| Accueil | « Votre prochaine étape » calculée à partir de la checklist, de l'auto-évaluation et du plan d'action | Idem + visage et nom de la consultante, prochain rendez-vous, derniers documents relus |
-| Mes documents | Dépôt, modèles vierges, échéances. **Pas d'analyse automatique** : aucune relecture humaine n'est possible | Dépôt + analyse **relue par Sandrine** (« C'est bon · Relu par Sandrine ») |
-| Auto-évaluation | La structure cote elle-même, avec les questions reformulées et l'aide de chaque critère | Idem, ou cotée avec la consultante en entretien |
-| Plan d'action | La structure le tient seule | Co-construit, suivi en réunion |
-| Messages, rendez-vous | Remplacés par « Aide » et « Être accompagné » | Fil avec EODA, agenda partagé |
-| Mon équipe (quiz, fiches) | Inclus | Inclus |
+**Le bouton « Mettre en conformité »** (mode 2 et 3) :
+- visible sur la ligne d'un document analysé qui a des manques ;
+- ouvre une vue côte à côte : à gauche le document d'origine, à droite la version proposée,
+  **les ajouts surlignés** ; chaque ajout indique le critère qu'il sert ;
+- les champs propres à la structure (nom, SIRET, FINESS, logo, dates) apparaissent dans une
+  couleur dédiée « à compléter » ;
+- gestes : **Accepter tout** · **Accepter / refuser ajout par ajout** · **Télécharger en Word** ;
+- la version acceptée devient une nouvelle version du document (l'ancienne est conservée).
 
-**L'invitation à se faire accompagner** doit être utile, jamais un mur de cadenas :
-- un encart discret, placé là où la structure bloque : « Ce document est long à mettre en
-  conformité ? Sandrine peut le relire pour vous. » ;
-- un bouton « Être accompagné » dans le menu du compte ;
-- le parcours : **demander** → confirmation (« Sandrine vous recontacte ») → côté cabinet,
-  la demande arrive dans la file des demandes → Sandrine prépare le devis. **Le client ne
-  s'active jamais un accompagnement seul** : il demande, Sandrine déclenche.
-- Après signature : le portail bascule en mode Accompagné **sans rien perdre** (documents,
-  cotations et plan d'action déjà saisis restent). Un bandeau d'accueil l'annonce :
-  « Bienvenue, Sandrine vous accompagne désormais. »
+**Passer à l'accompagnement** : encart discret là où la structure bloque (« Ce document est
+difficile ? Sandrine peut s'en occuper. ») + « Être accompagné » dans le menu du compte →
+demande → confirmation → côté cabinet, la demande arrive dans la file → Sandrine prépare le
+devis. Le client **demande**, Sandrine **déclenche**. Après signature, le portail bascule
+**sans rien perdre** et un bandeau l'annonce.
 
-**Côté cabinet :**
-- Une structure autonome apparaît dans la liste des structures avec l'étiquette
-  « Autonome », mais **sans accès à ses documents** : la consultante voit seulement le
-  compte, l'abonnement et l'avancement global. Le contenu s'ouvre quand l'accompagnement est
-  signé. Dessine cet état « fiche fermée » (« Accessible après signature d'un
-  accompagnement »).
-- Les demandes « Être accompagné » arrivent dans l'accueil de Sandrine, rubrique
-  « À surveiller », et dans la file des demandes existante.
-- Une structure accompagnée affiche la fiche complète (§7.2).
+**Côté cabinet — voir d'un coup d'œil qui est seul et qui est accompagné :**
+- une **étiquette de mode** sur chaque structure, partout où elle apparaît (liste, accueil,
+  fiche) : « Diagnostic · seul », « Mise en conformité · seul », « Accompagné · Performance »… ;
+- un **filtre** et un **compteur** par mode dans la liste des structures et sur l'accueil ;
+- pour une structure **seule** : la fiche montre le compte, l'abonnement, l'avancement
+  global et la date de dernière activité — **pas le contenu de ses documents ni ses
+  réponses** (confidentialité) ; dessine cet état « fiche en autonomie » ;
+- pour une structure **accompagnée** : la fiche complète (§7.2) et la file « À relire » ;
+- les demandes « Être accompagné » remontent dans l'accueil de Sandrine (« À surveiller »).
 
-À dessiner : l'accueil client dans les deux modes, l'encart d'invitation, le parcours de
-demande, le bandeau de bascule, et côté cabinet la fiche « Autonome » fermée.
+### 7.4 ter Les pratiques, pas seulement les documents
+
+Un critère HAS ne se prouve pas qu'avec des papiers : l'évaluateur vérifie aussi que **les
+processus sont appliqués**. Le portail pose donc, critère par critère ou thématique par
+thématique, des questions sur les pratiques. Elles reprennent la structure des grilles Synaé
+(une ligne par élément d'évaluation, avec « éléments de preuve consultés » et
+« commentaires ») et du classeur de suivi de Sandrine (preuves, statut « Documenté » /
+« Partiel — action à prévoir », action prioritaire ; pour les impératifs : écart constaté,
+corrections apportées, reste à traiter, pilote, échéance).
+
+- Une question à la fois, en langage simple : « Quand une personne se plaint, que se
+  passe-t-il ? Racontez-nous. » ; « Est-ce que ce processus est en place ? » (Oui / En
+  partie / Pas encore / Je ne sais pas).
+- **Réponse écrite ou dictée** : un gros bouton micro « Expliquer à voix haute », le texte
+  transcrit s'affiche et se corrige avant d'être enregistré.
+- La plateforme relie la réponse aux documents déjà déposés et propose, s'il manque une
+  preuve, ce qu'il faudrait fournir (« une feuille d'émargement de la dernière réunion »).
+- Les réponses alimentent le rapport de diagnostic et le plan d'action ; en mode Accompagné,
+  Sandrine les relit.
+- Rappel en tête de chaque questionnaire : « Ne citez aucun nom de personne accompagnée. »
+
+À dessiner : l'accueil client dans les trois modes, la vue « Mettre en conformité »
+côte à côte, un questionnaire de pratiques avec la dictée, l'encart « Être accompagné », le
+bandeau de bascule, et côté cabinet la liste filtrée par mode + la fiche « en autonomie ».
 
 ### 7.5 Espace équipe (AVS / ADVF) — nouveau, mobile d'abord
 
@@ -577,5 +609,7 @@ client pilote réel ni de vraies personnes.** Prix de l'abonnement : « xx € /
 5. La matrice de l'équipe : visible de la direction seulement, ou aussi des salariés ?
 6. Faire relire les écrans « équipe » par des aides à domicile de la structure pilote avant
    de les construire ?
-7. Client autonome : pas d'analyse automatique des documents (faute de relecture), et fiche
-   fermée côté cabinet tant qu'aucun accompagnement n'est signé — d'accord ?
+7. Client seul (Diagnostic, Mise en conformité) : c'est la structure qui valide ce que la
+   plateforme produit, avec la mention « non relu par EODA » — d'accord ? Et le contenu de
+   ses documents reste fermé côté cabinet tant qu'aucun accompagnement n'est signé ?
+8. La dictée vocale des réponses : oui pour tous, ou seulement sur tablette et mobile ?
