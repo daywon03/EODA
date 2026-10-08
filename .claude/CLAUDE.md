@@ -141,6 +141,7 @@ chantier.
 | 8 | `context/08-offre-commerciale-v10.md` | Plaquette commerciale v10 (modules, méthode, formules, options). Contenu toujours valide ; sa **mise en marché** change (supplément d'un abonnement) — voir 09 §4 |
 | 9 | `context/09-vision-produit.md` | **Vision arrêtée le 30/09/2026** : SaaS + cabinet, marché et concurrence sourcés, proposition de prix, doctrine IA (vue CTO), exigence d'accessibilité, **décision HDS bloquante**, lots A→D |
 | 10 | `context/10-regles-mise-en-conformite.md` | **Cahier de style de la génération** : règles de rédaction dites par Sandrine en séance (01/09 → 07/10), règles de contenu par document (livret, DIPC, règlement…), « paquet » de preuves d'un critère, branchement des documents finaux validés — **à relire avant de toucher un prompt** |
+| 10 bis | `context/11-modes-operatoires-sandrine.md` | **Transcription intégrale** des deux modes opératoires écrits de Sandrine (« Vérification documentaire » : matrice, champs critiques, code couleur, revue en trois temps ; « Guide EODA » : déroulé de la mission pilote, phases, livrables). **Fait foi pour les prompts, à la lettre** ; l'emporte sur `context/10` en cas de contradiction. Notes ⚠️ = points à confirmer avec Sandrine |
 | 11 | `specs/01-mvp-v1.md` | Spécification fonctionnelle détaillée des 3 modules V1 (+ modules suivants en fin de fichier) |
 | 12 | `specs/02-architecture-technique.md` | Stack, schéma BDD, architecture, ADRs |
 | 13 | `specs/03-roadmap-developpement.md` | Ordre de build, jalons, definition of done |
@@ -269,11 +270,29 @@ Détail complet et état d'avancement : `specs/02-architecture-technique.md` §4
   applicables à tous les types d'ESSMS) — toujours préciser le périmètre.
 - Ne pas présenter la plateforme comme un outil d'évaluation HAS officiel — c'est un outil
   de préparation/conseil.
-- **Ne jamais mettre l'IA en avant dans l'interface** (décision Damon, 30/09/2026) : aucun
-  badge « IA », aucune icône ✨, aucun « généré par l'IA » dans une copie d'écran, un e-mail
-  ou un export. Une sortie de modèle s'affiche comme **« Proposition à vérifier »**, avec les
-  gestes Accepter / Corriger, et reste soumise à `analysisVisibleTo`. Les concurrents vendent
-  un « copilote » ; EODA vend la relecture humaine.
+- **L'IA peut être nommée, mais jamais sans sa réserve** (décision Damon du 08/10/2026,
+  après accord de Sandrine — remplace l'interdiction du 30/09). Le libellé « Analysés par
+  l'IA » reste. Ce qui ne change pas : une sortie de modèle reste une **proposition** avec
+  les gestes Accepter / Corriger, soumise à `analysisVisibleTo`, et EODA vend la relecture
+  humaine. Ce qui devient obligatoire : pour une structure **en autonomie** (palier seul,
+  sans relecture EODA), tout document produit ou corrigé porte la mention qu'**il n'a pas été
+  revérifié par un humain, peut comporter des erreurs, et doit absolument être relu** avant
+  usage — à l'écran, dans l'export et dans l'e-mail qui l'annonce. Jamais « validé »,
+  jamais « conforme » sans relecture.
+- **Générer un document corrigé est payant, en deux niveaux** (décision Damon du
+  08/10/2026) : (1) la génération seule, en autonomie, avec la réserve ci-dessus ; (2) la
+  génération **vérifiée par un consultant EODA**, plus chère. Les montants ne sont **pas**
+  fixés — ne pas en inventer. Conséquence dans le code : `generateDocumentDraft` doit
+  vérifier le droit de la mission avant de générer (`correctionScope` de
+  `offer-scope-service.ts`, défini mais jamais lu au 08/10 — écart listé au bilan §3.1).
+  Le geste de génération et le geste de vérification EODA restent deux faits distincts,
+  jamais fusionnés : seul le second permet d'afficher « relu par EODA ».
+- **Les modes opératoires de Sandrine font foi pour l'IA**
+  (`context/11-modes-operatoires-sandrine.md`, transcription de « Guide EODA Mode
+  Opératoire » et « Mode Opératoire Analyse Documentaire ») : les prompts d'analyse et de
+  mise en conformité les suivent **à la lettre**. En cas de contradiction avec
+  `context/10-regles-mise-en-conformite.md` (règles dites en séance), le mode opératoire
+  écrit l'emporte et la contradiction est signalée à Damon.
 - Ne pas utiliser de pictogrammes **ARASAAC** ni **SantéBD** : leurs licences interdisent
   l'usage commercial (vérifié le 30/09/2026). Icônes Lucide, ou pictogrammes propres à EODA.
 - Ne pas apposer le **logo FALC européen** tant que les textes n'ont pas été relus par des

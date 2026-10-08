@@ -186,8 +186,10 @@ Points qui ne s'inventent pas :
 ## 6. Comment l'IA doit fonctionner (vue CTO)
 
 ### 6.1 Doctrine
-L'IA **prépare**, l'humain **décide**. Elle n'apparaît jamais comme argument ni comme
-badge ; elle produit des **propositions** que Sandrine accepte ou corrige, et **rien**
+L'IA **prépare**, l'humain **décide**. *(Mise à jour du 08/10 : l'IA peut être nommée à
+l'écran — accord de Sandrine — mais toujours avec sa réserve ; en autonomie, « non
+revérifié par un humain, peut comporter des erreurs, à relire absolument ». Voir CLAUDE.md
+§7.)* Elle produit des **propositions** que Sandrine accepte ou corrige, et **rien**
 n'atteint le client sans validation (`analysisVisibleTo`, déjà en place). Chaque geste
 « accepter » / « corriger » est une donnée d'évaluation : c'est ainsi que le système
 s'améliore et que sa fiabilité se mesure.

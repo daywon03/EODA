@@ -40,6 +40,10 @@ apps/web/.local-storage/
 # cf. CLAUDE.md §7. Utilisés en local uniquement pour extraire le contenu générique du
 # référentiel HAS vers les scripts de seed.
 .claude/context/Documents/
+# Même règle pour le second dossier de documents de travail (modes opératoires, PAP,
+# enquêtes ASSAD — potentiellement nominatifs, donc données de santé) : ils partent en
+# base par la bibliothèque, jamais dans le dépôt.
+context2/
 # Ajouté par `vercel link` : identifiants du projet Vercel, propres à cette machine.
 .vercel
 
