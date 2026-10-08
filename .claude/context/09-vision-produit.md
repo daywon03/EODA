@@ -238,7 +238,7 @@ cahier des charges. **À demander** :
 1. les fiches `Critère_X_Y_Z.docx` (« documents & preuves attendus ») ;
 2. 10 à 20 documents déjà analysés **et corrigés par Sandrine**, anonymisés — le jeu de
    référence ;
-3. le référentiel documentaire en cours (~39–41 pièces, P et D) une fois validé par Sonia ;
+3. le référentiel documentaire en cours (~39–41 pièces, P et D) une fois validé par l'assistante de direction du pilote ;
 4. le fichier PAC imposé (schéma de colonnes) ;
 5. la note HAS du 03/09/2026 à qualifier (générale ou ESSMS ?).
 
@@ -262,7 +262,7 @@ comme preuve d'audit. Le lot B construit donc les quiz dans la plateforme.
 
 **Vue CTO sur l'ERP** : Qualineo s'est allié à Arche MC2 plutôt que de refaire un ERP. Le
 marché du planning / télégestion du domicile est occupé ; la valeur d'EODA est la preuve de
-conformité. Point à vérifier (réunion du 25/09) : Julien a évoqué que « seules 5 marques
+conformité. Point à vérifier (réunion du 25/09) : le coordinateur de secteur du pilote a évoqué que « seules 5 marques
 sont autorisées comme outils métier » — non vérifié, à qualifier avant tout projet ERP.
 
 ---

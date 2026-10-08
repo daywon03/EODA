@@ -231,7 +231,7 @@ et de la validation de l'offre EODA. Suivi comme KPI interne distinct (§8), à 
 confondre avec une mission commerciale standard dans le calcul de CA.
 
 **Mission pré-chargée dans l'état par défaut de l'outil** (`defaultState()`) : ASSAD
-BENOIT — association, FINESS 930034459, contact Tania Leborgne (Directrice), formule
+BENOIT — association, FINESS 930034459, contact : la Directrice, formule
 Excellence, `gratuit: true`, échéance évaluation HAS au 15/01/2027, diagnostic initial
 quasi entièrement coché (seule la restitution du PAC — `froid_restitution` — reste à
 faire dans les données de départ), phase Fondations en cours (01/06 au 31/08/2026),

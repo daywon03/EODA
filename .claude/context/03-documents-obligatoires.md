@@ -128,7 +128,7 @@ réglementaire RH complémentaire" pour éviter toute confusion avec les critèr
 
 - Un référentiel de **~39 à 41 documents** destinés aux SAD est en cours de création par
   Sandrine : procédures (« P ») et documents (« D ») — émargements, fiches de
-  sensibilisation, comptes rendus. Les procédures sont en validation chez Sonia (côté
+  sensibilisation, comptes rendus. Les procédures sont en validation chez l'assistante de direction (côté
   client) ; la liste finale en dépend.
 - **Trois paliers de service** évoqués lors de la démo du 22/09 : palier 1 = les 7 documents
   loi 2002-2 + rapport de conformité + plan d'action, la structure se débrouille ;

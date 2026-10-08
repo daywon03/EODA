@@ -96,7 +96,7 @@ systématique avant validation finale. »*
 - Référentiel HAS (manuel juillet 2025) : **157 critères**, dont **18 impératifs** au
   niveau national tous-ESSMS confondus (16 pour un SAD Aide, 17 pour un SAD Mixte — voir
   note de cohérence ci-dessous).
-- ASSAD BENOIT (loi 1901, SAD Aide, Le Blanc-Mesnil 93, Directrice Tania Leborgne) : mission
+- ASSAD BENOIT (loi 1901, SAD Aide, Le Blanc-Mesnil 93) : mission
   pilote/bêta-test, gratuite, échéance d'évaluation officielle fixée au **15 janvier 2027**.
 - Chronologie reconstituée jusqu'au 13/07/2026 ; phases postérieures (sept.-déc. 2026) =
   projections à ajuster.
@@ -119,9 +119,8 @@ ASSAD BENOIT (livrables remis ou coproduits).
 
 - **EODA :** Sandrine Regina (consultante unique, pilote de bout en bout), Damon BA
   (programmeur, outils internes/externes).
-- **ASSAD BENOIT :** Tania Leborgne (Directrice), Julien Chevallier (Coordinateur),
-  Sandrine Mcirdi (Assistante), Marie-Hélène *(nom de famille à préciser)* (Assistante),
-  AVS, personnes accompagnées (échantillon), CVS.
+- **ASSAD BENOIT :** la Directrice, le Coordinateur de secteur, deux Assistantes
+  (dont l'assistante de direction), AVS, personnes accompagnées (échantillon), CVS.
 - **Rythme :** points hebdomadaires (~2h, mardi/mercredi), CR normalisés sous 48h, points
   d'étape majeurs (cadrage 31/03, visite 08/04, diagnostic mai, synthèse mi-parcours juin,
   semaine d'atelier 22-30/09, bilan 30/09, consolidation décembre).
@@ -217,7 +216,7 @@ conservé comme cas d'école (référence croisée directe avec la Partie 1, poi
   6 mois — la rotation des équipes impose de pouvoir recommencer proprement.
 - **Face à l'évaluateur** : présenter honnêtement les manques d'avant, puis montrer que les
   nouvelles procédures les couvrent.
-- **Démo du 22/09** : Sonia et Julien (côté client) ont reçu des profils de test. Retours :
+- **Démo du 22/09** : l'assistante de direction et le coordinateur de secteur (côté client) ont reçu des profils de test. Retours :
   mode sombre, agenda commentable, récapitulatif « ce qui a changé » par document, trace des
   modifications (qui, quoi, quand), e-learning, rappel annuel « vos processus sont-ils
   toujours valides ? », version mobile par QR code plutôt qu'une application.

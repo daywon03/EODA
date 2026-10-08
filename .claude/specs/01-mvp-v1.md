@@ -81,7 +81,7 @@ Remplacer les échanges email dispersés par un espace structuré où Sandrine e
 3. Voit le **tableau de bord** de l'établissement : statut global, % de checklist
    complétée, liste des documents par statut
 
-**Côté client (ex : Tania Leborgne, Directrice ASSAD BENOIT) :**
+**Côté client (ex : la Directrice du SAD pilote) :**
 1. Se connecte à son espace établissement (accès cloisonné — ne voit que son propre
    établissement, jamais les autres clients d'EODA)
 2. Voit la **checklist des pièces attendues**, organisée par catégorie (loi 2002-2,
