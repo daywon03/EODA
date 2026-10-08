@@ -18,8 +18,8 @@ describe("escapeHtml", () => {
 
 describe("buildClientInvitationEmail", () => {
   const invitation = buildClientInvitationEmail({
-    recipientName: "Tania Leborgne",
-    email: "tania@structure.fr",
+    recipientName: "Camille Durand",
+    email: "camille@structure.fr",
     temporaryPassword: "Xk7-mots-de-passe",
     loginUrl: "https://portail.eoda-conseil.com/login",
     establishmentName: "ASSAD BENOIT",
@@ -30,7 +30,7 @@ describe("buildClientInvitationEmail", () => {
   });
 
   it("donne l'identifiant, le mot de passe temporaire et le lien", () => {
-    expect(invitation.html).toContain("tania@structure.fr");
+    expect(invitation.html).toContain("camille@structure.fr");
     expect(invitation.html).toContain("Xk7-mots-de-passe");
     expect(invitation.html).toContain("https://portail.eoda-conseil.com/login");
   });
@@ -59,7 +59,7 @@ describe("buildOptionRequestEmail", () => {
     establishmentName: "ASSAD BENOIT",
     optionLabel: "Audit de conformité flash",
     message: "On aimerait le faire avant la visite.",
-    requestedByName: "Tania Leborgne",
+    requestedByName: "Camille Durand",
     requestUrl: "https://portail.eoda-conseil.com/dashboard/cabinet/commercial",
   });
 
@@ -78,7 +78,7 @@ describe("buildOptionRequestEmail", () => {
       establishmentName: "ASSAD BENOIT",
       optionLabel: "Audit",
       message: "   ",
-      requestedByName: "Tania",
+      requestedByName: "Camille",
       requestUrl: "https://x",
     });
     expect(withoutMessage.html).not.toContain("blockquote");

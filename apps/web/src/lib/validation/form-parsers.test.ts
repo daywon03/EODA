@@ -115,9 +115,9 @@ describe("requiredDate / optionalDate", () => {
 
 describe("requiredEmail", () => {
   it("normalise la casse — sans quoi deux comptes distincts peuvent coexister", () => {
-    expect(requiredEmail(form({ e: "Julien.Chevalier@Exemple.FR" }), "e", "L'email")).toEqual({
+    expect(requiredEmail(form({ e: "Alex.Martin@Exemple.FR" }), "e", "L'email")).toEqual({
       ok: true,
-      value: "julien.chevalier@exemple.fr",
+      value: "alex.martin@exemple.fr",
     });
   });
 
