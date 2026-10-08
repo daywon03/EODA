@@ -176,9 +176,12 @@ Le référentiel HAS a des règles précises (NC interdit sur impératifs, RI un
   appel LLM avec prompt structuré contre le référentiel HAS (`lib/llm/`). **État réel au
   08/10/2026** : si `OPENROUTER_API_KEY` est posée, le modèle par défaut est
   `minimax/minimax-m2.7` (et Gemini pour les images) via OpenRouter, sinon Anthropic
-  direct. C'est **en contradiction** avec `context/09-vision-produit.md` §6.3 (DeepSeek
-  écarté parce que hors UE ; cible Haiku + Sonnet) — décision D2 de
-  `specs/05-bilan-2026-10.md`, à trancher avant le prochain dépôt client réel.
+  direct. **Décision Damon du 08/10/2026 : on reste sur OpenRouter** (remplace la cible
+  Haiku + Sonnet de `09-vision-produit.md` §6.3). Le choix du modèle reste réglable par
+  OpenRouter ; ce qui ne se règle pas, c'est la conservation des données par le
+  fournisseur final — à verrouiller par les options de routage d'OpenRouter (refus de la
+  collecte de données, fournisseurs sans conservation) au moment de la migration du
+  backend (§6, HDS).
 - **Hébergement app :** **Vercel**, région `cdg1` (Paris) — `vercel.json` à la racine ;
   remplace Prisma Compute depuis le 21/08/2026 (`prisma.compute.ts` et le paquet
   `@prisma/compute-sdk` ont été supprimés le 22/08/2026 : le SDK tirait un `tar` vulnérable
@@ -253,13 +256,15 @@ Détail complet et état d'avancement : `specs/02-architecture-technique.md` §4
   À brancher : `eslint-plugin-jsx-a11y` en error, un test qui refuse `text-[10px]` /
   `text-[11px]` et le gris `--gris-mid` en couleur de texte, un passage axe-core en CI sur
   les pages client. D'ici là, c'est un point de revue obligatoire, pas une règle vérifiée.
-- 🏥 **Données de santé (HDS) — décision bloquante.** Un DIPC signé, un PAP, une évaluation
-  des besoins sont en pratique des données de santé (CSP L1111-8, référentiel CNIL
-  médico-social) ; Supabase et Vercel **ne sont pas certifiés HDS**. Aucune fonctionnalité
-  qui stocke une pièce nominative de personne accompagnée (signature sur tablette, dossier
-  usager) ne part en production sans décision explicite de Damon
-  (`context/09-vision-produit.md` §8). Les documents institutionnels restent dans le
-  périmètre actuel.
+- 🏥 **Données de santé (HDS) — décision prise le 08/10/2026 : le backend migre.** Un DIPC
+  signé, un PAP, une évaluation des besoins, une enquête de satisfaction **nominative**
+  sont des données de santé (CSP L1111-8, référentiel CNIL médico-social) ; Supabase et
+  Vercel **ne sont pas certifiés HDS**. Damon a tranché : l'enquête reste **nominative**,
+  et **tout le backend change pour un hébergement conforme** (09 §8, option b). Le lot C
+  (tablette, enquête, dossier usager, signature) **peut se construire** ; ce qui reste
+  interdit, c'est d'**envoyer en production** une donnée nominative de personne
+  accompagnée **avant** que la migration soit faite et vérifiée. Les documents
+  institutionnels restent dans le périmètre actuel.
 
 ## 7. Ce que Claude Code ne doit PAS faire
 
@@ -366,7 +371,10 @@ Détail complet et état d'avancement : `specs/02-architecture-technique.md` §4
   commerciaux — et redemandait FINESS / adresse / échéance HAS **avant** qu'aucune
   relation commerciale n'existe. Un seul chemin : prospect → devis → signature. Si le
   besoin « client déjà signé hors plateforme » revient, il passe par un prospect et un
-  devis, jamais par une seconde porte.
+  devis, jamais par une seconde porte. **Libre-service (décision du 08/10/2026)** : une
+  structure qui s'inscrit seule et fait le diagnostic devient un **prospect** (origine
+  « libre-service »), visible du cabinet pour être démarché — **pas** une fiche client.
+  La fiche client naît toujours et seulement de la signature.
 - **L'état d'une fiche est DÉRIVÉ, jamais stocké** — `lib/services/lifecycle-service.ts`
   (pur, testé). `SIGNE` / `EN_COURS` se calculent à partir des faits (items de
   diagnostic cochés, dates de phases posées) ; `TERMINE` vient de `Mission.closedAt`,
@@ -411,6 +419,9 @@ Détail complet et état d'avancement : `specs/02-architecture-technique.md` §4
 - **Le parcours d'un document se dérive, sauf sa validation.** Déposé → analysé → mis
   en conformité → restitué → validé (`lib/services/document-workflow-service.ts`).
   Seul `Document.validatedAt` est stocké : valider engage la parole de l'évaluatrice.
+  **Décision du 08/10/2026 : deux gestes distincts, jamais fusionnés** — EODA marque
+  « relu » (`validatedAt`, parole du cabinet), puis le **client** marque « accepté » (fait
+  à créer). Sandrine, 15/09 : « c'est lui qui valide, ce n'est pas moi ».
   Le portail CLIENT garde les statuts simples (manquant / déposé / conforme) — « les
   deux portails ne regardent pas la même chose » (call du 26/08).
 - **Chacun ne supprime que son propre dernier dépôt** (`canDeleteVersion`). Le cabinet
@@ -537,8 +548,12 @@ Détail complet et état d'avancement : `specs/02-architecture-technique.md` §4
   cotations. L'ouverture est un geste explicite. C'est ce qui rend la seconde
   auto-évaluation comparable à la première (`evaluation-comparison-service.ts`, où un
   critère coté d'un seul côté est `INCOMPARABLE` et jamais un écart de ±4).
-- **Les relances sont un geste, pas un automate.** Délais et cadence n'ont jamais été
-  spécifiés (§12.7) : ne pas en inventer. Une pièce déjà justifiée par le client n'est
+- **Les relances sont un geste, pas un automate — les alertes d'échéance, si.**
+  (Distinction actée par Damon le 08/10/2026.) La **relance d'une pièce manquante** reste
+  manuelle. L'**alerte d'échéance** d'un document récurrent (DIPC annuel, projet de
+  service à 5 ans, retest de quiz à 6 mois — `03-documents-obligatoires.md`, périodicités)
+  part **automatiquement** : ce n'est pas une relance, c'est un rappel de calendrier. Pour
+  les relances : délais et cadence n'ont jamais été spécifiés (§12.7) : ne pas en inventer. Une pièce déjà justifiée par le client n'est
   jamais relancée, ni un document que le cabinet doit produire
   (`reminder-service.ts`). Les destinataires viennent du lien `EstablishmentUser`,
   jamais d'une adresse saisie.

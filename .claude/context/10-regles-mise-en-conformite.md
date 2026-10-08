@@ -114,6 +114,10 @@ ligne du manuel. Les encarts sont retirés après validation ; la trace reste da
 des changements. ⚠️ Le prompt actuel (`analysis-prompt.ts:216`) interdit toute annotation :
 à changer quand le format sera tranché (bilan, question 11).
 
+**Livrable corrigé = les deux** (confirmé par Damon le 08/10) : le document annoté
+(surlignage + encarts) **et** le rapport des changements séparé. **Logos en en-tête**,
+jamais en filigrane ; les gabarits de Sandrine servent d'exemple de mise en page.
+
 **Logos** (19/07, 26/08) : procédure = logo EODA **et** logo du client ; note de service =
 logo du client seul ; sans logo client, la charte EODA s'applique. Pied de page de
 paternité (`document-ownership-service.ts`).

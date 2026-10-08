@@ -293,7 +293,7 @@ sont en pratique des données de santé** ([CNIL](https://www.cnil.fr/fr/quest-c
 (recommandé pour les lots A et B) ; (b) migrer la partie nominative vers un hébergeur
 certifié HDS en UE (OVHcloud, Scaleway, 3DS Outscale — certifications à revérifier au
 registre ANS) ; (c) laisser les pièces nominatives dans l'ERP du client (Ximi…) et ne
-stocker chez EODA que la preuve qu'elles existent. **Décision Damon requise** avant le lot C.
+stocker chez EODA que la preuve qu'elles existent. **Décidé le 08/10/2026 : option (b)** — le backend migre vers un hébergement certifié HDS ; enquête nominative ; le lot C se construit, rien de nominatif en production avant la migration (CLAUDE.md §6).
 
 **Signature électronique** : la signature simple est recevable pour un DIPC (aucun niveau
 imposé par le CASF), à condition d'un **dossier de preuve** (identité du signataire et de
