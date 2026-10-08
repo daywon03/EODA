@@ -24,7 +24,7 @@ vérifie** — sinon elle n'existe pas.
 
 | Règle | Contrôle mécanique | Où |
 |---|---|---|
-| Pas d'opération asynchrone non attendue | `no-floating-promises`, `no-misused-promises`, `await-thenable` en **error** | `apps/web/.eslintrc.json` (type-aware, `parserOptions.project`) |
+| Pas d'opération asynchrone non attendue | `no-floating-promises`, `no-misused-promises`, `await-thenable` en **error** | `apps/web/eslint.config.mjs` (type-aware, `projectService`) |
 | Pas d'échappatoire au typage | `no-explicit-any` en **error** | idem |
 | Pas de journalisation sauvage | `no-console` en **error** (`error`/`warn` autorisés) | idem |
 | Aucun dialogue natif du navigateur | `no-restricted-syntax` sur `confirm`/`alert`/`prompt` en **error** | idem — remplacés par `<ConfirmActionButton>` |
@@ -122,6 +122,11 @@ lots dans `context/09-vision-produit.md` §7 :
 - **Lot D — offre SaaS** : paliers d'abonnement, **après** validation des prix par Sandrine.
 - Ensuite seulement : fonctionnalités métier (registres EI / plaintes, KPI, liens ERP).
 
+**Bilan au 08/10/2026** — `specs/05-bilan-2026-10.md` : relecture de tous les calls du 19/07
+au 07/10, audit du code, **douze décisions à trancher** (D1 HDS et D2 fournisseur d'IA en
+tête), correctifs rapides, reste à faire par module. À lire avant de choisir le prochain
+chantier.
+
 ## 3. Documents de référence (lire dans cet ordre)
 
 | Ordre | Fichier | Contenu |
@@ -135,9 +140,12 @@ lots dans `context/09-vision-produit.md` §7 :
 | 7 | `context/07-outil-pilotage-missions.md` | Pipeline commercial (prospects, devis, catalogue, KPI — `/dashboard/cabinet/commercial`, CABINET_ADMIN uniquement) et suivi de mission (checklist diagnostic 12 items + 4 phases — `/dashboard/cabinet/etablissements/[id]/mission`, CABINET_ADMIN + CABINET_EVALUATOR) sont tous deux implémentés dans la plateforme. **§12 = refonte des offres décidée au call du 16/08/2026 (prix, périmètres, portails), pas encore implémentée — elle remplace le §4 : lire §12 avant de toucher au catalogue, aux offres ou aux portails.** |
 | 8 | `context/08-offre-commerciale-v10.md` | Plaquette commerciale v10 (modules, méthode, formules, options). Contenu toujours valide ; sa **mise en marché** change (supplément d'un abonnement) — voir 09 §4 |
 | 9 | `context/09-vision-produit.md` | **Vision arrêtée le 30/09/2026** : SaaS + cabinet, marché et concurrence sourcés, proposition de prix, doctrine IA (vue CTO), exigence d'accessibilité, **décision HDS bloquante**, lots A→D |
-| 10 | `specs/01-mvp-v1.md` | Spécification fonctionnelle détaillée des 3 modules V1 (+ modules suivants en fin de fichier) |
-| 11 | `specs/02-architecture-technique.md` | Stack, schéma BDD, architecture, ADRs |
-| 12 | `specs/03-roadmap-developpement.md` | Ordre de build, jalons, definition of done |
+| 10 | `context/10-regles-mise-en-conformite.md` | **Cahier de style de la génération** : règles de rédaction dites par Sandrine en séance (01/09 → 07/10), règles de contenu par document (livret, DIPC, règlement…), « paquet » de preuves d'un critère, branchement des documents finaux validés — **à relire avant de toucher un prompt** |
+| 11 | `specs/01-mvp-v1.md` | Spécification fonctionnelle détaillée des 3 modules V1 (+ modules suivants en fin de fichier) |
+| 12 | `specs/02-architecture-technique.md` | Stack, schéma BDD, architecture, ADRs |
+| 13 | `specs/03-roadmap-developpement.md` | Ordre de build, jalons, definition of done |
+| 14 | `specs/04-liaison-document-type-critere.md` | Rattachement type de document ↔ critères HAS (`DocumentTypeCriterion`, **vide au 08/10** — levier n°1 de la qualité des analyses) |
+| 15 | `specs/05-bilan-2026-10.md` | **Bilan au 08/10/2026** : décisions bloquantes, correctifs, pipeline IA réel, reste à faire, lisibilité des documents de `context/Documents/` |
 | — | `PRODUCT.md` (racine) | Vérité produit lue par la skill impeccable (utilisateurs, positionnement, principes, accessibilité) |
 | — | `.claude/design/…Brief-Claude-Design-Refonte_v01_Interne.md` | Brief de refonte remis à Claude Design ; **toute implémentation d'écran s'y conforme** jusqu'à ce qu'un DESIGN.md le remplace |
 
@@ -164,7 +172,12 @@ Le référentiel HAS a des règles précises (NC interdit sur impératifs, RI un
 - **Auth :** Auth.js (NextAuth) — comptes Cabinet (Sandrine + futurs collaborateurs) et
   comptes Client (un par établissement)
 - **Analyse documentaire :** extraction texte (pdf-parse / mammoth pour docx) +
-  appel LLM (Anthropic Claude API) avec prompt structuré contre le référentiel HAS
+  appel LLM avec prompt structuré contre le référentiel HAS (`lib/llm/`). **État réel au
+  08/10/2026** : si `OPENROUTER_API_KEY` est posée, le modèle par défaut est
+  `minimax/minimax-m2.7` (et Gemini pour les images) via OpenRouter, sinon Anthropic
+  direct. C'est **en contradiction** avec `context/09-vision-produit.md` §6.3 (DeepSeek
+  écarté parce que hors UE ; cible Haiku + Sonnet) — décision D2 de
+  `specs/05-bilan-2026-10.md`, à trancher avant le prochain dépôt client réel.
 - **Hébergement app :** **Vercel**, région `cdg1` (Paris) — `vercel.json` à la racine ;
   remplace Prisma Compute depuis le 21/08/2026 (`prisma.compute.ts` et le paquet
   `@prisma/compute-sdk` ont été supprimés le 22/08/2026 : le SDK tirait un `tar` vulnérable
@@ -466,9 +479,10 @@ Détail complet et état d'avancement : `specs/02-architecture-technique.md` §4
   Sandrine).
 - **La grille de découverte est un CONTENU, pas un schéma** (`content/decouverte/`,
   réponses en `Prospect.discoveryAnswersJson` lues défensivement). Ajouter une
-  question ne doit jamais demander une migration. Le gabarit officiel de Sandrine
-  n'est pas dans le dépôt : les questions livrées sont provisoires et annoncées comme
-  telles à l'écran. **L'ouverture de cette grille au client n'est pas tranchée** —
+  question ne doit jamais demander une migration. Les questions sont la
+  transposition de SA grille v03 (transmise le 01/09, provenance en tête de
+  `grille.ts`), et non plus un gabarit d'attente. **L'ouverture de cette grille au
+  client n'est pas tranchée** —
   `CABINET_ADMIN` uniquement jusqu'à décision explicite.
 - **La bibliothèque de modèles se range avec les mots de Sandrine, pas ceux du
   référentiel.** Le dossier est une ligne de `TemplateCategory` créée à la main,
@@ -479,9 +493,11 @@ Détail complet et état d'avancement : `specs/02-architecture-technique.md` §4
   03/09). Le tri est manuel parce que ses dossiers suivent le déroulé d'une
   mission — l'alphabet mettrait « Phase 10 » avant « Phase 2 ».
   Deux natures de fiches, et elles n'obéissent pas aux mêmes règles
-  (`TemplateDocumentKind`) : un **GABARIT** a les trois stades et des numéros de
-  version ; un **document de RÉFÉRENCE** — manuel HAS, texte réglementaire — n'en
-  a aucun (« lui n'aura pas forcément plusieurs versions »). D'où
+  (`TemplateDocumentKind`) : un **GABARIT** a des stades et des numéros de
+  version — **deux stades seulement**, `VIERGE` (le modèle) et `FINALE` (la version
+  produite par EODA) ; la version « initiale » n'existe plus côté cabinet, c'est le
+  document que le **client** dépose sur son portail (décision des 15 et 20/09) ; un
+  **document de RÉFÉRENCE** — manuel HAS, texte réglementaire — n'en a aucun (« lui n'aura pas forcément plusieurs versions »). D'où
   `TemplateVersion.stage` et `versionLabel` nullables : l'obligation dépend du
   parent, la base ne sait pas l'exprimer, elle vit dans `resolveVersionIdentity`
   avec ses tests. Ne jamais convertir une fiche d'une nature à l'autre : les
@@ -513,6 +529,18 @@ Détail complet et état d'avancement : `specs/02-architecture-technique.md` §4
   il peut évoquer des situations de personnes accompagnées, et le fil existe pour que
   les échanges restent dans la plateforme. Le client garde la parole en bibliothèque ;
   seul un accès révoqué ferme le fil.
+- **Les documents finaux validés sont la base d'exemples de l'IA — jamais du code.**
+  Les livrables validés de l'ASSAD BENOIT (et ensuite de chaque client) servent de
+  référence à la mise en conformité pour **tous** les clients : c'est voulu, et c'est
+  pour ça qu'ils obéissent à des règles plus dures qu'un dépôt ordinaire
+  (`context/10-regles-mise-en-conformite.md` §9). Ils n'entrent **jamais** dans le dépôt
+  de code (ni fixture, ni `content/`) — par la bibliothèque de modèles seulement, en
+  stade `FINALE` ; ils sont **anonymisés avant dépôt** (`anonymizeText` ne masque
+  qu'e-mails, téléphones et NIR : il ne suffit pas) ; aucune pièce nominative (DIPC
+  signé, PAP) n'en fait partie (HDS) ; ils sont injectés dans le prompt comme **donnée**
+  balisée, jamais comme instruction ; et on ne va jamais chercher d'exemple dans les
+  `Document` d'un autre établissement. Chaque paire « original → version validée »
+  rejoint le jeu d'évaluation rejoué à tout changement de prompt ou de modèle (09 §6.3).
 - Ne pas faire passer un devis à `SIGNE` par `changeDevisStatus` : la signature est la seule
   transition qui produit des effets hors du module commercial (fiche établissement, mission,
   périmètre ouvert au client) et passe par `convertDevisToClient` (`lib/actions/conversion.ts`),

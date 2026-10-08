@@ -405,8 +405,9 @@ contexte d'analyse au lieu de faire deviner le modèle.
 
 - [x] **La bibliothèque sort du PC de la consultante** — `TemplateCategory` (dossiers créés
   et ordonnés à la main, jamais l'enum `DocumentCategory`), `TemplateDocument` de deux
-  natures (`GABARIT` à trois stades et numéros de version / document de `RÉFÉRENCE` sans
-  aucun des deux), `TemplateVersion.stage` et `versionLabel` nullables parce que
+  natures (`GABARIT` à stades et numéros de version — deux stades depuis les 15-20/09,
+  `VIERGE` et `FINALE`, la version initiale étant celle du client / document de
+  `RÉFÉRENCE` sans aucun des deux), `TemplateVersion.stage` et `versionLabel` nullables parce que
   l'obligation dépend du parent. Règles dans `template-library-service.ts`.
 - [x] **Import d'un dossier entier** — `planFolderImport` PROPOSE un rangement que Sandrine
   corrige avant écriture, distingue un stade **deviné** d'un stade **par défaut**
@@ -509,7 +510,9 @@ contexte d'analyse au lieu de faire deviner le modèle.
 
 Source : `context/09-vision-produit.md` (décision de positionnement du 30/09, lots A→D) et
 brief de refonte `.claude/design/20260930_DOC_EODA_Brief-Claude-Design-Refonte_v01_Interne.md`.
-Aucune ligne de code n'est encore écrite pour ce jalon.
+Aucune ligne de code n'est encore écrite pour ce jalon. **Bilan au 08/10/2026**, décisions
+bloquantes et reste à faire consolidé depuis les calls du 20/09 au 07/10 :
+`specs/05-bilan-2026-10.md`.
 
 - [ ] **Maquettes Claude Design** produites à partir du brief, présentées à Sandrine,
   corrigées — **préalable** à tout écran du lot A.

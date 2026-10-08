@@ -154,6 +154,9 @@ ne déclenchent aucun envoi automatique tant que la cadence n'est pas décidée.
 
 ### Règles de rédaction retenues avec le client pilote (22/09/2026)
 
+> Résumé. La version complète et à jour — toutes les règles dites en séance du 01/09 au
+> 07/10, par document — est `context/10-regles-mise-en-conformite.md`.
+
 - Documents courts : « 2 lignes, pas 20 » ; ne pas répéter dans le corps ce que porte déjà le
   tableau de référence (référence, version, date).
 - Champ « Responsable » : remplacé par une mention générique (« disponible sur demande ») —
