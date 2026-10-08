@@ -1,0 +1,47 @@
+candidat_type_generique,nb_criteres,criteres,exemples_libelles_xlsx_anonymises
+Grille d'évaluation des besoins,29,1.6.1 1.6.2 1.6.3 1.10.1 1.10.2 1.10.3 1.10.4 1.10.5 1.10.6 1.12.1 1.12.2 1.12.3 1.14.1 1.14.2 1.14.3 1.15.5 1.15.6 2.3.1 2.3.2 2.4.1 2.4.2 2.4.3 2.4.4 2.4.5 2.4.6 2.4.7 2.6.1 2.6.3 3.5.2,EVALBESOINS | Grille d'évaluation des besoins fusionnée / PR03FO02V04 | Grille Évaluation des besoins
+Mode opératoire / formulaire de transmission-orientation (FAMO),22,1.12.1 1.12.2 1.12.3 1.14.1 1.14.2 1.14.3 1.14.4 1.14.5 1.14.6 2.5.3 2.9.1 3.5.1 3.5.2 3.5.3 3.6.1 3.6.3 3.6.4 3.6.5 3.13.1 3.13.2 3.13.3 3.13.4,FORMULAIRE-FAMOORIENTATION-DACSANTE | Formulaire FAMO DAC Santé | MODE-OPERATOIRE TransmissionFAMO | Mode opératoire FAMO
+Support / fiche de sensibilisation thématique,20,1.14.6 1.17.2 2.1.3 2.8.2 2.8.3 2.9.1 2.9.2 2.9.3 2.10.2 3.1.3 3.5.3 3.6.1 3.6.3 3.6.4 3.6.5 3.7.3 3.13.1 3.13.3 3.14.4 3.15.3,AFFICHE SENSIBILISATION ReglesOr-Securite SI | AFFICHE SENSIBILISATION ReglesOrNumerique | FICHE-SENSIBILISATION AutonomieIsolement | FICHE-SENSIBILISATION NouveauxIntervenantsNonSalaries | FICHE-SENSIBILISATION QuestionnementEthique | SUPPORT-ALTERNATIVESPARCOURS | SUPPORT-SENSIBILISATION EvenementsIndesirables | SUPPORT-SENSIBILISATION GestionCrise-314-4 | SUPPORT-SENSIBILISATION PreventionEducationSante | SUPPORT-SENSIBILISATION RisqueInfectieux | SUPPORT-SENSIBILISATION RisqueMedicamenteux | SUPPORT-SENSIBILISATION RupturesParcours
+Fiche de tâches / de poste intervenant,19,1.10.1 1.10.2 1.10.3 1.10.4 1.10.5 1.10.6 1.12.1 1.12.2 1.12.3 1.17.2 1.17.3 2.5.3 2.8.1 2.9.1 2.10.2 3.6.1 3.6.3 3.6.4 3.6.5,FICHE DE TACHES | FICHE DES TACHES | FICHETACHES | FICHETACHES MultiCritères | Fiche de tâches
+"Cahier d'appels / export du logiciel métier (demandes, tableau de bord)",15,1.6.1 1.6.2 1.6.3 1.17.1 1.17.2 1.17.3 1.17.4 2.8.1 2.8.2 2.8.3 3.10.1 3.10.2 3.12.1 3.12.2 3.12.3,Cahier d'appels | Export des demandes | Tableau de bord KPI | TableauBord CahierAppel Consolide PlaintesEI
+Note de service,15,2.2.2 2.2.3 2.2.4 2.2.5 3.1.1 3.1.2 3.1.3 3.1.4 3.8.1 3.8.2 3.8.3 3.8.4 3.8.5 3.8.6 3.11.1,Classeur des notes de service | NOTE-SERVICE Affiche A4 Bientraitance | NOTE-SERVICE DroitsFondamentaux | NOTESERVICE Affiche A4 P3 Bientraitance | NOTESERVICE DroitsFondamentaux
+Rapport de conformité HAS d'un document (produit EODA),13,1.17.1 1.17.2 1.17.3 1.17.4 2.3.2 2.9.1 2.9.2 2.9.3 3.6.1 3.6.3 3.6.4 3.6.5 3.11.2,PLAC Analyse ConformiteHAS MediationDomicile | RAPPORT ConformiteHAS FicheLiaison | RAPPORT ConformiteHAS FormulaireFAMODACSante | RAPPORT ConformiteHAS ModeOperatoireFAMO | Rapport de conformité HAS — Médiation Domicile
+Règlement intérieur (droit du travail),10,2.2.3 2.2.4 2.2.5 2.8.2 3.8.1 3.8.2 3.8.3 3.8.4 3.8.5 3.8.6,REGLEMENT INTERIEUR | Règlement intérieur
+Trame d'entretien (accompagné traceur / professionnels / thématique),9,1.1.1 1.11.1 1.13.1 1.13.2 1.13.3 1.14.1 1.14.2 1.17.1 1.17.2,TRAME-ENTRETIEN Objectif-1-13 LogementHebergement | Trame Entretien Personne Accompagnee | Trame Entretien Professionnels Chap1 | Trame d'entretien « Accompagné traceur » — personne accompagnée
+"Feuille d'émargement de séance (gabarit D10, hors droits fondamentaux)",9,1.14.6 2.1.3 2.8.3 3.1.4 3.5.3 3.7.3 3.11.3 3.14.4 3.15.3,D10-PREREMPLI PreventionEducationSante | D10-PREREMPLI QuestionnementEthique | D10-PREREMPLI SeanceAutonomieIsolement | D10-PREREMPLI SeanceBientraitance | D10-PREREMPLI SeanceSensibilisationNumerique | D10-PREREMPLI SensibilisationRisqueInfectieux | D10-PREREMPLI SensibilisationRupturesParcours | EMARGEMENT-314-4 SensibilisationGestionCrise
+Grille d'auto-évaluation Synaé chapitre 1,7,1.8.1 1.8.2 1.8.3 1.8.4 1.8.5 1.9.1 1.9.2,Grille Chapitre 1 – Accompagné traceur SAA .xlsx
+Kit d'atelier (sensibilisation / co-construction),7,1.8.1 1.8.2 1.8.3 1.8.4 1.8.5 1.9.1 1.9.2,KITATELIER DemiJournee2 | KITATELIER DemiJournee3
+Plan d'actions qualité (PAC/PLAC),7,2.2.2 2.2.3 2.2.4 2.2.5 2.3.2 3.10.1 3.10.2,PLAC Analyse ConformiteHAS MediationDomicile | Plan d'actions qualité
+Note de stratégie / guide circuit du médicament (objectif 3.6),7,3.6.1 3.6.3 3.6.4 3.6.5 3.7.1 3.7.2 3.7.3,Guide sécurisation du parcours du médicament à domicile | NOTE-STRATEGIEMEDICAMENTEUSE
+Projet d'accompagnement personnalisé (PAP),5,1.11.1 2.3.1 2.3.2 2.6.2 3.5.2,PAP | PAPProjetAccompagnementPersonnalise SAD | volet PAP
+Procédure fin de vie / deuil,5,2.1.2 2.7.1 2.7.2 2.7.3 2.7.4,PROCEDURE FinDeVieDeuil
+Lettre de consentement à l'entretien d'évaluation,4,1.7.1 1.7.2 1.7.3 1.7.4,Lettre de consentement — entretien auto-évaluation
+Fiche FALC (information usager),4,1.14.3 1.14.4 2.1.2 2.7.1,FICHE-FALC DirectivesAnticipees | FICHE-FALC PreventionEducationSante
+Compte rendu de réunion (pilotage qualité / équipe),4,1.17.4 2.1.1 2.1.2 2.10.1,CR de réunion | CR-PILOTAGE-QUALITE Reunion-19-05 | CRMulticritères -PILOTAGE-QUALITE Reunion-19-05
+Annuaire de crise,4,2.8.1 2.8.2 2.8.3 3.14.1,Annuaire de crise | Procédure P4
+Stratégie bientraitance (objectif 3.1),4,3.1.1 3.1.2 3.1.3 3.1.4,STRATEGIE-BIENTRAITANCE
+Affiche d'information (EI),4,3.13.1 3.13.2 3.13.3 3.13.4,AFFICHE-A4 EvenementsIndesirables | AFFICHE-A4 Sensibilisation EvenementsIndesirables | Affiche
+Guide bientraitance,3,1.1.1 3.1.2 3.11.1,GUIDE-BIENTRAITANCE | Guide Bientraitance SAD
+Fiche de liaison partenaire (médiation),3,1.11.2 1.17.2 2.9.1,FICHE-LIAISON--MEDIATION
+Gabarit de preuve / trame — logement-hébergement (objectif 1.13),3,1.13.1 1.13.2 1.13.3,GABARIT-PREUVE Objectif1-13 SuiviLogementHebergement | TRAME-ENTRETIEN Objectif-1-13 LogementHebergement
+Stratégie / sensibilisation autonomie-isolement (objectif 3.5),3,2.3.1 3.5.1 3.5.3,D10-PREREMPLI SeanceAutonomieIsolement | FICHE-SENSIBILISATION AutonomieIsolement | STRATEGIE-AUTONOMIE-ISOLEMENT
+Plan d'actions QVCT,3,3.9.1 3.9.2 3.9.3,Plan d'actions « QVCT » — information
+Fiche retour d'expérience (gestion de crise),3,3.14.1 3.14.2 3.14.3,FICHE RetourExperience-REX | Fiche REX
+Fiche programme de prévention,2,1.14.3 1.14.5,FICHE-PROGRAMME-PREVENTION
+Support / stratégie questionnement éthique,2,2.1.3 2.1.4,D10-PREREMPLI QuestionnementEthique | FICHE-SENSIBILISATION QuestionnementEthique | STRATEGIE-OBJECTIF
+Procédure / cahier de transmission-liaison,2,2.2.3 2.10.1,PROCEDURE CahierTransmission | cahier de liaison
+"Registre / attestation de remise des documents d'accueil (gabarits D6, D7)",2,2.2.6 2.2.7,D6 Attestation-Remise-Documents-Accueil | D7 Registre-Suivi-Remise-Documents-Accueil
+Procédure protection des données (P5),2,2.2.7 2.10.2,PROCEDURE ProtectionDonnees-RGPD | Procédure P5 — Protection des données
+Analyse d'impact (AIPD),2,2.2.7 2.10.2,FICHE AIPD SAD | Fiche AIPD-SAD
+Lettre de désignation DPO (gabarit D11),2,2.2.7 2.10.2,D11 Lettre-Designation-DPO | Gabarit D11
+Fiche de vérification EPI / hygiène,2,3.7.1 3.7.2,FICHE-VERIFICATION EPI-SHA
+Tableau de bord KPI,2,3.10.1 3.10.2,Tableau de bord KPI
+Registre liberté d'aller et venir / restrictions (gabarit D2),1,2.2.1,Gabarit D2 — Registre liberté d'aller et venir / restrictions
+Mode opératoire préparation de visite à domicile,1,2.2.2,MODE-OPERATOIRE PreparationVisite-Dignite-Intimite
+"Fiche repère / bonnes pratiques (dignité, intimité, vie affective)",1,2.2.3,D3 FicheBonnesPratiquesDigniteIntimiteCroyances | FICHE-REPERE VieAffective-Intime
+Charte droits fondamentaux & bientraitance (gabarit D1),1,2.2.6,D1 Charte-Droits-Fondamentaux-Bientraitance
+Grille de dépouillement d'enquête,1,2.3.1,GRILLE-DEPOUILLEMENT-NUMERIQUE
+Logiciel métier / DUI (preuve d'usage),1,2.10.1,Progiciel
+Outil de vérification de l'assimilation (quiz),1,3.13.4,OUTILVERIFICATIONASSIMILATION EvenementsIndesirables
+Stratégie achats / registre fournisseurs (objectif 3.15),1,3.15.1,REGISTRE-SUIVI-FOURNISSEURS | STRATEGIE-ACHATS-DEVELOPPEMENTDURABLE SAD
+Note de stratégie numérique (objectif 3.15),1,3.15.2,NOTE-STRATEGIENUMERIQUE

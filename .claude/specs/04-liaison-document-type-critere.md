@@ -57,3 +57,25 @@ elle-même (juste sans le contexte des critères), les guidelines du cabinet (cr
 et listables dès aujourd'hui, cf. `criterion-guideline-service.ts`). Rien ne bloque
 tant que cette spec n'est pas traitée — c'est un manque de qualité de l'analyse, pas
 un manque de fonctionnement.
+
+## Proposition de contenu (08/10/2026)
+
+La matrice promise par Sandrine **existe** : c'est le tableau de suivi de la mission pilote
+(`context/Documents/20260915_SUIVI_ASSAD-BENOIT_Criteres-HAS_v01_Interne.xlsx`, colonne I
+de l'onglet « Index référentiel complet », colonne J de « Critères Impératifs »). Elle a
+été convertie en proposition générique, **sans aucune donnée du client** :
+
+- `specs/data/20261008_proposition-document-type-criterion.csv` — **207 rattachements**
+  (110 HAUTE, 87 MOYENNE, 10 BASSE) ; 36 des 47 `DocumentType` couverts ; les 16 impératifs
+  du SAD aide couverts. Les lignes MOYENNE/BASSE (blocs recopiés sur tout un objectif,
+  type utilisé hors de son objectif) sont à valider une à une par Sandrine.
+- `specs/data/20261008_candidats-types-de-document.csv` — 46 documents cités comme preuves
+  sans `DocumentType` (grille d'évaluation des besoins, fiche de tâches, note de service,
+  fiche de sensibilisation, règlement intérieur, PAP…).
+- `specs/data/20261008_criteres-manuel-has-niveau-champ.csv` — les **157 critères du
+  manuel HAS** avec niveau et champ d'application lus dans la mise en forme du PDF
+  (option retenue = bleu foncé + gras). Filtre SAD aide = exactement 137 critères (les
+  grilles Synaé) ; SAD mixte = 150.
+
+Chargement : par l'écran d'administration prévu ci-dessus (import de cette proposition,
+puis validation ligne à ligne), **jamais** par un seed sur la base partagée.
