@@ -118,7 +118,7 @@ export default async function EstablishmentDetailPage({ params }: Props) {
       <PageHeader
         title={establishment.name}
         icon={Building2}
-        backHref="/dashboard/cabinet"
+        backHref="/dashboard/cabinet/structures"
         subtitle={establishment.finessNumber ? `FINESS ${establishment.finessNumber}` : undefined}
         action={
           <div className="flex items-center gap-2">

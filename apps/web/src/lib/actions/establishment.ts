@@ -154,6 +154,7 @@ export async function updateEstablishment(
   });
 
   revalidatePath("/dashboard/cabinet");
+  revalidatePath("/dashboard/cabinet/structures");
   revalidatePath(`/dashboard/cabinet/etablissements/${id}`);
   redirect(`/dashboard/cabinet/etablissements/${id}`);
 }
@@ -385,7 +386,8 @@ export async function deleteEstablishment(id: string): Promise<{ error: string }
   }
 
   revalidatePath("/dashboard/cabinet");
-  redirect("/dashboard/cabinet");
+  revalidatePath("/dashboard/cabinet/structures");
+  redirect("/dashboard/cabinet/structures");
 }
 
 // Même sélection de faits de cycle de vie que `listEstablishments` — l'étape affichée

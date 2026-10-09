@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  formatCalendarTile,
   formatDate,
   formatDateTime,
   formatDayHeading,
@@ -63,5 +64,13 @@ describe("toDateInputValue", () => {
 describe("toTimeInputValue", () => {
   it("rend HH:MM sur deux chiffres", () => {
     expect(toTimeInputValue(new Date(2026, 8, 3, 8, 0))).toBe("08:00");
+  });
+});
+
+describe("formatCalendarTile", () => {
+  it("jour sur deux chiffres et mois abrégé", () => {
+    const tile = formatCalendarTile(new Date(2026, 9, 2, 10, 0));
+    expect(tile.day).toBe("02");
+    expect(tile.month.length).toBeGreaterThan(0);
   });
 });

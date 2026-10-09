@@ -5,6 +5,7 @@ import {
   ClipboardCheck,
   FileText,
   Files,
+  House,
   Library,
   LineChart,
   MessagesSquare,
@@ -21,6 +22,7 @@ import type { NavIconKey } from "@/lib/design/navigation";
 // quand il y a la place, accessible et en infobulle sinon — jamais d'icône seule.
 // `Record` exhaustif : une clé ajoutée sans icône ne compile pas.
 export const NAV_ICONS: Record<NavIconKey, LucideIcon> = {
+  home: House,
   structures: Building2,
   review: ClipboardCheck,
   agenda: CalendarDays,

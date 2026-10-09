@@ -18,7 +18,7 @@ describe("visibilité par rôle", () => {
 
   it("une évaluatrice ne voit aucune entrée commerciale", () => {
     expect(canSeeCommercial("CABINET_EVALUATOR")).toBe(false);
-    expect(ids("CABINET_EVALUATOR")).toEqual(["structures", "review", "agenda", "library", "journal"]);
+    expect(ids("CABINET_EVALUATOR")).toEqual(["home", "structures", "review", "agenda", "library", "journal"]);
   });
 
   it("un client ne voit rien de commercial non plus (refus par défaut)", () => {
@@ -26,8 +26,8 @@ describe("visibilité par rôle", () => {
     expect(ids("CLIENT_USER")).not.toContain("devis");
   });
 
-  it("n'annonce aucune entrée sans route (Accueil, Équipe EODA)", () => {
-    expect(ids("CABINET_ADMIN")).not.toContain("home");
+  it("annonce l'accueil, mais aucune entrée sans route (Équipe EODA)", () => {
+    expect(ids("CABINET_ADMIN")[0]).toBe("home");
     expect(ids("CABINET_ADMIN")).not.toContain("team");
   });
 });
@@ -57,7 +57,8 @@ describe("entrée active", () => {
   const active = (pathname: string) => resolveActiveItem(sections, pathname)?.id ?? null;
 
   it.each([
-    ["/dashboard/cabinet", "structures"],
+    ["/dashboard/cabinet", "home"],
+    ["/dashboard/cabinet/structures", "structures"],
     ["/dashboard/cabinet/etablissements/abc", "structures"],
     ["/dashboard/cabinet/etablissements/abc/mission", "structures"],
     ["/dashboard/cabinet/a-relire", "review"],
@@ -85,7 +86,7 @@ describe("fil d'Ariane", () => {
 
   it("fiche structure et sous-page", () => {
     expect(crumbs("/dashboard/cabinet/etablissements/abc/mission")).toEqual([
-      { label: "Structures", href: "/dashboard/cabinet" },
+      { label: "Structures", href: "/dashboard/cabinet/structures" },
       { label: "Fiche structure", href: "/dashboard/cabinet/etablissements/abc" },
       { label: "Mission", href: null },
     ]);

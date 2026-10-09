@@ -10,14 +10,15 @@ import { pluralize, resolveActiveItem, type NavItem, type NavSection } from "./n
 // commercial-pages-guard.test.ts. Retirer la seconde parce que la première existe
 // rouvrirait le module à quiconque tape l'adresse.
 //
-// N'apparaît que ce qui existe : pas d'« Accueil » (tranche R3, qui déplacera la
-// liste des structures) ni d'« Équipe EODA » (tranche N9) tant que leurs routes
-// n'existent pas — un lien vers une page absente est un bouton mort (D6). Chacune
-// s'ajoutera en une ligne dans la liste correspondante.
+// N'apparaît que ce qui existe : pas d'« Équipe EODA » (tranche N9) tant que sa
+// route n'existe pas — un lien vers une page absente est un bouton mort (D6).
+// L'accueil est la racine du cabinet ; la liste des structures vit sous
+// /structures, et la fiche reste sous /etablissements/[id].
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const CABINET_ROOT = "/dashboard/cabinet";
 export const REVIEW_QUEUE_PATH = `${CABINET_ROOT}/a-relire`;
+export const STRUCTURES_PATH = `${CABINET_ROOT}/structures`;
 const COMMERCIAL_ROOT = `${CABINET_ROOT}/commercial`;
 
 export type CabinetNavCounts = {
@@ -33,12 +34,12 @@ export function canSeeCommercial(role: UserRole): boolean {
 
 export function buildCabinetNav(role: UserRole, counts: CabinetNavCounts): NavSection[] {
   const main: NavItem[] = [
+    { id: "home", href: CABINET_ROOT, label: "Accueil", icon: "home", exact: true },
     {
       id: "structures",
-      href: CABINET_ROOT,
+      href: STRUCTURES_PATH,
       label: "Structures",
       icon: "structures",
-      exact: true,
       alsoMatches: [`${CABINET_ROOT}/etablissements`],
     },
     {

@@ -367,6 +367,7 @@ export async function convertDevisToClient(
   revalidatePath(PROSPECT_LIST_PATH);
   revalidatePath(COMMERCIAL_DASHBOARD_PATH);
   revalidatePath("/dashboard/cabinet");
+  revalidatePath("/dashboard/cabinet/structures");
   revalidatePath(`/dashboard/cabinet/etablissements/${converted.establishmentId}`);
 
   return {
