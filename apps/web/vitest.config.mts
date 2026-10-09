@@ -9,6 +9,12 @@ export default defineConfig({
   resolve: {
     alias: { "@": path.resolve(__dirname, "./src") },
   },
+  // tsconfig.json garde `jsx: "preserve"` (Next compile lui-même) ; les tests de
+  // rendu des primitives (components/ui/primitives.test.ts) ont besoin que Vite
+  // transforme le JSX.
+  oxc: {
+    jsx: { runtime: "automatic" },
+  },
   test: {
     environment: "node",
     include: ["src/**/*.test.ts"],

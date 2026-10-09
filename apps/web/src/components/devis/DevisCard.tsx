@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { ChevronRight, FileText } from "lucide-react";
 import { Card } from "@/components/ui/card";
-import { DevisStatusBadge } from "./DevisStatusBadge";
+import { StatusPill } from "@/components/ui/status-pill";
+import { pillForDevisStatus } from "@/lib/design/status-vocabulary";
 import type { DevisStatus } from "@eoda/database";
 import { formatStartingPrice } from "@/lib/services/price-format-service";
 import { DeleteDevisButton } from "./DeleteDevisButton";
@@ -45,7 +46,7 @@ export function DevisCard({ id, number, status, formuleLabelSnapshot, totalAmoun
           <span className="text-sm font-semibold tabular-nums text-brun-ancre">
             {formatStartingPrice({ priceEuros: totalAmountEuros })}
           </span>
-          <DevisStatusBadge status={status} />
+          <StatusPill pill={pillForDevisStatus(status)} />
           {/* Poubelle réservée aux BROUILLONS, comme sur la fiche du devis : un devis
               émis porte un numéro de la série annuelle, il ne se supprime pas, il
               s'annule. L'action serveur le revérifie — cette condition n'est qu'un

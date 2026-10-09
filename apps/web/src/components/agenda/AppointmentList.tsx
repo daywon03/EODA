@@ -6,7 +6,9 @@ import {
   type CalendarAppointment,
 } from "@/lib/services/calendar-service";
 import { formatDayHeading, formatTimeRange } from "@/lib/services/date-format-service";
-import { AppointmentMode, AppointmentStatusBadge } from "./AppointmentStatusBadge";
+import { AppointmentMode } from "./AppointmentMode";
+import { StatusPill } from "@/components/ui/status-pill";
+import { pillForAppointmentStatus } from "@/lib/design/status-vocabulary";
 import { AppointmentStatusActions } from "./AppointmentStatusActions";
 
 type Props = {
@@ -81,7 +83,7 @@ export function AppointmentList({ appointments, readOnly = false, emptyMessage }
                 </div>
 
                 <div className="flex flex-shrink-0 flex-wrap items-center gap-2">
-                  <AppointmentStatusBadge status={appointment.status} />
+                  <StatusPill pill={pillForAppointmentStatus(appointment.status)} />
                   {!readOnly && (
                     <AppointmentStatusActions
                       appointmentId={appointment.id}

@@ -4,7 +4,8 @@ import { isDevisDeletable, isDevisEditable } from "@/lib/services/devis-transiti
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { DevisStatusBadge } from "@/components/devis/DevisStatusBadge";
+import { StatusPill } from "@/components/ui/status-pill";
+import { pillForDevisStatus } from "@/lib/design/status-vocabulary";
 import { DevisStatusActions } from "@/components/devis/DevisStatusActions";
 import { DevisSummaryPrintable } from "@/components/devis/DevisSummaryPrintable";
 import { DeleteDevisButton } from "@/components/devis/DeleteDevisButton";
@@ -25,7 +26,7 @@ export default async function DevisDetailPage({ params }: Props) {
         backHref={`/dashboard/cabinet/commercial/prospects/${devis.prospectId}`}
         action={
           <div className="flex items-center gap-2">
-            <DevisStatusBadge status={devis.status} />
+            <StatusPill pill={pillForDevisStatus(devis.status)} />
             {isDevisEditable(devis.status) && (
               <Button variant="outline" size="sm" asChild>
                 <Link href={`/dashboard/cabinet/commercial/devis/${id}/modifier`}>

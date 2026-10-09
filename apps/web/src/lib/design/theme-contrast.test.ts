@@ -95,6 +95,12 @@ const TEXT_PAIRS: [string, string][] = [
   ["on-accent", "danger-fill"],
   // Bouton secondaire.
   ["soft", "ink2"],
+  // En-têtes de tableau, pastilles neutres, encadrés.
+  ["ink2", "soft"],
+  ["ink", "line"],
+  ["ink2", "line"],
+  ["ink", "highlight"],
+  ["ink", "ok-soft"],
   ["on-ink", "ink-fill"],
   // Pastilles de statut : texte encre sur aplat ambre ou vert.
   ["ink", "amber-fill"],

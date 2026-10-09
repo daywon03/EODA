@@ -31,7 +31,7 @@ export function MissionSummaryCard({ establishmentId, mission }: Props) {
               <Badge variant="secondary">{FORMULE_LABELS[mission.formule]}</Badge>
               {mission.gratuit && <Badge variant="not_applicable">Bêta-test gratuit</Badge>}
             </div>
-            <ProgressBar value={mission.globalPct} colorClassName="bg-vert-ok" />
+            <ProgressBar value={mission.globalPct} label="Avancement global de la mission" colorClassName="bg-vert-ok" />
             <p className="text-xs text-gris-mid">{mission.globalPct}% d'avancement global</p>
           </>
         )}

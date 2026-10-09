@@ -6,7 +6,7 @@ import { listPendingOptionRequests } from "@/lib/actions/option-request";
 import { OptionRequestQueue } from "@/components/devis/OptionRequestQueue";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
-import { KpiCard } from "@/components/kpi/KpiCard";
+import { KpiCard } from "@/components/ui/kpi-card";
 import { BreakdownList } from "@/components/kpi/BreakdownList";
 import { FunnelChart } from "@/components/kpi/FunnelChart";
 import { FORMULE_LABELS } from "@/components/mission/formule-labels";

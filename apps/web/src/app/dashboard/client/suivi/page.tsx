@@ -121,7 +121,12 @@ export default async function ClientSuiviPage() {
             {documents.compliant} / {documents.total} pièces conformes
           </span>
         </div>
-        <ProgressBar value={documentProgressPercent} colorClassName="bg-vert-ok" />
+        <ProgressBar
+          value={documentProgressPercent}
+          label="Progression documentaire"
+          valueText={`${documents.compliant} sur ${documents.total} pièces conformes`}
+          colorClassName="bg-vert-ok"
+        />
 
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 pt-1">
           {obligations.map(({ label, value, icon: Icon, color }) => (

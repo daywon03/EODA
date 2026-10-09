@@ -2,7 +2,8 @@ import Link from "next/link";
 import { Users, Phone, ChevronRight } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ProspectStatusBadge } from "./ProspectStatusBadge";
+import { StatusPill } from "@/components/ui/status-pill";
+import { pillForProspectStatus } from "@/lib/design/status-vocabulary";
 import type { ProspectStatus, StructureType } from "@eoda/database";
 import { formatEuros } from "@/lib/services/price-format-service";
 
@@ -45,7 +46,7 @@ export function ProspectCard({
 
           <div className="flex items-center gap-2 flex-wrap">
             <Badge variant="secondary">{TYPE_LABELS[structureType]}</Badge>
-            <ProspectStatusBadge status={status} />
+            <StatusPill pill={pillForProspectStatus(status)} />
           </div>
 
           {contactIdentity && (

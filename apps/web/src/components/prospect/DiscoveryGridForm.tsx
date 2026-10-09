@@ -45,7 +45,7 @@ export function DiscoveryGridForm({ prospectId, grid, answers, updatedAt }: Prop
           <span className="font-medium text-brun-ancre">Grille renseignée</span>
           <span className="tabular-nums text-gris-mid">{percent}%</span>
         </div>
-        <ProgressBar value={percent} colorClassName="bg-ambre" />
+        <ProgressBar value={percent} label="Grille renseignée" colorClassName="bg-ambre" />
         <p className="text-xs text-gris-mid">
           {updatedAt
             ? `Dernière saisie le ${updatedAt.toLocaleDateString("fr-FR")}`

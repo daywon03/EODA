@@ -20,7 +20,7 @@ const badgeVariants = cva(
         compliant: "border-vert-ok/50 bg-vert-ok/12 text-vert-ok",
         incomplete: "border-ambre/60 bg-ambre/15 text-brun-moyen",
         // « Analysé » : statut actif/transitoire, sur l'accent terre — plus de bleu
-        // hors charte. Le point qui pulse (StatusBadge) porte l'idée de progression ;
+        // hors charte. Le point qui pulse porte l'idée de progression ;
         // la couleur porte l'appartenance à la marque.
         analyzing: "border-terre/50 bg-terre/12 text-terre",
         not_applicable: "border-gris-mid/30 bg-gris-light text-gris-mid",

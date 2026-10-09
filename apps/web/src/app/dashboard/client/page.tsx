@@ -210,7 +210,12 @@ export default async function ClientDashboardPage() {
             {summary.compliant} / {totalItems} documents conformes
           </span>
         </div>
-        <ProgressBar value={progressPct} colorClassName="bg-vert-ok" />
+        <ProgressBar
+          value={progressPct}
+          label="Progression globale"
+          valueText={`${summary.compliant} sur ${totalItems} documents conformes`}
+          colorClassName="bg-vert-ok"
+        />
         <div className="grid grid-cols-2 gap-3 pt-1 sm:grid-cols-4">
           {stats.map(({ label, value, icon: Icon, color }) => (
             <div key={label} className="flex items-center gap-2.5">

@@ -5,7 +5,7 @@ import { listEstablishments } from "@/lib/actions/establishment";
 import { getEstablishmentIdsWithUnansweredMessage } from "@/lib/actions/message";
 import { EstablishmentCard } from "@/components/etablissement/EstablishmentCard";
 import { PageHeader } from "@/components/layout/PageHeader";
-import { KpiCard } from "@/components/kpi/KpiCard";
+import { KpiCard } from "@/components/ui/kpi-card";
 import { deriveFunnelStage, isBetaMission } from "@/lib/services/lifecycle-service";
 import {
   countActiveClients,

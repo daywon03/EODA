@@ -53,7 +53,7 @@ export function PhaseChecklistSection({
           contractée — débloqué{lockedCount > 1 ? "s" : ""} par une formule supérieure.
         </p>
       )}
-      {hasApplicableItem && <ProgressBar value={pct} colorClassName="bg-terre" />}
+      {hasApplicableItem && <ProgressBar value={pct} label={label} colorClassName="bg-terre" />}
       <PhaseDatesForm
         missionId={missionId}
         phase={phase}

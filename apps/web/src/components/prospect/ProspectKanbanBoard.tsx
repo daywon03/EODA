@@ -1,5 +1,5 @@
 import { ProspectCard } from "./ProspectCard";
-import { PROSPECT_STATUS_LABELS } from "./ProspectStatusBadge";
+import { PROSPECT_STATUS_LABELS } from "@/lib/design/status-vocabulary";
 import type { ProspectStatus, StructureType } from "@eoda/database";
 
 type ProspectItem = {

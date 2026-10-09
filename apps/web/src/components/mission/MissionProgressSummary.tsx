@@ -17,7 +17,7 @@ export function MissionProgressSummary({ diagnosticPct, phasesPct, globalPct }: 
             <p className="text-xs text-gris-mid">{label}</p>
             <p className="text-lg font-bold text-brun-ancre tabular-nums">{value}%</p>
           </div>
-          <ProgressBar value={value} colorClassName={color} />
+          <ProgressBar value={value} label={label} colorClassName={color} />
         </div>
       ))}
     </div>

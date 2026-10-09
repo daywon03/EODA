@@ -306,7 +306,7 @@ export default async function EstablishmentDetailPage({ params }: Props) {
                 <span>Taux de dépôt documentaire</span>
                 <span className="tabular-nums">{progressPct}%</span>
               </div>
-              <ProgressBar value={progressPct} colorClassName="bg-ambre" className="h-2" />
+              <ProgressBar value={progressPct} label="Taux de dépôt documentaire" colorClassName="bg-ambre" className="h-2" />
               <p className="text-xs text-gris-mid">
                 % de documents fournis par le client — pas un taux de conformité (voir le
                 détail par document ci-dessous).

@@ -20,7 +20,7 @@ export function DiagnosticChecklistSection({ missionId, items, pct }: Props) {
           {items.length > lockedCount ? `${pct}%` : "—"}
         </span>
       </div>
-      {items.length > lockedCount && <ProgressBar value={pct} colorClassName="bg-ambre" />}
+      {items.length > lockedCount && <ProgressBar value={pct} label="Diagnostic initial" colorClassName="bg-ambre" />}
       {lockedCount > 0 && (
         <p className="text-xs text-gris-mid italic">
           {lockedCount} item{lockedCount > 1 ? "s" : ""} hors du périmètre de l&apos;offre

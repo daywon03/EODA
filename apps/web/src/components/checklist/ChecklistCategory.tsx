@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { ChevronDown } from "lucide-react";
-import { StatusBadge } from "./StatusBadge";
+import { StatusPill } from "@/components/ui/status-pill";
+import { pillForDocumentStatus } from "@/lib/design/status-vocabulary";
 import { DocumentUploadButton } from "./DocumentUploadButton";
 import { MissingDocumentJustification } from "./MissingDocumentJustification";
 import { DocumentAnalysisPanel } from "./DocumentAnalysisPanel";
@@ -94,6 +95,7 @@ export function ChecklistCategory({
           <span className="hidden sm:flex items-center gap-2">
             <ProgressBar
               value={categoryPercent}
+              label={`Conformité — ${title}`}
               colorClassName="bg-vert-ok"
               className="w-24 h-2"
             />
@@ -198,7 +200,7 @@ export function ChecklistCategory({
                 )}
               </div>
               <div className="flex sm:flex-col items-center sm:items-end gap-2 flex-shrink-0">
-                <StatusBadge status={item.status} />
+                <StatusPill pill={pillForDocumentStatus(item.status)} />
                 {establishmentId && canDeposit && (
                   <DocumentUploadButton
                     establishmentId={establishmentId}

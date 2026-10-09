@@ -1,6 +1,6 @@
 import type { ProspectStatus, ProspectTimelineKind } from "@eoda/database";
 import { formatDateTime } from "@/lib/services/date-format-service";
-import { PROSPECT_STATUS_LABELS } from "./ProspectStatusBadge";
+import { PROSPECT_STATUS_LABELS } from "@/lib/design/status-vocabulary";
 import { ArrowRight, MessageSquare } from "lucide-react";
 
 
