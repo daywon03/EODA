@@ -34,7 +34,7 @@ export function ProspectCard({
   return (
     <Link
       href={`/dashboard/cabinet/commercial/prospects/${id}`}
-      className="block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terre focus-visible:ring-offset-2"
+      className="block rounded-xl"
     >
       <Card className="border-l-4 border-l-terre hover:shadow-eoda-md hover:-translate-y-0.5 transition-all duration-150 cursor-pointer h-full">
         <div className="p-4 flex flex-col h-full gap-2.5">

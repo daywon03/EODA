@@ -30,7 +30,7 @@ export function MonthGrid({ year, month, appointments, now, basePath }: Props) {
         <Link
           href={`${basePath}?mois=${previous.y}-${String(previous.m + 1).padStart(2, "0")}`}
           aria-label="Mois précédent"
-          className="inline-flex h-9 w-9 items-center justify-center rounded-md text-gris-mid transition-colors hover:bg-ivoire hover:text-brun-ancre focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terre"
+          className="inline-flex h-9 w-9 items-center justify-center rounded-md text-gris-mid transition-colors hover:bg-ivoire hover:text-brun-ancre"
         >
           <ChevronLeft className="w-4 h-4" aria-hidden="true" />
         </Link>
@@ -40,7 +40,7 @@ export function MonthGrid({ year, month, appointments, now, basePath }: Props) {
         <Link
           href={`${basePath}?mois=${next.y}-${String(next.m + 1).padStart(2, "0")}`}
           aria-label="Mois suivant"
-          className="inline-flex h-9 w-9 items-center justify-center rounded-md text-gris-mid transition-colors hover:bg-ivoire hover:text-brun-ancre focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terre"
+          className="inline-flex h-9 w-9 items-center justify-center rounded-md text-gris-mid transition-colors hover:bg-ivoire hover:text-brun-ancre"
         >
           <ChevronRight className="w-4 h-4" aria-hidden="true" />
         </Link>
@@ -79,7 +79,7 @@ export function MonthGrid({ year, month, appointments, now, basePath }: Props) {
                     {day.date.getDate()}
                   </span>
                   {day.appointments.length > 2 && (
-                    <span className="text-[10px] font-medium text-gris-mid tabular-nums">
+                    <span className="text-sm font-medium text-gris-mid tabular-nums">
                       +{day.appointments.length - 2}
                     </span>
                   )}
@@ -92,7 +92,7 @@ export function MonthGrid({ year, month, appointments, now, basePath }: Props) {
                           statut annulé est barré ET grisé — jamais la couleur seule. */}
                       <span
                         className={cn(
-                          "block truncate rounded px-1.5 py-1 text-[11px] leading-tight",
+                          "block truncate rounded px-1.5 py-1 text-sm leading-tight",
                           appointment.status === "ANNULE"
                             ? "bg-gris-light/60 text-gris-mid line-through"
                             : appointment.status === "CONFIRME"

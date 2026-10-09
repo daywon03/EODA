@@ -41,6 +41,8 @@ vérifie** — sinon elle n'existe pas.
 | Migrations appliquées au déploiement | `migrate deploy` dans `buildCommand` | `vercel.json` |
 | Dépendances vulnérables | `pnpm audit:deps` — **sort en code 1** sur toute vulnérabilité haute ou critique, **sans `\|\| true`** ; distingue « vulnérabilité trouvée » de « registre npm injoignable », qu'il réessaie avant d'échouer en le disant | `scripts/audit-dependencies.mjs` + CI |
 | CI qui dit la vérité | aucun `continue-on-error`, aucun masquage d'échec | CI |
+| Texte ≥ 14 px, focus jamais retiré | test qui parcourt `src/**/*.{ts,tsx}` et **échoue** sur une taille arbitraire < 14 px ou un `outline-none` ; vérifie que `text-xs` vaut 14 px | `apps/web/src/lib/design/ui-class-guard.test.ts` |
+| Contraste des tokens ≥ 4.5:1 (clair et sombre) | test qui lit `globals.css`, résout les alias et **échoue** sous 4.5:1 ; vérifie que les deux voies du sombre sont identiques | `apps/web/src/lib/design/theme-contrast.test.ts` |
 
 **Dette acceptée, à réexaminer après le 22/09/2026** : `.npmrc` porte `node-linker=hoisted`,
 qui désactive l'arborescence isolée de pnpm et rend possibles les dépendances fantômes
@@ -253,10 +255,17 @@ Détail complet et état d'avancement : `specs/02-architecture-technique.md` §4
 - ♿ **Accessibilité : « même un enfant de 12 ans doit pouvoir s'en servir »** (Damon,
   30/09/2026). Objectif WCAG 2.2 AA + règles FALC sur le portail client et l'espace équipe.
   Règles d'usage de la charte (contrastes mesurés, tailles minimales) :
-  `context/04-charte-eoda.md` §7. **Contrôle mécanique : aucun à ce jour — dette déclarée.**
-  À brancher : `eslint-plugin-jsx-a11y` en error, un test qui refuse `text-[10px]` /
-  `text-[11px]` et le gris `--gris-mid` en couleur de texte, un passage axe-core en CI sur
-  les pages client. D'ici là, c'est un point de revue obligatoire, pas une règle vérifiée.
+  `context/04-charte-eoda.md` §7. **Contrôle mécanique branché le 09/10/2026 (tranche S1)
+  pour trois règles** : texte ≥ 14 px (l'échelle Tailwind commence à 14 px — `text-xs`
+  compris — et toute taille arbitraire inférieure est refusée), focus visible (aucun
+  `outline-none` : le contour ambre de 3 px de `globals.css` ne peut pas être retiré),
+  contraste ≥ 4.5:1 des paires de tokens de rôle, clair ET sombre, recalculé depuis
+  `globals.css` (`lib/design/ui-class-guard.test.ts`, `lib/design/theme-contrast.test.ts`).
+  Le nouveau code écrit les tokens de rôle (`text-ink`, `bg-card`, `text-accent-text`…) ;
+  `--muted` / `gris-mid` est réservé au décor (3.7:1 sur le papier).
+  **Reste dette déclarée** : `text-gris-mid` encore utilisé en texte, `text-terre` en
+  texte clair (4.29:1 sur le papier — utiliser `text-accent-text`),
+  `eslint-plugin-jsx-a11y` en error, axe-core en CI sur les pages client.
 - 🏥 **Données de santé (HDS) — décision prise le 08/10/2026 : le backend migre.** Un DIPC
   signé, un PAP, une évaluation des besoins, une enquête de satisfaction **nominative**
   sont des données de santé (CSP L1111-8, référentiel CNIL médico-social) ; Supabase et

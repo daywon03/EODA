@@ -27,10 +27,7 @@ export function CollapsibleSection({ title, summary, defaultOpen = false, childr
   return (
     <details className="group space-y-3" open={defaultOpen}>
       <summary
-        className={[
-          "flex cursor-pointer list-none items-center gap-2 rounded",
-          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terre focus-visible:ring-offset-2",
-        ].join(" ")}
+        className="flex cursor-pointer list-none items-center gap-2 rounded"
       >
         {/* La flèche pivote à l'ouverture. `aria-hidden` : l'état replié/déplié est
             déjà porté par <details>, le redire à voix haute serait du bruit. */}

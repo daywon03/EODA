@@ -73,7 +73,7 @@ export function FunnelChart({ steps, lost, indetermine }: Props) {
                   de leur différence de longueur. */}
               {step.passRatePercent !== null && index < steps.length - 1 && (
                 <p
-                  className={`mt-1 flex items-center gap-1 pl-0.5 text-[11px] ${
+                  className={`mt-1 flex items-center gap-1 pl-0.5 text-sm ${
                     isWorst ? "font-medium text-terre" : "text-gris-mid"
                   }`}
                 >

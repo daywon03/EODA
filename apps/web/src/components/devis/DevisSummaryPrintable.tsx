@@ -72,7 +72,7 @@ export function DevisSummaryPrintable({
         <div className="rounded-lg border-l-4 border-ambre bg-brun-ancre px-5 py-4 text-ivoire print:bg-brun-ancre">
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div>
-              <p className="text-[11px] uppercase tracking-[0.18em] text-ambre">
+              <p className="text-sm uppercase tracking-[0.18em] text-ambre">
                 Proposition commerciale
               </p>
               <h2 className="text-lg font-bold leading-tight">Devis {number}</h2>

@@ -27,7 +27,7 @@ export function KpiCard({ label, value, icon: Icon, hint }: Props) {
           <p className="mt-1 text-xs text-gris-mid">{label}</p>
         </div>
       </div>
-      {hint && <p className="mt-3 border-t border-gris-light pt-2.5 text-[11px] leading-snug text-gris-mid">{hint}</p>}
+      {hint && <p className="mt-3 border-t border-gris-light pt-2.5 text-sm leading-snug text-gris-mid">{hint}</p>}
     </div>
   );
 }

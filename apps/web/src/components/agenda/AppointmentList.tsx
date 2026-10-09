@@ -57,7 +57,7 @@ export function AppointmentList({ appointments, readOnly = false, emptyMessage }
                         sinon il se lit comme un point d'accompagnement — et personne
                         ne comprend pourquoi il n'apparaît pas côté client. */}
                     {appointment.beforeSignature && (
-                      <span className="ml-1.5 rounded bg-ivoire px-1.5 py-0.5 text-[10px] font-medium text-brun-moyen">
+                      <span className="ml-1.5 rounded bg-ivoire px-1.5 py-0.5 text-sm font-medium text-brun-moyen">
                         avant signature
                       </span>
                     )}

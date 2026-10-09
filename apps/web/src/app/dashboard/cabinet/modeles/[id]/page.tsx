@@ -230,7 +230,7 @@ function VersionList({
                   {version.clientFieldTokens.map((token) => (
                     <span
                       key={token}
-                      className="rounded-md border border-terre/35 bg-terre/10 px-1.5 py-0.5 font-mono text-[10.5px] font-semibold text-terre"
+                      className="rounded-md border border-terre/35 bg-terre/10 px-1.5 py-0.5 font-mono text-sm font-semibold text-terre"
                     >
                       {`{{${token}}}`}
                     </span>

@@ -81,7 +81,7 @@ export function CabinetNav({ isAdmin, pendingRequests = 0 }: Props) {
             <Bell className="w-5 h-5" aria-hidden="true" />
             {pendingRequests > 0 && (
               <span
-                className="absolute -top-0.5 -right-0.5 inline-flex min-w-4 items-center justify-center rounded-full bg-terre px-1 py-0.5 text-[10px] font-semibold leading-none text-ivoire-light tabular-nums"
+                className="absolute -top-0.5 -right-0.5 inline-flex min-w-4 items-center justify-center rounded-full bg-terre px-1 py-0.5 text-sm font-semibold leading-none text-ivoire-light tabular-nums"
                 aria-hidden="true"
               >
                 {pendingRequests}

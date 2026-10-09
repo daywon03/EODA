@@ -37,7 +37,7 @@ export default function LoginPage() {
                 Les classes de la charte, elles, s'inversent en mode sombre — les y
                 laisser rendait ce texte sombre sur un fond qui reste sombre. */}
             <span className="text-[#F0E8DC] font-bold text-lg tracking-wide block">EODA conseil</span>
-            <span className="text-[#D69646] text-[11px] uppercase tracking-widest block">
+            <span className="text-[#D69646] text-sm uppercase tracking-widest block">
               Expliquer · Observer · Démontrer · Accompagner
             </span>
           </div>

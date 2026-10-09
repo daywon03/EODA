@@ -131,7 +131,7 @@ export function MissingDocumentJustification({
               : "Pourquoi il ne s'applique pas, ou bien où il en est de son côté…"
           }
         />
-        <p className="flex min-h-4 items-center gap-1.5 text-[11px] text-gris-mid">
+        <p className="flex min-h-4 items-center gap-1.5 text-sm text-gris-mid">
           {isPending ? (
             <>
               <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />
@@ -186,7 +186,7 @@ function ChoiceButton({
       onClick={onClick}
       disabled={disabled}
       title={hint}
-      className={`inline-flex min-h-11 items-center gap-1.5 rounded-lg border px-3 py-2 text-xs transition-colors disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terre focus-visible:ring-offset-1 ${
+      className={`inline-flex min-h-11 items-center gap-1.5 rounded-lg border px-3 py-2 text-xs transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
         selected
           ? "border-terre bg-terre/10 font-medium text-terre"
           : "border-gris-light bg-surface text-gris-mid hover:border-terre/40 hover:text-brun-ancre"

@@ -25,91 +25,147 @@
     --surface: 255 255 255;
     --shadow: rgba(62, 44, 38, 0.12);
 
-    /* shadcn/ui tokens mappés sur la charte EODA */
-    --background: 40 30% 96%;        /* ivoire-light */
-    --foreground: 15 24% 20%;        /* brun-ancre */
-    --card: 0 0% 100%;
-    --card-foreground: 15 24% 20%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 15 24% 20%;
-    --primary: 22 56% 45%;           /* terre */
-    --primary-foreground: 40 30% 96%;
-    --secondary: 30 26% 28%;         /* brun-moyen */
-    --secondary-foreground: 40 30% 96%;
-    --muted: 30 20% 90%;
-    --muted-foreground: 20 15% 50%;
-    --accent: 38 58% 57%;            /* ambre */
-    --accent-foreground: 15 24% 20%;
-    --destructive: 4 67% 47%;        /* rouge-imp */
-    --destructive-foreground: 0 0% 100%;
-    --border: 30 20% 87%;            /* gris-light */
-    --input: 30 20% 87%;
-    --ring: 22 56% 45%;              /* terre */
+    /* TOKENS DE RÔLE — maquettes v2 (Claude Design, 09/10/2026).
+     *
+     * Ils nomment un USAGE (fond de page, carte, texte secondaire…) là où la
+     * charte nomme une TEINTE. Quand un rôle a une teinte de charte, il en est un
+     * ALIAS (`var(--ivoire-light)`) : une seule valeur à maintenir, et les classes
+     * historiques (`bg-ivoire-light`) et nouvelles (`bg-paper`) ne peuvent pas
+     * diverger. Les rôles sans équivalent de charte portent leur propre valeur.
+     *
+     * Aplat ≠ texte (décision 10 du brief) : un aplat garde sa teinte, le texte
+     * coloré s'éclaircit en sombre. `--terre`, `--ambre`, `--vert-ok` restent les
+     * teintes historiques (éclaircies en sombre) pour ne casser aucun écran ; le
+     * nouveau code utilise les tokens `*-fill` pour un aplat et `*-text` pour un
+     * texte.
+     *
+     * Les contrastes de ces paires sont VÉRIFIÉS par un test qui lit ce fichier
+     * (lib/design/theme-contrast.test.ts) : changer une valeur ici sans tenir
+     * 4.5:1 fait échouer `vitest`. */
+    --paper: var(--ivoire-light);
+    --card: var(--surface);
+    --soft: var(--ivoire);
+    --line: var(--gris-light);
+    --ink: var(--brun-ancre);
+    --ink2: var(--brun-moyen);
+    /* Bordures et décor : 3.7:1 sur le papier en clair, donc PAS un texte. */
+    --muted: var(--gris-mid);
+    --ink-fill: var(--brun-ancre);
+    --on-ink: var(--ivoire-light);
+    --on-accent: 255 255 255;
+    /* #A2512D et non le #B45A32 de la maquette : le terre de charte ne fait que
+     * 4.29:1 sur le papier, sous le seuil AA. Assombri de 10 %, il passe sur le
+     * papier, la carte et le fond doux. Le terre de charte reste l'APLAT. */
+    --accent-text: 162 81 45;
+    /* Aplat terre FIXE dans les deux thèmes (maquette), texte --on-accent dessus. */
+    --accent-fill: 180 90 50;
+    --danger-text: var(--rouge-imp);
+    /* Aplat rouge FIXE (bouton destructif) : le rouge de charte s'éclaircit en
+     * sombre pour rester lisible en texte, et un texte blanc n'y tiendrait plus. */
+    --danger-fill: 192 57 43;
+    /* #2E7D4F — le vert de charte ne fait que 2.6:1 en texte sur blanc. */
+    --ok-text: 46 125 79;
+    --ok-soft: 242 250 245;      /* #F2FAF5 */
+    --amber-fill: var(--ambre);
+    --green-fill: var(--vert-ok);
+    --highlight: 246 227 198;    /* #F6E3C6 — surlignage d'une ligne */
+    /* Focus : ambre FIXE dans les deux thèmes, 3 px (maquette). */
+    --focus: 214 150 70;
     --radius: 0.5rem;
   }
 
   /* MODE SOMBRE — piloté par le système PAR DÉFAUT, ou par le choix explicite de
    * l'utilisateur (ThemeToggle, 22/09/2026 : `data-theme` posé sur <html> par
-   * theme-storage.ts). Redéfinit EXACTEMENT les mêmes variables que :root
-   * ci-dessus, jamais de nouveau nom : c'est ce qui permet à chaque composant
-   * existant (`bg-terre`, `text-brun-ancre`, `border-gris-light`, `bg-surface`…)
-   * de re-teinter automatiquement, sans modification.
+   * theme-storage.ts). Redéfinit les mêmes variables que :root ci-dessus : chaque
+   * composant existant (`bg-terre`, `text-brun-ancre`, `bg-surface`…) re-teinte
+   * sans modification. Les alias de rôle (`--paper: var(--ivoire-light)`) suivent
+   * d'eux-mêmes ; seuls les rôles sans teinte de charte sont redéfinis ici.
    *
-   * Inversion complète encre/papier, pas un simple assombrissement : brun-ancre
-   * (texte principal) devient clair, ivoire-light (fond de page) devient le plus
-   * sombre — sinon le texte le plus lu de l'app resterait sombre sur fond sombre.
-   * Mêmes valeurs que la proposition validée le 20/09/2026
-   * (https://claude.ai/artifact/8bDNcpfcBEQaBn7tG6KPk1).
+   * Valeurs de la maquette v2 (09/10/2026), qui remplacent la proposition du
+   * 20/09 : le fond doux (`ivoire` / `--soft`) n'est plus confondu avec la carte
+   * (`surface` / `--card`) — ils valaient tous deux #2B1F1A, si bien qu'une
+   * carte posée sur un fond doux ne s'en distinguait pas.
    *
-   * Deux voies vers les mêmes variables : la media query système, désactivée
-   * par un choix explicite CLAIR (`:not([data-theme="light"])`) ; et le
-   * sélecteur `[data-theme="dark"]`, qui force le sombre même sur un système
-   * resté en clair. Sans ce second bloc, choisir "sombre" sur un système clair
-   * n'aurait aucun effet — exactement le bug qu'un bouton de bascule existe
-   * pour corriger. */
+   * Deux voies vers les mêmes variables : la media query système, désactivée par
+   * un choix explicite CLAIR (`:not([data-theme="light"])`) ; et le sélecteur
+   * `[data-theme="dark"]`, qui force le sombre même sur un système resté en
+   * clair. Les deux blocs DOIVENT rester identiques — un test le vérifie. */
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
-      --brun-ancre: 240 232 220;   /* devient le texte clair */
-      --brun-moyen: 217 198 184;
-      --terre: 224 138 87;        /* éclairci : le terre clair d'origine manque de contraste sur fond sombre */
+      --brun-ancre: 243 233 223;   /* #F3E9DF — devient le texte clair */
+      --brun-moyen: 205 187 174;   /* #CDBBAE */
+      --terre: 232 148 104;        /* #E89468 — éclairci : lisible en texte */
       --ambre: 230 179 110;
-      --ivoire: 43 31 26;         /* devient un remplissage sombre secondaire */
-      --ivoire-light: 34 24 21;   /* devient le fond de page, le plus sombre */
-      --rouge-imp: 226 105 92;
-      --vert-ok: 63 190 119;
-      --gris-mid: 179 164 153;
-      --gris-light: 56 44 38;     /* devient bordure/remplissage sombre */
-      --surface: 43 31 26;        /* carte légèrement plus claire que le fond de page */
+      --ivoire: 47 36 32;          /* #2F2420 — fond doux, distinct de la carte */
+      --ivoire-light: 28 21 18;    /* #1C1512 — fond de page, le plus sombre */
+      --rouge-imp: 240 138 125;    /* #F08A7D */
+      --vert-ok: 111 207 151;      /* #6FCF97 */
+      --gris-mid: 156 139 128;     /* #9C8B80 */
+      --gris-light: 70 55 47;      /* #46372F — bordure */
+      --surface: 38 29 25;         /* #261D19 — carte */
       --shadow: rgba(0, 0, 0, 0.4);
+      --ink-fill: 233 220 205;     /* #E9DCCD */
+      --on-ink: 35 26 22;          /* #231A16 */
+      --accent-text: 232 148 104;  /* #E89468 */
+      --ok-text: 111 207 151;      /* #6FCF97 */
+      --ok-soft: 31 51 40;         /* #1F3328 */
+      --amber-fill: 138 90 34;     /* #8A5A22 — aplat assombri, texte clair dessus */
+      --green-fill: 30 107 64;     /* #1E6B40 */
+      --highlight: 74 55 32;       /* #4A3720 */
     }
   }
 
   :root[data-theme="dark"] {
-    --brun-ancre: 240 232 220;
-    --brun-moyen: 217 198 184;
-    --terre: 224 138 87;
+    --brun-ancre: 243 233 223;
+    --brun-moyen: 205 187 174;
+    --terre: 232 148 104;
     --ambre: 230 179 110;
-    --ivoire: 43 31 26;
-    --ivoire-light: 34 24 21;
-    --rouge-imp: 226 105 92;
-    --vert-ok: 63 190 119;
-    --gris-mid: 179 164 153;
-    --gris-light: 56 44 38;
-    --surface: 43 31 26;
+    --ivoire: 47 36 32;
+    --ivoire-light: 28 21 18;
+    --rouge-imp: 240 138 125;
+    --vert-ok: 111 207 151;
+    --gris-mid: 156 139 128;
+    --gris-light: 70 55 47;
+    --surface: 38 29 25;
     --shadow: rgba(0, 0, 0, 0.4);
+    --ink-fill: 233 220 205;
+    --on-ink: 35 26 22;
+    --accent-text: 232 148 104;
+    --ok-text: 111 207 151;
+    --ok-soft: 31 51 40;
+    --amber-fill: 138 90 34;
+    --green-fill: 30 107 64;
+    --highlight: 74 55 32;
   }
 }
 
 @layer base {
   * {
-    @apply border-border;
+    @apply border-line;
   }
   html {
     -webkit-text-size-adjust: 100%;
+    color-scheme: light;
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+    }
   }
   body {
-    @apply bg-ivoire-light text-brun-ancre;
+    @apply bg-paper text-ink;
     font-family: 'Trebuchet MS', 'Segoe UI', Arial, sans-serif;
+  }
+  /* Focus visible : 3 px ambre sur TOUT élément focalisable, dans les deux
+   * thèmes. Posé une fois ici plutôt que composant par composant — c'est ainsi
+   * qu'on en oublie. `outline-none` sur un focus est refusé par un test
+   * (lib/design/ui-class-guard.test.ts) : rien ne retire cet indicateur. */
+  :focus-visible {
+    outline: 3px solid rgb(var(--focus));
+    outline-offset: 2px;
   }
 }
 

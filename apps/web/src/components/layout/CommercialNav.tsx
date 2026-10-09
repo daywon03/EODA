@@ -62,7 +62,7 @@ export function CommercialNav() {
                   // 44 px de hauteur utile : la cible tactile minimale, y compris sur
                   // la tablette que Sandrine emmène en visite.
                   "flex items-center gap-2 border-b-2 -mb-px px-3.5 py-3 text-sm font-medium transition-colors duration-200",
-                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terre focus-visible:ring-inset",
+                  "focus-visible:-outline-offset-4",
                   active
                     ? "border-terre text-terre"
                     : "border-transparent text-gris-mid hover:border-gris-light hover:text-brun-ancre"

@@ -33,7 +33,7 @@ export function HelpArticleList({ articles }: { articles: readonly HelpArticle[]
           onChange={(event) => setQuery(event.target.value)}
           placeholder="Rechercher : déposer un document, cotation, mot de passe…"
           aria-label="Rechercher dans le guide"
-          className="w-full rounded-lg border border-gris-light bg-surface pl-9 pr-3 py-2.5 text-sm text-brun-ancre placeholder:text-gris-mid focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terre"
+          className="w-full rounded-lg border border-gris-light bg-surface pl-9 pr-3 py-2.5 text-sm text-brun-ancre placeholder:text-gris-mid"
         />
       </div>
 
@@ -56,7 +56,7 @@ export function HelpArticleList({ articles }: { articles: readonly HelpArticle[]
                 <li key={article.slug}>
                   <Link
                     href={`/dashboard/aide/${article.slug}`}
-                    className="flex items-start justify-between gap-3 px-5 py-4 hover:bg-ivoire transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terre focus-visible:ring-inset"
+                    className="flex items-start justify-between gap-3 px-5 py-4 hover:bg-ivoire transition-colors focus-visible:-outline-offset-4"
                   >
                     <span className="min-w-0">
                       <span className="block text-sm font-semibold text-brun-ancre">

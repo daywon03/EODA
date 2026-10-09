@@ -76,7 +76,7 @@ export function DocumentAnalysisPanel({
         type="button"
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
-        className="w-full flex items-center gap-2 px-3 py-2 text-left cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terre focus-visible:ring-inset rounded-lg"
+        className="w-full flex items-center gap-2 px-3 py-2 text-left cursor-pointer focus-visible:-outline-offset-4 rounded-lg"
       >
         <ChevronDown
           className={`w-3.5 h-3.5 text-gris-mid flex-shrink-0 transition-transform duration-200 ${open ? "rotate-0" : "-rotate-90"}`}
@@ -289,7 +289,7 @@ function AnalysisGuidelines({ open }: { open: boolean }) {
               {existing.map((g) => (
                 <li key={g.id} className="rounded-md bg-surface/70 px-2 py-1.5 text-xs text-brun-ancre">
                   <p>{g.note}</p>
-                  <p className="mt-0.5 text-[11px] text-gris-mid">
+                  <p className="mt-0.5 text-sm text-gris-mid">
                     {g.createdByName} · {formatDate(g.createdAt)}
                   </p>
                 </li>
@@ -407,7 +407,7 @@ function FindingsSection({
           <li key={`${finding.text}-${index}`} className="text-xs text-gris-mid list-disc marker:text-gris-light">
             {finding.text}
             {finding.source && (
-              <blockquote className="mt-0.5 border-l-2 border-gris-light pl-2 italic text-[11px] text-gris-mid">
+              <blockquote className="mt-0.5 border-l-2 border-gris-light pl-2 italic text-sm text-gris-mid">
                 « {finding.source} »
               </blockquote>
             )}

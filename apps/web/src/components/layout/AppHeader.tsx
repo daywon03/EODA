@@ -32,7 +32,7 @@ export async function AppHeader() {
             d'un logo, et ça évite d'avoir à savoir où « chez soi » se trouve. */}
         <Link
           href="/dashboard"
-          className="flex items-center gap-3 min-w-0 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D69646] focus-visible:ring-offset-2 focus-visible:ring-offset-[#3E2C26]"
+          className="flex items-center gap-3 min-w-0 rounded"
           aria-label="EODA conseil — revenir à mon espace"
         >
           <EodaMark size={36} />
@@ -40,7 +40,7 @@ export async function AppHeader() {
             <span className="text-[#F0E8DC] font-bold text-base sm:text-lg tracking-wide block truncate">
               EODA conseil
             </span>
-            <span className="text-[#D69646] text-[10px] sm:text-xs uppercase tracking-widest hidden sm:block">
+            <span className="text-[#D69646] text-sm uppercase tracking-widest hidden sm:block">
               Expliquer · Observer · Démontrer · Accompagner
             </span>
           </div>
@@ -54,7 +54,7 @@ export async function AppHeader() {
             </span>
             <Link
               href="/dashboard/profil"
-              className="flex items-center gap-2 rounded px-2 py-1.5 text-sm text-[#E8DDD6] transition-colors hover:bg-white/10 hover:text-[#F0E8DC] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D69646]"
+              className="flex items-center gap-2 rounded px-2 py-1.5 text-sm text-[#E8DDD6] transition-colors hover:bg-white/10 hover:text-[#F0E8DC]"
               aria-label="Mon profil et mes paramètres"
               title="Mon profil et mes paramètres"
             >

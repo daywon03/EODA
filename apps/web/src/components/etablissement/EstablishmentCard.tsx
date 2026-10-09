@@ -49,10 +49,10 @@ export function EstablishmentCard({
     // et le logo/icône de la structure, qui portent l'identité de la carte — une
     // bande terre verticale sur chaque vignette d'une grille de dix ne distingue
     // rien, elle décore.
-    <Card className="relative transition-all duration-150 hover:-translate-y-0.5 hover:shadow-eoda-md focus-within:ring-2 focus-within:ring-terre focus-within:ring-offset-2 h-full">
+    <Card className="relative transition-all duration-150 hover:-translate-y-0.5 hover:shadow-eoda-md h-full">
       <Link
         href={`/dashboard/cabinet/etablissements/${id}`}
-        className="absolute inset-0 z-0 rounded-xl focus:outline-none"
+        className="absolute inset-0 z-0 rounded-xl"
       >
         {/* Nom accessible du lien : la carte entière est cliquable, mais le lien
             lui-même n'a pas de texte propre. */}

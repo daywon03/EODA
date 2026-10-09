@@ -57,7 +57,7 @@ function AmountTile({ label, value, hint }: { label: string; value: string; hint
     <div className="bg-ivoire border border-gris-light rounded-lg px-4 py-3">
       <p className="text-xs text-gris-mid">{label}</p>
       <p className="text-lg font-bold text-brun-ancre tabular-nums leading-tight mt-1">{value}</p>
-      {hint && <p className="text-[11px] text-gris-mid mt-0.5">{hint}</p>}
+      {hint && <p className="text-sm text-gris-mid mt-0.5">{hint}</p>}
     </div>
   );
 }

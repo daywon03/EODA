@@ -121,6 +121,11 @@ export default defineConfig({
         "src/lib/security/postgres-rate-limiter.ts",
         "src/lib/security/login-throttle.ts",
         "src/lib/validation/form-parsers.ts",
+        // Système de design (maquettes v2) : contraste WCAG des tokens, garde-fous
+        // de taille de texte et de focus, vocabulaire des pastilles de statut, et
+        // logique clavier des primitives. Un défaut ici ne fait échouer aucun test
+        // métier : il rend un écran illisible ou inutilisable au clavier.
+        "src/lib/design/**/*.ts",
       ],
       // Le seuil FAIT ÉCHOUER la commande (`vitest run --coverage`). Un seuil qui
       // n'échoue pas n'est pas un garde-fou. À relever au fur et à mesure, jamais à

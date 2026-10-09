@@ -47,42 +47,56 @@ const config: Config = {
         "cot-star": "#D69646",
         "cot-nc": "#8A7B72",
         "cot-ri": "#8E44AD",
-        // Alias shadcn/ui compatibles
-        border: "hsl(var(--border))",
-        input: "hsl(var(--input))",
-        ring: "hsl(var(--ring))",
-        background: "hsl(var(--background))",
-        foreground: "hsl(var(--foreground))",
-        primary: {
-          DEFAULT: "hsl(var(--primary))",
-          foreground: "hsl(var(--primary-foreground))",
-        },
-        secondary: {
-          DEFAULT: "hsl(var(--secondary))",
-          foreground: "hsl(var(--secondary-foreground))",
-        },
-        muted: {
-          DEFAULT: "hsl(var(--muted))",
-          foreground: "hsl(var(--muted-foreground))",
-        },
-        accent: {
-          DEFAULT: "hsl(var(--accent))",
-          foreground: "hsl(var(--accent-foreground))",
-        },
-        destructive: {
-          DEFAULT: "hsl(var(--destructive))",
-          foreground: "hsl(var(--destructive-foreground))",
-        },
-        card: {
-          DEFAULT: "hsl(var(--card))",
-          foreground: "hsl(var(--card-foreground))",
-        },
+        // Tokens de rôle — maquettes v2 (09/10/2026). Alias des variables de
+        // charte (globals.css) quand une teinte existe : `bg-paper` et
+        // `bg-ivoire-light` désignent la même valeur et ne peuvent pas diverger.
+        // Contrastes vérifiés par lib/design/theme-contrast.test.ts.
+        paper: "rgb(var(--paper) / <alpha-value>)",
+        card: "rgb(var(--card) / <alpha-value>)",
+        soft: "rgb(var(--soft) / <alpha-value>)",
+        line: "rgb(var(--line) / <alpha-value>)",
+        ink: "rgb(var(--ink) / <alpha-value>)",
+        ink2: "rgb(var(--ink2) / <alpha-value>)",
+        // Bordures et décor uniquement : 3.7:1 sur le papier, pas un texte.
+        muted: "rgb(var(--muted) / <alpha-value>)",
+        "ink-fill": "rgb(var(--ink-fill) / <alpha-value>)",
+        "on-ink": "rgb(var(--on-ink) / <alpha-value>)",
+        "on-accent": "rgb(var(--on-accent) / <alpha-value>)",
+        "accent-text": "rgb(var(--accent-text) / <alpha-value>)",
+        "accent-fill": "rgb(var(--accent-fill) / <alpha-value>)",
+        "danger-text": "rgb(var(--danger-text) / <alpha-value>)",
+        "danger-fill": "rgb(var(--danger-fill) / <alpha-value>)",
+        "ok-text": "rgb(var(--ok-text) / <alpha-value>)",
+        "ok-soft": "rgb(var(--ok-soft) / <alpha-value>)",
+        "amber-fill": "rgb(var(--amber-fill) / <alpha-value>)",
+        "green-fill": "rgb(var(--green-fill) / <alpha-value>)",
+        highlight: "rgb(var(--highlight) / <alpha-value>)",
+        focus: "rgb(var(--focus) / <alpha-value>)",
+        // Noms shadcn/ui encore utilisés (`border-border`, `ring-ring`,
+        // `ring-offset-background`) : ils pointaient sur des HSL figés en clair,
+        // donc une bordure et un anneau clairs en thème sombre. Ils suivent
+        // désormais les tokens de rôle. Les autres noms shadcn (primary, card…)
+        // n'avaient aucun usage et entraient en collision avec les rôles.
+        border: "rgb(var(--line) / <alpha-value>)",
+        input: "rgb(var(--line) / <alpha-value>)",
+        ring: "rgb(var(--focus) / <alpha-value>)",
+        background: "rgb(var(--paper) / <alpha-value>)",
+        foreground: "rgb(var(--ink) / <alpha-value>)",
+      },
+      // Plancher typographique : 14 px (CLAUDE.md §6, « même un enfant de 12 ans »).
+      // `text-xs` (12 px par défaut) est écrit plus de 300 fois : plutôt que de le
+      // laisser rendre du texte trop petit, l'échelle elle-même commence à 14 px.
+      // Vérifié par lib/design/ui-class-guard.test.ts, qui refuse aussi toute
+      // taille arbitraire sous 14 px (`text-[11px]`).
+      fontSize: {
+        xs: ["0.875rem", { lineHeight: "1.25rem" }],
       },
       fontFamily: {
         sans: ["'Trebuchet MS'", "'Segoe UI'", "Arial", "sans-serif"],
       },
       borderRadius: {
-        xl: "calc(var(--radius) + 6px)",
+        // Rayon de carte : 12 px (maquette v2).
+        xl: "0.75rem",
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",

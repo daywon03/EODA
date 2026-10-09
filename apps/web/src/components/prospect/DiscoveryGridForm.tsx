@@ -24,7 +24,7 @@ type Props = {
 };
 
 const TEXTAREA_CLASS =
-  "w-full rounded-md border border-gris-light bg-surface px-3 py-2 text-sm text-brun-ancre placeholder:text-gris-mid focus:outline-none focus:ring-2 focus:ring-terre/40 focus:border-terre disabled:opacity-60";
+  "w-full rounded-md border border-gris-light bg-surface px-3 py-2 text-sm text-brun-ancre placeholder:text-gris-mid focus:border-terre disabled:opacity-60";
 
 // Grille de découverte, saisie EN SÉANCE — mêmes partis pris que l'évaluation des
 // besoins : une seule page, aucun assistant multi-étapes (on parle en même temps),

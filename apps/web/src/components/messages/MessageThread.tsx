@@ -126,7 +126,7 @@ export function MessageThread({
                           <p className="whitespace-pre-line text-sm leading-relaxed text-brun-ancre">
                             {message.body}
                           </p>
-                          <p className="mt-1 text-[11px] tabular-nums text-gris-mid">
+                          <p className="mt-1 text-sm tabular-nums text-gris-mid">
                             <span className="sr-only">{displayAuthor(message)}, </span>
                             <time
                               dateTime={message.createdAt.toISOString()}

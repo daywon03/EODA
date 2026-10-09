@@ -74,7 +74,7 @@ export function ChecklistCategory({
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
         aria-controls={panelId}
-        className="w-full flex items-center justify-between gap-3 px-5 py-4 hover:bg-ivoire transition-colors text-left cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terre focus-visible:ring-inset"
+        className="w-full flex items-center justify-between gap-3 px-5 py-4 hover:bg-ivoire transition-colors text-left cursor-pointer focus-visible:-outline-offset-4"
       >
         <div className="flex items-center gap-3 min-w-0">
           <ChevronDown

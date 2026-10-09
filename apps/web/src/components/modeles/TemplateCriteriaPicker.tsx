@@ -81,7 +81,7 @@ export function TemplateCriteriaPicker({
               <span>
                 {c.requirementLevel === "IMPERATIF" && (
                   <span
-                    className="mr-1 rounded bg-terre px-1 py-0.5 text-[10px] font-semibold uppercase text-white"
+                    className="mr-1 rounded bg-terre px-1 py-0.5 text-sm font-semibold uppercase text-white"
                     title="Critère impératif HAS — obligatoire pour l'évaluation"
                   >
                     Impératif

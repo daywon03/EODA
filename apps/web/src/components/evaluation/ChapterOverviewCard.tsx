@@ -15,7 +15,7 @@ export function ChapterOverviewCard({ establishmentId, number, name, method, sco
   return (
     <Link
       href={`/dashboard/cabinet/etablissements/${establishmentId}/evaluation/chapitre/${number}`}
-      className="block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terre focus-visible:ring-offset-2"
+      className="block rounded-xl"
     >
       <Card className="border-l-4 border-l-terre hover:shadow-eoda-md hover:-translate-y-0.5 transition-all duration-150 cursor-pointer h-full">
         <div className="p-5 flex flex-col gap-2">
