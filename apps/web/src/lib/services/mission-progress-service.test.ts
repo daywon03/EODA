@@ -2,8 +2,26 @@ import { describe, expect, it } from "vitest";
 import {
   computeMissionProgress,
   isChecklistItemApplicable,
+  PHASE_LABELS,
+  PHASE_ORDER,
   type MissionItemProgress,
 } from "./mission-progress-service";
+
+describe("PHASE_LABELS — décision 3 des maquettes v2", () => {
+  it("nomme les phases Diagnostic / Mise en conformité / Suivi / Préparation finale, dans l'ordre", () => {
+    expect(PHASE_ORDER.map((phase) => PHASE_LABELS[phase])).toEqual([
+      "Phase 1 — Diagnostic",
+      "Phase 2 — Mise en conformité",
+      "Phase 3 — Suivi",
+      "Phase 4 — Préparation finale",
+    ]);
+  });
+
+  it("ne renomme que les libellés : les clés stockées restent celles d'origine", () => {
+    expect(PHASE_ORDER).toEqual(["FONDATIONS", "DEPLOIEMENT", "CONSOLIDATION", "PREPARATION_FINALE"]);
+    expect(Object.values(PHASE_LABELS).join(" ")).not.toMatch(/Fondations|Déploiement|Consolidation/);
+  });
+});
 
 // Règles de référence : .claude/context/07-outil-pilotage-missions.md §7.3-§7.4 et §12.4.
 

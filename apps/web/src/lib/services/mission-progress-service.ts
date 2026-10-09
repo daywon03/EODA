@@ -18,12 +18,25 @@ const PHASE_SCOPES: MissionChecklistScope[] = [
 ];
 
 // Libellés et ordre d'affichage des phases — source unique, partagée entre la
-// fiche mission (cabinet) et le suivi de progression (client, portail "Mon
-// suivi"). Vivaient auparavant recopiés dans la page cabinet uniquement (D1).
+// fiche mission (cabinet), la vue d'ensemble de la fiche structure et le suivi de
+// progression (client, portail "Mon suivi"). Vivaient auparavant recopiés dans la
+// page cabinet uniquement (D1).
+//
+// Décision 3 du plan des maquettes v2 (09/10/2026) : les phases s'appellent
+// Diagnostic / Mise en conformité / Suivi / Préparation finale. Seuls les LIBELLÉS
+// changent : les clés de l'enum `MissionChecklistScope` et les colonnes de dates
+// (`fondationsStartDate`…) restent celles d'origine — renommer une valeur d'enum
+// stockée exigerait une migration destructive pour un gain nul. Correspondance :
+//   FONDATIONS         (ex-« Fondations »)   → Diagnostic
+//   DEPLOIEMENT        (ex-« Déploiement »)  → Mise en conformité
+//   CONSOLIDATION      (ex-« Consolidation ») → Suivi
+//   PREPARATION_FINALE (inchangé)             → Préparation finale
+// Le scope `DIAGNOSTIC` (les 12 items du « Diagnostic initial ») n'est pas une phase
+// datée : il garde son propre libellé.
 export const PHASE_LABELS: Record<Exclude<MissionChecklistScope, "DIAGNOSTIC">, string> = {
-  FONDATIONS: "Phase 1 — Fondations",
-  DEPLOIEMENT: "Phase 2 — Déploiement",
-  CONSOLIDATION: "Phase 3 — Consolidation",
+  FONDATIONS: "Phase 1 — Diagnostic",
+  DEPLOIEMENT: "Phase 2 — Mise en conformité",
+  CONSOLIDATION: "Phase 3 — Suivi",
   PREPARATION_FINALE: "Phase 4 — Préparation finale",
 };
 

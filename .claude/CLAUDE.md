@@ -346,10 +346,16 @@ Détail complet et état d'avancement : `specs/02-architecture-technique.md` §4
   accessible à `CABINET_ADMIN` **et** `CABINET_EVALUATOR` (contrairement au pipeline commercial
   ci-dessus) car c'est du suivi opérationnel d'accompagnement, pas de la donnée financière. La
   formule contractuelle qui gouverne le périmètre d'une mission (§7.3 — verrouillage
-  Consolidation/Préparation finale hors Excellence ou bêta-test gratuit) vit sur `Mission.formule`,
+  Suivi/Préparation finale hors Excellence ou bêta-test gratuit) vit sur `Mission.formule`,
   pas sur `Establishment.commercialTier` (resté hardcodé `BETA`, affichage/historique
-  uniquement) — ne jamais dupliquer cette décision sur les deux modèles. **Corollaire depuis le
-  20/08/2026** : les options souscrites vivent elles aussi sur la mission (`MissionOption`,
+  uniquement) — ne jamais dupliquer cette décision sur les deux modèles.
+  **Phases renommées le 09/10/2026 (décision 3 des maquettes v2), libellés seulement** :
+  Diagnostic / Mise en conformité / Suivi / Préparation finale. Les clés stockées ne
+  changent pas — `FONDATIONS` = Diagnostic, `DEPLOIEMENT` = Mise en conformité,
+  `CONSOLIDATION` = Suivi, `PREPARATION_FINALE` = Préparation finale ; la source unique des
+  libellés est `PHASE_LABELS` (`mission-progress-service.ts`). Ne jamais renommer l'enum ni
+  les colonnes `fondationsStartDate`… : ce serait une migration destructive pour un mot.
+  **Corollaire depuis le 20/08/2026** : les options souscrites vivent elles aussi sur la mission (`MissionOption`,
   peuplée à la signature par `lib/actions/conversion.ts`). Les `DevisOption` restent le
   **document commercial** — ils font contrat et ne se réécrivent jamais — et servent de repli
   de lecture pour les missions antérieures à cette bascule.

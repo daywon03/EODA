@@ -446,18 +446,18 @@ const MISSION_CHECKLIST_ITEMS: MissionChecklistItemSeed[] = [
   { code: "DIAG_11", scope: "DIAGNOSTIC", order: 11, label: "Création du PAC (plan d'action)" },
   { code: "DIAG_12", scope: "DIAGNOSTIC", order: 12, label: "Réunion distancielle — restitution du PAC" },
 
-  // Phase 1 — Fondations (toutes formules)
+  // Phase 1 — Diagnostic, clé FONDATIONS (toutes formules) — libellés : PHASE_LABELS
   { code: "F1", scope: "FONDATIONS", order: 1, label: "PDCA co-construit" },
   { code: "F2", scope: "FONDATIONS", order: 2, label: "Pack documentaire P1-P5" },
   { code: "F3", scope: "FONDATIONS", order: 3, label: "Registres/tableaux de suivi" },
 
-  // Phase 2 — Déploiement (toutes formules)
+  // Phase 2 — Mise en conformité, clé DEPLOIEMENT (toutes formules)
   { code: "D1", scope: "DEPLOIEMENT", order: 1, label: "Ateliers de sensibilisation" },
   { code: "D2", scope: "DEPLOIEMENT", order: 2, label: "Formation gouvernance" },
   { code: "D3", scope: "DEPLOIEMENT", order: 3, label: "Mise en œuvre opérationnelle" },
   { code: "D4", scope: "DEPLOIEMENT", order: 4, label: "Traçabilité des actions" },
 
-  // Phase 3 — Consolidation (réservée Excellence / bêta-test gratuit)
+  // Phase 3 — Suivi, clé CONSOLIDATION (réservée Excellence / bêta-test gratuit)
   { code: "C1", scope: "CONSOLIDATION", order: 1, label: "Reporting KPI Power BI", minFormule: "EXCELLENCE" },
   { code: "C2", scope: "CONSOLIDATION", order: 2, label: "Revue mi-parcours", minFormule: "EXCELLENCE" },
   { code: "C3", scope: "CONSOLIDATION", order: 3, label: "Ajustement du plan d'actions", minFormule: "EXCELLENCE" },
