@@ -14,7 +14,7 @@ import {
   CheckCircle2,
 } from "lucide-react";
 import type { DocumentAnalysisResult, AnalysisFinding } from "@/lib/llm";
-import { describeAnalysis, summariseAnalysis } from "@/lib/services/analysis-view-service";
+import { describeAnalysis, describeReviewMention, summariseAnalysis } from "@/lib/services/analysis-view-service";
 import {
   setAnalysisReviewed,
   listCriteriaForPicker,
@@ -90,6 +90,12 @@ export function DocumentAnalysisPanel({
           {describeAnalysis(summary)}
         </span>
       </button>
+      {/* Côté client, l'analyse n'est là QUE parce qu'elle a été relue
+          (analysisVisibleTo) : on le dit, avec la date — c'est la mention annoncée
+          au cabinet sous « Marquer relu ». */}
+      {!canReview && reviewedAt && (
+        <p className="px-3 pb-2 text-sm font-bold text-ink">{describeReviewMention(reviewedAt)}</p>
+      )}
 
       {open && (
         <div className="px-3 pb-3 pt-1 space-y-3 animate-fade-in">

@@ -2,10 +2,9 @@
 
 import { useEffect } from "react";
 import { createPortal } from "react-dom";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
 import { X } from "lucide-react";
 import type { FilePreviewData } from "@/lib/services/file-preview-types";
+import { FilePreviewBody } from "./FilePreviewBody";
 
 // Un navigateur ne sait afficher nativement qu'un PDF — un .docx est toujours
 // proposé au téléchargement par le système, quel que soit le Content-Disposition.
@@ -62,34 +61,7 @@ export function FilePreviewModal({
         </div>
 
         <div className="flex-1 min-h-0 overflow-auto">
-          {preview.kind === "pdf" && (
-            <iframe src={preview.url} title={preview.filename} className="w-full h-full border-0" />
-          )}
-          {preview.kind === "image" && (
-            <div className="flex h-full items-center justify-center bg-ivoire/40 p-4">
-              {/* eslint-disable-next-line @next/next/no-img-element -- URL signée temporaire, next/image exigerait une taille connue à l'avance. */}
-              <img
-                src={preview.url}
-                alt={preview.filename}
-                className="max-h-full max-w-full object-contain"
-              />
-            </div>
-          )}
-          {preview.kind === "markdown" && (
-            <div className="prose prose-sm max-w-none px-5 py-4 text-brun-ancre prose-headings:text-brun-ancre prose-a:text-terre prose-strong:text-brun-ancre prose-th:text-brun-ancre prose-td:align-top">
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>{preview.text}</ReactMarkdown>
-            </div>
-          )}
-          {preview.kind === "text" && (
-            <pre className="whitespace-pre-wrap break-words px-5 py-4 text-sm text-brun-ancre font-sans">
-              {preview.text}
-            </pre>
-          )}
-          {preview.kind === "unavailable" && (
-            <p className="px-5 py-4 text-sm text-gris-mid">
-              Aucun aperçu disponible pour ce document — utilisez le téléchargement.
-            </p>
-          )}
+          <FilePreviewBody preview={preview} />
         </div>
       </div>
     </div>,

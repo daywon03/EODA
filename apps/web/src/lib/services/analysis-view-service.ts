@@ -143,3 +143,13 @@ export function describeAnalysis(summary: AnalysisSummary): string {
     ? `${summary.missingCount} éléments attendus n'ont pas été retrouvés dans ce document.`
     : "1 élément attendu n'a pas été retrouvé dans ce document.";
 }
+
+// Mention de relecture, la même côté client (sous l'analyse restituée) et côté
+// cabinet (« La structure verra : … » sous le geste « Marquer relu »). « EODA »,
+// jamais un prénom : c'est le cabinet qui engage sa parole (D7). JJ/MM en
+// composantes LOCALES, comme toDateInputValue.
+export function describeReviewMention(reviewedAt: Date): string {
+  const day = String(reviewedAt.getDate()).padStart(2, "0");
+  const month = String(reviewedAt.getMonth() + 1).padStart(2, "0");
+  return `Relu par EODA, le ${day}/${month}`;
+}

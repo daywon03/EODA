@@ -2,10 +2,18 @@ import { describe, expect, it } from "vitest";
 import {
   analysisVisibleTo,
   describeAnalysis,
+  describeReviewMention,
   isAnalysisAwaitingReview,
   parseAnalysisResult,
   summariseAnalysis,
 } from "./analysis-view-service";
+
+describe("describeReviewMention", () => {
+  it("dit « EODA » et la date JJ/MM, jamais un prénom (D7)", () => {
+    expect(describeReviewMention(new Date(2026, 8, 30, 23, 30))).toBe("Relu par EODA, le 30/09");
+    expect(describeReviewMention(new Date(2026, 0, 5))).toBe("Relu par EODA, le 05/01");
+  });
+});
 
 const COMPLETE = {
   elementsPresents: [{ text: "Objet du séjour", source: "Le présent séjour a pour objet…" }],

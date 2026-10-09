@@ -22,6 +22,13 @@ export const FilePreviewModal = dynamic(
   { ssr: false },
 );
 
+// Le même contenu, sans la modale : colonne centrale de la file « À relire ». Même
+// découpage, pour la même raison (react-markdown ne voyage qu'à l'affichage).
+export const FilePreviewBody = dynamic(
+  () => import("./FilePreviewBody").then((m) => m.FilePreviewBody),
+  { ssr: false },
+);
+
 // Appelée au clic, en parallèle de l'action serveur qui va chercher le contenu : sans
 // elle, le chargement du chunk ne démarrerait qu'une fois la réponse revenue, et
 // s'ajouterait à l'attente au lieu de s'y fondre.
