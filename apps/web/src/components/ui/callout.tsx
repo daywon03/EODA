@@ -6,10 +6,10 @@ import { cn } from "@/lib/utils";
 // (« Non revérifié par un humain : peut comporter des erreurs. À relire
 // absolument. ») — elle n'est jamais rendue en gris discret.
 const TONES = {
-  info: { glyph: "i", border: "border-l-ink2", bg: "bg-soft" },
-  warning: { glyph: "!", border: "border-l-ambre", bg: "bg-highlight" },
-  danger: { glyph: "!", border: "border-l-danger-text", bg: "bg-card" },
-  success: { glyph: "✓", border: "border-l-vert-ok", bg: "bg-ok-soft" },
+  info: { glyph: "i", glyphColor: "text-ink2", bg: "bg-soft" },
+  warning: { glyph: "!", glyphColor: "text-accent-text", bg: "bg-highlight" },
+  danger: { glyph: "!", glyphColor: "text-danger-text", bg: "bg-card" },
+  success: { glyph: "✓", glyphColor: "text-ok-text", bg: "bg-ok-soft" },
 } as const;
 
 type Props = {
@@ -23,15 +23,15 @@ type Props = {
 };
 
 export function Callout({ tone = "info", title, children, role = "note", className }: Props) {
-  const { glyph, border, bg } = TONES[tone];
+  const { glyph, glyphColor, bg } = TONES[tone];
   return (
     <div
       role={role}
-      className={cn("flex gap-3 rounded-xl border border-l-4 border-line px-4 py-3 text-base text-ink", border, bg, className)}
+      className={cn("flex gap-3 rounded-xl border border-line px-4 py-3 text-base text-ink", bg, className)}
     >
       <span
         aria-hidden="true"
-        className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full border border-current font-bold"
+        className={cn("flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full border border-current font-bold", glyphColor)}
       >
         {glyph}
       </span>
