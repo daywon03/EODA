@@ -44,6 +44,9 @@ apps/web/.local-storage/
 # enquêtes ASSAD — potentiellement nominatifs, donc données de santé) : ils partent en
 # base par la bibliothèque, jamais dans le dépôt.
 context2/
+# Paquets de remise Claude Design (brief interne, captures d'écran) : sources de travail,
+# pas du code. Les maquettes retenues se versionnent sous .claude/design/, une fois relues.
+*-handoff.zip
 # Ajouté par `vercel link` : identifiants du projet Vercel, propres à cette machine.
 .vercel
 

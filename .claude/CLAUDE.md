@@ -149,6 +149,7 @@ chantier.
 | 15 | `specs/05-bilan-2026-10.md` | **Bilan au 08/10/2026** : décisions bloquantes, correctifs, pipeline IA réel, reste à faire, lisibilité des documents de `context/Documents/` |
 | — | `PRODUCT.md` (racine) | Vérité produit lue par la skill impeccable (utilisateurs, positionnement, principes, accessibilité) |
 | — | `.claude/design/…Brief-Claude-Design-Refonte_v01_Interne.md` | Brief de refonte remis à Claude Design ; **toute implémentation d'écran s'y conforme** jusqu'à ce qu'un DESIGN.md le remplace |
+| — | `.claude/design/20261009_PLAN_EODA_Implementation-maquettes-v2_v01_Interne.md` | **Plan d'implémentation des maquettes v2** (Cabinet, Client, Espace structure accompagnée, Tablette) : ordre de construction (socle → refontes → schéma), écarts maquette → règles du dépôt, questions avec réponse par défaut. Les maquettes elles-mêmes restent hors dépôt (noms réels du pilote) |
 
 **Règle :** avant de générer du code touchant au métier HAS (cotation, critères, documents
 obligatoires), Claude Code doit relire `context/02-referentiel-has.md` et
