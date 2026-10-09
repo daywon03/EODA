@@ -7,6 +7,7 @@ import {
   describeLoi2002Coverage,
   firstNameOf,
   isFollowed,
+  latestClientActivityByEstablishment,
   selectWatchList,
   sortByUrgency,
   type StructureFacts,
@@ -160,5 +161,40 @@ describe("libellés", () => {
     expect(firstNameOf("Marie Dupont")).toBe("Marie");
     expect(firstNameOf("  ")).toBeNull();
     expect(firstNameOf(null)).toBeNull();
+  });
+});
+
+describe("latestClientActivityByEstablishment", () => {
+  const links = [
+    { establishmentId: "e1", userId: "client-a" },
+    { establishmentId: "e2", userId: "client-b" },
+  ];
+
+  it("garde la plus récente action d'un compte client rattaché", () => {
+    const result = latestClientActivityByEstablishment(
+      [
+        { establishmentId: "e1", actorUserId: "client-a", lastAt: inDays(-5) },
+        { establishmentId: "e1", actorUserId: "client-a", lastAt: inDays(-2) },
+        { establishmentId: "e1", actorUserId: "client-a", lastAt: inDays(-7) },
+        { establishmentId: "e2", actorUserId: "client-b", lastAt: inDays(-9) },
+      ],
+      links
+    );
+    expect(result.get("e1")).toEqual(inDays(-2));
+    expect(result.get("e2")).toEqual(inDays(-9));
+  });
+
+  it("ignore le cabinet, un compte rattaché à une AUTRE structure et les entrées incomplètes", () => {
+    const result = latestClientActivityByEstablishment(
+      [
+        { establishmentId: "e1", actorUserId: "cabinet-1", lastAt: inDays(0) },
+        { establishmentId: "e1", actorUserId: "client-b", lastAt: inDays(0) },
+        { establishmentId: null, actorUserId: "client-a", lastAt: inDays(0) },
+        { establishmentId: "e1", actorUserId: null, lastAt: inDays(0) },
+        { establishmentId: "e1", actorUserId: "client-a", lastAt: null },
+      ],
+      links
+    );
+    expect(result.size).toBe(0);
   });
 });

@@ -8,6 +8,7 @@ class RedirectError extends Error {}
 
 const prismaMock = {
   auditLogEntry: { groupBy: vi.fn() },
+  establishmentUser: { findMany: vi.fn() },
   document: { groupBy: vi.fn() },
   documentType: { count: vi.fn() },
 };
@@ -58,8 +59,9 @@ beforeEach(() => {
   countDocumentsAwaitingReviewByEstablishment.mockResolvedValue(new Map([["e1", 2]]));
   prismaMock.document.groupBy.mockResolvedValue([{ establishmentId: "e1", _count: { _all: 4 } }]);
   prismaMock.documentType.count.mockResolvedValue(7);
+  prismaMock.establishmentUser.findMany.mockResolvedValue([{ establishmentId: "e1", userId: "client-1" }]);
   prismaMock.auditLogEntry.groupBy.mockResolvedValue([
-    { establishmentId: "e1", _max: { occurredAt: new Date("2026-10-08") } },
+    { establishmentId: "e1", actorUserId: "client-1", _max: { occurredAt: new Date("2026-10-08") } },
   ]);
 });
 
@@ -99,14 +101,40 @@ describe("getStructuresOverview", () => {
       })
     );
     // Le journal n'a pas de relation : filtré par les fiches déjà bornées au tenant.
-    expect(prismaMock.auditLogEntry.groupBy).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { establishmentId: { in: ["e1", "e2"] } } })
+    expect(prismaMock.establishmentUser.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { establishmentId: { in: ["e1", "e2"] }, user: { role: "CLIENT_USER" } },
+      })
     );
+    expect(prismaMock.auditLogEntry.groupBy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        by: ["establishmentId", "actorUserId"],
+        where: { establishmentId: { in: ["e1", "e2"] }, actorUserId: { in: ["client-1"] } },
+      })
+    );
+  });
+
+  it("dernière activité : seules les actions de la structure comptent, pas les consultations du cabinet", async () => {
+    // Une entrée d'un compte cabinet (non rattaché) est ignorée, même plus récente.
+    prismaMock.auditLogEntry.groupBy.mockResolvedValue([
+      { establishmentId: "e1", actorUserId: "cabinet-1", _max: { occurredAt: new Date("2026-10-09") } },
+      { establishmentId: "e1", actorUserId: "client-1", _max: { occurredAt: new Date("2026-09-01") } },
+    ]);
+    const { rows } = await getStructuresOverview();
+    expect(rows[0]?.lastActivityAt).toEqual(new Date("2026-09-01"));
+  });
+
+  it("aucun compte client rattaché : pas de lecture du journal, aucune activité", async () => {
+    prismaMock.establishmentUser.findMany.mockResolvedValue([]);
+    const { rows } = await getStructuresOverview();
+    expect(prismaMock.auditLogEntry.groupBy).not.toHaveBeenCalled();
+    expect(rows.every((r) => r.lastActivityAt === null)).toBe(true);
   });
 
   it("aucune fiche : pas de lecture du journal", async () => {
     listEstablishments.mockResolvedValue([]);
     await expect(getStructuresOverview()).resolves.toEqual({ rows: [], portfolio: [] });
+    expect(prismaMock.establishmentUser.findMany).not.toHaveBeenCalled();
     expect(prismaMock.auditLogEntry.groupBy).not.toHaveBeenCalled();
   });
 

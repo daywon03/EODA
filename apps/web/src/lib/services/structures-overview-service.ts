@@ -132,6 +132,33 @@ export function selectWatchList<T extends StructureFacts>(rows: readonly T[], no
     .slice(0, limit);
 }
 
+// « Dernière activité » = la dernière action de la STRUCTURE (décision Damon,
+// 09/10/2026) : une entrée du journal dont l'acteur est un compte client RATTACHÉ à
+// cet établissement. Les consultations du cabinet n'en sont pas — sinon ouvrir la
+// fiche d'une structure qui a décroché la ferait paraître active, et l'alerte
+// d'inactivité ne se déclencherait jamais.
+//
+// Le rattachement est revérifié ici, paire par paire : un compte client lié à une
+// autre structure (ou plus lié du tout) ne compte pas, même si une entrée du
+// journal porte cet établissement.
+export type ActorActivity = { establishmentId: string | null; actorUserId: string | null; lastAt: Date | null };
+export type ClientLink = { establishmentId: string; userId: string };
+
+export function latestClientActivityByEstablishment(
+  activity: readonly ActorActivity[],
+  links: readonly ClientLink[]
+): Map<string, Date> {
+  const linked = new Set(links.map((l) => `${l.establishmentId}\u0000${l.userId}`));
+  const latest = new Map<string, Date>();
+  for (const { establishmentId, actorUserId, lastAt } of activity) {
+    if (!establishmentId || !actorUserId || !lastAt) continue;
+    if (!linked.has(`${establishmentId}\u0000${actorUserId}`)) continue;
+    const current = latest.get(establishmentId);
+    if (!current || lastAt > current) latest.set(establishmentId, lastAt);
+  }
+  return latest;
+}
+
 export function describeLastActivity(lastActivityAt: Date | null, now: Date): string {
   if (lastActivityAt === null) return "Aucune activité enregistrée";
   const ago = formatAgo(lastActivityAt, now);
