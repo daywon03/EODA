@@ -498,3 +498,21 @@ describe("absence de session et compte supprimé", () => {
     await expect(requireCabinetSession()).rejects.toThrow("REDIRECT:/login");
   });
 });
+
+describe("rôle rendu par la garde cabinet (coquille : section Commercial)", () => {
+  it("rend le rôle RELU EN BASE, pas celui du jeton", async () => {
+    // Jeton émis quand le compte était admin ; rétrogradé depuis en base.
+    prismaMock.user.findUnique.mockResolvedValue(dbUser({ role: "CABINET_EVALUATOR" }));
+
+    await expect(requireCabinetSession()).resolves.toMatchObject({
+      tenantId: "tenant-1",
+      role: "CABINET_EVALUATOR",
+    });
+  });
+
+  it("le rend aussi pour la garde admin", async () => {
+    prismaMock.user.findUnique.mockResolvedValue(dbUser());
+
+    await expect(requireCabinetAdminSession()).resolves.toMatchObject({ role: "CABINET_ADMIN" });
+  });
+});

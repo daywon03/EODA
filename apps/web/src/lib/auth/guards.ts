@@ -34,6 +34,9 @@ export type CabinetContext = {
   session: Session;
   userId: string;
   tenantId: string;
+  // Rôle RELU EN BASE par la garde, pas celui du jeton : c'est lui qui décide de
+  // ce que la coquille affiche (section Commercial), à la même source que le refus.
+  role: UserRole;
 };
 
 // Contexte d'accès à un établissement, quel que soit le côté (Cabinet ou Client).
@@ -170,7 +173,7 @@ export async function requireCabinetSession(): Promise<CabinetContext> {
   if (user.role === "CLIENT_USER") redirect("/dashboard/client");
   if (!user.tenantId) redirect("/login");
 
-  return { session, userId: session.user.id, tenantId: user.tenantId };
+  return { session, userId: session.user.id, tenantId: user.tenantId, role: user.role };
 }
 
 // Variante non-redirigeante de requireCabinetSession() — mêmes contrôles, mais pour
@@ -187,7 +190,7 @@ export async function tryCabinetSession(): Promise<CabinetContext | null> {
   if (user.role === "CLIENT_USER") return null;
   if (!user.tenantId) return null;
 
-  return { session, userId: session.user.id, tenantId: user.tenantId };
+  return { session, userId: session.user.id, tenantId: user.tenantId, role: user.role };
 }
 
 // Garde strict pour le pipeline commercial (prospects/devis/catalogue) — réservé à
@@ -202,7 +205,7 @@ export async function requireCabinetAdminSession(): Promise<CabinetContext> {
   if (user.role !== "CABINET_ADMIN") redirect("/dashboard/cabinet");
   if (!user.tenantId) redirect("/dashboard/cabinet");
 
-  return { session, userId: session.user.id, tenantId: user.tenantId };
+  return { session, userId: session.user.id, tenantId: user.tenantId, role: user.role };
 }
 
 // Garde Cabinet + appartenance de l'établissement au tenant de l'appelant.

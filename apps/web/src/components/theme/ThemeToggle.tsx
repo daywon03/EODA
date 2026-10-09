@@ -2,19 +2,19 @@
 
 import { useEffect, useState } from "react";
 import { Moon, Sun } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { STORAGE_KEY, applyTheme, resolveInitialTheme, type Theme } from "./theme-storage";
 
-// Bascule clair/sombre manuelle (Damon, 22/09/2026) : jusqu'ici le mode sombre ne
-// suivait QUE la préférence système (globals.css), sans bouton nulle part. Rendu
-// dans AppHeader — le seul bandeau commun aux deux espaces (cabinet ET client),
-// donc un seul composant couvre les deux sans duplication.
+// Bascule clair/sombre manuelle (Damon, 22/09/2026). Rendue dans l'en-tête des deux
+// coquilles (cabinet et client) : un seul composant pour les deux.
+//
+// Le texte visible EST le nom accessible (« Mode sombre ») : pas d'aria-label qui
+// dirait autre chose que ce qu'on lit (WCAG 2.5.3). Sur petit écran le texte passe
+// en lecture d'écran seulement, l'icône reste.
 //
 // `theme` reste `null` jusqu'au montage : le serveur ne connaît ni la préférence
-// système ni le choix stocké en localStorage, donc rien de fiable à rendre avant
-// l'hydratation. Un bouton qui changerait d'icône une frame après le premier rendu
-// serait plus visible qu'un bouton simplement absent le temps du montage.
-export function ThemeToggle() {
+// système ni le choix stocké, donc rien de fiable à rendre avant l'hydratation.
+export function ThemeToggle({ className }: { className?: string }) {
   const [theme, setTheme] = useState<Theme | null>(null);
 
   useEffect(() => {
@@ -24,29 +24,30 @@ export function ThemeToggle() {
   function toggle() {
     const next: Theme = theme === "dark" ? "light" : "dark";
     setTheme(next);
-    window.localStorage.setItem(STORAGE_KEY, next);
+    try {
+      window.localStorage.setItem(STORAGE_KEY, next);
+    } catch {
+      // Stockage refusé (navigation privée) : le thème change pour cette page.
+    }
     applyTheme(next);
   }
 
+  const base = cn(
+    "inline-flex h-11 min-w-11 items-center justify-center gap-2 rounded-lg border border-line bg-card px-3 text-base text-ink transition-colors hover:border-accent-text",
+    className
+  );
+
   if (theme === null) {
-    // Même emplacement, même taille : réserver la place évite un bandeau qui
-    // se redimensionne d'une frame à l'autre au montage.
-    return <span className="inline-block h-11 w-11" aria-hidden="true" />;
+    // Même emplacement, même taille : pas de bandeau qui se redimensionne au montage.
+    return <span className={cn(base, "invisible")} aria-hidden="true" />;
   }
 
   const isDark = theme === "dark";
-
+  const Icon = isDark ? Sun : Moon;
   return (
-    <Button
-      type="button"
-      variant="ghost"
-      size="icon"
-      onClick={toggle}
-      className="text-[#F0E8DC] hover:text-[#D69646] hover:bg-white/10"
-      title={isDark ? "Passer en mode clair" : "Passer en mode sombre"}
-      aria-label={isDark ? "Passer en mode clair" : "Passer en mode sombre"}
-    >
-      {isDark ? <Sun className="h-4 w-4" aria-hidden="true" /> : <Moon className="h-4 w-4" aria-hidden="true" />}
-    </Button>
+    <button type="button" onClick={toggle} className={base}>
+      <Icon className="h-5 w-5 flex-shrink-0" aria-hidden="true" />
+      <span className="sr-only sm:not-sr-only">{isDark ? "Mode clair" : "Mode sombre"}</span>
+    </button>
   );
 }

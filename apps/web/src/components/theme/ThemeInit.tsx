@@ -6,7 +6,7 @@ import { applyTheme, resolveInitialTheme } from "./theme-storage";
 // Réapplique le choix stocké (ou, à défaut, la préférence système) à CHAQUE
 // chargement complet de page — `data-theme` vit sur <html>, qui est recréé au
 // rechargement, contrairement à une navigation côté client. Monté à la racine
-// (RootLayout) plutôt que dans AppHeader : certaines pages (login, aide) ne
+// (RootLayout) plutôt que dans une coquille de portail : certaines pages (login, aide) ne
 // rendent pas forcément le même bandeau, et cet effet doit courir partout.
 //
 // Pas de <script> inline injecté à la main : la CSP de ce projet est à nonce

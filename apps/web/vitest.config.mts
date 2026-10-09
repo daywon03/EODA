@@ -99,6 +99,10 @@ export default defineConfig({
         // client. Une analyse non relue qui s'y glisserait contournerait la revue
         // humaine par la porte de l'imprimante.
         "src/lib/services/conformity-report-service.ts",
+        // File « À relire » : elle décide quelles analyses attendent la revue
+        // humaine. Une version oubliée ici reste invisible au client sans que
+        // personne ne sache qu'elle attend.
+        "src/lib/services/review-queue-service.ts",
         // Péremption documentaire : elle décide qu'un document « conforme » ne l'est
         // plus. Dérivée de l'horloge, donc jamais vérifiable par un statut en base.
         "src/lib/services/document-expiry-service.ts",

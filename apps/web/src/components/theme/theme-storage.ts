@@ -7,7 +7,12 @@ export const STORAGE_KEY = "eoda-theme";
 // (globals.css, @media prefers-color-scheme), qu'on ne veut pas casser pour qui
 // n'a jamais touché au bouton.
 export function resolveInitialTheme(): Theme {
-  const stored = window.localStorage.getItem(STORAGE_KEY);
+  let stored: string | null = null;
+  try {
+    stored = window.localStorage.getItem(STORAGE_KEY);
+  } catch {
+    // Stockage refusé (navigation privée, données de site bloquées) : on suit le système.
+  }
   if (stored === "light" || stored === "dark") return stored;
   return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
 }
