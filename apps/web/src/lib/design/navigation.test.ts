@@ -74,6 +74,7 @@ describe("libellés", () => {
 describe("navigation du portail client", () => {
   it("liste seulement les surfaces qui existent, dans l'ordre", () => {
     expect(buildClientNav({ hasUnansweredMessage: false }).map((i) => i.label)).toEqual([
+      "Accueil",
       "Mes documents",
       "Mes livrables",
       "Mon suivi",
@@ -93,7 +94,8 @@ describe("navigation du portail client", () => {
   });
 
   it.each([
-    ["/dashboard/client", "documents"],
+    ["/dashboard/client", "home"],
+    ["/dashboard/client/documents", "documents"],
     ["/dashboard/client/livrables", "deliverables"],
     ["/dashboard/client/suivi", "progress"],
     ["/dashboard/client/echanges", "messages"],

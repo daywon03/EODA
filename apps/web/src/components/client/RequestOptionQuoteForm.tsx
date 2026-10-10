@@ -11,13 +11,20 @@ type Props = {
   catalogueOptionId: string;
   optionLabel: string;
   alreadyRequested: boolean;
+  // Libellé du bouton d'ouverture (« Être accompagné » sur l'accueil, N1).
+  triggerLabel?: string;
 };
 
 // Bouton « Demander un devis » — §12.3 : le client DEMANDE, Sandrine déclenche.
 // Ce n'est volontairement PAS un achat : aucun paiement, aucun déblocage, aucune
 // promesse de délai. Le seul effet visible pour le client est la bascule en
 // « Demande transmise ».
-export function RequestOptionQuoteForm({ catalogueOptionId, optionLabel, alreadyRequested }: Props) {
+export function RequestOptionQuoteForm({
+  catalogueOptionId,
+  optionLabel,
+  alreadyRequested,
+  triggerLabel = "Demander un devis",
+}: Props) {
   const [isPending, startTransition] = useTransition();
   const [sent, setSent] = useState(alreadyRequested);
   const [error, setError] = useState<string | null>(null);
@@ -50,7 +57,7 @@ export function RequestOptionQuoteForm({ catalogueOptionId, optionLabel, already
     return (
       <Button variant="outline" size="sm" onClick={() => setOpen(true)}>
         <Send className="w-3.5 h-3.5" aria-hidden="true" />
-        Demander un devis
+        {triggerLabel}
       </Button>
     );
   }

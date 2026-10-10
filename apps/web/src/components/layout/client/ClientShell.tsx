@@ -2,6 +2,8 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { requireClientEstablishment } from "@/lib/auth/guards";
 import { getClientHasUnansweredMessage } from "@/lib/actions/message";
+import { getClientSupportContext } from "@/lib/actions/client-support";
+import { describeModeTag, toUiSupportMode } from "@/lib/services/support-mode-service";
 import { buildClientNav, CLIENT_ROOT } from "@/lib/design/client-navigation";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
 import { EodaMark } from "../EodaLogo";
@@ -22,9 +24,10 @@ import { ModeBanner } from "./ModeBanner";
 // alors simplement « Espace client ».
 // ─────────────────────────────────────────────────────────────────────────────
 export async function ClientShell({ children }: { children: ReactNode }) {
-  const [{ session, establishment }, hasUnansweredMessage] = await Promise.all([
+  const [{ session, establishment }, hasUnansweredMessage, support] = await Promise.all([
     requireClientEstablishment(),
     getClientHasUnansweredMessage(),
+    getClientSupportContext(),
   ]);
   const items = buildClientNav({ hasUnansweredMessage });
   const userName = session.user.name ?? session.user.email ?? "Mon compte";
@@ -53,7 +56,10 @@ export async function ClientShell({ children }: { children: ReactNode }) {
         </div>
       </header>
 
-      <ModeBanner mode={null} offerLabel="" />
+      <ModeBanner
+        mode={support ? toUiSupportMode(support.mode) : null}
+        offerLabel={support ? describeModeTag(support.formule, support.mode) : ""}
+      />
 
       {/* Marge basse sur mobile : la barre de navigation fixe ne doit pas recouvrir
           la fin de la page. */}

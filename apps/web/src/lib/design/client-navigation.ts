@@ -5,8 +5,8 @@ import type { NavItem } from "./navigation";
 //
 // La maquette prévoit : Accueil · Mes documents · Mon diagnostic · Mon équipe ·
 // Messages. Seules les surfaces qui EXISTENT sont listées (D6 : pas de bouton
-// mort) ; « Mon diagnostic » (N6), « Mon équipe » (N10) et un accueil distinct (R6)
-// s'ajouteront chacun en une ligne dans CLIENT_NAV_ITEMS. En attendant, les pages
+// mort) ; l'accueil existe depuis R6, « Mon diagnostic » (N6) et « Mon équipe »
+// (N10) s'ajouteront chacun en une ligne ci-dessous. En attendant, les pages
 // existantes restent atteignables : « Mes livrables » et « Mon suivi » dans la
 // barre, « Mon contrat » dans le menu du compte, comme le dessine la maquette.
 //
@@ -15,6 +15,8 @@ import type { NavItem } from "./navigation";
 
 export const CLIENT_ROOT = "/dashboard/client";
 export const CLIENT_MESSAGES_PATH = `${CLIENT_ROOT}/echanges`;
+export const CLIENT_DOCUMENTS_PATH = `${CLIENT_ROOT}/documents`;
+export const CLIENT_CONTRACT_PATH = `${CLIENT_ROOT}/contrat`;
 
 export type ClientNavFacts = {
   // Le dernier message du fil vient d'EODA et attend une réponse.
@@ -23,9 +25,10 @@ export type ClientNavFacts = {
 
 export function buildClientNav(facts: ClientNavFacts): NavItem[] {
   return [
-    // Racine du portail = la liste des pièces : `exact` pour ne pas rester actif
-    // sur toutes les autres pages.
-    { id: "documents", href: CLIENT_ROOT, label: "Mes documents", icon: "documents", exact: true },
+    // Racine du portail = l'accueil (R6) : `exact` pour ne pas rester actif sur
+    // toutes les autres pages.
+    { id: "home", href: CLIENT_ROOT, label: "Accueil", icon: "home", exact: true },
+    { id: "documents", href: CLIENT_DOCUMENTS_PATH, label: "Mes documents", icon: "documents" },
     { id: "deliverables", href: `${CLIENT_ROOT}/livrables`, label: "Mes livrables", icon: "deliverables" },
     { id: "progress", href: `${CLIENT_ROOT}/suivi`, label: "Mon suivi", icon: "progress" },
     {
@@ -45,5 +48,5 @@ export type AccountMenuLink = { id: string; href: string; label: string };
 // pas un lien).
 export const CLIENT_ACCOUNT_LINKS: readonly AccountMenuLink[] = [
   { id: "profile", href: "/dashboard/profil", label: "Mon profil" },
-  { id: "contract", href: `${CLIENT_ROOT}/contrat`, label: "Mon contrat" },
+  { id: "contract", href: CLIENT_CONTRACT_PATH, label: "Mon contrat" },
 ];
