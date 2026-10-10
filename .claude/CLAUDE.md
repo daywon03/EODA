@@ -297,9 +297,13 @@ Détail complet et état d'avancement : `specs/02-architecture-technique.md` §4
 - **Générer un document corrigé est payant, en deux niveaux** (décision Damon du
   08/10/2026) : (1) la génération seule, en autonomie, avec la réserve ci-dessus ; (2) la
   génération **vérifiée par un consultant EODA**, plus chère. Les montants ne sont **pas**
-  fixés — ne pas en inventer. Conséquence dans le code : `generateDocumentDraft` doit
-  vérifier le droit de la mission avant de générer (`correctionScope` de
-  `offer-scope-service.ts`, défini mais jamais lu au 08/10 — écart listé au bilan §3.1).
+  fixés — ne pas en inventer. Conséquence dans le code (**fait le 10/10/2026**) :
+  `generateDocumentDraft` vérifie le droit de la mission AVANT d'appeler le modèle
+  (`correctionRight` de `offer-scope-service.ts`, qui lit enfin `correctionScope`) :
+  Essentiel = rien ; Performance = `IMPERATIVES_AND_PROCESSES` (D11 — transposé en
+  catégories LOI_2002_2 + QUALITE_RISQUES, provisoire jusqu'à la liaison type ↔ critère
+  de N4) ; Excellence et bêta-test = tout ; sans mission = refus. Hors droit, le message
+  renvoie à la demande d'option existante (`ClientOptionRequest`), sans aucun prix.
   Le geste de génération et le geste de vérification EODA restent deux faits distincts,
   jamais fusionnés : seul le second permet d'afficher « relu par EODA ».
 - **Les modes opératoires de Sandrine font foi pour l'IA**
@@ -431,9 +435,16 @@ Détail complet et état d'avancement : `specs/02-architecture-technique.md` §4
   d'EODA sur ces documents ; sans logo, c'est le NOM de la structure qui est écrit —
   jamais un emplacement vide.
 - **Ce qu'on réclame au client n'est pas tout ce qu'on produit pour lui.**
-  `DocumentType.requestedFromClient` sépare les deux (cinq documents réclamés avant
-  la visite, ~24 produits par EODA). Le portail client n'affiche que les types
-  réclamés **plus** ceux dont un document existe déjà. Ne jamais « rétablir » la
+  `DocumentType.requestedFromClient` sépare les deux (les **sept** documents de la loi
+  2002-2 réclamés depuis la migration du 10/10/2026 — décision du 15/09 —, le reste
+  produit par EODA). Le portail client n'affiche que les types réclamés **plus** ceux
+  dont un document existe déjà **ou** que la structure a déclarés absents.
+  **« Je ne l'ai pas » n'est pas « non concerné »** (N3, `missing-answer-service.ts`) :
+  le document reste MANQUANT, à produire (fait « déclaré absent » =
+  `statusOverriddenByUser` sur un MISSING, aucun nouvel état), il quitte les relances et
+  entre dans la liste de travail dérivée ; « non concerné » est refusé côté serveur sur
+  les sept documents de la loi 2002-2, et un ancien « Non » sur ceux-ci se relit comme
+  « Je ne l'ai pas » sans réécrire la base. Ne jamais « rétablir » la
   liste complète côté client : demander les 29 à une structure qui fait appel à EODA
   parce qu'elle ne les a pas, c'est lui remettre le travail qu'elle a acheté. La
   liste exacte est modifiable par `CABINET_ADMIN` depuis la fiche client (elle
@@ -442,10 +453,18 @@ Détail complet et état d'avancement : `specs/02-architecture-technique.md` §4
   en conformité → restitué → validé (`lib/services/document-workflow-service.ts`).
   Seul `Document.validatedAt` est stocké : valider engage la parole de l'évaluatrice.
   **Décision du 08/10/2026 : deux gestes distincts, jamais fusionnés** — EODA marque
-  « relu » (`validatedAt`, parole du cabinet), puis le **client** marque « accepté » (fait
-  à créer). Sandrine, 15/09 : « c'est lui qui valide, ce n'est pas moi ».
-  Le portail CLIENT garde les statuts simples (manquant / déposé / conforme) — « les
-  deux portails ne regardent pas la même chose » (call du 26/08).
+  « relu » (`validatedAt`, parole du cabinet), puis le **client** marque « accepté »
+  (`Document.clientAcceptedAt` / `clientAcceptedByUserId`, action `acceptDocument` de
+  `lib/actions/client-document-acceptance.ts`, depuis le 10/10/2026 — elle ne touche
+  jamais `validatedAt`). Sandrine, 15/09 : « c'est lui qui valide, ce n'est pas moi ».
+  Le client n'accepte que ce qu'on lui a montré (`canClientAcceptDocument` : relu par EODA
+  en accompagné ; l'analyse affichée sous la réserve en autonomie) ; une version déposée
+  après l'acceptation la rend caduque, ce qui se DÉRIVE (`isAcceptanceCurrent`). Le
+  portail CLIENT a son propre vocabulaire, dérivé (`client-documents-view-service.ts`) :
+  « À déposer », « Reçu, en cours », accompagné « Relu par EODA » → « Accepté par vous »,
+  autonomie « À vérifier par vous » → « Accepté par vous · non revérifié par un humain »
+  — « les deux portails ne regardent pas la même chose » (call du 26/08). Côté cabinet,
+  « À rédiger · EODA » / « Chez la structure » sont dérivés (`deriveMissingOwner`).
 - **Chacun ne supprime que son propre dernier dépôt** (`canDeleteVersion`). Le cabinet
   ne peut pas effacer une pièce déposée par le client — demande explicite de Sandrine,
   risque juridique autant que mauvaise manip — et aucune version antérieure n'est
@@ -460,14 +479,26 @@ Détail complet et état d'avancement : `specs/02-architecture-technique.md` §4
   refuse un appelant client. Une mention de réserve à l'écran NE remplace PAS cette
   revue : EODA engage sa parole professionnelle sur ce qu'elle restitue, sur des
   documents qui seront présentés à la HAS.
-  **Évolution décidée par Damon le 30/09/2026, pas encore implémentée ni confirmée par
-  Sandrine** (`context/09-vision-produit.md` §4.2) : pour les paliers **seuls** du portail
-  (Diagnostic ≈ Essentiel, Mise en conformité ≈ Performance, Pilotage ≈ Excellence, tous
-  en autonomie), c'est la **structure** qui déclenche (« Mettre en
-  conformité ») et qui valide, avec la mention « À vérifier par vous · non relu par EODA » —
-  jamais « Relu par Sandrine ». La règle stricte ci-dessus reste celle des structures
-  **accompagnées**, et **reste appliquée à tous** tant que le mode (seul / accompagné) n'est
-  pas modélisé : ne pas l'assouplir dans `analysisVisibleTo` avant.
+  **Mode seul / accompagné — implémenté le 10/10/2026 (tranche N1)** (évolution de
+  `context/09-vision-produit.md` §4.2, décisions Damon du 30/09 et du 08/10). Le mode est
+  un FAIT de la mission, `Mission.supportMode` (`AUTONOMIE` | `ACCOMPAGNE`, migration
+  `20261010120000_support_mode_client_acceptance`, défaut `ACCOMPAGNE` pour toutes les
+  missions existantes). Posé à la signature par `convertDevisToClient` selon la formule
+  (`defaultSupportModeForOffer`, `lib/services/support-mode-service.ts` : Excellence et
+  bêta-test = accompagné, Essentiel / Performance = autonomie), modifiable ensuite par
+  `CABINET_ADMIN` seul depuis l'onglet Mission (`lib/actions/mission-support-mode.ts`).
+  **Jamais déduit de `commercialTier`.** Sans mission : règle stricte
+  (`STRICT_SUPPORT_MODE`). `analysisVisibleTo(audience, version, mode)` prend le mode en
+  paramètre **obligatoire** et reste appliqué une seule fois dans `lib/actions/checklist.ts` :
+  accompagné = règle stricte ci-dessus, inchangée ; autonomie = la structure voit l'analyse
+  non relue, **toujours** sous la réserve. Les mentions viennent d'**un seul** service,
+  `lib/services/review-mention-service.ts` (`AUTONOMY_RESERVE` : « Non revérifié par un
+  humain : peut comporter des erreurs. À relire absolument. » ; `describeReviewMention` :
+  « Relu par EODA, le JJ/MM ») — à l'écran (`ChecklistItem.currentVersion.clientMention`),
+  dans l'export Word du brouillon (`reviewMention` de `markdown-to-docx-service`) et dans
+  tout futur e-mail qui annonce un document (`documentAnnouncementMention` ; aucun n'existe
+  au 10/10). Jamais « Relu par Sandrine », jamais « validé » ni « conforme » côté client
+  sans relecture.
 - **La fin de mission ne supprime rien, et la clôture ne coupe rien.** Trois états
   d'accès dérivés de deux faits (`Mission.closedAt`, `Mission.clientAccessRevokedAt`)
   par `lib/services/mission-access-service.ts` : `ACTIVE` / `LIBRARY` (lecture seule)
