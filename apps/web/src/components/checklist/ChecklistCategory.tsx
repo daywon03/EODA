@@ -5,12 +5,7 @@ import { ChevronDown } from "lucide-react";
 import { StatusPill } from "@/components/ui/status-pill";
 import { pillForDocumentStatus } from "@/lib/design/status-vocabulary";
 import { DocumentUploadButton } from "./DocumentUploadButton";
-import { MissingDocumentJustification } from "./MissingDocumentJustification";
-import { DocumentAnalysisPanel } from "./DocumentAnalysisPanel";
-import { DocumentVersionHistory } from "./DocumentVersionHistory";
-import { DocumentStepTrail } from "./DocumentStepTrail";
-import { isImageFile } from "@/lib/services/file-type-service";
-import { DocumentScopeToggle } from "./DocumentScopeToggle";
+import { ChecklistItemDetail } from "./ChecklistItemDetail";
 import { ProgressBar } from "@/components/ui/progress-bar";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -136,68 +131,13 @@ export function ChecklistCategory({
                 {item.expiryNotice && (
                   <p className="mt-0.5 text-xs text-orange-700">{item.expiryNotice}</p>
                 )}
-                {/* Qui doit fournir ce document — l'information manquait, et c'est
-                    elle qui distingue la checklist du client du plan de production
-                    du cabinet. Côté client, ce marqueur n'a pas lieu d'être : tout
-                    ce qu'il voit lui est réclamé, ou lui appartient déjà. */}
-                {canManageVersions && (
-                  <p className="mt-0.5">
-                    <DocumentScopeToggle
-                      documentTypeId={item.documentTypeId}
-                      requestedFromClient={item.requestedFromClient}
-                      canEdit={canEditScope}
-                    />
-                  </p>
-                )}
-                {/* Toutes les versions, pas seulement la dernière : c'est la
-                    comparaison entre la version du client et celle qu'EODA a produite
-                    qui montre le travail fait. */}
-                <DocumentVersionHistory
-                  versions={item.versions}
+                <ChecklistItemDetail
+                  item={item}
+                  establishmentId={establishmentId}
                   canManageVersions={canManageVersions}
+                  canDeposit={canDeposit}
+                  canEditScope={canEditScope}
                 />
-
-                {/* Le parcours du document — côté cabinet uniquement. */}
-                {canManageVersions && establishmentId && (
-                  <DocumentStepTrail
-                    establishmentId={establishmentId}
-                    documentTypeId={item.documentTypeId}
-                    step={item.step}
-                    isImage={
-                      item.currentVersion ? isImageFile(item.currentVersion.originalFilename) : false
-                    }
-                  />
-                )}
-                {/* Ce que l'analyse a trouvé — côté client comme côté cabinet : le
-                    client dépose et corrige, c'est lui qui a besoin de savoir ce qui
-                    manque. Absente tant qu'aucune analyse n'a abouti. */}
-                {item.currentVersion?.analysis && (
-                  <DocumentAnalysisPanel
-                    analysis={item.currentVersion.analysis}
-                    documentVersionId={item.currentVersion.id}
-                    reviewedAt={item.currentVersion.analysisReviewedAt}
-                    canReview={canManageVersions}
-                    {...(establishmentId && { establishmentId })}
-                    criterionSuggestions={item.currentVersion.criterionSuggestions}
-                  />
-                )}
-                {/* Côté client, une analyse non relue n'est PAS montrée — mais le
-                    silence ressemblerait à une panne. On dit qu'elle arrive, sans
-                    rien en révéler. */}
-                {!canManageVersions && item.currentVersion?.analysisAwaitingReview && (
-                  <p className="mt-2 text-xs text-gris-mid">
-                    Analyse en cours de relecture par votre consultant EODA.
-                  </p>
-                )}
-                {establishmentId && canDeposit && (
-                  <MissingDocumentJustification
-                    establishmentId={establishmentId}
-                    documentTypeId={item.documentTypeId}
-                    status={item.status}
-                    missingJustification={item.missingJustification}
-                    hasVersion={item.currentVersion !== null}
-                  />
-                )}
               </div>
               <div className="flex sm:flex-col items-center sm:items-end gap-2 flex-shrink-0">
                 <StatusPill pill={pillForDocumentStatus(item.status)} />

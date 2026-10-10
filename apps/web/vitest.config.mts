@@ -103,6 +103,12 @@ export default defineConfig({
         // humaine. Une version oubliée ici reste invisible au client sans que
         // personne ne sache qu'elle attend.
         "src/lib/services/review-queue-service.ts",
+        // Fiche structure v2 : onglets-compteurs des documents, action principale,
+        // prochaines actions, frise de mission. Tout y est DÉRIVÉ — une erreur ne
+        // fait rien échouer, elle affiche un compteur ou un appel à l'action faux.
+        "src/lib/services/structure-documents-service.ts",
+        "src/lib/services/structure-sheet-service.ts",
+        "src/lib/services/structures-overview-service.ts",
         // Péremption documentaire : elle décide qu'un document « conforme » ne l'est
         // plus. Dérivée de l'horloge, donc jamais vérifiable par un statut en base.
         "src/lib/services/document-expiry-service.ts",

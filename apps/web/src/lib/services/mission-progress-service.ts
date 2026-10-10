@@ -47,6 +47,20 @@ export const PHASE_ORDER: Exclude<MissionChecklistScope, "DIAGNOSTIC">[] = [
   "PREPARATION_FINALE",
 ];
 
+export type MissionPhase = Exclude<MissionChecklistScope, "DIAGNOSTIC">;
+
+// Colonnes de dates de chaque phase (noms d'origine, cf. correspondance ci-dessus).
+// Partagé par l'écran de mission et la frise de la vue d'ensemble (D1).
+export const PHASE_DATE_FIELDS = {
+  FONDATIONS: { start: "fondationsStartDate", end: "fondationsEndDate" },
+  DEPLOIEMENT: { start: "deploiementStartDate", end: "deploiementEndDate" },
+  CONSOLIDATION: { start: "consolidationStartDate", end: "consolidationEndDate" },
+  PREPARATION_FINALE: { start: "preparationFinaleStartDate", end: "preparationFinaleEndDate" },
+} as const satisfies Record<MissionPhase, { start: string; end: string }>;
+
+type PhaseDateField = (typeof PHASE_DATE_FIELDS)[MissionPhase][keyof (typeof PHASE_DATE_FIELDS)[MissionPhase]];
+export type MissionPhaseDates = Record<PhaseDateField, Date | null>;
+
 export type MissionItemProgress = {
   scope: MissionChecklistScope;
   minFormule: CommercialTier;

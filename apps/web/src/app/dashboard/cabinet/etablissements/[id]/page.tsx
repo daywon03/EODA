@@ -1,65 +1,22 @@
-import { auth } from "@/auth";
+import Link from "next/link";
 import { getEstablishment } from "@/lib/actions/establishment";
 import { getEstablishmentChecklist } from "@/lib/actions/checklist";
 import { getMission } from "@/lib/actions/mission";
-import { InviteClientForm } from "@/components/etablissement/InviteClientForm";
-import { ClientUserRow } from "@/components/etablissement/ClientUserRow";
-import { DeleteEstablishmentButton } from "@/components/etablissement/DeleteEstablishmentButton";
-import { ChecklistCategory } from "@/components/checklist/ChecklistCategory";
-import { MissionSummaryCard } from "@/components/mission/MissionSummaryCard";
-import { EstablishmentLogoForm } from "@/components/etablissement/EstablishmentLogoForm";
-import { DocumentReminderForm } from "@/components/etablissement/DocumentReminderForm";
-import { selectReminderLabels } from "@/lib/services/reminder-service";
+import { getEvaluationChapter, listChapters } from "@/lib/actions/evaluation";
+import { listAppointmentsFor } from "@/lib/actions/appointment";
+import {
+  deriveNextActions,
+  describeChapterMeasure,
+  describeLoi2002Measure,
+  toTimelinePhases,
+} from "@/lib/services/structure-sheet-service";
+import { flattenChecklist } from "@/lib/services/structure-documents-service";
+import { structureHref } from "@/lib/design/structure-tabs";
+import { MeasureCard } from "@/components/ui/measure-card";
+import { PhaseTimeline } from "@/components/ui/phase-timeline";
+import { StatusPill } from "@/components/ui/status-pill";
 import { AppointmentForm } from "@/components/agenda/AppointmentForm";
 import { AppointmentList } from "@/components/agenda/AppointmentList";
-import { listAppointmentsFor } from "@/lib/actions/appointment";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { ProgressBar } from "@/components/ui/progress-bar";
-import { PageHeader } from "@/components/layout/PageHeader";
-import { SectionJumpMenu } from "@/components/layout/SectionJumpMenu";
-import { formatDate } from "@/lib/services/date-format-service";
-import {
-  Building2,
-  Calendar,
-  CalendarDays,
-  FileBarChart,
-  FileText,
-  Image as ImageIcon,
-  MessagesSquare,
-  Pencil,
-  Send,
-  Users,
-} from "lucide-react";
-import Link from "next/link";
-import type { EstablishmentType, DocumentCategory, StructureType } from "@eoda/database";
-import { StageBadge } from "@/components/crm/StageBadge";
-import {
-  deriveFunnelStage,
-  isAccompanimentStarted,
-  isBetaMission,
-} from "@/lib/services/lifecycle-service";
-import { toMissionLifecycleFacts } from "@/lib/db/to-mission-lifecycle-facts";
-
-const CATEGORY_LABELS: Record<DocumentCategory, string> = {
-  LOI_2002_2: "Documents loi 2002-2 (droits des personnes accompagnées)",
-  FONCTIONNEMENT: "Fonctionnement de la structure",
-  QUALITE_RISQUES: "Démarche qualité et gestion des risques",
-  RH: "Ressources humaines",
-};
-
-const TYPE_LABELS: Record<EstablishmentType, string> = {
-  SAD_AIDE: "SAD Aide",
-  SAD_MIXTE: "SAD Mixte",
-};
-
-// Statut juridique — axe distinct du type SAD ci-dessus (CLAUDE.md §7).
-const STRUCTURE_TYPE_LABELS: Record<StructureType, string> = {
-  ASSOCIATION: "Association loi 1901",
-  PUBLIC: "CCAS / CIAS",
-  PRIVE: "Secteur privé",
-};
 
 type Props = { params: Promise<{ id: string }> };
 
@@ -69,433 +26,124 @@ export async function generateMetadata({ params }: Props) {
   return { title: `${establishment.name} · EODA Conseil` };
 }
 
-export default async function EstablishmentDetailPage({ params }: Props) {
+// Vue d'ensemble de la fiche structure. Tout ce qui s'y lit est DÉRIVÉ
+// (structure-sheet-service) : aucun cadre n'affiche un chiffre qui ne se calcule
+// pas encore. « Critères impératifs prouvés » arrive avec les rattachements
+// documents ↔ critères (tranche N4), les tâches avec le plan d'action (N5).
+export default async function StructureOverviewPage({ params }: Props) {
   const { id } = await params;
-  // EN PARALLÈLE, et non l'une après l'autre : ces cinq lectures ne dépendent
-  // d'aucune des autres, et chaque aller-retour vers la base coûte ~290 ms depuis un
-  // poste de développement. En série, la page ne pouvait pas commencer à se rendre
-  // avant une seconde et demie ; le seul fait de les lancer ensemble ramène le coût à
-  // celui de la plus lente. Les gardes qu'elles appellent chacune lisent le même
-  // utilisateur, désormais mémoïsé par rendu (`lib/auth/guards.ts`).
-  const [establishment, checklist, mission, appointments, session] = await Promise.all([
+  // Lectures parallèles, chacune sous sa garde (getEstablishment et la checklist
+  // passent par requireEstablishmentInTenant : notFound hors tenant).
+  const [establishment, checklist, mission, appointments] = await Promise.all([
     getEstablishment(id),
     getEstablishmentChecklist(id),
     getMission(id),
     listAppointmentsFor({ establishmentId: id }),
-    auth(),
   ]);
-  // Basculer un document entre « réclamé au client » et « produit par EODA » est une
-  // politique de cabinet : réservée à CABINET_ADMIN, comme le catalogue.
-  const isAdmin = session?.user.role === "CABINET_ADMIN";
+  const now = new Date();
 
-  // Pièces réclamées et encore manquantes — la même règle que la relance elle-même
-  // (reminder-service), pour que le nombre affiché soit exactement ce qui partira.
-  const reminderCount = selectReminderLabels(Object.values(checklist).flat()).length;
+  // Les chapitres ne se lisent qu'avec une mission (le périmètre de critères en
+  // dépend) — même règle que l'onglet Auto-évaluation.
+  const chapters = mission
+    ? await Promise.all((await listChapters()).map((c) => getEvaluationChapter(id, c.number)))
+    : [];
 
-  // Étape dérivée des faits, jamais d'un statut stocké (cf. lifecycle-service).
-  const lifecycle = toMissionLifecycleFacts(establishment.mission);
-  const stage = deriveFunnelStage({
-    prospectStatus: establishment.prospect?.status ?? null,
-    mission: lifecycle,
-  });
-  // Une fiche signée n'est pas encore un accompagnement : le diagnostic n'a pas
-  // démarré, il n'y a donc rien à coter ni de checklist à suivre. Afficher ces
-  // modules à ce stade donne l'illusion d'un travail en cours qui n'existe pas.
-  const accompanimentStarted = isAccompanimentStarted(stage);
-
-  const categories = Object.keys(CATEGORY_LABELS) as DocumentCategory[];
-  const allItems = Object.values(checklist).flat();
-  const totalItems = allItems.length;
-  const missingCount = allItems.filter((i) => i.status === "MISSING").length;
-  const compliantCount = allItems.filter((i) => i.status === "COMPLIANT").length;
-  const uploadedCount = allItems.filter((i) =>
-    ["UPLOADED", "ANALYZING", "INCOMPLETE", "COMPLIANT", "EXPIRED"].includes(i.status)
-  ).length;
-  const progressPct = totalItems > 0 ? Math.round((uploadedCount / totalItems) * 100) : 0;
+  const documents = flattenChecklist(checklist);
+  const measures = [
+    ...chapters.map((c) =>
+      describeChapterMeasure({
+        number: c.chapter.number,
+        name: c.chapter.name,
+        score: c.chapterScore,
+        imperatifsAtRisk: c.imperatifsAtRisk.length,
+      })
+    ),
+    describeLoi2002Measure(checklist.LOI_2002_2 ?? []),
+  ];
+  const nextActions = deriveNextActions({ establishmentId: id, documents, appointments, now });
 
   return (
-    <div className="space-y-6 max-w-4xl">
-      <PageHeader
-        title={establishment.name}
-        icon={Building2}
-        backHref="/dashboard/cabinet/structures"
-        subtitle={establishment.finessNumber ? `FINESS ${establishment.finessNumber}` : undefined}
-        action={
-          <div className="flex items-center gap-2">
-            <Badge variant="secondary">{TYPE_LABELS[establishment.type]}</Badge>
-            <Button variant="outline" size="sm" asChild>
-              <Link href={`/dashboard/cabinet/etablissements/${establishment.id}/modifier`}>
-                <Pencil className="w-3.5 h-3.5" aria-hidden="true" />
-                Modifier
-              </Link>
-            </Button>
-            <DeleteEstablishmentButton
-              establishmentId={establishment.id}
-              establishmentName={establishment.name}
-            />
-          </div>
-        }
-      />
-
-      <SectionJumpMenu
-        sections={[
-          { id: "section-informations", label: "Informations" },
-          { id: "section-interlocuteurs", label: "Interlocuteurs client" },
-          { id: "section-mission", label: "Suivi de mission" },
-          ...(mission ? [{ id: "section-evaluation", label: "Auto-évaluation HAS" }] : []),
-          ...(mission ? [{ id: "section-contrat", label: "Contrat d'accompagnement" }] : []),
-          { id: "section-checklist", label: "Checklist documentaire" },
-          { id: "section-rapport", label: "Rapport de mise en conformité" },
-          { id: "section-echanges", label: "Échanges avec la structure" },
-          { id: "section-relance", label: "Relancer les pièces manquantes" },
-          { id: "section-logo", label: "Logo de la structure" },
-          { id: "section-rendezvous", label: "Rendez-vous" },
-          { id: "section-invitation", label: "Inviter un interlocuteur" },
-        ]}
-      />
-
-      <div id="section-informations" className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Infos établissement */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Informations</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3 text-sm">
-            {establishment.address && (
-              <p className="text-gris-mid">{establishment.address}</p>
-            )}
-            {/* Le SIRET est le seul champ d'identité rendu ABSENT plutôt qu'omis.
-                Partout ailleurs on tait ce qu'on ne sait pas — « FINESS : — » a l'air
-                d'un formulaire mal rempli. Ici c'est l'inverse qui est vrai : le
-                numéro est facultatif à la saisie parce qu'il ne doit bloquer aucune
-                signature, mais il devra figurer sur la première facture. Le taire
-                garantirait de s'en apercevoir ce jour-là. */}
-            <p className="text-gris-mid">
-              {establishment.siretNumber ? (
-                <>SIRET {establishment.siretNumber}</>
-              ) : (
-                <span className="text-ambre">SIRET à renseigner</span>
-              )}
-            </p>
-            {establishment.hasEvaluationTargetDate && (
-              <div className="flex items-center gap-2 text-brun-ancre">
-                <Calendar className="w-4 h-4 text-terre flex-shrink-0" />
-                <span>
-                  Évaluation HAS cible :{" "}
-                  <strong>
-                    {formatDate(
-                      new Date(establishment.hasEvaluationTargetDate)
-                    )}
-                  </strong>
-                </span>
-              </div>
-            )}
-            {/* Le badge affichait `commercialTier`, figé à BETA pour tout le monde :
-                il annonçait « Bêta-test gratuit » à des clients payants. L'étape et
-                la gratuité viennent maintenant des faits (mission, prospect). */}
-            <div className="flex flex-wrap items-center gap-2">
-              <StageBadge stage={stage} beta={isBetaMission(lifecycle)} />
-              <Badge variant="secondary">{TYPE_LABELS[establishment.type]}</Badge>
-              {establishment.structureType ? (
-                <Badge variant="secondary">
-                  {STRUCTURE_TYPE_LABELS[establishment.structureType]}
-                </Badge>
-              ) : (
-                <Badge variant="not_applicable">Statut juridique non renseigné</Badge>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Interlocuteurs */}
-        <Card id="section-interlocuteurs">
-          <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
-              <Users className="w-4 h-4 text-terre" />
-              Interlocuteurs client
-            </CardTitle>
-            <CardDescription>
-              {establishment.establishmentUsers.length === 0
-                ? "Aucun interlocuteur côté client pour l'instant."
-                : `${establishment.establishmentUsers.length} interlocuteur(s) rattaché(s)`}
-            </CardDescription>
-          </CardHeader>
-          {establishment.establishmentUsers.length > 0 && (
-            <CardContent>
-              <ul className="divide-y divide-gris-light">
-                {establishment.establishmentUsers.map(({ user, roleInEstablishment }) => (
-                  <ClientUserRow
-                    key={user.id}
-                    establishmentId={establishment.id}
-                    user={{
-                      id: user.id,
-                      name: user.name,
-                      email: user.email,
-                      isActive: user.isActive,
-                    }}
-                    roleInEstablishment={roleInEstablishment}
-                  />
-                ))}
-              </ul>
-            </CardContent>
-          )}
-        </Card>
-      </div>
-
-      {/* Travail en cours — mission, évaluation, checklist : c'est ce pour quoi cette
-          page existe, regroupé sous un même intitulé plutôt que noyé dans une pile de
-          cartes toutes identiques (c'est ce que Sandrine a nommé "trop hangar" le
-          15/09/2026 : rien ne distinguait le travail en cours des outils annexes). */}
-      <div className="space-y-3">
-        <h2 className="text-xs font-semibold uppercase tracking-wide text-gris-mid px-0.5">
-          Suivi documentaire et évaluation
+    <div className="space-y-9">
+      <section aria-labelledby="overview-scope">
+        <h2 id="overview-scope" className="mb-3.5 text-xl font-bold text-ink">
+          Où en est la structure
         </h2>
-
-        <div id="section-mission">
-          {mission ? (
-            <MissionSummaryCard
-              establishmentId={establishment.id}
-              mission={{ formule: mission.formule, gratuit: mission.gratuit, globalPct: mission.progress.globalPct }}
-            />
-          ) : (
-            <MissionSummaryCard establishmentId={establishment.id} mission={null} />
-          )}
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {measures.map((m) => (
+            <MeasureCard key={m.label} label={m.label} value={m.value} percent={m.percent} note={m.note} />
+          ))}
         </div>
+        <p className="mt-2.5 text-sm text-ink2">
+          Auto-évaluation préparatoire, sur le périmètre de critères de la formule — pas une évaluation HAS
+          officielle.
+          {!mission && " Les chapitres apparaîtront une fois la mission démarrée."}
+        </p>
+      </section>
 
-        {mission && (
-          <Card id="section-evaluation">
-            <CardHeader>
-              <CardTitle className="text-base">Auto-évaluation HAS</CardTitle>
-              <CardDescription>
-                {accompanimentStarted
-                  ? "Cotation des critères par chapitre (1/2/3/4/★/NC/RI)"
-                  : "Disponible une fois le diagnostic engagé — cochez un premier item de la checklist de mission ou planifiez une phase."}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {accompanimentStarted ? (
-                <Button size="sm" asChild>
-                  <Link href={`/dashboard/cabinet/etablissements/${establishment.id}/evaluation`}>
-                    Ouvrir l&apos;auto-évaluation
-                  </Link>
-                </Button>
-              ) : (
-                <Button size="sm" variant="outline" asChild>
-                  <Link href={`/dashboard/cabinet/etablissements/${establishment.id}/mission`}>
-                    Démarrer le diagnostic
-                  </Link>
-                </Button>
-              )}
-            </CardContent>
-          </Card>
+      <section aria-labelledby="overview-mission">
+        <div className="mb-3.5 flex flex-wrap items-center justify-between gap-2">
+          <h2 id="overview-mission" className="text-xl font-bold text-ink">
+            Mission
+          </h2>
+          <Link href={structureHref(id, "mission")} className="font-bold text-accent-text hover:underline">
+            Ouvrir le suivi de mission →
+          </Link>
+        </div>
+        {mission ? (
+          <PhaseTimeline label="Phases de la mission" phases={toTimelinePhases(mission, now)} />
+        ) : (
+          <p className="rounded-xl border border-line bg-card p-5 text-ink2">
+            Aucune mission pour l&apos;instant. Elle se crée depuis l&apos;onglet Mission.
+          </p>
         )}
+      </section>
 
-        {/* Checklist documentaire — le cœur de la page : en-tête teinté ivoire pour
-            se détacher visuellement des cartes d'outils qui suivent, sans recourir à
-            une bordure de couleur sur le côté (refusée par la charte de qualité). */}
-        <Card id="section-checklist">
-          <CardHeader className="bg-ivoire/60 rounded-t-xl">
-            <CardTitle className="text-base">Checklist documentaire</CardTitle>
-            <CardDescription>
-              {compliantCount} conforme{compliantCount > 1 ? "s" : ""} · {uploadedCount} / {totalItems} déposé{uploadedCount > 1 ? "s" : ""} · {missingCount} manquant{missingCount > 1 ? "s" : ""}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-1">
-              <div className="flex items-center justify-between text-xs text-gris-mid">
-                <span>Taux de dépôt documentaire</span>
-                <span className="tabular-nums">{progressPct}%</span>
-              </div>
-              <ProgressBar value={progressPct} label="Taux de dépôt documentaire" colorClassName="bg-ambre" className="h-2" />
-              <p className="text-xs text-gris-mid">
-                % de documents fournis par le client — pas un taux de conformité (voir le
-                détail par document ci-dessous).
-              </p>
-            </div>
-            <div className="space-y-3">
-              {categories.map((cat) => {
-                const items = checklist[cat] ?? [];
-                if (items.length === 0) return null;
-                return (
-                  <ChecklistCategory
-                    key={cat}
-                    title={CATEGORY_LABELS[cat]}
-                    items={items}
-                    establishmentId={establishment.id}
-                    canManageVersions
-                    canEditScope={isAdmin}
-                  />
-                );
-              })}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Outils & administration — même contenu et mêmes actions qu'avant, mais en
-          grille compacte plutôt qu'empilés en pleine largeur : c'est ce qui donnait à
-          la page son effet de liste sans fin. Les liens d'ancrage du menu de
-          navigation (section-*) restent tous présents et inchangés. */}
-      <div className="space-y-3">
-        <h2 className="text-xs font-semibold uppercase tracking-wide text-gris-mid px-0.5">
-          Outils &amp; administration
-        </h2>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {/* Accès direct au contrat depuis la fiche client (demande du 07/09/2026) :
-              il n'existait auparavant que niché dans l'onglet Mission. La route
-              refuse d'elle-même de produire un contrat sans devis signé
-              (canIssueContract) — rien à revérifier ici, le bouton reste toujours
-              proposé. */}
-          {mission && (
-            <Card id="section-contrat">
-              <CardHeader className="p-5">
-                <CardTitle className="text-sm flex items-center gap-2">
-                  <FileText className="w-4 h-4 text-terre" aria-hidden="true" />
-                  Contrat d&apos;accompagnement
-                </CardTitle>
-                <CardDescription>
-                  Récapitule le devis signé — parties, objet, engagements réciproques.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="p-5 pt-0">
-                <Button size="sm" variant="outline" asChild>
-                  <a href={`/imprimer/contrat/${id}?auto=1`} target="_blank" rel="noopener noreferrer">
-                    <FileText className="w-3.5 h-3.5" aria-hidden="true" />
-                    Éditer le contrat
-                  </a>
-                </Button>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Le rapport de mise en conformité — le livrable que le cabinet remet et
-              que la structure archive. Seules les analyses RELUES y entrent. */}
-          <Card id="section-rapport">
-            <CardHeader className="p-5">
-              <CardTitle className="text-sm flex items-center gap-2">
-                <FileBarChart className="w-4 h-4 text-terre" aria-hidden="true" />
-                Rapport de mise en conformité
-              </CardTitle>
-              <CardDescription>
-                Ce qui manque, document par document, au regard des critères HAS
-                rattachés. Les analyses non encore relues y figurent comme telles.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="p-5 pt-0">
-              <Button size="sm" variant="outline" asChild>
-                <a href={`/imprimer/rapport/${id}?auto=1`} target="_blank" rel="noopener noreferrer">
-                  <FileBarChart className="w-3.5 h-3.5" aria-hidden="true" />
-                  Éditer le rapport
-                </a>
-              </Button>
-            </CardContent>
-          </Card>
-
-          {/* Fil d'échange avec la structure (CDC §5). Un fil par établissement : les
-              échanges restent rattachés à la mission au lieu de se disperser en
-              e-mails. */}
-          <Card id="section-echanges">
-            <CardHeader className="p-5">
-              <CardTitle className="text-sm flex items-center gap-2">
-                <MessagesSquare className="w-4 h-4 text-terre" aria-hidden="true" />
-                Échanges avec la structure
-              </CardTitle>
-              <CardDescription>
-                Questions courtes et suivi. Les messages ne se modifient ni ne se
-                suppriment.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="p-5 pt-0">
-              <Button size="sm" variant="outline" asChild>
-                <Link href={`/dashboard/cabinet/etablissements/${id}/echanges`}>
-                  <MessagesSquare className="w-3.5 h-3.5" aria-hidden="true" />
-                  Ouvrir le fil
-                </Link>
-              </Button>
-            </CardContent>
-          </Card>
-
-          {/* Relance des pièces manquantes (§12.5). Un geste, jamais une horloge : la
-              cadence n'a jamais été spécifiée (§12.7), et un rythme inventé serait
-              soit inutile, soit harcelant. */}
-          <Card id="section-relance">
-            <CardHeader className="p-5">
-              <CardTitle className="text-sm flex items-center gap-2">
-                <Send className="w-4 h-4 text-terre" aria-hidden="true" />
-                Relancer les pièces manquantes
-              </CardTitle>
-              <CardDescription>
-                Envoie aux interlocuteurs de la structure la liste des pièces encore
-                attendues. Les pièces déjà justifiées ne sont pas relancées.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="p-5 pt-0">
-              <DocumentReminderForm establishmentId={id} missingCount={reminderCount} />
-            </CardContent>
-          </Card>
-
-          {/* Identité visuelle de la structure — apposée sur les documents produits
-              pour elle, à côté du logo EODA. */}
-          <Card id="section-logo">
-            <CardHeader className="p-5">
-              <CardTitle className="text-sm flex items-center gap-2">
-                <ImageIcon className="w-4 h-4 text-terre" aria-hidden="true" />
-                Logo de la structure
-              </CardTitle>
-              <CardDescription>
-                Il figure sur les documents que la plateforme produit pour cette
-                structure. Sans logo déposé, c&apos;est son nom qui est écrit.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="p-5 pt-0">
-              <EstablishmentLogoForm
-                establishmentId={establishment.id}
-                establishmentName={establishment.name}
-                logoDataUri={establishment.logoDataUri}
-              />
-            </CardContent>
-          </Card>
-
-          {/* Invitation */}
-          <Card id="section-invitation">
-            <CardHeader className="p-5">
-              <CardTitle className="text-sm">Inviter un interlocuteur client</CardTitle>
-              <CardDescription>
-                Crée un compte d'accès à l'espace client. Le mot de passe temporaire
-                généré sera affiché une seule fois — communiquez-le par email.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="p-5 pt-0">
-              <InviteClientForm establishmentId={establishment.id} />
-            </CardContent>
-          </Card>
+      <section aria-labelledby="overview-next">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line pb-3">
+          <h2 id="overview-next" className="text-xl font-bold text-ink">
+            Les prochaines actions
+          </h2>
+          <Link href={structureHref(id, "documents")} className="font-bold text-accent-text hover:underline">
+            Voir les documents →
+          </Link>
         </div>
+        {nextActions.length === 0 ? (
+          <p className="py-4 text-ink2">Rien à relire, aucune pièce réclamée en attente, aucun rendez-vous prévu.</p>
+        ) : (
+          <ul className="divide-y divide-line">
+            {nextActions.map((action) => (
+              <li key={action.id} className="flex flex-wrap items-center justify-between gap-3 px-2 py-3.5">
+                <span className="flex min-w-0 flex-col">
+                  {action.href ? (
+                    <Link href={action.href} className="font-bold text-ink hover:underline">
+                      {action.label}
+                    </Link>
+                  ) : (
+                    <span className="font-bold text-ink">{action.label}</span>
+                  )}
+                  <span className="text-sm text-ink2">{action.detail}</span>
+                </span>
+                {action.pill && <StatusPill pill={action.pill} />}
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
 
-        {/* Agenda de la structure — pleine largeur : c'est la seule carte de ce
-            groupe avec un contenu de longueur variable (liste de rendez-vous), une
-            colonne de grille la couperait au milieu d'une navigation. */}
-        <Card id="section-rendezvous">
-          <CardHeader className="p-5">
-            <CardTitle className="text-sm flex items-center gap-2">
-              <CalendarDays className="w-4 h-4 text-terre" aria-hidden="true" />
-              Rendez-vous
-            </CardTitle>
-            <CardDescription>
-              Visio, sur site ou téléphone — la structure voit ces créneaux depuis son
-              espace.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="p-5 pt-0 space-y-5">
-            <AppointmentList
-              appointments={appointments}
-              emptyMessage="Aucun rendez-vous programmé avec cette structure pour l'instant."
-            />
-            <div className="border-t border-gris-light pt-5">
-              <AppointmentForm establishmentId={establishment.id} structureName={establishment.name} />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      {/* Agenda de la structure : visio, sur site ou téléphone — la structure voit ces
+          créneaux depuis son espace. */}
+      <section aria-labelledby="overview-rdv" className="space-y-4 rounded-xl border border-line bg-card p-5">
+        <h2 id="overview-rdv" className="text-xl font-bold text-ink">
+          Rendez-vous
+        </h2>
+        <AppointmentList
+          appointments={appointments}
+          emptyMessage="Aucun rendez-vous programmé avec cette structure pour l'instant."
+        />
+        <div className="border-t border-line pt-5">
+          <AppointmentForm establishmentId={establishment.id} structureName={establishment.name} />
+        </div>
+      </section>
     </div>
   );
 }

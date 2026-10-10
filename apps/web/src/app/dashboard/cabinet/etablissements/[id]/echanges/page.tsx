@@ -1,7 +1,6 @@
 import { getEstablishment } from "@/lib/actions/establishment";
 import { getCabinetThread, postCabinetMessage } from "@/lib/actions/message";
 import { MessageThread } from "@/components/messages/MessageThread";
-import { PageHeader } from "@/components/layout/PageHeader";
 
 export const metadata = { title: "Échanges · EODA Conseil" };
 
@@ -18,11 +17,7 @@ export default async function CabinetMessagesPage({ params }: Props) {
 
   return (
     <div className="space-y-6 max-w-3xl">
-      <PageHeader
-        title="Échanges"
-        subtitle={establishment.name}
-        backHref={`/dashboard/cabinet/etablissements/${id}`}
-      />
+      <h2 className="text-xl font-bold text-ink">Échanges avec {establishment.name}</h2>
 
       <MessageThread
         messages={messages}

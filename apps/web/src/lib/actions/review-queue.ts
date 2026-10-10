@@ -2,7 +2,8 @@
 
 import { prisma, Prisma } from "@eoda/database";
 import { notFound } from "next/navigation";
-import { requireCabinetSession } from "@/lib/auth/guards";
+import { requireCabinetSession, requireEstablishmentInTenant } from "@/lib/auth/guards";
+import type { ReviewSummary } from "@/lib/services/structure-sheet-service";
 import { parseAnalysisResult } from "@/lib/services/analysis-view-service";
 import { isCriterionImperativeForEstablishment } from "@/lib/services/criterion-imperativeness-service";
 import {
@@ -64,6 +65,22 @@ export async function countDocumentsAwaitingReviewByEstablishment(): Promise<Map
     _count: { _all: true },
   });
   return new Map(groups.map((g) => [g.establishmentId, g._count._all]));
+}
+
+// Même file, pour UNE structure (en-tête de la fiche : « Relire N documents » ouvre
+// la plus ancienne). L'identifiant reçu est revérifié dans le tenant (notFound
+// sinon) ; le filtre de la file reste celui ci-dessus, borné à la fiche.
+export async function getEstablishmentReviewSummary(establishmentId: string): Promise<ReviewSummary> {
+  const { tenantId } = await requireEstablishmentInTenant(establishmentId);
+  const where: Prisma.DocumentVersionWhereInput = {
+    ...awaitingReviewWhere(tenantId),
+    document: { establishmentId, establishment: { tenantId } },
+  };
+  const [count, oldest] = await Promise.all([
+    prisma.documentVersion.count({ where }),
+    prisma.documentVersion.findFirst({ where, orderBy: { uploadedAt: "asc" }, select: { id: true } }),
+  ]);
+  return { count, oldestVersionId: oldest?.id ?? null };
 }
 
 export async function listDocumentsAwaitingReview(): Promise<{

@@ -34,7 +34,10 @@ const NEXT_DIR = path.join(here, "..", ".next");
 // elles ne se desserrent qu'avec une justification écrite dans la PR.
 const BUDGETS_KB = [
   { pattern: /^\/login/, budget: 130, label: "Connexion" },
-  { pattern: /^\/dashboard\/cabinet\/etablissements\/\[id\]\/page$/, budget: 150, label: "Fiche client" },
+  // Resserré le 09/10/2026 (fiche en onglets, R2) : 139,7 Ko → 117,2 Ko. Les outils
+  // lourds (checklist, panneau document) vivent désormais sous l'onglet Documents,
+  // couvert par le budget Cabinet.
+  { pattern: /^\/dashboard\/cabinet\/etablissements\/\[id\]\/page$/, budget: 125, label: "Fiche client — vue d'ensemble" },
   { pattern: /^\/dashboard\/cabinet\/etablissements\/\[id\]\/mission/, budget: 140, label: "Suivi de mission" },
   { pattern: /^\/dashboard\/cabinet\/commercial/, budget: 145, label: "Pipeline commercial" },
   { pattern: /^\/dashboard\/cabinet\/modeles/, budget: 140, label: "Bibliothèque de modèles" },

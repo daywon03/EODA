@@ -1,8 +1,6 @@
 import { getEstablishment } from "@/lib/actions/establishment";
 import { EstablishmentForm } from "@/components/etablissement/EstablishmentForm";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { PageHeader } from "@/components/layout/PageHeader";
-import { Building2 } from "lucide-react";
 
 type Props = { params: Promise<{ id: string }> };
 
@@ -18,11 +16,7 @@ export default async function ModifierEtablissementPage({ params }: Props) {
 
   return (
     <div className="space-y-6 max-w-2xl">
-      <PageHeader
-        title={`Modifier ${establishment.name}`}
-        icon={Building2}
-        backHref={`/dashboard/cabinet/etablissements/${id}`}
-      />
+      <h2 className="text-xl font-bold text-ink">Modifier la fiche</h2>
 
       <Card>
         <CardHeader>

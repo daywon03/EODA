@@ -1,4 +1,5 @@
 import type { DocumentAnalysisResult } from "@/lib/llm";
+import { structureHref } from "@/lib/design/structure-tabs";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // FILE « À RELIRE » — règles pures.
@@ -49,8 +50,9 @@ export function reviewItemHref(versionId: string): string {
   return `${REVIEW_QUEUE_BASE_PATH}?v=${encodeURIComponent(versionId)}`;
 }
 
+// Une seule construction de l'adresse d'une fiche (lib/design/structure-tabs.ts).
 export function establishmentHref(establishmentId: string): string {
-  return `/dashboard/cabinet/etablissements/${encodeURIComponent(establishmentId)}`;
+  return structureHref(establishmentId);
 }
 
 export function toReviewQueueItem(row: ReviewQueueRow): ReviewQueueItem {

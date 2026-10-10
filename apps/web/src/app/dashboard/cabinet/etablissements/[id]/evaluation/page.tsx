@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { getEstablishment } from "@/lib/actions/establishment";
 import { getEvaluationChapter, listChapters } from "@/lib/actions/evaluation";
-import { PageHeader } from "@/components/layout/PageHeader";
 import { ChapterOverviewCard } from "@/components/evaluation/ChapterOverviewCard";
 import { Button } from "@/components/ui/button";
 import { AlertTriangle, Download, GitCompareArrows } from "lucide-react";
@@ -20,11 +19,7 @@ export default async function EvaluationOverviewPage({ params }: Props) {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="Auto-évaluation HAS"
-        subtitle={establishment.name}
-        backHref={`/dashboard/cabinet/etablissements/${id}`}
-      />
+      <h2 className="text-xl font-bold text-ink">Auto-évaluation HAS — {establishment.name}</h2>
 
       {missionRequired ? (
         <div className="flex items-start gap-3 bg-ambre/10 border border-ambre/30 rounded-lg px-5 py-4">

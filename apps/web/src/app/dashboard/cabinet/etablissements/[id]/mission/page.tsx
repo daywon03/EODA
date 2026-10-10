@@ -5,7 +5,6 @@ import {
   listFormulesForMissionSetup,
   listOptionsForMissionSetup,
 } from "@/lib/actions/mission";
-import { PageHeader } from "@/components/layout/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CreateMissionForm } from "@/components/mission/CreateMissionForm";
 import { MissionScopeEditor } from "@/components/mission/MissionScopeEditor";
@@ -17,26 +16,16 @@ import { MissionClosureSection } from "@/components/mission/MissionClosureSectio
 import { Button } from "@/components/ui/button";
 import { FileSignature, FileText } from "lucide-react";
 import { needsAvenant } from "@/lib/services/avenant-service";
-import { PHASE_LABELS, PHASE_ORDER } from "@/lib/services/mission-progress-service";
+import { PHASE_DATE_FIELDS, PHASE_LABELS, PHASE_ORDER } from "@/lib/services/mission-progress-service";
 import { AvenantSignatureToggle } from "@/components/mission/AvenantSignatureToggle";
 import { auth } from "@/auth";
-import type { MissionChecklistScope } from "@eoda/database";
 
 type Props = { params: Promise<{ id: string }> };
 
-const PHASE_DATE_FIELDS: Record<
-  Exclude<MissionChecklistScope, "DIAGNOSTIC">,
-  { start: "fondationsStartDate" | "deploiementStartDate" | "consolidationStartDate" | "preparationFinaleStartDate"; end: "fondationsEndDate" | "deploiementEndDate" | "consolidationEndDate" | "preparationFinaleEndDate" }
-> = {
-  FONDATIONS: { start: "fondationsStartDate", end: "fondationsEndDate" },
-  DEPLOIEMENT: { start: "deploiementStartDate", end: "deploiementEndDate" },
-  CONSOLIDATION: { start: "consolidationStartDate", end: "consolidationEndDate" },
-  PREPARATION_FINALE: { start: "preparationFinaleStartDate", end: "preparationFinaleEndDate" },
-};
-
 export default async function MissionPage({ params }: Props) {
   const { id } = await params;
-  const [session, establishment, mission, formules, options, documentCounters] = await Promise.all([
+  // getEstablishment reste appelé : c'est la garde (tenant, notFound) de la route.
+  const [session, , mission, formules, options, documentCounters] = await Promise.all([
     auth(),
     getEstablishment(id),
     getMission(id),
@@ -51,11 +40,7 @@ export default async function MissionPage({ params }: Props) {
 
   return (
     <div className="space-y-6 max-w-3xl">
-      <PageHeader
-        title="Suivi de mission"
-        subtitle={establishment.name}
-        backHref={`/dashboard/cabinet/etablissements/${id}`}
-      />
+      <h2 className="text-xl font-bold text-ink">Suivi de mission</h2>
 
       {!mission ? (
         <Card>

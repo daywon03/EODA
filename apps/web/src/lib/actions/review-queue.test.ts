@@ -12,6 +12,7 @@ const prismaMock = {
   document: { groupBy: vi.fn() },
 };
 const requireCabinetSession = vi.fn();
+const requireEstablishmentInTenant = vi.fn();
 
 vi.mock("@eoda/database", () => ({
   prisma: prismaMock,
@@ -19,6 +20,7 @@ vi.mock("@eoda/database", () => ({
 }));
 vi.mock("@/lib/auth/guards", () => ({
   requireCabinetSession: () => requireCabinetSession(),
+  requireEstablishmentInTenant: (id: string) => requireEstablishmentInTenant(id),
 }));
 vi.mock("next/navigation", () => ({
   notFound: () => {
@@ -29,6 +31,7 @@ vi.mock("next/navigation", () => ({
 const {
   countDocumentsAwaitingReview,
   countDocumentsAwaitingReviewByEstablishment,
+  getEstablishmentReviewSummary,
   getReviewQueueEntry,
   listDocumentsAwaitingReview,
 } = await import("./review-queue");
@@ -50,6 +53,10 @@ const ANALYSIS = {
 beforeEach(() => {
   vi.clearAllMocks();
   requireCabinetSession.mockResolvedValue({ userId: "u1", tenantId: "tenant-1", role: "CABINET_EVALUATOR" });
+  requireEstablishmentInTenant.mockImplementation(async (id: string) => {
+    if (id !== "e1") throw new NotFoundError();
+    return { userId: "u1", tenantId: "tenant-1", role: "CABINET_EVALUATOR", establishmentId: id };
+  });
   prismaMock.documentVersion.count.mockResolvedValue(0);
   prismaMock.documentVersion.findMany.mockResolvedValue([]);
   prismaMock.documentVersion.findFirst.mockResolvedValue(null);
@@ -218,5 +225,32 @@ describe("getReviewQueueEntry", () => {
     requireCabinetSession.mockRejectedValue(new RedirectError());
     await expect(getReviewQueueEntry("v1")).rejects.toBeInstanceOf(RedirectError);
     expect(prismaMock.documentVersion.findFirst).not.toHaveBeenCalled();
+  });
+});
+
+describe("getEstablishmentReviewSummary — en-tête de la fiche", () => {
+  it("compte la file de CETTE structure et désigne la plus ancienne version", async () => {
+    prismaMock.documentVersion.count.mockResolvedValue(2);
+    prismaMock.documentVersion.findFirst.mockResolvedValue({ id: "v-old" });
+    await expect(getEstablishmentReviewSummary("e1")).resolves.toEqual({ count: 2, oldestVersionId: "v-old" });
+    const where = { ...EXPECTED_WHERE, document: { establishmentId: "e1", establishment: { tenantId: "tenant-1" } } };
+    expect(prismaMock.documentVersion.count).toHaveBeenCalledWith({ where });
+    expect(prismaMock.documentVersion.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({ where, orderBy: { uploadedAt: "asc" } })
+    );
+  });
+
+  it("rien à relire : aucune version désignée", async () => {
+    await expect(getEstablishmentReviewSummary("e1")).resolves.toEqual({ count: 0, oldestVersionId: null });
+  });
+
+  it("structure hors tenant : notFound, rien n'est lu", async () => {
+    await expect(getEstablishmentReviewSummary("autre")).rejects.toBeInstanceOf(NotFoundError);
+    expect(prismaMock.documentVersion.count).not.toHaveBeenCalled();
+  });
+
+  it("non authentifié : la garde refuse", async () => {
+    requireEstablishmentInTenant.mockRejectedValue(new RedirectError());
+    await expect(getEstablishmentReviewSummary("e1")).rejects.toBeInstanceOf(RedirectError);
   });
 });

@@ -1,7 +1,7 @@
 "use client";
 
 import { useId, useRef, type KeyboardEvent, type ReactNode } from "react";
-import { cn } from "@/lib/utils";
+import { TAB_COUNT_CLASS, TAB_LIST_CLASS, tabClassName } from "./tab-styles";
 import { nextTabIndex } from "@/lib/design/keyboard-navigation";
 
 export type TabItem = {
@@ -47,7 +47,7 @@ export function TabsWithCount({ label, tabs, selectedId, onSelect, children, cla
         role="tablist"
         aria-label={label}
         onKeyDown={handleKeyDown}
-        className="flex gap-1 overflow-x-auto border-b border-line"
+        className={TAB_LIST_CLASS}
       >
         {tabs.map((tab, index) => {
           const isSelected = index === selectedIndex;
@@ -64,16 +64,11 @@ export function TabsWithCount({ label, tabs, selectedId, onSelect, children, cla
               aria-controls={hasPanel ? `${baseId}-panel` : undefined}
               tabIndex={isSelected ? 0 : -1}
               onClick={() => onSelect(tab.id)}
-              className={cn(
-                "-mb-px inline-flex min-h-11 items-center gap-2 whitespace-nowrap border-b-[3px] px-3 text-base",
-                isSelected
-                  ? "border-accent-fill font-bold text-ink"
-                  : "border-transparent text-ink2 hover:border-line hover:text-ink"
-              )}
+              className={tabClassName(isSelected)}
             >
               {tab.label}
               {tab.count !== undefined && (
-                <span className="min-w-6 rounded-full bg-soft px-2 text-center text-sm font-bold tabular-nums text-ink">
+                <span className={TAB_COUNT_CLASS}>
                   {tab.count}
                 </span>
               )}

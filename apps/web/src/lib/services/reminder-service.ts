@@ -27,12 +27,15 @@ export type ReminderCandidate = {
   requestedFromClient: boolean;
 };
 
+// Une pièce à réclamer : demandée à la structure, manquante, non justifiée. Exportée
+// pour que « Les prochaines actions » de la fiche disent exactement ce qu'une relance
+// enverrait (D1).
+export function isReminderCandidate(item: ReminderCandidate): boolean {
+  return item.requestedFromClient && item.status === "MISSING" && item.missingJustification === null;
+}
+
 export function selectReminderLabels(items: readonly ReminderCandidate[]): string[] {
-  return items
-    .filter((item) => item.requestedFromClient)
-    .filter((item) => item.status === "MISSING")
-    .filter((item) => item.missingJustification === null)
-    .map((item) => item.label);
+  return items.filter(isReminderCandidate).map((item) => item.label);
 }
 
 export type ReminderEligibility = { ok: true; labels: string[] } | { ok: false; error: string };
