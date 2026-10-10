@@ -21,9 +21,16 @@ import { generateCorrectedDraft, saveCorrectedDraft } from "@/lib/services/docum
 import { recordAuditEvent } from "@/lib/services/audit-log-service";
 import { validateUploadedFile } from "@/lib/security/upload-validation-service";
 import {
+  findMissionOffer,
   getEstablishmentCoveredCategories,
   isCategoryCoveredForEstablishment,
 } from "@/lib/services/establishment-offer-service";
+import {
+  missingAnswerError,
+  missingAnswerWrite,
+  parseMissingAnswer,
+} from "@/lib/services/missing-answer-service";
+import { CORRECTION_NOT_INCLUDED_MESSAGE, correctionRight } from "@/lib/services/offer-scope-service";
 import { getFileStoragePort } from "@/lib/storage";
 import { getLLMAnalysisPort, isKnownLlmModelId } from "@/lib/llm";
 import { validateGuidelineNote } from "@/lib/services/criterion-guideline-service";
@@ -55,6 +62,7 @@ export type UploadDocumentResult =
 
 function revalidateDocumentViews(establishmentId: string): void {
   revalidatePath("/dashboard/client");
+  revalidatePath("/dashboard/client/documents");
   revalidatePath(`/dashboard/cabinet/etablissements/${establishmentId}`);
 }
 
@@ -170,43 +178,52 @@ export async function uploadDocument(formData: FormData): Promise<UploadDocument
   return { success: true, documentTypeId: documentType.id };
 }
 
-// Réponse Oui/Non + commentaire libre pour un document pas encore déposé —
-// "Non" (ne concerne pas l'établissement) bascule le statut en NOT_APPLICABLE ;
-// "Oui" (concerne l'établissement mais pas encore fourni) garde MISSING. Le
-// commentaire est conservé dans les deux cas comme élément de preuve exploitable
-// en cotation (Module 3).
+// Réponse sur un document pas encore déposé (missing-answer-service, N3) :
+//   - WILL_PROVIDE  « il existe, pas encore déposé »   → MISSING ;
+//   - DONT_HAVE     « Je ne l'ai pas »                → MISSING, à produire — il reste
+//                   visible, il ne bascule JAMAIS en NOT_APPLICABLE ;
+//   - NOT_CONCERNED « ne nous concerne pas »          → NOT_APPLICABLE, refusé sur les
+//                   sept documents de la loi 2002-2.
+// Le commentaire est conservé comme élément de preuve exploitable en cotation.
 export async function respondToMissingDocument(
   establishmentId: string,
   documentTypeId: string,
-  applies: boolean,
+  rawAnswer: unknown,
   comment: string | null
 ): Promise<{ error: string } | null> {
   const access = await requireEstablishmentAccess(establishmentId);
 
-  // Une réponse Oui/Non est une écriture : elle s'arrête avec le dépôt.
+  // Une réponse est une écriture : elle s'arrête avec le dépôt.
   if (!canDepositDocuments(access.missionAccess)) return { error: DEPOSIT_CLOSED_MESSAGE };
+
+  // Entrée non fiable : jamais castée (CLAUDE.md §5 bis).
+  const answer = parseMissingAnswer(rawAnswer);
+  if (!answer) return { error: "Réponse invalide." };
 
   const documentType = await prisma.documentType.findUnique({ where: { id: documentTypeId } });
   if (!documentType) return { error: "Type de document invalide." };
 
   // Même arbitrage que pour le dépôt : un document hors offre n'a pas à recevoir de
-  // réponse Oui/Non, il n'est pas attendu. Sans mission, on ne bloque pas (avant-vente).
+  // réponse, il n'est pas attendu. Sans mission, on ne bloque pas (avant-vente).
   if (!(await isCategoryCoveredForEstablishment(establishmentId, documentType.category))) {
     return { error: OUT_OF_OFFER_ERROR };
   }
 
+  const refusal = missingAnswerError(answer, documentType.category);
+  if (refusal) return { error: refusal };
+
   const trimmedComment = comment?.trim().slice(0, MAX_JUSTIFICATION_LENGTH) || null;
-  const status = applies ? "MISSING" : "NOT_APPLICABLE";
+  const { status, statusOverriddenByUser } = missingAnswerWrite(answer);
 
   await prisma.document.upsert({
     where: { establishmentId_documentTypeId: { establishmentId, documentTypeId } },
-    update: { status, missingJustification: trimmedComment, statusOverriddenByUser: !applies },
+    update: { status, missingJustification: trimmedComment, statusOverriddenByUser },
     create: {
       establishmentId,
       documentTypeId,
       status,
       missingJustification: trimmedComment,
-      statusOverriddenByUser: !applies,
+      statusOverriddenByUser,
     },
   });
 
@@ -216,7 +233,9 @@ export async function respondToMissingDocument(
     actorRole: access.session.user.role,
     establishmentId,
     targetId: documentType.id,
-    detail: `${documentType.code} → ${status}`,
+    // La RÉPONSE et non le seul statut : « Je ne l'ai pas » et « il arrive » donnent
+    // tous deux MISSING. Clés techniques, jamais le commentaire libre.
+    detail: `${documentType.code} → ${answer}`,
   });
 
   revalidateDocumentViews(establishmentId);
@@ -832,12 +851,26 @@ export async function generateDocumentDraft(
 ): Promise<{ error: string } | null> {
   const version = await prisma.documentVersion.findUnique({
     where: { id: documentVersionId },
-    select: { document: { select: { establishmentId: true, documentType: { select: { code: true } } } } },
+    select: {
+      document: {
+        select: { establishmentId: true, documentType: { select: { code: true, category: true } } },
+      },
+    },
   });
   if (!version) notFound();
 
   const access = await requireEstablishmentAccess(version.document.establishmentId);
   if (access.isClient) notFound();
+
+  // Le DROIT de générer (D13, correctionScope — défini en août, jamais lu avant le
+  // 10/10/2026). Vérifié AVANT l'appel au modèle : un appel payé pour un document que
+  // l'offre ne couvre pas est précisément ce que la décision interdit. Un document
+  // sans type n'a pas de catégorie, donc aucun périmètre qui l'inclue : refus.
+  const category = version.document.documentType?.category ?? null;
+  const mission = category ? await findMissionOffer(version.document.establishmentId) : null;
+  if (!category || !correctionRight(mission, category).included) {
+    return { error: CORRECTION_NOT_INCLUDED_MESSAGE };
+  }
 
   const validatedModelId = modelId && isKnownLlmModelId(modelId) ? modelId : null;
 

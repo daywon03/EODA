@@ -25,13 +25,21 @@ export type ReminderCandidate = {
   // Relancer une structure sur un document que le cabinet doit produire serait lui
   // réclamer le travail qu'elle a acheté.
   requestedFromClient: boolean;
+  // « Je ne l'ai pas » (N3) : la structure a répondu, le document est à produire —
+  // le lui réclamer à nouveau serait ignorer sa réponse.
+  declaredMissing?: boolean;
 };
 
 // Une pièce à réclamer : demandée à la structure, manquante, non justifiée. Exportée
 // pour que « Les prochaines actions » de la fiche disent exactement ce qu'une relance
 // enverrait (D1).
 export function isReminderCandidate(item: ReminderCandidate): boolean {
-  return item.requestedFromClient && item.status === "MISSING" && item.missingJustification === null;
+  return (
+    item.requestedFromClient &&
+    item.status === "MISSING" &&
+    item.missingJustification === null &&
+    item.declaredMissing !== true
+  );
 }
 
 export function selectReminderLabels(items: readonly ReminderCandidate[]): string[] {

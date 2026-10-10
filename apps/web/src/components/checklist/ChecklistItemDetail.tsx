@@ -18,9 +18,9 @@ type Props = {
 
 // Le détail d'UN document de la checklist — périmètre (réclamé / produit par EODA),
 // historique des versions, parcours et validation, analyse et critères proposés,
-// justification d'absence. Partagé par la liste en accordéon (portail client,
-// ChecklistCategory) et par le panneau latéral de l'onglet Documents de la fiche
-// structure : un seul rendu, donc une seule façon d'oublier une barrière (D1).
+// justification d'absence. Rendu par le panneau latéral de l'onglet Documents de
+// la fiche structure (le portail client a ses propres cartes depuis R6, qui lisent
+// la même ChecklistItem, déjà passée par la barrière de restitution).
 export function ChecklistItemDetail({ item, establishmentId, canManageVersions, canDeposit, canEditScope }: Props) {
   return (
     <>
@@ -64,6 +64,7 @@ export function ChecklistItemDetail({ item, establishmentId, canManageVersions, 
           analysis={item.currentVersion.analysis}
           documentVersionId={item.currentVersion.id}
           reviewedAt={item.currentVersion.analysisReviewedAt}
+          clientMention={item.currentVersion.clientMention}
           canReview={canManageVersions}
           {...(establishmentId && { establishmentId })}
           criterionSuggestions={item.currentVersion.criterionSuggestions}
@@ -72,7 +73,7 @@ export function ChecklistItemDetail({ item, establishmentId, canManageVersions, 
       {/* Côté client, une analyse non relue n'est PAS montrée — mais le
           silence ressemblerait à une panne. On dit qu'elle arrive, sans
           rien en révéler. */}
-      {!canManageVersions && item.currentVersion?.analysisAwaitingReview && (
+      {!canManageVersions && item.currentVersion?.analysisAwaitingReview && !item.currentVersion.analysis && (
         <p className="mt-2 text-xs text-gris-mid">
           Analyse en cours de relecture par votre consultant EODA.
         </p>
@@ -82,6 +83,8 @@ export function ChecklistItemDetail({ item, establishmentId, canManageVersions, 
           establishmentId={establishmentId}
           documentTypeId={item.documentTypeId}
           status={item.status}
+          category={item.category}
+          declaredMissing={item.declaredMissing}
           missingJustification={item.missingJustification}
           hasVersion={item.currentVersion !== null}
         />

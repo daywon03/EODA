@@ -1,9 +1,10 @@
 import { prisma } from "@eoda/database";
-import type { CommercialTier, DocumentCategory } from "@eoda/database";
+import type { CommercialTier, DocumentCategory, SupportMode } from "@eoda/database";
 import {
   getCoveredDocumentCategories,
   isDocumentCategoryCovered,
 } from "./offer-scope-service";
+import { resolveSupportMode } from "./support-mode-service";
 
 // Résolution de l'offre CONTRACTÉE par un établissement, à un seul endroit.
 // L'offre vit sur `Mission.formule` (+ `gratuit`), jamais sur
@@ -18,13 +19,21 @@ import {
 // avec cette règle : bloquer les dépôts sans mission casserait le parcours
 // d'avant-vente (une checklist affichée qu'aucun dépôt ne pourrait honorer).
 
-async function findMissionOffer(
-  establishmentId: string
-): Promise<{ formule: CommercialTier; gratuit: boolean } | null> {
+export type MissionOffer = { formule: CommercialTier; gratuit: boolean; supportMode: SupportMode };
+
+// Lecture étroite de l'offre contractée ET du mode d'accompagnement (N1). Exportée :
+// la garde de génération (document.ts) et la checklist en ont besoin, et la relire
+// ailleurs serait une seconde résolution qui finirait par diverger.
+export async function findMissionOffer(establishmentId: string): Promise<MissionOffer | null> {
   return prisma.mission.findUnique({
     where: { establishmentId },
-    select: { formule: true, gratuit: true },
+    select: { formule: true, gratuit: true, supportMode: true },
   });
+}
+
+// Mode effectif : celui de la mission, ou la règle STRICTE sans mission.
+export async function getEstablishmentSupportMode(establishmentId: string): Promise<SupportMode> {
+  return resolveSupportMode(await findMissionOffer(establishmentId));
 }
 
 // Catégories documentaires suivies pour cet établissement.

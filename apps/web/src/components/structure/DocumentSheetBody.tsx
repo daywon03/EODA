@@ -1,6 +1,7 @@
 import type { ChecklistItem } from "@/lib/actions/checklist";
 import { documentRowPill } from "@/lib/services/structure-documents-service";
 import { StatusPill } from "@/components/ui/status-pill";
+import { formatDate } from "@/lib/services/date-format-service";
 import { ChecklistItemDetail } from "@/components/checklist/ChecklistItemDetail";
 import { DocumentUploadButton } from "@/components/checklist/DocumentUploadButton";
 
@@ -31,6 +32,12 @@ export function DocumentSheetBody({
         )}
         {/* Périmé : dire DEPUIS QUAND, pas seulement que ça l'est. */}
         {item.expiryNotice && <p className="text-sm font-bold text-ink">{item.expiryNotice}</p>}
+        {/* Le geste de la STRUCTURE (D6), distinct de la validation d'EODA. */}
+        {item.clientAccepted && item.clientAcceptedAt && (
+          <p className="text-sm font-bold text-ink">
+            <span aria-hidden="true">✓ </span>Accepté par la structure le {formatDate(item.clientAcceptedAt)}
+          </p>
+        )}
       </div>
 
       <ChecklistItemDetail

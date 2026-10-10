@@ -5,6 +5,7 @@ import {
   CommercialTier,
   type CatalogueOption,
   type MissionChecklistScope,
+  type SupportMode,
 } from "@eoda/database";
 import {
   requireCabinetAdminSession,
@@ -15,6 +16,7 @@ import { notFound } from "next/navigation";
 import { requiredEnum } from "@/lib/validation/form-parsers";
 import { revalidatePath } from "next/cache";
 import { recordAuditEvent } from "@/lib/services/audit-log-service";
+import { defaultSupportModeForOffer } from "@/lib/services/support-mode-service";
 import {
   reconcileMissionOptions,
   summariseMissionScopeForAudit,
@@ -143,7 +145,15 @@ export async function createMission(
   // ouvrirait un périmètre faux au client jusqu'à ce que quelqu'un s'en aperçoive.
   const mission = await prisma.$transaction(async (tx) => {
     const created = await tx.mission.create({
-      data: { tenantId, establishmentId, formule: formule.value, gratuit },
+      // Même défaut qu'à la signature (support-mode-service) ; le bêta-test gratuit
+      // suit Excellence, donc accompagné.
+      data: {
+        tenantId,
+        establishmentId,
+        formule: formule.value,
+        gratuit,
+        supportMode: defaultSupportModeForOffer(formule.value, gratuit),
+      },
     });
     if (snapshots.length > 0) {
       await tx.missionOption.createMany({
@@ -338,6 +348,7 @@ export type MissionWithProgress = {
   id: string;
   formule: CommercialTier;
   gratuit: boolean;
+  supportMode: SupportMode;
   fondationsStartDate: Date | null;
   fondationsEndDate: Date | null;
   deploiementStartDate: Date | null;
@@ -531,6 +542,7 @@ export async function getMission(establishmentId: string): Promise<MissionWithPr
     id: mission.id,
     formule: mission.formule,
     gratuit: mission.gratuit,
+    supportMode: mission.supportMode,
     closedAt: mission.closedAt,
     clientAccessRevokedAt: mission.clientAccessRevokedAt,
     fondationsStartDate: mission.fondationsStartDate,

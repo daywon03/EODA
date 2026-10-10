@@ -1,4 +1,4 @@
-import type { DocumentCategory, DocumentStatus } from "@eoda/database";
+import type { DocumentCategory, DocumentStatus, SupportMode } from "@eoda/database";
 import { DOCUMENT_PILLS, type PillSpec } from "@/lib/design/status-vocabulary";
 import type { DocumentStep } from "./document-workflow-service";
 
@@ -38,7 +38,29 @@ export type DocumentFacts = {
   status: DocumentStatus;
   step: DocumentStep;
   currentVersion: { id: string; uploadedAt: Date; analysisAwaitingReview: boolean } | null;
+  // Qui doit produire un document encore manquant (deriveMissingOwner). Facultatif :
+  // absent, la pastille reste « Manquant ».
+  missingOwner?: MissingOwner | null;
 };
+
+// ── « À rédiger · EODA » / « Chez la structure » (N2) — dérivés, jamais stockés ─
+export type MissingOwner = "EODA" | "STRUCTURE";
+
+export function deriveMissingOwner(facts: {
+  status: DocumentStatus;
+  hasVersion: boolean;
+  requestedFromClient: boolean;
+  declaredMissing: boolean;
+  mode: SupportMode;
+}): MissingOwner | null {
+  if (facts.hasVersion || facts.status !== "MISSING") return null;
+  // En autonomie, EODA ne rédige rien (hors option) : ce que la structure n'a pas,
+  // c'est elle qui le crée ; ce qu'on ne lui réclame pas n'a pas de rédacteur.
+  if (facts.mode === "AUTONOMIE") return facts.requestedFromClient ? "STRUCTURE" : null;
+  // Accompagnée : un document réclamé est attendu de la structure, sauf si elle a
+  // répondu « Je ne l'ai pas » ; tout le reste est le plan de production d'EODA.
+  return facts.requestedFromClient && !facts.declaredMissing ? "STRUCTURE" : "EODA";
+}
 
 export type DocumentRow<T extends DocumentFacts = DocumentFacts> = T & { category: DocumentCategory };
 
@@ -74,6 +96,8 @@ export function documentRowPill(item: DocumentFacts): PillSpec {
     case "validated":
       return DOCUMENT_PILLS.valide;
     case "todo":
+      if (item.missingOwner === "EODA") return DOCUMENT_PILLS.aRedigerEoda;
+      if (item.missingOwner === "STRUCTURE") return DOCUMENT_PILLS.chezLaStructure;
       if (item.status === "MISSING") return DOCUMENT_PILLS.manquant;
       if (item.status === "INCOMPLETE") return DOCUMENT_PILLS.aCorriger;
       return DOCUMENT_PILLS.depose;

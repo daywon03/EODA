@@ -165,6 +165,16 @@ enum CommercialTier {
   EXCELLENCE
 }
 
+// MODE D'ACCOMPAGNEMENT d'une mission (tranche N1, maquettes v2 — décision 2 du
+// 09/10/2026). Orthogonal à la formule : Essentiel ou Performance se vendent seuls
+// (AUTONOMIE) ou avec l'accompagnement en option (ACCOMPAGNE) ; Excellence est
+// toujours accompagnée. Il gouverne une chose capitale : ce que le client voit
+// d'une analyse que personne chez EODA n'a relue (analysisVisibleTo).
+enum SupportMode {
+  AUTONOMIE
+  ACCOMPAGNE
+}
+
 // Unité de tarification d'une prestation à la carte — offre commerciale v10 §04.
 // Tous les prix du catalogue sont des prix « à partir de » (règle de gouvernance
 // produit, context/07-outil-pilotage-missions.md §12.3) : l'unité ne change pas ce
@@ -253,20 +263,20 @@ model Tenant {
   users          User[]
   establishments Establishment[]
 
-  catalogueFormules  CatalogueFormule[]
-  catalogueOptions   CatalogueOption[]
-  billingSettings    BillingSettings?
-  devisCounters      DevisCounter[]
-  prospects          Prospect[]
-  devis              Devis[]
-  missions           Mission[]
-  optionRequests     ClientOptionRequest[]
-  prospectTimeline   ProspectTimelineEntry[]
-  appointments       Appointment[]
-  missionMessages    MissionMessage[]
-  templateDocuments  TemplateDocument[]
-  templateCategories TemplateCategory[]
-  knowledgeChunks    KnowledgeChunk[]
+  catalogueFormules   CatalogueFormule[]
+  catalogueOptions    CatalogueOption[]
+  billingSettings     BillingSettings?
+  devisCounters       DevisCounter[]
+  prospects           Prospect[]
+  devis               Devis[]
+  missions            Mission[]
+  optionRequests      ClientOptionRequest[]
+  prospectTimeline    ProspectTimelineEntry[]
+  appointments        Appointment[]
+  missionMessages     MissionMessage[]
+  templateDocuments   TemplateDocument[]
+  templateCategories  TemplateCategory[]
+  knowledgeChunks     KnowledgeChunk[]
   criterionGuidelines CriterionGuideline[]
 
   @@map("tenants")
@@ -297,20 +307,21 @@ model User {
   isActive      Boolean   @default(true) @map("is_active")
   deactivatedAt DateTime? @map("deactivated_at")
 
-  tenant              Tenant?                 @relation(fields: [tenantId], references: [id])
-  establishmentUsers  EstablishmentUser[]
-  uploadedVersions    DocumentVersion[]       @relation("UploadedBy")
-  evaluationSessions  EvaluationSession[]
-  elementRatings      ElementRating[]         @relation("ElementRatedBy")
-  optionRequests     ClientOptionRequest[]   @relation("RequestedBy")
-  prospectTimeline    ProspectTimelineEntry[] @relation("ProspectTimelineAuthor")
-  reviewedAnalyses    DocumentVersion[]       @relation("AnalysisReviewedBy")
-  createdAppointments Appointment[]           @relation("AppointmentCreatedBy")
-  validatedDocuments  Document[]              @relation("DocumentValidatedBy")
-  missionMessages     MissionMessage[]
-  uploadedTemplates   TemplateVersion[]       @relation("TemplateUploadedBy")
-  criterionGuidelines CriterionGuideline[]
-  suggestionsReviewed DocumentCriterionSuggestion[] @relation("CriterionSuggestionReviewedBy")
+  tenant                      Tenant?                       @relation(fields: [tenantId], references: [id])
+  establishmentUsers          EstablishmentUser[]
+  uploadedVersions            DocumentVersion[]             @relation("UploadedBy")
+  evaluationSessions          EvaluationSession[]
+  elementRatings              ElementRating[]               @relation("ElementRatedBy")
+  optionRequests              ClientOptionRequest[]         @relation("RequestedBy")
+  prospectTimeline            ProspectTimelineEntry[]       @relation("ProspectTimelineAuthor")
+  reviewedAnalyses            DocumentVersion[]             @relation("AnalysisReviewedBy")
+  createdAppointments         Appointment[]                 @relation("AppointmentCreatedBy")
+  validatedDocuments          Document[]                    @relation("DocumentValidatedBy")
+  clientAcceptedDocuments     Document[]                    @relation("DocumentClientAcceptedBy")
+  missionMessages             MissionMessage[]
+  uploadedTemplates           TemplateVersion[]             @relation("TemplateUploadedBy")
+  criterionGuidelines         CriterionGuideline[]
+  suggestionsReviewed         DocumentCriterionSuggestion[] @relation("CriterionSuggestionReviewedBy")
   templateSuggestionsReviewed TemplateCriterionSuggestion[] @relation("TemplateCriterionSuggestionReviewedBy")
 
   @@index([tenantId])
@@ -450,11 +461,11 @@ model Criterion {
   requirementLevel RequirementLevel @map("requirement_level")
   applicableTo     ApplicableTo     @map("applicable_to")
 
-  objective          Objective               @relation(fields: [objectiveId], references: [id])
-  evaluationElements EvaluationElement[]
-  documentTypes      DocumentTypeCriterion[]
-  guidelines         CriterionGuideline[]
-  templateDocuments  TemplateDocumentCriterion[]
+  objective           Objective                     @relation(fields: [objectiveId], references: [id])
+  evaluationElements  EvaluationElement[]
+  documentTypes       DocumentTypeCriterion[]
+  guidelines          CriterionGuideline[]
+  templateDocuments   TemplateDocumentCriterion[]
   documentSuggestions DocumentCriterionSuggestion[]
   templateSuggestions TemplateCriterionSuggestion[]
 
@@ -601,9 +612,9 @@ model CriterionGuideline {
   createdByUserId String   @map("created_by_user_id")
   createdAt       DateTime @default(now()) @map("created_at")
 
-  tenant      Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  criterion   Criterion @relation(fields: [criterionId], references: [id], onDelete: Cascade)
-  createdBy   User      @relation(fields: [createdByUserId], references: [id])
+  tenant    Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  criterion Criterion @relation(fields: [criterionId], references: [id], onDelete: Cascade)
+  createdBy User      @relation(fields: [createdByUserId], references: [id])
 
   // Requête de réinjection : les N guidelines les plus récentes pour un tenant et
   // un critère donnés — cet index composite la sert directement. L'index simple
@@ -631,7 +642,7 @@ model DocumentTypeCriterion {
 // plutôt que pour les documents attendus du client (demande du 16/09/2026).
 model TemplateDocumentCriterion {
   templateDocumentId String @map("template_document_id")
-  criterionId         String @map("criterion_id")
+  criterionId        String @map("criterion_id")
 
   templateDocument TemplateDocument @relation(fields: [templateDocumentId], references: [id], onDelete: Cascade)
   criterion        Criterion        @relation(fields: [criterionId], references: [id], onDelete: Cascade)
@@ -663,19 +674,31 @@ model Document {
   validatedAt       DateTime? @map("validated_at")
   validatedByUserId String?   @map("validated_by_user_id")
 
+  // ACCEPTATION PAR LE CLIENT (D6, décision du 08/10/2026) — second geste, jamais
+  // fusionné avec `validatedAt` : EODA « relu », puis la structure « accepté »
+  // (« c'est lui qui valide, ce n'est pas moi », 15/09). Une décision, donc un fait
+  // stocké. Elle vaut pour la version courante au moment du geste : une version
+  // déposée APRÈS rend l'acceptation caduque, ce qui se DÉRIVE en comparant les
+  // dates (client-documents-view-service) — aucune remise à zéro à écrire.
+  clientAcceptedAt       DateTime? @map("client_accepted_at")
+  clientAcceptedByUserId String?   @map("client_accepted_by_user_id")
+
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  establishment  Establishment     @relation(fields: [establishmentId], references: [id])
-  documentType   DocumentType?     @relation(fields: [documentTypeId], references: [id])
-  currentVersion DocumentVersion?  @relation("CurrentVersion", fields: [currentVersionId], references: [id])
-  versions       DocumentVersion[] @relation("AllVersions")
+  establishment        Establishment                 @relation(fields: [establishmentId], references: [id])
+  documentType         DocumentType?                 @relation(fields: [documentTypeId], references: [id])
+  currentVersion       DocumentVersion?              @relation("CurrentVersion", fields: [currentVersionId], references: [id])
+  versions             DocumentVersion[]             @relation("AllVersions")
   // SetNull : la désactivation d'un compte ne dévalide pas un document déjà validé.
-  validatedBy    User?             @relation("DocumentValidatedBy", fields: [validatedByUserId], references: [id], onDelete: SetNull)
+  validatedBy          User?                         @relation("DocumentValidatedBy", fields: [validatedByUserId], references: [id], onDelete: SetNull)
+  // SetNull : la désactivation d'un compte client n'efface pas un geste déjà daté.
+  clientAcceptedBy     User?                         @relation("DocumentClientAcceptedBy", fields: [clientAcceptedByUserId], references: [id], onDelete: SetNull)
   criterionSuggestions DocumentCriterionSuggestion[]
 
   @@unique([establishmentId, documentTypeId])
   @@index([documentTypeId])
+  @@index([clientAcceptedByUserId])
   @@map("documents")
 }
 
@@ -717,14 +740,14 @@ model DocumentVersion {
   correctedDraftMarkdown    String?   @map("corrected_draft_markdown")
   correctedDraftGeneratedAt DateTime? @map("corrected_draft_generated_at")
 
-  document               Document          @relation("AllVersions", fields: [documentId], references: [id])
-  uploadedBy             User              @relation("UploadedBy", fields: [uploadedByUserId], references: [id])
+  document               Document                      @relation("AllVersions", fields: [documentId], references: [id])
+  uploadedBy             User                          @relation("UploadedBy", fields: [uploadedByUserId], references: [id])
   // SetNull : la désactivation d'un compte ne doit pas dépublier une analyse déjà
   // restituée au client.
-  analysisReviewedBy     User?             @relation("AnalysisReviewedBy", fields: [analysisReviewedByUserId], references: [id], onDelete: SetNull)
-  regeneratedFromVersion DocumentVersion?  @relation("Regeneration", fields: [regeneratedFromVersionId], references: [id])
-  regeneratedVersions    DocumentVersion[] @relation("Regeneration")
-  currentForDocument     Document?         @relation("CurrentVersion")
+  analysisReviewedBy     User?                         @relation("AnalysisReviewedBy", fields: [analysisReviewedByUserId], references: [id], onDelete: SetNull)
+  regeneratedFromVersion DocumentVersion?              @relation("Regeneration", fields: [regeneratedFromVersionId], references: [id])
+  regeneratedVersions    DocumentVersion[]             @relation("Regeneration")
+  currentForDocument     Document?                     @relation("CurrentVersion")
   images                 DocumentVersionImage[]
   criterionSuggestions   DocumentCriterionSuggestion[]
 
@@ -1193,6 +1216,11 @@ model Mission {
   // Bêta-test gratuit — cf. §7.5 : accorde le périmètre Excellence complet
   // indépendamment de `formule` (condition OR, jamais écrasée par formule).
   gratuit         Boolean        @default(false)
+  // Seul ou accompagné. Défaut ACCOMPAGNE : toutes les missions existantes gardent la
+  // règle stricte (rien de non relu n'atteint le client). Posé à la signature d'un
+  // devis selon la formule (support-mode-service), modifiable ensuite par
+  // CABINET_ADMIN depuis l'onglet Mission. Jamais déduit de commercialTier.
+  supportMode     SupportMode    @default(ACCOMPAGNE) @map("support_mode")
 
   fondationsStartDate        DateTime? @map("fondations_start_date")
   fondationsEndDate          DateTime? @map("fondations_end_date")
@@ -1496,6 +1524,13 @@ enum AuditAction {
   // Même décision, côté bibliothèque de modèles (gabarits) — 20/09/2026.
   TEMPLATE_CRITERION_SUGGESTION_CONFIRMED
   TEMPLATE_CRITERION_SUGGESTION_REJECTED
+  // Acceptation d'un document par la structure (D6) — `targetId` = identifiant du
+  // document, `detail` = le code du type de document. Distinct de DOCUMENT_VALIDATED,
+  // qui est la parole d'EODA.
+  DOCUMENT_ACCEPTED_BY_CLIENT
+  // Passage d'une mission en autonomie ou en accompagnement (N1). `targetId` =
+  // identifiant de la mission, `detail` = le nouveau mode.
+  MISSION_SUPPORT_MODE_CHANGED
 }
 
 model AuditLogEntry {
@@ -1647,10 +1682,10 @@ model TemplateDocument {
   createdAt   DateTime             @default(now()) @map("created_at")
   updatedAt   DateTime             @updatedAt @map("updated_at")
 
-  tenant   Tenant            @relation(fields: [tenantId], references: [id])
-  category TemplateCategory  @relation(fields: [categoryId], references: [id])
-  versions TemplateVersion[]
-  criteria TemplateDocumentCriterion[]
+  tenant               Tenant                        @relation(fields: [tenantId], references: [id])
+  category             TemplateCategory              @relation(fields: [categoryId], references: [id])
+  versions             TemplateVersion[]
+  criteria             TemplateDocumentCriterion[]
   criterionSuggestions TemplateCriterionSuggestion[]
 
   // Un même titre deux fois dans la bibliothèque, ce sont deux fiches qui divergent :
@@ -1729,9 +1764,9 @@ model TemplateVersion {
   uploadedByUserId String   @map("uploaded_by_user_id")
   createdAt        DateTime @default(now()) @map("created_at")
 
-  templateDocument TemplateDocument @relation(fields: [templateDocumentId], references: [id], onDelete: Cascade)
-  uploadedBy       User             @relation("TemplateUploadedBy", fields: [uploadedByUserId], references: [id])
-  knowledgeChunks  KnowledgeChunk[]
+  templateDocument     TemplateDocument              @relation(fields: [templateDocumentId], references: [id], onDelete: Cascade)
+  uploadedBy           User                          @relation("TemplateUploadedBy", fields: [uploadedByUserId], references: [id])
+  knowledgeChunks      KnowledgeChunk[]
   criterionSuggestions TemplateCriterionSuggestion[]
 
   // Le même libellé ne peut pas désigner deux fichiers différents au même stade.
@@ -1757,13 +1792,13 @@ model TemplateVersion {
 // sont les documents de référence, contrôlés par le cabinet, qui sont indexés.
 // ─────────────────────────────────────────────────────────────────────────────
 model KnowledgeChunk {
-  id                String   @id @default(cuid())
-  tenantId          String   @map("tenant_id")
-  templateVersionId String   @map("template_version_id")
-  chunkIndex        Int      @map("chunk_index")
+  id                String                      @id @default(cuid())
+  tenantId          String                      @map("tenant_id")
+  templateVersionId String                      @map("template_version_id")
+  chunkIndex        Int                         @map("chunk_index")
   content           String
   embedding         Unsupported("vector(1024)")
-  createdAt         DateTime @default(now()) @map("created_at")
+  createdAt         DateTime                    @default(now()) @map("created_at")
 
   tenant          Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   templateVersion TemplateVersion @relation(fields: [templateVersionId], references: [id], onDelete: Cascade)

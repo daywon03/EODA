@@ -32,6 +32,10 @@ describe("selectReminderLabels", () => {
     expect(selectReminderLabels([candidate({ requestedFromClient: false })])).toEqual([]);
   });
 
+  it("ne relance pas une pièce déclarée absente (« Je ne l'ai pas », N3) : elle est à produire", () => {
+    expect(selectReminderLabels([candidate({ declaredMissing: true })])).toEqual([]);
+  });
+
   it("ne relance pas une pièce déjà déposée", () => {
     expect(selectReminderLabels([candidate({ status: "UPLOADED" })])).toEqual([]);
     expect(selectReminderLabels([candidate({ status: "COMPLIANT" })])).toEqual([]);

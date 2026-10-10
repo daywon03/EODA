@@ -121,6 +121,10 @@ export type BrandedDocxInput = {
   title: string;
   establishmentName: string;
   images?: BrandedDocxImageInput[];
+  // Mention de relecture produite par review-mention-service (« Relu par EODA… » ou,
+  // en autonomie, la réserve complète). Jamais rédigée ici : une réserve recopiée
+  // finit tronquée. Absente ou null : aucune mention ajoutée.
+  reviewMention?: string | null;
 };
 
 const MAX_IMAGE_WIDTH = 500;
@@ -181,6 +185,19 @@ function buildImageAnnexParagraphs(images: BrandedDocxImageInput[]): Paragraph[]
   return paragraphs;
 }
 
+// La mention de relecture, en tête du document et en gras : c'est la première chose
+// à lire avant d'utiliser un document qu'aucun humain n'a revérifié (CLAUDE.md §7).
+// Exportée pour être testée sans dézipper le .docx.
+export function reviewMentionParagraphs(mention: string | null): Paragraph[] {
+  if (!mention) return [];
+  return [
+    new Paragraph({
+      spacing: { after: 240 },
+      children: [new TextRun({ text: mention, bold: true, color: EODA_BRUN_ANCRE })],
+    }),
+  ];
+}
+
 // Rend un Buffer .docx prêt à être servi (Content-Type
 // application/vnd.openxmlformats-officedocument.wordprocessingml.document).
 export async function generateBrandedDocx(input: BrandedDocxInput): Promise<Buffer> {
@@ -239,6 +256,7 @@ export async function generateBrandedDocx(input: BrandedDocxInput): Promise<Buff
               }),
             ],
           }),
+          ...reviewMentionParagraphs(input.reviewMention ?? null),
           ...markdownToParagraphs(input.markdown),
           ...buildImageAnnexParagraphs(input.images ?? []),
         ],

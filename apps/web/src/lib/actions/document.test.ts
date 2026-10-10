@@ -12,9 +12,11 @@ const prismaMock = {
   mission: { findUnique: vi.fn() },
   documentType: { findMany: vi.fn(), findUnique: vi.fn() },
   document: { upsert: vi.fn() },
+  documentVersion: { findUnique: vi.fn() },
 };
 
 const ingestDocumentVersion = vi.fn();
+const generateCorrectedDraft = vi.fn();
 const recordAuditEvent = vi.fn();
 const extractMarkdown = vi.fn();
 const suggestDocumentType = vi.fn();
@@ -35,6 +37,10 @@ vi.mock("@/lib/services/document-categorization-service", () => ({
 vi.mock("@/lib/services/document-ingestion-service", () => ({
   ingestDocumentVersion: (...args: unknown[]) => ingestDocumentVersion(...args),
 }));
+vi.mock("@/lib/services/document-generation-service", () => ({
+  generateCorrectedDraft: (...args: unknown[]) => generateCorrectedDraft(...args),
+  saveCorrectedDraft: vi.fn(),
+}));
 vi.mock("@/lib/services/audit-log-service", () => ({
   recordAuditEvent: (...args: unknown[]) => recordAuditEvent(...args),
 }));
@@ -44,7 +50,7 @@ vi.mock("@/lib/security/upload-validation-service", () => ({
 vi.mock("@/lib/storage", () => ({ getFileStoragePort: () => ({}) }));
 vi.mock("@/lib/llm", () => ({ getLLMAnalysisPort: () => ({}) }));
 
-const { uploadDocument, respondToMissingDocument } = await import("./document");
+const { uploadDocument, respondToMissingDocument, generateDocumentDraft } = await import("./document");
 
 const ESTABLISHMENT_ID = "etab-1";
 
@@ -168,7 +174,7 @@ describe("respondToMissingDocument — périmètre de l'offre", () => {
     givenMission("ESSENTIEL");
     prismaMock.documentType.findUnique.mockResolvedValue(RH_TYPE);
 
-    const result = await respondToMissingDocument(ESTABLISHMENT_ID, RH_TYPE.id, false, "n/a");
+    const result = await respondToMissingDocument(ESTABLISHMENT_ID, RH_TYPE.id, "NOT_CONCERNED", "n/a");
 
     expect(result).toEqual({
       error: "Ce document n'entre pas dans le périmètre de l'offre souscrite pour cet établissement.",
@@ -181,7 +187,7 @@ describe("respondToMissingDocument — périmètre de l'offre", () => {
     givenMission("ESSENTIEL");
     prismaMock.documentType.findUnique.mockResolvedValue(LOI_TYPE);
 
-    const result = await respondToMissingDocument(ESTABLISHMENT_ID, LOI_TYPE.id, true, "en cours");
+    const result = await respondToMissingDocument(ESTABLISHMENT_ID, LOI_TYPE.id, "WILL_PROVIDE", "en cours");
 
     expect(result).toBeNull();
     expect(prismaMock.document.upsert).toHaveBeenCalledTimes(1);
@@ -191,10 +197,162 @@ describe("respondToMissingDocument — périmètre de l'offre", () => {
     givenMission(null);
     prismaMock.documentType.findUnique.mockResolvedValue(RH_TYPE);
 
-    const result = await respondToMissingDocument(ESTABLISHMENT_ID, RH_TYPE.id, true, null);
+    const result = await respondToMissingDocument(ESTABLISHMENT_ID, RH_TYPE.id, "WILL_PROVIDE", null);
 
     expect(result).toBeNull();
     expect(prismaMock.document.upsert).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("respondToMissingDocument — « Je ne l'ai pas » (N3)", () => {
+  it("garde le document MANQUANT, à produire — jamais NOT_APPLICABLE", async () => {
+    givenMission("EXCELLENCE");
+    prismaMock.documentType.findUnique.mockResolvedValue(LOI_TYPE);
+
+    const result = await respondToMissingDocument(ESTABLISHMENT_ID, LOI_TYPE.id, "DONT_HAVE", null);
+
+    expect(result).toBeNull();
+    const call = prismaMock.document.upsert.mock.calls[0]?.[0] as {
+      update: { status: string; statusOverriddenByUser: boolean };
+      create: { status: string; statusOverriddenByUser: boolean };
+    };
+    expect(call.update).toMatchObject({ status: "MISSING", statusOverriddenByUser: true });
+    expect(call.create).toMatchObject({ status: "MISSING", statusOverriddenByUser: true });
+    expect(recordAuditEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ action: "DOCUMENT_STATUS_ANSWERED", detail: `${LOI_TYPE.code} → DONT_HAVE` })
+    );
+  });
+
+  it("refuse « non concerné » sur un document de la loi 2002-2, sans rien écrire", async () => {
+    givenMission("EXCELLENCE");
+    prismaMock.documentType.findUnique.mockResolvedValue(LOI_TYPE);
+
+    const result = await respondToMissingDocument(ESTABLISHMENT_ID, LOI_TYPE.id, "NOT_CONCERNED", null);
+
+    expect(result).toMatchObject({ error: expect.stringContaining("loi 2002-2") });
+    expect(prismaMock.document.upsert).not.toHaveBeenCalled();
+  });
+
+  it("accepte « non concerné » hors loi 2002-2", async () => {
+    givenMission("EXCELLENCE");
+    prismaMock.documentType.findUnique.mockResolvedValue(RH_TYPE);
+
+    const result = await respondToMissingDocument(ESTABLISHMENT_ID, RH_TYPE.id, "NOT_CONCERNED", null);
+
+    expect(result).toBeNull();
+    expect(prismaMock.document.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({ update: expect.objectContaining({ status: "NOT_APPLICABLE" }) })
+    );
+  });
+
+  it("refuse une réponse inconnue (entrée non fiable), sans lire ni écrire", async () => {
+    // L'ancien booléen ne passe plus : il n'est pas une réponse.
+    for (const raw of ["MAYBE", true, null]) {
+      expect(await respondToMissingDocument(ESTABLISHMENT_ID, LOI_TYPE.id, raw, null)).toEqual({
+        error: "Réponse invalide.",
+      });
+    }
+    expect(prismaMock.documentType.findUnique).not.toHaveBeenCalled();
+    expect(prismaMock.document.upsert).not.toHaveBeenCalled();
+  });
+
+  it("propage le refus de la garde (autre établissement, non authentifié)", async () => {
+    requireEstablishmentAccess.mockRejectedValue(new Error("NEXT_NOT_FOUND"));
+    await expect(
+      respondToMissingDocument("etab-autre", LOI_TYPE.id, "DONT_HAVE", null)
+    ).rejects.toThrow("NEXT_NOT_FOUND");
+    expect(prismaMock.document.upsert).not.toHaveBeenCalled();
+  });
+});
+
+describe("generateDocumentDraft — droit de générer (correctionScope, D11, D13)", () => {
+  const CABINET_ACCESS = {
+    userId: "user-cab",
+    isClient: false,
+    session: { user: { role: "CABINET_ADMIN" } },
+    missionAccess: "ACTIVE",
+  };
+
+  function givenVersion(category: string | null): void {
+    prismaMock.documentVersion.findUnique.mockResolvedValue({
+      document: {
+        establishmentId: ESTABLISHMENT_ID,
+        documentType: category ? { code: "CODE", category } : null,
+      },
+    });
+  }
+
+  beforeEach(() => {
+    requireEstablishmentAccess.mockResolvedValue(CABINET_ACCESS);
+    generateCorrectedDraft.mockResolvedValue({ ok: true });
+  });
+
+  it("refuse en Essentiel, avant tout appel au modèle", async () => {
+    givenMission("ESSENTIEL");
+    givenVersion("LOI_2002_2");
+
+    const result = await generateDocumentDraft("dv-1");
+
+    expect(result).toMatchObject({ error: expect.stringContaining("option") });
+    expect(generateCorrectedDraft).not.toHaveBeenCalled();
+    expect(recordAuditEvent).not.toHaveBeenCalled();
+  });
+
+  it("refuse en Performance un document hors du périmètre impératifs + procédures", async () => {
+    givenMission("PERFORMANCE");
+    givenVersion("RH");
+
+    expect(await generateDocumentDraft("dv-1")).toMatchObject({ error: expect.any(String) });
+    expect(generateCorrectedDraft).not.toHaveBeenCalled();
+  });
+
+  it("autorise en Performance un document de la loi 2002-2", async () => {
+    givenMission("PERFORMANCE");
+    givenVersion("LOI_2002_2");
+
+    expect(await generateDocumentDraft("dv-1")).toBeNull();
+    expect(generateCorrectedDraft).toHaveBeenCalledTimes(1);
+  });
+
+  it("autorise tout en Excellence, et le journalise", async () => {
+    givenMission("EXCELLENCE");
+    givenVersion("RH");
+
+    expect(await generateDocumentDraft("dv-1")).toBeNull();
+    expect(generateCorrectedDraft).toHaveBeenCalledTimes(1);
+    expect(recordAuditEvent).toHaveBeenCalledWith(expect.objectContaining({ action: "CORRECTED_DRAFT_GENERATED" }));
+  });
+
+  it("refuse sans mission (rien n'a été acheté)", async () => {
+    givenMission(null);
+    givenVersion("LOI_2002_2");
+
+    expect(await generateDocumentDraft("dv-1")).toMatchObject({ error: expect.any(String) });
+    expect(generateCorrectedDraft).not.toHaveBeenCalled();
+  });
+
+  it("refuse un document d'un autre tenant : la garde lève notFound", async () => {
+    givenMission("EXCELLENCE");
+    givenVersion("LOI_2002_2");
+    requireEstablishmentAccess.mockRejectedValue(new Error("NEXT_NOT_FOUND"));
+
+    await expect(generateDocumentDraft("dv-1")).rejects.toThrow("NEXT_NOT_FOUND");
+    expect(generateCorrectedDraft).not.toHaveBeenCalled();
+  });
+
+  it("refuse un appelant CLIENT (notFound), même en Excellence", async () => {
+    givenMission("EXCELLENCE");
+    givenVersion("LOI_2002_2");
+    requireEstablishmentAccess.mockResolvedValue({ ...CABINET_ACCESS, isClient: true });
+
+    await expect(generateDocumentDraft("dv-1")).rejects.toThrow();
+    expect(generateCorrectedDraft).not.toHaveBeenCalled();
+  });
+
+  it("répond notFound sur une version inconnue", async () => {
+    prismaMock.documentVersion.findUnique.mockResolvedValue(null);
+    await expect(generateDocumentDraft("dv-inconnue")).rejects.toThrow();
+    expect(requireEstablishmentAccess).not.toHaveBeenCalled();
   });
 });
 

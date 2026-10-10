@@ -13,6 +13,7 @@ import { DiagnosticChecklistSection } from "@/components/mission/DiagnosticCheck
 import { PhaseChecklistSection } from "@/components/mission/PhaseChecklistSection";
 import { MissionDocumentCounters } from "@/components/mission/MissionDocumentCounters";
 import { MissionClosureSection } from "@/components/mission/MissionClosureSection";
+import { SupportModeSection } from "@/components/mission/SupportModeSection";
 import { Button } from "@/components/ui/button";
 import { FileSignature, FileText } from "lucide-react";
 import { needsAvenant } from "@/lib/services/avenant-service";
@@ -65,6 +66,16 @@ export default async function MissionPage({ params }: Props) {
           />
 
           {documentCounters && <MissionDocumentCounters counters={documentCounters} />}
+
+          <Card>
+            <CardContent className="pt-6">
+              <SupportModeSection
+                missionId={mission.id}
+                supportMode={mission.supportMode}
+                canManage={session?.user.role === "CABINET_ADMIN"}
+              />
+            </CardContent>
+          </Card>
 
           <Card>
             <CardHeader>

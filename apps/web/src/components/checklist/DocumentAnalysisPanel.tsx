@@ -14,7 +14,7 @@ import {
   CheckCircle2,
 } from "lucide-react";
 import type { DocumentAnalysisResult, AnalysisFinding } from "@/lib/llm";
-import { describeAnalysis, describeReviewMention, summariseAnalysis } from "@/lib/services/analysis-view-service";
+import { describeAnalysis, summariseAnalysis } from "@/lib/services/analysis-view-service";
 import {
   setAnalysisReviewed,
   listCriteriaForPicker,
@@ -40,6 +40,9 @@ type Props = {
   // (CDC §5, §7). Côté client, ces deux propriétés restent absentes.
   documentVersionId?: string;
   reviewedAt?: Date | null;
+  // Mention montrée à la STRUCTURE (review-mention-service) : relu par EODA, ou la
+  // réserve d'autonomie. Calculée par la couche de lecture, jamais ici.
+  clientMention?: string | null;
   canReview?: boolean;
   // Critères HAS supplémentaires détectés par l'IA, en attente de revue — jamais
   // transmis côté client (cf. buildChecklist). establishmentId n'est nécessaire
@@ -52,6 +55,7 @@ export function DocumentAnalysisPanel({
   analysis,
   documentVersionId,
   reviewedAt = null,
+  clientMention = null,
   canReview = false,
   establishmentId,
   criterionSuggestions = [],
@@ -90,11 +94,11 @@ export function DocumentAnalysisPanel({
           {describeAnalysis(summary)}
         </span>
       </button>
-      {/* Côté client, l'analyse n'est là QUE parce qu'elle a été relue
-          (analysisVisibleTo) : on le dit, avec la date — c'est la mention annoncée
-          au cabinet sous « Marquer relu ». */}
-      {!canReview && reviewedAt && (
-        <p className="px-3 pb-2 text-sm font-bold text-ink">{describeReviewMention(reviewedAt)}</p>
+      {/* Côté client, l'analyse est là parce qu'elle a été relue, ou parce que la
+          structure est en autonomie (analysisVisibleTo) : on dit laquelle, avec la
+          phrase unique de review-mention-service. */}
+      {!canReview && clientMention && (
+        <p className="px-3 pb-2 text-sm font-bold text-ink">{clientMention}</p>
       )}
 
       {open && (

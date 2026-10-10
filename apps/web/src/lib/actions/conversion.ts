@@ -14,6 +14,7 @@ import {
   type StructureIdentity,
 } from "@/lib/services/structure-identity-service";
 import { recordAuditEvent } from "@/lib/services/audit-log-service";
+import { defaultSupportModeForOffer } from "@/lib/services/support-mode-service";
 import {
   CONVERSION_REFUSAL_MESSAGES,
   planConversion,
@@ -306,6 +307,11 @@ export async function convertDevisToClient(
           // Un devis signé est une vente : le bêta-test gratuit reste un geste
           // délibéré, posé sur la mission, jamais déduit d'une signature.
           gratuit: false,
+          // Décision 2 des maquettes v2 : Excellence accompagnée, Essentiel et
+          // Performance en autonomie — déduit de la formule SIGNÉE, jamais de
+          // commercialTier. L'accompagnement acheté en option se pose ensuite
+          // depuis l'onglet Mission (setMissionSupportMode).
+          supportMode: defaultSupportModeForOffer(formule, false),
           sourceDevisId: devis.id,
         },
         select: { id: true },

@@ -12,12 +12,26 @@ import type { CommercialTier, RequirementLevel } from "@eoda/database";
 //
 // - Essentiel   : critères impératifs uniquement + analyse documentaire loi 2002-2,
 //                 SANS correction.
-// - Performance : vérification des 157/137 critères, correction limitée à loi 2002-2,
-//                 toutes les catégories documentaires suivies.
+// - Performance : vérification des 157/137 critères, correction des documents des
+//                 critères impératifs et des processus / procédures (D11, bilan du
+//                 08/10/2026), toutes les catégories documentaires suivies.
 // - Excellence  : vérification ET correction de tout.
 
 export type CriteriaScope = "IMPERATIFS_ONLY" | "ALL";
-export type CorrectionScope = "NONE" | "LOI_2002_2_ONLY" | "ALL";
+// `IMPERATIVES_AND_PROCESSES` remplace `LOI_2002_2_ONLY` (jamais lu avant le
+// 10/10/2026, donc sans conséquence) : la décision D11 ne se réduit pas à la loi
+// 2002-2.
+export type CorrectionScope = "NONE" | "IMPERATIVES_AND_PROCESSES" | "ALL";
+
+// Transposition de D11 en catégories documentaires — PROVISOIRE, à confirmer par
+// Sandrine. « Documents des impératifs » = les sept documents de la loi 2002-2 et les
+// preuves des objectifs impératifs (P11 maltraitance, P12 plaintes, P13 EI, P14 PCA,
+// P22 consentement), « processus / procédures » = la politique qualité et ses
+// procédures : tous rangés en LOI_2002_2 et QUALITE_RISQUES. Exclus : FONCTIONNEMENT
+// (organigramme, rapports d'activité…) et RH. La liaison fine type ↔ critère
+// impératif (`DocumentTypeCriterion`) est vide au 08/10 (specs/04) : quand elle sera
+// chargée (tranche N4), c'est elle qui devra trancher, pas la catégorie.
+const PERFORMANCE_CORRECTION_CATEGORIES: readonly DocumentCategory[] = ["LOI_2002_2", "QUALITE_RISQUES"];
 
 // Les trois offres réellement vendues. BETA n'en est pas une : c'est un statut de
 // bêta-test gratuit qui emprunte le périmètre Excellence (§7.5).
@@ -48,7 +62,7 @@ const OFFER_SCOPES: Record<OfferTier, OfferScope> = {
   },
   PERFORMANCE: {
     criteriaScope: "ALL",
-    correctionScope: "LOI_2002_2_ONLY",
+    correctionScope: "IMPERATIVES_AND_PROCESSES",
     documentCategories: ALL_DOCUMENT_CATEGORIES,
   },
   EXCELLENCE: {
@@ -118,3 +132,32 @@ export function isDocumentCategoryCovered(
 ): boolean {
   return getCoveredDocumentCategories(formule, gratuit).includes(category);
 }
+
+// ── Droit de générer un document corrigé (D13, garde de generateDocumentDraft) ─
+//
+// Générer est PAYANT (décision du 08/10/2026), en deux niveaux — génération seule,
+// génération vérifiée par EODA. Les montants ne sont pas fixés : on ne modélise que le
+// DROIT (inclus dans l'offre / non inclus). Hors droit, le message renvoie vers la
+// demande d'option existante (ClientOptionRequest, portail « Mon contrat ») : le client
+// demande, EODA déclenche.
+export type CorrectionRight =
+  | { included: true }
+  | { included: false; reason: "NO_MISSION" | "OUT_OF_OFFER" };
+
+export function correctionRight(
+  mission: { formule: CommercialTier; gratuit: boolean } | null,
+  category: DocumentCategory
+): CorrectionRight {
+  // Fail-closed : sans mission, rien n'a été acheté — pas de génération (à la
+  // différence du dépôt, que l'avant-vente doit permettre).
+  if (!mission) return { included: false, reason: "NO_MISSION" };
+  const scope = getOfferScope(mission.formule, mission.gratuit).correctionScope;
+  if (scope === "ALL") return { included: true };
+  if (scope === "IMPERATIVES_AND_PROCESSES" && PERFORMANCE_CORRECTION_CATEGORIES.includes(category)) {
+    return { included: true };
+  }
+  return { included: false, reason: "OUT_OF_OFFER" };
+}
+
+export const CORRECTION_NOT_INCLUDED_MESSAGE =
+  "La génération de ce document n'est pas incluse dans l'offre de cette structure. Elle peut la demander en option depuis « Mon contrat ».";

@@ -73,6 +73,8 @@ const ACTION_LABELS: Record<AuditAction, string> = {
   CRITERION_SUGGESTION_REJECTED: "Critère HAS supplémentaire rejeté",
   TEMPLATE_CRITERION_SUGGESTION_CONFIRMED: "Critère HAS supplémentaire confirmé sur un gabarit",
   TEMPLATE_CRITERION_SUGGESTION_REJECTED: "Critère HAS supplémentaire rejeté sur un gabarit",
+  DOCUMENT_ACCEPTED_BY_CLIENT: "Document accepté par la structure",
+  MISSION_SUPPORT_MODE_CHANGED: "Mode d'accompagnement modifié (autonomie / accompagné)",
 };
 
 const ROLE_LABELS: Record<string, string> = {

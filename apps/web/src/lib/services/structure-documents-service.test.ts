@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { DOCUMENT_PILLS } from "@/lib/design/status-vocabulary";
 import {
   countDocumentBuckets,
+  deriveMissingOwner,
   documentBucket,
   documentRowPill,
   documentsHref,
@@ -78,6 +79,39 @@ describe("documentRowPill", () => {
     expect(documentRowPill(doc({ step: "VALIDE" }))).toBe(DOCUMENT_PILLS.valide);
     expect(documentRowPill(doc({ status: "EXPIRED" }))).toBe(DOCUMENT_PILLS.aRenouveler);
     expect(documentRowPill(doc({ status: "NOT_APPLICABLE" }))).toBe(DOCUMENT_PILLS.nonConcerne);
+  });
+
+  it("dit QUI doit produire un document manquant (N2) — dérivé, jamais stocké", () => {
+    const missing = { status: "MISSING" as const, currentVersion: null };
+    expect(documentRowPill(doc({ ...missing, missingOwner: "EODA" }))).toBe(DOCUMENT_PILLS.aRedigerEoda);
+    expect(documentRowPill(doc({ ...missing, missingOwner: "STRUCTURE" }))).toBe(DOCUMENT_PILLS.chezLaStructure);
+    expect(documentRowPill(doc({ ...missing, missingOwner: null }))).toBe(DOCUMENT_PILLS.manquant);
+  });
+});
+
+describe("deriveMissingOwner", () => {
+  const base = {
+    status: "MISSING" as const,
+    hasVersion: false,
+    requestedFromClient: true,
+    declaredMissing: false,
+    mode: "ACCOMPAGNE" as const,
+  };
+
+  it("accompagné : réclamé → chez la structure ; « Je ne l'ai pas » ou non réclamé → EODA", () => {
+    expect(deriveMissingOwner(base)).toBe("STRUCTURE");
+    expect(deriveMissingOwner({ ...base, declaredMissing: true })).toBe("EODA");
+    expect(deriveMissingOwner({ ...base, requestedFromClient: false })).toBe("EODA");
+  });
+
+  it("autonomie : EODA ne rédige rien ; ce que la structure n'a pas, elle le crée", () => {
+    expect(deriveMissingOwner({ ...base, mode: "AUTONOMIE", declaredMissing: true })).toBe("STRUCTURE");
+    expect(deriveMissingOwner({ ...base, mode: "AUTONOMIE", requestedFromClient: false })).toBeNull();
+  });
+
+  it("rien à dire sur un document déposé ou non concerné", () => {
+    expect(deriveMissingOwner({ ...base, hasVersion: true })).toBeNull();
+    expect(deriveMissingOwner({ ...base, status: "NOT_APPLICABLE" })).toBeNull();
   });
 });
 
