@@ -35,15 +35,15 @@ export function DevisCard({ id, number, status, formuleLabelSnapshot, totalAmoun
             <FileText className="h-4 w-4 text-ambre" aria-hidden="true" />
           </span>
           <div className="min-w-0">
-            <p className="truncate text-sm font-semibold text-brun-ancre">{number}</p>
-            <p className="truncate text-xs text-gris-mid">
+            <p className="truncate text-sm font-semibold text-ink">{number}</p>
+            <p className="truncate text-xs text-ink2">
               {formuleLabelSnapshot}
               {prospectStructureName ? ` · ${prospectStructureName}` : ""}
             </p>
           </div>
         </div>
         <div className="flex flex-shrink-0 items-center gap-3">
-          <span className="text-sm font-semibold tabular-nums text-brun-ancre">
+          <span className="text-sm font-semibold tabular-nums text-ink">
             {formatStartingPrice({ priceEuros: totalAmountEuros })}
           </span>
           <StatusPill pill={pillForDevisStatus(status)} />
@@ -56,7 +56,7 @@ export function DevisCard({ id, number, status, formuleLabelSnapshot, totalAmoun
               <DeleteDevisButton devisId={id} number={number} compact />
             </span>
           )}
-          <ChevronRight className="h-4 w-4 text-gris-mid" aria-hidden="true" />
+          <ChevronRight className="h-4 w-4 text-ink2" aria-hidden="true" />
         </div>
       </div>
     </Card>

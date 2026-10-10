@@ -40,8 +40,8 @@ export function ProspectCard({
       <Card className="border-l-4 border-l-terre hover:shadow-eoda-md hover:-translate-y-0.5 transition-all duration-150 cursor-pointer h-full">
         <div className="p-4 flex flex-col h-full gap-2.5">
           <div className="flex items-start justify-between gap-2">
-            <h3 className="text-sm font-semibold text-brun-ancre leading-tight truncate">{structureName}</h3>
-            <ChevronRight className="w-4 h-4 text-gris-mid flex-shrink-0 mt-0.5" aria-hidden="true" />
+            <h3 className="text-sm font-semibold text-ink leading-tight truncate">{structureName}</h3>
+            <ChevronRight className="w-4 h-4 text-ink2 flex-shrink-0 mt-0.5" aria-hidden="true" />
           </div>
 
           <div className="flex items-center gap-2 flex-wrap">
@@ -50,15 +50,15 @@ export function ProspectCard({
           </div>
 
           {contactIdentity && (
-            <p className="flex items-center gap-1 text-xs text-gris-mid">
+            <p className="flex items-center gap-1 text-xs text-ink2">
               <Users className="w-3.5 h-3.5 flex-shrink-0" aria-hidden="true" />
               {contactIdentity}
             </p>
           )}
 
-          <div className="flex items-center gap-3 text-xs text-gris-mid mt-auto pt-2 border-t border-gris-light">
+          <div className="flex items-center gap-3 text-xs text-ink2 mt-auto pt-2 border-t border-line">
             {estimatedAmountEuros != null && (
-              <span className="font-medium text-brun-ancre">
+              <span className="font-medium text-ink">
                 {formatEuros(estimatedAmountEuros)}
               </span>
             )}

@@ -31,10 +31,10 @@ export function ProspectKanbanBoard({ prospects, totalByStatus }: Props) {
         return (
           <div key={status} className="space-y-3">
             <div className="flex items-center justify-between px-1">
-              <h3 className="text-xs font-semibold text-gris-mid uppercase tracking-wide">
+              <h3 className="text-xs font-semibold text-ink2">
                 {PROSPECT_STATUS_LABELS[status]}
               </h3>
-              <span className="text-xs text-gris-mid tabular-nums">{total}</span>
+              <span className="text-xs text-ink2 tabular-nums">{total}</span>
             </div>
             <div className="space-y-3">
               {items.map((p) => (
@@ -50,10 +50,10 @@ export function ProspectKanbanBoard({ prospects, totalByStatus }: Props) {
                 />
               ))}
               {items.length === 0 && (
-                <p className="text-xs text-gris-mid italic px-1">Aucun prospect</p>
+                <p className="text-xs text-ink2 italic px-1">Aucun prospect</p>
               )}
               {truncated > 0 && (
-                <p className="text-xs text-gris-mid italic px-1">
+                <p className="text-xs text-ink2 italic px-1">
                   + {truncated} non affiché{truncated > 1 ? "s" : ""}
                 </p>
               )}

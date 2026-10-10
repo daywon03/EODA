@@ -3,6 +3,7 @@ import { listCatalogue } from "@/lib/actions/catalogue";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { DevisForm } from "@/components/devis/DevisForm";
 import { formatContactIdentity } from "@/lib/services/prospect-contact-service";
+import { computeDefaultValidityDays } from "@/lib/services/devis-validity-service";
 import { Card, CardContent } from "@/components/ui/card";
 import { Mail, Phone } from "lucide-react";
 
@@ -54,8 +55,15 @@ export default async function EvaluationBesoinsPage({ params }: Props) {
       minQuantity: o.minQuantity,
     }));
 
+  // Validité proposée selon l'échéance HAS du prospect (décision Q10 bis).
+  const validity = computeDefaultValidityDays({
+    evaluationTargetDate: prospect.hasEvaluationTargetDate,
+    now: new Date(),
+    fallbackDays: catalogue.billingSettings?.defaultValidityDays ?? 30,
+  });
+
   return (
-    <div className="space-y-6 max-w-3xl">
+    <div className="space-y-6 max-w-6xl">
       <PageHeader
         title="Évaluation des besoins"
         subtitle={prospect.structureName}
@@ -89,21 +97,17 @@ export default async function EvaluationBesoinsPage({ params }: Props) {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardContent className="pt-6">
-          <DevisForm
-            prospectId={id}
-            variant="assessment"
-            formules={formules}
-            options={options}
-            defaultNeedsAssessmentNotes={prospect.needsAssessmentNotes}
-            defaultDepositPercent={
-              catalogue.billingSettings?.defaultDepositPercent ?? DEFAULT_DEPOSIT_PERCENT
-            }
-            defaultValidityDays={catalogue.billingSettings?.defaultValidityDays ?? 30}
-          />
-        </CardContent>
-      </Card>
+      <DevisForm
+        prospectId={id}
+        variant="assessment"
+        structureName={prospect.structureName}
+        formules={formules}
+        options={options}
+        defaultNeedsAssessmentNotes={prospect.needsAssessmentNotes}
+        defaultDepositPercent={catalogue.billingSettings?.defaultDepositPercent ?? DEFAULT_DEPOSIT_PERCENT}
+        defaultValidityDays={validity.days}
+        validityHint={validity.reason}
+      />
     </div>
   );
 }

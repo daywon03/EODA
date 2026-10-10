@@ -4,7 +4,6 @@ import { listCatalogue } from "@/lib/actions/catalogue";
 import { isDevisEditable } from "@/lib/services/devis-transition-service";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { DevisForm } from "@/components/devis/DevisForm";
-import { Card, CardContent } from "@/components/ui/card";
 
 export const metadata = { title: "Corriger un devis · EODA Conseil" };
 
@@ -35,16 +34,15 @@ export default async function ModifierDevisPage({ params }: Props) {
   ];
 
   return (
-    <div className="space-y-6 max-w-2xl">
+    <div className="space-y-6 max-w-6xl">
       <PageHeader
         title={`Corriger ${devis.number}`}
         subtitle={`${devis.prospect.structureName} · brouillon`}
         backHref={`/dashboard/cabinet/commercial/devis/${id}`}
       />
-      <Card>
-        <CardContent className="pt-6">
           <DevisForm
             prospectId={devis.prospectId}
+            structureName={devis.prospect.structureName}
             formules={activeFormules.map((f) => ({
               formule: f.formule,
               label: f.label,
@@ -73,8 +71,6 @@ export default async function ModifierDevisPage({ params }: Props) {
             }}
             retiredLines={retiredLines}
           />
-        </CardContent>
-      </Card>
     </div>
   );
 }

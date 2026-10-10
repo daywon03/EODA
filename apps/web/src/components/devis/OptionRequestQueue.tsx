@@ -26,13 +26,13 @@ export function OptionRequestQueue({ requests }: { requests: PendingOptionReques
   }
 
   return (
-    <section className="bg-surface border border-gris-light rounded-xl p-5 space-y-4">
+    <section className="bg-surface border border-line rounded-xl p-5 space-y-4">
       <div className="flex items-center gap-2.5">
         <Inbox className="w-5 h-5 text-terre flex-shrink-0" aria-hidden="true" />
-        <h2 className="text-base font-semibold text-brun-ancre">
+        <h2 className="text-base font-semibold text-ink">
           Demandes d&apos;options des clients
           {requests.length > 0 && (
-            <span className="ml-2 text-sm font-normal text-gris-mid tabular-nums">
+            <span className="ml-2 text-sm font-normal text-ink2 tabular-nums">
               ({requests.length} en attente)
             </span>
           )}
@@ -40,26 +40,26 @@ export function OptionRequestQueue({ requests }: { requests: PendingOptionReques
       </div>
 
       {error && (
-        <p className="flex items-start gap-1.5 text-xs text-rouge-imp" role="alert">
+        <p className="flex items-start gap-1.5 text-xs text-danger-text" role="alert">
           <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" aria-hidden="true" />
           {error}
         </p>
       )}
 
       {requests.length === 0 ? (
-        <p className="text-sm text-gris-mid">Aucune demande en attente.</p>
+        <p className="text-sm text-ink2">Aucune demande en attente.</p>
       ) : (
-        <ul className="divide-y divide-gris-light">
+        <ul className="divide-y divide-line">
           {requests.map((request) => (
             <li key={request.id} className="flex flex-wrap items-start justify-between gap-3 py-3 first:pt-0 last:pb-0">
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium text-brun-ancre">{request.establishment.name}</p>
-                <p className="text-sm text-brun-ancre">{request.option.label}</p>
+                <p className="text-sm font-medium text-ink">{request.establishment.name}</p>
+                <p className="text-sm text-ink">{request.option.label}</p>
                 <p className="text-xs text-terre tabular-nums mt-0.5">
                   {formatStartingPrice(request.option)}
                 </p>
                 {request.message && (
-                  <p className="text-xs text-gris-mid mt-1 italic">« {request.message} »</p>
+                  <p className="text-xs text-ink2 mt-1 italic">« {request.message} »</p>
                 )}
               </div>
               <div className="flex gap-2 flex-shrink-0">

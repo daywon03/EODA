@@ -33,6 +33,12 @@ import {
   requiredInt,
 } from "@/lib/validation/form-parsers";
 import { DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE } from "@/lib/services/pagination-service";
+import {
+  countDevisByTab,
+  parseDevisTab,
+  statusesForTab,
+  type DevisTab,
+} from "@/lib/services/devis-list-service";
 
 const DEVIS_LIST_PATH = "/dashboard/cabinet/commercial/devis";
 const PROSPECT_LIST_PATH = "/dashboard/cabinet/commercial/prospects";
@@ -491,20 +497,28 @@ export type DevisListPage = {
     status: DevisStatus;
     formuleLabelSnapshot: string;
     totalAmountEuros: number;
+    createdAt: Date;
+    validUntil: Date;
     prospectStructureName: string;
+    prospectContactEmail: string | null;
   }[];
+  // Effectif de l'onglet affiché (pour « Voir plus »), et de chaque onglet.
   totalCount: number;
+  countsByTab: Record<DevisTab, number>;
 };
 
-// Liste bornée. `pageSize` est déjà replafonné par `parsePageSize`, mais on
-// reborne ici : cette fonction est une action serveur, appelable directement.
-export async function listDevis(pageSize: number = DEFAULT_PAGE_SIZE): Promise<DevisListPage> {
+// Liste bornée, filtrée par onglet. `pageSize` est déjà replafonné par
+// `parsePageSize`, mais on reborne ici : cette fonction est une action serveur,
+// appelable directement — et `tab` est relu par `parseDevisTab` pour la même raison.
+export async function listDevis(pageSize: number = DEFAULT_PAGE_SIZE, tab?: string): Promise<DevisListPage> {
   const { tenantId } = await requireCabinetAdminSession();
   const take = Math.min(Math.max(Math.trunc(pageSize) || DEFAULT_PAGE_SIZE, 1), MAX_PAGE_SIZE);
+  const statuses = statusesForTab(parseDevisTab(tab));
+  const where = { tenantId, ...(statuses && { status: { in: [...statuses] } }) };
 
-  const [rows, totalCount] = await Promise.all([
+  const [rows, totalCount, byStatus] = await Promise.all([
     prisma.devis.findMany({
-      where: { tenantId },
+      where,
       orderBy: { createdAt: "desc" },
       take,
       // Projection explicite : la liste n'a besoin ni des montants d'acompte ni des
@@ -515,10 +529,13 @@ export async function listDevis(pageSize: number = DEFAULT_PAGE_SIZE): Promise<D
         status: true,
         formuleLabelSnapshot: true,
         totalAmountEuros: true,
-        prospect: { select: { structureName: true } },
+        createdAt: true,
+        validUntil: true,
+        prospect: { select: { structureName: true, contactEmail: true } },
       },
     }),
-    prisma.devis.count({ where: { tenantId } }),
+    prisma.devis.count({ where }),
+    prisma.devis.groupBy({ by: ["status"], where: { tenantId }, _count: { _all: true } }),
   ]);
 
   return {
@@ -528,9 +545,13 @@ export async function listDevis(pageSize: number = DEFAULT_PAGE_SIZE): Promise<D
       status: d.status,
       formuleLabelSnapshot: d.formuleLabelSnapshot,
       totalAmountEuros: d.totalAmountEuros,
+      createdAt: d.createdAt,
+      validUntil: d.validUntil,
       prospectStructureName: d.prospect.structureName,
+      prospectContactEmail: d.prospect.contactEmail,
     })),
     totalCount,
+    countsByTab: countDevisByTab(Object.fromEntries(byStatus.map((g) => [g.status, g._count._all]))),
   };
 }
 

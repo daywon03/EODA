@@ -36,7 +36,14 @@ export function BillingSettingsForm({ settings }: { settings: BillingSettings | 
           defaultValue={settings?.defaultValidityDays ?? 30}
           disabled={isPending}
           className="w-32"
+          aria-describedby="defaultValidityDays-hint"
         />
+        {/* devis-validity-service : 15 j si l'évaluation HAS est à moins de 6 mois,
+            30 j sinon ; ce réglage ne sert que si l'échéance n'est pas connue. */}
+        <p id="defaultValidityDays-hint" className="max-w-xs text-sm text-ink2">
+          Utilisée quand l&apos;échéance HAS du prospect est inconnue. Sinon : 15 jours si
+          l&apos;évaluation est à moins de 6 mois, 30 jours au-delà.
+        </p>
       </div>
       <Button type="submit" size="sm" disabled={isPending}>
         {isPending && <Loader2 className="w-3.5 h-3.5 animate-spin" aria-hidden="true" />}

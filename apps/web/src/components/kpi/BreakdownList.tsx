@@ -13,18 +13,18 @@ export function BreakdownList({ title, entries, emptyMessage }: Props) {
   const max = Math.max(1, ...entries.map((entry) => entry.count));
 
   return (
-    <section className="rounded-xl border border-gris-light bg-surface p-5">
-      <h3 className="mb-3 text-sm font-semibold text-brun-ancre">{title}</h3>
+    <section className="rounded-xl border border-line bg-surface p-5">
+      <h3 className="mb-3 text-sm font-semibold text-ink">{title}</h3>
 
       {total === 0 ? (
-        <p className="text-xs text-gris-mid">
+        <p className="text-xs text-ink2">
           {emptyMessage ?? "Aucune donnée pour l'instant."}
         </p>
       ) : (
         <dl className="space-y-2.5">
           {entries.map(({ label, count }) => (
             <div key={label} className="flex items-center gap-3">
-              <dt className="w-32 flex-shrink-0 truncate text-xs text-gris-mid" title={label}>
+              <dt className="w-32 flex-shrink-0 truncate text-xs text-ink2" title={label}>
                 {label}
               </dt>
               <div className="h-2 flex-1 overflow-hidden rounded-full bg-ivoire">
@@ -35,8 +35,8 @@ export function BreakdownList({ title, entries, emptyMessage }: Props) {
               </div>
               {/* Nombre ET part : sans le pourcentage, deux blocs de tailles
                   différentes se comparent à l'œil, donc mal. */}
-              <dd className="w-16 flex-shrink-0 text-right text-xs text-gris-mid tabular-nums">
-                <span className="font-semibold text-brun-ancre">{count}</span>
+              <dd className="w-16 flex-shrink-0 text-right text-xs text-ink2 tabular-nums">
+                <span className="font-semibold text-ink">{count}</span>
                 <span className="ml-1">{Math.round((count / total) * 100)}%</span>
               </dd>
             </div>

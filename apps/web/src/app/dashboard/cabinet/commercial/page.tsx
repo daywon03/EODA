@@ -4,7 +4,7 @@ import { listDevisForKpi } from "@/lib/actions/devis";
 import { listPortfolioRowsForKpi } from "@/lib/actions/establishment";
 import { listPendingOptionRequests } from "@/lib/actions/option-request";
 import { OptionRequestQueue } from "@/components/devis/OptionRequestQueue";
-import { PageHeader } from "@/components/layout/PageHeader";
+import { CommercialHeader } from "@/components/commercial/CommercialHeader";
 import { Button } from "@/components/ui/button";
 import { KpiCard } from "@/components/ui/kpi-card";
 import { BreakdownList } from "@/components/kpi/BreakdownList";
@@ -90,10 +90,9 @@ export default async function CommercialDashboardPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="Pipeline commercial"
-        subtitle="Prospects, devis et indicateurs — usage interne Cabinet uniquement"
-        icon={Briefcase}
+      <CommercialHeader
+        title="Commercial"
+        description="Du premier contact à l'accompagnement signé. Usage interne du cabinet uniquement."
         action={
           // Une seule action PRIMAIRE par écran (`primary-action`) : créer un
           // prospect, l'entrée de l'entonnoir. Le devis vient après, et depuis un
@@ -124,7 +123,7 @@ export default async function CommercialDashboardPage() {
       {optionRequests.length > 0 && <OptionRequestQueue requests={optionRequests} />}
 
       <section className="space-y-3">
-        <h2 className="text-xs font-semibold uppercase tracking-wide text-gris-mid">
+        <h2 className="text-xl font-bold text-ink">
           Indicateurs commerciaux
         </h2>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -135,7 +134,7 @@ export default async function CommercialDashboardPage() {
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-xs font-semibold uppercase tracking-wide text-gris-mid">
+        <h2 className="text-xl font-bold text-ink">
           Du premier contact à la fin d&apos;accompagnement
         </h2>
         {/* L'entonnoir prend deux tiers de la largeur : c'est la lecture principale

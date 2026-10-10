@@ -12,13 +12,15 @@ type Props = {
   totalCount: number;
   /** Taille de page en vigueur (déjà bornée par parsePageSize). */
   pageSize: number;
+  /** Autres paramètres d'URL à conserver (onglet courant…). */
+  query?: Record<string, string>;
 };
 
 // « Voir plus » sans état client : la taille de page voyage dans l'URL, la page
 // est un composant serveur, et le plafond dur de `pagination-service` empêche
 // `?taille=999999`. Un lien plutôt qu'un bouton — la liste élargie est une URL
 // partageable et rechargeable.
-export function LoadMoreLink({ basePath, shownCount, totalCount, pageSize }: Props) {
+export function LoadMoreLink({ basePath, shownCount, totalCount, pageSize, query = {} }: Props) {
   const remaining = totalCount - shownCount;
   if (remaining <= 0) return null;
 
@@ -34,7 +36,7 @@ export function LoadMoreLink({ basePath, shownCount, totalCount, pageSize }: Pro
   return (
     <div className="flex flex-col items-center gap-1.5 pt-2">
       <Button variant="outline" size="sm" asChild>
-        <Link href={`${basePath}?taille=${nextPageSize(pageSize)}`}>
+        <Link href={`${basePath}?${new URLSearchParams({ ...query, taille: String(nextPageSize(pageSize)) }).toString()}`}>
           <ChevronDown className="w-3.5 h-3.5" aria-hidden="true" />
           Voir plus
         </Link>

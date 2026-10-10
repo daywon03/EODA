@@ -40,7 +40,7 @@ export function CatalogueOptionForm({ option }: { option?: CatalogueOption }) {
   const id = option?.id ?? "new";
 
   return (
-    <form action={formAction} className="space-y-2 border border-gris-light rounded-xl p-3">
+    <form action={formAction} className="space-y-2 px-5 py-4">
       <div className="flex flex-wrap items-end gap-3">
         <div className="space-y-1">
           <Label htmlFor={`code-${id}`}>Code</Label>
@@ -128,12 +128,12 @@ export function CatalogueOptionForm({ option }: { option?: CatalogueOption }) {
         </Button>
       </div>
 
-      <p className="text-xs text-gris-mid">
-        Affiché au client : <span className="text-brun-ancre">{formatStartingPrice({ priceEuros, pricingUnit, priceMaxEuros, minQuantity })}</span>
+      <p className="text-xs text-ink2">
+        Affiché au client : <span className="text-ink">{formatStartingPrice({ priceEuros, pricingUnit, priceMaxEuros, minQuantity })}</span>
       </p>
 
       {state?.error && (
-        <p role="alert" className="flex items-center gap-1 text-xs text-rouge-imp w-full">
+        <p role="alert" className="flex items-center gap-1 text-xs text-danger-text w-full">
           <AlertCircle className="w-3 h-3 flex-shrink-0" aria-hidden="true" />
           {state.error}
         </p>

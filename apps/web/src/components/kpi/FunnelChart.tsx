@@ -25,10 +25,10 @@ export function FunnelChart({ steps, lost, indetermine }: Props) {
   const worstStage = biggestDropStage(steps);
 
   return (
-    <section className="rounded-xl border border-gris-light bg-surface p-5">
+    <section className="rounded-xl border border-line bg-surface p-5">
       <div className="mb-4">
-        <h3 className="text-sm font-semibold text-brun-ancre">Entonnoir commercial</h3>
-        <p className="mt-0.5 text-xs text-gris-mid">{describeFunnel({ steps, lost, indetermine })}</p>
+        <h3 className="text-sm font-semibold text-ink">Entonnoir commercial</h3>
+        <p className="mt-0.5 text-xs text-ink2">{describeFunnel({ steps, lost, indetermine })}</p>
       </div>
 
       <ol className="space-y-1">
@@ -37,11 +37,11 @@ export function FunnelChart({ steps, lost, indetermine }: Props) {
           return (
             <li key={step.stage}>
               <div className="flex items-baseline justify-between gap-3">
-                <span className="text-xs font-medium text-brun-ancre">
+                <span className="text-xs font-medium text-ink">
                   {FUNNEL_STAGE_LABELS[step.stage]}
                 </span>
-                <span className="flex-shrink-0 text-xs text-gris-mid tabular-nums">
-                  <span className="font-semibold text-brun-ancre">{step.reached}</span>
+                <span className="flex-shrink-0 text-xs text-ink2 tabular-nums">
+                  <span className="font-semibold text-ink">{step.reached}</span>
                   {" · "}
                   {step.sharePercent}%
                   {/* « Actuellement à cette étape » n'est pas la même chose que
@@ -50,7 +50,7 @@ export function FunnelChart({ steps, lost, indetermine }: Props) {
                       « 0 ici » sur chaque ligne franchie n'apprend rien et remplit
                       la place. */}
                   {step.current > 0 && step.current !== step.reached && (
-                    <span className="text-gris-mid"> · {step.current} à cette étape</span>
+                    <span className="text-ink2"> · {step.current} à cette étape</span>
                   )}
                 </span>
               </div>
@@ -74,7 +74,7 @@ export function FunnelChart({ steps, lost, indetermine }: Props) {
               {step.passRatePercent !== null && index < steps.length - 1 && (
                 <p
                   className={`mt-1 flex items-center gap-1 pl-0.5 text-sm ${
-                    isWorst ? "font-medium text-terre" : "text-gris-mid"
+                    isWorst ? "font-medium text-terre" : "text-ink2"
                   }`}
                 >
                   <ArrowDown className="h-3 w-3 flex-shrink-0" aria-hidden="true" />
@@ -89,7 +89,7 @@ export function FunnelChart({ steps, lost, indetermine }: Props) {
       </ol>
 
       {lost > 0 && (
-        <p className="mt-4 flex items-start gap-2 border-t border-gris-light pt-3 text-xs text-gris-mid">
+        <p className="mt-4 flex items-start gap-2 border-t border-line pt-3 text-xs text-ink2">
           <AlertTriangle className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-ambre" aria-hidden="true" />
           {lost} affaire{lost > 1 ? "s" : ""} perdue{lost > 1 ? "s" : ""} — comptée
           {lost > 1 ? "s" : ""} à part : l&apos;étape à laquelle elle
