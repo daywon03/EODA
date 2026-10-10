@@ -6,7 +6,7 @@ import { PageHeader } from "@/components/layout/PageHeader";
 import { ProgressBar } from "@/components/ui/progress-bar";
 import { Button } from "@/components/ui/button";
 import { MissionProgressSummary } from "@/components/mission/MissionProgressSummary";
-import { PHASE_LABELS, PHASE_ORDER } from "@/lib/services/mission-progress-service";
+import { MISSION_STEPS, stepPercent, stepTitle } from "@/lib/services/mission-progress-service";
 
 export const metadata = { title: "Mon suivi · EODA Conseil" };
 
@@ -82,13 +82,13 @@ export default async function ClientSuiviPage() {
           />
 
           <div className="bg-surface border border-gris-light rounded-xl p-5 space-y-3">
-            <h2 className="text-base font-semibold text-brun-ancre">Détail des phases</h2>
+            <h2 className="text-base font-semibold text-brun-ancre">Détail des étapes</h2>
             <ul className="divide-y divide-gris-light">
-              {PHASE_ORDER.map((phase) => {
-                const pct = progressView.progress.phasePcts[phase];
+              {MISSION_STEPS.map((step) => {
+                const pct = stepPercent(step, progressView.progress);
                 return (
-                  <li key={phase} className="flex items-center justify-between gap-3 py-2.5 first:pt-0 last:pb-0">
-                    <span className="text-sm text-brun-ancre">{PHASE_LABELS[phase]}</span>
+                  <li key={step.id} className="flex items-center justify-between gap-3 py-2.5 first:pt-0 last:pb-0">
+                    <span className="text-sm text-brun-ancre">{stepTitle(step)}</span>
                     <span className="text-sm text-gris-mid tabular-nums">
                       {pct === undefined ? "—" : `${pct}%`}
                     </span>

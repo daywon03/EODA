@@ -1,16 +1,18 @@
 import type { DocumentStatus } from "@eoda/database";
-import type { TimelinePhase } from "@/components/ui/phase-timeline";
+import type { PhaseState, TimelinePhase } from "@/components/ui/phase-timeline";
 import { DOCUMENT_PILLS, type PillSpec } from "@/lib/design/status-vocabulary";
 import { structureHref } from "@/lib/design/structure-tabs";
 import { selectUpcoming, type CalendarAppointment } from "./calendar-service";
 import { formatDate, formatDateTime } from "./date-format-service";
 import { formatDaysUntil } from "./elapsed-time-service";
 import {
+  MISSION_STEPS,
   PHASE_DATE_FIELDS,
-  PHASE_LABELS,
-  PHASE_ORDER,
+  stepPercent,
+  type MissionPhase,
   type MissionPhaseDates,
   type MissionProgress,
+  type MissionStep,
 } from "./mission-progress-service";
 import { isReminderCandidate } from "./reminder-service";
 import { reviewItemHref } from "./review-queue-service";
@@ -95,7 +97,9 @@ export function describeLoi2002Measure(items: readonly { currentVersion: unknown
 
 // ── Frise de mission ─────────────────────────────────────────────────────────
 
-export type TimelineMission = MissionPhaseDates & { progress: Pick<MissionProgress, "phasePcts"> };
+export type TimelineMission = MissionPhaseDates & {
+  progress: Pick<MissionProgress, "diagnosticPct" | "phasePcts">;
+};
 
 function period(start: Date | null, end: Date | null): string | undefined {
   if (!start && !end) return undefined;
@@ -106,22 +110,53 @@ function periodOf(text: string | undefined): { period?: string } {
   return text === undefined ? {} : { period: text };
 }
 
-// État d'une phase, dérivé de ses dates et de son avancement : terminée si tout est
-// coché ou si sa date de fin est passée ; en cours si elle a commencé (date ou
-// premier item coché) ; à venir sinon. Une phase hors formule n'a pas d'avancement.
+// État d'une phase stockée, dérivé de ses dates et de son avancement : terminée si
+// tout est coché ou si sa date de fin est passée ; en cours si elle a commencé (date
+// ou premier item coché) ; à venir sinon.
+function phaseState(mission: TimelineMission, phase: MissionPhase, now: Date): PhaseState {
+  const start = mission[PHASE_DATE_FIELDS[phase].start];
+  const end = mission[PHASE_DATE_FIELDS[phase].end];
+  const percent = mission.progress.phasePcts[phase];
+  if (percent === 100 || (end !== null && end < now)) return "done";
+  if ((start !== null && start <= now) || (percent ?? 0) > 0) return "current";
+  return "upcoming";
+}
+
+// État d'une étape : celui de ses phases APPLICABLES (une phase hors formule n'a
+// pas d'avancement et ne retient pas l'étape). Terminée si toutes le sont, en cours
+// dès que l'une a commencé. Le diagnostic n'a pas de dates : son avancement seul.
+function stepState(mission: TimelineMission, step: MissionStep, now: Date): PhaseState {
+  if (step.phases.length === 0) {
+    const pct = mission.progress.diagnosticPct;
+    return pct === 100 ? "done" : pct > 0 ? "current" : "upcoming";
+  }
+  const states = step.phases
+    .filter((phase) => mission.progress.phasePcts[phase] !== undefined)
+    .map((phase) => phaseState(mission, phase, now));
+  if (states.length === 0) return "upcoming";
+  if (states.every((s) => s === "done")) return "done";
+  return states.some((s) => s !== "upcoming") ? "current" : "upcoming";
+}
+
+// Période d'une étape : début de sa première phase, fin de sa dernière.
+function stepPeriod(mission: TimelineMission, step: MissionStep): string | undefined {
+  const first = step.phases[0];
+  const last = step.phases[step.phases.length - 1];
+  if (!first || !last) return undefined;
+  return period(mission[PHASE_DATE_FIELDS[first].start], mission[PHASE_DATE_FIELDS[last].end]);
+}
+
+// Frise en QUATRE ÉTAPES (MISSION_STEPS) : la checklist de diagnostic, puis les
+// phases datées regroupées. Une étape hors formule n'a pas d'avancement.
 export function toTimelinePhases(mission: TimelineMission, now: Date): TimelinePhase[] {
-  return PHASE_ORDER.map((phase) => {
-    const start = mission[PHASE_DATE_FIELDS[phase].start];
-    const end = mission[PHASE_DATE_FIELDS[phase].end];
-    const percent = mission.progress.phasePcts[phase];
-    const isDone = percent === 100 || (end !== null && end < now);
-    const isStarted = (start !== null && start <= now) || (percent ?? 0) > 0;
+  return MISSION_STEPS.map((step) => {
+    const percent = stepPercent(step, mission.progress);
     return {
-      id: phase,
-      label: PHASE_LABELS[phase],
-      state: isDone ? "done" : isStarted ? "current" : "upcoming",
+      id: step.id,
+      label: step.label,
+      state: stepState(mission, step, now),
       ...(percent !== undefined && { percent }),
-      ...periodOf(percent === undefined ? "Hors formule" : period(start, end)),
+      ...periodOf(percent === undefined ? "Hors formule" : stepPeriod(mission, step)),
     };
   });
 }

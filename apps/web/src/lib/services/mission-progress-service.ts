@@ -17,27 +17,29 @@ const PHASE_SCOPES: MissionChecklistScope[] = [
   "PREPARATION_FINALE",
 ];
 
-// Libellés et ordre d'affichage des phases — source unique, partagée entre la
-// fiche mission (cabinet), la vue d'ensemble de la fiche structure et le suivi de
-// progression (client, portail "Mon suivi"). Vivaient auparavant recopiés dans la
-// page cabinet uniquement (D1).
+// Libellés et ordre d'affichage — source unique, partagée entre la fiche mission
+// (cabinet), la frise de la vue d'ensemble et le suivi de progression (client,
+// portail « Mon suivi »). Vivaient auparavant recopiés dans la page cabinet (D1).
 //
-// Décision 3 du plan des maquettes v2 (09/10/2026) : les phases s'appellent
-// Diagnostic / Mise en conformité / Suivi / Préparation finale. Seuls les LIBELLÉS
-// changent : les clés de l'enum `MissionChecklistScope` et les colonnes de dates
-// (`fondationsStartDate`…) restent celles d'origine — renommer une valeur d'enum
-// stockée exigerait une migration destructive pour un gain nul. Correspondance :
-//   FONDATIONS         (ex-« Fondations »)   → Diagnostic
-//   DEPLOIEMENT        (ex-« Déploiement »)  → Mise en conformité
-//   CONSOLIDATION      (ex-« Consolidation ») → Suivi
-//   PREPARATION_FINALE (inchangé)             → Préparation finale
-// Le scope `DIAGNOSTIC` (les 12 items du « Diagnostic initial ») n'est pas une phase
-// datée : il garde son propre libellé.
+// Décision 3 des maquettes v2, corrigée par Damon le 10/10/2026 : la mission se lit
+// en QUATRE ÉTAPES — Diagnostic / Mise en conformité / Suivi / Préparation finale —
+// qui ne correspondent PAS une à une aux quatre phases datées stockées. Le premier
+// renommage (09/10) appelait FONDATIONS « Diagnostic », en double avec la checklist
+// « Diagnostic initial ». Correspondance d'AFFICHAGE, sans changer le schéma ni les
+// clés stockées (renommer une valeur d'enum stockée exigerait une migration
+// destructive pour un mot) :
+//   Étape 1 Diagnostic          = scope DIAGNOSTIC (les 12 items, sans dates)
+//   Étape 2 Mise en conformité  = FONDATIONS + DEPLOIEMENT (début de la première,
+//                                 fin de la seconde ; état dérivé des deux)
+//   Étape 3 Suivi               = CONSOLIDATION
+//   Étape 4 Préparation finale  = PREPARATION_FINALE
+// Chaque phase stockée reste éditable sous l'étape qui la regroupe, d'où ses
+// libellés propres ci-dessous. Les étapes : MISSION_STEPS, en fin de fichier.
 export const PHASE_LABELS: Record<Exclude<MissionChecklistScope, "DIAGNOSTIC">, string> = {
-  FONDATIONS: "Phase 1 — Diagnostic",
-  DEPLOIEMENT: "Phase 2 — Mise en conformité",
-  CONSOLIDATION: "Phase 3 — Suivi",
-  PREPARATION_FINALE: "Phase 4 — Préparation finale",
+  FONDATIONS: "Mise en conformité — fondations",
+  DEPLOIEMENT: "Mise en conformité — déploiement",
+  CONSOLIDATION: "Suivi",
+  PREPARATION_FINALE: "Préparation finale",
 };
 
 export const PHASE_ORDER: Exclude<MissionChecklistScope, "DIAGNOSTIC">[] = [
@@ -126,4 +128,42 @@ export function computeMissionProgress(
   const globalPct = Math.round((diagnosticPct + phasesPct) / 2);
 
   return { diagnosticPct, phasePcts, phasesPct, globalPct };
+}
+
+// ── Étapes affichées (regroupement des phases stockées) ─────────────────────
+
+export type MissionStepId = "DIAGNOSTIC" | "MISE_EN_CONFORMITE" | "SUIVI" | "PREPARATION_FINALE";
+
+export type MissionStep = {
+  id: MissionStepId;
+  number: number;
+  label: string;
+  // Phases datées regroupées sous l'étape ; vide pour le diagnostic (checklist seule).
+  phases: readonly MissionPhase[];
+};
+
+export const MISSION_STEPS: readonly MissionStep[] = [
+  { id: "DIAGNOSTIC", number: 1, label: "Diagnostic", phases: [] },
+  { id: "MISE_EN_CONFORMITE", number: 2, label: "Mise en conformité", phases: ["FONDATIONS", "DEPLOIEMENT"] },
+  { id: "SUIVI", number: 3, label: "Suivi", phases: ["CONSOLIDATION"] },
+  { id: "PREPARATION_FINALE", number: 4, label: "Préparation finale", phases: ["PREPARATION_FINALE"] },
+];
+
+export function stepTitle(step: MissionStep): string {
+  return `Étape ${step.number} — ${step.label}`;
+}
+
+// Avancement d'une étape : le diagnostic prend celui de sa checklist ; une étape à
+// phases prend la moyenne simple de ses phases APPLICABLES (même règle que §7.4).
+// `undefined` = étape entièrement hors formule.
+export function stepPercent(
+  step: MissionStep,
+  progress: Pick<MissionProgress, "diagnosticPct" | "phasePcts">
+): number | undefined {
+  if (step.phases.length === 0) return progress.diagnosticPct;
+  const values = step.phases
+    .map((phase) => progress.phasePcts[phase])
+    .filter((v): v is number => v !== undefined);
+  if (values.length === 0) return undefined;
+  return Math.round(values.reduce((a, b) => a + b, 0) / values.length);
 }

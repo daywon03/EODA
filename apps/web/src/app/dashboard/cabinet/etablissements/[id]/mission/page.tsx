@@ -16,7 +16,12 @@ import { MissionClosureSection } from "@/components/mission/MissionClosureSectio
 import { Button } from "@/components/ui/button";
 import { FileSignature, FileText } from "lucide-react";
 import { needsAvenant } from "@/lib/services/avenant-service";
-import { PHASE_DATE_FIELDS, PHASE_LABELS, PHASE_ORDER } from "@/lib/services/mission-progress-service";
+import {
+  MISSION_STEPS,
+  PHASE_DATE_FIELDS,
+  PHASE_LABELS,
+  stepTitle,
+} from "@/lib/services/mission-progress-service";
 import { AvenantSignatureToggle } from "@/components/mission/AvenantSignatureToggle";
 import { auth } from "@/auth";
 
@@ -130,34 +135,47 @@ export default async function MissionPage({ params }: Props) {
             </CardContent>
           </Card>
 
-          <Card>
-            <CardContent className="pt-6">
-              <DiagnosticChecklistSection
-                missionId={mission.id}
-                items={mission.items.filter((i) => i.scope === "DIAGNOSTIC")}
-                pct={mission.progress.diagnosticPct}
-              />
-            </CardContent>
-          </Card>
+          {/* Quatre ÉTAPES affichées (MISSION_STEPS) : la checklist de diagnostic,
+              puis les phases datées stockées regroupées. Chaque phase reste éditable
+              (dates, items) sous l'étape qui la contient. */}
+          {MISSION_STEPS.map((step) => (
+            <section key={step.id} aria-labelledby={`etape-${step.id}`} className="space-y-3">
+              <h3 id={`etape-${step.id}`} className="text-lg font-bold text-ink">
+                {stepTitle(step)}
+              </h3>
+              {step.phases.length === 0 ? (
+                <Card>
+                  <CardContent className="pt-6">
+                    <DiagnosticChecklistSection
+                      missionId={mission.id}
+                      items={mission.items.filter((i) => i.scope === "DIAGNOSTIC")}
+                      pct={mission.progress.diagnosticPct}
+                    />
+                  </CardContent>
+                </Card>
+              ) : (
+                step.phases.map((phase) => (
+                  <Card key={phase}>
+                    <CardContent className="pt-6">
+                      <PhaseChecklistSection
+                        missionId={mission.id}
+                        phase={phase}
+                        label={PHASE_LABELS[phase]}
+                        items={mission.items.filter((i) => i.scope === phase)}
+                        pct={mission.progress.phasePcts[phase] ?? 0}
+                        startDate={mission[PHASE_DATE_FIELDS[phase].start]}
+                        endDate={mission[PHASE_DATE_FIELDS[phase].end]}
+                      />
+                    </CardContent>
+                  </Card>
+                ))
+              )}
+            </section>
+          ))}
 
           {/* Fin de mission (§12.5) : trois états d'accès, tous réversibles, aucune
-              suppression. Placé après les phases dans la lecture, mais avant elles
-              dans le rendu serait faux — on ne clôt pas ce qu'on n'a pas parcouru. */}
-          {PHASE_ORDER.map((phase) => (
-            <Card key={phase}>
-              <CardContent className="pt-6">
-                <PhaseChecklistSection
-                  missionId={mission.id}
-                  phase={phase}
-                  label={PHASE_LABELS[phase]}
-                  items={mission.items.filter((i) => i.scope === phase)}
-                  pct={mission.progress.phasePcts[phase] ?? 0}
-                  startDate={mission[PHASE_DATE_FIELDS[phase].start]}
-                  endDate={mission[PHASE_DATE_FIELDS[phase].end]}
-                />
-              </CardContent>
-            </Card>
-          ))}
+              suppression. Placée après les étapes — on ne clôt pas ce qu'on n'a pas
+              parcouru. */}
 
           <Card>
             <CardContent className="pt-6">

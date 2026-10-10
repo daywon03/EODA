@@ -41,7 +41,7 @@ describe("describeEvaluationCountdown", () => {
   });
 });
 
-describe("toTimelinePhases — frise aux libellés de la décision 3", () => {
+describe("toTimelinePhases — frise en quatre étapes (correction du 10/10/2026)", () => {
   const mission: TimelineMission = {
     fondationsStartDate: day(-60),
     fondationsEndDate: day(-30),
@@ -51,37 +51,58 @@ describe("toTimelinePhases — frise aux libellés de la décision 3", () => {
     consolidationEndDate: null,
     preparationFinaleStartDate: null,
     preparationFinaleEndDate: null,
-    progress: { phasePcts: { FONDATIONS: 100, DEPLOIEMENT: 40, CONSOLIDATION: 0 } },
+    progress: { diagnosticPct: 100, phasePcts: { FONDATIONS: 100, DEPLOIEMENT: 40, CONSOLIDATION: 0 } },
   };
 
-  it("dérive l'état de chaque phase et garde les libellés", () => {
+  it("étape 1 = la checklist de diagnostic, pas la phase FONDATIONS", () => {
     const phases = toTimelinePhases(mission, NOW);
-    expect(phases.map((p) => [p.label, p.state])).toEqual([
-      ["Phase 1 — Diagnostic", "done"],
-      ["Phase 2 — Mise en conformité", "current"],
-      ["Phase 3 — Suivi", "upcoming"],
-      ["Phase 4 — Préparation finale", "upcoming"],
+    expect(phases.map((p) => [p.id, p.label, p.state])).toEqual([
+      ["DIAGNOSTIC", "Diagnostic", "done"],
+      ["MISE_EN_CONFORMITE", "Mise en conformité", "current"],
+      ["SUIVI", "Suivi", "upcoming"],
+      ["PREPARATION_FINALE", "Préparation finale", "upcoming"],
     ]);
-    expect(phases[1]).toMatchObject({ percent: 40, period: "10/09/2026 → 08/11/2026" });
+    expect(phases[0]).toMatchObject({ percent: 100 });
+    expect(phases[0]).not.toHaveProperty("period");
   });
 
-  it("une phase hors formule n'a pas d'avancement", () => {
-    expect(toTimelinePhases(mission, NOW)[3]).toMatchObject({ period: "Hors formule" });
-    expect(toTimelinePhases(mission, NOW)[3]).not.toHaveProperty("percent");
+  it("mise en conformité = fondations + déploiement : début de l'une, fin de l'autre, moyenne", () => {
+    expect(toTimelinePhases(mission, NOW)[1]).toMatchObject({ percent: 70, period: "10/08/2026 → 08/11/2026" });
+  });
+
+  it("mise en conformité terminée seulement quand ses deux phases le sont", () => {
+    const done = toTimelinePhases(
+      { ...mission, progress: { diagnosticPct: 0, phasePcts: { FONDATIONS: 100, DEPLOIEMENT: 100 } } },
+      NOW
+    );
+    expect(done[1]?.state).toBe("done");
+    expect(done[0]?.state).toBe("upcoming");
+  });
+
+  it("une phase hors formule ne retient pas l'étape ; une étape entière hors formule n'a pas d'avancement", () => {
+    const partial = toTimelinePhases(
+      { ...mission, progress: { diagnosticPct: 40, phasePcts: { FONDATIONS: 100 } } },
+      NOW
+    );
+    expect(partial[0]?.state).toBe("current");
+    expect(partial[1]).toMatchObject({ state: "done", percent: 100 });
+    expect(partial[3]).toMatchObject({ period: "Hors formule", state: "upcoming" });
+    expect(partial[3]).not.toHaveProperty("percent");
   });
 
   it("une date de fin passée termine la phase ; un item coché la démarre", () => {
     const phases = toTimelinePhases(
       {
         ...mission,
-        fondationsEndDate: day(-1),
-        progress: { phasePcts: { FONDATIONS: 50, DEPLOIEMENT: 0, CONSOLIDATION: 10 } },
+        fondationsStartDate: day(5),
+        fondationsEndDate: null,
         deploiementStartDate: day(5),
+        progress: { diagnosticPct: 0, phasePcts: { FONDATIONS: 0, DEPLOIEMENT: 0, CONSOLIDATION: 10 } },
         consolidationEndDate: day(40),
       },
       NOW
     );
-    expect(phases.map((p) => p.state).slice(0, 3)).toEqual(["done", "upcoming", "current"]);
+    expect(phases.map((p) => p.state).slice(1, 3)).toEqual(["upcoming", "current"]);
     expect(phases[2]?.period).toBe("… → 18/11/2026");
   });
 });

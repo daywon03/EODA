@@ -349,12 +349,18 @@ Détail complet et état d'avancement : `specs/02-architecture-technique.md` §4
   Suivi/Préparation finale hors Excellence ou bêta-test gratuit) vit sur `Mission.formule`,
   pas sur `Establishment.commercialTier` (resté hardcodé `BETA`, affichage/historique
   uniquement) — ne jamais dupliquer cette décision sur les deux modèles.
-  **Phases renommées le 09/10/2026 (décision 3 des maquettes v2), libellés seulement** :
-  Diagnostic / Mise en conformité / Suivi / Préparation finale. Les clés stockées ne
-  changent pas — `FONDATIONS` = Diagnostic, `DEPLOIEMENT` = Mise en conformité,
-  `CONSOLIDATION` = Suivi, `PREPARATION_FINALE` = Préparation finale ; la source unique des
-  libellés est `PHASE_LABELS` (`mission-progress-service.ts`). Ne jamais renommer l'enum ni
-  les colonnes `fondationsStartDate`… : ce serait une migration destructive pour un mot.
+  **Quatre ÉTAPES affichées (décision 3 des maquettes v2, corrigée par Damon le
+  10/10/2026), affichage seulement** : Diagnostic / Mise en conformité / Suivi /
+  Préparation finale. Elles ne correspondent PAS une à une aux phases stockées (le
+  renommage du 09/10 appelait `FONDATIONS` « Diagnostic », en double avec la checklist) :
+  étape 1 Diagnostic = la checklist `DIAGNOSTIC` (12 items, sans dates) ; étape 2 Mise en
+  conformité = `FONDATIONS` + `DEPLOIEMENT` regroupées (début de la première, fin de la
+  seconde, état dérivé des deux) ; étape 3 Suivi = `CONSOLIDATION` ; étape 4 =
+  `PREPARATION_FINALE`. Chaque phase stockée reste éditable sous son étape (« Mise en
+  conformité — fondations » / « — déploiement »). Sources uniques : `MISSION_STEPS`,
+  `stepPercent` et `PHASE_LABELS` (`mission-progress-service.ts`) ; frise dans
+  `structure-sheet-service.ts`. Ne jamais renommer l'enum ni les colonnes
+  `fondationsStartDate`… : ce serait une migration destructive pour un mot.
   **Corollaire depuis le 20/08/2026** : les options souscrites vivent elles aussi sur la mission (`MissionOption`,
   peuplée à la signature par `lib/actions/conversion.ts`). Les `DevisOption` restent le
   **document commercial** — ils font contrat et ne se réécrivent jamais — et servent de repli
