@@ -19,6 +19,17 @@ export const RATING_LABELS: Record<Rating, string> = {
   RI: "RI",
 };
 
+// Libellé long, lu par le lecteur d'écran et en infobulle (§3.1, libellés HAS).
+export const RATING_TITLES: Record<Rating, string> = {
+  R1: "Pas du tout satisfaisant",
+  R2: "Plutôt pas satisfaisant",
+  R3: "Plutôt satisfaisant",
+  R4: "Tout à fait satisfaisant",
+  STAR: "Niveau optimisé (compte 4)",
+  NC: "Non concerné",
+  RI: "Réponse inadaptée",
+};
+
 // Valeur numérique d'une cotation pour le calcul de moyenne — null = exclu du calcul
 // (NC, RI). ★ compte comme 4, jamais comme une valeur à part.
 export function ratingValue(rating: Rating): number | null {
@@ -70,9 +81,16 @@ export function computeWeightedAverage(items: WeightedScore[]): number | null {
 
 export type RatingAllowedResult = { allowed: boolean; warning?: string };
 
-// RI n'existe que pour le Chapitre 1. NC est toujours saisissable mais affiche un
-// avertissement pédagogique (pas un blocage technique) sur un critère impératif —
-// cf. context/02-referentiel-has.md §3.2 points 1-2.
+// Message affiché à côté du bouton NC d'un critère impératif ET renvoyé par le
+// serveur s'il est forcé — une seule formulation (D1).
+export const NC_ON_IMPERATIF_REFUSAL =
+  "NC n'est pas possible sur un critère impératif. Avant de conclure à un non-concerné, la HAS demande : le périmètre est-il vraiment hors des missions de la structure ? Une ressource externe pourrait-elle répondre à l'attendu ? Le choix de la personne accompagnée explique-t-il l'absence ? Une action préventive existe-t-elle malgré tout ?";
+
+// RI n'existe que pour le Chapitre 1 ; NC est interdit sur un critère impératif —
+// cf. context/02-referentiel-has.md §3.2 points 1-2. Le refus de NC sur impératif
+// est un REFUS serveur depuis le 10/10/2026 (décision 4 des maquettes v2 : « NC
+// interdit sur impératif ») — il n'était jusque-là qu'un avertissement, et un NC
+// forcé retirait l'impératif du calcul sans que rien ne l'empêche.
 export function isRatingAllowed(
   rating: Rating,
   chapterNumber: number,
@@ -83,11 +101,7 @@ export function isRatingAllowed(
   }
 
   if (rating === "NC" && requirementLevel === "IMPERATIF") {
-    return {
-      allowed: true,
-      warning:
-        "NC sur un critère impératif — à confirmer : le périmètre est-il vraiment hors des missions de l'ESSMS ? Une ressource externe pourrait-elle répondre à l'attendu ? Le choix de la personne accompagnée explique-t-il l'absence ? Une action préventive existe-t-elle malgré tout ?",
-    };
+    return { allowed: false, warning: NC_ON_IMPERATIF_REFUSAL };
   }
 
   return { allowed: true };

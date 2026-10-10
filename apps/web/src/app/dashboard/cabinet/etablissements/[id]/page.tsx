@@ -2,7 +2,7 @@ import Link from "next/link";
 import { getEstablishment } from "@/lib/actions/establishment";
 import { getEstablishmentChecklist } from "@/lib/actions/checklist";
 import { getMission } from "@/lib/actions/mission";
-import { getEvaluationChapter, listChapters } from "@/lib/actions/evaluation";
+import { getEvaluationChapter, listChapters } from "@/lib/actions/evaluation-chapter";
 import { listAppointmentsFor } from "@/lib/actions/appointment";
 import {
   deriveNextActions,

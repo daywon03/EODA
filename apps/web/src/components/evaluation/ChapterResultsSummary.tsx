@@ -1,37 +1,26 @@
-import { AlertTriangle } from "lucide-react";
-import { scoreLabel } from "@/lib/services/scoring-service";
-import type { EvaluationChapterData } from "@/lib/actions/evaluation";
+import type { EvaluationChapterData } from "@/lib/actions/evaluation-chapter";
 
-type Props = { chapterScore: number | null; imperatifsAtRisk: EvaluationChapterData["imperatifsAtRisk"] };
+type Props = { imperatifsAtRisk: EvaluationChapterData["imperatifsAtRisk"] };
 
-export function ChapterResultsSummary({ chapterScore, imperatifsAtRisk }: Props) {
+// Impératifs cotés sous 4 : à traiter en priorité (02-referentiel-has.md §5 — plan
+// d'action obligatoire). Rien à signaler = rien d'affiché.
+export function ChapterResultsSummary({ imperatifsAtRisk }: Props) {
+  if (imperatifsAtRisk.length === 0) return null;
+  const plural = imperatifsAtRisk.length > 1;
   return (
-    <div className="bg-surface border border-gris-light rounded-xl p-5 space-y-4">
-      <div className="flex items-center justify-between">
-        <span className="text-sm font-medium text-brun-ancre">Score du chapitre</span>
-        <span className="text-2xl font-bold text-brun-ancre tabular-nums">
-          {chapterScore !== null ? `${chapterScore.toFixed(1)}/4` : "—"}
-        </span>
-      </div>
-      {chapterScore !== null && <p className="text-xs text-gris-mid">{scoreLabel(chapterScore)}</p>}
-
-      {imperatifsAtRisk.length > 0 && (
-        <div className="border-t border-gris-light pt-3 space-y-2">
-          <p className="flex items-center gap-1.5 text-xs font-semibold text-rouge-imp">
-            <AlertTriangle className="w-3.5 h-3.5" aria-hidden="true" />
-            {imperatifsAtRisk.length} critère{imperatifsAtRisk.length > 1 ? "s" : ""} impératif
-            {imperatifsAtRisk.length > 1 ? "s" : ""} à traiter
-          </p>
-          <ul className="space-y-1">
-            {imperatifsAtRisk.map((c) => (
-              <li key={c.code} className="text-xs text-gris-mid">
-                <span className="font-medium text-brun-ancre">{c.code}</span> — {c.label} (
-                {c.score !== null ? c.score.toFixed(1) : "—"}/4)
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-    </div>
+    <section aria-labelledby="imperatifs-a-traiter" className="space-y-2 rounded-xl border border-line bg-card p-5">
+      <h3 id="imperatifs-a-traiter" className="font-bold text-danger-text">
+        <span aria-hidden="true">▲ </span>
+        {imperatifsAtRisk.length} critère{plural ? "s" : ""} impératif{plural ? "s" : ""} coté{plural ? "s" : ""} sous 4
+      </h3>
+      <ul className="space-y-1">
+        {imperatifsAtRisk.map((c) => (
+          <li key={c.code} className="text-sm text-ink2">
+            <span className="font-bold tabular-nums text-ink">{c.code}</span> — {c.label} (
+            {c.score !== null ? c.score.toFixed(1).replace(".", ",") : "—"} / 4)
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }

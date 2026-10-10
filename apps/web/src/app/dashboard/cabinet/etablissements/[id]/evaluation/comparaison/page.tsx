@@ -12,10 +12,10 @@ export const metadata = { title: "Comparaison des sessions · EODA Conseil" };
 type Props = { params: Promise<{ id: string }> };
 
 const TREND_STYLE: Record<ComparisonTrend, { className: string; icon: typeof Equal }> = {
-  PROGRESSION: { className: "text-vert-ok", icon: ArrowUpRight },
-  REGRESSION: { className: "text-rouge-imp", icon: ArrowDownRight },
-  STABLE: { className: "text-gris-mid", icon: Equal },
-  INCOMPARABLE: { className: "text-gris-mid", icon: Minus },
+  PROGRESSION: { className: "text-ok-text", icon: ArrowUpRight },
+  REGRESSION: { className: "text-danger-text", icon: ArrowDownRight },
+  STABLE: { className: "text-ink2", icon: Equal },
+  INCOMPARABLE: { className: "text-ink2", icon: Minus },
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -42,9 +42,9 @@ export default async function EvaluationComparisonPage({ params }: Props) {
       />
 
       {comparison.chapters.length === 0 ? (
-        <div className="rounded-xl border border-gris-light bg-surface px-5 py-8 text-center">
-          <p className="text-sm font-semibold text-brun-ancre">Rien à comparer pour l&apos;instant</p>
-          <p className="mt-1 text-sm text-gris-mid">
+        <div className="rounded-xl border border-line bg-card px-5 py-8 text-center">
+          <p className="text-sm font-semibold text-ink">Rien à comparer pour l&apos;instant</p>
+          <p className="mt-1 text-sm text-ink2">
             La comparaison s&apos;affiche dès qu&apos;un chapitre a été coté au cours de deux
             sessions distinctes. Clôturez la session en cours, puis ouvrez-en une nouvelle
             pour la seconde auto-évaluation.
@@ -57,7 +57,7 @@ export default async function EvaluationComparisonPage({ params }: Props) {
               <CardTitle className="text-base">
                 Chapitre {chapter.chapterNumber} — {chapter.chapterName}
               </CardTitle>
-              <p className="text-xs text-gris-mid">
+              <p className="text-xs text-ink2">
                 Session du {formatDate(chapter.previousStartedAt)} comparée à celle du{" "}
                 {formatDate(chapter.currentStartedAt)}
               </p>
@@ -80,10 +80,10 @@ export default async function EvaluationComparisonPage({ params }: Props) {
               {chapter.summary.imperatifsRegressed.length > 0 && (
                 <div className="flex items-start gap-3 rounded-lg border border-rouge-imp/30 bg-rouge-imp/5 px-4 py-3">
                   <AlertTriangle
-                    className="mt-0.5 h-4 w-4 flex-shrink-0 text-rouge-imp"
+                    className="mt-0.5 h-4 w-4 flex-shrink-0 text-danger-text"
                     aria-hidden="true"
                   />
-                  <p className="text-sm text-brun-ancre">
+                  <p className="text-sm text-ink">
                     Critères impératifs passés sous 4 depuis la première session :{" "}
                     <span className="font-semibold">
                       {chapter.summary.imperatifsRegressed.join(", ")}
@@ -95,29 +95,29 @@ export default async function EvaluationComparisonPage({ params }: Props) {
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b border-gris-light text-left text-xs uppercase tracking-wide text-gris-mid">
+                    <tr className="border-b border-line text-left text-xs uppercase tracking-wide text-ink2">
                       <th className="py-2">Critère</th>
                       <th className="py-2 text-right">1ʳᵉ session</th>
                       <th className="py-2 text-right">2ᵉ session</th>
                       <th className="py-2 text-right">Écart</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gris-light">
+                  <tbody className="divide-y divide-line">
                     {chapter.comparisons.map((line) => {
                       const { className, icon: Icon } = TREND_STYLE[line.trend];
                       return (
                         <tr key={line.code}>
                           <td className="py-2 pr-3">
-                            <span className="font-medium text-brun-ancre">{line.code}</span>
+                            <span className="font-medium text-ink">{line.code}</span>
                             {line.requirementLevel === "IMPERATIF" && (
-                              <span className="ml-2 text-xs text-rouge-imp">impératif</span>
+                              <span className="ml-2 text-xs text-danger-text">impératif</span>
                             )}
-                            <span className="block text-xs text-gris-mid">{line.label}</span>
+                            <span className="block text-xs text-ink2">{line.label}</span>
                           </td>
-                          <td className="py-2 text-right tabular-nums text-gris-mid">
+                          <td className="py-2 text-right tabular-nums text-ink2">
                             {scoreLabel(line.previousScore)}
                           </td>
-                          <td className="py-2 text-right tabular-nums text-brun-ancre">
+                          <td className="py-2 text-right tabular-nums text-ink">
                             {scoreLabel(line.currentScore)}
                           </td>
                           <td className={`py-2 text-right tabular-nums ${className}`}>
@@ -134,7 +134,7 @@ export default async function EvaluationComparisonPage({ params }: Props) {
               </div>
 
               {chapter.summary.incomparable > 0 && (
-                <p className="text-xs text-gris-mid">
+                <p className="text-xs text-ink2">
                   {chapter.summary.incomparable} critère(s) coté(s) d&apos;un seul côté, ou
                   entièrement NC/RI : aucun écart n&apos;est calculé — un écart déduit d&apos;une
                   absence serait faux.
@@ -146,7 +146,7 @@ export default async function EvaluationComparisonPage({ params }: Props) {
       )}
 
       {comparison.chaptersWithSingleSession.length > 0 && (
-        <p className="text-sm text-gris-mid">
+        <p className="text-sm text-ink2">
           Chapitre(s) {comparison.chaptersWithSingleSession.join(", ")} : une seule session à ce
           jour, la comparaison s&apos;affichera après la seconde auto-évaluation.
         </p>
@@ -157,9 +157,9 @@ export default async function EvaluationComparisonPage({ params }: Props) {
 
 function Counter({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-lg border border-gris-light bg-ivoire/40 px-3 py-2">
-      <p className="text-xs text-gris-mid">{label}</p>
-      <p className="text-sm font-semibold tabular-nums text-brun-ancre">{value}</p>
+    <div className="rounded-lg border border-line bg-ivoire/40 px-3 py-2">
+      <p className="text-xs text-ink2">{label}</p>
+      <p className="text-sm font-semibold tabular-nums text-ink">{value}</p>
     </div>
   );
 }

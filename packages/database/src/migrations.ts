@@ -76,4 +76,5 @@ export const EXPECTED_MIGRATIONS: readonly string[] = [
   "20260920200000_template_criterion_suggestions",
   "20260920210000_drop_template_stage_initiale",
   "20260922120000_devis_email_sent_audit_action",
+  "20261010090000_element_rating_rated_by",
 ] as const;

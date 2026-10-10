@@ -34,6 +34,7 @@ vi.mock("@/lib/auth/guards", () => ({
 }));
 
 const { rateElement } = await import("./evaluation");
+const { NC_ON_IMPERATIF_REFUSAL } = await import("@/lib/services/scoring-service");
 
 // Simule une valeur arrivant d'une requête HTTP : côté serveur, le type d'un
 // paramètre d'action serveur ne prouve rien à l'exécution.
@@ -147,6 +148,45 @@ describe("rateElement — périmètre de critères de l'offre", () => {
       error: "RI n'est disponible que pour le Chapitre 1.",
     });
     expect(prismaMock.elementRating.upsert).not.toHaveBeenCalled();
+  });
+});
+
+describe("rateElement — NC interdit sur un critère impératif (décision 4)", () => {
+  it("refuse NC sur un impératif côté serveur, sans rien écrire", async () => {
+    givenElement("IMPERATIF");
+    givenMission("EXCELLENCE");
+
+    const result = await rateElement(SESSION_ID, "ee-1", untrustedRating("NC"), null);
+
+    expect(result).toEqual({ error: NC_ON_IMPERATIF_REFUSAL });
+    expect(prismaMock.elementRating.upsert).not.toHaveBeenCalled();
+  });
+
+  it("accepte NC sur un critère standard et trace l'auteur du geste", async () => {
+    givenElement("STANDARD");
+    givenMission("EXCELLENCE");
+
+    await expect(rateElement(SESSION_ID, "ee-1", "NC", null)).resolves.toEqual({});
+    const call = prismaMock.elementRating.upsert.mock.calls[0]?.[0] as {
+      update: { ratedByUserId: string; confirmedByUser: boolean; suggestedBySystem: boolean };
+      create: { ratedByUserId: string };
+    };
+    expect(call.update).toMatchObject({ ratedByUserId: "user-1", confirmedByUser: true, suggestedBySystem: false });
+    expect(call.create.ratedByUserId).toBe("user-1");
+  });
+
+  it("session d'un autre tenant : introuvable, rien n'est écrit", async () => {
+    prismaMock.evaluationSession.findFirst.mockResolvedValue(null);
+
+    await expect(rateElement(SESSION_ID, "ee-1", "R4", null)).rejects.toThrow("NEXT_NOT_FOUND");
+    expect(prismaMock.elementRating.upsert).not.toHaveBeenCalled();
+  });
+
+  it("non authentifié : la garde refuse avant toute lecture", async () => {
+    requireCabinetSession.mockRejectedValue(new Error("UNAUTHENTICATED"));
+
+    await expect(rateElement(SESSION_ID, "ee-1", "R4", null)).rejects.toThrow("UNAUTHENTICATED");
+    expect(prismaMock.evaluationSession.findFirst).not.toHaveBeenCalled();
   });
 });
 

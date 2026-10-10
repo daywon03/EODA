@@ -3,7 +3,7 @@
 import { requireEstablishmentInTenant } from "@/lib/auth/guards";
 import { prisma } from "@eoda/database";
 import { notFound } from "next/navigation";
-import { getEvaluationChapter, listChapters } from "./evaluation";
+import { getEvaluationChapter, listChapters } from "./evaluation-chapter";
 import { recordAuditEvent } from "@/lib/services/audit-log-service";
 import {
   buildEvaluationCsv,

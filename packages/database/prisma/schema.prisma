@@ -301,7 +301,8 @@ model User {
   establishmentUsers  EstablishmentUser[]
   uploadedVersions    DocumentVersion[]       @relation("UploadedBy")
   evaluationSessions  EvaluationSession[]
-  optionRequests      ClientOptionRequest[]   @relation("RequestedBy")
+  elementRatings      ElementRating[]         @relation("ElementRatedBy")
+  optionRequests     ClientOptionRequest[]   @relation("RequestedBy")
   prospectTimeline    ProspectTimelineEntry[] @relation("ProspectTimelineAuthor")
   reviewedAnalyses    DocumentVersion[]       @relation("AnalysisReviewedBy")
   createdAppointments Appointment[]           @relation("AppointmentCreatedBy")
@@ -784,12 +785,18 @@ model ElementRating {
   suggestedBySystem   Boolean  @default(false) @map("suggested_by_system")
   confirmedByUser     Boolean  @default(false) @map("confirmed_by_user")
   ratedAt             DateTime @default(now()) @map("rated_at")
+  // Auteur du dernier GESTE humain de cotation (« Coté par … · date »). Nullable :
+  // les cotations antérieures au 10/10/2026 n'en ont pas, et la personne qui a
+  // ouvert la session n'est pas forcément celle qui a coté — on ne devine pas.
+  ratedByUserId       String?  @map("rated_by_user_id")
 
   evaluationSession EvaluationSession @relation(fields: [evaluationSessionId], references: [id])
   evaluationElement EvaluationElement @relation(fields: [evaluationElementId], references: [id])
+  ratedBy           User?             @relation("ElementRatedBy", fields: [ratedByUserId], references: [id], onDelete: SetNull)
 
   @@unique([evaluationSessionId, evaluationElementId])
   @@index([evaluationElementId])
+  @@index([ratedByUserId])
   @@map("element_ratings")
 }
 

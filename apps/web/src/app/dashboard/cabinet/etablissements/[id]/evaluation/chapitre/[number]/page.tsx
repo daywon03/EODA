@@ -1,14 +1,19 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Lock } from "lucide-react";
 import { formatDate } from "@/lib/services/date-format-service";
+import { getChapterSessionState } from "@/lib/actions/evaluation";
+import { getEvaluationChapter } from "@/lib/actions/evaluation-chapter";
 import { getEstablishment } from "@/lib/actions/establishment";
-import { getChapterSessionState, getEvaluationChapter } from "@/lib/actions/evaluation";
-import { PageHeader } from "@/components/layout/PageHeader";
+import { describeChapterMeasure } from "@/lib/services/structure-sheet-service";
+import { countRatedElements, describeChapterRatedMeasure } from "@/lib/services/self-assessment-service";
+import { structureHref } from "@/lib/design/structure-tabs";
 import { SessionTimer } from "@/components/evaluation/SessionTimer";
 import { FinishSessionButton } from "@/components/evaluation/FinishSessionButton";
-import { CriterionGroup } from "@/components/evaluation/CriterionGroup";
 import { OpenSessionButton } from "@/components/evaluation/OpenSessionButton";
 import { ChapterResultsSummary } from "@/components/evaluation/ChapterResultsSummary";
+import { CriteriaBoard } from "@/components/evaluation/CriteriaBoard";
+import { MeasureCard } from "@/components/ui/measure-card";
+import { Callout } from "@/components/ui/callout";
 
 type Props = { params: Promise<{ id: string; number: string }> };
 
@@ -17,95 +22,87 @@ export default async function EvaluationChapterPage({ params }: Props) {
   const chapterNumber = Number(number);
   if (!Number.isInteger(chapterNumber)) notFound();
 
-  const [establishment, data] = await Promise.all([
-    getEstablishment(id),
-    getEvaluationChapter(id, chapterNumber),
-  ]);
-
+  // getEstablishment reste appelé : c'est la garde (tenant, notFound) de la route.
+  const [, data] = await Promise.all([getEstablishment(id), getEvaluationChapter(id, chapterNumber)]);
   if (data.missionRequired) notFound();
 
-  // La session n'est PLUS créée par le rendu de cette page (cf. commentaire de
-  // `getChapterSessionState`) : on lit son état, et l'ouverture est un geste.
+  // La session n'est PLUS créée par le rendu de cette page (cf. `getChapterSessionState`) :
+  // on lit son état, et l'ouverture est un geste.
   const sessionState = await getChapterSessionState(id, data.chapter.id);
   const sessionId = sessionState.kind === "OPEN" ? sessionState.sessionId : null;
 
+  const criteria = data.themes.flatMap((t) => t.objectives.flatMap((o) => o.criteria));
+  const scoreMeasure = describeChapterMeasure({
+    number: data.chapter.number,
+    name: data.chapter.name,
+    score: data.chapterScore,
+    imperatifsAtRisk: data.imperatifsAtRisk.length,
+  });
+  const ratedMeasure = describeChapterRatedMeasure(data.chapter, countRatedElements(criteria));
+
   return (
-    <div className="space-y-6 max-w-4xl">
-      <PageHeader
-        title={`Chapitre ${data.chapter.number} — ${data.chapter.name}`}
-        subtitle={`${establishment.name} · ${data.chapter.method}`}
-        backHref={`/dashboard/cabinet/etablissements/${id}/evaluation`}
-        action={
-          sessionState.kind === "OPEN" ? (
-            <div className="flex items-center gap-3">
-              <SessionTimer startedAt={sessionState.startedAt} />
-              <FinishSessionButton sessionId={sessionState.sessionId} />
-            </div>
-          ) : (
-            <OpenSessionButton
-              establishmentId={id}
-              chapterId={data.chapter.id}
-              chapterNumber={data.chapter.number}
-              isSecondSession={sessionState.kind === "CLOSED"}
-            />
-          )
-        }
-      />
-
-      {/* Session clôturée : les cotations restent LISIBLES, mais plus modifiables.
-          Une session close est la photo d'un état à une date — la réécrire ferait
-          dériver la première auto-évaluation pendant qu'on mène la seconde, et la
-          comparaison des deux ne voudrait plus rien dire. */}
-      {sessionState.kind === "CLOSED" && (
-        <div className="flex items-start gap-3 rounded-lg border border-gris-light bg-ivoire px-5 py-4">
-          <Lock className="mt-0.5 h-5 w-5 flex-shrink-0 text-ambre" aria-hidden="true" />
-          <div className="text-sm">
-            <p className="font-semibold text-brun-ancre">
-              Session clôturée le {formatDate(sessionState.finishedAt)}
-            </p>
-            <p className="text-gris-mid">
-              Les cotations ci-dessous sont conservées en lecture. Ouvrir une nouvelle session
-              démarre une auto-évaluation distincte, comparable à celle-ci — elle n&apos;écrase
-              rien.
-              {sessionState.sessionCount > 1 &&
-                ` ${sessionState.sessionCount} sessions ont déjà été menées sur ce chapitre.`}
-            </p>
-          </div>
+    <div className="max-w-5xl space-y-6">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="space-y-2">
+          <Link href={structureHref(id, "evaluation")} className="font-bold text-accent-text hover:underline">
+            ← Auto-évaluation
+          </Link>
+          <h2 className="text-2xl font-bold text-ink">
+            Chapitre {data.chapter.number} — {data.chapter.name}
+          </h2>
+          {/* Méthode d'évaluation du chapitre, telle que la base la porte. */}
+          {data.chapter.method && (
+            <span className="inline-flex w-fit rounded-md border border-line bg-soft px-2.5 py-0.5 text-sm font-bold text-ink">
+              {data.chapter.method}
+            </span>
+          )}
         </div>
-      )}
-
-      {sessionState.kind === "NONE" && (
-        <div className="flex items-start gap-3 rounded-lg border border-gris-light bg-ivoire px-5 py-4">
-          <Lock className="mt-0.5 h-5 w-5 flex-shrink-0 text-gris-mid" aria-hidden="true" />
-          <p className="text-sm text-gris-mid">
-            Aucune session de cotation n&apos;est ouverte sur ce chapitre. Démarrez-en une pour
-            coter les éléments d&apos;évaluation.
-          </p>
-        </div>
-      )}
-
-      <ChapterResultsSummary chapterScore={data.chapterScore} imperatifsAtRisk={data.imperatifsAtRisk} />
-
-      <div className="space-y-6">
-        {data.themes.map((theme) => (
-          <div key={theme.id} className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h2 className="text-base font-semibold text-brun-ancre">{theme.name}</h2>
-              {theme.score !== null && (
-                <span className="text-sm font-semibold text-brun-ancre tabular-nums">{theme.score.toFixed(1)}/4</span>
-              )}
-            </div>
-            {theme.objectives.map((objective) => (
-              <div key={objective.id} className="space-y-2 pl-3 border-l-2 border-gris-light">
-                <p className="text-xs text-gris-mid uppercase tracking-wide">Objectif {objective.code}</p>
-                {objective.criteria.map((criterion) => (
-                  <CriterionGroup key={criterion.id} sessionId={sessionId} criterion={criterion} />
-                ))}
-              </div>
-            ))}
+        {sessionState.kind === "OPEN" ? (
+          <div className="flex items-center gap-3">
+            <SessionTimer startedAt={sessionState.startedAt} />
+            <FinishSessionButton sessionId={sessionState.sessionId} />
           </div>
-        ))}
+        ) : (
+          <OpenSessionButton
+            establishmentId={id}
+            chapterId={data.chapter.id}
+            chapterNumber={data.chapter.number}
+            isSecondSession={sessionState.kind === "CLOSED"}
+          />
+        )}
       </div>
+
+      {/* Session clôturée : les cotations restent LISIBLES, plus modifiables. Une
+          session close est la photo d'un état à une date — la réécrire ferait dériver
+          la première auto-évaluation pendant qu'on mène la seconde. */}
+      {sessionState.kind === "CLOSED" && (
+        <Callout title={`Session clôturée le ${formatDate(sessionState.finishedAt)}`}>
+          Les cotations ci-dessous sont conservées en lecture. Ouvrir une nouvelle session démarre
+          une auto-évaluation distincte, comparable à celle-ci — elle n&apos;écrase rien.
+          {sessionState.sessionCount > 1 &&
+            ` ${sessionState.sessionCount} sessions ont déjà été menées sur ce chapitre.`}
+        </Callout>
+      )}
+      {sessionState.kind === "NONE" && (
+        <Callout title="Aucune session ouverte">
+          Démarrez une session pour coter les éléments d&apos;évaluation de ce chapitre.
+        </Callout>
+      )}
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        <MeasureCard {...scoreMeasure} label="Score du chapitre" />
+        <MeasureCard {...ratedMeasure} label="Éléments cotés" />
+      </div>
+
+      <ChapterResultsSummary imperatifsAtRisk={data.imperatifsAtRisk} />
+
+      <CriteriaBoard sessionId={sessionId} themes={data.themes} />
+
+      <p className="text-sm text-ink2">
+        Cotation HAS par élément d&apos;évaluation : 1 pas du tout, 2 plutôt pas, 3 plutôt, 4 tout à
+        fait satisfaisant, ★ niveau optimisé (compte 4), NC non concerné (hors moyenne, impossible sur
+        un impératif){data.chapter.number === 1 ? ", RI réponse inadaptée (hors moyenne)" : ""}.
+      </p>
     </div>
   );
 }
