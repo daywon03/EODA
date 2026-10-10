@@ -215,11 +215,12 @@ export async function requireCabinetAdminSession(): Promise<CabinetContext> {
 //
 // notFound() plutôt que redirect() — ne jamais révéler qu'un identifiant existe
 // dans un autre tenant.
-export async function requireEstablishmentInTenant(
-  establishmentId: string
-): Promise<CabinetContext & { establishmentId: string; establishmentType: EstablishmentType }> {
-  const context = await requireCabinetSession();
+type EstablishmentInTenantContext = CabinetContext & { establishmentId: string; establishmentType: EstablishmentType };
 
+async function resolveEstablishmentInTenant(
+  context: CabinetContext,
+  establishmentId: string
+): Promise<EstablishmentInTenantContext> {
   const establishment = await prisma.establishment.findFirst({
     where: { id: establishmentId, tenantId: context.tenantId },
     select: { id: true, type: true },
@@ -227,6 +228,19 @@ export async function requireEstablishmentInTenant(
   if (!establishment) notFound();
 
   return { ...context, establishmentId: establishment.id, establishmentType: establishment.type };
+}
+
+export async function requireEstablishmentInTenant(establishmentId: string): Promise<EstablishmentInTenantContext> {
+  return resolveEstablishmentInTenant(await requireCabinetSession(), establishmentId);
+}
+
+// Même contrôle d'appartenance, réservé à CABINET_ADMIN : les gestes de gérance sur
+// une fiche (la supprimer) ne sont pas du suivi opérationnel. Le rôle d'abord — un
+// évaluateur est renvoyé à l'accueil sans qu'on lui dise si la fiche existe.
+export async function requireAdminEstablishmentInTenant(
+  establishmentId: string
+): Promise<EstablishmentInTenantContext> {
+  return resolveEstablishmentInTenant(await requireCabinetAdminSession(), establishmentId);
 }
 
 // Accès à un établissement depuis les deux côtés :

@@ -41,6 +41,7 @@ vi.mock("next/navigation", () => ({
 }));
 
 const {
+  requireAdminEstablishmentInTenant,
   requireCabinetSession,
   requireCabinetAdminSession,
   requireClientEstablishment,
@@ -277,6 +278,36 @@ describe("requireEstablishmentInTenant — cloisonnement inter-tenants (IDOR)", 
       "REDIRECT:/dashboard/client"
     );
     expect(prismaMock.establishment.findFirst).not.toHaveBeenCalled();
+  });
+});
+
+describe("requireAdminEstablishmentInTenant — gérance d'une fiche (suppression)", () => {
+  it("laisse passer un CABINET_ADMIN sur une fiche de son tenant", async () => {
+    prismaMock.user.findUnique.mockResolvedValue(dbUser());
+    await expect(requireAdminEstablishmentInTenant("etab-1")).resolves.toMatchObject({
+      establishmentId: "etab-1",
+      tenantId: "tenant-1",
+    });
+    expect(prismaMock.establishment.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: "etab-1", tenantId: "tenant-1" } })
+    );
+  });
+
+  it("refuse un CABINET_EVALUATOR avant toute lecture de la fiche", async () => {
+    prismaMock.user.findUnique.mockResolvedValue(dbUser({ role: "CABINET_EVALUATOR" }));
+    await expect(requireAdminEstablishmentInTenant("etab-1")).rejects.toThrow("REDIRECT:/dashboard/cabinet");
+    expect(prismaMock.establishment.findFirst).not.toHaveBeenCalled();
+  });
+
+  it("fiche d'un autre tenant : introuvable", async () => {
+    prismaMock.user.findUnique.mockResolvedValue(dbUser());
+    prismaMock.establishment.findFirst.mockResolvedValue(null);
+    await expect(requireAdminEstablishmentInTenant("etab-dun-autre")).rejects.toBeInstanceOf(NotFoundError);
+  });
+
+  it("non authentifié : renvoyé à la connexion", async () => {
+    authMock.mockResolvedValue(null);
+    await expect(requireAdminEstablishmentInTenant("etab-1")).rejects.toBeInstanceOf(RedirectError);
   });
 });
 

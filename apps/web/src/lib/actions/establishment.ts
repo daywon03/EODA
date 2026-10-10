@@ -4,6 +4,7 @@ import { prisma, type Prisma, EstablishmentType, StructureType } from "@eoda/dat
 import { redirect, notFound } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import {
+  requireAdminEstablishmentInTenant,
   requireCabinetSession,
   requireEstablishmentInTenant,
   requireEstablishmentAccess,
@@ -262,8 +263,12 @@ export async function removeEstablishmentLogoAsClient(
   return applyLogoRemoval(access.establishmentId);
 }
 
+// Réservé à CABINET_ADMIN (fiche structure v2, 09/10/2026) : supprimer une fiche
+// désactive des comptes clients et efface des documents — une décision de gérance,
+// comme la clôture d'une mission. Le bouton n'est plus proposé qu'à l'admin, et la
+// garde le refuse aux autres : masquer un bouton n'a jamais fermé une route.
 export async function deleteEstablishment(id: string): Promise<{ error: string } | void> {
-  const { session, userId } = await requireEstablishmentInTenant(id);
+  const { session, userId } = await requireAdminEstablishmentInTenant(id);
 
   // Comptes clients devenus orphelins — désactivés (jamais supprimés, la piste
   // d'audit doit survivre), calculés DANS la transaction, journalisés après elle.
@@ -472,6 +477,7 @@ export type EstablishmentWithUsers = Prisma.EstablishmentGetPayload<{
         consolidationEndDate: true;
         preparationFinaleStartDate: true;
         preparationFinaleEndDate: true;
+        formule: true;
         _count: { select: { itemStatuses: true } };
       };
     };
