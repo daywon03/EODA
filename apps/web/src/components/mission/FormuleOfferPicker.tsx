@@ -6,7 +6,7 @@ type FormuleOption = { formule: CommercialTier; label: string; priceEuros: numbe
 
 type Props = {
   formules: FormuleOption[];
-  defaultFormule?: CommercialTier;
+  defaultFormule?: CommercialTier | undefined;
   defaultGratuit?: boolean;
   disabled?: boolean;
 };

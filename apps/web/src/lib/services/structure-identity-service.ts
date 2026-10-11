@@ -27,8 +27,8 @@ const FINESS_PATTERN = /^\d{9}$/;
 
 export function normaliseFiness(raw: string | null): string | null {
   if (raw === null) return null;
-  // Espaces et points de séparation retirés : « 93 00 34 459 » est le même numéro que
-  // « 930034459 », et refuser la première forme n'apprend rien à personne.
+  // Espaces et points de séparation retirés : « 99 00 00 017 » est le même numéro que
+  // « 990000017 », et refuser la première forme n'apprend rien à personne.
   const compact = raw.replace(/[\s.-]/g, "");
   return compact.length === 0 ? null : compact;
 }

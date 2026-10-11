@@ -81,7 +81,7 @@ export type MissionProgress = {
 // de l'UI ne prouve rien, l'action est une route HTTP publique.
 export function isChecklistItemApplicable(
   minFormule: CommercialTier,
-  formule: CommercialTier,
+  formule: CommercialTier | null,
   gratuit: boolean
 ): boolean {
   return coversMinFormule(formule, gratuit, minFormule);
@@ -101,7 +101,7 @@ function pctOf(items: MissionItemProgress[]): number {
 // dénominateur, sinon une mission Essentiel plafonnerait mécaniquement à 75 %.
 export function computeMissionProgress(
   items: MissionItemProgress[],
-  formule: CommercialTier,
+  formule: CommercialTier | null,
   gratuit: boolean
 ): MissionProgress {
   const applicable = items.filter((i) => isChecklistItemApplicable(i.minFormule, formule, gratuit));

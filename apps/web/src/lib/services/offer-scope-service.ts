@@ -35,7 +35,10 @@ const PERFORMANCE_CORRECTION_CATEGORIES: readonly DocumentCategory[] = ["LOI_200
 
 // Les trois offres réellement vendues. BETA n'en est pas une : c'est un statut de
 // bêta-test gratuit qui emprunte le périmètre Excellence (§7.5).
-export type OfferTier = Exclude<CommercialTier, "BETA">;
+// SANS_OFFRE : mission née d'un devis de prestations à la carte seules (11/10/2026,
+// formule nulle). Socle minimal — la loi 2002-2 et les impératifs —, aucun droit de
+// génération, et toujours accompagnée (support-mode-service).
+export type OfferTier = Exclude<CommercialTier, "BETA"> | "SANS_OFFRE";
 
 export type OfferScope = {
   criteriaScope: CriteriaScope;
@@ -55,6 +58,11 @@ export type OfferScope = {
 const ALL_DOCUMENT_CATEGORIES: readonly DocumentCategory[] = Object.values(DocumentCategory);
 
 const OFFER_SCOPES: Record<OfferTier, OfferScope> = {
+  SANS_OFFRE: {
+    criteriaScope: "IMPERATIFS_ONLY",
+    correctionScope: "NONE",
+    documentCategories: ["LOI_2002_2"],
+  },
   ESSENTIEL: {
     criteriaScope: "IMPERATIFS_ONLY",
     correctionScope: "NONE",
@@ -75,6 +83,7 @@ const OFFER_SCOPES: Record<OfferTier, OfferScope> = {
 // Ordre de couverture des offres : une offre couvre tout ce qu'exige une offre de
 // rang inférieur ou égal (« PERFORMANCE (tout Essentiel inclus +) », plaquette v10 §04).
 const TIER_RANK: Record<OfferTier, number> = {
+  SANS_OFFRE: -1,
   ESSENTIEL: 0,
   PERFORMANCE: 1,
   EXCELLENCE: 2,
@@ -83,12 +92,13 @@ const TIER_RANK: Record<OfferTier, number> = {
 // Offre effective d'une mission : BETA (bêta-test gratuit) et le drapeau `gratuit`
 // donnent tous deux le périmètre Excellence complet — §7.5. C'est le SEUL endroit
 // où cette équivalence est écrite.
-export function getEffectiveTier(formule: CommercialTier, gratuit = false): OfferTier {
+export function getEffectiveTier(formule: CommercialTier | null, gratuit = false): OfferTier {
   if (gratuit || formule === "BETA") return "EXCELLENCE";
+  if (formule === null) return "SANS_OFFRE";
   return formule;
 }
 
-export function getOfferScope(formule: CommercialTier, gratuit = false): OfferScope {
+export function getOfferScope(formule: CommercialTier | null, gratuit = false): OfferScope {
   return OFFER_SCOPES[getEffectiveTier(formule, gratuit)];
 }
 
@@ -96,7 +106,7 @@ export function getOfferScope(formule: CommercialTier, gratuit = false): OfferSc
 // `minFormule` ? Utilisé pour les items de checklist de mission (§12.4), dont la
 // colonne `min_formule` est le référentiel — aucun code d'item n'est codé en dur ici.
 export function coversMinFormule(
-  formule: CommercialTier,
+  formule: CommercialTier | null,
   gratuit: boolean,
   minFormule: CommercialTier
 ): boolean {
@@ -110,7 +120,7 @@ export function coversMinFormule(
 // partagent la décision — une règle de périmètre recopiée dans une action est une
 // règle que l'autre action oubliera (D1).
 export function isCriterionLevelCovered(
-  formule: CommercialTier,
+  formule: CommercialTier | null,
   gratuit: boolean,
   requirementLevel: RequirementLevel
 ): boolean {
@@ -119,14 +129,14 @@ export function isCriterionLevelCovered(
 }
 
 export function getCoveredDocumentCategories(
-  formule: CommercialTier,
+  formule: CommercialTier | null,
   gratuit = false
 ): readonly DocumentCategory[] {
   return getOfferScope(formule, gratuit).documentCategories;
 }
 
 export function isDocumentCategoryCovered(
-  formule: CommercialTier,
+  formule: CommercialTier | null,
   gratuit: boolean,
   category: DocumentCategory
 ): boolean {
@@ -145,7 +155,7 @@ export type CorrectionRight =
   | { included: false; reason: "NO_MISSION" | "OUT_OF_OFFER" };
 
 export function correctionRight(
-  mission: { formule: CommercialTier; gratuit: boolean } | null,
+  mission: { formule: CommercialTier | null; gratuit: boolean } | null,
   category: DocumentCategory
 ): CorrectionRight {
   // Fail-closed : sans mission, rien n'a été acheté — pas de génération (à la

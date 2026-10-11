@@ -152,7 +152,7 @@ describe("nextProspectStatusForDevisTransition — §6.3", () => {
 function devis(
   status: KpiDevis["status"],
   totalAmountEuros: number,
-  formule: KpiDevis["catalogueFormule"]["formule"],
+  formule: NonNullable<KpiDevis["catalogueFormule"]>["formule"],
   prospectStatus: KpiDevis["prospect"]["status"]
 ): KpiDevis {
   return { status, totalAmountEuros, catalogueFormule: { formule }, prospect: { status: prospectStatus } };

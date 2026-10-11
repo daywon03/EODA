@@ -7,7 +7,7 @@ import { toMissionLifecycleFacts, type MissionLifecycleRow } from "./to-mission-
 // est PUR et ne doit rien savoir de Prisma.
 export type PortfolioSourceRow = {
   prospect: { status: ProspectStatus } | null;
-  mission: (MissionLifecycleRow & { formule: CommercialTier }) | null;
+  mission: (MissionLifecycleRow & { formule: CommercialTier | null }) | null;
   hasEvaluationTargetDate: Date | null;
 };
 

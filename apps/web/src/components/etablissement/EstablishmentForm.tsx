@@ -54,7 +54,7 @@ export function EstablishmentForm({ establishment }: Props) {
         <Input
           id="name"
           name="name"
-          placeholder="ex : Association ASSAD BENOIT"
+          placeholder="ex : Association SAD Les Glycines"
           defaultValue={establishment.name}
           required
           autoFocus
@@ -71,10 +71,10 @@ export function EstablishmentForm({ establishment }: Props) {
             id="finessNumber"
             name="finessNumber"
             inputMode="numeric"
-            placeholder="ex : 930034459"
+            placeholder="ex : 990000017"
             defaultValue={establishment.finessNumber ?? undefined}
             // 20 et non 9 : le numéro se recopie couramment par groupes
-            // (« 93 00 34 459 »), et le serveur le normalise. Bloquer la saisie à
+            // (« 99 00 00 017 »), et le serveur le normalise. Bloquer la saisie à
             // 9 caractères rendait cette normalisation inatteignable depuis cet
             // écran — le champ refusait la forme même qu'il accepte ailleurs.
             maxLength={20}
@@ -137,7 +137,7 @@ export function EstablishmentForm({ establishment }: Props) {
         <Input
           id="address"
           name="address"
-          placeholder="ex : 12 rue de la Paix, 93150 Le Blanc-Mesnil"
+          placeholder="ex : 12 rue de la Paix, 99000 Ville-Fictive"
           defaultValue={establishment.address ?? undefined}
           required
           disabled={isPending}

@@ -19,8 +19,8 @@ type Props = {
   createdAt: Date;
   validUntil: Date;
   prospectStructureName: string;
-  formuleLabelSnapshot: string;
-  formulePriceSnapshotEuros: number;
+  formuleLabelSnapshot: string | null;
+  formulePriceSnapshotEuros: number | null;
   options: DevisOptionLine[];
   totalAmountEuros: number;
   depositPercent: number;
@@ -100,12 +100,14 @@ export function DevisSummaryPrintable({
           </tr>
         </thead>
         <tbody>
+          {formuleLabelSnapshot !== null && formulePriceSnapshotEuros !== null && (
           <tr className="border-b border-gris-light/60 bg-ivoire/40">
             <td className="py-2 pl-2 font-medium">Formule {formuleLabelSnapshot}</td>
             <td className="py-2 pr-2 text-right tabular-nums">
               {formatStartingPrice({ priceEuros: formulePriceSnapshotEuros })}
             </td>
           </tr>
+          )}
           {options.map((o, i) => {
             // Une option à l'unité (95 €/h, mini. 2 h) affiche son tarif unitaire, mais
             // n'entre au total que pour son engagement minimal. Sans ce montant, les

@@ -9,7 +9,9 @@ import { isDevisCountedInKpi } from "./devis-transition-service";
 export type KpiDevis = {
   status: DevisStatus;
   totalAmountEuros: number;
-  catalogueFormule: { formule: CommercialTier };
+  // `null` : devis sans offre (prestations à la carte seules) — absent de la
+  // répartition par formule, compté partout ailleurs.
+  catalogueFormule: { formule: CommercialTier } | null;
   prospect: { status: ProspectStatus };
 };
 
@@ -65,7 +67,7 @@ export function computeSignedRevenueEuros(devisList: KpiDevis[]): number {
 export function groupSignedDevisByFormule(devisList: KpiDevis[]): Record<CommercialTier, number> {
   const result: Record<CommercialTier, number> = { BETA: 0, ESSENTIEL: 0, PERFORMANCE: 0, EXCELLENCE: 0 };
   for (const d of counted(devisList).filter((d) => d.status === "SIGNE")) {
-    result[d.catalogueFormule.formule]++;
+    if (d.catalogueFormule) result[d.catalogueFormule.formule]++;
   }
   return result;
 }

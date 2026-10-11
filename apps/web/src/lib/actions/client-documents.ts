@@ -30,8 +30,8 @@ export type OwnDevis = {
   createdAt: Date;
   validUntil: Date;
   prospectStructureName: string;
-  formuleLabelSnapshot: string;
-  formulePriceSnapshotEuros: number;
+  formuleLabelSnapshot: string | null;
+  formulePriceSnapshotEuros: number | null;
   options: {
     labelSnapshot: string;
     priceSnapshotEuros: number;

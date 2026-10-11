@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { inviteClientUser } from "@/lib/actions/user";
+import { inviteClientUser, linkExistingClientUser } from "@/lib/actions/user";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -25,19 +25,25 @@ type SuccessResult = {
   userEmail: string;
   invitationEmailSent: boolean;
 };
-type ErrorResult = { error: string };
+type ErrorResult = { error: string; linkableEmail?: string };
 type Result = SuccessResult | ErrorResult;
 
 export function InviteClientForm({ establishmentId, defaultEmail, defaultName }: Props) {
   const router = useRouter();
   const [result, setResult] = useState<Result | null>(null);
   const [copied, setCopied] = useState(false);
+  // Fonction choisie au dernier envoi : reprise pour rattacher un compte existant.
+  const [lastRole, setLastRole] = useState("");
+  const [linked, setLinked] = useState(false);
   const [isPending, startTransition] = useTransition();
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
     formData.set("establishmentId", establishmentId);
+    const role = formData.get("roleInEstablishment");
+    setLastRole(typeof role === "string" ? role : "");
+    setLinked(false);
     startTransition(async () => {
       const res = await inviteClientUser(formData);
       if (res && "success" in res && res.success === true) {
@@ -55,6 +61,25 @@ export function InviteClientForm({ establishmentId, defaultEmail, defaultName }:
       } else if (res && "error" in res) {
         setResult(res as ErrorResult);
       }
+    });
+  }
+
+  // Rattachement d'un compte existant du même cabinet : le serveur recalcule la
+  // décision (existing-account-service), ce bouton ne fait que la proposer.
+  function linkExisting(email: string) {
+    const data = new FormData();
+    data.set("establishmentId", establishmentId);
+    data.set("email", email);
+    data.set("roleInEstablishment", lastRole);
+    startTransition(async () => {
+      const res = await linkExistingClientUser(data);
+      if ("error" in res) {
+        setResult({ error: res.error });
+        return;
+      }
+      setResult(null);
+      setLinked(true);
+      router.refresh();
     });
   }
 
@@ -175,6 +200,23 @@ export function InviteClientForm({ establishmentId, defaultEmail, defaultName }:
           <AlertCircle className="w-4 h-4 flex-shrink-0" aria-hidden="true" />
           <span>{result.error}</span>
         </div>
+      )}
+      {result && "error" in result && result.linkableEmail && (
+        <Button
+          type="button"
+          variant="outline"
+          disabled={isPending}
+          onClick={() => linkExisting(result.linkableEmail ?? "")}
+        >
+          <UserPlus className="w-4 h-4" aria-hidden="true" />
+          Rattacher ce compte à cette structure
+        </Button>
+      )}
+      {linked && (
+        <p role="status" className="flex items-center gap-2 text-sm text-ink">
+          <CheckCircle2 className="w-4 h-4 text-vert-ok" aria-hidden="true" />
+          Compte rattaché : l&apos;interlocuteur se connecte avec son mot de passe habituel.
+        </p>
       )}
       <Button type="submit" disabled={isPending}>
         {isPending ? (

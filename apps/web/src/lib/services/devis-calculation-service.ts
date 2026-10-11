@@ -74,3 +74,13 @@ export function nextProspectStatusForDevisTransition(
 
   return null;
 }
+
+// Un devis porte une offre, des prestations à la carte, ou les deux — jamais rien
+// (devis SANS offre, call du 01/09 : prestations à la carte seules). Règle unique,
+// lue par la création et la correction d'un brouillon.
+export const EMPTY_DEVIS_ERROR =
+  "Choisissez une offre ou au moins une prestation à la carte : un devis ne peut pas être vide.";
+
+export function devisContentError(hasFormule: boolean, optionCount: number): string | null {
+  return hasFormule || optionCount > 0 ? null : EMPTY_DEVIS_ERROR;
+}

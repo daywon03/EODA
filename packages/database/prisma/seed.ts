@@ -1,5 +1,5 @@
 // Seed de développement — données anonymisées + référentiel DocumentType
-// Ne jamais committer de vraies données clients (ASSAD BENOIT, etc.)
+// Ne jamais committer de vraies données clients (client pilote, etc.)
 import {
   PrismaClient,
   DocumentCategory,

@@ -91,7 +91,7 @@ export function StructureIdentityForm({
             id="identity-finessNumber"
             name="finessNumber"
             inputMode="numeric"
-            placeholder="9 chiffres — ex : 930034459"
+            placeholder="9 chiffres — ex : 990000017"
             defaultValue={finessNumber ?? undefined}
             maxLength={20}
             disabled={isPending}

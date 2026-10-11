@@ -1081,11 +1081,14 @@ model Devis {
   number     String      @unique
   status     DevisStatus @default(BROUILLON)
 
-  catalogueFormuleId        String @map("catalogue_formule_id")
+  // Facultative depuis le 11/10/2026 (bilan §3.2, call du 01/09) : un devis peut ne porter
+  // que des prestations à la carte, sans offre. Dans ce cas les trois colonnes ci-dessous
+  // sont nulles ensemble, et au moins une option est exigée (devis-calculation-service).
+  catalogueFormuleId        String? @map("catalogue_formule_id")
   // Snapshots — figent le libellé/prix de la formule au moment de la création
   // pour qu'une évolution ultérieure du catalogue ne change jamais un devis existant.
-  formuleLabelSnapshot      String @map("formule_label_snapshot")
-  formulePriceSnapshotEuros Int    @map("formule_price_snapshot_euros")
+  formuleLabelSnapshot      String? @map("formule_label_snapshot")
+  formulePriceSnapshotEuros Int?    @map("formule_price_snapshot_euros")
 
   depositPercent   Int      @map("deposit_percent")
   installmentCount Int      @map("installment_count")
@@ -1102,9 +1105,9 @@ model Devis {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  tenant           Tenant           @relation(fields: [tenantId], references: [id])
-  prospect         Prospect         @relation(fields: [prospectId], references: [id])
-  catalogueFormule CatalogueFormule @relation(fields: [catalogueFormuleId], references: [id])
+  tenant           Tenant            @relation(fields: [tenantId], references: [id])
+  prospect         Prospect          @relation(fields: [prospectId], references: [id])
+  catalogueFormule CatalogueFormule? @relation(fields: [catalogueFormuleId], references: [id], onDelete: Restrict)
   options          DevisOption[]
   missions         Mission[]
 
@@ -1209,18 +1212,21 @@ model MissionChecklistItem {
 // l'accompagnement. La formule ici fait autorité pour le calcul de scope
 // Excellence (§7.3) — Establishment.commercialTier reste inchangé.
 model Mission {
-  id              String         @id @default(cuid())
-  tenantId        String         @map("tenant_id")
-  establishmentId String         @unique @map("establishment_id")
-  formule         CommercialTier
+  id              String          @id @default(cuid())
+  tenantId        String          @map("tenant_id")
+  establishmentId String          @unique @map("establishment_id")
+  // Nulle pour une mission née d'un devis SANS offre (prestations à la carte seules,
+  // 11/10/2026) : aucun périmètre d'offre ouvert, mode accompagné, aucun droit de
+  // génération (offer-scope-service, support-mode-service).
+  formule         CommercialTier?
   // Bêta-test gratuit — cf. §7.5 : accorde le périmètre Excellence complet
   // indépendamment de `formule` (condition OR, jamais écrasée par formule).
-  gratuit         Boolean        @default(false)
+  gratuit         Boolean         @default(false)
   // Seul ou accompagné. Défaut ACCOMPAGNE : toutes les missions existantes gardent la
   // règle stricte (rien de non relu n'atteint le client). Posé à la signature d'un
   // devis selon la formule (support-mode-service), modifiable ensuite par
   // CABINET_ADMIN depuis l'onglet Mission. Jamais déduit de commercialTier.
-  supportMode     SupportMode    @default(ACCOMPAGNE) @map("support_mode")
+  supportMode     SupportMode     @default(ACCOMPAGNE) @map("support_mode")
 
   fondationsStartDate        DateTime? @map("fondations_start_date")
   fondationsEndDate          DateTime? @map("fondations_end_date")
@@ -1531,6 +1537,9 @@ enum AuditAction {
   // Passage d'une mission en autonomie ou en accompagnement (N1). `targetId` =
   // identifiant de la mission, `detail` = le nouveau mode.
   MISSION_SUPPORT_MODE_CHANGED
+  // Rattachement d'un compte client EXISTANT (même cabinet) à une autre structure, au
+  // lieu du refus « un compte existe déjà » (bilan §3.2). `targetId` = le compte.
+  CLIENT_USER_LINKED
 }
 
 model AuditLogEntry {
@@ -1618,12 +1627,12 @@ enum TemplateStage {
 // règles. Le distinguo vient du call du 03/09 : « le manuel HAS y sera, et lui n'aura
 // pas forcément plusieurs versions ».
 //
-//  - GABARIT : un document qu'EODA produit. Il a les trois stades, il a des numéros de
-//    version, et c'est la comparaison entre l'état reçu et le résultat produit qui en
-//    fait la valeur.
+//  - GABARIT : un document qu'EODA produit. Il a DEUX stades (VIERGE, FINALE — voir
+//    `TemplateStage`), il a des numéros de version ; la version « initiale » est le
+//    document que le client dépose sur son portail, pas un stade du gabarit.
 //  - REFERENCE : un document qu'EODA ne produit pas et ne modifie pas — le manuel HAS,
 //    un texte réglementaire, une grille Synaé. Un seul fichier, pas de stade, pas de
-//    numéro de version imposé : lui coller « version vierge / initiale / finale »
+//    numéro de version imposé : lui coller « version vierge / finale »
 //    n'aurait aucun sens et découragerait de le déposer.
 //
 // Ces deux natures cohabitent dans la même table parce qu'elles servent la même

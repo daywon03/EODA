@@ -125,6 +125,17 @@ export function ClientUserRow({ establishmentId, user, roleInEstablishment }: Pr
             <Label htmlFor={`name-${user.id}`}>Nom complet</Label>
             <Input id={`name-${user.id}`} name="name" defaultValue={user.name} required disabled={isPending} />
           </div>
+          <div className="space-y-1.5 sm:col-span-2">
+            <Label htmlFor={`email-${user.id}`}>Adresse e-mail (identifiant de connexion)</Label>
+            <Input
+              id={`email-${user.id}`}
+              name="email"
+              type="email"
+              defaultValue={user.email}
+              required
+              disabled={isPending}
+            />
+          </div>
           <div className="space-y-1.5">
             <Label htmlFor={`role-${user.id}`}>Fonction dans la structure</Label>
             <Select

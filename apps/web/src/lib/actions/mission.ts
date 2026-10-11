@@ -346,7 +346,7 @@ export async function updatePhaseDates(
 
 export type MissionWithProgress = {
   id: string;
-  formule: CommercialTier;
+  formule: CommercialTier | null;
   gratuit: boolean;
   supportMode: SupportMode;
   fondationsStartDate: Date | null;

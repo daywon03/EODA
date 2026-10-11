@@ -11,7 +11,7 @@ import { findMissionOffer } from "@/lib/services/establishment-offer-service";
 // stricte (resolveSupportMode).
 export async function getClientSupportContext(): Promise<{
   mode: SupportMode;
-  formule: CommercialTier;
+  formule: CommercialTier | null;
 } | null> {
   const { establishment } = await requireClientEstablishment();
   if (!establishment) return null;

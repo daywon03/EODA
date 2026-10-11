@@ -134,7 +134,7 @@ describe("hasReportableContent", () => {
 describe("buildReportFileName", () => {
   it("suit la convention EODA", () => {
     expect(
-      buildReportFileName({ structureName: "ASSAD Benoit", issuedOn: new Date(2026, 8, 3) })
-    ).toBe("20260903_RAPPORT_ASSAD-Benoit_Mise-en-conformite-documentaire_v01_Externe.pdf");
+      buildReportFileName({ structureName: "SAD Les Glycines", issuedOn: new Date(2026, 8, 3) })
+    ).toBe("20260903_RAPPORT_SAD-Les-Glycines_Mise-en-conformite-documentaire_v01_Externe.pdf");
   });
 });

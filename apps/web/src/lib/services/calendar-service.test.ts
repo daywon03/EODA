@@ -21,7 +21,7 @@ function appointment(overrides: Partial<CalendarAppointment> = {}): CalendarAppo
     endsAt: new Date(2026, 8, 3, 10, 0),
     subject: "Point hebdomadaire",
     location: null,
-    structureName: "ASSAD BENOIT",
+    structureName: "SAD Les Glycines (fictif)",
     href: null,
     ...overrides,
   };

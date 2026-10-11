@@ -23,6 +23,7 @@ import {
   requiredString,
 } from "@/lib/validation/form-parsers";
 import {
+  finessConflictError,
   finessFormatError,
   normaliseFiness,
   normaliseSiret,
@@ -101,7 +102,7 @@ function parseEstablishmentInput(formData: FormData): { error: string } | {
   }
 
   // Normalisation puis contrôle de forme par la règle PARTAGÉE. Il y avait ici un
-  // second contrôle écrit à la main (`/^\d{9}$/` sans normalisation) : « 93 00 34 459 »
+  // second contrôle écrit à la main (`/^\d{9}$/` sans normalisation) : « 99 00 00 017 »
   // était accepté au stade prospect et refusé sur la fiche, pour le même numéro. Deux
   // contrôles du même fait finissent toujours par diverger (D1).
   const finess = normaliseFiness(finessNumber.value);
@@ -148,6 +149,16 @@ export async function updateEstablishment(
 
   const parsed = parseEstablishmentInput(formData);
   if ("error" in parsed) return parsed;
+
+  // FINESS déjà porté par une AUTRE fiche : refus explicite, même règle qu'à la
+  // signature (finessConflictError). Sans lui, la contrainte unique levait une erreur
+  // serveur brute au lieu de dire ce qui se passe (bilan du 08/10, retour du 15/09).
+  const holder = await prisma.establishment.findFirst({
+    where: { finessNumber: parsed.finessNumber, NOT: { id } },
+    select: { id: true },
+  });
+  const conflict = finessConflictError(holder !== null);
+  if (conflict) return { error: conflict };
 
   await prisma.establishment.update({
     where: { id },

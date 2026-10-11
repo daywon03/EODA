@@ -24,8 +24,8 @@ describe("buildDevisFileName", () => {
 
   it("suit la convention EODA AAAAMMJJ_TYPE_CLIENT_OBJET_vXX_Externe", () => {
     expect(
-      buildDevisFileName({ number: "DEV-2026-014", structureName: "ASSAD Benoit", issuedOn })
-    ).toBe("20260826_DEVIS_ASSAD-Benoit_DEV-2026-014_v01_Externe.pdf");
+      buildDevisFileName({ number: "DEV-2026-014", structureName: "SAD Les Glycines", issuedOn })
+    ).toBe("20260826_DEVIS_SAD-Les-Glycines_DEV-2026-014_v01_Externe.pdf");
   });
 
   it("retire accents et ponctuation — le fichier traverse une messagerie", () => {

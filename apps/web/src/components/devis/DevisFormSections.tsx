@@ -50,11 +50,29 @@ export function OfferPicker({
 }: {
   formules: readonly FormuleOption[];
   value: CommercialTier | "";
-  onChange: (formule: CommercialTier) => void;
+  onChange: (formule: CommercialTier | "") => void;
   disabled: boolean;
 }) {
   return (
     <div className="grid gap-3 sm:grid-cols-2">
+      {/* Devis SANS offre (call du 01/09) : valeur vide, lue comme « aucune formule »
+          par le serveur, qui exige alors au moins une prestation à la carte. */}
+      <label className="flex min-h-11 cursor-pointer items-start gap-3 rounded-xl border-2 border-line bg-card p-4 transition-colors has-[:checked]:border-ink-fill has-[:checked]:bg-soft">
+        <input
+          type="radio"
+          name="formule"
+          value=""
+          checked={value === ""}
+          onChange={() => onChange("")}
+          disabled={disabled}
+          required
+          className="mt-1 h-5 w-5 accent-terre"
+        />
+        <span className="min-w-0 flex-1 space-y-1">
+          <span className="block text-lg font-bold text-ink">Sans offre</span>
+          <span className="block text-sm text-ink2">Prestations à la carte seules — cochez-en au moins une.</span>
+        </span>
+      </label>
       {formules.map((f) => (
         <label
           key={f.formule}

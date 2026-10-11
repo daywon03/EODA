@@ -95,7 +95,7 @@ export type FunnelStage = (typeof FUNNEL_STAGES)[number];
 // l'accompagnement qui a commencé derrière. Lire le prospect en priorité afficherait
 // « Signé » à une structure dont la mission est terminée depuis six mois.
 //
-// Cas sans prospect (fiches créées avant l'entonnoir unique, ASSAD BENOIT) : la
+// Cas sans prospect (fiches créées avant l'entonnoir unique, SAD Les Glycines (fictif)) : la
 // mission suffit. Cas sans mission ET sans prospect : on ne sait rien, `null` — et
 // surtout pas une étape inventée.
 export function deriveFunnelStage(input: {

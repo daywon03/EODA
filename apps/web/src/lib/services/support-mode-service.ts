@@ -23,8 +23,14 @@ export const STRICT_SUPPORT_MODE: SupportMode = "ACCOMPAGNE";
 // Performance se vendent seuls, l'accompagnement s'y ajoute en option (le cabinet
 // change alors le mode depuis l'onglet Mission). Le bêta-test gratuit suit
 // Excellence — getEffectiveTier est le SEUL endroit où cette équivalence s'écrit.
-export function defaultSupportModeForOffer(formule: CommercialTier, gratuit: boolean): SupportMode {
-  return getEffectiveTier(formule, gratuit) === "EXCELLENCE" ? "ACCOMPAGNE" : "AUTONOMIE";
+// Sans offre (prestations à la carte seules, formule nulle) : ACCOMPAGNE — personne n'a
+// acheté le portail en autonomie, et la règle stricte est le seul défaut sûr.
+export function defaultSupportModeForOffer(
+  formule: CommercialTier | null,
+  gratuit: boolean
+): SupportMode {
+  const tier = getEffectiveTier(formule, gratuit);
+  return tier === "EXCELLENCE" || tier === "SANS_OFFRE" ? "ACCOMPAGNE" : "AUTONOMIE";
 }
 
 export function resolveSupportMode(mission: { supportMode: SupportMode } | null): SupportMode {
@@ -52,7 +58,12 @@ const OFFER_NAMES: Record<CommercialTier, string> = {
 
 // Étiquette de la maquette : « Excellence · accompagné par EODA », « Offre
 // Essentiel · en autonomie ». Jamais un prénom de l'équipe (D7).
-export function describeModeTag(formule: CommercialTier, mode: SupportMode): string {
+export function describeModeTag(formule: CommercialTier | null, mode: SupportMode): string {
+  if (formule === null) {
+    return mode === "ACCOMPAGNE"
+      ? "Prestations à la carte · accompagné par EODA"
+      : "Prestations à la carte · en autonomie";
+  }
   return mode === "ACCOMPAGNE"
     ? `${OFFER_NAMES[formule]} · accompagné par EODA`
     : `Offre ${OFFER_NAMES[formule]} · en autonomie`;

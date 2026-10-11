@@ -13,6 +13,7 @@ import { getEnv } from "@/lib/config/env";
 import {
   computeDevisAmounts,
   computeValidUntil,
+  devisContentError,
   nextProspectStatusForDevisTransition,
   optionCommittedAmountEuros,
 } from "@/lib/services/devis-calculation-service";
@@ -29,7 +30,7 @@ import {
   firstError,
   isEnumValue,
   optionalString,
-  requiredEnum,
+  optionalEnum,
   requiredInt,
 } from "@/lib/validation/form-parsers";
 import { DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE } from "@/lib/services/pagination-service";
@@ -49,7 +50,8 @@ const DEFAULT_DEPOSIT_PERCENT = 40;
 
 type ParsedDevisInput = {
   prospectId: string;
-  formule: CommercialTier;
+  // `null` = devis SANS offre (prestations à la carte seules, call du 01/09).
+  formule: CommercialTier | null;
   optionIds: string[];
   depositPercent: number;
   installmentCount: number;
@@ -68,7 +70,9 @@ function parseDevisInput(formData: FormData): { error: string } | ParsedDevisInp
   const prospectId = typeof prospectIdParsed === "string" ? prospectIdParsed.trim() : "";
   if (!prospectId) return { error: "Prospect manquant." };
 
-  const formule = requiredEnum(formData, "formule", "La formule", CommercialTier);
+  // Facultative : vide = prestations à la carte seules. Une valeur hors liste reste
+  // un refus (optionalEnum), jamais un « sans offre » par défaut.
+  const formule = optionalEnum(formData, "formule", "La formule", CommercialTier);
   const depositPercent = requiredInt(formData, "depositPercent", "Le taux d'acompte", {
     min: 0,
     max: 100,
@@ -116,6 +120,9 @@ function parseDevisInput(formData: FormData): { error: string } | ParsedDevisInp
     .getAll("optionIds")
     .filter((value): value is string => typeof value === "string" && value.length > 0);
 
+  const contentError = devisContentError(formule.value !== null, optionIds.length);
+  if (contentError) return { error: contentError };
+
   return {
     prospectId,
     formule: formule.value,
@@ -131,10 +138,13 @@ function parseDevisInput(formData: FormData): { error: string } | ParsedDevisInp
 // serveur. Partagé par la création et la modification (D1 — la même règle écrite
 // deux fois est la même règle corrigée une fois sur deux).
 async function resolveDevisLines(tenantId: string, parsed: ParsedDevisInput) {
-  const catalogueFormule = await prisma.catalogueFormule.findFirst({
-    where: { tenantId, formule: parsed.formule, active: true },
-  });
-  if (!catalogueFormule) {
+  const catalogueFormule =
+    parsed.formule === null
+      ? null
+      : await prisma.catalogueFormule.findFirst({
+          where: { tenantId, formule: parsed.formule, active: true },
+        });
+  if (parsed.formule !== null && !catalogueFormule) {
     return { error: "Formule introuvable ou retirée du catalogue." as const };
   }
 
@@ -143,6 +153,10 @@ async function resolveDevisLines(tenantId: string, parsed: ParsedDevisInput) {
   const options = await prisma.catalogueOption.findMany({
     where: { tenantId, id: { in: parsed.optionIds }, active: true },
   });
+  // Sans offre, le devis n'a de contenu que par ses options : si toutes ont été
+  // retirées du catalogue entre-temps, il serait vide.
+  const contentError = devisContentError(catalogueFormule !== null, options.length);
+  if (contentError) return { error: contentError };
 
   // Dégressivité de l'abonnement portail selon l'OFFRE du devis (§12.2 : « le calcul
   // doit vivre dans l'outil »). Appliquée ici, une seule fois, puis SNAPSHOTÉE sur la
@@ -154,7 +168,7 @@ async function resolveDevisLines(tenantId: string, parsed: ParsedDevisInput) {
   }));
 
   const amounts = computeDevisAmounts({
-    formulePriceEuros: catalogueFormule.priceEuros,
+    formulePriceEuros: catalogueFormule?.priceEuros ?? 0,
     optionPricesEuros: pricedOptions.map((option) =>
       optionCommittedAmountEuros({
         priceEuros: option.engagedUnitPriceEuros,
@@ -208,9 +222,9 @@ export async function createDevis(
         tenantId,
         prospectId: parsed.prospectId,
         number,
-        catalogueFormuleId: lines.catalogueFormule.id,
-        formuleLabelSnapshot: lines.catalogueFormule.label,
-        formulePriceSnapshotEuros: lines.catalogueFormule.priceEuros,
+        catalogueFormuleId: lines.catalogueFormule?.id ?? null,
+        formuleLabelSnapshot: lines.catalogueFormule?.label ?? null,
+        formulePriceSnapshotEuros: lines.catalogueFormule?.priceEuros ?? null,
         depositPercent: parsed.depositPercent,
         installmentCount: parsed.installmentCount,
         validityDays: parsed.validityDays,
@@ -263,9 +277,9 @@ export async function updateDevis(
     await tx.devis.update({
       where: { id },
       data: {
-        catalogueFormuleId: lines.catalogueFormule.id,
-        formuleLabelSnapshot: lines.catalogueFormule.label,
-        formulePriceSnapshotEuros: lines.catalogueFormule.priceEuros,
+        catalogueFormuleId: lines.catalogueFormule?.id ?? null,
+        formuleLabelSnapshot: lines.catalogueFormule?.label ?? null,
+        formulePriceSnapshotEuros: lines.catalogueFormule?.priceEuros ?? null,
         depositPercent: parsed.depositPercent,
         installmentCount: parsed.installmentCount,
         validityDays: parsed.validityDays,
@@ -366,8 +380,8 @@ export async function changeDevisStatus(
   return null;
 }
 
-// Envoi réel du devis par e-mail (22/09/2026, retour du call Sandrine/Assad
-// Benoît : « Préparer l'e-mail n'envoie pas l'e-mail »). Remplace le brouillon
+// Envoi réel du devis par e-mail (22/09/2026, retour du call Sandrine et le client
+// pilote : « Préparer l'e-mail n'envoie pas l'e-mail »). Remplace le brouillon
 // `mailto:` — voir devis-sharing-service.ts pour l'historique de la décision.
 //
 // Sandrine (ou qui envoie) est mise en COPIE, jamais en expéditrice : le mail
@@ -495,7 +509,7 @@ export type DevisListPage = {
     id: string;
     number: string;
     status: DevisStatus;
-    formuleLabelSnapshot: string;
+    formuleLabelSnapshot: string | null;
     totalAmountEuros: number;
     createdAt: Date;
     validUntil: Date;

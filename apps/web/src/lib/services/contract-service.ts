@@ -40,7 +40,7 @@ export type ContractFacts = {
   finessNumber: string | null;
   siretNumber: string | null;
   address: string | null;
-  formule: CommercialTier;
+  formule: CommercialTier | null;
   formuleLabel: string;
   modulesLabel: string | null;
   gratuit: boolean;

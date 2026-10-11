@@ -23,9 +23,9 @@ function form(entries: Record<string, string>): FormData {
 
 describe("requiredString", () => {
   it("nettoie les espaces et accepte une valeur", () => {
-    expect(requiredString(form({ nom: "  ASSAD  " }), "nom", "Le nom")).toEqual({
+    expect(requiredString(form({ nom: "  Glycines  " }), "nom", "Le nom")).toEqual({
       ok: true,
-      value: "ASSAD",
+      value: "Glycines",
     });
   });
 

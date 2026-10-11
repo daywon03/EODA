@@ -151,7 +151,7 @@ function parseProspectInput(formData: FormData): { error: string } | ParsedProsp
   const roleError = otherPrecisionError(contactRole.value, contactRoleOther.value, "la fonction du contact");
   if (roleError) return { error: roleError };
 
-  // FINESS : normalisé (« 93 00 34 459 » = « 930034459 ») puis contrôlé sur sa FORME.
+  // FINESS : normalisé (« 99 00 00 017 » = « 990000017 ») puis contrôlé sur sa FORME.
   // Même règle qu'à la signature, même fonction — deux contrôles de FINESS finiraient
   // par accepter des choses différentes (D1).
   const finess = normaliseFiness(finessNumber.value);

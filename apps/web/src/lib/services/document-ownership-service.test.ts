@@ -6,13 +6,13 @@ import {
 } from "./document-ownership-service";
 
 describe("buildOwnershipMention", () => {
-  const mention = buildOwnershipMention("ASSAD BENOIT");
+  const mention = buildOwnershipMention("SAD Les Glycines (fictif)");
 
   it("nomme l'auteur, le cadre, et le bénéficiaire du droit d'usage", () => {
     // Le texte a été dicté en séance : créé par EODA dans le cadre de
     // l'accompagnement, propriété EODA, droit d'exploitation concédé à la structure.
     expect(mention).toContain(EODA_LEGAL_NAME);
-    expect(mention).toContain("ASSAD BENOIT");
+    expect(mention).toContain("SAD Les Glycines (fictif)");
     expect(mention).toContain("Propriété");
     expect(mention).toContain("droit d'exploitation");
   });
@@ -24,7 +24,7 @@ describe("buildOwnershipMention", () => {
 });
 
 describe("buildContractualMention", () => {
-  const mention = buildContractualMention("ASSAD BENOIT");
+  const mention = buildContractualMention("SAD Les Glycines (fictif)");
 
   it("ne revendique aucune propriété sur un document contractuel", () => {
     // Prétendre détenir les droits sur un devis serait faux : EODA y propose, elle

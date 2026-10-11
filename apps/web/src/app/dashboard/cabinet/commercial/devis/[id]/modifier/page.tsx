@@ -25,9 +25,11 @@ export default async function ModifierDevisPage({ params }: Props) {
   const activeOptions = catalogue.options.filter((o) => o.active);
 
   const retiredLines = [
-    ...(activeFormules.some((f) => f.id === devis.catalogueFormuleId)
+    ...(devis.catalogueFormuleId === null || activeFormules.some((f) => f.id === devis.catalogueFormuleId)
       ? []
-      : [devis.formuleLabelSnapshot]),
+      : devis.formuleLabelSnapshot === null
+        ? []
+        : [devis.formuleLabelSnapshot]),
     ...devis.options
       .filter((o) => !activeOptions.some((a) => a.id === o.catalogueOptionId))
       .map((o) => o.labelSnapshot),
@@ -63,7 +65,7 @@ export default async function ModifierDevisPage({ params }: Props) {
             defaultValidityDays={catalogue.billingSettings?.defaultValidityDays ?? 30}
             draft={{
               id: devis.id,
-              formule: devis.catalogueFormule.formule,
+              formule: devis.catalogueFormule?.formule ?? null,
               optionIds: devis.options.map((o) => o.catalogueOptionId),
               depositPercent: devis.depositPercent,
               installmentCount: devis.installmentCount,

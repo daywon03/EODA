@@ -6,6 +6,12 @@ import { recordAuditEvent } from "@/lib/services/audit-log-service";
 import { firstError, requiredEmail, requiredEnum, requiredString } from "@/lib/validation/form-parsers";
 import { generateTemporaryPassword, hashPassword } from "@/lib/security/password-hashing";
 import { sendClientInvitationEmail } from "@/lib/email/notifications";
+import {
+  decideExistingAccount,
+  describeExistingAccount,
+  type ExistingAccountDecision,
+  type ExistingAccountFacts,
+} from "@/lib/services/existing-account-service";
 
 export type InviteClientUserResult =
   | {
@@ -18,7 +24,43 @@ export type InviteClientUserResult =
       // SAVOIR et communiquer le mot de passe elle-même.
       invitationEmailSent: boolean;
     }
-  | { error: string };
+  | { error: string }
+  // Le compte existe, dans ce cabinet seulement : le cabinet peut le rattacher ici
+  // (`linkExistingClientUser`) au lieu d'en créer un second.
+  | { error: string; linkableEmail: string };
+
+// Ce qu'on sait d'un compte existant, pour la décision pure. Lecture étroite : jamais
+// le nom ni l'empreinte, seulement le rôle, l'état et les structures rattachées.
+async function loadExistingAccount(email: string): Promise<ExistingAccountFacts | null> {
+  const user = await prisma.user.findUnique({
+    where: { email },
+    select: {
+      role: true,
+      isActive: true,
+      establishmentUsers: {
+        select: {
+          establishmentId: true,
+          establishment: { select: { name: true, tenantId: true } },
+        },
+      },
+    },
+  });
+  if (!user) return null;
+  return {
+    role: user.role,
+    isActive: user.isActive,
+    links: user.establishmentUsers.map((link) => ({
+      establishmentId: link.establishmentId,
+      establishmentName: link.establishment.name,
+      tenantId: link.establishment.tenantId,
+    })),
+  };
+}
+
+function existingAccountError(decision: ExistingAccountDecision, email: string): InviteClientUserResult {
+  const message = describeExistingAccount(decision) ?? "Formulaire invalide.";
+  return decision.kind === "LINKABLE" ? { error: message, linkableEmail: email } : { error: message };
+}
 
 export async function inviteClientUser(formData: FormData): Promise<InviteClientUserResult> {
   const establishmentIdRaw = formData.get("establishmentId");
@@ -29,7 +71,7 @@ export async function inviteClientUser(formData: FormData): Promise<InviteClient
   // Contrôle déterminant : l'établissement doit appartenir au tenant de l'appelant.
   // Sans ce contrôle, un utilisateur Cabinet pouvait créer un compte client rattaché
   // à l'établissement d'un autre cabinet, et donc ouvrir un accès à ses données.
-  const { establishmentId, session, userId } = await requireEstablishmentInTenant(
+  const { establishmentId, session, userId, tenantId } = await requireEstablishmentInTenant(
     establishmentIdRaw
   );
 
@@ -51,8 +93,13 @@ export async function inviteClientUser(formData: FormData): Promise<InviteClient
   if (error) return { error };
   if (!email.ok || !name.ok || !roleInEstablishment.ok) return { error: "Formulaire invalide." };
 
-  const existing = await prisma.user.findUnique({ where: { email: email.value } });
-  if (existing) return { error: "Un compte existe déjà pour cette adresse email." };
+  // Compte déjà là : on dit OÙ seulement s'il ne touche que ce cabinet
+  // (existing-account-service) — sinon la phrase opaque, sans oracle d'existence.
+  const decision = decideExistingAccount(await loadExistingAccount(email.value), {
+    establishmentId,
+    tenantId,
+  });
+  if (decision.kind !== "NONE") return existingAccountError(decision, email.value);
 
   const tempPassword = generateTemporaryPassword();
   const passwordHash = await hashPassword(tempPassword);
@@ -128,4 +175,58 @@ export async function inviteClientUser(formData: FormData): Promise<InviteClient
     userEmail: email.value,
     invitationEmailSent,
   };
+}
+
+// ── Rattacher un compte EXISTANT à une autre structure du même cabinet ────────
+// Le cas du directeur de deux SAD accompagnés (retours du 15 et du 22/09). Geste
+// cabinet, gardé par `requireEstablishmentInTenant`. L'adresse est relue et la
+// décision recalculée ICI : l'écran ne fait que proposer, il ne prouve rien. Aucun
+// mot de passe n'est créé ni réinitialisé — le compte garde le sien.
+export async function linkExistingClientUser(
+  formData: FormData
+): Promise<{ success: true } | { error: string }> {
+  const establishmentIdRaw = formData.get("establishmentId");
+  if (typeof establishmentIdRaw !== "string" || establishmentIdRaw.length === 0) {
+    return { error: "Établissement manquant." };
+  }
+  const { establishmentId, session, userId, tenantId } = await requireEstablishmentInTenant(
+    establishmentIdRaw
+  );
+
+  const email = requiredEmail(formData, "email", "L'adresse email");
+  const roleInEstablishment = requiredEnum(
+    formData,
+    "roleInEstablishment",
+    "Le rôle dans l'établissement",
+    EstablishmentUserRole
+  );
+  const error = firstError(email, roleInEstablishment);
+  if (error) return { error };
+  if (!email.ok || !roleInEstablishment.ok) return { error: "Formulaire invalide." };
+
+  const decision = decideExistingAccount(await loadExistingAccount(email.value), {
+    establishmentId,
+    tenantId,
+  });
+  if (decision.kind !== "LINKABLE") {
+    return { error: describeExistingAccount(decision) ?? "Aucun compte à rattacher pour cette adresse." };
+  }
+
+  const user = await prisma.user.findUnique({ where: { email: email.value }, select: { id: true } });
+  if (!user) return { error: "Aucun compte à rattacher pour cette adresse." };
+
+  await prisma.establishmentUser.create({
+    data: { userId: user.id, establishmentId, roleInEstablishment: roleInEstablishment.value },
+  });
+
+  await recordAuditEvent({
+    action: "CLIENT_USER_LINKED",
+    actorUserId: userId,
+    actorRole: session.user.role,
+    establishmentId,
+    targetId: user.id,
+    detail: roleInEstablishment.value,
+  });
+
+  return { success: true };
 }

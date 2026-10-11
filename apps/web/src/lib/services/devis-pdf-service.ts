@@ -4,7 +4,7 @@ import { getEnv } from "@/lib/config/env";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // PDF DU DEVIS POUR PIÈCE JOINTE — première génération de PDF côté serveur de ce
-// projet (22/09/2026, demande du call Sandrine/Assad Benoît : le devis part
+// projet (22/09/2026, demande du call Sandrine et le client pilote : le devis part
 // désormais en vrai e-mail via Resend, pièce jointe comprise, plutôt qu'en
 // `mailto:` qui ne peut techniquement pas attacher de fichier).
 //

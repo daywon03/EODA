@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { loginAction } from "@/lib/auth-actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { AlertCircle, Loader2 } from "lucide-react";
 
@@ -38,10 +39,9 @@ export function LoginForm() {
 
       <div className="space-y-1.5">
         <Label htmlFor="password">Mot de passe</Label>
-        <Input
+        <PasswordInput
           id="password"
           name="password"
-          type="password"
           autoComplete="current-password"
           placeholder="••••••••"
           required

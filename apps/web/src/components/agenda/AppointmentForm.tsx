@@ -124,7 +124,7 @@ export function AppointmentForm(props: Props) {
           id="location"
           name="location"
           disabled={isPending}
-          placeholder={mode === "VISIO" ? "https://meet.google.com/..." : "12 rue des Lilas, 93150 Le Blanc-Mesnil"}
+          placeholder={mode === "VISIO" ? "https://meet.google.com/..." : "12 rue des Lilas, 99000 Ville-Fictive"}
         />
         {/* Aide persistante sous le champ, et non un placeholder qui disparaît à la
             première frappe. */}

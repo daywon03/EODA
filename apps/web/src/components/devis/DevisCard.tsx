@@ -11,7 +11,7 @@ type Props = {
   id: string;
   number: string;
   status: DevisStatus;
-  formuleLabelSnapshot: string;
+  formuleLabelSnapshot: string | null;
   totalAmountEuros: number;
   prospectStructureName?: string;
 };
@@ -37,7 +37,7 @@ export function DevisCard({ id, number, status, formuleLabelSnapshot, totalAmoun
           <div className="min-w-0">
             <p className="truncate text-sm font-semibold text-ink">{number}</p>
             <p className="truncate text-xs text-ink2">
-              {formuleLabelSnapshot}
+              {formuleLabelSnapshot ?? "Prestations à la carte"}
               {prospectStructureName ? ` · ${prospectStructureName}` : ""}
             </p>
           </div>

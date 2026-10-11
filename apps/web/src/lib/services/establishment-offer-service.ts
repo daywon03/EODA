@@ -19,7 +19,7 @@ import { resolveSupportMode } from "./support-mode-service";
 // avec cette règle : bloquer les dépôts sans mission casserait le parcours
 // d'avant-vente (une checklist affichée qu'aucun dépôt ne pourrait honorer).
 
-export type MissionOffer = { formule: CommercialTier; gratuit: boolean; supportMode: SupportMode };
+export type MissionOffer = { formule: CommercialTier | null; gratuit: boolean; supportMode: SupportMode };
 
 // Lecture étroite de l'offre contractée ET du mode d'accompagnement (N1). Exportée :
 // la garde de génération (document.ts) et la checklist en ont besoin, et la relire

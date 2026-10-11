@@ -143,7 +143,7 @@ function parseFicheInput(
 
   return {
     type: type.value,
-    // Normalisé : la fiche porte « 930034459 », jamais « 93 00 34 459 ». Un numéro
+    // Normalisé : la fiche porte « 990000017 », jamais « 99 00 00 017 ». Un numéro
     // stocké sous deux formes ne se compare plus.
     finessNumber: normaliseFiness(finessNumber.value),
     siretNumber: siret,
@@ -239,7 +239,9 @@ export async function convertDevisToClient(
     if (conflict) return { ok: false, error: conflict };
   }
 
-  const formule = devis.catalogueFormule.formule;
+  // Nulle pour un devis SANS offre (prestations à la carte seules) : la mission naît
+  // sans formule, accompagnée, sans droit de génération (offer-scope-service).
+  const formule = devis.catalogueFormule?.formule ?? null;
   const missionOptions = toMissionOptionSnapshots(devis.options);
   const prospectId = devis.prospect.id;
 
@@ -395,7 +397,7 @@ export type SignatureContext = {
   number: string;
   status: DevisStatus;
   structureName: string;
-  formuleLabel: string;
+  formuleLabel: string | null;
   totalAmountEuros: number;
   optionLabels: string[];
   contactEmail: string | null;

@@ -80,7 +80,7 @@ export function ProspectForm({ prospect }: Props) {
         <Input
           id="structureName"
           name="structureName"
-          placeholder="ex : Association d'aide à domicile du Blanc-Mesnil"
+          placeholder="ex : Association d'aide à domicile des Glycines (fictif)"
           defaultValue={prospect?.structureName}
           required
           autoFocus
@@ -108,7 +108,7 @@ export function ProspectForm({ prospect }: Props) {
               id="finessNumber"
               name="finessNumber"
               inputMode="numeric"
-              placeholder="9 chiffres — ex : 930034459"
+              placeholder="9 chiffres — ex : 990000017"
               defaultValue={prospect?.finessNumber ?? undefined}
               disabled={isPending}
             />
@@ -144,7 +144,7 @@ export function ProspectForm({ prospect }: Props) {
           <Input
             id="address"
             name="address"
-            placeholder="ex : 12 rue des Lilas, 93150 Le Blanc-Mesnil"
+            placeholder="ex : 12 rue des Lilas, 99000 Ville-Fictive"
             defaultValue={prospect?.address ?? undefined}
             disabled={isPending}
           />

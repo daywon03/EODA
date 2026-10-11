@@ -105,8 +105,8 @@ export type ClientDevis = {
   id: string;
   number: string;
   status: DevisStatus;
-  formuleLabelSnapshot: string;
-  formulePriceSnapshotEuros: number;
+  formuleLabelSnapshot: string | null;
+  formulePriceSnapshotEuros: number | null;
   depositPercent: number;
   installmentCount: number;
   totalAmountEuros: number;

@@ -29,7 +29,7 @@ export type MissionAccessFacts = {
 };
 
 // Pas de mission : la fiche est en avant-vente ou antérieure à l'entonnoir unique
-// (ASSAD BENOIT). Rien n'est clos, donc rien n'est fermé — refuser ici couperait
+// (SAD Les Glycines (fictif)). Rien n'est clos, donc rien n'est fermé — refuser ici couperait
 // l'accès d'un client dont l'accompagnement n'a même pas commencé.
 export function deriveMissionAccessState(mission: MissionAccessFacts | null): MissionAccessState {
   if (!mission) return "ACTIVE";

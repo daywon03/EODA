@@ -143,7 +143,7 @@ export default async function ClientContratPage() {
           <div className="space-y-4">
             <p className="text-sm text-brun-ancre">
               Devis <span className="font-semibold">{contract.devis.number}</span> ·{" "}
-              {contract.devis.formuleLabelSnapshot}
+              {contract.devis.formuleLabelSnapshot ?? "Prestations à la carte"}
               <Badge variant="signe" className="ml-2 align-middle">
                 Signé
               </Badge>
@@ -153,7 +153,11 @@ export default async function ClientContratPage() {
               <AmountTile
                 label="Total signé"
                 value={formatEuros(contract.devis.totalAmountEuros)}
-                hint={`dont formule ${formatEuros(contract.devis.formulePriceSnapshotEuros)}`}
+                hint={
+                  contract.devis.formulePriceSnapshotEuros === null
+                    ? "prestations à la carte"
+                    : `dont formule ${formatEuros(contract.devis.formulePriceSnapshotEuros)}`
+                }
               />
               <AmountTile
                 label="Acompte à la commande"

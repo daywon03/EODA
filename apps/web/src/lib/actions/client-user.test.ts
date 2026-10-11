@@ -14,7 +14,7 @@ type TxCallback<T> = (tx: unknown) => Promise<T>;
 
 const prismaMock = {
   establishmentUser: { findUnique: vi.fn(), update: vi.fn(), delete: vi.fn(), count: vi.fn() },
-  user: { update: vi.fn() },
+  user: { update: vi.fn(), findUnique: vi.fn() },
   $transaction: vi.fn(),
 };
 
@@ -220,5 +220,54 @@ describe("révocation", () => {
     // Le mot de passe temporaire ne doit apparaître dans AUCUN événement d'audit.
     const auditPayloads = JSON.stringify(recordAuditEvent.mock.calls);
     expect(auditPayloads).not.toContain("placeholder-jetable-not-a-real-secret");
+  });
+});
+
+describe("modification de l'adresse e-mail par le cabinet (bilan §3.2)", () => {
+  const editForm = (email: string): FormData =>
+    targetForm({ name: "Interlocuteur Test", roleInEstablishment: "DIRECTEUR", email });
+
+  it("change l'adresse quand elle est libre, et ne l'écrit pas dans le journal", async () => {
+    givenLink();
+    prismaMock.user.findUnique.mockResolvedValue(null);
+
+    const result = await updateClientUser(editForm("nouvelle@example.org"));
+
+    expect(result).toEqual({ success: true });
+    expect(prismaMock.user.update).toHaveBeenCalledWith({
+      where: { id: USER_ID },
+      data: { name: "Interlocuteur Test", email: "nouvelle@example.org" },
+    });
+    expect(JSON.stringify(recordAuditEvent.mock.calls)).not.toContain("nouvelle@example.org");
+  });
+
+  it("refuse une adresse déjà utilisée par un autre compte, sans rien écrire", async () => {
+    givenLink();
+    prismaMock.user.findUnique.mockResolvedValue({ id: "autre-compte" });
+
+    const result = await updateClientUser(editForm("prise@example.org"));
+
+    expect(result).toEqual({ error: "Cette adresse e-mail est déjà utilisée par un autre compte." });
+    expect(prismaMock.user.update).not.toHaveBeenCalled();
+  });
+
+  it("refuse une adresse invalide", async () => {
+    givenLink();
+    const result = await updateClientUser(editForm("pas-une-adresse"));
+    expect(result).toHaveProperty("error");
+    expect(prismaMock.user.update).not.toHaveBeenCalled();
+  });
+
+  it("adresse inchangée : aucune vérification d'unicité", async () => {
+    givenLink();
+    const result = await updateClientUser(editForm("interlocuteur@example.org"));
+    expect(result).toEqual({ success: true });
+    expect(prismaMock.user.findUnique).not.toHaveBeenCalled();
+  });
+
+  it("refuse l'interlocuteur d'une structure d'un autre cabinet (garde)", async () => {
+    requireEstablishmentInTenant.mockRejectedValue(new Error("NOT_FOUND"));
+    await expect(updateClientUser(editForm("x@example.org"))).rejects.toThrow("NOT_FOUND");
+    expect(prismaMock.user.update).not.toHaveBeenCalled();
   });
 });

@@ -25,7 +25,7 @@ import { DevisRecap, type RecapLine } from "./DevisRecap";
 // `updateDevis` le revérifie côté serveur.
 type DevisDraft = {
   id: string;
-  formule: CommercialTier;
+  formule: CommercialTier | null;
   optionIds: string[];
   depositPercent: number;
   installmentCount: number;
@@ -81,7 +81,9 @@ export function DevisForm({
   // catalogue entre-temps.
   const draftFormuleStillSellable = draft !== undefined && formules.some((f) => f.formule === draft.formule);
   const [formule, setFormule] = useState<CommercialTier | "">(
-    (draftFormuleStillSellable ? draft?.formule : undefined) ?? formules[0]?.formule ?? ""
+    draft?.formule === null
+      ? ""
+      : (draftFormuleStillSellable ? draft?.formule : undefined) ?? formules[0]?.formule ?? ""
   );
   const [selectedOptionIds, setSelectedOptionIds] = useState<string[]>(
     (draft?.optionIds ?? []).filter((id) => options.some((o) => o.id === id))

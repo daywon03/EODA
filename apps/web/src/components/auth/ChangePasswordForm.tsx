@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { changePasswordAction } from "@/lib/actions/password";
 import { MIN_PASSWORD_LENGTH } from "@/lib/security/password-policy";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { AlertCircle, Loader2 } from "lucide-react";
 
@@ -33,10 +33,9 @@ export function ChangePasswordForm() {
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="space-y-1.5">
         <Label htmlFor="currentPassword">Mot de passe actuel</Label>
-        <Input
+        <PasswordInput
           id="currentPassword"
           name="currentPassword"
-          type="password"
           autoComplete="current-password"
           required
           disabled={isPending}
@@ -45,10 +44,9 @@ export function ChangePasswordForm() {
 
       <div className="space-y-1.5">
         <Label htmlFor="newPassword">Nouveau mot de passe</Label>
-        <Input
+        <PasswordInput
           id="newPassword"
           name="newPassword"
-          type="password"
           autoComplete="new-password"
           minLength={MIN_PASSWORD_LENGTH}
           required
@@ -58,10 +56,9 @@ export function ChangePasswordForm() {
 
       <div className="space-y-1.5">
         <Label htmlFor="confirmation">Confirmer le nouveau mot de passe</Label>
-        <Input
+        <PasswordInput
           id="confirmation"
           name="confirmation"
-          type="password"
           autoComplete="new-password"
           minLength={MIN_PASSWORD_LENGTH}
           required

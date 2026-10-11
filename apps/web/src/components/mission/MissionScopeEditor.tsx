@@ -12,7 +12,8 @@ type Props = {
   missionId: string;
   formules: CatalogueFormule[];
   options: CatalogueOption[];
-  currentFormule: CommercialTier;
+  // Nulle : mission sans offre (prestations à la carte seules).
+  currentFormule: CommercialTier | null;
   currentGratuit: boolean;
   subscribedOptions: {
     catalogueOptionId: string;
@@ -35,7 +36,7 @@ export function MissionScopeEditor({
 
   return (
     <form action={formAction} className="space-y-4">
-      <FormuleOfferPicker formules={formules} defaultFormule={currentFormule} defaultGratuit={currentGratuit} />
+      <FormuleOfferPicker formules={formules} defaultFormule={currentFormule ?? undefined} defaultGratuit={currentGratuit} />
       <MissionOptionsPicker options={options} subscribed={subscribedOptions} />
 
       {state?.error && (

@@ -159,8 +159,8 @@ export function toMissionOptionSnapshots(
 // (CLAUDE.md §5 bis).
 export function summariseConversionForAudit(input: {
   devisNumber: string;
-  formule: CommercialTier;
+  formule: CommercialTier | null;
   optionCount: number;
 }): string {
-  return `${input.devisNumber} · ${input.formule} · ${input.optionCount} option(s)`;
+  return `${input.devisNumber} · ${input.formule ?? "SANS_OFFRE"} · ${input.optionCount} option(s)`;
 }

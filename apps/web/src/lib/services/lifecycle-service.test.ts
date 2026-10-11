@@ -102,7 +102,7 @@ describe("deriveFunnelStage", () => {
   });
 
   it("dérive de la seule mission pour une fiche sans prospect", () => {
-    // ASSAD BENOIT : créé à la main avant l'entonnoir unique, aucun prospect rattaché.
+    // SAD Les Glycines (fictif) : créé à la main avant l'entonnoir unique, aucun prospect rattaché.
     expect(
       deriveFunnelStage({ prospectStatus: null, mission: mission({ completedChecklistCount: 11 }) })
     ).toBe("EN_COURS");

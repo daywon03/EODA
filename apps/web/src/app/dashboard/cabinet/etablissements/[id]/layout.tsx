@@ -8,7 +8,7 @@ import { deriveFunnelStage, isBetaMission } from "@/lib/services/lifecycle-servi
 import { ESTABLISHMENT_TYPE_LABELS } from "@/lib/services/structure-identity-service";
 import { derivePrimaryAction, describeEvaluationCountdown } from "@/lib/services/structure-sheet-service";
 import { structureHref, visibleStructureTabs } from "@/lib/design/structure-tabs";
-import { FORMULE_LABELS } from "@/components/mission/formule-labels";
+import { formuleLabel } from "@/components/mission/formule-labels";
 import { StageBadge } from "@/components/crm/StageBadge";
 import { Button } from "@/components/ui/button";
 import { StructureHeaderFrame } from "@/components/structure/StructureHeaderFrame";
@@ -41,7 +41,7 @@ export default async function StructureLayout({ children, params }: Props) {
   const stage = deriveFunnelStage({ prospectStatus: establishment.prospect?.status ?? null, mission: lifecycle });
   const countdown = describeEvaluationCountdown(establishment.hasEvaluationTargetDate, now);
   const primary = derivePrimaryAction(review);
-  const formule = establishment.mission ? FORMULE_LABELS[establishment.mission.formule] : null;
+  const formule = establishment.mission ? formuleLabel(establishment.mission.formule) : null;
 
   // Les gestes de l'ancienne fiche, regroupés — aucun n'a disparu : modifier,
   // comptes et logo (Réglages), contrat, rapport, et la suppression (admin).

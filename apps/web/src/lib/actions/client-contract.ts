@@ -8,6 +8,7 @@ import { getClientChecklist } from "@/lib/actions/checklist";
 import { recordAuditEvent } from "@/lib/services/audit-log-service";
 import { readMissionDocumentCounters } from "@/lib/db/read-mission-document-counters";
 import { firstError, optionalString, requiredString } from "@/lib/validation/form-parsers";
+import { NO_FORMULE_LABEL } from "@/components/mission/formule-labels";
 import type { MissionDocumentCounters } from "@/lib/services/mission-document-counters-service";
 import {
   documentProgressPercent,
@@ -43,7 +44,7 @@ import {
 // autorité sur le périmètre — jamais de Establishment.commercialTier, resté à
 // l'affichage/historique (CLAUDE.md §7).
 export type ClientOffer = {
-  formule: CommercialTier;
+  formule: CommercialTier | null;
   gratuit: boolean;
   // Libellé et modules issus de la ligne de catalogue de CETTE formule seulement.
   // Le reste du catalogue de formules n'est pas lu.
@@ -249,18 +250,22 @@ export async function getClientContract(): Promise<ClientContractView> {
 // il n'est pas vendu, il est libellé en clair.
 async function resolveOfferLabel(
   tenantId: string,
-  formule: CommercialTier,
+  formule: CommercialTier | null,
   gratuit: boolean
 ): Promise<ClientOffer> {
-  const row = await prisma.catalogueFormule.findUnique({
-    where: { tenantId_formule: { tenantId, formule } },
-    select: { label: true, modulesLabel: true, description: true },
-  });
+  // Sans offre (prestations à la carte seules) : aucune ligne de catalogue à lire.
+  const row =
+    formule === null
+      ? null
+      : await prisma.catalogueFormule.findUnique({
+          where: { tenantId_formule: { tenantId, formule } },
+          select: { label: true, modulesLabel: true, description: true },
+        });
 
   return {
     formule,
     gratuit,
-    label: row?.label ?? (formule === "BETA" ? "Bêta-test" : formule),
+    label: row?.label ?? (formule === null ? NO_FORMULE_LABEL : formule === "BETA" ? "Bêta-test" : formule),
     modulesLabel: row?.modulesLabel ?? null,
     description: row?.description ?? null,
   };

@@ -22,11 +22,11 @@ describe("buildClientInvitationEmail", () => {
     email: "camille@structure.fr",
     temporaryPassword: "Xk7-mots-de-passe",
     loginUrl: "https://portail.eoda-conseil.com/login",
-    establishmentName: "ASSAD BENOIT",
+    establishmentName: "SAD Les Glycines (fictif)",
   });
 
   it("nomme la structure dans l'objet — la personne accompagne peut en suivre plusieurs", () => {
-    expect(invitation.subject).toContain("ASSAD BENOIT");
+    expect(invitation.subject).toContain("SAD Les Glycines (fictif)");
   });
 
   it("donne l'identifiant, le mot de passe temporaire et le lien", () => {
@@ -56,7 +56,7 @@ describe("buildClientInvitationEmail", () => {
 
 describe("buildOptionRequestEmail", () => {
   const alert = buildOptionRequestEmail({
-    establishmentName: "ASSAD BENOIT",
+    establishmentName: "SAD Les Glycines (fictif)",
     optionLabel: "Audit de conformité flash",
     message: "On aimerait le faire avant la visite.",
     requestedByName: "Camille Durand",
@@ -64,7 +64,7 @@ describe("buildOptionRequestEmail", () => {
   });
 
   it("dit qui demande quoi, dès l'objet", () => {
-    expect(alert.subject).toContain("ASSAD BENOIT");
+    expect(alert.subject).toContain("SAD Les Glycines (fictif)");
     expect(alert.subject).toContain("Audit de conformité flash");
   });
 
@@ -75,7 +75,7 @@ describe("buildOptionRequestEmail", () => {
 
   it("se passe du bloc citation quand aucun message n'a été laissé", () => {
     const withoutMessage = buildOptionRequestEmail({
-      establishmentName: "ASSAD BENOIT",
+      establishmentName: "SAD Les Glycines (fictif)",
       optionLabel: "Audit",
       message: "   ",
       requestedByName: "Camille",
