@@ -76,6 +76,8 @@ const ACTION_LABELS: Record<AuditAction, string> = {
   DOCUMENT_ACCEPTED_BY_CLIENT: "Document accepté par la structure",
   MISSION_SUPPORT_MODE_CHANGED: "Mode d'accompagnement modifié (autonomie / accompagné)",
   CLIENT_USER_LINKED: "Interlocuteur rattaché à une autre structure",
+  DOCUMENT_TYPE_CRITERIA_UPDATED: "Matrice documents → critères validée",
+  DOCUMENT_TYPE_CRITERION_PROMOTED: "Critère confirmé ajouté à la matrice",
 };
 
 const ROLE_LABELS: Record<string, string> = {

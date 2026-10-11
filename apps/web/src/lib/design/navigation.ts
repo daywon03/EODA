@@ -25,7 +25,9 @@ export type NavIconKey =
   | "documents"
   | "deliverables"
   | "progress"
-  | "messages";
+  | "messages"
+  | "criteria"
+  | "tasks";
 
 export type NavItem = {
   id: string;

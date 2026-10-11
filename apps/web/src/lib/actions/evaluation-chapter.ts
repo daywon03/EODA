@@ -4,6 +4,7 @@ import { prisma, type DocumentStatus, type Rating } from "@eoda/database";
 import { notFound } from "next/navigation";
 import { requireCabinetSession, requireEstablishmentInTenant } from "@/lib/auth/guards";
 import { getOfferScope } from "@/lib/services/offer-scope-service";
+import { applicableToValuesFor } from "@/lib/services/criterion-applicability-service";
 import { computeCriterionScore, computeWeightedAverage } from "@/lib/services/scoring-service";
 import { shouldSuggestCompliance } from "@/lib/services/pre-rating-suggestion-service";
 
@@ -63,7 +64,9 @@ export async function getEvaluationChapter(
   establishmentId: string,
   chapterNumber: number
 ): Promise<EvaluationChapterData> {
-  await requireEstablishmentInTenant(establishmentId);
+  const { establishmentType } = await requireEstablishmentInTenant(establishmentId);
+  // Profil SAD aide / mixte : jamais les critères de l'autre profil (N4).
+  const applicableTo = { in: applicableToValuesFor(establishmentType) };
 
   const mission = await prisma.mission.findUnique({ where: { establishmentId } });
   if (!mission) {
@@ -93,7 +96,10 @@ export async function getEvaluationChapter(
             include: {
               criteria: {
                 orderBy: { code: "asc" },
-                where: offerScope.criteriaScope === "IMPERATIFS_ONLY" ? { requirementLevel: "IMPERATIF" } : {},
+                where:
+                  offerScope.criteriaScope === "IMPERATIFS_ONLY"
+                    ? { requirementLevel: "IMPERATIF", applicableTo }
+                    : { applicableTo },
                 include: { evaluationElements: true },
               },
             },

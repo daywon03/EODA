@@ -12,6 +12,11 @@ import type { EstablishmentType, RequirementLevel } from "@eoda/database";
 // médicament à sécuriser — le critère lui-même reste STANDARD en base pour ne pas
 // fausser le décompte des établissements Aide, qui sont la majorité du portefeuille.
 //
+// Depuis le 11/10/2026 (N4, migration `20261011110000_sad_mixte_criteria`), 3.6.2
+// existe en base, IMPÉRATIF et `applicableTo = SAD_MIXTE` : un SAD aide ne le voit
+// jamais (criterion-applicability-service), donc le décompte Aide reste juste. Cette
+// liste reste la règle pour toute base où 3.6.2 serait encore STANDARD.
+//
 // Toute nouvelle divergence Aide/Mixte découverte plus tard s'ajoute ici, jamais en
 // modifiant Criterion.requirementLevel directement (qui redeviendrait faux pour
 // l'autre profil).

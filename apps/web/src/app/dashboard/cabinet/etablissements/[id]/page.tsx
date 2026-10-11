@@ -4,9 +4,11 @@ import { getEstablishmentChecklist } from "@/lib/actions/checklist";
 import { getMission } from "@/lib/actions/mission";
 import { getEvaluationChapter, listChapters } from "@/lib/actions/evaluation-chapter";
 import { listAppointmentsFor } from "@/lib/actions/appointment";
+import { getStructureCriteriaProof } from "@/lib/actions/criteria-proof";
 import {
   deriveNextActions,
   describeChapterMeasure,
+  describeImperativesMeasure,
   describeLoi2002Measure,
   toTimelinePhases,
 } from "@/lib/services/structure-sheet-service";
@@ -28,17 +30,17 @@ export async function generateMetadata({ params }: Props) {
 
 // Vue d'ensemble de la fiche structure. Tout ce qui s'y lit est DÉRIVÉ
 // (structure-sheet-service) : aucun cadre n'affiche un chiffre qui ne se calcule
-// pas encore. « Critères impératifs prouvés » arrive avec les rattachements
-// documents ↔ critères (tranche N4), les tâches avec le plan d'action (N5).
+// pas encore. « Critères impératifs » (N4) se dérive de la matrice validée.
 export default async function StructureOverviewPage({ params }: Props) {
   const { id } = await params;
   // Lectures parallèles, chacune sous sa garde (getEstablishment et la checklist
   // passent par requireEstablishmentInTenant : notFound hors tenant).
-  const [establishment, checklist, mission, appointments] = await Promise.all([
+  const [establishment, checklist, mission, appointments, proof] = await Promise.all([
     getEstablishment(id),
     getEstablishmentChecklist(id),
     getMission(id),
     listAppointmentsFor({ establishmentId: id }),
+    getStructureCriteriaProof(id),
   ]);
   const now = new Date();
 
@@ -50,6 +52,7 @@ export default async function StructureOverviewPage({ params }: Props) {
 
   const documents = flattenChecklist(checklist);
   const measures = [
+    describeImperativesMeasure(proof.imperatives, proof.expectedImperatives),
     ...chapters.map((c) =>
       describeChapterMeasure({
         number: c.chapter.number,

@@ -7,6 +7,9 @@ import { getEstablishmentIdsWithUnansweredMessage } from "@/lib/actions/message"
 import { countDocumentsAwaitingReviewByEstablishment } from "@/lib/actions/review-queue";
 import { toMissionLifecycleFacts } from "@/lib/db/to-mission-lifecycle-facts";
 import { toPortfolioRow } from "@/lib/db/to-portfolio-row";
+import { readCriteriaProof } from "@/lib/db/read-criteria-proof";
+import { countImperativesProven } from "@/lib/services/criteria-proof-service";
+import { resolveSupportMode } from "@/lib/services/support-mode-service";
 import { deriveFunnelStage, isBetaMission } from "@/lib/services/lifecycle-service";
 import type { PortfolioRow } from "@/lib/services/portfolio-kpi-service";
 import {
@@ -81,6 +84,23 @@ export async function getStructuresOverview(): Promise<StructuresOverview> {
   );
   const deposited = new Map(loi2002.map((d) => [d.establishmentId, d._count._all]));
 
+  // Impératifs prouvés (N4) : mode de chaque mission (une requête), puis la même
+  // dérivation que l'onglet Critères — jamais un second calcul.
+  const missions =
+    establishmentIds.length === 0
+      ? []
+      : await prisma.mission.findMany({
+          where: { establishmentId: { in: establishmentIds } },
+          select: { establishmentId: true, supportMode: true },
+        });
+  const modeById = new Map(missions.map((m) => [m.establishmentId, m.supportMode]));
+  const proof = await readCriteriaProof(
+    establishments.map((e) => {
+      const supportMode = modeById.get(e.id);
+      return { id: e.id, type: e.type, mode: resolveSupportMode(supportMode ? { supportMode } : null) };
+    })
+  );
+
   const rows = establishments.map((e): StructureFacts => {
     const mission = toMissionLifecycleFacts(e.mission);
     return {
@@ -95,6 +115,7 @@ export async function getStructuresOverview(): Promise<StructuresOverview> {
       hasUnansweredMessage: unanswered.has(e.id),
       loi2002Deposited: deposited.get(e.id) ?? 0,
       loi2002Total,
+      imperatives: countImperativesProven(proof.get(e.id) ?? []),
     };
   });
 

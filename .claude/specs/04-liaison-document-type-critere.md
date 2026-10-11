@@ -79,3 +79,24 @@ de l'onglet « Index référentiel complet », colonne J de « Critères Impéra
 
 Chargement : par l'écran d'administration prévu ci-dessus (import de cette proposition,
 puis validation ligne à ligne), **jamais** par un seed sur la base partagée.
+
+## Chargeable par écran — fait le 11/10/2026 (tranche N4)
+
+- **Écran** `/dashboard/cabinet/criteres` (« Matrice des critères », CABINET_ADMIN seul —
+  garde `requireCabinetAdminSession` dans la page ET dans chaque action). La proposition
+  est **embarquée** (`apps/web/src/content/criteres/matrice-proposition.ts`, copie exacte
+  du CSV, fins de ligne en LF — `criterion-matrix-service.test.ts` échoue si elle
+  diverge de la source). Pas de `xlsx`, pas d'accès disque à l'exécution.
+- Une carte par type de document ; cases de confiance HAUTE ou déjà rattachées cochées
+  d'office ; **« Valider ce type »** écrit dans `DocumentTypeCriterion` par action serveur
+  (`validateMatrixForDocumentType`) : seuls les critères **proposés pour ce type et
+  présents en base** sont décidables (`planMatrixDecision`) ; un proposé décoché est
+  retiré ; un rattachement non proposé (promu) n'est jamais touché. Audit
+  `DOCUMENT_TYPE_CRITERIA_UPDATED` (`code · +n −m`).
+- Codes absents du référentiel en base → liste « non applicables à ce référentiel »,
+  jamais écrits ; types inconnus → signalés, jamais créés. Les remarques qui citent le
+  sigle erroné du fichier source sont nettoyées à la lecture (`sanitizeRemark`).
+- **Promotion** : une suggestion de critère **confirmée** sur un document d'une structure
+  du cabinet peut être « ajoutée à la matrice » (`promoteCriterionSuggestion`, audit
+  `DOCUMENT_TYPE_CRITERION_PROMOTED`).
+- **Rien n'est encore validé en base** : l'écran existe, la décision reste à Sandrine.

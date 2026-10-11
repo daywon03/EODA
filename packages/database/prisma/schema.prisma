@@ -1540,6 +1540,12 @@ enum AuditAction {
   // Rattachement d'un compte client EXISTANT (même cabinet) à une autre structure, au
   // lieu du refus « un compte existe déjà » (bilan §3.2). `targetId` = le compte.
   CLIENT_USER_LINKED
+  // Matrice type de document → critère HAS validée par CABINET_ADMIN (N4). `targetId` =
+  // identifiant du type, `detail` = son code et le nombre de liens ajoutés / retirés.
+  DOCUMENT_TYPE_CRITERIA_UPDATED
+  // Suggestion de critère confirmée promue au type de document. `targetId` = la
+  // suggestion, `detail` = code du type et code du critère (référentiel, non nominatif).
+  DOCUMENT_TYPE_CRITERION_PROMOTED
 }
 
 model AuditLogEntry {

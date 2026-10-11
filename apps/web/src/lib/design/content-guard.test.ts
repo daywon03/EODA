@@ -41,10 +41,15 @@ function offenders(files: string[], pattern: RegExp, except: string[] = []): str
 const THIS_FILE = "lib/design/content-guard.test.ts";
 const scanned = [...listFiles(WEB_SRC), ...SEEDS];
 
-describe("contenus et données — règles vérifiées", () => {
+// Délai élargi : le parcours de tout `src` peut dépasser 5 s quand la suite tourne en parallèle.
+describe("contenus et données — règles vérifiées", { timeout: 30_000 }, () => {
   it("n'écrit jamais DIPEC ni DPEC", () => {
     const pattern = new RegExp(["\\bDI", "PEC\\b|\\bDP", "EC\\b"].join(""), "i");
-    expect(offenders(scanned, pattern, [THIS_FILE, "status-vocabulary.test.ts"])).toEqual([]);
+    // Exception unique : la copie embarquée de la matrice proposée, qui cite le sigle tel
+    // qu'écrit dans sa source ; `sanitizeRemark` le retire à la lecture (testé).
+    expect(
+      offenders(scanned, pattern, [THIS_FILE, "status-vocabulary.test.ts", "content/criteres/matrice-proposition.ts"])
+    ).toEqual([]);
   });
 
   it("ne contient aucune donnée du client pilote", () => {

@@ -8,6 +8,8 @@ import {
   House,
   Library,
   LineChart,
+  ListChecks,
+  ListTodo,
   MessagesSquare,
   PackageOpen,
   ScrollText,
@@ -36,4 +38,6 @@ export const NAV_ICONS: Record<NavIconKey, LucideIcon> = {
   deliverables: PackageOpen,
   progress: TrendingUp,
   messages: MessagesSquare,
+  criteria: ListChecks,
+  tasks: ListTodo,
 };

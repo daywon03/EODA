@@ -16,6 +16,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { ProgressBar } from "@/components/ui/progress-bar";
 import { Button } from "@/components/ui/button";
 import { StageBadge } from "@/components/crm/StageBadge";
+import { describeImperativesProof } from "@/lib/services/criteria-proof-service";
 
 export const metadata = { title: "Structures · EODA Conseil" };
 
@@ -25,9 +26,7 @@ function columns(now: Date): DataTableColumn<StructureFacts>[] {
     { id: "type", header: "Type", cell: (row) => ESTABLISHMENT_TYPE_LABELS[row.type] },
     { id: "stage", header: "Étape", cell: (row) => <StageBadge stage={row.stage} beta={row.isBeta} /> },
     {
-      // « Impératifs prouvés » ne se dérive pas encore (rattachements critères ↔
-      // documents à charger, tranche N4) : on affiche ce qui se compte honnêtement,
-      // la couverture loi 2002-2 — des types DÉPOSÉS, pas des documents conformes.
+      // Couverture loi 2002-2 — des types DÉPOSÉS, pas des documents conformes.
       id: "loi2002",
       header: "Loi 2002-2 déposés",
       cell: (row) => (
@@ -43,6 +42,18 @@ function columns(now: Date): DataTableColumn<StructureFacts>[] {
           {describeLoi2002Coverage(row)}
         </span>
       ),
+    },
+    {
+      // Impératifs PROUVÉS (N4) : relus par EODA ou acceptés par la structure, selon
+      // le mode — jamais « conformes ». Même dérivation que l'onglet Critères.
+      id: "imperatives",
+      header: "Impératifs prouvés",
+      cell: (row) =>
+        row.imperatives ? (
+          <span className="whitespace-nowrap tabular-nums">{describeImperativesProof(row.imperatives)}</span>
+        ) : (
+          "—"
+        ),
     },
     {
       id: "evaluation",

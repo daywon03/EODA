@@ -80,4 +80,6 @@ export const EXPECTED_MIGRATIONS: readonly string[] = [
   "20261010120000_support_mode_client_acceptance",
   "20261011090000_devis_without_offer_client_user_link",
   "20261011100000_drop_seed_header_criterion",
+  "20261011110000_sad_mixte_criteria",
+  "20261011120000_criterion_matrix_audit",
 ] as const;

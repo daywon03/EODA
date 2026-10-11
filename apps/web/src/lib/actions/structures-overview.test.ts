@@ -11,7 +11,9 @@ const prismaMock = {
   establishmentUser: { findMany: vi.fn() },
   document: { groupBy: vi.fn() },
   documentType: { count: vi.fn() },
+  mission: { findMany: vi.fn() },
 };
+const readCriteriaProof = vi.fn();
 const requireCabinetSession = vi.fn();
 const listEstablishments = vi.fn();
 const getEstablishmentIdsWithUnansweredMessage = vi.fn();
@@ -22,6 +24,9 @@ vi.mock("@/lib/auth/guards", () => ({ requireCabinetSession: () => requireCabine
 vi.mock("@/lib/actions/establishment", () => ({ listEstablishments: () => listEstablishments() }));
 vi.mock("@/lib/actions/message", () => ({
   getEstablishmentIdsWithUnansweredMessage: () => getEstablishmentIdsWithUnansweredMessage(),
+}));
+vi.mock("@/lib/db/read-criteria-proof", () => ({
+  readCriteriaProof: (...args: unknown[]) => readCriteriaProof(...args),
 }));
 vi.mock("@/lib/actions/review-queue", () => ({
   countDocumentsAwaitingReviewByEstablishment: () => countDocumentsAwaitingReviewByEstablishment(),
@@ -59,6 +64,19 @@ beforeEach(() => {
   countDocumentsAwaitingReviewByEstablishment.mockResolvedValue(new Map([["e1", 2]]));
   prismaMock.document.groupBy.mockResolvedValue([{ establishmentId: "e1", _count: { _all: 4 } }]);
   prismaMock.documentType.count.mockResolvedValue(7);
+  prismaMock.mission.findMany.mockResolvedValue([{ establishmentId: "e1", supportMode: "AUTONOMIE" }]);
+  readCriteriaProof.mockResolvedValue(
+    new Map([
+      [
+        "e1",
+        [
+          { isImperative: true, status: "PROUVE" },
+          { isImperative: true, status: "EN_PARTIE" },
+          { isImperative: false, status: "PROUVE" },
+        ],
+      ],
+    ])
+  );
   prismaMock.establishmentUser.findMany.mockResolvedValue([{ establishmentId: "e1", userId: "client-1" }]);
   prismaMock.auditLogEntry.groupBy.mockResolvedValue([
     { establishmentId: "e1", actorUserId: "client-1", _max: { occurredAt: new Date("2026-10-08") } },
@@ -81,8 +99,15 @@ describe("getStructuresOverview", () => {
       hasUnansweredMessage: false,
       loi2002Deposited: 4,
       loi2002Total: 7,
+      imperatives: { proven: 1, total: 2 },
     });
+    // Mode de la mission transmis à la dérivation ; sans mission, la règle stricte.
+    expect(readCriteriaProof).toHaveBeenCalledWith([
+      { id: "e1", type: "SAD_AIDE", mode: "AUTONOMIE" },
+      expect.objectContaining({ id: "e2", mode: "ACCOMPAGNE" }),
+    ]);
     expect(rows[1]).toMatchObject({
+      imperatives: { proven: 0, total: 0 },
       id: "e2",
       stage: null,
       lastActivityAt: null,

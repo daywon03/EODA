@@ -52,6 +52,11 @@ export function buildCabinetNav(role: UserRole, counts: CabinetNavCounts): NavSe
     },
     { id: "agenda", href: `${CABINET_ROOT}/agenda`, label: "Agenda", icon: "agenda" },
     { id: "library", href: `${CABINET_ROOT}/modeles`, label: "Bibliothèque", icon: "library" },
+    // Matrice documents → critères : configuration de cabinet, CABINET_ADMIN seul (la
+    // page le revérifie par requireCabinetAdminSession).
+    ...(role === "CABINET_ADMIN"
+      ? [{ id: "criteria", href: `${CABINET_ROOT}/criteres`, label: "Matrice des critères", icon: "criteria" as const }]
+      : []),
     { id: "journal", href: `${CABINET_ROOT}/journal`, label: "Journal", icon: "journal" },
   ];
 
@@ -101,6 +106,8 @@ const SEGMENT_LABELS: Record<string, string | null> = {
   signature: "Signature",
   decouverte: "Grille de découverte",
   "evaluation-besoins": "Évaluation des besoins",
+  criteres: "Critères",
+  "plan-action": "Plan d'action",
 };
 
 // Libellé d'un identifiant selon son parent : le nom réel (« SAD Les Glycines »)

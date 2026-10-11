@@ -109,6 +109,15 @@ export default defineConfig({
         "src/lib/services/structure-documents-service.ts",
         "src/lib/services/structure-sheet-service.ts",
         "src/lib/services/structures-overview-service.ts",
+        // Critères & preuves (N4) : la matrice proposée ne doit écrire que ce que
+        // l'admin a coché parmi les propositions ; « prouvé » ne doit jamais
+        // s'afficher sans relecture EODA ou acceptation de la structure ; un SAD aide
+        // ne doit jamais voir un critère de soins.
+        "src/lib/services/criterion-matrix-service.ts",
+        "src/lib/services/criteria-proof-service.ts",
+        "src/lib/services/criterion-applicability-service.ts",
+        // « Un compte existe déjà » : un défaut ici révèle un compte d'un autre cabinet.
+        "src/lib/services/existing-account-service.ts",
         // Péremption documentaire : elle décide qu'un document « conforme » ne l'est
         // plus. Dérivée de l'horloge, donc jamais vérifiable par un statut en base.
         "src/lib/services/document-expiry-service.ts",

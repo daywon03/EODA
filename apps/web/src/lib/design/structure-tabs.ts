@@ -7,9 +7,9 @@ import type { UserRole } from "@eoda/database";
 // l'adresse dit où l'on est, le bouton « Précédent » fonctionne, et chaque page
 // re-vérifie l'appartenance de la fiche au tenant (requireEstablishmentInTenant).
 //
-// Ajouter un onglet = ajouter UNE ligne ici, et la route qui va avec. Les onglets
-// Critères, Plan d'action et Équipe de la maquette arrivent avec leurs tranches
-// (N4, N5, N10) : tant que l'écran n'existe pas, l'onglet n'existe pas — un onglet
+// Ajouter un onglet = ajouter UNE ligne ici, et la route qui va avec. L'onglet
+// Équipe de la maquette arrive avec sa tranche
+// (N10) : tant que l'écran n'existe pas, l'onglet n'existe pas — un onglet
 // vide est une donnée factice (D6).
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -33,6 +33,7 @@ export type StructureTab = {
 export const STRUCTURE_TABS: readonly StructureTab[] = [
   { id: "overview", label: "Vue d'ensemble", segment: "", roles: CABINET_ROLES },
   { id: "documents", label: "Documents", segment: "documents", roles: CABINET_ROLES },
+  { id: "criteres", label: "Critères", segment: "criteres", roles: CABINET_ROLES },
   { id: "evaluation", label: "Auto-évaluation", segment: "evaluation", roles: CABINET_ROLES },
   { id: "mission", label: "Mission", segment: "mission", roles: CABINET_ROLES },
   { id: "echanges", label: "Échanges", segment: "echanges", roles: CABINET_ROLES },

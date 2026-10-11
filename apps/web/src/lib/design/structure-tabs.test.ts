@@ -8,8 +8,8 @@ import {
 } from "./structure-tabs";
 
 describe("visibleStructureTabs", () => {
-  it("montre les six onglets livrés aux deux rôles cabinet, dans l'ordre de la maquette", () => {
-    const expected = ["overview", "documents", "evaluation", "mission", "echanges", "reglages"];
+  it("montre les sept onglets livrés aux deux rôles cabinet, dans l'ordre de la maquette", () => {
+    const expected = ["overview", "documents", "criteres", "evaluation", "mission", "echanges", "reglages"];
     expect(visibleStructureTabs("CABINET_ADMIN").map((t) => t.id)).toEqual(expected);
     expect(visibleStructureTabs("CABINET_EVALUATOR").map((t) => t.id)).toEqual(expected);
   });
@@ -18,10 +18,9 @@ describe("visibleStructureTabs", () => {
     expect(visibleStructureTabs("CLIENT_USER")).toEqual([]);
   });
 
-  it("n'annonce pas les onglets des tranches suivantes (pas d'onglet vide)", () => {
+  it("annonce Critères (N4), pas encore l'Équipe (N10) — pas d'onglet vide", () => {
     const ids = STRUCTURE_TABS.map((t) => t.id);
-    expect(ids).not.toContain("criteres");
-    expect(ids).not.toContain("plan");
+    expect(ids).toContain("criteres");
     expect(ids).not.toContain("equipe");
   });
 

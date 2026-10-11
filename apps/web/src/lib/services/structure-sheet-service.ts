@@ -62,6 +62,23 @@ export type Measure = { label: string; value: string; percent?: number; note: st
 
 // Chapitre : la moyenne des cotations EXISTANTES (scoring-service, ★ = 4), lue par
 // getEvaluationChapter. Rien de coté = « Non coté », sans jauge — un zéro mentirait.
+// Cadre « Critères impératifs » (N4) : x / 16 (SAD aide) ou x / 17 (SAD mixte) — le
+// total vient des critères en base, le repère du profil n'est cité que s'il diffère.
+export function describeImperativesMeasure(
+  proof: { proven: number; total: number },
+  expected: number
+): Measure {
+  return {
+    label: "Critères impératifs",
+    value: `${proof.proven} / ${proof.total}`,
+    percent: proof.total === 0 ? 0 : Math.round((proof.proven / proof.total) * 100),
+    note:
+      proof.total === expected
+        ? "prouvés par des documents relus ou acceptés"
+        : `prouvés — repère du profil : ${expected}`,
+  };
+}
+
 export function describeChapterMeasure(chapter: {
   number: number;
   name: string;

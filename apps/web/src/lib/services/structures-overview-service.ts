@@ -34,6 +34,9 @@ export type StructureFacts = {
   // courante existe, sur le nombre de types de la catégorie.
   loi2002Deposited: number;
   loi2002Total: number;
+  // Critères impératifs PROUVÉS (tranche N4, criteria-proof-service) : x / 16 en SAD
+  // aide, x / 17 en SAD mixte. Absent quand non calculé.
+  imperatives?: { proven: number; total: number };
 };
 
 export type WatchReasonKind = "ECHEANCE_DEPASSEE" | "ECHEANCE_PROCHE" | "A_RELIRE" | "MESSAGE" | "INACTIVITE";

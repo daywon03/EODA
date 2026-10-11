@@ -20,6 +20,7 @@ const GUARD = "requireEstablishmentInTenant(";
 const GUARDED_READS: Record<string, string> = {
   "getEstablishment(": "lib/actions/establishment.ts",
   "getEstablishmentChecklist(": "lib/actions/checklist.ts",
+  "getStructureCriteriaProof(": "lib/actions/criteria-proof.ts",
 };
 
 function findFiles(dir: string, names: readonly string[]): string[] {
