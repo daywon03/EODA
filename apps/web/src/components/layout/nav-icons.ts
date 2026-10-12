@@ -3,6 +3,7 @@ import {
   Building2,
   CalendarDays,
   ClipboardCheck,
+  Compass,
   FileText,
   Files,
   House,
@@ -40,4 +41,5 @@ export const NAV_ICONS: Record<NavIconKey, LucideIcon> = {
   messages: MessagesSquare,
   criteria: ListChecks,
   tasks: ListTodo,
+  diagnostic: Compass,
 };

@@ -6,6 +6,8 @@ import { getEvaluationChapter, listChapters } from "@/lib/actions/evaluation-cha
 import { listAppointmentsFor } from "@/lib/actions/appointment";
 import { getStructureCriteriaProof } from "@/lib/actions/criteria-proof";
 import { listEstablishmentActionItems } from "@/lib/actions/task";
+import { getStructureDiagnostic } from "@/lib/actions/diagnostic";
+import { DiagnosticReviewCard } from "@/components/diagnostic/DiagnosticReviewCard";
 import {
   deriveNextActions,
   describeChapterMeasure,
@@ -36,13 +38,14 @@ export default async function StructureOverviewPage({ params }: Props) {
   const { id } = await params;
   // Lectures parallèles, chacune sous sa garde (getEstablishment et la checklist
   // passent par requireEstablishmentInTenant : notFound hors tenant).
-  const [establishment, checklist, mission, appointments, proof, tasks] = await Promise.all([
+  const [establishment, checklist, mission, appointments, proof, tasks, diagnostic] = await Promise.all([
     getEstablishment(id),
     getEstablishmentChecklist(id),
     getMission(id),
     listAppointmentsFor({ establishmentId: id }),
     getStructureCriteriaProof(id),
     listEstablishmentActionItems(id),
+    getStructureDiagnostic(id),
   ]);
   const now = new Date();
 
@@ -84,6 +87,8 @@ export default async function StructureOverviewPage({ params }: Props) {
           {!mission && " Les chapitres apparaîtront une fois la mission démarrée."}
         </p>
       </section>
+
+      <DiagnosticReviewCard data={diagnostic} />
 
       <section aria-labelledby="overview-mission">
         <div className="mb-3.5 flex flex-wrap items-center justify-between gap-2">

@@ -82,6 +82,9 @@ const ACTION_LABELS: Record<AuditAction, string> = {
   ACTION_ITEM_COMPLETED: "Tâche faite",
   ACTION_ITEM_REOPENED: "Tâche rouverte",
   ACTION_ITEM_REASSIGNED: "Tâche confiée à quelqu'un d'autre",
+  DIAGNOSTIC_REVIEWED_BY_EODA: "Diagnostic relu par EODA",
+  DIAGNOSTIC_ACCEPTED_BY_CLIENT: "Diagnostic accepté par la structure",
+  DIAGNOSTIC_REPORT_PRINTED: "Rapport de diagnostic ouvert",
 };
 
 const ROLE_LABELS: Record<string, string> = {

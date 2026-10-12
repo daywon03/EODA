@@ -82,7 +82,9 @@ export type CriterionProofSource = {
   expectedDocumentTypeIds: readonly string[];
 };
 
-export type CriterionProofRow = Omit<CriterionProofSource, "expectedDocumentTypeIds"> & CriterionProof;
+// La ligne garde ses types attendus : « Mon diagnostic » (N6) en dérive ses actions
+// prioritaires (quels documents prouveraient le plus d'impératifs sans preuve).
+export type CriterionProofRow = CriterionProofSource & CriterionProof;
 
 // « 1.10.2 » avant « 1.2.1 » serait l'ordre alphabétique : on compare nombre à nombre.
 export function compareCriterionCodes(a: string, b: string): number {
@@ -102,9 +104,9 @@ export function buildCriteriaProofRows(
 ): CriterionProofRow[] {
   const byType = new Map(documents.map((d) => [d.documentTypeId, d]));
   return criteria
-    .map(({ expectedDocumentTypeIds, ...criterion }) => ({
+    .map((criterion) => ({
       ...criterion,
-      ...deriveCriterionProof(expectedDocumentTypeIds, byType, mode),
+      ...deriveCriterionProof(criterion.expectedDocumentTypeIds, byType, mode),
     }))
     .sort((a, b) => compareCriterionCodes(a.code, b.code));
 }

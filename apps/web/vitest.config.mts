@@ -122,6 +122,11 @@ export default defineConfig({
         // propositions d'action (jamais d'action sur un critère coté 4).
         "src/lib/services/action-item-service.ts",
         "src/lib/services/pac-proposal-service.ts",
+        // Mon diagnostic (N6) : ce que la structure lit de ses impératifs, et les deux
+        // gestes. Un défaut ici annonce « relu par EODA » sur un état jamais relu, ou
+        // laisse la structure accepter ce qu'EODA n'a pas encore vu.
+        "src/lib/services/diagnostic-service.ts",
+        "src/lib/services/diagnostic-validation-service.ts",
         // Péremption documentaire : elle décide qu'un document « conforme » ne l'est
         // plus. Dérivée de l'horloge, donc jamais vérifiable par un statut en base.
         "src/lib/services/document-expiry-service.ts",

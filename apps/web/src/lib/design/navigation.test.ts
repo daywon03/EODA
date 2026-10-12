@@ -76,6 +76,7 @@ describe("navigation du portail client", () => {
     expect(buildClientNav({ hasUnansweredMessage: false }).map((i) => i.label)).toEqual([
       "Accueil",
       "Mes documents",
+      "Mon diagnostic",
       "Tâches",
       "Mes livrables",
       "Mon suivi",
@@ -97,6 +98,8 @@ describe("navigation du portail client", () => {
   it.each([
     ["/dashboard/client", "home"],
     ["/dashboard/client/documents", "documents"],
+    ["/dashboard/client/diagnostic", "diagnostic"],
+    ["/dashboard/client/diagnostic/pratiques", "diagnostic"],
     ["/dashboard/client/livrables", "deliverables"],
     ["/dashboard/client/suivi", "progress"],
     ["/dashboard/client/echanges", "messages"],
