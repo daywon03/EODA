@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { acceptDiagnostic, getClientDiagnostic } from "@/lib/actions/diagnostic";
+import { getClientPractices } from "@/lib/actions/practice";
 import { DIAGNOSTIC_DISCLAIMER } from "@/lib/services/diagnostic-service";
-import { CLIENT_DOCUMENTS_PATH } from "@/lib/design/client-navigation";
+import { CLIENT_DOCUMENTS_PATH, CLIENT_PRACTICES_PATH } from "@/lib/design/client-navigation";
 import { DiagnosticChapters, DiagnosticCounters, PriorityActions } from "@/components/diagnostic/DiagnosticSections";
 import { DiagnosticValidationBanner } from "@/components/diagnostic/DiagnosticValidationBanner";
 import { GestureButton } from "@/components/diagnostic/GestureButton";
@@ -12,7 +13,7 @@ export const metadata = { title: "Mon diagnostic · EODA Conseil" };
 // des critères & preuves (N4) ; seuls les deux gestes — relu par EODA, accepté par
 // la structure — sont stockés. Jamais « conforme », jamais « évaluation HAS ».
 export default async function ClientDiagnosticPage() {
-  const data = await getClientDiagnostic();
+  const [data, practices] = await Promise.all([getClientDiagnostic(), getClientPractices()]);
 
   if (!data) {
     return (
@@ -48,6 +49,25 @@ export default async function ClientDiagnosticPage() {
       </div>
 
       <DiagnosticCounters summary={data.summary} expectedImperatives={data.expectedImperatives} />
+
+      {practices && practices.questions.length > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-line bg-soft p-5">
+          <div className="flex flex-col gap-1">
+            <span className="text-xl font-bold">Vos pratiques</span>
+            <span>
+              Un document ne suffit pas. Racontez comment vous faites au quotidien : une question par critère
+              impératif.
+            </span>
+            <span className="text-ink2 tabular-nums">{practices.progress.label}</span>
+          </div>
+          <Link
+            href={CLIENT_PRACTICES_PATH}
+            className="inline-flex min-h-14 items-center rounded-[10px] bg-ink-fill px-6 font-bold text-on-ink hover:bg-ink-fill/90"
+          >
+            Répondre aux questions
+          </Link>
+        </div>
+      )}
 
       <PriorityActions priorities={data.priorities} depositHref={CLIENT_DOCUMENTS_PATH} />
 

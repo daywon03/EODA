@@ -127,6 +127,9 @@ export default defineConfig({
         // laisse la structure accepter ce qu'EODA n'a pas encore vu.
         "src/lib/services/diagnostic-service.ts",
         "src/lib/services/diagnostic-validation-service.ts",
+        // Pratiques (N7) : une réponse invalide acceptée, ou une réponse à une ancienne
+        // formulation comptée comme à jour, fausse ce que la structure dit d'elle-même.
+        "src/lib/services/practice-service.ts",
         // Péremption documentaire : elle décide qu'un document « conforme » ne l'est
         // plus. Dérivée de l'horloge, donc jamais vérifiable par un statut en base.
         "src/lib/services/document-expiry-service.ts",

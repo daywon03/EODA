@@ -329,6 +329,7 @@ model User {
   createdActionItems          ActionItem[]                  @relation("ActionItemCreatedBy")
   diagnosticsReviewed         DiagnosticValidation[]        @relation("DiagnosticReviewedBy")
   diagnosticsAccepted         DiagnosticValidation[]        @relation("DiagnosticAcceptedBy")
+  practiceAnswers             PracticeAnswer[]
 
   @@index([tenantId])
   @@map("users")
@@ -389,6 +390,7 @@ model Establishment {
   messages              MissionMessage[]
   actionItems           ActionItem[]
   diagnosticValidations DiagnosticValidation[]
+  practiceAnswers       PracticeAnswer[]
 
   @@index([tenantId])
   @@map("establishments")
@@ -477,6 +479,7 @@ model Criterion {
   documentSuggestions DocumentCriterionSuggestion[]
   templateSuggestions TemplateCriterionSuggestion[]
   actionItems         ActionItem[]
+  practiceAnswers     PracticeAnswer[]
 
   @@index([objectiveId])
   @@map("criteria")
@@ -1565,6 +1568,7 @@ enum AuditAction {
   DIAGNOSTIC_REVIEWED_BY_EODA
   DIAGNOSTIC_ACCEPTED_BY_CLIENT
   DIAGNOSTIC_REPORT_PRINTED
+  PRACTICE_ANSWER_SAVED
 }
 
 model AuditLogEntry {
@@ -1953,4 +1957,46 @@ model DiagnosticValidation {
   @@index([reviewedByEodaById])
   @@index([acceptedByClientById])
   @@map("diagnostic_validations")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// QUESTIONS SUR LES PRATIQUES — tranche N7 (« Vos pratiques », maquettes v2).
+//
+// « Un document ne suffit pas » : une question par critère impératif, dont le TEXTE
+// est un contenu versionné (`content/pratiques/`), jamais une colonne. Ajouter ou
+// reformuler une question ne demande aucune migration ; `questionVersion` dit sous
+// quelle formulation la structure a répondu.
+//
+// Append-only : chaque enregistrement est une ligne, la plus récente par critère fait
+// foi. Une réponse ne se réécrit pas — c'est la trace de ce que la structure a dit, à
+// une date donnée. `text` est libre : l'écran rappelle de ne citer AUCUN nom de
+// personne accompagnée (HDS, CLAUDE.md §6) et le journal ne le recopie jamais.
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum PracticeAnswerValue {
+  OUI
+  EN_PARTIE
+  PAS_ENCORE
+  NE_SAIS_PAS
+}
+
+model PracticeAnswer {
+  id              String              @id @default(cuid())
+  establishmentId String              @map("establishment_id")
+  criterionId     String              @map("criterion_id")
+  questionVersion Int                 @map("question_version")
+  answer          PracticeAnswerValue
+  text            String?
+  // Nullable + SetNull : le départ d'un salarié n'efface pas ce que la structure a dit.
+  answeredById    String?             @map("answered_by_id")
+  answeredAt      DateTime            @default(now()) @map("answered_at")
+
+  establishment Establishment @relation(fields: [establishmentId], references: [id], onDelete: Cascade)
+  criterion     Criterion     @relation(fields: [criterionId], references: [id], onDelete: Cascade)
+  answeredBy    User?         @relation(fields: [answeredById], references: [id], onDelete: SetNull)
+
+  @@index([establishmentId, criterionId, answeredAt])
+  @@index([criterionId])
+  @@index([answeredById])
+  @@map("practice_answers")
 }

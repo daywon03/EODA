@@ -85,6 +85,7 @@ const ACTION_LABELS: Record<AuditAction, string> = {
   DIAGNOSTIC_REVIEWED_BY_EODA: "Diagnostic relu par EODA",
   DIAGNOSTIC_ACCEPTED_BY_CLIENT: "Diagnostic accepté par la structure",
   DIAGNOSTIC_REPORT_PRINTED: "Rapport de diagnostic ouvert",
+  PRACTICE_ANSWER_SAVED: "Réponse sur une pratique enregistrée",
 };
 
 const ROLE_LABELS: Record<string, string> = {
