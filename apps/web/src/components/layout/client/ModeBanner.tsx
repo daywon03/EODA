@@ -19,8 +19,11 @@ const MODE_LINES: Record<SupportMode, string> = {
 export function ModeBanner({ mode, offerLabel }: { mode: SupportMode | null; offerLabel: string }) {
   if (!mode) return null;
 
+  // Un repère nommé (complémentaire) : tout contenu hors repère échappe à la
+  // navigation par régions des lecteurs d'écran — or la réserve d'autonomie est
+  // précisément ce qu'on ne doit pas manquer.
   return (
-    <div className="border-b border-line bg-soft">
+    <aside aria-label="Votre formule" className="border-b border-line bg-soft">
       <div className="mx-auto flex max-w-[1200px] flex-wrap items-center gap-x-2.5 gap-y-1 px-4 py-2.5 text-base sm:px-6">
         <ModeTag mode={mode} label={offerLabel} />
         <p className="min-w-[240px] flex-1">
@@ -36,6 +39,6 @@ export function ModeBanner({ mode, offerLabel }: { mode: SupportMode | null; off
           )}
         </p>
       </div>
-    </div>
+    </aside>
   );
 }

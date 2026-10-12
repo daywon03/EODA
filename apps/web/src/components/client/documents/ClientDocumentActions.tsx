@@ -57,6 +57,7 @@ export function ClientDocumentActions({
           >
             {isPending && <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" />}
             Je l&apos;accepte
+            <span className="sr-only"> : {label}</span>
           </Button>
         )}
         {!needsDeposit && state !== "NOT_CONCERNED" && (
@@ -77,6 +78,7 @@ export function ClientDocumentActions({
             className="min-h-12 text-base font-bold text-accent-text underline"
           >
             Je ne l&apos;ai pas
+            <span className="sr-only"> : {label}</span>
           </button>
           {/* Jamais sur les sept documents de la loi 2002-2 (N3). */}
           {canAnswerNotConcerned(category) && (
@@ -87,6 +89,7 @@ export function ClientDocumentActions({
               className="min-h-12 text-base text-ink2 underline"
             >
               Ne nous concerne pas
+              <span className="sr-only"> : {label}</span>
             </button>
           )}
         </div>

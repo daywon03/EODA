@@ -38,6 +38,10 @@ export function DepositButton({
         onClick={() => setOpen(true)}
       >
         {label}
+        {/* Nom accessible distinct par document : une liste de « Déposer » tous
+            identiques ne dit rien à un lecteur d'écran. Le libellé visible reste
+            au début du nom (WCAG 2.5.3, « label dans le nom »). */}
+        <span className="sr-only"> : {documentLabel}</span>
       </Button>
       {open && (
         <ClientUploadDialog
