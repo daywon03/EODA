@@ -62,8 +62,10 @@ Trois vérités qu'un voisin ne peut pas copier telles quelles :
 - **Conçu pour les équipes de terrain les moins à l'aise avec l'écrit**, pas seulement pour
   les directions.
 
-L'IA n'est **pas** un argument de vente (décision Damon, 30/09/2026) : elle travaille en
-coulisse et n'apparaît jamais comme promesse à l'écran.
+L'IA n'est **pas** l'argument de vente : EODA vend la relecture humaine. Depuis le 08/10/2026
+(décision Damon, accord de Sandrine), l'IA **peut être nommée** à l'écran, mais jamais sans
+sa réserve : en autonomie, tout document produit ou corrigé porte « Non revérifié par un
+humain : peut comporter des erreurs. À relire absolument. »
 
 ## Operating Context
 
@@ -89,12 +91,15 @@ aide intégrée, thème clair/sombre.
 
 Contraintes durables :
 - Positionnement **préparation/conseil**, jamais « évaluation HAS officielle ».
-- Cotation 1/2/3/4/★/NC/RI uniquement ; NC averti sur impératif ; RI chapitre 1 seulement.
-- Aucune analyse automatique visible du client sans validation humaine.
+- Cotation 1/2/3/4/★/NC/RI uniquement ; NC **refusé** sur un critère impératif ; RI chapitre 1 seulement.
+- Structure **accompagnée** : aucune analyse automatique visible sans relecture EODA. Structure
+  **en autonomie** : l'analyse est visible, avec la réserve ci-dessus. Deux gestes distincts :
+  EODA « relu », la structure « accepté ».
 - Hébergement en Europe ; cloisonnement strict par établissement ; toute consultation de
   document journalisée.
 - Données de personnes accompagnées : minimisées ; la signature sur tablette et le stockage
-  de DIPC signés ouvrent une question HDS **non tranchée** (cf. `09-vision-produit.md`).
+  de DIPC signés relèvent de l'HDS : **décidé le 08/10/2026**, le backend migre vers un hébergement certifié ;
+  rien de nominatif en production avant la migration (cf. `09-vision-produit.md` §8).
 
 Décisions ouvertes (ne pas inventer) : nouvelle grille tarifaire SaaS, paiement en ligne,
 format d'import Synaé, cadence des relances automatiques, ouverture de la grille de
