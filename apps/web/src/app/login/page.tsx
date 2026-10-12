@@ -1,6 +1,7 @@
 import { LoginForm } from "./LoginForm";
-import { ShieldCheck, FileCheck2, ClipboardCheck } from "lucide-react";
+import { CheckCircle2, ShieldCheck, FileCheck2, ClipboardCheck } from "lucide-react";
 import { EodaLockup, EodaMark } from "@/components/layout/EodaLogo";
+import { LOGIN_NOTICE_PARAM, loginNoticeFor } from "@/lib/services/login-notice-service";
 
 export const metadata = { title: "Connexion · EODA Conseil" };
 
@@ -10,7 +11,10 @@ const HIGHLIGHTS = [
   { icon: ShieldCheck, text: "Données hébergées en Europe, accès cloisonné" },
 ];
 
-export default function LoginPage() {
+type Props = { searchParams: Promise<Record<string, string | string[] | undefined>> };
+
+export default async function LoginPage({ searchParams }: Props) {
+  const notice = loginNoticeFor((await searchParams)[LOGIN_NOTICE_PARAM]);
   return (
     <div className="min-h-dvh grid lg:grid-cols-2">
       {/* Panneau de marque — masqué sur mobile pour prioriser le formulaire */}
@@ -80,6 +84,15 @@ export default function LoginPage() {
             <p className="text-gris-mid text-sm mb-6">
               Outil de préparation à l&apos;évaluation qualité HAS
             </p>
+            {notice && (
+              <p
+                role="status"
+                className="mb-5 flex items-start gap-2 rounded-md border border-vert-ok/30 bg-vert-ok/10 px-3 py-2.5 text-sm text-brun-ancre"
+              >
+                <CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0 text-vert-ok" aria-hidden="true" />
+                <span>{notice}</span>
+              </p>
+            )}
             <LoginForm />
           </div>
 

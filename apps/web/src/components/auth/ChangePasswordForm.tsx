@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { changePasswordAction } from "@/lib/actions/password";
 import { MIN_PASSWORD_LENGTH } from "@/lib/security/password-policy";
+import { LOGIN_NOTICE_PARAM } from "@/lib/services/login-notice-service";
 import { Button } from "@/components/ui/button";
 import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
@@ -25,7 +26,9 @@ export function ChangePasswordForm() {
       // Toutes les sessions ouvertes avant le changement sont désormais refusées,
       // celle-ci comprise : on passe par la route de déconnexion, seule habilitée à
       // supprimer le cookie, plutôt que de laisser l'utilisateur sur une page morte.
-      window.location.assign("/deconnexion");
+      // Le motif fait afficher « mot de passe modifié » sur la connexion : sans lui,
+      // l'utilisateur renvoyé à l'écran de connexion croit que le changement a échoué.
+      window.location.assign(`/deconnexion?${LOGIN_NOTICE_PARAM}=mot-de-passe-modifie`);
     });
   }
 
