@@ -109,6 +109,16 @@ describe("clientDocumentPill — vocabulaire D6 / D8", () => {
     expect(clientDocumentPill("ACCEPTED", "AUTONOMIE").label).toBe("Accepté par vous · non revérifié par un humain");
   });
 
+  // Test de bout en bout du 12/10 : « Accepté par vous · non revérifié par un
+  // humain » s'affichait juste au-dessus de « Relu par EODA, le 12/10 ». Une
+  // relecture EODA lève la réserve de l'autonomie : les deux mentions ne coexistent
+  // jamais.
+  it("autonomie mais relu par EODA : aucune réserve « non revérifié » contradictoire", () => {
+    const reviewed = { reviewedByEoda: true };
+    expect(clientDocumentPill("ACCEPTED", "AUTONOMIE", reviewed).label).toBe("Accepté par vous");
+    expect(clientDocumentPill("TO_CHECK", "AUTONOMIE", reviewed).label).toBe("Relu par EODA");
+  });
+
   it("jamais « Validé » ni « conforme » côté client, et toujours un glyphe", () => {
     for (const mode of ["ACCOMPAGNE", "AUTONOMIE"] as const) {
       for (const state of ["TO_DEPOSIT", "RENEW", "TO_CHECK", "TO_PRODUCE", "IN_PROGRESS", "ACCEPTED", "NOT_CONCERNED"] as const) {

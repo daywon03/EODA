@@ -174,10 +174,24 @@ export function ReviewPanel({ entry, nextHref, todayMention }: Props) {
               La structure verra : « {todayMention} ». Les critères repérés restent internes au cabinet. Valider le
               document reste un geste distinct, sur la fiche.
             </p>
-            <Button type="button" size="lg" disabled={busy !== null} onClick={markReviewed} className="text-base font-bold">
+            {/* Une analyse illisible ne se marque pas relue : le serveur refuse aussi
+                (setAnalysisReviewed), le bouton désactivé évite seulement l'aller-retour. */}
+            <Button
+              type="button"
+              size="lg"
+              disabled={busy !== null || !entry.hasReadableAnalysis}
+              aria-describedby={entry.hasReadableAnalysis ? undefined : "review-unreadable-hint"}
+              onClick={markReviewed}
+              className="text-base font-bold"
+            >
               {busy === "reviewed" && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
               Marquer relu
             </Button>
+            {!entry.hasReadableAnalysis && (
+              <p id="review-unreadable-hint" className="text-sm text-ink2">
+                Relancez l&apos;analyse d&apos;abord : une analyse illisible ne peut pas être marquée relue.
+              </p>
+            )}
           </>
         )}
       </div>

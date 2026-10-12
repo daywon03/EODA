@@ -58,7 +58,7 @@ export function ClientDocumentCard({
           {notice && state === "TO_DEPOSIT" && <p className="text-base text-ink2">{notice}</p>}
           {waiting && <p className="text-base text-ink2">{waiting}</p>}
         </div>
-        <StatusPill pill={clientDocumentPill(state, mode)} className="text-base" />
+        <StatusPill pill={clientDocumentPill(state, mode, { reviewedByEoda: version?.reviewedByEoda ?? false })} className="text-base" />
         {complianceHref && (
           <Link
             href={complianceHref}

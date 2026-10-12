@@ -20,6 +20,7 @@ import { ingestDocumentVersion, reanalyzeDocumentVersion } from "@/lib/services/
 import { saveCorrectedDraft } from "@/lib/services/document-generation-service";
 import { generateCorrectionProposal } from "./correction-proposal";
 import { recordAuditEvent } from "@/lib/services/audit-log-service";
+import { parseAnalysisResult } from "@/lib/services/analysis-view-service";
 import { validateUploadedFile } from "@/lib/security/upload-validation-service";
 import {
   getEstablishmentCoveredCategories,
@@ -569,6 +570,15 @@ export async function setAnalysisReviewed(
   // inexistante, qui ferait croire à une relecture qui n'a pas eu lieu.
   if (reviewed && version.analysisResultJson === null) {
     return { error: "Aucune analyse à restituer pour cette version." };
+  }
+  // Une analyse ILLISIBLE (appel interrompu, adaptateur de repli, JSON vide) ne se
+  // marque pas relue : la structure lirait « Relu par EODA » sur une analyse qui ne
+  // dit rien (test de bout en bout du 12/10). Même lecture que l'écran.
+  if (reviewed && parseAnalysisResult(version.analysisResultJson) === null) {
+    return {
+      error:
+        "Cette analyse est illisible : il faut relancer l'analyse d'abord, depuis la fiche de la structure, avant de la marquer relue.",
+    };
   }
 
   if (reviewed === (version.analysisReviewedAt !== null)) return null;

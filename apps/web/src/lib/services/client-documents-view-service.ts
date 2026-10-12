@@ -86,7 +86,16 @@ export function deriveClientDocumentState(facts: ClientDocumentFacts): ClientDoc
 
 const pill = (label: string, glyph: string, tone: PillSpec["tone"]): PillSpec => ({ label, glyph, tone });
 
-export function clientDocumentPill(state: ClientDocumentState, mode: SupportMode): PillSpec {
+// La réserve de l'autonomie (« À vérifier par vous », « non revérifié par un
+// humain ») ne vaut que tant qu'EODA n'a rien relu : une relecture EODA la lève,
+// sinon la carte annoncerait « non revérifié » juste au-dessus de « Relu par EODA »
+// (test de bout en bout du 12/10).
+export function clientDocumentPill(
+  state: ClientDocumentState,
+  mode: SupportMode,
+  facts: { reviewedByEoda: boolean } = { reviewedByEoda: false }
+): PillSpec {
+  const showsReserve = mode === "AUTONOMIE" && !facts.reviewedByEoda;
   switch (state) {
     case "TO_DEPOSIT":
       return pill("À déposer", "○", "todo");
@@ -99,11 +108,11 @@ export function clientDocumentPill(state: ClientDocumentState, mode: SupportMode
     case "IN_PROGRESS":
       return pill("Reçu, en cours", "◔", "progress");
     case "TO_CHECK":
-      return mode === "ACCOMPAGNE" ? pill("Relu par EODA", "◉", "review") : pill("À vérifier par vous", "?", "review");
+      return showsReserve ? pill("À vérifier par vous", "?", "review") : pill("Relu par EODA", "◉", "review");
     case "ACCEPTED":
-      return mode === "ACCOMPAGNE"
-        ? DOCUMENT_PILLS.accepteParVous
-        : pill("Accepté par vous · non revérifié par un humain", "✓", "ok");
+      return showsReserve
+        ? pill("Accepté par vous · non revérifié par un humain", "✓", "ok")
+        : DOCUMENT_PILLS.accepteParVous;
   }
 }
 
