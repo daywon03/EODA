@@ -1,35 +1,41 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Moon, Sun } from "lucide-react";
+import { Monitor, Moon, Sun } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { STORAGE_KEY, applyTheme, resolveInitialTheme, type Theme } from "./theme-storage";
+import {
+  nextThemePreference,
+  themePreferenceLabel,
+  type ThemePreference,
+} from "@/lib/design/theme-preference";
+import { applyThemePreference, readThemePreference, storeThemePreference } from "./theme-storage";
 
-// Bascule clair/sombre manuelle (Damon, 22/09/2026). Rendue dans l'en-tête des deux
-// coquilles (cabinet et client) : un seul composant pour les deux.
+const ICONS: Record<ThemePreference, typeof Sun> = { system: Monitor, light: Sun, dark: Moon };
+
+// Choix du thème (Damon, 22/09/2026), à trois états depuis le 12/10/2026 : clair,
+// sombre, ou celui de l'appareil. Rendu dans l'en-tête des deux coquilles (cabinet
+// et client) : un seul composant pour les deux.
 //
-// Le texte visible EST le nom accessible (« Mode sombre ») : pas d'aria-label qui
-// dirait autre chose que ce qu'on lit (WCAG 2.5.3). Sur petit écran le texte passe
-// en lecture d'écran seulement, l'icône reste.
+// Un seul bouton qui fait le tour des trois états, pour ne pas élargir un en-tête
+// déjà plein. Il affiche l'état EN COURS (« Thème clair ») ; le nom accessible
+// commence par ce texte visible (WCAG 2.5.3) et dit ce que fait le clic. Sur petit
+// écran le texte passe en lecture d'écran seulement, l'icône reste.
 //
-// `theme` reste `null` jusqu'au montage : le serveur ne connaît ni la préférence
-// système ni le choix stocké, donc rien de fiable à rendre avant l'hydratation.
+// `preference` reste `null` jusqu'au montage : le serveur ne connaît pas le choix
+// stocké, donc rien de fiable à rendre avant l'hydratation.
 export function ThemeToggle({ className }: { className?: string }) {
-  const [theme, setTheme] = useState<Theme | null>(null);
+  const [preference, setPreference] = useState<ThemePreference | null>(null);
 
   useEffect(() => {
-    setTheme(resolveInitialTheme());
+    setPreference(readThemePreference());
   }, []);
 
-  function toggle() {
-    const next: Theme = theme === "dark" ? "light" : "dark";
-    setTheme(next);
-    try {
-      window.localStorage.setItem(STORAGE_KEY, next);
-    } catch {
-      // Stockage refusé (navigation privée) : le thème change pour cette page.
-    }
-    applyTheme(next);
+  function cycle() {
+    if (preference === null) return;
+    const next = nextThemePreference(preference);
+    setPreference(next);
+    storeThemePreference(next);
+    applyThemePreference(next);
   }
 
   const base = cn(
@@ -37,17 +43,18 @@ export function ThemeToggle({ className }: { className?: string }) {
     className
   );
 
-  if (theme === null) {
+  if (preference === null) {
     // Même emplacement, même taille : pas de bandeau qui se redimensionne au montage.
     return <span className={cn(base, "invisible")} aria-hidden="true" />;
   }
 
-  const isDark = theme === "dark";
-  const Icon = isDark ? Sun : Moon;
+  const Icon = ICONS[preference];
+  const label = themePreferenceLabel(preference);
   return (
-    <button type="button" onClick={toggle} className={base}>
+    <button type="button" onClick={cycle} className={base} title={`${label} — cliquer pour changer`}>
       <Icon className="h-5 w-5 flex-shrink-0" aria-hidden="true" />
-      <span className="sr-only sm:not-sr-only">{isDark ? "Mode clair" : "Mode sombre"}</span>
+      <span className="sr-only sm:not-sr-only">{label}</span>
+      <span className="sr-only"> — changer de thème</span>
     </button>
   );
 }
