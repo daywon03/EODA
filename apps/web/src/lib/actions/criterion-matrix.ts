@@ -22,7 +22,7 @@ import {
 // l'analyse, les guidelines et « critères & preuves » de toutes les structures.
 // ─────────────────────────────────────────────────────────────────────────────
 
-export const MATRIX_PATH = "/dashboard/cabinet/criteres";
+const MATRIX_PATH = "/dashboard/cabinet/criteres";
 
 export type PromotableSuggestion = {
   suggestionId: string;
