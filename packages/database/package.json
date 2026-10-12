@@ -3,7 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./seed-data": "./src/seed-data.ts",
+    "./seed-steps": "./src/seed-steps.ts"
   },
   "scripts": {
     "generate": "prisma generate",

@@ -10,6 +10,8 @@ import {
 } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import { seedHasReferential } from "./seed-has-referential";
+import { SEED_TENANT_ID } from "../src/seed-data";
+import { seedClientUserUpsertArgs, withRequestedFromClient } from "../src/seed-steps";
 
 const prisma = new PrismaClient();
 
@@ -475,9 +477,9 @@ async function main() {
 
   // Tenant Cabinet EODA
   const tenant = await prisma.tenant.upsert({
-    where: { id: "tenant-eoda-conseil" },
+    where: { id: SEED_TENANT_ID },
     update: {},
-    create: { id: "tenant-eoda-conseil", name: "EODA Conseil" },
+    create: { id: SEED_TENANT_ID, name: "EODA Conseil" },
   });
 
   // Utilisateurs de test (anonymes). `mustChangePassword: false` est explicite :
@@ -502,17 +504,9 @@ async function main() {
     },
   });
 
-  await prisma.user.upsert({
-    where: { email: "client@eoda-test.local" },
-    update: { passwordHash: hashPassword("Test1234!"), ...seedPasswordRotation },
-    create: {
-      email: "client@eoda-test.local",
-      name: "Utilisateur Client (test)",
-      passwordHash: hashPassword("Test1234!"),
-      role: "CLIENT_USER",
-      ...seedPasswordRotation,
-    },
-  });
+  // Compte client de test : déclaré dans le cabinet, sans structure (une fiche ne naît
+  // que d'une signature) — rattachable depuis n'importe quelle fiche de ce cabinet.
+  await prisma.user.upsert(seedClientUserUpsertArgs(hashPassword("Test1234!"), seedPasswordRotation));
 
   // Seed des 47 DocumentType — source de vérité : context/03-documents-obligatoires.md
   console.log(`Seeding ${DOCUMENT_TYPES.length} DocumentType…`);
@@ -525,13 +519,16 @@ async function main() {
         isConditional: dt.isConditional ?? false,
         expectedFrequency: dt.expectedFrequency ?? null,
       },
-      create: {
+      // `requestedFromClient` à la création seulement : sur une base neuve, les
+      // migrations qui le posent tournent AVANT le seed et ne touchent rien ; ensuite
+      // il appartient à CABINET_ADMIN, un re-seed ne l'écrase pas.
+      create: withRequestedFromClient({
         code: dt.code,
         category: dt.category,
         label: dt.label,
         isConditional: dt.isConditional ?? false,
         expectedFrequency: dt.expectedFrequency ?? null,
-      },
+      }),
     });
   }
 

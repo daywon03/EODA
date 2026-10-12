@@ -2,13 +2,16 @@
 // 3 grilles Synaé `Grille Chapitre {1,2,3} … .xlsx` dans `.claude/context/Documents/`
 // (non committées au dépôt — leur nom porte celui d'un vrai client, cf. CLAUDE.md §7 :
 // on les retrouve par leur préfixe, jamais par un nom écrit en dur).
-// Les critères propres au SAD mixte ne sont PAS dans ces grilles : ils viennent de la
-// migration `20261011110000_sad_mixte_criteria` (manuel HAS, champ médico-social).
+// Les critères propres au SAD mixte ne sont PAS dans ces grilles (manuel HAS, champ
+// médico-social) : ils sont chargés à la fin, depuis `src/seed-data.ts` — la même
+// donnée que la migration `20261011110000_sad_mixte_criteria`, qui sur une base neuve
+// s'exécute avant que les objectifs existent et n'insère donc rien.
 // Idempotent (upsert par clé stable) — cf. context/05-prototype-existant.md.
 import path from "node:path";
 import { existsSync, readdirSync } from "node:fs";
 import * as XLSX from "xlsx";
 import { PrismaClient, RequirementLevel } from "@prisma/client";
+import { seedSadMixteCriteria } from "../src/seed-steps";
 
 const DOCUMENTS_DIR = path.join(__dirname, "..", "..", "..", ".claude", "context", "Documents");
 
@@ -240,5 +243,23 @@ export async function seedHasReferential(prisma: PrismaClient): Promise<void> {
     console.log(
       `  Chapitre ${chapterSource.number} (${chapterSource.method}) : ${criterionRows} critères, ${eeRows} E.E., ${actual.length} impératifs ✓`
     );
+  }
+
+  const sadMixte = await seedSadMixteCriteria({
+    findObjectiveId: async (chapterNumber, objectiveCode) => {
+      const objective = await prisma.objective.findFirst({
+        where: {
+          code: objectiveCode,
+          theme: { chapter: { referentialVersionId: referentialVersion.id, number: chapterNumber } },
+        },
+        select: { id: true },
+      });
+      return objective?.id ?? null;
+    },
+    upsertCriterion: (args) => prisma.criterion.upsert(args),
+  });
+  console.log(`  SAD mixte : ${sadMixte.seeded.length} critères ✓`);
+  if (sadMixte.skipped.length > 0) {
+    console.warn(`⚠️  Critères SAD mixte sans objectif de rattachement : ${sadMixte.skipped.join(", ")}`);
   }
 }
