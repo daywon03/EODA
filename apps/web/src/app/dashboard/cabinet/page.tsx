@@ -68,7 +68,11 @@ export default async function CabinetHomePage() {
         <KpiCard
           value={String(countUpcomingHasEvaluations(portfolio, { now, withinDays: HAS_HORIZON_DAYS }))}
           label="Évaluations HAS dans moins de 6 mois"
-          hint="Missions en cours, échéance dans les 180 jours"
+          // Le compte porte sur les missions ACTIVES (signées ou démarrées —
+          // portfolio-kpi-service) : une structure qui vient de signer avec une
+          // évaluation dans 4 mois est précisément celle qu'il faut voir. C'est le
+          // libellé qui disait « en cours » et contredisait le badge « Signé ».
+          hint="Structures signées ou accompagnées, évaluation dans les 180 jours"
           href="/dashboard/cabinet/structures"
         />
         <KpiCard
