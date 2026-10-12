@@ -1,3 +1,4 @@
+import { matchesGlob } from "node:path";
 import { describe, expect, it } from "vitest";
 import tailwindConfig from "../../../tailwind.config";
 import { AA_NORMAL_TEXT, contrastRatio, type Rgb } from "./contrast";
@@ -22,6 +23,16 @@ describe("palette de cotation", () => {
 
   it.each(RATING_SCALE)("%s : même teinte que tailwind.config.ts", (rating) => {
     expect(String(configColors[RATING_TOKEN[rating]]).toUpperCase()).toBe(RATING_PALETTE[rating].hex.toUpperCase());
+  });
+
+  // Constaté au test de bout en bout (12/10/2026) : la cote choisie n'avait ni fond
+  // ni pastilles, seule la coche la distinguait. Tailwind ne génère que les classes
+  // qu'il LIT, et `content` ne lisait pas src/lib : toutes les classes écrites ici
+  // (et dans status-vocabulary.ts) n'existaient pas dans la feuille de style.
+  it.each(["rating-palette.ts", "status-vocabulary.ts"])("%s est lu par Tailwind (classes générées)", (file) => {
+    const content = (tailwindConfig.content ?? []) as unknown[];
+    const globs = content.filter((entry): entry is string => typeof entry === "string");
+    expect(globs.some((glob) => matchesGlob(`./src/lib/design/${file}`, glob))).toBe(true);
   });
 
   it.each(RATING_SCALE)("%s : texte ≥ 4.5:1 sur la teinte", (rating) => {

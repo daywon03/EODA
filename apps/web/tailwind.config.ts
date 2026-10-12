@@ -7,6 +7,10 @@ const config: Config = {
     "./src/pages/**/*.{ts,tsx}",
     "./src/components/**/*.{ts,tsx}",
     "./src/app/**/*.{ts,tsx}",
+    // Palettes du système de design (cotation `cot-*`, pastilles de statut) : leurs
+    // classes sont écrites ici en entier. Sans ce chemin, Tailwind ne les génère pas
+    // et la cote choisie s'affichait sans fond (rating-palette.test.ts le vérifie).
+    "./src/lib/design/**/*.{ts,tsx}",
   ],
   theme: {
     container: {
