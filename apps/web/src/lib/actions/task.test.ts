@@ -153,6 +153,11 @@ describe("cocher, décocher, réassigner", () => {
 
   it("réassigne vers un collègue ; refuse vers EODA côté client", async () => {
     expect(await reassignActionItem(form({ establishmentId: "e1", actionItemId: "t1", ownerKind: "STRUCTURE", ownerUserId: "collegue" }))).toBeNull();
+    // Réassigner, c'est choisir le responsable : une fonction posée avant (pilote
+    // proposé) ne doit pas survivre et s'afficher à la place du choix fait.
+    expect(prismaMock.actionItem.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: { ownerKind: "STRUCTURE", ownerUserId: "collegue", ownerFunction: null } })
+    );
     expect(recordAuditEvent).toHaveBeenCalledWith(expect.objectContaining({ action: "ACTION_ITEM_REASSIGNED", detail: "MANUEL · STRUCTURE" }));
     requireEstablishmentAccess.mockResolvedValue(CLIENT);
     expect(await reassignActionItem(form({ establishmentId: "e1", actionItemId: "t1", ownerKind: "CABINET" }))).toHaveProperty("error");

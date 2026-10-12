@@ -32,11 +32,12 @@ export type PacProposal = {
   isImperative: boolean;
   title: string;
   linkedDocumentId: string | null;
-  ownerFunction: EstablishmentUserRole;
+  // Toujours `null` à la proposition : l'action est confiée à la STRUCTURE, sans
+  // fonction. Une fonction posée d'office (« Responsable Qualité ») s'affichait
+  // comme un choix que personne n'avait fait (test de bout en bout du 12/10/2026) ;
+  // la structure désigne ensuite qui s'en charge (réassignation).
+  ownerFunction: EstablishmentUserRole | null;
 };
-
-// Pilote proposé par défaut — une fonction, modifiable ensuite (réassignation).
-export const DEFAULT_PAC_PILOT: EstablishmentUserRole = "RESPONSABLE_QUALITE";
 
 export const PAC_TARGET_SCORE = 4;
 
@@ -73,7 +74,7 @@ export function proposePacActions(
           isImperative: c.isImperative,
           title: buildPacTitle(c.code, document),
           linkedDocumentId: document?.documentId ?? null,
-          ownerFunction: DEFAULT_PAC_PILOT,
+          ownerFunction: null,
         },
       ];
     })

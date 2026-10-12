@@ -70,7 +70,7 @@ describe("createPacActions", () => {
     expect(prismaMock.actionItem.create).toHaveBeenCalledTimes(1);
     expect(prismaMock.actionItem.create).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: expect.objectContaining({ source: "PAC", linkedCriterionId: "c-low", ownerKind: "STRUCTURE", ownerFunction: "RESPONSABLE_QUALITE", tenantId: "t-1" }),
+        data: expect.objectContaining({ source: "PAC", linkedCriterionId: "c-low", ownerKind: "STRUCTURE", ownerFunction: null, tenantId: "t-1" }),
       })
     );
     expect(recordAuditEvent).toHaveBeenCalledWith(expect.objectContaining({ action: "ACTION_ITEM_CREATED", detail: "PAC · STRUCTURE" }));

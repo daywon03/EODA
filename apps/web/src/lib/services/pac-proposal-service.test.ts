@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_PAC_PILOT, buildPacTitle, proposePacActions, type PacCriterionInput } from "./pac-proposal-service";
+import { buildPacTitle, proposePacActions, type PacCriterionInput } from "./pac-proposal-service";
 
 function criterion(overrides: Partial<PacCriterionInput>): PacCriterionInput {
   return { criterionId: "c", code: "1.1.1", label: "Critère", score: 2, isImperative: false, documents: [], ...overrides };
@@ -33,7 +33,9 @@ describe("proposePacActions — context/10 §6", () => {
     );
     expect(p?.title).toBe("Rédiger « Formulaire droit à l'image » pour le critère 2.2.5");
     expect(p?.linkedDocumentId).toBeNull();
-    expect(p?.ownerFunction).toBe(DEFAULT_PAC_PILOT);
+    // Confiée à la structure, sans fonction : personne n'a choisi de pilote, l'écran
+    // ne doit donc pas annoncer « Responsable Qualité » (test de bout en bout, 12/10).
+    expect(p?.ownerFunction).toBeNull();
     expect(buildPacTitle("1.2.1", { documentTypeLabel: "DIPC", documentId: "d", deposited: true })).toBe(
       "Compléter « DIPC » pour le critère 1.2.1"
     );

@@ -65,8 +65,8 @@ export function PacGenerator({ establishmentId }: { establishmentId: string }) {
                 <span className="min-w-0 flex-1">
                   <span className="font-bold text-ink">{p.title}</span>
                   <span className="block text-sm text-ink2">
-                    {p.isImperative ? "▲ Impératif · " : ""}coté {p.score.toFixed(1).replace(".", ",")} / 4 · pilote :{" "}
-                    {FUNCTION_LABELS[p.ownerFunction]}
+                    {p.isImperative ? "▲ Impératif · " : ""}coté {p.score.toFixed(1).replace(".", ",")} / 4 · confiée à{" "}
+                    {p.ownerFunction ? FUNCTION_LABELS[p.ownerFunction] : "la structure"}
                   </span>
                 </span>
               </label>

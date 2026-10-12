@@ -228,7 +228,11 @@ export async function reassignActionItem(formData: FormData): Promise<{ error: s
   });
   if (refused) return { error: refused };
 
-  await prisma.actionItem.update({ where: { id: item.id }, data: { ownerKind: owner.ownerKind, ownerUserId: owner.ownerUserId } });
+  // Réassigner, c'est choisir : la fonction d'un ancien pilote ne survit pas au choix.
+  await prisma.actionItem.update({
+    where: { id: item.id },
+    data: { ownerKind: owner.ownerKind, ownerUserId: owner.ownerUserId, ownerFunction: null },
+  });
   await recordAuditEvent({
     action: "ACTION_ITEM_REASSIGNED",
     actorUserId: access.userId,
