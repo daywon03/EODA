@@ -9,8 +9,8 @@ import type { UserRole } from "@eoda/database";
 //
 // Mais dire où, c'est révéler l'existence d'un compte : on ne le fait QUE si tout ce
 // que ce compte touche appartient déjà au cabinet de l'appelant. Dès qu'un seul de
-// ses rattachements est dans un autre cabinet — ou qu'il n'en a aucun, ou que c'est
-// un compte Cabinet —, la réponse redevient la phrase opaque historique. Fail-closed :
+// ses rattachements est dans un autre cabinet — ou qu'il n'en a aucun sans être
+// déclaré dans ce cabinet, ou que c'est un compte Cabinet —, la réponse redevient la phrase opaque historique. Fail-closed :
 // un tenant inconnu vaut un tenant étranger.
 //
 // Règles PURES : ni Prisma (types seulement), ni horloge.
@@ -19,6 +19,10 @@ import type { UserRole } from "@eoda/database";
 export type ExistingAccountFacts = {
   role: UserRole;
   isActive: boolean;
+  // Cabinet auquel le compte est déclaré appartenir (`User.tenantId`). `null` pour les
+  // comptes clients historiques, créés par invitation sans tenant : seuls leurs
+  // rattachements disent alors à quel cabinet ils appartiennent.
+  tenantId: string | null;
   links: ReadonlyArray<{ establishmentId: string; establishmentName: string; tenantId: string }>;
 };
 
@@ -37,7 +41,17 @@ export function decideExistingAccount(
 ): ExistingAccountDecision {
   if (account === null) return { kind: "NONE" };
   if (account.role !== "CLIENT_USER") return { kind: "OPAQUE" };
-  if (account.links.length === 0) return { kind: "OPAQUE" };
+  // Déclaré dans un autre cabinet : opaque, quels que soient ses rattachements.
+  if (account.tenantId !== null && account.tenantId !== target.tenantId) return { kind: "OPAQUE" };
+  // Sans aucun rattachement, seul un tenant DÉCLARÉ égal à celui de l'appelant prouve
+  // l'appartenance (compte préparé avant la signature, compte de test du seed). Sans
+  // lui, tenant inconnu = tenant étranger (fail-closed).
+  if (account.links.length === 0) {
+    if (account.tenantId !== target.tenantId) return { kind: "OPAQUE" };
+    return account.isActive
+      ? { kind: "LINKABLE", establishmentNames: [] }
+      : { kind: "INACTIVE", establishmentNames: [] };
+  }
   if (account.links.some((link) => link.tenantId !== target.tenantId)) return { kind: "OPAQUE" };
   if (account.links.some((link) => link.establishmentId === target.establishmentId)) {
     return { kind: "ALREADY_LINKED" };
@@ -60,11 +74,20 @@ export function describeExistingAccount(decision: ExistingAccountDecision): stri
     case "ALREADY_LINKED":
       return "Cet interlocuteur a déjà accès à cette structure.";
     case "INACTIVE":
+      if (decision.establishmentNames.length === 0) {
+        return "Un compte désactivé existe pour cette adresse. Réactivez-le avant de le rattacher ici.";
+      }
       return (
         `Un compte désactivé existe pour cette adresse (${decision.establishmentNames.join(", ")}). ` +
         "Réactivez-le depuis cette structure avant de le rattacher ici."
       );
     case "LINKABLE":
+      if (decision.establishmentNames.length === 0) {
+        return (
+          "Un compte existe déjà pour cette adresse, sans structure rattachée. " +
+          "Vous pouvez le rattacher à cette structure."
+        );
+      }
       return (
         `Un compte existe déjà pour cette adresse : il a accès à ${decision.establishmentNames.join(", ")}. ` +
         "Vous pouvez le rattacher aussi à cette structure."

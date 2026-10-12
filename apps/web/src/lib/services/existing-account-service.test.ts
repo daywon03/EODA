@@ -12,6 +12,7 @@ function account(overrides: Partial<ExistingAccountFacts> = {}): ExistingAccount
   return {
     role: "CLIENT_USER",
     isActive: true,
+    tenantId: null,
     links: [{ establishmentId: "etab-a", establishmentName: "SAD Les Glycines (fictif)", tenantId: "t-1" }],
     ...overrides,
   };
@@ -56,6 +57,32 @@ describe("decideExistingAccount", () => {
 
   it("compte sans rattachement (tenant inconnu) : opaque — fail-closed", () => {
     expect(decideExistingAccount(account({ links: [] }), TARGET)).toEqual({ kind: "OPAQUE" });
+  });
+
+  // Bug 7b du test de bout en bout : le compte client du seed n'avait ni tenant ni
+  // structure, donc restait opaque pour TOUS les cabinets — inutilisable. Une fiche ne
+  // naît que d'une signature : le compte ne peut pas avoir de structure d'avance, mais
+  // son appartenance au cabinet suffit à le rendre rattachable.
+  it("compte sans structure mais du MÊME cabinet : rattachable", () => {
+    const decision = decideExistingAccount(account({ links: [], tenantId: "t-1" }), TARGET);
+    expect(decision).toEqual({ kind: "LINKABLE", establishmentNames: [] });
+    expect(describeExistingAccount(decision)).toBe(
+      "Un compte existe déjà pour cette adresse, sans structure rattachée. " +
+        "Vous pouvez le rattacher à cette structure."
+    );
+  });
+
+  it("compte sans structure d'un AUTRE cabinet : opaque", () => {
+    expect(decideExistingAccount(account({ links: [], tenantId: "t-2" }), TARGET)).toEqual({ kind: "OPAQUE" });
+  });
+
+  it("compte déclaré dans un autre cabinet : opaque même si ses rattachements semblent d'ici", () => {
+    expect(decideExistingAccount(account({ tenantId: "t-2" }), TARGET)).toEqual({ kind: "OPAQUE" });
+  });
+
+  it("compte sans structure et désactivé, du même cabinet : à réactiver, pas à rattacher", () => {
+    const decision = decideExistingAccount(account({ links: [], tenantId: "t-1", isActive: false }), TARGET);
+    expect(decision).toEqual({ kind: "INACTIVE", establishmentNames: [] });
   });
 
   it("compte Cabinet : opaque, jamais rattachable à une structure", () => {

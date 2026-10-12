@@ -44,11 +44,15 @@ const INVITE = form({
 });
 const LINK = form({ establishmentId: "etab-cible", email: "directeur@example.org", roleInEstablishment: "DIRECTEUR" });
 
-function existingAccount(tenantIds: string[], extra: Partial<{ role: string; isActive: boolean }> = {}) {
+function existingAccount(
+  tenantIds: string[],
+  extra: Partial<{ role: string; isActive: boolean; tenantId: string | null }> = {}
+) {
   return {
     id: "user-existant",
     role: "CLIENT_USER",
     isActive: true,
+    tenantId: null,
     establishmentUsers: tenantIds.map((tenantId, i) => ({
       establishmentId: `etab-${i}`,
       establishment: { name: `SAD fictif ${i}`, tenantId },
@@ -110,6 +114,26 @@ describe("linkExistingClientUser", () => {
 
   it("refuse un compte qui touche un autre cabinet (recalcul serveur, pas confiance à l'écran)", async () => {
     prismaMock.user.findUnique.mockResolvedValue(existingAccount(["t-2"]));
+    const result = await linkExistingClientUser(LINK);
+    expect(result).toEqual({ error: "Un compte existe déjà pour cette adresse email." });
+    expect(prismaMock.establishmentUser.create).not.toHaveBeenCalled();
+  });
+
+  // Bug 7b : le compte client du seed (déclaré dans le cabinet, sans structure, puisqu'une
+  // fiche ne naît que d'une signature) doit pouvoir être rattaché.
+  it("rattache un compte déclaré dans ce cabinet et encore sans structure", async () => {
+    prismaMock.user.findUnique
+      .mockResolvedValueOnce(existingAccount([], { tenantId: "t-1" }))
+      .mockResolvedValueOnce({ id: "user-existant" });
+
+    const result = await linkExistingClientUser(LINK);
+
+    expect(result).toEqual({ success: true });
+    expect(prismaMock.establishmentUser.create).toHaveBeenCalledTimes(1);
+  });
+
+  it("refuse un compte sans structure déclaré dans un autre cabinet", async () => {
+    prismaMock.user.findUnique.mockResolvedValue(existingAccount([], { tenantId: "t-2" }));
     const result = await linkExistingClientUser(LINK);
     expect(result).toEqual({ error: "Un compte existe déjà pour cette adresse email." });
     expect(prismaMock.establishmentUser.create).not.toHaveBeenCalled();

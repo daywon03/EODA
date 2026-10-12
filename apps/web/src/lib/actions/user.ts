@@ -37,6 +37,7 @@ async function loadExistingAccount(email: string): Promise<ExistingAccountFacts 
     select: {
       role: true,
       isActive: true,
+      tenantId: true,
       establishmentUsers: {
         select: {
           establishmentId: true,
@@ -49,6 +50,7 @@ async function loadExistingAccount(email: string): Promise<ExistingAccountFacts 
   return {
     role: user.role,
     isActive: user.isActive,
+    tenantId: user.tenantId,
     links: user.establishmentUsers.map((link) => ({
       establishmentId: link.establishmentId,
       establishmentName: link.establishment.name,
