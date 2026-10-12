@@ -4,6 +4,7 @@ import { DOCUMENT_PILLS, type PillSpec } from "@/lib/design/status-vocabulary";
 import { structureHref } from "@/lib/design/structure-tabs";
 import { actionPill, describeOwner, sortActionItems, type ActionItemFacts } from "./action-item-service";
 import { selectUpcoming, type CalendarAppointment } from "./calendar-service";
+import { chapterLabel } from "./chapter-label-service";
 import { formatDate, formatDateTime } from "./date-format-service";
 import { formatDaysUntil } from "./elapsed-time-service";
 import {
@@ -86,7 +87,7 @@ export function describeChapterMeasure(chapter: {
   score: number | null;
   imperatifsAtRisk: number;
 }): Measure {
-  const label = `Chapitre ${chapter.number}${chapter.name ? ` — ${chapter.name}` : ""}`;
+  const label = chapterLabel(chapter);
   if (chapter.score === null) return { label, value: "Non coté", note: "Aucune cotation enregistrée" };
   const atRisk =
     chapter.imperatifsAtRisk > 0

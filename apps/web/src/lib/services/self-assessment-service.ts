@@ -1,4 +1,5 @@
 import type { EstablishmentType, Rating, RequirementLevel } from "@eoda/database";
+import { chapterLabel } from "./chapter-label-service";
 import { formatDate } from "./date-format-service";
 import { computeWeightedAverage, scoreLabel } from "./scoring-service";
 import type { Measure } from "./structure-sheet-service";
@@ -119,7 +120,7 @@ export function describeChapterRatedMeasure(
   count: RatedCount
 ): Measure {
   return {
-    label: `Chapitre ${chapter.number}${chapter.name ? ` — ${chapter.name}` : ""}`,
+    label: chapterLabel(chapter),
     value: `${count.rated} / ${count.total}`,
     percent: count.total === 0 ? 0 : Math.round((count.rated / count.total) * 100),
     note: "Éléments d'évaluation cotés",

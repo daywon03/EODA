@@ -1,3 +1,4 @@
+import { chapterLabel } from "./chapter-label-service";
 import { PROOF_PILLS, type CriterionProofRow, type ProofStatus } from "./criteria-proof-service";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -142,7 +143,7 @@ export function groupDiagnosticChapters(
       const proven = chapterRows.filter((r) => r.status === "PROUVE").length;
       return {
         number: chapter.number,
-        title: `Chapitre ${chapter.number} — ${chapter.name}`,
+        title: chapterLabel(chapter),
         rows: chapterRows,
         summary:
           chapterRows.length === 0

@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatDate } from "@/lib/services/date-format-service";
 import { formatDelta, type ComparisonTrend } from "@/lib/services/evaluation-comparison-service";
 import { scoreLabel } from "@/lib/services/scoring-service";
+import { chapterLabel } from "@/lib/services/chapter-label-service";
 import { AlertTriangle, ArrowDownRight, ArrowUpRight, Equal, Minus } from "lucide-react";
 
 export const metadata = { title: "Comparaison des sessions · EODA Conseil" };
@@ -55,7 +56,7 @@ export default async function EvaluationComparisonPage({ params }: Props) {
           <Card key={chapter.chapterNumber}>
             <CardHeader>
               <CardTitle className="text-base">
-                Chapitre {chapter.chapterNumber} — {chapter.chapterName}
+                {chapterLabel({ number: chapter.chapterNumber, name: chapter.chapterName })}
               </CardTitle>
               <p className="text-xs text-ink2">
                 Session du {formatDate(chapter.previousStartedAt)} comparée à celle du{" "}

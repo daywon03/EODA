@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { structureHref } from "@/lib/design/structure-tabs";
+import { chapterLabel } from "@/lib/services/chapter-label-service";
 
 type Props = {
   establishmentId: string;
@@ -27,13 +28,14 @@ export function ChapterOverviewCard({
   return (
     <li className="relative flex flex-col gap-3 rounded-xl border border-line bg-card p-5 hover:border-muted">
       <div className="space-y-1">
-        <p className="text-sm font-bold text-ink2">Chapitre {number}</p>
+        {/* Un seul libellé : « Chapitre 1 » au-dessus d'un titre « Chapitre 1 »
+            se lisait deux fois (le référentiel nomme ses chapitres par leur numéro). */}
         <h3 className="text-lg font-bold text-ink">
           <Link
             href={structureHref(establishmentId, `evaluation/chapitre/${number}`)}
             className="after:absolute after:inset-0 hover:underline"
           >
-            {name}
+            {chapterLabel({ number, name })}
           </Link>
         </h3>
         {method && (

@@ -7,6 +7,7 @@ import { getEstablishment } from "@/lib/actions/establishment";
 import { describeChapterMeasure } from "@/lib/services/structure-sheet-service";
 import { countRatedElements, describeChapterRatedMeasure } from "@/lib/services/self-assessment-service";
 import { structureHref } from "@/lib/design/structure-tabs";
+import { chapterLabel } from "@/lib/services/chapter-label-service";
 import { SessionTimer } from "@/components/evaluation/SessionTimer";
 import { FinishSessionButton } from "@/components/evaluation/FinishSessionButton";
 import { OpenSessionButton } from "@/components/evaluation/OpenSessionButton";
@@ -48,7 +49,7 @@ export default async function EvaluationChapterPage({ params }: Props) {
             ← Auto-évaluation
           </Link>
           <h2 className="text-2xl font-bold text-ink">
-            Chapitre {data.chapter.number} — {data.chapter.name}
+            {chapterLabel(data.chapter)}
           </h2>
           {/* Méthode d'évaluation du chapitre, telle que la base la porte. */}
           {data.chapter.method && (
