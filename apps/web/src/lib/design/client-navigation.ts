@@ -1,4 +1,4 @@
-import type { NavItem } from "./navigation";
+import { resolveActiveItem, type NavItem } from "./navigation";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // NAVIGATION DU PORTAIL CLIENT (maquette « Portail Client v2 »).
@@ -7,8 +7,8 @@ import type { NavItem } from "./navigation";
 // Messages. Seules les surfaces qui EXISTENT sont listées (D6 : pas de bouton
 // mort) ; l'accueil existe depuis R6, « Mon diagnostic » depuis N6 ; « Mon équipe »
 // (N10) s'ajoutera en une ligne ci-dessous. En attendant, les pages
-// existantes restent atteignables : « Mes livrables » et « Mon suivi » dans la
-// barre, « Mon contrat » dans le menu du compte, comme le dessine la maquette.
+// existantes restent atteignables : « Tâches », « Mes livrables » et « Mon suivi »
+// dans le menu « Plus » (splitClientNav), « Mon contrat » dans le menu du compte.
 //
 // Côté client, toujours « EODA », jamais un prénom de l'équipe (D7).
 // ─────────────────────────────────────────────────────────────────────────────
@@ -57,3 +57,42 @@ export const CLIENT_ACCOUNT_LINKS: readonly AccountMenuLink[] = [
   { id: "profile", href: "/dashboard/profil", label: "Mon profil" },
   { id: "contract", href: CLIENT_CONTRACT_PATH, label: "Mon contrat" },
 ];
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ENTRÉES PRINCIPALES / « PLUS ».
+//
+// Test de bout en bout du 12/10 : sept entrées passaient à la ligne dans l'en-tête
+// à 1440 px et sortaient de l'écran dans la barre du bas à 390 px. Une seule
+// répartition pour les deux rendus : 4 entrées principales (celles de la maquette)
+// et « Plus » en 5e case. Une entrée ajoutée sans être déclarée principale part dans
+// « Plus » — par défaut, rien ne déborde.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const CLIENT_MAX_PRIMARY_ENTRIES = 4;
+
+const CLIENT_PRIMARY_IDS: readonly string[] = ["home", "documents", "diagnostic", "messages"];
+
+export type ClientNavSplit = {
+  primary: NavItem[];
+  more: NavItem[];
+  activeId: string | null;
+  // La page courante est une entrée de « Plus » : le bouton se marque actif.
+  isMoreActive: boolean;
+  // Une entrée de « Plus » attend une action : le bouton porte le point.
+  moreAttention: boolean;
+};
+
+export function splitClientNav(items: readonly NavItem[], pathname: string): ClientNavSplit {
+  const primary = items
+    .filter((item) => CLIENT_PRIMARY_IDS.includes(item.id))
+    .slice(0, CLIENT_MAX_PRIMARY_ENTRIES);
+  const more = items.filter((item) => !primary.includes(item));
+  const activeId = resolveActiveItem([{ id: "client", label: null, items }], pathname)?.id ?? null;
+  return {
+    primary,
+    more,
+    activeId,
+    isMoreActive: more.some((item) => item.id === activeId),
+    moreAttention: more.some((item) => Boolean(item.attentionLabel)),
+  };
+}

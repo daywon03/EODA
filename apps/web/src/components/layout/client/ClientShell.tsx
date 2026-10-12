@@ -36,22 +36,38 @@ export async function ClientShell({ children }: { children: ReactNode }) {
     <div className="flex min-h-screen flex-col bg-paper text-lg text-ink">
       <SkipLink />
       <header className="sticky top-0 z-30 border-b border-line bg-card">
-        <div className="mx-auto flex max-w-[1200px] flex-wrap items-center gap-x-4 gap-y-2 px-4 py-2.5 sm:px-6">
-          <Link href={CLIENT_ROOT} className="mr-2 flex min-w-0 items-center gap-2.5 rounded-lg">
+        {/* Une seule ligne à toute largeur (≤ 72 px) : le nom de la structure se
+            tronque, les entrées secondaires vivent dans « Plus ». */}
+        <div className="mx-auto flex min-h-[64px] max-w-[1200px] flex-nowrap items-center gap-x-3 px-4 py-1.5 sm:px-6 xl:gap-x-4">
+          <Link
+            href={CLIENT_ROOT}
+            aria-label={`${establishment?.name ?? "Espace client"} — retour à l'accueil`}
+            className="flex min-w-0 flex-shrink items-center gap-2.5 rounded-lg"
+          >
             <EodaMark size={40} className="flex-shrink-0" />
             {establishment?.logoDataUri && (
               // eslint-disable-next-line @next/next/no-img-element -- data URI déposée par le cabinet, sans optimisation possible
-              <img src={establishment.logoDataUri} alt="" className="h-10 max-w-[96px] object-contain" />
+              <img src={establishment.logoDataUri} alt="" className="hidden h-10 max-w-[96px] object-contain sm:block" />
             )}
-            <span className="truncate font-bold">{establishment?.name ?? "Espace client"}</span>
+            <span className="truncate font-bold lg:sr-only xl:not-sr-only xl:max-w-[240px]">
+              {establishment?.name ?? "Espace client"}
+            </span>
           </Link>
 
           <ClientNavBar items={items} variant="top" />
 
-          <div className="ml-auto flex items-center gap-2">
-            <ThemeToggle className="h-12 rounded-[10px]" />
+          <div className="ml-auto flex flex-shrink-0 items-center gap-2">
             <HelpLink className="h-12 rounded-[10px] text-[17px]" />
-            <AccountMenu name={userName} />
+            <AccountMenu
+              name={userName}
+              settings={
+                // Dans le panneau, la place ne manque pas : le libellé du thème
+                // (masqué sur petit écran dans l'en-tête) s'affiche toujours.
+                <div className="[&_.sr-only]:not-sr-only">
+                  <ThemeToggle className="h-12 w-full justify-start rounded-lg" />
+                </div>
+              }
+            />
           </div>
         </div>
       </header>
@@ -63,7 +79,7 @@ export async function ClientShell({ children }: { children: ReactNode }) {
 
       {/* Marge basse sur mobile : la barre de navigation fixe ne doit pas recouvrir
           la fin de la page. */}
-      <main id={MAIN_CONTENT_ID} tabIndex={-1} className="flex-1 px-4 pb-28 pt-6 sm:px-6 sm:pt-8 md:pb-8">
+      <main id={MAIN_CONTENT_ID} tabIndex={-1} className="flex-1 px-4 pb-28 pt-6 sm:px-6 sm:pt-8 lg:pb-8">
         <div className="mx-auto max-w-[1200px]">{children}</div>
       </main>
 
