@@ -6,13 +6,18 @@ import type {
 } from "./llm-analysis-port";
 import { validateCorrectionProposal, type CorrectionProposal } from "./correction-proposal";
 
-// Fallback dev/tant-que-ANTHROPIC_API_KEY-non-configuré — ne fait aucun appel LLM,
-// renvoie un résultat neutre pour ne pas bloquer le flux d'upload. Ne jamais
-// utiliser en production (cf. getLLMAnalysisPort()).
+// Pourquoi l'adaptateur de repli est actif : getLLMAnalysisPort() ne le choisit que
+// quand NI OpenRouter (voie décidée, D2) NI Anthropic direct ne sont configurés.
+export const STUB_ANALYSIS_REASON =
+  "aucune clé d'analyse configurée (ni OPENROUTER_API_KEY, ni ANTHROPIC_API_KEY)";
+
+// Repli en développement quand aucune clé d'analyse n'est configurée — ne fait aucun
+// appel LLM, renvoie un résultat neutre pour ne pas bloquer le flux d'upload. Jamais
+// utilisé en production (getLLMAnalysisPort() refuse de démarrer sans clé).
 export class StubAnalysisAdapter implements LLMAnalysisPort {
   async analyze(input: DocumentAnalysisInput): Promise<DocumentAnalysisResult> {
-    console.log(
-      `[StubAnalysisAdapter] Analyse non exécutée (ANTHROPIC_API_KEY absent) pour "${input.documentTypeLabel}".`
+    console.warn(
+      `[StubAnalysisAdapter] Analyse non exécutée : ${STUB_ANALYSIS_REASON}, pour « ${input.documentTypeLabel} ».`
     );
     return {
       elementsPresents: [],
