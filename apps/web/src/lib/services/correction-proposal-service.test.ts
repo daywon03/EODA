@@ -9,6 +9,7 @@ import {
   countFieldsToComplete,
   criterionCaption,
   describeProposalStatus,
+  describeUndecidedWarning,
   extractFieldsToComplete,
   nextVersionLabel,
   parseDecisions,
@@ -109,5 +110,26 @@ describe("qui ouvre l'écran côte à côte", () => {
     expect(canUseComplianceWorkspace({ isClient: true, mode: "AUTONOMIE", rightIncluded: true })).toBe(true);
     expect(canUseComplianceWorkspace({ isClient: true, mode: "AUTONOMIE", rightIncluded: false })).toBe(false);
     expect(canUseComplianceWorkspace({ isClient: true, mode: "ACCOMPAGNE", rightIncluded: true })).toBe(false);
+  });
+});
+
+// Décision Damon (12/10) : un ajout non tranché n'empêche pas l'enregistrement, mais
+// la personne est prévenue AVANT « Enregistrer la version N+1 » que ces ajouts ne
+// seront pas retenus — sinon elle croit les avoir gardés.
+describe("describeUndecidedWarning", () => {
+  it("compte les ajouts non décidés, au pluriel", () => {
+    expect(describeUndecidedWarning(PROPOSAL, decisions([]))).toBe(
+      "2 ajouts non décidés ne seront pas retenus dans la nouvelle version."
+    );
+  });
+
+  it("au singulier", () => {
+    expect(describeUndecidedWarning(PROPOSAL, decisions([["a1", "ACCEPTE"]]))).toBe(
+      "1 ajout non décidé ne sera pas retenu dans la nouvelle version."
+    );
+  });
+
+  it("rien à dire quand tout est décidé", () => {
+    expect(describeUndecidedWarning(PROPOSAL, decisions([["a1", "ACCEPTE"], ["a2", "REFUSE"]]))).toBeNull();
   });
 });

@@ -103,6 +103,17 @@ export function describeProposalStatus(proposal: CorrectionProposal, decisions: 
   return `${head} ${fields} champ${fields > 1 ? "s" : ""} à compléter.`;
 }
 
+// Avertissement affiché AVANT « Enregistrer la version N+1 » (décision Damon, 12/10) :
+// un ajout non tranché n'empêche pas l'enregistrement — il n'entre simplement pas —
+// mais la personne doit le savoir avant, pas le découvrir dans la version N+1.
+export function describeUndecidedWarning(proposal: CorrectionProposal, decisions: DecisionMap): string | null {
+  const { pending } = countDecisions(proposal, decisions);
+  if (pending === 0) return null;
+  return pending > 1
+    ? `${pending} ajouts non décidés ne seront pas retenus dans la nouvelle version.`
+    : "1 ajout non décidé ne sera pas retenu dans la nouvelle version.";
+}
+
 // ── Rapport des changements ──────────────────────────────────────────────────
 
 export type ChangeReportRow = {

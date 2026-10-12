@@ -10,6 +10,7 @@ import {
   additionsOf,
   criterionCaption,
   describeProposalStatus,
+  describeUndecidedWarning,
   nextVersionLabel,
   type ProposalDecision,
 } from "@/lib/services/correction-proposal-service";
@@ -44,6 +45,7 @@ export function ComplianceSideBySide(props: Props) {
   const [saved, setSaved] = useState<number | null>(null);
   const [isPending, startTransition] = useTransition();
   const decisionMap = new Map(Object.entries(decisions));
+  const undecidedWarning = describeUndecidedWarning(props.proposal, decisionMap);
 
   const decide = (id: string, value: ProposalDecision | null) =>
     setDecisions((current) => {
@@ -172,6 +174,12 @@ export function ComplianceSideBySide(props: Props) {
         </Callout>
       )}
 
+      {!locked && saved === null && props.canSave && undecidedWarning && (
+        <Callout tone="warning" title="Avant d'enregistrer">
+          <span id="undecided-warning">{undecidedWarning}</span> Décidez-les maintenant si vous voulez les garder.
+        </Callout>
+      )}
+
       <div className="flex flex-wrap justify-end gap-3">
         <a href={`${exportBase}/annote`} className={`${BUTTON} border border-ink bg-card text-ink hover:bg-soft`}>
           Télécharger en Word
@@ -189,6 +197,7 @@ export function ComplianceSideBySide(props: Props) {
                 type="button"
                 onClick={save}
                 disabled={isPending}
+                aria-describedby={undecidedWarning ? "undecided-warning" : undefined}
                 className={`${BUTTON} bg-accent-fill text-on-accent hover:bg-accent-fill/90 disabled:opacity-60`}
               >
                 {isPending && <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" />}
