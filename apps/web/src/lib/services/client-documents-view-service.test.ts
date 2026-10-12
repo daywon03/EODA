@@ -155,7 +155,15 @@ describe("filtres, groupes, accueil, liste de travail", () => {
   });
 
   it("compte chaque document dans un filtre au plus (non concerné : aucun)", () => {
-    expect(countClientFilters(rows)).toEqual({ "a-deposer": 3, "en-cours": 1, accepte: 1 });
+    expect(countClientFilters(rows)).toEqual({ "a-deposer": 2, "a-produire": 1, "en-cours": 1, accepte: 1 });
+  });
+
+  it("« à déposer » exclut ce qui est à produire : un document qu'on n'a pas ne se dépose pas", () => {
+    const toDeposit = groupClientDocuments(rows, "a-deposer");
+    expect([...toDeposit.obligatory, ...toDeposit.others].map((r) => r.documentTypeId)).not.toContain("cvs");
+    const toProduce = groupClientDocuments(rows, "a-produire");
+    expect([...toProduce.obligatory, ...toProduce.others].map((r) => r.documentTypeId)).toEqual(["cvs"]);
+    expect(parseClientDocumentFilter("a-produire")).toBe("a-produire");
   });
 
   it("sépare les 7 obligatoires des autres, gestes d'abord", () => {
@@ -166,7 +174,7 @@ describe("filtres, groupes, accueil, liste de travail", () => {
 
   it("applique le filtre", () => {
     const { obligatory, others } = groupClientDocuments(rows, "a-deposer");
-    expect([...obligatory, ...others].map((r) => r.documentTypeId)).toEqual(["dipc", "cvs", "rh"]);
+    expect([...obligatory, ...others].map((r) => r.documentTypeId)).toEqual(["dipc", "rh"]);
   });
 
   it("accueil : les pièces à déposer, obligatoires d'abord, bornées", () => {

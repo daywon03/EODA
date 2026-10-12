@@ -131,13 +131,18 @@ export function toClientDocumentRow<T extends ClientChecklistFacts>(item: T, mod
   return { ...item, state };
 }
 
-// ── Filtres (« À déposer » / « Reçu, en cours » / « Accepté ») ────────────────
+// ── Filtres (« À déposer » / « À produire » / « Reçu, en cours » / « Accepté ») ─
+//
+// « À produire » est séparé de « À déposer » : un document déclaré absent ne se
+// dépose pas, il se crée (en autonomie) ou EODA le produit (accompagné). Le
+// compter dans « à déposer » réclamait à la structure ce qu'elle a dit ne pas avoir.
 
-export const CLIENT_DOCUMENT_FILTERS = ["a-deposer", "en-cours", "accepte"] as const;
+export const CLIENT_DOCUMENT_FILTERS = ["a-deposer", "a-produire", "en-cours", "accepte"] as const;
 export type ClientDocumentFilter = (typeof CLIENT_DOCUMENT_FILTERS)[number];
 
 export const CLIENT_DOCUMENT_FILTER_LABELS: Record<ClientDocumentFilter, string> = {
   "a-deposer": "À déposer",
+  "a-produire": "À produire",
   "en-cours": "Reçu, en cours",
   accepte: "Accepté",
 };
@@ -145,7 +150,7 @@ export const CLIENT_DOCUMENT_FILTER_LABELS: Record<ClientDocumentFilter, string>
 const FILTER_OF_STATE: Record<ClientDocumentState, ClientDocumentFilter | null> = {
   TO_DEPOSIT: "a-deposer",
   RENEW: "a-deposer",
-  TO_PRODUCE: "a-deposer",
+  TO_PRODUCE: "a-produire",
   TO_CHECK: "en-cours",
   IN_PROGRESS: "en-cours",
   ACCEPTED: "accepte",
@@ -204,7 +209,12 @@ export function groupClientDocuments<T extends ClientDocumentRow>(
 }
 
 export function countClientFilters(rows: readonly ClientDocumentRow[]): Record<ClientDocumentFilter, number> {
-  const counts: Record<ClientDocumentFilter, number> = { "a-deposer": 0, "en-cours": 0, accepte: 0 };
+  const counts: Record<ClientDocumentFilter, number> = {
+    "a-deposer": 0,
+    "a-produire": 0,
+    "en-cours": 0,
+    accepte: 0,
+  };
   for (const row of rows) {
     const filter = clientFilterOf(row.state);
     if (filter) counts[filter] += 1;
