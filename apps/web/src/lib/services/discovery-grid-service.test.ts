@@ -3,6 +3,7 @@ import type { DiscoveryGrid } from "@/content/decouverte/types";
 import {
   discoveryCompletionPercent,
   discoveryFields,
+  discoveryFormRevision,
   discoveryGrid,
   discoveryHighlights,
   HIGHLIGHTED_DISCOVERY_FIELDS,
@@ -119,5 +120,20 @@ describe("grille livrée", () => {
         true
       );
     }
+  });
+});
+
+// Bug du test de bout en bout (12/10) : après un enregistrement, React réinitialise
+// les champs NON contrôlés du formulaire ; une liste déroulante revenait à « Sans
+// réponse » et l'enregistrement suivant effaçait la réponse. Le formulaire est donc
+// remonté (clé) à chaque enregistrement, avec les réponses relues en base.
+describe("discoveryFormRevision", () => {
+  it("change à chaque enregistrement", () => {
+    expect(discoveryFormRevision(new Date(1000))).not.toBe(discoveryFormRevision(new Date(2000)));
+  });
+
+  it("est stable pour un même enregistrement, et définie avant le premier", () => {
+    expect(discoveryFormRevision(new Date(1000))).toBe(discoveryFormRevision(new Date(1000)));
+    expect(discoveryFormRevision(null)).toBe("jamais-enregistree");
   });
 });

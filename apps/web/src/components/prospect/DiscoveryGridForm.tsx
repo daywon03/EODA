@@ -5,6 +5,7 @@ import Link from "next/link";
 import { saveDiscoveryAnswers } from "@/lib/actions/discovery";
 import {
   discoveryCompletionPercent,
+  discoveryFormRevision,
   type DiscoveryAnswers,
 } from "@/lib/services/discovery-grid-service";
 import type { DiscoveryGrid } from "@/content/decouverte/types";
@@ -39,7 +40,7 @@ export function DiscoveryGridForm({ prospectId, grid, answers, updatedAt }: Prop
   const percent = discoveryCompletionPercent(answers, grid);
 
   return (
-    <form action={formAction} className="space-y-6">
+    <form key={discoveryFormRevision(updatedAt)} action={formAction} className="space-y-6">
       <div className="space-y-2 rounded-lg border border-gris-light bg-surface p-4">
         <div className="flex items-center justify-between text-sm">
           <span className="font-medium text-brun-ancre">Grille renseignée</span>
