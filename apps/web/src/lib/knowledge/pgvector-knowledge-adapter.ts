@@ -29,6 +29,9 @@ export class PgVectorKnowledgeAdapter implements KnowledgeRetrievalPort {
       JOIN template_versions tv ON tv.id = kc.template_version_id
       JOIN template_documents td ON td.id = tv.template_document_id
       WHERE kc.tenant_id = ${tenantId}
+        -- Le référentiel seulement : un exemple validé (gabarit FINALE, N8) n'est
+        -- jamais présenté comme un texte de référence.
+        AND kc.nature = 'REFERENCE'
       ORDER BY kc.embedding <=> ${vectorLiteral}::vector
       LIMIT ${limit}
     `;

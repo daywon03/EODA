@@ -130,6 +130,13 @@ export default defineConfig({
         // Pratiques (N7) : une réponse invalide acceptée, ou une réponse à une ancienne
         // formulation comptée comme à jour, fausse ce que la structure dit d'elle-même.
         "src/lib/services/practice-service.ts",
+        // Mise en conformité côte à côte (N8) : la sortie du modèle est une entrée non
+        // fiable (schéma, purge des codes et citations non prouvés) ; un ajout refusé qui
+        // entrerait dans la version N+1, ou un export sans sa mention, part chez le client.
+        "src/lib/llm/correction-proposal.ts",
+        "src/lib/services/correction-proposal-service.ts",
+        "src/lib/services/annotated-docx-service.ts",
+        "src/lib/services/validated-example-service.ts",
         // Péremption documentaire : elle décide qu'un document « conforme » ne l'est
         // plus. Dérivée de l'horloge, donc jamais vérifiable par un statut en base.
         "src/lib/services/document-expiry-service.ts",

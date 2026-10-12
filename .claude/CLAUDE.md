@@ -651,6 +651,32 @@ Détail complet et état d'avancement : `specs/02-architecture-technique.md` §4
   la source et le côté, **jamais le titre**. Le PAC « Générer depuis l'auto-évaluation »
   **propose** (une action par critère coté sous 4, verbe + document, pilote = une
   fonction) et n'écrit que ce que le cabinet coche, recalculé côté serveur.
+- **« Mon diagnostic » se DÉRIVE, ses deux gestes se stockent** (N6,
+  `diagnostic-service`, `diagnostic-validation-service`). Prouvé / En partie / Sans
+  preuve et les 3 actions prioritaires (impératifs sans preuve × documents attendus) se
+  lisent des critères & preuves. `DiagnosticValidation` porte la PHOTO relue
+  (`snapshotJson`) et deux faits jamais fusionnés : « relu par EODA » (cabinet,
+  accompagné seulement) puis « accepté » (structure) ; en autonomie, la structure
+  accepte seule sous la réserve. Une photo dont l'empreinte ne correspond plus au
+  diagnostic courant n'est plus « à jour » — dérivé, aucune remise à zéro.
+- **Les questions sur les pratiques sont un CONTENU** (`content/pratiques/`, N7), une
+  par impératif, versionnées question par question ; **provisoires tant que Sandrine
+  ne les a pas validées**. `PracticeAnswer` est append-only, la version relue côté
+  serveur, le journal ne recopie jamais le texte libre.
+- **Mettre en conformité = une PROPOSITION structurée, décidée ajout par ajout** (N8).
+  Le modèle rend des segments ORIGINAL / AJOUT (`lib/llm/correction-proposal.ts`,
+  validés par schéma ; code de critère inconnu et citation du manuel introuvable
+  retirés). Le cahier de style est injecté depuis `content/regles-redaction/` — ne
+  jamais le recopier dans un prompt. « Enregistrer la version N+1 » crée une NOUVELLE
+  `DocumentVersion` liée par `regeneratedFromVersionId` (l'originale est conservée) et
+  fige les décisions sur `CorrectionProposal` ; un ajout sans décision n'entre pas.
+  Structure : écran ouvert en autonomie ET avec `correctionRight` seulement
+  (`canUseComplianceWorkspace`, `correction-context.ts`) ; cabinet : toujours, la
+  génération restant soumise au droit. `generateDocumentDraft` délègue à
+  `generateCorrectionProposal` : une seule porte de génération.
+- **Les exemples validés ne se mélangent jamais au référentiel** (N8, context/10 §9) :
+  `KnowledgeChunk.nature` (`REFERENCE` / `EXEMPLE_VALIDE`), filtre de nature dans
+  chaque lecture, exemples filtrés par tenant ET type de document dans la requête.
 - Ne pas faire passer un devis à `SIGNE` par `changeDevisStatus` : la signature est la seule
   transition qui produit des effets hors du module commercial (fiche établissement, mission,
   périmètre ouvert au client) et passe par `convertDevisToClient` (`lib/actions/conversion.ts`),

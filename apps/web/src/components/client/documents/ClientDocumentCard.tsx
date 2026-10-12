@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { SupportMode } from "@eoda/database";
 import type { ChecklistItem } from "@/lib/actions/checklist";
 import {
@@ -30,6 +31,7 @@ export function ClientDocumentCard({
   mode,
   establishmentId,
   canAct,
+  complianceHref = null,
 }: {
   item: ChecklistItem;
   state: ClientDocumentState;
@@ -37,6 +39,9 @@ export function ClientDocumentCard({
   establishmentId: string;
   // Dépôts ouverts (mission active) ; en bibliothèque, la carte se lit seulement.
   canAct: boolean;
+  // « Mettre en conformité » (N8) : en autonomie, si l'offre comprend la génération
+  // de ce document et qu'une analyse est lisible. Calculé par la page.
+  complianceHref?: string | null;
 }) {
   const version = item.currentVersion;
   const notice = depositNoticeFor(item.code);
@@ -54,6 +59,14 @@ export function ClientDocumentCard({
           {waiting && <p className="text-base text-ink2">{waiting}</p>}
         </div>
         <StatusPill pill={clientDocumentPill(state, mode)} className="text-base" />
+        {complianceHref && (
+          <Link
+            href={complianceHref}
+            className="inline-flex min-h-12 items-center rounded-[10px] border-2 border-accent-text bg-card px-4 text-[17px] font-bold text-ink hover:bg-soft"
+          >
+            Mettre en conformité
+          </Link>
+        )}
         {canAct && (
           <ClientDocumentActions
             establishmentId={establishmentId}

@@ -330,6 +330,8 @@ model User {
   diagnosticsReviewed         DiagnosticValidation[]        @relation("DiagnosticReviewedBy")
   diagnosticsAccepted         DiagnosticValidation[]        @relation("DiagnosticAcceptedBy")
   practiceAnswers             PracticeAnswer[]
+  proposalsGenerated          CorrectionProposal[]          @relation("ProposalGeneratedBy")
+  proposalsApplied            CorrectionProposal[]          @relation("ProposalAppliedBy")
 
   @@index([tenantId])
   @@map("users")
@@ -585,8 +587,11 @@ model DocumentType {
   // sa bibliothèque.
   requestedFromClient Boolean @default(false) @map("requested_from_client")
 
-  documents DocumentTypeCriterion[]
-  Document  Document[]
+  documents         DocumentTypeCriterion[]
+  Document          Document[]
+  // Gabarits de la bibliothèque rattachés à ce type (N8) : leurs versions FINALE
+  // servent d'exemples validés à la génération et à l'analyse de ce type.
+  templateDocuments TemplateDocument[]
 
   @@map("document_types")
 }
@@ -763,6 +768,8 @@ model DocumentVersion {
   currentForDocument     Document?                     @relation("CurrentVersion")
   images                 DocumentVersionImage[]
   criterionSuggestions   DocumentCriterionSuggestion[]
+  correctionProposals    CorrectionProposal[]          @relation("ProposalSource")
+  proposalApplied        CorrectionProposal?           @relation("ProposalResult")
 
   @@index([documentId])
   @@map("document_versions")
@@ -1569,6 +1576,10 @@ enum AuditAction {
   DIAGNOSTIC_ACCEPTED_BY_CLIENT
   DIAGNOSTIC_REPORT_PRINTED
   PRACTICE_ANSWER_SAVED
+  CORRECTION_PROPOSAL_APPLIED
+  CORRECTION_PROPOSAL_EXPORTED
+  CHANGE_REPORT_DOWNLOADED
+  TEMPLATE_DOCUMENT_TYPE_LINKED
 }
 
 model AuditLogEntry {
@@ -1708,20 +1719,26 @@ model TemplateCategory {
 }
 
 model TemplateDocument {
-  id          String               @id @default(cuid())
-  tenantId    String               @map("tenant_id")
-  title       String
+  id             String               @id @default(cuid())
+  tenantId       String               @map("tenant_id")
+  title          String
   // Le dossier où la fiche est rangée. Modifiable : c'est exactement ce que veut dire
   // « pouvoir les réarranger ensuite » — un import de dossier range au mieux, il ne
   // range pas juste à tous les coups.
-  categoryId  String               @map("category_id")
-  kind        TemplateDocumentKind @default(GABARIT)
-  description String?
-  createdAt   DateTime             @default(now()) @map("created_at")
-  updatedAt   DateTime             @updatedAt @map("updated_at")
+  categoryId     String               @map("category_id")
+  kind           TemplateDocumentKind @default(GABARIT)
+  description    String?
+  // Type de document que ce GABARIT illustre (N8, context/10 §9). Ses versions FINALE
+  // deviennent des EXEMPLES VALIDÉS injectés à la génération et à l'analyse de ce
+  // type, pour toutes les structures du tenant. SetNull : retirer un type du
+  // référentiel ne supprime pas le gabarit.
+  documentTypeId String?              @map("document_type_id")
+  createdAt      DateTime             @default(now()) @map("created_at")
+  updatedAt      DateTime             @updatedAt @map("updated_at")
 
   tenant               Tenant                        @relation(fields: [tenantId], references: [id])
   category             TemplateCategory              @relation(fields: [categoryId], references: [id])
+  documentType         DocumentType?                 @relation(fields: [documentTypeId], references: [id], onDelete: SetNull)
   versions             TemplateVersion[]
   criteria             TemplateDocumentCriterion[]
   criterionSuggestions TemplateCriterionSuggestion[]
@@ -1732,6 +1749,7 @@ model TemplateDocument {
   // « Livret d'accueil » ne veut pas dire deux choses selon le dossier.
   @@unique([tenantId, title])
   @@index([categoryId])
+  @@index([documentTypeId])
   @@map("template_documents")
 }
 
@@ -1834,6 +1852,10 @@ model KnowledgeChunk {
   tenantId          String                      @map("tenant_id")
   templateVersionId String                      @map("template_version_id")
   chunkIndex        Int                         @map("chunk_index")
+  // RÉFÉRENCE (manuel HAS, textes) ou EXEMPLE VALIDÉ (gabarit FINALE, N8) : deux
+  // natures qui ne se mélangent jamais — la recherche du référentiel filtre
+  // REFERENCE, l'injection d'exemples filtre EXEMPLE_VALIDE et le type de document.
+  nature            KnowledgeNature             @default(REFERENCE)
   content           String
   embedding         Unsupported("vector(1024)")
   createdAt         DateTime                    @default(now()) @map("created_at")
@@ -1842,6 +1864,7 @@ model KnowledgeChunk {
   templateVersion TemplateVersion @relation(fields: [templateVersionId], references: [id], onDelete: Cascade)
 
   @@index([tenantId])
+  @@index([tenantId, nature])
   @@index([templateVersionId])
   @@map("knowledge_chunks")
 }
@@ -1999,4 +2022,43 @@ model PracticeAnswer {
   @@index([criterionId])
   @@index([answeredById])
   @@map("practice_answers")
+}
+
+enum KnowledgeNature {
+  REFERENCE
+  EXEMPLE_VALIDE
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PROPOSITION DE MISE EN CONFORMITÉ — tranche N8 (« côte à côte »).
+//
+// Une ligne par génération, sur la version ANALYSÉE (`sourceVersionId`) : le document
+// en segments ORIGINAL / AJOUT (`proposalJson`, validé par lib/llm/correction-proposal).
+// Tant qu'elle n'est pas appliquée, c'est une proposition — jamais montrée comme un
+// document. « Enregistrer la version N+1 » crée une NOUVELLE DocumentVersion (l'origine
+// est conservée, liée par `regeneratedFromVersionId`) et fige ici les décisions par
+// ajout (`decisionsJson`), qui et quand : la trace du « ce qui était demandé / ce qui a
+// été fait ». Table à part plutôt que colonnes sur DocumentVersion : une proposition
+// régénérée ne réécrit pas la précédente.
+// ─────────────────────────────────────────────────────────────────────────────
+model CorrectionProposal {
+  id              String    @id @default(cuid())
+  sourceVersionId String    @map("source_version_id")
+  proposalJson    Json      @map("proposal_json")
+  generatedAt     DateTime  @default(now()) @map("generated_at")
+  generatedById   String?   @map("generated_by_id")
+  resultVersionId String?   @unique @map("result_version_id")
+  decisionsJson   Json?     @map("decisions_json")
+  appliedAt       DateTime? @map("applied_at")
+  appliedById     String?   @map("applied_by_id")
+
+  sourceVersion DocumentVersion  @relation("ProposalSource", fields: [sourceVersionId], references: [id], onDelete: Cascade)
+  resultVersion DocumentVersion? @relation("ProposalResult", fields: [resultVersionId], references: [id], onDelete: SetNull)
+  generatedBy   User?            @relation("ProposalGeneratedBy", fields: [generatedById], references: [id], onDelete: SetNull)
+  appliedBy     User?            @relation("ProposalAppliedBy", fields: [appliedById], references: [id], onDelete: SetNull)
+
+  @@index([sourceVersionId, generatedAt])
+  @@index([generatedById])
+  @@index([appliedById])
+  @@map("correction_proposals")
 }

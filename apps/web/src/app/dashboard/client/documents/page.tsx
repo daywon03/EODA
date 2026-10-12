@@ -13,6 +13,7 @@ import {
   type ClientDocumentFilter,
 } from "@/lib/services/client-documents-view-service";
 import { canDepositDocuments } from "@/lib/services/mission-access-service";
+import { correctionRight } from "@/lib/services/offer-scope-service";
 import { CLIENT_DOCUMENTS_PATH } from "@/lib/design/client-navigation";
 import { cn } from "@/lib/utils";
 import { ClientDocumentCard } from "@/components/client/documents/ClientDocumentCard";
@@ -30,7 +31,7 @@ function filterHref(filter: ClientDocumentFilter | null): string {
 // d'adresse (partageables, sans JavaScript), une carte par document avec UN geste
 // principal. L'état de chaque document est dérivé (client-documents-view-service).
 export default async function ClientDocumentsPage({ searchParams }: Props) {
-  const [{ establishment, checklist, missionAccess, supportMode }, params] = await Promise.all([
+  const [{ establishment, checklist, missionAccess, supportMode, offer }, params] = await Promise.all([
     getClientChecklist(),
     searchParams,
   ]);
@@ -122,6 +123,14 @@ export default async function ClientDocumentsPage({ searchParams }: Props) {
               mode={supportMode}
               establishmentId={establishment.id}
               canAct={canAct}
+              complianceHref={
+                canAct &&
+                supportMode === "AUTONOMIE" &&
+                row.currentVersion?.analysis &&
+                correctionRight(offer, row.category).included
+                  ? `${CLIENT_DOCUMENTS_PATH}/conformite/${row.currentVersion.id}`
+                  : null
+              }
             />
           ))}
         </section>

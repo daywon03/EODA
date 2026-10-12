@@ -9,12 +9,9 @@ import {
   normalizeCriteriaCoverage,
   normalizeCriterionSuggestions,
 } from "./llm-analysis-port";
-import {
-  buildSystemPrompt,
-  buildUserMessage,
-  buildGenerationSystemPrompt,
-  buildGenerationUserMessage,
-} from "./analysis-prompt";
+import { buildSystemPrompt, buildUserMessage } from "./analysis-prompt";
+import { buildGenerationSystemPrompt, buildGenerationUserMessage } from "./generation-prompt";
+import { parseCorrectionProposalJson, type CorrectionProposal } from "./correction-proposal";
 import { DEFAULT_LLM_MODEL_ID, resolveOpenRouterSlug } from "./openrouter-models";
 
 const ENDPOINT = "https://openrouter.ai/api/v1/chat/completions";
@@ -146,7 +143,7 @@ export class OpenRouterAnalysisAdapter implements LLMAnalysisPort {
     };
   }
 
-  async generateCorrectedDocument(input: DocumentGenerationInput): Promise<string> {
+  async generateCorrectedDocument(input: DocumentGenerationInput): Promise<CorrectionProposal> {
     const model = resolveOpenRouterSlug(input.modelId ?? DEFAULT_LLM_MODEL_ID);
 
     const response = await fetch(ENDPOINT, {
@@ -160,8 +157,9 @@ export class OpenRouterAnalysisAdapter implements LLMAnalysisPort {
       body: JSON.stringify({
         model,
         max_tokens: GENERATION_MAX_TOKENS,
-        // Pas de `response_format` ici : un document est du texte libre (Markdown),
-        // pas du JSON — contrairement à `analyze()` ci-dessus.
+        // JSON depuis N8 : le document en segments ORIGINAL / AJOUT. Le schéma est
+        // imposé par la consigne (generation-prompt.ts) et revalidé au retour.
+        response_format: { type: "json_object" },
         messages: [
           { role: "system", content: buildGenerationSystemPrompt() },
           { role: "user", content: buildGenerationUserMessage(input) },
@@ -187,6 +185,6 @@ export class OpenRouterAnalysisAdapter implements LLMAnalysisPort {
       throw new Error(`Réponse OpenRouter sans contenu exploitable (modèle ${model}, génération).`);
     }
 
-    return stripCodeFence(content);
+    return parseCorrectionProposalJson(stripCodeFence(content));
   }
 }

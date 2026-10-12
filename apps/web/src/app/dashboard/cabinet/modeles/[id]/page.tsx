@@ -14,6 +14,8 @@ import { DeleteTemplateButton } from "@/components/modeles/DeleteTemplateButton"
 import { MoveTemplateForm } from "@/components/modeles/MoveTemplateForm";
 import { TemplateCriteriaPicker } from "@/components/modeles/TemplateCriteriaPicker";
 import { TemplateCriterionSuggestionsList } from "@/components/modeles/TemplateCriterionSuggestionsList";
+import { TemplateExampleLinkForm } from "@/components/modeles/TemplateExampleLinkForm";
+import { listDocumentTypesForExampleLink } from "@/lib/actions/template-example";
 import {
   TEMPLATE_KIND_HINTS,
   TEMPLATE_KIND_LABELS,
@@ -42,11 +44,12 @@ export async function generateMetadata({ params }: Props) {
 //    à faire qui n'existe pas.
 export default async function ModelePage({ params }: Props) {
   const { id } = await params;
-  const [{ session }, template, categories, allCriteria] = await Promise.all([
+  const [{ session }, template, categories, allCriteria, documentTypes] = await Promise.all([
     requireCabinetSession(),
     getTemplate(id),
     listTemplateCategories(),
     listCriteriaForPicker(),
+    listDocumentTypesForExampleLink(),
   ]);
   const isAdmin = session.user.role === "CABINET_ADMIN";
   const isReference = template.kind === "REFERENCE";
@@ -92,6 +95,22 @@ export default async function ModelePage({ params }: Props) {
               categories={categories}
             />
           </CollapsibleSection>
+
+          {/* Exemples validés (N8, context/10 §9) : gabarits seulement. */}
+          {!isReference && (
+            <CollapsibleSection
+              title="Exemple validé pour la mise en conformité"
+              summary={
+                documentTypes.find((t) => t.id === template.documentTypeId)?.label ?? "Non rattaché"
+              }
+            >
+              <TemplateExampleLinkForm
+                templateId={template.id}
+                documentTypeId={template.documentTypeId}
+                documentTypes={documentTypes}
+              />
+            </CollapsibleSection>
+          )}
 
           {/* « Savoir quel document est lié à quel critère » (Damon, 16/09/2026) —
               pour retrouver ce modèle en cherchant par critère, et pour que

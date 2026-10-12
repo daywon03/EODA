@@ -34,6 +34,13 @@ export function CorrectedDraftPanel({ documentVersionId }: { documentVersionId: 
         <Pencil className="h-3 w-3 flex-shrink-0" aria-hidden="true" />
         Document corrigé
       </button>
+      {/* Écran côte à côte (N8) : décision ajout par ajout, version N+1. */}
+      <a
+        href={`/dashboard/cabinet/conformite/${documentVersionId}`}
+        className="inline-flex items-center gap-1 text-xs text-accent-text hover:underline"
+      >
+        Mettre en conformité côte à côte
+      </a>
 
       {open && <DraftDrawer documentVersionId={documentVersionId} onClose={() => setOpen(false)} />}
     </>

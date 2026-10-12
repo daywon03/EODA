@@ -17,6 +17,7 @@ const prismaMock = {
 
 const ingestDocumentVersion = vi.fn();
 const generateCorrectedDraft = vi.fn();
+const generateCorrectionProposal = vi.fn();
 const recordAuditEvent = vi.fn();
 const extractMarkdown = vi.fn();
 const suggestDocumentType = vi.fn();
@@ -48,6 +49,9 @@ vi.mock("@/lib/security/upload-validation-service", () => ({
   validateUploadedFile: () => ({ ok: true, contentType: "application/pdf" }),
 }));
 vi.mock("@/lib/storage", () => ({ getFileStoragePort: () => ({}) }));
+vi.mock("./correction-proposal", () => ({
+  generateCorrectionProposal: (...args: unknown[]) => generateCorrectionProposal(...args),
+}));
 vi.mock("@/lib/llm", () => ({ getLLMAnalysisPort: () => ({}) }));
 
 const { uploadDocument, respondToMissingDocument, generateDocumentDraft } = await import("./document");
@@ -265,94 +269,14 @@ describe("respondToMissingDocument — « Je ne l'ai pas » (N3)", () => {
   });
 });
 
-describe("generateDocumentDraft — droit de générer (correctionScope, D11, D13)", () => {
-  const CABINET_ACCESS = {
-    userId: "user-cab",
-    isClient: false,
-    session: { user: { role: "CABINET_ADMIN" } },
-    missionAccess: "ACTIVE",
-  };
-
-  function givenVersion(category: string | null): void {
-    prismaMock.documentVersion.findUnique.mockResolvedValue({
-      document: {
-        establishmentId: ESTABLISHMENT_ID,
-        documentType: category ? { code: "CODE", category } : null,
-      },
-    });
-  }
-
-  beforeEach(() => {
-    requireEstablishmentAccess.mockResolvedValue(CABINET_ACCESS);
-    generateCorrectedDraft.mockResolvedValue({ ok: true });
-  });
-
-  it("refuse en Essentiel, avant tout appel au modèle", async () => {
-    givenMission("ESSENTIEL");
-    givenVersion("LOI_2002_2");
-
-    const result = await generateDocumentDraft("dv-1");
-
-    expect(result).toMatchObject({ error: expect.stringContaining("option") });
-    expect(generateCorrectedDraft).not.toHaveBeenCalled();
-    expect(recordAuditEvent).not.toHaveBeenCalled();
-  });
-
-  it("refuse en Performance un document hors du périmètre impératifs + procédures", async () => {
-    givenMission("PERFORMANCE");
-    givenVersion("RH");
-
-    expect(await generateDocumentDraft("dv-1")).toMatchObject({ error: expect.any(String) });
-    expect(generateCorrectedDraft).not.toHaveBeenCalled();
-  });
-
-  it("autorise en Performance un document de la loi 2002-2", async () => {
-    givenMission("PERFORMANCE");
-    givenVersion("LOI_2002_2");
-
-    expect(await generateDocumentDraft("dv-1")).toBeNull();
-    expect(generateCorrectedDraft).toHaveBeenCalledTimes(1);
-  });
-
-  it("autorise tout en Excellence, et le journalise", async () => {
-    givenMission("EXCELLENCE");
-    givenVersion("RH");
-
-    expect(await generateDocumentDraft("dv-1")).toBeNull();
-    expect(generateCorrectedDraft).toHaveBeenCalledTimes(1);
-    expect(recordAuditEvent).toHaveBeenCalledWith(expect.objectContaining({ action: "CORRECTED_DRAFT_GENERATED" }));
-  });
-
-  it("refuse sans mission (rien n'a été acheté)", async () => {
-    givenMission(null);
-    givenVersion("LOI_2002_2");
-
-    expect(await generateDocumentDraft("dv-1")).toMatchObject({ error: expect.any(String) });
-    expect(generateCorrectedDraft).not.toHaveBeenCalled();
-  });
-
-  it("refuse un document d'un autre tenant : la garde lève notFound", async () => {
-    givenMission("EXCELLENCE");
-    givenVersion("LOI_2002_2");
-    requireEstablishmentAccess.mockRejectedValue(new Error("NEXT_NOT_FOUND"));
-
-    await expect(generateDocumentDraft("dv-1")).rejects.toThrow("NEXT_NOT_FOUND");
-    expect(generateCorrectedDraft).not.toHaveBeenCalled();
-  });
-
-  it("refuse un appelant CLIENT (notFound), même en Excellence", async () => {
-    givenMission("EXCELLENCE");
-    givenVersion("LOI_2002_2");
-    requireEstablishmentAccess.mockResolvedValue({ ...CABINET_ACCESS, isClient: true });
-
-    await expect(generateDocumentDraft("dv-1")).rejects.toThrow();
-    expect(generateCorrectedDraft).not.toHaveBeenCalled();
-  });
-
-  it("répond notFound sur une version inconnue", async () => {
-    prismaMock.documentVersion.findUnique.mockResolvedValue(null);
-    await expect(generateDocumentDraft("dv-inconnue")).rejects.toThrow();
-    expect(requireEstablishmentAccess).not.toHaveBeenCalled();
+// La génération est désormais une seule porte (N8) : generateDocumentDraft délègue à
+// generateCorrectionProposal, dont le droit (correctionScope, D11, D13), la garde et
+// le journal sont testés dans correction-proposal.test.ts.
+describe("generateDocumentDraft — délégation", () => {
+  it("passe la main à la mise en conformité structurée", async () => {
+    generateCorrectionProposal.mockResolvedValue(null);
+    expect(await generateDocumentDraft("dv-1", "modele")).toBeNull();
+    expect(generateCorrectionProposal).toHaveBeenCalledWith("dv-1", "modele");
   });
 });
 

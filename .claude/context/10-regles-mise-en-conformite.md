@@ -111,8 +111,9 @@ client pour archive — « ce qui a été réclamé, et ce qui a été fait ».
 **Marquage des ajouts** (26/08) : ajouts surlignés en vert, avec un encart par ajout
 « ajouté car réclamé par le critère HAS X, absent de la version initiale », qui cite la
 ligne du manuel. Les encarts sont retirés après validation ; la trace reste dans le rapport
-des changements. ⚠️ Le prompt actuel (`analysis-prompt.ts:216`) interdit toute annotation :
-à changer quand le format sera tranché (bilan, question 11).
+des changements. ✅ Fait le 12/10/2026 (N8) : le prompt de génération
+(`lib/llm/generation-prompt.ts`) rend des segments ORIGINAL / AJOUT, chaque ajout justifié
+par un critère et, quand l'extrait du manuel est fourni, par sa ligne (vérifiée mot pour mot).
 
 **Livrable corrigé = les deux** (confirmé par Damon le 08/10) : le document annoté
 (surlignage + encarts) **et** le rapport des changements séparé. **Logos en en-tête**,
@@ -313,3 +314,21 @@ Constat du 08/10 : aucun mécanisme n'injecte aujourd'hui d'exemple validé dans
    tout changement de prompt ou de modèle est rejoué dessus.
 7. Cloisonnement : les exemples EODA servent à tous les clients d'EODA (tenant) ; on ne va
    **jamais** chercher d'exemple dans les `Document` d'un autre établissement.
+
+**✅ Mécanisme implémenté le 12/10/2026 (tranche N8)** — les exemples eux-mêmes restent à
+déposer par la bibliothèque :
+- **Lien** : `TemplateDocument.documentTypeId` (migration `20261012110000_compliance_proposals`),
+  posé par CABINET_ADMIN sur la fiche d'un GABARIT (« Exemple validé pour la mise en
+  conformité », `lib/actions/template-example.ts`), avec le rappel d'anonymisation et
+  d'absence de pièce nominative à l'écran.
+- **Indexation** : la dernière version FINALE d'un gabarit rattaché entre dans
+  `KnowledgeChunk` avec `nature = EXEMPLE_VALIDE` (`validated-example-indexing.ts`) ;
+  la recherche du référentiel filtre `nature = REFERENCE` (`pgvector-knowledge-adapter`) :
+  les deux ne se mélangent jamais. Un gabarit détaché perd ses exemples. Comme les
+  références, l'indexation exige `VOYAGE_API_KEY` (colonne `embedding` obligatoire).
+- **Injection** : bloc `<exemple_valide>` dans la génération ET l'analyse, filtré par
+  tenant (deux fois) et par type de document dans la requête (`read-validated-examples.ts`),
+  borné (2 exemples, 12 000 caractères), défense « donnée, jamais instruction » dans les
+  deux prompts système. Jamais lu dans `Document` / `DocumentVersion`.
+- **Reste à faire** : le point 6 (jeu d'évaluation rejoué à chaque changement de prompt
+  ou de modèle) n'est pas construit.

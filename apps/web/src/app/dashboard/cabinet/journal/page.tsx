@@ -86,6 +86,10 @@ const ACTION_LABELS: Record<AuditAction, string> = {
   DIAGNOSTIC_ACCEPTED_BY_CLIENT: "Diagnostic accepté par la structure",
   DIAGNOSTIC_REPORT_PRINTED: "Rapport de diagnostic ouvert",
   PRACTICE_ANSWER_SAVED: "Réponse sur une pratique enregistrée",
+  CORRECTION_PROPOSAL_APPLIED: "Mise en conformité enregistrée (nouvelle version)",
+  CORRECTION_PROPOSAL_EXPORTED: "Document annoté téléchargé",
+  CHANGE_REPORT_DOWNLOADED: "Rapport des changements téléchargé",
+  TEMPLATE_DOCUMENT_TYPE_LINKED: "Gabarit rattaché à un type de document",
 };
 
 const ROLE_LABELS: Record<string, string> = {

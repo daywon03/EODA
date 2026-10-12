@@ -17,6 +17,7 @@ import { getFileStoragePort } from "@/lib/storage";
 import { recordAuditEvent } from "@/lib/services/audit-log-service";
 import { extractMarkdown } from "@/lib/services/text-extraction-service";
 import { indexReferenceDocumentVersion } from "@/lib/services/knowledge-indexing-service";
+import { reindexValidatedExample } from "@/lib/services/validated-example-indexing";
 import { getEmbeddingPort } from "@/lib/embeddings";
 import { getLLMAnalysisPort } from "@/lib/llm";
 import { detectTemplateCriteria } from "@/lib/services/template-criterion-detection-service";
@@ -303,6 +304,9 @@ export type TemplateDetail = {
     clientFieldTokens: string[];
   }[];
   criteria: { id: string; code: string; label: string }[];
+  // Type de document que ce gabarit illustre (N8) : ses versions FINALE servent
+  // d'exemples validés à la mise en conformité de ce type.
+  documentTypeId: string | null;
   // Critères HAS supplémentaires détectés par l'IA sur ce gabarit, pas encore
   // tranchés par le cabinet (cf. detectTemplateCriteria) — jamais présents sur un
   // document de référence, qui ne passe pas par cette détection.
@@ -343,6 +347,7 @@ export async function getTemplate(templateId: string): Promise<TemplateDetail> {
     categoryId: template.category.id,
     categoryName: template.category.name,
     description: template.description,
+    documentTypeId: template.documentTypeId,
     criteria: template.criteria
       .map((c) => c.criterion)
       .sort((a, b) => a.code.localeCompare(b.code)),
@@ -702,6 +707,13 @@ async function storeVersion(params: {
     } catch (error) {
       console.error("Base de connaissances IA — indexation échouée, dépôt conservé :", error);
     }
+  }
+
+  // Exemple validé (N8, context/10 §9) : la version FINALE d'un gabarit rattaché à un
+  // type de document entre dans la base d'exemples, nature EXEMPLE_VALIDE — jamais
+  // mêlée aux références. Best-effort, comme l'indexation ci-dessus.
+  if (kind === "GABARIT" && identity.stage === "FINALE") {
+    await reindexValidatedExample(tenantId, templateId);
   }
 
   // Détection IA de critères HAS supplémentaires — GABARITS uniquement, à l'inverse

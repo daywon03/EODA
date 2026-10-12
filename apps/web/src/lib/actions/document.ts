@@ -17,11 +17,11 @@ import { canDeleteVersion,
 import { extractMarkdown } from "@/lib/services/text-extraction-service";
 import { suggestDocumentType } from "@/lib/services/document-categorization-service";
 import { ingestDocumentVersion, reanalyzeDocumentVersion } from "@/lib/services/document-ingestion-service";
-import { generateCorrectedDraft, saveCorrectedDraft } from "@/lib/services/document-generation-service";
+import { saveCorrectedDraft } from "@/lib/services/document-generation-service";
+import { generateCorrectionProposal } from "./correction-proposal";
 import { recordAuditEvent } from "@/lib/services/audit-log-service";
 import { validateUploadedFile } from "@/lib/security/upload-validation-service";
 import {
-  findMissionOffer,
   getEstablishmentCoveredCategories,
   isCategoryCoveredForEstablishment,
 } from "@/lib/services/establishment-offer-service";
@@ -30,7 +30,6 @@ import {
   missingAnswerWrite,
   parseMissingAnswer,
 } from "@/lib/services/missing-answer-service";
-import { CORRECTION_NOT_INCLUDED_MESSAGE, correctionRight } from "@/lib/services/offer-scope-service";
 import { getFileStoragePort } from "@/lib/storage";
 import { getLLMAnalysisPort, isKnownLlmModelId } from "@/lib/llm";
 import { validateGuidelineNote } from "@/lib/services/criterion-guideline-service";
@@ -845,49 +844,15 @@ export async function getCorrectedDraft(documentVersionId: string): Promise<Corr
   return { markdown: version.correctedDraftMarkdown, generatedAt: version.correctedDraftGeneratedAt };
 }
 
+// Délègue à la mise en conformité structurée (N8, lib/actions/correction-proposal.ts) :
+// même garde (correction-context), même droit (correctionRight), même trace — une
+// seule porte de génération, que l'appel vienne du panneau cabinet ou de l'écran
+// côte à côte.
 export async function generateDocumentDraft(
   documentVersionId: string,
   modelId?: string | null
 ): Promise<{ error: string } | null> {
-  const version = await prisma.documentVersion.findUnique({
-    where: { id: documentVersionId },
-    select: {
-      document: {
-        select: { establishmentId: true, documentType: { select: { code: true, category: true } } },
-      },
-    },
-  });
-  if (!version) notFound();
-
-  const access = await requireEstablishmentAccess(version.document.establishmentId);
-  if (access.isClient) notFound();
-
-  // Le DROIT de générer (D13, correctionScope — défini en août, jamais lu avant le
-  // 10/10/2026). Vérifié AVANT l'appel au modèle : un appel payé pour un document que
-  // l'offre ne couvre pas est précisément ce que la décision interdit. Un document
-  // sans type n'a pas de catégorie, donc aucun périmètre qui l'inclue : refus.
-  const category = version.document.documentType?.category ?? null;
-  const mission = category ? await findMissionOffer(version.document.establishmentId) : null;
-  if (!category || !correctionRight(mission, category).included) {
-    return { error: CORRECTION_NOT_INCLUDED_MESSAGE };
-  }
-
-  const validatedModelId = modelId && isKnownLlmModelId(modelId) ? modelId : null;
-
-  const result = await generateCorrectedDraft(documentVersionId, getLLMAnalysisPort(), validatedModelId);
-  if ("error" in result) return { error: result.error };
-
-  await recordAuditEvent({
-    action: "CORRECTED_DRAFT_GENERATED",
-    actorUserId: access.userId,
-    actorRole: access.session.user.role,
-    establishmentId: version.document.establishmentId,
-    targetId: documentVersionId,
-    detail: version.document.documentType?.code ?? null,
-  });
-
-  revalidateDocumentViews(version.document.establishmentId);
-  return null;
+  return generateCorrectionProposal(documentVersionId, modelId);
 }
 
 export async function saveDocumentDraft(
