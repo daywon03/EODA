@@ -44,9 +44,11 @@ export default function LoginPage() {
         </div>
 
         <div className="relative max-w-md">
-          <h2 className="text-[#F0E8DC] text-3xl font-bold leading-snug mb-4">
+          {/* Accroche, pas un titre : le seul titre de la page est « Connexion »
+              (h1), et ce panneau est masqué sur mobile. */}
+          <p className="text-[#F0E8DC] text-3xl font-bold leading-snug mb-4">
             Préparez votre évaluation qualité HAS en toute sérénité
-          </h2>
+          </p>
           <ul className="space-y-4">
             {HIGHLIGHTS.map(({ icon: Icon, text }) => (
               <li key={text} className="flex items-center gap-3">
@@ -74,7 +76,7 @@ export default function LoginPage() {
           </div>
 
           <div className="bg-surface rounded-xl shadow-eoda-lg p-8">
-            <h2 className="text-brun-ancre text-lg font-semibold mb-1">Connexion</h2>
+            <h1 className="text-brun-ancre text-lg font-semibold mb-1">Connexion</h1>
             <p className="text-gris-mid text-sm mb-6">
               Outil de préparation à l&apos;évaluation qualité HAS
             </p>

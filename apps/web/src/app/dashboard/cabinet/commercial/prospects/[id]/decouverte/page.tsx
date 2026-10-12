@@ -56,7 +56,7 @@ export default async function DecouvertePage({ params }: Props) {
           seule, sans quitter l'écran ni perdre les réponses de grille en cours. */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Identité de la structure</CardTitle>
+          <CardTitle as="h2" className="text-base">Identité de la structure</CardTitle>
         </CardHeader>
         <CardContent>
           <StructureIdentityForm

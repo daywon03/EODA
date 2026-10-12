@@ -58,7 +58,7 @@ export default async function ProfilePage() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Vos informations</CardTitle>
+          <CardTitle as="h2" className="text-base">Vos informations</CardTitle>
         </CardHeader>
         <CardContent>
           <ProfileIdentityForm name={profile.name} email={profile.email} />
@@ -67,7 +67,7 @@ export default async function ProfilePage() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
+          <CardTitle as="h2" className="flex items-center gap-2 text-base">
             <KeyRound className="h-4 w-4 text-terre" aria-hidden="true" />
             Mot de passe
           </CardTitle>
@@ -88,7 +88,7 @@ export default async function ProfilePage() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Votre accès</CardTitle>
+          <CardTitle as="h2" className="text-base">Votre accès</CardTitle>
           <CardDescription>
             Ces éléments ne se modifient pas depuis cet écran. Pour les faire changer,
             écrivez à votre consultante EODA.
