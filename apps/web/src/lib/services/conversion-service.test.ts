@@ -5,6 +5,7 @@ import {
   isConversionTransition,
   isDevisSignable,
   planConversion,
+  signatureRecap,
   summariseConversionForAudit,
   toMissionOptionSnapshots,
   type ConversionInput,
@@ -183,5 +184,31 @@ describe("summariseConversionForAudit", () => {
       optionCount: 2,
     });
     expect(detail).toBe("DEVIS-2026-004 · EXCELLENCE · 2 option(s)");
+  });
+});
+
+// Bug du test de bout en bout (12/10) : juste après la signature, le récapitulatif
+// annonçait « Fiche client : déjà existante » — la fiche venait d'être créée.
+describe("signatureRecap", () => {
+  const name = "SAD Les Glycines (fictif)";
+
+  it("avant signature, sans fiche : annonce ce que la signature va créer", () => {
+    expect(signatureRecap({ status: "ENVOYE", hasEstablishment: false, structureName: name })).toEqual({
+      heading: "Ce que la signature va créer",
+      establishmentLabel: name,
+    });
+  });
+
+  it("avant signature, fiche déjà rattachée au prospect : conservée telle quelle", () => {
+    expect(signatureRecap({ status: "ENVOYE", hasEstablishment: true, structureName: name })).toEqual({
+      heading: "Ce que la signature va créer",
+      establishmentLabel: "déjà existante, conservée telle quelle",
+    });
+  });
+
+  it("après signature : jamais « déjà existante », le récapitulatif parle au passé", () => {
+    const recap = signatureRecap({ status: "SIGNE", hasEstablishment: true, structureName: name });
+    expect(recap).toEqual({ heading: "Ce que la signature a créé", establishmentLabel: name });
+    expect(recap.establishmentLabel).not.toMatch(/déjà existante/);
   });
 });

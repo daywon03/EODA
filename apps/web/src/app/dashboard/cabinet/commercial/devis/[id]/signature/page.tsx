@@ -1,5 +1,5 @@
 import { getSignatureContext } from "@/lib/actions/conversion";
-import { isDevisSignable } from "@/lib/services/conversion-service";
+import { isDevisSignable, signatureRecap } from "@/lib/services/conversion-service";
 import { formatEuros } from "@/lib/services/price-format-service";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { SignatureConversionForm } from "@/components/devis/SignatureConversionForm";
@@ -22,6 +22,11 @@ export default async function SignatureDevisPage({ params }: Props) {
   const { id } = await params;
   // Lecture cloisonnée par tenant : un devis hors périmètre donne notFound().
   const context = await getSignatureContext(id);
+  const recap = signatureRecap({
+    status: context.status,
+    hasEstablishment: context.existingEstablishmentId !== null,
+    structureName: context.structureName,
+  });
 
   return (
     <div className="space-y-6 max-w-2xl">
@@ -34,14 +39,12 @@ export default async function SignatureDevisPage({ params }: Props) {
       <Card>
         <CardContent className="pt-6 space-y-3 text-sm">
           <p className="text-xs text-gris-mid uppercase tracking-wide">
-            Ce que la signature va créer
+            {recap.heading}
           </p>
           <ul className="space-y-1.5 text-brun-ancre">
             <li>
               <span className="text-gris-mid">Fiche client : </span>
-              {context.existingEstablishmentId
-                ? "déjà existante, conservée telle quelle"
-                : context.structureName}
+              {recap.establishmentLabel}
             </li>
             <li>
               <span className="text-gris-mid">Offre ouverte au client : </span>

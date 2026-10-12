@@ -67,6 +67,27 @@ export function isDevisSignable(status: DevisStatus): boolean {
   return canTransitionDevis(status, "SIGNE");
 }
 
+// Récapitulatif de l'écran de signature. Une fois le devis SIGNE, la fiche existe
+// PARCE QUE la signature l'a créée (ou complétée) : la décrire comme « déjà
+// existante » racontait l'inverse de ce qui venait de se passer (test de bout en
+// bout du 12/10). Avant la signature, une fiche déjà rattachée au prospect est en
+// revanche conservée telle quelle.
+export function signatureRecap(input: {
+  status: DevisStatus;
+  hasEstablishment: boolean;
+  structureName: string;
+}): { heading: string; establishmentLabel: string } {
+  if (input.status === "SIGNE") {
+    return { heading: "Ce que la signature a créé", establishmentLabel: input.structureName };
+  }
+  return {
+    heading: "Ce que la signature va créer",
+    establishmentLabel: input.hasEstablishment
+      ? "déjà existante, conservée telle quelle"
+      : input.structureName,
+  };
+}
+
 // La signature est la SEULE transition qui produit des effets hors du module
 // commercial (un établissement, une mission, un accès client). Elle ne passe donc
 // pas par l'action générique de changement de statut : celle-ci ne saurait pas quel
