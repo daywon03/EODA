@@ -26,7 +26,10 @@ vi.mock("@/lib/security/password-hashing", () => ({
   generateTemporaryPassword: () => "placeholder-jetable-not-a-real-secret",
   hashPassword: () => Promise.resolve("empreinte"),
 }));
-vi.mock("@/lib/email/notifications", () => ({ sendClientInvitationEmail: vi.fn(() => Promise.resolve(true)) }));
+const sendClientInvitationEmail = vi.fn();
+vi.mock("@/lib/email/notifications", () => ({
+  sendClientInvitationEmail: (...args: unknown[]) => sendClientInvitationEmail(...args),
+}));
 
 const { inviteClientUser, linkExistingClientUser } = await import("./user");
 
@@ -159,5 +162,23 @@ describe("linkExistingClientUser", () => {
     requireEstablishmentInTenant.mockRejectedValue(new Error("NOT_FOUND"));
     await expect(linkExistingClientUser(LINK)).rejects.toThrow("NOT_FOUND");
     expect(prismaMock.establishmentUser.create).not.toHaveBeenCalled();
+  });
+});
+
+// Test de bout en bout du 12/10 : sans RESEND_API_KEY, l'écran annonçait
+// « Invitation envoyée » alors que l'adaptateur console n'avait rien envoyé.
+describe("inviteClientUser — état réel de l'envoi", () => {
+  it("rend l'état d'envoi tel quel (NOT_CONFIGURED), jamais un « envoyé » supposé", async () => {
+    prismaMock.user.findUnique.mockResolvedValue(null);
+    prismaMock.$transaction.mockResolvedValue({ id: "user-nouveau" });
+    sendClientInvitationEmail.mockResolvedValue("NOT_CONFIGURED");
+
+    const result = await inviteClientUser(INVITE);
+
+    expect(result).toMatchObject({ success: true, invitationDelivery: "NOT_CONFIGURED" });
+    // Le mot de passe n'est rendu qu'au panneau prévu, jamais dans l'audit.
+    expect(JSON.stringify(recordAuditEvent.mock.calls)).not.toContain(
+      "placeholder-jetable-not-a-real-secret"
+    );
   });
 });

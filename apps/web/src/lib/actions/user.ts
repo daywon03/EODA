@@ -6,6 +6,7 @@ import { recordAuditEvent } from "@/lib/services/audit-log-service";
 import { firstError, requiredEmail, requiredEnum, requiredString } from "@/lib/validation/form-parsers";
 import { generateTemporaryPassword, hashPassword } from "@/lib/security/password-hashing";
 import { sendClientInvitationEmail } from "@/lib/email/notifications";
+import type { InvitationDelivery } from "@/lib/services/email-delivery-service";
 import {
   decideExistingAccount,
   describeExistingAccount,
@@ -22,7 +23,7 @@ export type InviteClientUserResult =
       // L'e-mail d'invitation est-il parti ? Rendu à l'écran plutôt que supposé :
       // si la messagerie n'est pas configurée ou indisponible, Sandrine doit le
       // SAVOIR et communiquer le mot de passe elle-même.
-      invitationEmailSent: boolean;
+      invitationDelivery: InvitationDelivery;
     }
   | { error: string }
   // Le compte existe, dans ce cabinet seulement : le cabinet peut le rattacher ici
@@ -163,7 +164,7 @@ export async function inviteClientUser(formData: FormData): Promise<InviteClient
   // Envoi APRÈS l'audit et hors transaction : un e-mail qui échoue ne doit pas
   // annuler la création du compte. Le mot de passe reste affiché à l'écran dans tous
   // les cas — c'est le seul endroit où il est lisible.
-  const invitationEmailSent = await sendClientInvitationEmail({
+  const invitationDelivery = await sendClientInvitationEmail({
     recipientName: name.value,
     email: email.value,
     temporaryPassword: tempPassword,
@@ -175,7 +176,7 @@ export async function inviteClientUser(formData: FormData): Promise<InviteClient
     tempPassword,
     userName: name.value,
     userEmail: email.value,
-    invitationEmailSent,
+    invitationDelivery,
   };
 }
 

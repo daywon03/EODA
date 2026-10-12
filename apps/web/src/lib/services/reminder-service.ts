@@ -73,9 +73,17 @@ export function checkReminderEligibility(input: {
 // Phrase de retour, après envoi. Elle DIT le nombre de destinataires : une relance
 // « envoyée » sans plus de précision laisse croire que le client l'a reçue alors que
 // personne n'était rattaché à l'établissement.
-export function describeReminderOutcome(input: { sent: number; total: number }): string {
+export function describeReminderOutcome(input: {
+  sent: number;
+  total: number;
+  // Vrai quand l'adaptateur de développement n'a rien envoyé (pas de RESEND_API_KEY).
+  notConfigured?: boolean;
+}): string {
   if (input.total === 0) {
     return "Aucun interlocuteur n'est rattaché à cette structure : personne n'a pu être relancé.";
+  }
+  if (input.sent === 0 && input.notConfigured) {
+    return "Relance non envoyée en local : l'envoi d'e-mails n'est pas configuré sur cet environnement.";
   }
   if (input.sent === 0) {
     return "Envoi impossible pour l'instant : la relance n'est partie chez personne.";

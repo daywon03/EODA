@@ -80,4 +80,12 @@ describe("describeReminderOutcome", () => {
     expect(describeReminderOutcome({ sent: 1, total: 3 })).toContain("1 interlocuteur(s) sur 3");
     expect(describeReminderOutcome({ sent: 2, total: 2 })).toContain("2 interlocuteurs");
   });
+
+  // Test de bout en bout du 12/10 : sans RESEND_API_KEY, rien ne part — jamais
+  // « Relance envoyée ».
+  it("envoi non configuré (local) : dit que rien n'est parti", () => {
+    const text = describeReminderOutcome({ sent: 0, total: 2, notConfigured: true });
+    expect(text).toContain("non envoyée en local");
+    expect(text).not.toContain("Relance envoyée");
+  });
 });

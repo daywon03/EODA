@@ -112,7 +112,9 @@ export function pairKey(documentTypeCode: string, criterionCode: string): string
   return `${documentTypeCode}|${criterionCode}`;
 }
 
-export type MatrixReviewRow = MatrixRow & { linked: boolean };
+// `criterionLabel` : l'intitulé du référentiel en base — un code seul (« 1.10.2 »)
+// ne se relit pas sans ouvrir le manuel HAS à côté.
+export type MatrixReviewRow = MatrixRow & { linked: boolean; criterionLabel: string };
 
 export type MatrixGroup = {
   documentTypeCode: string;
@@ -131,7 +133,8 @@ export type MatrixView = {
 export function buildMatrixView(
   rows: readonly MatrixRow[],
   known: {
-    criterionCodes: ReadonlySet<string>;
+    // Code → intitulé, pour les critères du référentiel chargé en base.
+    criterionLabels: ReadonlyMap<string, string>;
     documentTypeLabels: ReadonlyMap<string, string>;
     linkedPairs: ReadonlySet<string>;
   }
@@ -146,7 +149,8 @@ export function buildMatrixView(
       unknownTypes.add(row.documentTypeCode);
       continue;
     }
-    if (!known.criterionCodes.has(row.criterionCode)) {
+    const criterionLabel = known.criterionLabels.get(row.criterionCode);
+    if (criterionLabel === undefined) {
       const types = notApplicable.get(row.criterionCode) ?? new Set<string>();
       types.add(row.documentTypeCode);
       notApplicable.set(row.criterionCode, types);
@@ -158,7 +162,11 @@ export function buildMatrixView(
       rows: [],
     };
     if (!group.rows.some((r) => r.criterionCode === row.criterionCode)) {
-      group.rows.push({ ...row, linked: known.linkedPairs.has(pairKey(row.documentTypeCode, row.criterionCode)) });
+      group.rows.push({
+        ...row,
+        criterionLabel,
+        linked: known.linkedPairs.has(pairKey(row.documentTypeCode, row.criterionCode)),
+      });
     }
     groups.set(row.documentTypeCode, group);
   }

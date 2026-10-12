@@ -45,7 +45,7 @@ export async function getMatrixReview(): Promise<MatrixReview> {
   const { tenantId } = await requireCabinetAdminSession();
 
   const [criteria, documentTypes, linkedPairs, confirmed] = await Promise.all([
-    prisma.criterion.findMany({ select: { code: true } }),
+    prisma.criterion.findMany({ select: { code: true, label: true } }),
     prisma.documentType.findMany({ select: { code: true, label: true } }),
     loadLinkedPairs(),
     // Suggestions confirmées des structures DE CE CABINET seulement (cloisonnement).
@@ -61,7 +61,7 @@ export async function getMatrixReview(): Promise<MatrixReview> {
   ]);
 
   const view = buildMatrixView(parseProposedMatrix(PROPOSED_MATRIX_CSV), {
-    criterionCodes: new Set(criteria.map((c) => c.code)),
+    criterionLabels: new Map(criteria.map((c) => [c.code, c.label])),
     documentTypeLabels: new Map(documentTypes.map((t) => [t.code, t.label])),
     linkedPairs,
   });

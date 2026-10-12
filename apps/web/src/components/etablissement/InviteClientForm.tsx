@@ -8,6 +8,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { AlertCircle, CheckCircle2, Copy, Loader2, UserPlus } from "lucide-react";
+import {
+  invitationDeliveryMessage,
+  type InvitationDelivery,
+} from "@/lib/services/email-delivery-service";
 
 // `defaultEmail` / `defaultName` : pré-remplissage depuis le contact du prospect à
 // la fin du parcours de conversion. Ce sont des VALEURS PAR DÉFAUT — Sandrine les
@@ -23,7 +27,7 @@ type SuccessResult = {
   tempPassword: string;
   userName: string;
   userEmail: string;
-  invitationEmailSent: boolean;
+  invitationDelivery: InvitationDelivery;
 };
 type ErrorResult = { error: string; linkableEmail?: string };
 type Result = SuccessResult | ErrorResult;
@@ -90,6 +94,7 @@ export function InviteClientForm({ establishmentId, defaultEmail, defaultName }:
   }
 
   if (result && "success" in result) {
+    const delivery = invitationDeliveryMessage(result.invitationDelivery, result.userEmail);
     return (
       <div className="space-y-4 animate-fade-in">
         <div className="flex items-start gap-3 bg-vert-ok/10 border border-vert-ok/30 rounded-lg p-4">
@@ -126,20 +131,15 @@ export function InviteClientForm({ establishmentId, defaultEmail, defaultName }:
             Ce mot de passe ne sera plus affiché. Copiez-le avant de fermer.
           </p>
           {/* Dire si l'e-mail est parti, plutôt que de le supposer : c'est ce qui
-              décide si Sandrine doit communiquer le mot de passe elle-même. */}
-          <p className="flex items-center gap-1.5 text-xs text-gris-mid">
-            {result.invitationEmailSent ? (
-              <>
-                <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0 text-vert-ok" aria-hidden="true" />
-                Invitation envoyée à {result.userEmail} — identifiant et mot de passe compris.
-              </>
+              décide si Sandrine doit communiquer le mot de passe elle-même. Sans
+              RESEND_API_KEY (poste local), rien ne part : on le dit. */}
+          <p role="status" className="flex items-center gap-1.5 text-xs text-gris-mid">
+            {delivery.tone === "ok" ? (
+              <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0 text-vert-ok" aria-hidden="true" />
             ) : (
-              <>
-                <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 text-ambre" aria-hidden="true" />
-                L&apos;e-mail d&apos;invitation n&apos;a pas pu être envoyé : communiquez
-                vous-même l&apos;identifiant et ce mot de passe.
-              </>
+              <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 text-ambre" aria-hidden="true" />
             )}
+            {delivery.text}
           </p>
         </div>
         <Button

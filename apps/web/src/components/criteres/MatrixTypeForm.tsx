@@ -54,8 +54,11 @@ export function MatrixTypeForm({ group }: { group: MatrixGroup }) {
             />
             <span className="min-w-0 flex-1">
               <span className="font-bold text-ink">{row.criterionCode}</span>
-              <span className="text-ink2"> · {CONFIDENCE_LABELS[row.confidence]}</span>
-              {row.linked && <span className="text-ink2"> · déjà rattaché</span>}
+              <span className="text-ink"> — {row.criterionLabel}</span>
+              <span className="block text-sm text-ink2">
+                {CONFIDENCE_LABELS[row.confidence]}
+                {row.linked && " · déjà rattaché"}
+              </span>
               {row.remark && <span className="block text-sm text-ink2">{row.remark}</span>}
             </span>
           </label>

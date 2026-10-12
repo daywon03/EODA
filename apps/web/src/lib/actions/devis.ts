@@ -5,7 +5,8 @@ import { requireCabinetAdminSession } from "@/lib/auth/guards";
 import { redirect, notFound } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
-import { getEmailPort } from "@/lib/email";
+import { getEmailPort, type EmailDelivery } from "@/lib/email";
+import { devisEmailNotSentMessage } from "@/lib/services/email-delivery-service";
 import { buildDevisEmail } from "@/lib/email/templates";
 import { renderDevisPdf } from "@/lib/services/devis-pdf-service";
 import { buildDevisFileName } from "@/lib/services/devis-sharing-service";
@@ -437,8 +438,9 @@ export async function sendDevisEmail(id: string): Promise<{ error: string } | nu
     issuedOn: devis.createdAt,
   });
 
+  let delivery: EmailDelivery;
   try {
-    await getEmailPort().send({
+    delivery = await getEmailPort().send({
       to: devis.prospect.contactEmail,
       ...(senderEmail && { cc: senderEmail }),
       subject: content.subject,
@@ -448,6 +450,13 @@ export async function sendDevisEmail(id: string): Promise<{ error: string } | nu
   } catch (err) {
     console.error("Envoi de l'e-mail du devis échoué :", err);
     return { error: "L'e-mail n'a pas pu être envoyé. Réessayez dans un instant." };
+  }
+
+  // Envoi non configuré (poste local, pas de RESEND_API_KEY) : rien n'est parti. Le
+  // devis ne passe PAS à ENVOYE et aucun DEVIS_EMAIL_SENT n'est journalisé — sinon
+  // la plateforme affirmerait avoir envoyé un devis que personne n'a reçu.
+  if (delivery === "NOT_CONFIGURED") {
+    return { error: devisEmailNotSentMessage() };
   }
 
   if (devis.status === "BROUILLON") {

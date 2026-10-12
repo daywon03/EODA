@@ -58,7 +58,7 @@ describe("garde", () => {
 
 describe("getMatrixReview", () => {
   it("borne les suggestions confirmées au cabinet et écarte celles déjà rattachées", async () => {
-    prismaMock.criterion.findMany.mockResolvedValue([{ code: "1.2.1" }]);
+    prismaMock.criterion.findMany.mockResolvedValue([{ code: "1.2.1", label: "Intitulé 1.2.1" }]);
     prismaMock.documentType.findMany.mockResolvedValue([{ code: "L2002_DIPC", label: "DIPC" }]);
     prismaMock.documentTypeCriterion.findMany.mockResolvedValue([
       { documentType: { code: "L2002_DIPC" }, criterion: { code: "1.2.1" } },

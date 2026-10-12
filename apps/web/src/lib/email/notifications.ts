@@ -2,6 +2,10 @@ import { prisma } from "@eoda/database";
 import { getEnv } from "@/lib/config/env";
 import { getEmailPort } from "./index";
 import {
+  countDeliveries,
+  type InvitationDelivery,
+} from "@/lib/services/email-delivery-service";
+import {
   buildClientInvitationEmail,
   buildDocumentReminderEmail,
   buildNewMessageEmail,
@@ -17,9 +21,10 @@ import {
 // travail reste fait. L'inverse — perdre un compte parce qu'un SMTP a hoqueté —
 // serait une régression déguisée en robustesse.
 //
-// L'appelant reçoit donc un booléen, pas une exception, et l'écran dit la vérité :
-// « mot de passe envoyé par e-mail » ou « e-mail non parti, communiquez-le
-// vous-même ».
+// L'appelant reçoit donc un état d'envoi, pas une exception, et l'écran dit la
+// vérité : « mot de passe envoyé par e-mail », « e-mail non envoyé en local » ou
+// « e-mail non parti, communiquez-le vous-même ». Un envoi NON CONFIGURÉ
+// (adaptateur console) ne compte jamais comme un envoi réussi.
 // ─────────────────────────────────────────────────────────────────────────────
 
 // Base des liens envoyés par e-mail. En production, `NEXTAUTH_URL` est exigée par le
@@ -34,7 +39,7 @@ export async function sendClientInvitationEmail(input: {
   email: string;
   temporaryPassword: string;
   establishmentName: string;
-}): Promise<boolean> {
+}): Promise<InvitationDelivery> {
   const content = buildClientInvitationEmail({
     recipientName: input.recipientName,
     email: input.email,
@@ -45,13 +50,16 @@ export async function sendClientInvitationEmail(input: {
   });
 
   try {
-    await getEmailPort().send({ to: input.email, subject: content.subject, html: content.html });
-    return true;
+    return await getEmailPort().send({
+      to: input.email,
+      subject: content.subject,
+      html: content.html,
+    });
   } catch (error) {
     // Le mot de passe temporaire n'est JAMAIS journalisé, même en cas d'échec : il
     // est encore affiché à l'écran, c'est là qu'il doit être lu.
     console.error("Invitation client — envoi d'e-mail échoué, compte créé malgré tout :", error);
-    return false;
+    return "FAILED";
   }
 }
 
@@ -88,13 +96,11 @@ export async function notifyOptionRequest(input: {
     admins.map((admin) => port.send({ to: admin.email, subject: content.subject, html: content.html }))
   );
 
-  const failures = results.filter((result) => result.status === "rejected");
-  if (failures.length > 0) {
-    console.error(
-      `Alerte demande d'option — ${failures.length}/${admins.length} envoi(s) échoué(s).`
-    );
+  const { sent, failed } = countDeliveries(results);
+  if (failed > 0) {
+    console.error(`Alerte demande d'option — ${failed}/${admins.length} envoi(s) échoué(s).`);
   }
-  return failures.length < admins.length;
+  return sent > 0;
 }
 
 // Relance des pièces manquantes, vers les interlocuteurs du client.
@@ -111,7 +117,7 @@ export async function sendDocumentReminderEmails(input: {
   establishmentName: string;
   missingLabels: readonly string[];
   message: string | null;
-}): Promise<{ sent: number; total: number }> {
+}): Promise<{ sent: number; total: number; notConfigured: boolean }> {
   const links = await prisma.establishmentUser.findMany({
     where: { establishmentId: input.establishmentId },
     select: { user: { select: { name: true, email: true, isActive: true } } },
@@ -119,7 +125,7 @@ export async function sendDocumentReminderEmails(input: {
   // Un compte désactivé ne reçoit rien : sa désactivation est précisément la décision
   // de couper le lien.
   const recipients = links.map((link) => link.user).filter((user) => user.isActive);
-  if (recipients.length === 0) return { sent: 0, total: 0 };
+  if (recipients.length === 0) return { sent: 0, total: 0, notConfigured: false };
 
   const port = getEmailPort();
   const results = await Promise.allSettled(
@@ -136,16 +142,16 @@ export async function sendDocumentReminderEmails(input: {
     })
   );
 
-  const sent = results.filter((result) => result.status === "fulfilled").length;
-  if (sent < recipients.length) {
+  const { sent, notConfigured, failed } = countDeliveries(results);
+  if (failed > 0) {
     // Ni adresse ni nom dans le journal technique : un envoi échoué se diagnostique
     // par son nombre, pas par la liste de ses destinataires.
     console.error(
-      `Relance documentaire — ${recipients.length - sent}/${recipients.length} envoi(s) échoué(s).`
+      `Relance documentaire — ${failed}/${recipients.length} envoi(s) échoué(s).`
     );
   }
 
-  return { sent, total: recipients.length };
+  return { sent, total: recipients.length, notConfigured: notConfigured > 0 };
 }
 
 // Nouveau message dans le fil d'échange : on prévient l'AUTRE côté.
@@ -200,11 +206,9 @@ export async function notifyNewMessage(input: {
     )
   );
 
-  const failures = results.filter((result) => result.status === "rejected");
-  if (failures.length > 0) {
-    console.error(
-      `Notification de message — ${failures.length}/${recipients.length} envoi(s) échoué(s).`
-    );
+  const { sent, failed } = countDeliveries(results);
+  if (failed > 0) {
+    console.error(`Notification de message — ${failed}/${recipients.length} envoi(s) échoué(s).`);
   }
-  return failures.length < recipients.length;
+  return sent > 0;
 }

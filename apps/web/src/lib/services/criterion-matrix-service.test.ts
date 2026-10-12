@@ -84,7 +84,12 @@ const ROWS: MatrixRow[] = [
 
 describe("buildMatrixView", () => {
   const view = buildMatrixView(ROWS, {
-    criterionCodes: new Set(["1.10.2", "1.2.1", "1.1.1", "3.1.1"]),
+    criterionLabels: new Map([
+      ["1.10.2", "Intitulé 1.10.2"],
+      ["1.2.1", "La personne est informée de ses droits"],
+      ["1.1.1", "Intitulé 1.1.1"],
+      ["3.1.1", "Intitulé 3.1.1"],
+    ]),
     documentTypeLabels: new Map([
       ["L2002_DIPC", "DIPC / Contrat de séjour"],
       ["A_TYPE", "Type A"],
@@ -100,6 +105,11 @@ describe("buildMatrixView", () => {
       ["1.2.1", true],
       ["1.10.2", false],
     ]);
+  });
+
+  it("porte l'intitulé du critère à côté de son code (un code seul ne se relit pas)", () => {
+    const dipc = view.groups[1];
+    expect(dipc?.rows[0]?.criterionLabel).toBe("La personne est informée de ses droits");
   });
 
   it("liste à part les critères absents du référentiel et les types inconnus — jamais écrits", () => {
