@@ -3,6 +3,7 @@ import { requireCabinetSession } from "@/lib/auth/guards";
 import { getStructuresOverview } from "@/lib/actions/structures-overview";
 import { listDocumentsAwaitingReview } from "@/lib/actions/review-queue";
 import { listUpcomingAgenda } from "@/lib/actions/appointment";
+import { listMyTasksToday } from "@/lib/actions/task";
 import { countUpcomingHasEvaluations } from "@/lib/services/portfolio-kpi-service";
 import { formatAgo } from "@/lib/services/elapsed-time-service";
 import {
@@ -15,6 +16,7 @@ import { KpiCard } from "@/components/ui/kpi-card";
 import { Button } from "@/components/ui/button";
 import { WatchList } from "@/components/cabinet-home/WatchList";
 import { UpcomingAppointments } from "@/components/cabinet-home/UpcomingAppointments";
+import { TodayTasks } from "@/components/cabinet-home/TodayTasks";
 
 export const metadata = { title: "Accueil · EODA Conseil" };
 
@@ -25,14 +27,15 @@ const HAS_HORIZON_DAYS = 180;
 // Accueil du cabinet (maquette « Portail Cabinet v2 », vue Accueil). Tout ce qui
 // s'y affiche est DÉRIVÉ : la file « À relire », les KPI de portefeuille (mêmes
 // faits que les badges d'étape), les motifs « À surveiller » (service pur),
-// l'agenda. « Mes tâches du jour » n'apparaît pas : les tâches n'existent pas encore
-// (tranche N5), et un bloc factice serait une fonctionnalité en panne (D6).
+// l'agenda, et « Mes tâches du jour » (tâches confiées à la personne connectée,
+// échues ou en retard — tranche N5).
 export default async function CabinetHomePage() {
   const { session } = await requireCabinetSession();
-  const [{ rows, portfolio }, queue, appointments] = await Promise.all([
+  const [{ rows, portfolio }, queue, appointments, todayTasks] = await Promise.all([
     getStructuresOverview(),
     listDocumentsAwaitingReview(),
     listUpcomingAgenda(4),
+    listMyTasksToday(),
   ]);
   const now = new Date();
 
@@ -75,6 +78,8 @@ export default async function CabinetHomePage() {
           href="/dashboard/cabinet/structures"
         />
       </div>
+
+      <TodayTasks tasks={todayTasks} now={now} />
 
       <WatchList items={watch} now={now} />
 

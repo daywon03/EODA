@@ -78,6 +78,10 @@ const ACTION_LABELS: Record<AuditAction, string> = {
   CLIENT_USER_LINKED: "Interlocuteur rattaché à une autre structure",
   DOCUMENT_TYPE_CRITERIA_UPDATED: "Matrice documents → critères validée",
   DOCUMENT_TYPE_CRITERION_PROMOTED: "Critère confirmé ajouté à la matrice",
+  ACTION_ITEM_CREATED: "Tâche créée",
+  ACTION_ITEM_COMPLETED: "Tâche faite",
+  ACTION_ITEM_REOPENED: "Tâche rouverte",
+  ACTION_ITEM_REASSIGNED: "Tâche confiée à quelqu'un d'autre",
 };
 
 const ROLE_LABELS: Record<string, string> = {

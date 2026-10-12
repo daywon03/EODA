@@ -34,6 +34,7 @@ export const STRUCTURE_TABS: readonly StructureTab[] = [
   { id: "overview", label: "Vue d'ensemble", segment: "", roles: CABINET_ROLES },
   { id: "documents", label: "Documents", segment: "documents", roles: CABINET_ROLES },
   { id: "criteres", label: "Critères", segment: "criteres", roles: CABINET_ROLES },
+  { id: "plan-action", label: "Plan d'action", segment: "plan-action", roles: CABINET_ROLES },
   { id: "evaluation", label: "Auto-évaluation", segment: "evaluation", roles: CABINET_ROLES },
   { id: "mission", label: "Mission", segment: "mission", roles: CABINET_ROLES },
   { id: "echanges", label: "Échanges", segment: "echanges", roles: CABINET_ROLES },

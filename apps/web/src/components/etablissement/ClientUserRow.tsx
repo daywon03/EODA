@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { FUNCTION_LABELS } from "@/lib/services/action-item-service";
 import { ConfirmActionButton } from "@/components/ui/confirm-action-button";
 import {
   AlertCircle,
@@ -30,13 +31,8 @@ type Props = {
   roleInEstablishment: string;
 };
 
-const ROLE_LABELS: Record<string, string> = {
-  DIRECTEUR: "Directeur / Directrice",
-  COORDINATEUR: "Coordinateur / Coordinatrice",
-  ASSISTANT_QUALITE: "Assistant(e) qualité",
-  RESPONSABLE_QUALITE: "Responsable Qualité",
-  AUTRE: "Autre",
-};
+// Libellés des fonctions : source unique, partagée avec le pilote du plan d'action.
+const ROLE_LABELS: Record<string, string> = FUNCTION_LABELS;
 
 // Ligne d'interlocuteur client — lecture ET révocation. Les trois opérations
 // destructrices (retrait d'accès, désactivation, réinitialisation) posent une

@@ -5,6 +5,7 @@ import { getMission } from "@/lib/actions/mission";
 import { getEvaluationChapter, listChapters } from "@/lib/actions/evaluation-chapter";
 import { listAppointmentsFor } from "@/lib/actions/appointment";
 import { getStructureCriteriaProof } from "@/lib/actions/criteria-proof";
+import { listEstablishmentActionItems } from "@/lib/actions/task";
 import {
   deriveNextActions,
   describeChapterMeasure,
@@ -35,12 +36,13 @@ export default async function StructureOverviewPage({ params }: Props) {
   const { id } = await params;
   // Lectures parallèles, chacune sous sa garde (getEstablishment et la checklist
   // passent par requireEstablishmentInTenant : notFound hors tenant).
-  const [establishment, checklist, mission, appointments, proof] = await Promise.all([
+  const [establishment, checklist, mission, appointments, proof, tasks] = await Promise.all([
     getEstablishment(id),
     getEstablishmentChecklist(id),
     getMission(id),
     listAppointmentsFor({ establishmentId: id }),
     getStructureCriteriaProof(id),
+    listEstablishmentActionItems(id),
   ]);
   const now = new Date();
 
@@ -63,7 +65,7 @@ export default async function StructureOverviewPage({ params }: Props) {
     ),
     describeLoi2002Measure(checklist.LOI_2002_2 ?? []),
   ];
-  const nextActions = deriveNextActions({ establishmentId: id, documents, appointments, now });
+  const nextActions = deriveNextActions({ establishmentId: id, documents, appointments, now, tasks: tasks.items });
 
   return (
     <div className="space-y-9">

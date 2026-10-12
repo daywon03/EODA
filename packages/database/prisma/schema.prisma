@@ -278,6 +278,7 @@ model Tenant {
   templateCategories  TemplateCategory[]
   knowledgeChunks     KnowledgeChunk[]
   criterionGuidelines CriterionGuideline[]
+  actionItems         ActionItem[]
 
   @@map("tenants")
 }
@@ -323,6 +324,9 @@ model User {
   criterionGuidelines         CriterionGuideline[]
   suggestionsReviewed         DocumentCriterionSuggestion[] @relation("CriterionSuggestionReviewedBy")
   templateSuggestionsReviewed TemplateCriterionSuggestion[] @relation("TemplateCriterionSuggestionReviewedBy")
+  ownedActionItems            ActionItem[]                  @relation("ActionItemOwner")
+  completedActionItems        ActionItem[]                  @relation("ActionItemDoneBy")
+  createdActionItems          ActionItem[]                  @relation("ActionItemCreatedBy")
 
   @@index([tenantId])
   @@map("users")
@@ -381,6 +385,7 @@ model Establishment {
   optionRequests     ClientOptionRequest[]
   appointments       Appointment[]
   messages           MissionMessage[]
+  actionItems        ActionItem[]
 
   @@index([tenantId])
   @@map("establishments")
@@ -468,6 +473,7 @@ model Criterion {
   templateDocuments   TemplateDocumentCriterion[]
   documentSuggestions DocumentCriterionSuggestion[]
   templateSuggestions TemplateCriterionSuggestion[]
+  actionItems         ActionItem[]
 
   @@index([objectiveId])
   @@map("criteria")
@@ -695,6 +701,7 @@ model Document {
   // SetNull : la désactivation d'un compte client n'efface pas un geste déjà daté.
   clientAcceptedBy     User?                         @relation("DocumentClientAcceptedBy", fields: [clientAcceptedByUserId], references: [id], onDelete: SetNull)
   criterionSuggestions DocumentCriterionSuggestion[]
+  actionItems          ActionItem[]
 
   @@unique([establishmentId, documentTypeId])
   @@index([documentTypeId])
@@ -1546,6 +1553,12 @@ enum AuditAction {
   // Suggestion de critère confirmée promue au type de document. `targetId` = la
   // suggestion, `detail` = code du type et code du critère (référentiel, non nominatif).
   DOCUMENT_TYPE_CRITERION_PROMOTED
+  // Tâches / plan d'action (N5). `targetId` = la tâche, `detail` = sa source et son
+  // côté responsable — jamais le titre (texte libre).
+  ACTION_ITEM_CREATED
+  ACTION_ITEM_COMPLETED
+  ACTION_ITEM_REOPENED
+  ACTION_ITEM_REASSIGNED
 }
 
 model AuditLogEntry {
@@ -1821,4 +1834,78 @@ model KnowledgeChunk {
   @@index([tenantId])
   @@index([templateVersionId])
   @@map("knowledge_chunks")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TÂCHES = PLAN D'ACTION (PAC) — tranche N5, maquettes v2.
+//
+// UN seul modèle pour toutes les tâches d'une structure, quelle que soit leur
+// origine (`source`) : saisie à la main, relance de document, diagnostic, PAC tiré de
+// l'auto-évaluation, plus tard enquête et quiz. Deux tables « tâches » et « actions
+// PAC » finiraient par diverger sur la même chose à faire.
+//
+// Ce qui est STOCKÉ : les décisions (créer, confier à quelqu'un, cocher). Ce qui est
+// DÉRIVÉ (action-item-service) : « en retard » (échéance passée, pas faite) —
+// jamais une colonne, qui ne se mettrait pas à jour toute seule (CLAUDE.md §7).
+//
+// Responsable : un CÔTÉ (`ownerKind` : EODA ou la structure), éventuellement une
+// personne (`ownerUserId`) et, pour le PAC, une FONCTION (`ownerFunction` — « le
+// pilote est une fonction, pas un nom », context/10 §6). Jamais de texte libre
+// nominatif sur une personne accompagnée : `title` décrit un geste sur un document.
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum ActionOwnerKind {
+  CABINET
+  STRUCTURE
+}
+
+enum ActionSource {
+  MANUEL
+  DOCUMENT
+  DIAGNOSTIC
+  PAC
+  ENQUETE
+  QUIZ
+}
+
+model ActionItem {
+  id                String                 @id @default(cuid())
+  tenantId          String                 @map("tenant_id")
+  establishmentId   String                 @map("establishment_id")
+  title             String
+  ownerKind         ActionOwnerKind        @map("owner_kind")
+  ownerUserId       String?                @map("owner_user_id")
+  ownerFunction     EstablishmentUserRole? @map("owner_function")
+  // Jour d'échéance (pas d'heure) : « en retard » se juge au jour.
+  dueOn             DateTime?              @map("due_on") @db.Date
+  doneAt            DateTime?              @map("done_at")
+  doneByUserId      String?                @map("done_by_user_id")
+  source            ActionSource           @default(MANUEL)
+  linkedDocumentId  String?                @map("linked_document_id")
+  linkedCriterionId String?                @map("linked_criterion_id")
+  // Nullable + SetNull : la suppression d'un compte client avec sa structure ne doit
+  // pas être bloquée par une tâche qu'il a créée.
+  createdByUserId   String?                @map("created_by_user_id")
+  createdAt         DateTime               @default(now()) @map("created_at")
+  updatedAt         DateTime               @updatedAt @map("updated_at")
+
+  tenant          Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  // Cascade : une tâche n'existe que par sa structure (même règle que Mission).
+  establishment   Establishment @relation(fields: [establishmentId], references: [id], onDelete: Cascade)
+  // SetNull : le départ d'une personne ne supprime pas la tâche, elle redevient
+  // celle de son côté (EODA ou la structure).
+  ownerUser       User?         @relation("ActionItemOwner", fields: [ownerUserId], references: [id], onDelete: SetNull)
+  doneBy          User?         @relation("ActionItemDoneBy", fields: [doneByUserId], references: [id], onDelete: SetNull)
+  createdBy       User?         @relation("ActionItemCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  linkedDocument  Document?     @relation(fields: [linkedDocumentId], references: [id], onDelete: SetNull)
+  linkedCriterion Criterion?    @relation(fields: [linkedCriterionId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId])
+  @@index([establishmentId, doneAt])
+  @@index([ownerUserId])
+  @@index([doneByUserId])
+  @@index([createdByUserId])
+  @@index([linkedDocumentId])
+  @@index([linkedCriterionId])
+  @@map("action_items")
 }

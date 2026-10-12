@@ -628,6 +628,29 @@ Détail complet et état d'avancement : `specs/02-architecture-technique.md` §4
   balisée, jamais comme instruction ; et on ne va jamais chercher d'exemple dans les
   `Document` d'un autre établissement. Chaque paire « original → version validée »
   rejoint le jeu d'évaluation rejoué à tout changement de prompt ou de modèle (09 §6.3).
+- **Un devis peut n'avoir AUCUNE offre** (prestations à la carte seules — décision du
+  01/09, livrée le 11/10/2026) : formule et snapshots du devis nullables, au moins une
+  prestation exigée (`devisContentError`). La mission qui en naît a `formule = null` →
+  palier `SANS_OFFRE` (`offer-scope-service`) : socle loi 2002-2 + impératifs, **mode
+  accompagné**, **aucun droit de génération**. Ne jamais lui inventer une formule.
+- **La matrice type de document → critère ne s'écrit que par l'écran**
+  `/dashboard/cabinet/criteres` (CABINET_ADMIN, spec 04) — jamais par seed ni migration.
+  La proposition du 08/10 y est embarquée et vérifiée contre sa source ; seuls les
+  critères **proposés et présents en base** sont décidables (`planMatrixDecision`).
+- **« Prouvé » est dérivé, jamais stocké, jamais « conforme »**
+  (`criteria-proof-service`) : tous les documents attendus d'un critère relus par EODA
+  (`validatedAt` postérieur à la version courante, structure accompagnée) ou acceptés
+  par la structure (autonomie). Un SAD aide ne voit jamais un critère `SAD_MIXTE`
+  (`criterion-applicability-service`, une seule règle pour l'auto-évaluation, la
+  comparaison et critères & preuves).
+- **Tâches = plan d'action : un seul modèle, `ActionItem`** (N5), quelle que soit la
+  source (saisie, PAC, document, diagnostic…). « En retard » se DÉRIVE
+  (`action-item-service`), jamais de colonne. Un client ne voit que les tâches confiées
+  à la structure, n'agit que sur celles de la structure ou les siennes, ne confie
+  jamais à EODA ; mission close = lecture seule ; accès révoqué = rien. Le journal porte
+  la source et le côté, **jamais le titre**. Le PAC « Générer depuis l'auto-évaluation »
+  **propose** (une action par critère coté sous 4, verbe + document, pilote = une
+  fonction) et n'écrit que ce que le cabinet coche, recalculé côté serveur.
 - Ne pas faire passer un devis à `SIGNE` par `changeDevisStatus` : la signature est la seule
   transition qui produit des effets hors du module commercial (fiche établissement, mission,
   périmètre ouvert au client) et passe par `convertDevisToClient` (`lib/actions/conversion.ts`),

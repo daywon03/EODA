@@ -2,6 +2,7 @@ import type { DocumentStatus } from "@eoda/database";
 import type { PhaseState, TimelinePhase } from "@/components/ui/phase-timeline";
 import { DOCUMENT_PILLS, type PillSpec } from "@/lib/design/status-vocabulary";
 import { structureHref } from "@/lib/design/structure-tabs";
+import { actionPill, describeOwner, sortActionItems, type ActionItemFacts } from "./action-item-service";
 import { selectUpcoming, type CalendarAppointment } from "./calendar-service";
 import { formatDate, formatDateTime } from "./date-format-service";
 import { formatDaysUntil } from "./elapsed-time-service";
@@ -204,6 +205,8 @@ export function deriveNextActions(input: {
   documents: readonly NextActionDocument[];
   appointments: CalendarAppointment[];
   now: Date;
+  // Tâches du plan d'action (N5) : les ouvertes, en retard d'abord.
+  tasks?: readonly (ActionItemFacts & { ownerName: string | null })[];
   limit?: number;
 }): NextAction[] {
   const documentsPath = structureHref(input.establishmentId, "documents");
@@ -241,5 +244,18 @@ export function deriveNextActions(input: {
     })
   );
 
-  return [...toReview, ...appointment, ...toObtain].slice(0, input.limit ?? NEXT_ACTIONS_LIMIT);
+  const tasks = sortActionItems(
+    (input.tasks ?? []).filter((t) => t.doneAt === null),
+    input.now
+  ).map(
+    (t): NextAction => ({
+      id: `task-${t.id}`,
+      label: t.title,
+      detail: t.dueOn ? `${describeOwner(t)} · échéance ${formatDate(t.dueOn)}` : describeOwner(t),
+      pill: actionPill(t, input.now),
+      href: structureHref(input.establishmentId, "plan-action"),
+    })
+  );
+
+  return [...toReview, ...tasks, ...appointment, ...toObtain].slice(0, input.limit ?? NEXT_ACTIONS_LIMIT);
 }

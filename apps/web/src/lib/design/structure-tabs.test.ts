@@ -8,8 +8,8 @@ import {
 } from "./structure-tabs";
 
 describe("visibleStructureTabs", () => {
-  it("montre les sept onglets livrés aux deux rôles cabinet, dans l'ordre de la maquette", () => {
-    const expected = ["overview", "documents", "criteres", "evaluation", "mission", "echanges", "reglages"];
+  it("montre les huit onglets livrés aux deux rôles cabinet, dans l'ordre de la maquette", () => {
+    const expected = ["overview", "documents", "criteres", "plan-action", "evaluation", "mission", "echanges", "reglages"];
     expect(visibleStructureTabs("CABINET_ADMIN").map((t) => t.id)).toEqual(expected);
     expect(visibleStructureTabs("CABINET_EVALUATOR").map((t) => t.id)).toEqual(expected);
   });

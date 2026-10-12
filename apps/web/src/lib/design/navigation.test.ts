@@ -76,6 +76,7 @@ describe("navigation du portail client", () => {
     expect(buildClientNav({ hasUnansweredMessage: false }).map((i) => i.label)).toEqual([
       "Accueil",
       "Mes documents",
+      "Tâches",
       "Mes livrables",
       "Mon suivi",
       "Messages",

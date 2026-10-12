@@ -118,6 +118,10 @@ export default defineConfig({
         "src/lib/services/criterion-applicability-service.ts",
         // « Un compte existe déjà » : un défaut ici révèle un compte d'un autre cabinet.
         "src/lib/services/existing-account-service.ts",
+        // Tâches = PAC (N5) : « en retard » dérivé, droits client / cabinet, et
+        // propositions d'action (jamais d'action sur un critère coté 4).
+        "src/lib/services/action-item-service.ts",
+        "src/lib/services/pac-proposal-service.ts",
         // Péremption documentaire : elle décide qu'un document « conforme » ne l'est
         // plus. Dérivée de l'horloge, donc jamais vérifiable par un statut en base.
         "src/lib/services/document-expiry-service.ts",

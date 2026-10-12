@@ -17,6 +17,7 @@ export const CLIENT_ROOT = "/dashboard/client";
 export const CLIENT_MESSAGES_PATH = `${CLIENT_ROOT}/echanges`;
 export const CLIENT_DOCUMENTS_PATH = `${CLIENT_ROOT}/documents`;
 export const CLIENT_CONTRACT_PATH = `${CLIENT_ROOT}/contrat`;
+export const CLIENT_TASKS_PATH = `${CLIENT_ROOT}/taches`;
 
 export type ClientNavFacts = {
   // Le dernier message du fil vient d'EODA et attend une réponse.
@@ -29,6 +30,8 @@ export function buildClientNav(facts: ClientNavFacts): NavItem[] {
     // toutes les autres pages.
     { id: "home", href: CLIENT_ROOT, label: "Accueil", icon: "home", exact: true },
     { id: "documents", href: CLIENT_DOCUMENTS_PATH, label: "Mes documents", icon: "documents" },
+    // Tâches de la structure (N5) : celles qu'EODA ou la structure lui a confiées.
+    { id: "tasks", href: CLIENT_TASKS_PATH, label: "Tâches", icon: "tasks" },
     { id: "deliverables", href: `${CLIENT_ROOT}/livrables`, label: "Mes livrables", icon: "deliverables" },
     { id: "progress", href: `${CLIENT_ROOT}/suivi`, label: "Mon suivi", icon: "progress" },
     {

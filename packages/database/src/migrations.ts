@@ -82,4 +82,5 @@ export const EXPECTED_MIGRATIONS: readonly string[] = [
   "20261011100000_drop_seed_header_criterion",
   "20261011110000_sad_mixte_criteria",
   "20261011120000_criterion_matrix_audit",
+  "20261011130000_action_items",
 ] as const;
