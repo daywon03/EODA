@@ -6,6 +6,7 @@ import { AlertCircle, Loader2 } from "lucide-react";
 import type { CommercialTier } from "@eoda/database";
 import { createDevis, updateDevis } from "@/lib/actions/devis";
 import { computeDevisAmounts, optionCommittedAmountEuros } from "@/lib/services/devis-calculation-service";
+import { pickInitialFormule } from "@/lib/services/devis-initial-formule-service";
 import { describeSubscriptionDiscount, optionUnitPriceForFormule } from "@/lib/services/subscription-service";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -55,6 +56,8 @@ type Props = {
   // Lignes du brouillon qui ne sont plus au catalogue : affichées explicitement,
   // elles disparaîtront à l'enregistrement.
   retiredLines?: string[];
+  // Formule notée sur la fiche prospect : présélectionnée sur un NOUVEAU devis.
+  envisagedFormule?: CommercialTier | null;
 };
 
 export function DevisForm({
@@ -69,6 +72,7 @@ export function DevisForm({
   variant = "devis",
   defaultNeedsAssessmentNotes,
   retiredLines = [],
+  envisagedFormule = null,
 }: Props) {
   // `updateDevis` prend l'identifiant en premier argument : lié ici plutôt que posté
   // en champ caché — un identifiant lié n'est pas réécrivable depuis le navigateur.
@@ -77,13 +81,10 @@ export function DevisForm({
     null
   );
   const isAssessment = variant === "assessment";
-  // Repli sur la première formule active si celle du brouillon a été retirée du
-  // catalogue entre-temps.
-  const draftFormuleStillSellable = draft !== undefined && formules.some((f) => f.formule === draft.formule);
-  const [formule, setFormule] = useState<CommercialTier | "">(
-    draft?.formule === null
-      ? ""
-      : (draftFormuleStillSellable ? draft?.formule : undefined) ?? formules[0]?.formule ?? ""
+  // Brouillon > formule envisagée du prospect > première formule vendue
+  // (devis-initial-formule-service) ; jamais une formule retirée du catalogue.
+  const [formule, setFormule] = useState<CommercialTier | "">(() =>
+    pickInitialFormule({ formules, envisagedFormule, draftFormule: draft?.formule })
   );
   const [selectedOptionIds, setSelectedOptionIds] = useState<string[]>(
     (draft?.optionIds ?? []).filter((id) => options.some((o) => o.id === id))

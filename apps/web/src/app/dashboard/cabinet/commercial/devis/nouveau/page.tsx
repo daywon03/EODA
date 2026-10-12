@@ -53,6 +53,7 @@ export default async function NouveauDevisPage({ searchParams }: Props) {
         defaultDepositPercent={catalogue.billingSettings?.defaultDepositPercent ?? DEFAULT_DEPOSIT_PERCENT}
         defaultValidityDays={validity.days}
         validityHint={validity.reason}
+        envisagedFormule={prospect.envisagedFormule}
       />
     </div>
   );
