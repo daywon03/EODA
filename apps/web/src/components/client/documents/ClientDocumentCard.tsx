@@ -6,21 +6,10 @@ import {
   depositNoticeFor,
   type ClientDocumentState,
 } from "@/lib/services/client-documents-view-service";
+import { clientWaitingLine } from "@/lib/services/client-document-waiting-service";
 import { StatusPill } from "@/components/ui/status-pill";
 import { DocumentAnalysisPanel } from "@/components/checklist/DocumentAnalysisPanel";
 import { ClientDocumentActions } from "./ClientDocumentActions";
-
-// Phrase d'attente quand rien n'est encore à lire. En autonomie, personne chez EODA
-// ne relit : on ne le promet pas.
-function waitingLine(state: ClientDocumentState, mode: SupportMode): string | null {
-  if (state === "IN_PROGRESS") {
-    return mode === "ACCOMPAGNE" ? "EODA relit ce document." : "La plateforme lit votre document.";
-  }
-  if (state === "TO_PRODUCE") {
-    return mode === "ACCOMPAGNE" ? "Vous ne l'avez pas : il est à produire." : "Vous ne l'avez pas : il est à créer.";
-  }
-  return null;
-}
 
 // Une carte de « Mes documents » : le nom, la pastille (mot + glyphe), un geste
 // principal, et — quand il y a quelque chose à lire — l'analyse sous sa mention
@@ -45,7 +34,7 @@ export function ClientDocumentCard({
 }) {
   const version = item.currentVersion;
   const notice = depositNoticeFor(item.code);
-  const waiting = waitingLine(state, mode);
+  const waiting = clientWaitingLine(state, mode);
 
   return (
     <article className="flex flex-col gap-3 rounded-xl border border-line bg-card px-5 py-4">
