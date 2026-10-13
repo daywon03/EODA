@@ -12,7 +12,8 @@ type Props = {
 };
 
 export function PageHeader({ title, subtitle, icon: Icon, accent = "terre", backHref, action }: Props) {
-  const accentClass = accent === "terre" ? "border-terre" : "border-ambre";
+  // L'accent passe par l'icône seule : le liseré latéral épais (border-l-4) est
+  // refusé par le socle qualité impeccable (test de bout en bout du 12/10).
   const iconClass = accent === "terre" ? "text-accent-text" : "text-ambre";
 
   return (
@@ -26,7 +27,7 @@ export function PageHeader({ title, subtitle, icon: Icon, accent = "terre", back
             </Link>
           </Button>
         )}
-        <div className={`border-l-4 ${accentClass} pl-4 py-0.5`}>
+        <div className="py-0.5">
           <div className="flex items-center gap-2">
             {Icon && <Icon className={`w-5 h-5 ${iconClass} flex-shrink-0`} aria-hidden="true" />}
             <h1 className="text-xl sm:text-2xl font-bold text-brun-ancre leading-tight">{title}</h1>

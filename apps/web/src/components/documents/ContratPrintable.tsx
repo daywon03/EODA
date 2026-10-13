@@ -42,7 +42,7 @@ export function ContratPrintable({ facts, establishmentLogo, issuedOn }: Props) 
           establishmentLogo={establishmentLogo}
         />
 
-        <div className="rounded-lg border-l-4 border-ambre bg-brun-ancre px-5 py-4 text-ivoire print:bg-brun-ancre">
+        <div className="rounded-lg border border-ambre bg-brun-ancre px-5 py-4 text-ivoire print:bg-brun-ancre">
           <p className="text-sm uppercase tracking-[0.18em] text-ambre">
             Accompagnement à la préparation de l&apos;évaluation qualité HAS
           </p>

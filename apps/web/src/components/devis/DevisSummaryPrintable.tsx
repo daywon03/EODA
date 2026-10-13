@@ -69,7 +69,7 @@ export function DevisSummaryPrintable({
         {/* Bandeau de titre à la charte : fond brun foncé « ancrage, crédibilité »,
             liseré ambre. Les couleurs de la charte ne sont pas décoratives ici — un
             devis en noir sur blanc ne se distingue pas de celui d'un concurrent. */}
-        <div className="rounded-lg border-l-4 border-ambre bg-brun-ancre px-5 py-4 text-ivoire print:bg-brun-ancre">
+        <div className="rounded-lg border border-ambre bg-brun-ancre px-5 py-4 text-ivoire print:bg-brun-ancre">
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div>
               <p className="text-sm uppercase tracking-[0.18em] text-ambre">

@@ -201,7 +201,7 @@ export function SignatureConversionForm({
           )}
         </fieldset>
       ) : (
-        <p className="text-sm text-ink2 border-l-4 border-gris-light pl-3">
+        <p className="rounded-md border border-gris-light bg-soft px-3 py-2 text-sm text-ink2">
           Ce prospect a déjà une fiche établissement : la signature ne la recrée pas, elle
           y ajoute la mission portant l&apos;offre signée.
         </p>
