@@ -15,7 +15,7 @@ export function pickInitialFormule(input: {
   formules: ReadonlyArray<{ formule: CommercialTier }>;
   envisagedFormule?: CommercialTier | null;
   // `undefined` = pas de brouillon ; `null` = brouillon enregistré sans offre.
-  draftFormule?: CommercialTier | null;
+  draftFormule?: CommercialTier | null | undefined;
 }): CommercialTier | "" {
   const isSellable = (formule: CommercialTier | null | undefined): formule is CommercialTier =>
     formule !== null && formule !== undefined && input.formules.some((f) => f.formule === formule);

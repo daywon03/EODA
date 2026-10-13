@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { setDocumentTypeRequested } from "@/lib/actions/document";
 import { AlertCircle, Loader2, Inbox, PenLine } from "lucide-react";
 
@@ -20,18 +21,24 @@ type Props = {
 export function DocumentScopeToggle({ documentTypeId, requestedFromClient, canEdit }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const router = useRouter();
 
   const Icon = requestedFromClient ? Inbox : PenLine;
   const label = requestedFromClient ? "Réclamé au client" : "Produit par EODA";
+  // « pour toutes les structures » : la bascule porte sur le TYPE de document, pas
+  // sur la fiche où elle est affichée (test de bout en bout du 12/10/2026).
   const switchHint = requestedFromClient
-    ? "Basculer : ce document sera produit par EODA et cessera d'être réclamé au client"
-    : "Basculer : ce document sera réclamé au client";
+    ? "Basculer pour toutes les structures : ce document sera produit par EODA et cessera d'être réclamé"
+    : "Basculer pour toutes les structures : ce document sera réclamé à chaque structure";
 
   function toggle() {
     setError(null);
     startTransition(async () => {
       const result = await setDocumentTypeRequested(documentTypeId, !requestedFromClient);
       if (result && "error" in result) setError(result.error);
+      // L'action revalide les portails ; la page de cabinet « Documents réclamés »
+      // se relit ici pour afficher le nouvel état sans rechargement.
+      else router.refresh();
     });
   }
 

@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { buildCabinetBreadcrumb, buildCabinetNav, canSeeCommercial, REVIEW_QUEUE_PATH } from "./cabinet-navigation";
+import {
+  buildCabinetBreadcrumb,
+  buildCabinetNav,
+  canSeeCommercial,
+  REQUESTED_DOCUMENTS_PATH,
+  REVIEW_QUEUE_PATH,
+} from "./cabinet-navigation";
 import { resolveActiveItem } from "./navigation";
 
 const NO_COUNTS = { documentsAwaitingReview: 0, pendingOptionRequests: 0 };
@@ -19,6 +25,17 @@ describe("visibilité par rôle", () => {
   it("une évaluatrice ne voit aucune entrée commerciale", () => {
     expect(canSeeCommercial("CABINET_EVALUATOR")).toBe(false);
     expect(ids("CABINET_EVALUATOR")).toEqual(["home", "structures", "review", "agenda", "library", "journal"]);
+  });
+
+  it("« Documents réclamés » (réglage de cabinet, toutes structures) : admin seulement", () => {
+    // Test de bout en bout du 12/10 : la bascule vivait dans les Réglages d'UNE fiche
+    // alors qu'elle s'applique à toutes les structures.
+    const item = buildCabinetNav("CABINET_ADMIN", NO_COUNTS)
+      .flatMap((s) => s.items)
+      .find((i) => i.id === "requested-documents");
+    expect(REQUESTED_DOCUMENTS_PATH).toBe("/dashboard/cabinet/documents-reclames");
+    expect(item?.href).toBe(REQUESTED_DOCUMENTS_PATH);
+    expect(ids("CABINET_EVALUATOR")).not.toContain("requested-documents");
   });
 
   it("un client ne voit rien de commercial non plus (refus par défaut)", () => {

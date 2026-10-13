@@ -19,6 +19,9 @@ import { pluralize, resolveActiveItem, type NavItem, type NavSection } from "./n
 export const CABINET_ROOT = "/dashboard/cabinet";
 export const REVIEW_QUEUE_PATH = `${CABINET_ROOT}/a-relire`;
 export const STRUCTURES_PATH = `${CABINET_ROOT}/structures`;
+// Liste des documents réclamés aux structures : réglage de CABINET, valable pour
+// toutes les structures — il ne vit donc pas dans les Réglages d'une fiche.
+export const REQUESTED_DOCUMENTS_PATH = `${CABINET_ROOT}/documents-reclames`;
 const COMMERCIAL_ROOT = `${CABINET_ROOT}/commercial`;
 
 export type CabinetNavCounts = {
@@ -55,7 +58,10 @@ export function buildCabinetNav(role: UserRole, counts: CabinetNavCounts): NavSe
     // Matrice documents → critères : configuration de cabinet, CABINET_ADMIN seul (la
     // page le revérifie par requireCabinetAdminSession).
     ...(role === "CABINET_ADMIN"
-      ? [{ id: "criteria", href: `${CABINET_ROOT}/criteres`, label: "Matrice des critères", icon: "criteria" as const }]
+      ? [
+          { id: "criteria", href: `${CABINET_ROOT}/criteres`, label: "Matrice des critères", icon: "criteria" as const },
+          { id: "requested-documents", href: REQUESTED_DOCUMENTS_PATH, label: "Documents réclamés", icon: "documents" as const },
+        ]
       : []),
     { id: "journal", href: `${CABINET_ROOT}/journal`, label: "Journal", icon: "journal" },
   ];

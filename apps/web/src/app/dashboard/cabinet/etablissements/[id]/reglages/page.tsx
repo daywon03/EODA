@@ -7,6 +7,7 @@ import { formatDate } from "@/lib/services/date-format-service";
 import { ESTABLISHMENT_TYPE_LABELS, STRUCTURE_TYPE_LABELS } from "@/lib/services/structure-identity-service";
 import { DOCUMENT_CATEGORY_LABELS, flattenChecklist } from "@/lib/services/structure-documents-service";
 import { structureHref } from "@/lib/design/structure-tabs";
+import { REQUESTED_DOCUMENTS_PATH } from "@/lib/design/cabinet-navigation";
 import { Button } from "@/components/ui/button";
 import { InviteClientForm } from "@/components/etablissement/InviteClientForm";
 import { ClientUserRow } from "@/components/etablissement/ClientUserRow";
@@ -131,14 +132,14 @@ export default async function StructureSettingsPage({ params }: Props) {
         />
       </Section>
 
+      {/* Lecture seule ici : la liste vaut pour TOUTES les structures, elle se modifie
+          sur la page de cabinet « Documents réclamés » (test de bout en bout du 12/10 :
+          une bascule dans les réglages d'une fiche laissait croire qu'elle ne touchait
+          que celle-ci). */}
       <Section
         id="settings-requested"
         title="Documents réclamés à la structure"
-        description={
-          isAdmin
-            ? "Ce qu'on réclame au client n'est pas tout ce qu'EODA produit pour lui. Ce réglage vaut pour toutes les structures."
-            : "Ce qu'on réclame au client n'est pas tout ce qu'EODA produit pour lui. Seul un administrateur du cabinet peut modifier cette liste."
-        }
+        description="Ce qu'on réclame au client n'est pas tout ce qu'EODA produit pour lui. Cette liste est commune à toutes les structures."
       >
         <ul className="divide-y divide-line">
           {documents.map((doc) => (
@@ -150,11 +151,18 @@ export default async function StructureSettingsPage({ params }: Props) {
               <DocumentScopeToggle
                 documentTypeId={doc.documentTypeId}
                 requestedFromClient={doc.requestedFromClient}
-                canEdit={isAdmin}
+                canEdit={false}
               />
             </li>
           ))}
         </ul>
+        {isAdmin ? (
+          <Button variant="outline" asChild>
+            <Link href={REQUESTED_DOCUMENTS_PATH}>Modifier la liste pour toutes les structures</Link>
+          </Button>
+        ) : (
+          <p className="text-sm text-ink2">Seul un administrateur du cabinet peut modifier cette liste.</p>
+        )}
       </Section>
     </div>
   );
