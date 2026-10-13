@@ -110,6 +110,13 @@ export function ConfirmActionButton({
     };
   }, [asking]);
 
+  // Rouvrir la question efface l'erreur précédente : elle décrivait la tentative
+  // d'avant, pas celle qu'on s'apprête à faire.
+  function toggleAsking() {
+    if (!asking) setError(null);
+    setAsking(!asking);
+  }
+
   function run() {
     setError(null);
     startTransition(async () => {
@@ -145,7 +152,7 @@ export function ConfirmActionButton({
         <button
           ref={triggerRef}
           type="button"
-          onClick={() => setAsking((open) => !open)}
+          onClick={toggleAsking}
           disabled={disabled || isPending}
           aria-label={triggerName}
           title={triggerName}
@@ -165,7 +172,7 @@ export function ConfirmActionButton({
           // principale de l'écran. Un bloc rouge plein sur chaque vignette attire
           // l'œil sur la seule chose qu'on ne veut pas cliquer par erreur.
           variant={compact ? "ghost" : tone === "destructive" ? "destructive" : "outline"}
-          onClick={() => setAsking((open) => !open)}
+          onClick={toggleAsking}
           disabled={disabled || isPending}
           aria-label={triggerName}
           title={triggerName}

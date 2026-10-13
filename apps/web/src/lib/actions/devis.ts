@@ -7,6 +7,7 @@ import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 import { getEmailPort, type EmailDelivery } from "@/lib/email";
 import { devisEmailNotSentMessage } from "@/lib/services/email-delivery-service";
+import { devisPdfFailureMessage } from "@/lib/services/devis-pdf-failure";
 import { buildDevisEmail } from "@/lib/email/templates";
 import { renderDevisPdf } from "@/lib/services/devis-pdf-service";
 import { buildDevisFileName } from "@/lib/services/devis-sharing-service";
@@ -421,7 +422,8 @@ export async function sendDevisEmail(id: string): Promise<{ error: string } | nu
     pdf = await renderDevisPdf(id, cookieHeader);
   } catch (err) {
     console.error("Génération du PDF du devis échouée :", err);
-    return { error: "Le PDF du devis n'a pas pu être généré. Réessayez dans un instant." };
+    // Message selon la cause : « réessayez » seulement quand réessayer peut aboutir.
+    return { error: devisPdfFailureMessage(err) };
   }
 
   const content = buildDevisEmail({

@@ -55,6 +55,9 @@ function RowActions({ devis }: { devis: Row }) {
     <div className="relative z-10 flex flex-wrap items-center gap-2">
       {actions.canSend && (
         <SendDevisEmailButton
+          // Repart à neuf quand le statut change : une erreur ne survit pas à une
+          // action qui a réussi.
+          key={devis.status}
           devisId={devis.id}
           number={devis.number}
           structureName={devis.prospectStructureName}

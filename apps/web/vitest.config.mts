@@ -143,6 +143,10 @@ export default defineConfig({
         "src/lib/services/prospect-contact-service.ts",
         "src/lib/services/prospect-next-action-service.ts",
         "src/lib/services/devis-sharing-service.ts",
+        // Ce que l'écran dit d'un envoi et d'un PDF raté : un « envoyé » pour un e-mail
+        // jamais parti, ou un « réessayez » qui ne peut pas aboutir (test du 12/10).
+        "src/lib/services/email-delivery-service.ts",
+        "src/lib/services/devis-pdf-failure.ts",
         "src/lib/config/production-profile.ts",
         "src/lib/db/migration-status.ts",
         // CSP à nonce : le test EST le garde-fou qui empêche `'unsafe-inline'` de

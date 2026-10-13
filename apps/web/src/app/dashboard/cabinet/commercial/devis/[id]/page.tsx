@@ -50,6 +50,10 @@ export default async function DevisDetailPage({ params }: Props) {
             </Button>
             {(devis.status === "BROUILLON" || devis.status === "ENVOYE") && (
               <SendDevisEmailButton
+                // Clé = statut : quand « Marquer comme envoyé » (ou un envoi réussi)
+                // change le statut, le bouton repart à neuf — un ancien message
+                // d'erreur ne survit pas à l'action qui a réussi (test du 12/10).
+                key={devis.status}
                 devisId={id}
                 number={devis.number}
                 structureName={devis.prospect.structureName}
@@ -60,7 +64,7 @@ export default async function DevisDetailPage({ params }: Props) {
         }
       />
 
-      <DevisStatusActions devisId={id} status={devis.status} />
+      <DevisStatusActions key={devis.status} devisId={id} status={devis.status} />
 
       {devis.status === "ANNULE" && (
         <p className="text-sm text-gris-mid border-l-4 border-gris-light pl-3">
