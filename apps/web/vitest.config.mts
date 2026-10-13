@@ -147,6 +147,14 @@ export default defineConfig({
         // jamais parti, ou un « réessayez » qui ne peut pas aboutir (test du 12/10).
         "src/lib/services/email-delivery-service.ts",
         "src/lib/services/devis-pdf-failure.ts",
+        // Correctifs du test de bout en bout (12/10) : chacun décide d'un texte que
+        // la structure ou le cabinet lit — un défaut ici ne fait rien échouer, il
+        // affiche « en cours » à la place d'« indisponible », ou une mauvaise formule.
+        "src/lib/services/login-notice-service.ts",
+        "src/lib/services/client-document-waiting-service.ts",
+        "src/lib/services/devis-initial-formule-service.ts",
+        "src/lib/services/chapter-label-service.ts",
+        "src/lib/services/discovery-grid-service.ts",
         "src/lib/config/production-profile.ts",
         "src/lib/db/migration-status.ts",
         // CSP à nonce : le test EST le garde-fou qui empêche `'unsafe-inline'` de
