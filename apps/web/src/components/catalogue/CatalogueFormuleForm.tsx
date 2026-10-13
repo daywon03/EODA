@@ -24,7 +24,7 @@ export function CatalogueFormuleForm({ formule }: { formule: CatalogueFormule })
           <Input id={`label-${formule.id}`} name="label" defaultValue={formule.label} disabled={isPending} />
         </div>
         <div className="space-y-1">
-          <Label htmlFor={`price-${formule.id}`}>Prix (€)</Label>
+          <Label htmlFor={`price-${formule.id}`}>Forfait d&apos;accompagnement (€)</Label>
           <Input
             id={`price-${formule.id}`}
             name="priceEuros"
@@ -34,7 +34,7 @@ export function CatalogueFormuleForm({ formule }: { formule: CatalogueFormule })
             onChange={(e) => setPriceEuros(Number(e.target.value))}
             disabled={isPending}
           />
-          <p className="text-xs text-ink2">
+          <p className="text-sm text-ink2">
             Affiché au client : <span className="text-ink">{formatStartingPrice({ priceEuros })}</span>
           </p>
         </div>
@@ -48,7 +48,7 @@ export function CatalogueFormuleForm({ formule }: { formule: CatalogueFormule })
         <Input id={`description-${formule.id}`} name="description" defaultValue={formule.description ?? undefined} disabled={isPending} />
       </div>
       {state?.error && (
-        <p role="alert" className="flex items-center gap-1 text-xs text-danger-text">
+        <p role="alert" className="flex items-center gap-1 text-sm text-danger-text">
           <AlertCircle className="w-3 h-3 flex-shrink-0" aria-hidden="true" />
           {state.error}
         </p>

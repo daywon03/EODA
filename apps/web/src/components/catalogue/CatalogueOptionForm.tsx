@@ -58,6 +58,17 @@ export function CatalogueOptionForm({ option }: { option?: CatalogueOption }) {
           <Label htmlFor={`label-${id}`}>Libellé</Label>
           <Input id={`label-${id}`} name="label" defaultValue={option?.label} disabled={isPending} required />
         </div>
+        <div className="space-y-1 min-w-[160px]">
+          <Label htmlFor={`audience-${id}`}>Pour qui</Label>
+          <Input
+            id={`audience-${id}`}
+            name="audienceLabel"
+            defaultValue={option?.audienceLabel ?? ""}
+            disabled={isPending}
+            maxLength={120}
+            placeholder="ex : Essentiel"
+          />
+        </div>
         <div className="space-y-1">
           <Label htmlFor={`price-${id}`}>Prix (€)</Label>
           <Input
@@ -128,12 +139,12 @@ export function CatalogueOptionForm({ option }: { option?: CatalogueOption }) {
         </Button>
       </div>
 
-      <p className="text-xs text-ink2">
+      <p className="text-sm text-ink2">
         Affiché au client : <span className="text-ink">{formatStartingPrice({ priceEuros, pricingUnit, priceMaxEuros, minQuantity })}</span>
       </p>
 
       {state?.error && (
-        <p role="alert" className="flex items-center gap-1 text-xs text-danger-text w-full">
+        <p role="alert" className="flex items-center gap-1 text-sm text-danger-text w-full">
           <AlertCircle className="w-3 h-3 flex-shrink-0" aria-hidden="true" />
           {state.error}
         </p>

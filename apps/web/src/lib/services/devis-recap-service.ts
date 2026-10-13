@@ -58,7 +58,8 @@ export type RecapOption = {
 export type RecapLine = { key: string; label: string; price: string };
 export type DevisRecap = { lines: RecapLine[]; monthly: string; once: string };
 
-const UNIT_LABEL: Record<PricingUnit, string> = {
+// Unité courte, après un montant (« 900 € / jour »). Partagée avec le catalogue.
+export const PRICING_UNIT_SHORT_LABELS: Record<PricingUnit, string> = {
   FORFAIT: "forfait",
   HEURE: "/ h",
   JOUR: "/ jour",
@@ -102,7 +103,7 @@ export function buildDevisRecap(input: { offer: RecapOffer | null; options: read
     lines.push({
       key: `option-${index}`,
       label: option.label,
-      price: `${formatEuros(option.unitPriceEuros)} ${UNIT_LABEL[option.pricingUnit]}`,
+      price: `${formatEuros(option.unitPriceEuros)} ${PRICING_UNIT_SHORT_LABELS[option.pricingUnit]}`,
     });
     if (option.pricingUnit === "MOIS") monthly.push(option.unitPriceEuros);
     else once.push(onceAmount(option));

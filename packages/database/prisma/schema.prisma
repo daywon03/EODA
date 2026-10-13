@@ -961,6 +961,10 @@ model CatalogueOption {
   // Quantité minimale facturable, dans l'unité ci-dessus : 2 pour « mini. 2 h »,
   // 12 pour un abonnement mensuel à engagement d'un an. null = pas de minimum.
   minQuantity   Int?        @map("min_quantity")
+  // « Pour qui » (maquette v2 « Catalogue ») : à quelles offres l'option se vend,
+  // en mots (« Essentiel », « Toutes les offres »). Texte libre et facultatif — rien
+  // n'est déduit de ce champ, il ne restreint aucune vente. Vide = non renseigné.
+  audienceLabel String?     @map("audience_label")
   active        Boolean     @default(true)
   createdAt     DateTime    @default(now()) @map("created_at")
   updatedAt     DateTime    @updatedAt @map("updated_at")

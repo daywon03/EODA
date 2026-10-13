@@ -42,6 +42,8 @@ export async function upsertCatalogueFormule(
     return { error: "Saisie invalide." };
   }
 
+  // Le prix MENSUEL se règle sur la carte de l'offre (updateFormuleMonthlyPrice) :
+  // ce formulaire ne le touche pas.
   const values = {
     label: label.value,
     priceEuros: priceEuros.value,
@@ -81,9 +83,19 @@ export async function upsertCatalogueOption(
     max: 999,
   });
 
-  const error = firstError(code, label, priceEuros, pricingUnit, priceMaxEuros, minQuantity);
+  const audienceLabel = optionalString(formData, "audienceLabel", "« Pour qui »", 120);
+
+  const error = firstError(code, label, priceEuros, pricingUnit, priceMaxEuros, minQuantity, audienceLabel);
   if (error) return { error };
-  if (!code.ok || !label.ok || !priceEuros.ok || !pricingUnit.ok || !priceMaxEuros.ok || !minQuantity.ok) {
+  if (
+    !code.ok ||
+    !label.ok ||
+    !priceEuros.ok ||
+    !pricingUnit.ok ||
+    !priceMaxEuros.ok ||
+    !minQuantity.ok ||
+    !audienceLabel.ok
+  ) {
     return { error: "Saisie invalide." };
   }
 
@@ -100,6 +112,8 @@ export async function upsertCatalogueOption(
     pricingUnit: pricingUnit.value,
     priceMaxEuros: priceMaxEuros.value,
     minQuantity: minQuantity.value,
+    // Champ absent du formulaire : on ne l'efface pas.
+    ...(formData.has("audienceLabel") && { audienceLabel: audienceLabel.value }),
   };
 
   await prisma.catalogueOption.upsert({
@@ -222,6 +236,65 @@ export async function updateBillingSettings(
 
   revalidatePath(CATALOGUE_PATH);
   return null;
+}
+
+// ── Prix modifiable sur place (maquette v2 « Catalogue ») ─────────────────────
+// Deux gestes étroits : le prix MENSUEL d'une offre (vide = non fixé, jamais 0 par
+// défaut) et le prix de départ d'une option. L'identifiant reçu est une entrée non
+// fiable : il est relu dans le tenant de l'appelant, notFound() sinon.
+export async function updateFormuleMonthlyPrice(
+  _prevState: { error: string } | null,
+  formData: FormData
+): Promise<{ error: string } | null> {
+  const { tenantId } = await requireCommercialSession();
+  const id = requiredString(formData, "id", "L'offre", 64);
+  const price = optionalInt(formData, "monthlyPriceEuros", "Le prix mensuel", { min: 0, max: MAX_PRICE_EUROS });
+  const error = firstError(id, price);
+  if (error) return { error };
+  if (!id.ok || !price.ok) return { error: "Saisie invalide." };
+
+  const formule = await prisma.catalogueFormule.findFirst({ where: { id: id.value, tenantId }, select: { id: true } });
+  if (!formule) notFound();
+  await prisma.catalogueFormule.update({ where: { id: formule.id }, data: { monthlyPriceEuros: price.value } });
+  revalidatePath(CATALOGUE_PATH);
+  return null;
+}
+
+export async function updateOptionPrice(
+  _prevState: { error: string } | null,
+  formData: FormData
+): Promise<{ error: string } | null> {
+  const { tenantId } = await requireCommercialSession();
+  const id = requiredString(formData, "id", "L'option", 64);
+  const price = requiredInt(formData, "priceEuros", "Le prix", { min: 0, max: MAX_PRICE_EUROS });
+  const error = firstError(id, price);
+  if (error) return { error };
+  if (!id.ok || !price.ok) return { error: "Saisie invalide." };
+
+  const option = await prisma.catalogueOption.findFirst({
+    where: { id: id.value, tenantId },
+    select: { id: true, priceMaxEuros: true },
+  });
+  if (!option) notFound();
+  if (option.priceMaxEuros !== null && option.priceMaxEuros <= price.value) {
+    return { error: "Le prix de départ doit rester inférieur au prix maximum de la fourchette." };
+  }
+  await prisma.catalogueOption.update({ where: { id: option.id }, data: { priceEuros: price.value } });
+  revalidatePath(CATALOGUE_PATH);
+  return null;
+}
+
+// Nombre de structures sur chaque offre : missions non clôturées, par la formule
+// portée par la MISSION (jamais Establishment.commercialTier — CLAUDE.md §7). Compté
+// en base à chaque lecture : aucun compteur stocké.
+export async function countActiveStructuresByFormule(): Promise<Partial<Record<CommercialTier, number>>> {
+  const { tenantId } = await requireCommercialSession();
+  const rows = await prisma.mission.groupBy({
+    by: ["formule"],
+    where: { tenantId, closedAt: null, formule: { not: null } },
+    _count: { _all: true },
+  });
+  return Object.fromEntries(rows.flatMap((r) => (r.formule ? [[r.formule, r._count._all]] : [])));
 }
 
 export async function listCatalogue() {
