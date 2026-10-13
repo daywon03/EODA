@@ -106,7 +106,8 @@ export function clientDocumentPill(
     case "RENEW":
       return DOCUMENT_PILLS.aRenouveler;
     case "IN_PROGRESS":
-      return pill("Reçu, en cours", "◔", "progress");
+      // En autonomie, rien ne suit : l'analyse a tourné au dépôt (ou n'a pas abouti).
+      return mode === "AUTONOMIE" ? pill("Reçu", "◔", "progress") : pill("Reçu, en cours", "◔", "progress");
     case "TO_CHECK":
       return showsReserve ? pill("À vérifier par vous", "?", "review") : pill("Relu par EODA", "◉", "review");
     case "ACCEPTED":

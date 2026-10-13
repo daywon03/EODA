@@ -119,6 +119,14 @@ describe("clientDocumentPill — vocabulaire D6 / D8", () => {
     expect(clientDocumentPill("TO_CHECK", "AUTONOMIE", reviewed).label).toBe("Relu par EODA");
   });
 
+  // En autonomie, personne ne relit : une version reçue sans analyse lisible affiche
+  // « Analyse indisponible — votre document est bien reçu ». La pastille ne promet
+  // donc plus un traitement « en cours » qui n'aura pas lieu.
+  it("autonomie : une version sans analyse est « Reçu », pas « en cours »", () => {
+    expect(clientDocumentPill("IN_PROGRESS", "AUTONOMIE").label).toBe("Reçu");
+    expect(clientDocumentPill("IN_PROGRESS", "ACCOMPAGNE").label).toBe("Reçu, en cours");
+  });
+
   it("jamais « Validé » ni « conforme » côté client, et toujours un glyphe", () => {
     for (const mode of ["ACCOMPAGNE", "AUTONOMIE"] as const) {
       for (const state of ["TO_DEPOSIT", "RENEW", "TO_CHECK", "TO_PRODUCE", "IN_PROGRESS", "ACCEPTED", "NOT_CONCERNED"] as const) {
