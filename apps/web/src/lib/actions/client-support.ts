@@ -13,7 +13,7 @@ export async function getClientSupportContext(): Promise<{
   mode: SupportMode;
   formule: CommercialTier | null;
 } | null> {
-  const { establishment } = await requireClientEstablishment();
+  const { establishment } = await requireClientEstablishment("HOME");
   if (!establishment) return null;
   const offer = await findMissionOffer(establishment.id);
   return offer ? { mode: offer.supportMode, formule: offer.formule } : null;

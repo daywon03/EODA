@@ -53,7 +53,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   authMock.mockResolvedValue({ user: { id: "user-1", role: "CABINET_ADMIN", mustChangePassword: false, authAt: null } });
   prismaMock.establishment.findFirst.mockResolvedValue({ id: "etab-1", type: "SAD_AIDE" });
-  prismaMock.establishmentUser.findUnique.mockResolvedValue({ establishmentId: "etab-1" });
+  prismaMock.establishmentUser.findUnique.mockResolvedValue({ establishmentId: "etab-1", accessRole: "DIRECTION", revokedAt: null });
   prismaMock.mission.findUnique.mockResolvedValue(null);
   prismaMock.establishmentAssignment.findMany.mockResolvedValue([]);
 });

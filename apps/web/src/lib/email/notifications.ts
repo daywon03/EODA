@@ -142,7 +142,7 @@ export async function sendDocumentReminderEmails(input: {
   message: string | null;
 }): Promise<{ sent: number; total: number; notConfigured: boolean }> {
   const links = await prisma.establishmentUser.findMany({
-    where: { establishmentId: input.establishmentId },
+    where: { establishmentId: input.establishmentId, revokedAt: null },
     select: { user: { select: { name: true, email: true, isActive: true } } },
   });
   // Un compte désactivé ne reçoit rien : sa désactivation est précisément la décision
@@ -195,7 +195,7 @@ export async function notifyNewMessage(input: {
       // EstablishmentUser (jamais une adresse saisie).
       (
         await prisma.establishmentUser.findMany({
-          where: { establishmentId: input.establishmentId },
+          where: { establishmentId: input.establishmentId, revokedAt: null },
           select: { user: { select: { email: true, isActive: true } } },
         })
       )

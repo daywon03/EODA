@@ -90,14 +90,14 @@ function emptyView(): ClientContractView {
 // l'appelant, son tenant, et les options déjà à son contrat. Résolu une seule fois
 // — la lecture et l'action doivent voir exactement le même contrat, sinon l'action
 // pourrait accepter une demande sur une option que la page affiche comme souscrite.
-async function resolveClientContractContext(): Promise<{
+async function resolveClientContractContext(mode: "READ" | "WRITE"): Promise<{
   establishment: { id: string; name: string };
   userId: string;
   tenantId: string;
   contract: ContractResolution;
   subscribedOptions: SubscribedOption[];
 } | null> {
-  const { establishment, userId } = await requireClientEstablishment();
+  const { establishment, userId } = await requireClientEstablishment({ module: "CONTRACT", mode });
   if (!establishment) return null;
 
   // Le lien Establishment → Devis n'est pas direct : un devis pend d'un Prospect,
@@ -186,7 +186,7 @@ async function resolveClientContractContext(): Promise<{
 }
 
 export async function getClientContract(): Promise<ClientContractView> {
-  const context = await resolveClientContractContext();
+  const context = await resolveClientContractContext("READ");
   if (!context) return emptyView();
 
   const { establishment, tenantId, contract, subscribedOptions } = context;
@@ -281,7 +281,7 @@ export type RequestOptionQuoteResult = { ok: true } | { ok: false; error: string
 export async function requestOptionQuote(
   formData: FormData
 ): Promise<RequestOptionQuoteResult> {
-  const context = await resolveClientContractContext();
+  const context = await resolveClientContractContext("WRITE");
   if (!context) {
     return { ok: false, error: "Aucun établissement n'est rattaché à votre compte." };
   }

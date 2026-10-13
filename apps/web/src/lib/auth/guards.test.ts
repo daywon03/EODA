@@ -69,7 +69,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   authMock.mockResolvedValue(session());
   prismaMock.establishment.findFirst.mockResolvedValue({ id: "etab-1" });
-  prismaMock.establishmentUser.findUnique.mockResolvedValue({ establishmentId: "etab-1" });
+  prismaMock.establishmentUser.findUnique.mockResolvedValue({ establishmentId: "etab-1", accessRole: "DIRECTION", revokedAt: null });
   // Par défaut : aucune mission (avant-vente) — rien n'est clos, rien n'est coupé.
   prismaMock.mission.findUnique.mockResolvedValue(null);
   prismaMock.establishmentAssignment.findMany.mockResolvedValue([]);
@@ -399,7 +399,7 @@ describe("fin de mission — accès client révoqué", () => {
     });
     prismaMock.mission.findUnique.mockResolvedValue(REVOKED);
 
-    await expect(requireClientEstablishment()).resolves.toMatchObject({
+    await expect(requireClientEstablishment("HOME")).resolves.toMatchObject({
       establishment: null,
       missionAccess: "REVOKED",
     });
@@ -456,7 +456,7 @@ describe("requireClientEstablishment — l'établissement vient du lien, pas de 
   it("refuse un compte Cabinet", async () => {
     prismaMock.user.findUnique.mockResolvedValue(dbUser());
 
-    await expect(requireClientEstablishment()).rejects.toThrow("REDIRECT:/dashboard/cabinet");
+    await expect(requireClientEstablishment("HOME")).rejects.toThrow("REDIRECT:/dashboard/cabinet");
   });
 
   it("résout l'établissement à partir du seul identifiant de session", async () => {
@@ -467,11 +467,11 @@ describe("requireClientEstablishment — l'établissement vient du lien, pas de 
       establishment: { id: "etab-1", name: "SAD de démonstration", type: "SAD_MIXTE" },
     });
 
-    await expect(requireClientEstablishment()).resolves.toMatchObject({
+    await expect(requireClientEstablishment("HOME")).resolves.toMatchObject({
       establishment: { id: "etab-1" },
     });
     expect(prismaMock.establishmentUser.findFirst).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { userId: "user-1" } })
+      expect.objectContaining({ where: { userId: "user-1", revokedAt: null } })
     );
   });
 
@@ -479,7 +479,7 @@ describe("requireClientEstablishment — l'établissement vient du lien, pas de 
     prismaMock.user.findUnique.mockResolvedValue(dbUser({ role: "CLIENT_USER", tenantId: null }));
     prismaMock.establishmentUser.findFirst.mockResolvedValue(null);
 
-    await expect(requireClientEstablishment()).resolves.toMatchObject({ establishment: null });
+    await expect(requireClientEstablishment("HOME")).resolves.toMatchObject({ establishment: null });
   });
 
   it("refuse un compte client désactivé", async () => {
@@ -487,7 +487,7 @@ describe("requireClientEstablishment — l'établissement vient du lien, pas de 
       dbUser({ role: "CLIENT_USER", tenantId: null, isActive: false })
     );
 
-    await expect(requireClientEstablishment()).rejects.toThrow("REDIRECT:/deconnexion");
+    await expect(requireClientEstablishment("HOME")).rejects.toThrow("REDIRECT:/deconnexion");
   });
 });
 

@@ -170,7 +170,7 @@ export async function removeClientUserFromEstablishment(
       },
     });
 
-    const remaining = await tx.establishmentUser.count({ where: { userId: target.user.id } });
+    const remaining = await tx.establishmentUser.count({ where: { userId: target.user.id, revokedAt: null } });
     if (remaining > 0) return false;
 
     await tx.user.update({

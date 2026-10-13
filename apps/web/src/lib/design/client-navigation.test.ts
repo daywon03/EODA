@@ -6,7 +6,7 @@ import { buildClientNav, CLIENT_MAX_PRIMARY_ENTRIES, splitClientNav } from "./cl
 // entrées passaient à la ligne et sortaient de l'écran). Les entrées secondaires
 // vont dans « Plus » — aucune ne disparaît, aucune n'est dupliquée.
 
-const items = buildClientNav({ hasUnansweredMessage: false });
+const items = buildClientNav({ hasUnansweredMessage: false, accessRole: "DIRECTION" });
 
 describe("splitClientNav — entrées principales et menu « Plus »", () => {
   it("garde au plus 4 entrées principales, pour que « Plus » soit la 5e case", () => {
@@ -22,7 +22,7 @@ describe("splitClientNav — entrées principales et menu « Plus »", () => {
 
   it("range les autres entrées dans « Plus », dans l'ordre, sans perte ni doublon", () => {
     const { primary, more } = splitClientNav(items, "/dashboard/client");
-    expect(more.map((i) => i.id)).toEqual(["tasks", "deliverables", "progress"]);
+    expect(more.map((i) => i.id)).toEqual(["tasks", "deliverables", "progress", "settings"]);
     const all = [...primary, ...more].map((i) => i.id).sort();
     expect(all).toEqual(items.map((i) => i.id).sort());
   });

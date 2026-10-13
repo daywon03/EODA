@@ -4,7 +4,7 @@ import { useId, type ReactNode } from "react";
 import Link from "next/link";
 import { ChevronDown } from "lucide-react";
 import { logoutAction } from "@/lib/auth-actions";
-import { CLIENT_ACCOUNT_LINKS } from "@/lib/design/client-navigation";
+import type { AccountMenuLink } from "@/lib/design/client-navigation";
 import { initialsOf } from "@/lib/design/navigation";
 import { useDisclosure } from "./use-disclosure";
 
@@ -15,7 +15,15 @@ const ITEM_CLASS =
 // déconnecter). Ouverture / fermeture partagées avec « Plus » : useDisclosure.
 // `settings` : réglages d'affichage (bascule de thème) placés dans le panneau — dans
 // l'en-tête, ils faisaient passer la navigation sur deux lignes à 1440 px.
-export function AccountMenu({ name, settings }: { name: string; settings?: ReactNode }) {
+export function AccountMenu({
+  name,
+  links,
+  settings,
+}: {
+  name: string;
+  links: readonly AccountMenuLink[];
+  settings?: ReactNode;
+}) {
   const { isOpen, toggle, root, button } = useDisclosure();
   const panelId = useId();
 
@@ -49,7 +57,7 @@ export function AccountMenu({ name, settings }: { name: string; settings?: React
           <p className="truncate px-3.5 pb-2 pt-1.5 text-base font-bold text-ink">{name}</p>
           {settings && <div className="border-b border-line px-1.5 pb-2">{settings}</div>}
           <ul className="flex flex-col pt-1">
-            {CLIENT_ACCOUNT_LINKS.map((link) => (
+            {links.map((link) => (
               <li key={link.id}>
                 <Link href={link.href} className={ITEM_CLASS}>
                   {link.label}

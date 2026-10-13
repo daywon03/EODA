@@ -40,6 +40,7 @@ export type EstablishmentActionItems = {
   viewerId: string;
   isClient: boolean;
   canWrite: boolean;
+  canCreate: boolean;
   cabinetPeople: ActionPerson[];
   structurePeople: ActionPerson[];
 };
@@ -78,7 +79,7 @@ async function loadPeople(establishmentId: string): Promise<{ tenantId: string; 
       orderBy: { name: "asc" },
     }),
     prisma.establishmentUser.findMany({
-      where: { establishmentId, user: { isActive: true } },
+      where: { establishmentId, revokedAt: null, user: { isActive: true } },
       select: { user: { select: { id: true, name: true } } },
     }),
   ]);
@@ -96,7 +97,12 @@ export async function listEstablishmentActionItems(establishmentId: string): Pro
   const access = await requireEstablishmentAccess(establishmentId, NEED.TASKS_READ);
   const [rows, people] = await Promise.all([
     prisma.actionItem.findMany({
-      where: { establishmentId: access.establishmentId, ...(access.isClient ? { ownerKind: "STRUCTURE" } : {}) },
+      where: {
+        establishmentId: access.establishmentId,
+        ...(access.isClient ? { ownerKind: "STRUCTURE" } : {}),
+        // Intervenant (niveau OWN, N9) : SES tâches, rien d'autre.
+        ...(access.ownOnly ? { ownerUserId: access.userId } : {}),
+      },
       select: ITEM_SELECT,
       orderBy: { createdAt: "asc" },
     }),
@@ -114,6 +120,8 @@ export async function listEstablishmentActionItems(establishmentId: string): Pro
     viewerId: access.userId,
     isClient: access.isClient,
     canWrite: canWrite(access),
+    // Un intervenant (OWN) coche ses tâches mais n'en crée pas.
+    canCreate: canWrite(access) && !access.ownOnly,
     cabinetPeople: access.isClient ? [] : people.cabinet,
     structurePeople: people.structure,
   };
@@ -131,6 +139,8 @@ export async function createActionItem(formData: FormData): Promise<{ error: str
   if (typeof establishmentIdRaw !== "string" || establishmentIdRaw.length === 0) return { error: "Structure manquante." };
   const access = await requireEstablishmentAccess(establishmentIdRaw, NEED.TASKS_WRITE);
   if (!canWrite(access)) return { error: "L'accompagnement est clôturé : les tâches sont en lecture seule." };
+  // « Ses tâches » : un intervenant coche les siennes, il n'en crée pas.
+  if (access.ownOnly) return { error: "Votre accès permet de faire vos tâches, pas d'en créer." };
 
   const title = requiredString(formData, "title", "La tâche", 400);
   const dueOn = optionalDate(formData, "dueOn", "L'échéance");
@@ -187,6 +197,7 @@ async function resolveItem(formData: FormData): Promise<{ access: AccessContext;
   });
   if (!item) notFound();
   if (access.isClient && !isVisibleToClient(item)) notFound();
+  if (access.ownOnly && item.ownerUserId !== access.userId) notFound();
   return { access, item };
 }
 

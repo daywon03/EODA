@@ -28,7 +28,7 @@ const DIAGNOSTIC_PATHS = ["/dashboard/client", "/dashboard/client/diagnostic"];
 
 // Structure de l'appelant (lien EstablishmentUser), jamais un identifiant reçu.
 export async function getClientDiagnostic(): Promise<DiagnosticData | null> {
-  const { establishment } = await requireClientEstablishment();
+  const { establishment } = await requireClientEstablishment(NEED.DIAGNOSTIC_READ);
   if (!establishment) return null;
   return readDiagnostic(establishment.id);
 }
@@ -99,7 +99,7 @@ export async function markDiagnosticReviewed(establishmentId: string): Promise<{
 // Geste de la STRUCTURE : « J'accepte ce diagnostic ». Aucun identifiant reçu : la
 // structure est celle du lien EstablishmentUser.
 export async function acceptDiagnostic(): Promise<{ error: string } | null> {
-  const { userId, session, establishment, missionAccess } = await requireClientEstablishment();
+  const { userId, session, establishment, missionAccess } = await requireClientEstablishment(NEED.DIAGNOSTIC_WRITE);
   if (!establishment) notFound();
   // Bibliothèque en lecture seule après la clôture : accepter est une écriture.
   if (!canDepositDocuments(missionAccess)) {

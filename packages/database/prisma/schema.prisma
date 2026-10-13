@@ -214,6 +214,18 @@ enum EstablishmentUserRole {
   AUTRE
 }
 
+// Rôle d'ACCÈS d'une personne dans l'espace de SA structure (N9, 13/10/2026) — ce
+// qu'elle peut faire dans le portail. Distinct de `EstablishmentUserRole`, qui est
+// son POSTE (directeur, coordinateur…) : une coordinatrice peut avoir l'accès
+// « Responsable qualité ». EODA n'est jamais un rôle client — le cabinet a ses
+// propres rôles. La matrice des capacités vit dans apps/web/src/lib/auth/capabilities.ts.
+enum ClientAccessRole {
+  DIRECTION
+  RESPONSABLE_QUALITE
+  ADMINISTRATIF
+  INTERVENANT
+}
+
 enum RequirementLevel {
   IMPERATIF
   STANDARD
@@ -415,6 +427,14 @@ model EstablishmentUser {
   userId              String                @map("user_id")
   establishmentId     String                @map("establishment_id")
   roleInEstablishment EstablishmentUserRole @map("role_in_establishment")
+  // Défaut DIRECTION : les liens existants (créés par le cabinet avant N9) gardent
+  // tout ce qu'ils voyaient — aucune régression pour les comptes en place.
+  accessRole          ClientAccessRole      @default(DIRECTION) @map("access_role")
+  // Retrait d'accès par la direction de la structure : le lien est DÉSACTIVÉ, jamais
+  // supprimé — l'historique reste (qui a eu accès, jusqu'à quand). Les gardes
+  // ignorent un lien retiré. (Le retrait par le cabinet garde son geste existant.)
+  revokedAt           DateTime?             @map("revoked_at")
+  createdAt           DateTime              @default(now()) @map("created_at")
 
   user          User          @relation(fields: [userId], references: [id])
   establishment Establishment @relation(fields: [establishmentId], references: [id])
@@ -1630,6 +1650,11 @@ enum AuditAction {
   CABINET_USER_ROLE_CHANGED
   CABINET_USER_ACCESS_REMOVED
   CABINET_USER_ASSIGNMENTS_UPDATED
+  // Accès à l'espace d'une structure gérés PAR SA DIRECTION (N9). `targetId` = le
+  // compte, `detail` = le rôle d'accès — jamais un nom ni une adresse.
+  CLIENT_ACCESS_GRANTED
+  CLIENT_ACCESS_ROLE_CHANGED
+  CLIENT_ACCESS_REVOKED
 }
 
 model AuditLogEntry {

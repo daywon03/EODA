@@ -1,5 +1,6 @@
 "use server";
 
+import { NEED } from "@/lib/auth/capabilities";
 import { prisma } from "@eoda/database";
 import { notFound } from "next/navigation";
 import { requireClientEstablishment, requireEstablishmentInTenant } from "@/lib/auth/guards";
@@ -400,7 +401,7 @@ export async function getClientChecklist(): Promise<{
 }> {
   // L'établissement est résolu depuis le lien EstablishmentUser de la session, pas
   // depuis un identifiant fourni par la requête : non falsifiable par construction.
-  const { session, establishment, missionAccess, missionClosure } = await requireClientEstablishment();
+  const { session, establishment, missionAccess, missionClosure } = await requireClientEstablishment(NEED.DOCUMENTS_READ);
   const userName = session.user.name ?? null;
   // `now` lu ici, à la frontière : le service reste pur et testable sans horloge.
   const libraryUpdateAlert = isLibraryUpdateAlertDue(missionClosure, new Date());

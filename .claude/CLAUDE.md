@@ -371,6 +371,16 @@ Détail complet et état d'avancement : `specs/02-architecture-technique.md` §4
   compatibilité des comptes existants, à ne pas « corriger » en fail-closed sans décision.
   Équipe EODA : `/dashboard/cabinet/equipe` (administration seule) ; jamais retirer son propre
   accès ni le dernier administrateur (`cabinet-team-service.ts`).
+- **Rôles d'accès CLIENT (N9).** `EstablishmentUser.accessRole` (`DIRECTION`,
+  `RESPONSABLE_QUALITE`, `ADMINISTRATIF`, `INTERVENANT`, défaut `DIRECTION` pour les liens
+  existants) est distinct de `roleInEstablishment` (le POSTE). Même matrice pure
+  (`capabilities.ts`, modules DOCUMENTS / DIAGNOSTIC / TASKS / TEAM / MESSAGES / CONTRACT /
+  ACCESS, niveaux Tout / Voir / Les siens / —), appliquée par `requireClientEstablishment(need)`
+  et `requireEstablishmentAccess(id, need)` — `need` obligatoire. Seule la DIRECTION gère les
+  accès de SA structure (`/dashboard/client/parametres`) ; un retrait **désactive** le lien
+  (`revokedAt`), jamais de suppression, et les gardes ignorent un lien retiré. EODA n'est
+  jamais un rôle client. Messages / rendez-vous ouverts aux trois rôles de bureau, fermés à
+  l'intervenant : choix de N9, à confirmer.
 - Le suivi de mission (checklist diagnostic 12 items + 4 phases d'accompagnement, §7 du même
   fichier) est également intégré, sous `/dashboard/cabinet/etablissements/[id]/mission` —
   lisible par `CABINET_ADMIN`, `CABINET_EVALUATOR` et `CABINET_READONLY` (contrairement au

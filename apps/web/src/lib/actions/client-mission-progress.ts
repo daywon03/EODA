@@ -1,5 +1,6 @@
 "use server";
 
+import { NEED } from "@/lib/auth/capabilities";
 import { prisma } from "@eoda/database";
 import { requireClientEstablishment } from "@/lib/auth/guards";
 import {
@@ -21,7 +22,7 @@ export type ClientMissionProgressView =
   | { hasMission: true; progress: MissionProgress };
 
 export async function getClientMissionProgress(): Promise<ClientMissionProgressView> {
-  const { establishment } = await requireClientEstablishment();
+  const { establishment } = await requireClientEstablishment(NEED.DIAGNOSTIC_READ);
   if (!establishment) return { hasMission: false };
 
   const mission = await prisma.mission.findUnique({

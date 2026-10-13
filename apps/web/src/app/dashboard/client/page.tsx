@@ -1,4 +1,7 @@
 import Link from "next/link";
+import { requireClientEstablishment } from "@/lib/auth/guards";
+import { clientAllows, NEED } from "@/lib/auth/capabilities";
+import { LimitedClientHome } from "@/components/client/home/LimitedClientHome";
 import { getClientChecklist } from "@/lib/actions/checklist";
 import { listClientAppointments } from "@/lib/actions/appointment";
 import { getClientContract } from "@/lib/actions/client-contract";
@@ -34,7 +37,19 @@ export const metadata = { title: "Accueil" };
 // accompagnement. L'anneau « critères impératifs prouvés » attend la tranche N4
 // (liaison type ↔ critère) : il n'est pas affiché tant qu'il ne peut pas être vrai.
 export default async function ClientHomePage() {
-  const [data, appointments] = await Promise.all([getClientChecklist(), listClientAppointments(3)]);
+  // Rôle d'accès d'abord (N9) : l'accueil complet lit les documents, les rendez-vous
+  // et le contrat ; un rôle qui n'a pas les documents (intervenant) reçoit un accueil
+  // réduit à ce qu'il peut faire — ses lectures gardées le renverraient ici en boucle.
+  const { accessRole } = await requireClientEstablishment("HOME");
+  if (accessRole && !clientAllows(accessRole, NEED.DOCUMENTS_READ)) {
+    return <LimitedClientHome accessRole={accessRole} />;
+  }
+  const canSeeAppointments = !accessRole || clientAllows(accessRole, { module: "MESSAGES", mode: "READ" });
+  const canSeeContract = !accessRole || clientAllows(accessRole, { module: "CONTRACT", mode: "READ" });
+  const [data, appointments] = await Promise.all([
+    getClientChecklist(),
+    canSeeAppointments ? listClientAppointments(3) : Promise.resolve([]),
+  ]);
   const { establishment, checklist, missionAccess, libraryUpdateAlert, supportMode, userName } = data;
 
   if (!establishment) {
@@ -57,7 +72,7 @@ export default async function ClientHomePage() {
 
   // « Être accompagné » : la ligne de catalogue, si Sandrine l'a créée.
   const supportOption =
-    supportMode === "AUTONOMIE"
+    supportMode === "AUTONOMIE" && canSeeContract
       ? ((await getClientContract()).availableOptions.find((option) => option.code === SUPPORT_OPTION_CODE) ?? null)
       : null;
 
@@ -158,7 +173,7 @@ export default async function ClientHomePage() {
 
       {/* Le logo de la structure : son identité, déposée par elle. Masqué en
           bibliothèque — l'action serveur le refuserait de toute façon. */}
-      {depositOpen && (
+      {depositOpen && (!accessRole || clientAllows(accessRole, NEED.ACCESS_WRITE)) && (
         <section aria-labelledby="logo" className="flex flex-col gap-3 rounded-xl border border-line bg-card p-5">
           <h2 id="logo" className="text-xl font-bold">
             Logo de votre structure

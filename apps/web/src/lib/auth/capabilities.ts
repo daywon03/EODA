@@ -1,4 +1,4 @@
-import type { UserRole } from "@eoda/database";
+import type { ClientAccessRole as DbClientAccessRole, UserRole } from "@eoda/database";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // MATRICE DES CAPACITÉS — service PUR (tranche N9, 13/10/2026).
@@ -132,6 +132,7 @@ export const NEED = {
   TASKS_WRITE: { module: "TASKS", mode: "WRITE" },
   TEAM_READ: { module: "TEAM", mode: "READ" },
   TEAM_WRITE: { module: "TEAM", mode: "WRITE" },
+  ACCESS_READ: { module: "ACCESS", mode: "READ" },
   ACCESS_WRITE: { module: "ACCESS", mode: "WRITE" },
 } as const satisfies Record<string, EstablishmentNeed>;
 
@@ -144,6 +145,94 @@ export function structureAccessFor(need: EstablishmentNeed): StructureAccess {
   if (need.module === "CONTRACT") return "CONTRACT";
   return need.mode;
 }
+
+// ── Matrice CLIENT (rôle d'accès dans l'espace de SA structure) ────────────────
+// Niveaux : FULL (lire et agir), READ (lire), OWN (seulement ce qui est à soi : ses
+// tâches, ses quiz), NONE. Décisions du plan v2 (N9) :
+//   DIRECTION            tout, et seule à gérer les accès ;
+//   RESPONSABLE_QUALITE  documents, diagnostic, tâches, équipe et quiz ;
+//   ADMINISTRATIF        documents et tâches ;
+//   INTERVENANT          ses tâches et ses quiz.
+// Les ÉCHANGES avec EODA (messages, rendez-vous) sont ouverts aux trois rôles de
+// bureau et fermés à l'intervenant — choix de cette tranche, à confirmer par Damon.
+// Le CONTRAT (montants, options) reste à la direction.
+export const CLIENT_ACCESS_ROLES = [
+  "DIRECTION",
+  "RESPONSABLE_QUALITE",
+  "ADMINISTRATIF",
+  "INTERVENANT",
+] as const satisfies readonly DbClientAccessRole[];
+export type ClientAccessRole = (typeof CLIENT_ACCESS_ROLES)[number];
+export type ClientAccessLevel = "FULL" | "READ" | "OWN" | "NONE";
+
+const ALL_FULL: Record<ClientModule, ClientAccessLevel> = {
+  DOCUMENTS: "FULL",
+  DIAGNOSTIC: "FULL",
+  TASKS: "FULL",
+  TEAM: "FULL",
+  MESSAGES: "FULL",
+  CONTRACT: "FULL",
+  ACCESS: "FULL",
+};
+
+const CLIENT_MATRIX: Record<ClientAccessRole, Record<ClientModule, ClientAccessLevel>> = {
+  DIRECTION: ALL_FULL,
+  RESPONSABLE_QUALITE: { ...ALL_FULL, CONTRACT: "NONE", ACCESS: "NONE" },
+  ADMINISTRATIF: { ...ALL_FULL, DIAGNOSTIC: "NONE", TEAM: "NONE", CONTRACT: "NONE", ACCESS: "NONE" },
+  INTERVENANT: {
+    DOCUMENTS: "NONE",
+    DIAGNOSTIC: "NONE",
+    TASKS: "OWN",
+    TEAM: "OWN",
+    MESSAGES: "NONE",
+    CONTRACT: "NONE",
+    ACCESS: "NONE",
+  },
+};
+
+export function clientAccessLevel(role: ClientAccessRole, module: ClientModule): ClientAccessLevel {
+  return CLIENT_MATRIX[role][module];
+}
+
+export function clientAllows(role: ClientAccessRole, need: EstablishmentNeed): boolean {
+  const level = clientAccessLevel(role, need.module);
+  if (level === "NONE") return false;
+  if (level === "READ") return need.mode === "READ";
+  return true;
+}
+
+// L'action doit-elle se limiter à ce qui appartient à la personne ?
+export function clientOwnOnly(role: ClientAccessRole, module: ClientModule): boolean {
+  return clientAccessLevel(role, module) === "OWN";
+}
+
+export const CLIENT_ACCESS_ROLE_LABELS: Record<ClientAccessRole, { label: string; description: string }> = {
+  DIRECTION: { label: "Direction", description: "Voit tout. Valide les documents. Gère l'équipe et les accès." },
+  RESPONSABLE_QUALITE: {
+    label: "Responsable qualité",
+    description: "Documents, diagnostic, tâches, équipe et quiz. Ne gère pas les accès.",
+  },
+  ADMINISTRATIF: { label: "Administratif", description: "Documents et tâches." },
+  INTERVENANT: { label: "Intervenant", description: "Ses tâches et ses quiz." },
+};
+
+// Modules tels que la page « Paramètres » les nomme (matrice lisible).
+export const CLIENT_MODULE_LABELS: Record<ClientModule, string> = {
+  DOCUMENTS: "Documents",
+  DIAGNOSTIC: "Diagnostic et suivi",
+  TASKS: "Tâches",
+  TEAM: "Équipe et quiz",
+  MESSAGES: "Messages et rendez-vous",
+  CONTRACT: "Contrat et options",
+  ACCESS: "Paramètres et accès",
+};
+
+export const CLIENT_LEVEL_LABELS: Record<ClientAccessLevel, string> = {
+  FULL: "Tout",
+  READ: "Voir",
+  OWN: "Les siens",
+  NONE: "—",
+};
 
 // ── Préfixes d'adresse protégés par le middleware ──────────────────────────────
 // Filet grossier côté Edge, sur le rôle du JETON. L'autorité reste la garde, qui

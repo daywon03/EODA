@@ -11,6 +11,9 @@ import {
   type MissionAccessState,
 } from "@/lib/services/mission-access-service";
 import {
+  clientAllows,
+  clientOwnOnly,
+  type ClientAccessRole,
   cabinetCapabilityFor,
   cabinetLandingPath,
   hasCabinetCapability,
@@ -69,6 +72,10 @@ export type EstablishmentAccessContext = {
   // l'oublier, et c'est exactement le mode de défaillance que cette couche unique
   // existe pour empêcher.
   missionAccess: MissionAccessState;
+  // Côté client : rôle d'accès dans la structure (N9) et limitation à « ce qui est à
+  // soi » (ses tâches, ses quiz). Côté cabinet : null / false.
+  clientAccessRole: ClientAccessRole | null;
+  ownOnly: boolean;
 };
 
 // Deux faits, une décision : la clôture de la mission et la révocation de l'accès
@@ -177,22 +184,35 @@ function enforceAccountState(
 // Côté client d'une garde partagée : lien EstablishmentUser (le cloisonnement client
 // ne vient pas du tenant), puis état d'accès de fin de mission. Rend null sur tout
 // refus.
+//
+// Le lien doit être ACTIF (un accès retiré par la direction garde sa ligne, pour
+// l'historique, mais n'ouvre plus rien) et le rôle d'accès doit permettre le module
+// demandé (matrice client de capabilities.ts).
 async function resolveClientEstablishmentAccess(
   session: Session,
   establishmentId: string,
-  _need: EstablishmentNeed
+  need: EstablishmentNeed
 ): Promise<EstablishmentAccessContext | null> {
   const userId = session.user.id;
   const link = await prisma.establishmentUser.findUnique({
     where: { userId_establishmentId: { userId, establishmentId } },
-    select: { establishmentId: true },
+    select: { establishmentId: true, accessRole: true, revokedAt: true },
   });
-  if (!link) return null;
+  if (!link || link.revokedAt) return null;
+  if (!clientAllows(link.accessRole, need)) return null;
 
   const missionAccess = await resolveMissionAccess(establishmentId);
   if (!canClientRead(missionAccess)) return null;
 
-  return { session, userId, establishmentId, isClient: true, missionAccess };
+  return {
+    session,
+    userId,
+    establishmentId,
+    isClient: true,
+    missionAccess,
+    clientAccessRole: link.accessRole,
+    ownOnly: clientOwnOnly(link.accessRole, need.module),
+  };
 }
 
 // ── Gardes Cabinet ───────────────────────────────────────────────────────────
@@ -378,6 +398,8 @@ async function resolveCabinetEstablishmentAccess(
     establishmentId,
     isClient: false,
     missionAccess: await resolveMissionAccess(establishmentId),
+    clientAccessRole: null,
+    ownOnly: false,
   };
 }
 
@@ -442,10 +464,20 @@ export async function tryEstablishmentAccess(
 // Garde côté espace Client uniquement (dashboard client) — retourne l'établissement
 // rattaché à l'utilisateur, résolu depuis le lien EstablishmentUser plutôt que depuis
 // un identifiant fourni par la requête (donc non falsifiable).
-export async function requireClientEstablishment(): Promise<{
+//
+// `need` est OBLIGATOIRE (N9) : "HOME" pour la coquille et l'accueil, ouverts à tout
+// rôle d'accès ; sinon le module touché. Un rôle qui n'a pas le module est renvoyé à
+// l'accueil de son portail — jamais une page vide qui laisserait croire à un bug.
+export type ClientNeed = EstablishmentNeed | "HOME";
+
+export async function requireClientEstablishment(need: ClientNeed): Promise<{
   session: Session;
   userId: string;
   establishment: { id: string; name: string; type: string; logoDataUri: string | null } | null;
+  // Rôle d'accès dans la structure (null sans structure rattachée), et limitation de
+  // l'action à ce qui appartient à la personne (niveau OWN de la matrice).
+  accessRole: ClientAccessRole | null;
+  ownOnly: boolean;
   // Gouverne ce que le portail client propose : dépôt ouvert, bibliothèque en
   // lecture seule, ou rien du tout.
   missionAccess: MissionAccessState;
@@ -461,8 +493,9 @@ export async function requireClientEstablishment(): Promise<{
   enforceAccountState(session, user, { allowRotationPending: false });
   if (user.role !== "CLIENT_USER") redirect("/dashboard/cabinet");
 
+  // Lien ACTIF seulement : un accès retiré par la direction ne rattache plus rien.
   const link = await prisma.establishmentUser.findFirst({
-    where: { userId: session.user.id },
+    where: { userId: session.user.id, revokedAt: null },
     include: {
       establishment: { select: { id: true, name: true, type: true, logoDataUri: true } },
     },
@@ -473,10 +506,15 @@ export async function requireClientEstablishment(): Promise<{
       session,
       userId: session.user.id,
       establishment: null,
+      accessRole: null,
+      ownOnly: false,
       missionAccess: "ACTIVE",
       missionClosure: null,
     };
   }
+
+  if (need !== "HOME" && !clientAllows(link.accessRole, need)) redirect("/dashboard/client");
+  const ownOnly = need !== "HOME" && clientOwnOnly(link.accessRole, need.module);
 
   const missionClosure = await readMissionClosure(link.establishment.id);
   const missionAccess = deriveMissionAccessState(missionClosure);
@@ -487,6 +525,8 @@ export async function requireClientEstablishment(): Promise<{
       session,
       userId: session.user.id,
       establishment: null,
+      accessRole: link.accessRole,
+      ownOnly,
       missionAccess,
       missionClosure,
     };
@@ -496,6 +536,8 @@ export async function requireClientEstablishment(): Promise<{
     session,
     userId: session.user.id,
     establishment: link.establishment,
+    accessRole: link.accessRole,
+    ownOnly,
     missionAccess,
     missionClosure,
   };

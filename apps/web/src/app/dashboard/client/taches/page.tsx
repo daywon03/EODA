@@ -1,3 +1,4 @@
+import { NEED } from "@/lib/auth/capabilities";
 import { requireClientEstablishment } from "@/lib/auth/guards";
 import { listEstablishmentActionItems } from "@/lib/actions/task";
 import { parseActionFilter } from "@/lib/services/action-item-service";
@@ -12,7 +13,7 @@ type Props = { searchParams: Promise<{ filtre?: string | string[] }> };
 // la personne connectée. L'établissement vient du lien du compte, jamais de
 // l'adresse ; un accès révoqué ne montre rien.
 export default async function ClientTasksPage({ searchParams }: Props) {
-  const { establishment } = await requireClientEstablishment();
+  const { establishment } = await requireClientEstablishment(NEED.TASKS_READ);
   if (!establishment) {
     return (
       <div className="space-y-3">

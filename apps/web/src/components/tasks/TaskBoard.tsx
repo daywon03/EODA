@@ -33,7 +33,7 @@ export function TaskBoard({ establishmentId, data, filter, basePath, now }: Prop
 
   return (
     <div className="space-y-5">
-      {data.canWrite && (
+      {data.canCreate && (
         <TaskCreateForm
           establishmentId={establishmentId}
           isClient={data.isClient}

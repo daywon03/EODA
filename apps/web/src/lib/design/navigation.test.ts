@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { accessibleItemLabel, initialsOf, matchLength, pluralize, resolveActiveItem, type NavItem } from "./navigation";
-import { buildClientNav, CLIENT_ACCOUNT_LINKS, CLIENT_MESSAGES_PATH } from "./client-navigation";
+import { buildClientNav, CLIENT_ACCOUNT_LINKS, CLIENT_MESSAGES_PATH, clientAccountLinks } from "./client-navigation";
 import {
   parseSidebarState,
   readSidebarState,
@@ -73,7 +73,7 @@ describe("libellés", () => {
 
 describe("navigation du portail client", () => {
   it("liste seulement les surfaces qui existent, dans l'ordre", () => {
-    expect(buildClientNav({ hasUnansweredMessage: false }).map((i) => i.label)).toEqual([
+    expect(buildClientNav({ hasUnansweredMessage: false, accessRole: "DIRECTION" }).map((i) => i.label)).toEqual([
       "Accueil",
       "Mes documents",
       "Mon diagnostic",
@@ -81,18 +81,34 @@ describe("navigation du portail client", () => {
       "Mes livrables",
       "Mon suivi",
       "Messages",
+      "Paramètres",
     ]);
   });
 
+  it("suit le rôle d'accès dans la structure (N9)", () => {
+    const ids = (accessRole: "RESPONSABLE_QUALITE" | "ADMINISTRATIF" | "INTERVENANT") =>
+      buildClientNav({ hasUnansweredMessage: false, accessRole }).map((i) => i.id);
+    expect(ids("RESPONSABLE_QUALITE")).not.toContain("settings");
+    expect(ids("RESPONSABLE_QUALITE")).toContain("diagnostic");
+    expect(ids("ADMINISTRATIF")).toEqual(["home", "documents", "tasks", "deliverables", "messages"]);
+    expect(ids("INTERVENANT")).toEqual(["home", "tasks"]);
+  });
+
+  it("« Mon contrat » n'est proposé qu'au rôle qui voit le contrat", () => {
+    expect(clientAccountLinks("DIRECTION").map((l) => l.id)).toContain("contract");
+    expect(clientAccountLinks("RESPONSABLE_QUALITE").map((l) => l.id)).not.toContain("contract");
+    expect(clientAccountLinks(null).map((l) => l.id)).toContain("profile");
+  });
+
   it("aucun prénom de l'équipe EODA dans les libellés (D7)", () => {
-    const labels = [...buildClientNav({ hasUnansweredMessage: true }), ...CLIENT_ACCOUNT_LINKS].map((i) => i.label);
+    const labels = [...buildClientNav({ hasUnansweredMessage: true, accessRole: "DIRECTION" }), ...CLIENT_ACCOUNT_LINKS].map((i) => i.label);
     expect(labels.join(" ")).not.toMatch(/Sandrine/i);
   });
 
   it("signale un message sans réponse sur Messages seulement", () => {
-    const items = buildClientNav({ hasUnansweredMessage: true });
+    const items = buildClientNav({ hasUnansweredMessage: true, accessRole: "DIRECTION" });
     expect(items.filter((i) => i.attentionLabel).map((i) => i.href)).toEqual([CLIENT_MESSAGES_PATH]);
-    expect(buildClientNav({ hasUnansweredMessage: false }).some((i) => i.attentionLabel)).toBe(false);
+    expect(buildClientNav({ hasUnansweredMessage: false, accessRole: "DIRECTION" }).some((i) => i.attentionLabel)).toBe(false);
   });
 
   it.each([
@@ -105,7 +121,7 @@ describe("navigation du portail client", () => {
     ["/dashboard/client/echanges", "messages"],
     ["/dashboard/client/contrat", null],
   ])("entrée active de %s → %s", (pathname, expected) => {
-    const sections = [{ id: "c", label: null, items: buildClientNav({ hasUnansweredMessage: false }) }];
+    const sections = [{ id: "c", label: null, items: buildClientNav({ hasUnansweredMessage: false, accessRole: "DIRECTION" }) }];
     expect(resolveActiveItem(sections, pathname)?.id ?? null).toBe(expected);
   });
 

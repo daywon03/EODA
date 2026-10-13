@@ -1,5 +1,6 @@
 "use server";
 
+import { NEED } from "@/lib/auth/capabilities";
 import { prisma } from "@eoda/database";
 import { revalidatePath } from "next/cache";
 import { notFound } from "next/navigation";
@@ -52,7 +53,7 @@ async function loadPractices(establishmentId: string) {
 }
 
 export async function getClientPractices(): Promise<ClientPractices | null> {
-  const { establishment, missionAccess } = await requireClientEstablishment();
+  const { establishment, missionAccess } = await requireClientEstablishment(NEED.DIAGNOSTIC_READ);
   if (!establishment) return null;
   const loaded = await loadPractices(establishment.id);
   if (!loaded) return null;
@@ -93,7 +94,7 @@ export async function savePracticeAnswer(input: {
   answer: unknown;
   text: unknown;
 }): Promise<{ error: string } | null> {
-  const { userId, session, establishment, missionAccess } = await requireClientEstablishment();
+  const { userId, session, establishment, missionAccess } = await requireClientEstablishment(NEED.DIAGNOSTIC_WRITE);
   if (!establishment) notFound();
   if (!canDepositDocuments(missionAccess)) {
     return { error: "L'accompagnement est terminé : vos réponses restent consultables, mais ne se modifient plus." };

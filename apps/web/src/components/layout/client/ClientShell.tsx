@@ -4,7 +4,8 @@ import { requireClientEstablishment } from "@/lib/auth/guards";
 import { getClientHasUnansweredMessage } from "@/lib/actions/message";
 import { getClientSupportContext } from "@/lib/actions/client-support";
 import { describeModeTag, toUiSupportMode } from "@/lib/services/support-mode-service";
-import { buildClientNav, CLIENT_ROOT } from "@/lib/design/client-navigation";
+import { buildClientNav, clientAccountLinks, CLIENT_ROOT } from "@/lib/design/client-navigation";
+import { clientAllows } from "@/lib/auth/capabilities";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
 import { EodaMark } from "../EodaLogo";
 import { HelpLink, MAIN_CONTENT_ID, SkipLink } from "../shell-parts";
@@ -24,12 +25,15 @@ import { ModeBanner } from "./ModeBanner";
 // alors simplement « Espace client ».
 // ─────────────────────────────────────────────────────────────────────────────
 export async function ClientShell({ children }: { children: ReactNode }) {
-  const [{ session, establishment }, hasUnansweredMessage, support] = await Promise.all([
-    requireClientEstablishment(),
-    getClientHasUnansweredMessage(),
+  const [{ session, establishment, accessRole }, support] = await Promise.all([
+    requireClientEstablishment("HOME"),
     getClientSupportContext(),
   ]);
-  const items = buildClientNav({ hasUnansweredMessage });
+  // Le signal « nouveau message » n'est lu que pour un rôle qui a les messages : sa
+  // lecture est gardée et renverrait ailleurs au milieu du rendu de la coquille.
+  const canReadMessages = !accessRole || clientAllows(accessRole, { module: "MESSAGES", mode: "READ" });
+  const hasUnansweredMessage = canReadMessages ? await getClientHasUnansweredMessage() : false;
+  const items = buildClientNav({ hasUnansweredMessage, accessRole });
   const userName = session.user.name ?? session.user.email ?? "Mon compte";
 
   return (
@@ -60,6 +64,7 @@ export async function ClientShell({ children }: { children: ReactNode }) {
             <HelpLink className="h-12 rounded-[10px] text-[17px]" />
             <AccountMenu
               name={userName}
+              links={clientAccountLinks(accessRole)}
               settings={
                 // Dans le panneau, la place ne manque pas : le libellé du thème
                 // (masqué sur petit écran dans l'en-tête) s'affiche toujours.

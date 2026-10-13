@@ -217,7 +217,7 @@ export async function listAppointmentsFor(owner: {
 // identifiant reçu), les rendez-vous marqués visibles, et ceux qui ne sont pas
 // annulés. `notes` n'est même pas sélectionné.
 export async function listClientAppointments(limit = 5): Promise<CalendarAppointment[]> {
-  const { establishment } = await requireClientEstablishment();
+  const { establishment } = await requireClientEstablishment({ module: "MESSAGES", mode: "READ" });
   if (!establishment) return [];
 
   const rows = await prisma.appointment.findMany({
