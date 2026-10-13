@@ -67,7 +67,7 @@ export default async function DevisDetailPage({ params }: Props) {
       <DevisStatusActions key={devis.status} devisId={id} status={devis.status} />
 
       {devis.status === "ANNULE" && (
-        <p className="text-sm text-gris-mid border-l-4 border-gris-light pl-3">
+        <p className="rounded-lg border border-gris-light bg-surface px-4 py-3 text-sm text-gris-mid">
           Ce devis est annulé. Son numéro reste réservé dans la série annuelle — une série
           commerciale numérotée ne comporte pas de trou — et il n&apos;entre plus dans aucun
           indicateur du pipeline.
