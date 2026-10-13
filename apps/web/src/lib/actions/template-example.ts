@@ -16,7 +16,7 @@ import { reindexValidatedExample } from "@/lib/services/validated-example-indexi
 // ─────────────────────────────────────────────────────────────────────────────
 
 export async function listDocumentTypesForExampleLink(): Promise<{ id: string; label: string }[]> {
-  await requireCabinetSession();
+  await requireCabinetSession("LIBRARY_READ");
   return prisma.documentType.findMany({ select: { id: true, label: true }, orderBy: { label: "asc" } });
 }
 

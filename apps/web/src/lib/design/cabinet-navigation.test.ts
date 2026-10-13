@@ -43,9 +43,22 @@ describe("visibilité par rôle", () => {
     expect(ids("CLIENT_USER")).not.toContain("devis");
   });
 
-  it("annonce l'accueil, mais aucune entrée sans route (Équipe EODA)", () => {
+  it("annonce l'accueil ; « Équipe EODA » existe (N9) et n'est qu'à l'administration", () => {
     expect(ids("CABINET_ADMIN")[0]).toBe("home");
-    expect(ids("CABINET_ADMIN")).not.toContain("team");
+    expect(ids("CABINET_ADMIN")).toContain("team");
+    for (const role of ["CABINET_EVALUATOR", "CABINET_COMMERCIAL", "CABINET_READONLY"] as const) {
+      expect(ids(role)).not.toContain("team");
+    }
+  });
+
+  it("un commercial : le pipeline et l'agenda, aucune structure ni bibliothèque (N9)", () => {
+    expect(canSeeCommercial("CABINET_COMMERCIAL")).toBe(true);
+    expect(ids("CABINET_COMMERCIAL")).toEqual(["agenda", "commercial-overview", "prospects", "devis", "catalogue"]);
+  });
+
+  it("une lecture seule : les structures, pas le commercial ni les réglages (N9)", () => {
+    expect(canSeeCommercial("CABINET_READONLY")).toBe(false);
+    expect(ids("CABINET_READONLY")).toEqual(["home", "structures", "review", "agenda", "library", "journal"]);
   });
 });
 

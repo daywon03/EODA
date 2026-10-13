@@ -3,7 +3,7 @@
 import { prisma, EstablishmentType, type DevisStatus } from "@eoda/database";
 import { notFound } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { requireCabinetAdminSession } from "@/lib/auth/guards";
+import { requireCommercialSession } from "@/lib/auth/guards";
 import {
   finessConflictError,
   finessFormatError,
@@ -157,7 +157,7 @@ export async function convertDevisToClient(
   _prevState: ConvertDevisResult | null,
   formData: FormData
 ): Promise<ConvertDevisResult> {
-  const { userId, tenantId } = await requireCabinetAdminSession();
+  const { userId, tenantId, role } = await requireCommercialSession();
 
   if (typeof devisId !== "string" || devisId.length === 0) {
     return { ok: false, error: "Devis manquant." };
@@ -359,7 +359,7 @@ export async function convertDevisToClient(
   await recordAuditEvent({
     action: "PROSPECT_CONVERTED",
     actorUserId: userId,
-    actorRole: "CABINET_ADMIN",
+    actorRole: role,
     establishmentId: converted.establishmentId,
     targetId: devis.id,
     detail: summariseConversionForAudit({
@@ -413,7 +413,7 @@ export type SignatureContext = {
 };
 
 export async function getSignatureContext(devisId: string): Promise<SignatureContext> {
-  const { tenantId } = await requireCabinetAdminSession();
+  const { tenantId } = await requireCommercialSession();
 
   const devis = await prisma.devis.findFirst({
     where: { id: devisId, tenantId },

@@ -7,11 +7,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
-import { AlertCircle, CheckCircle2, Copy, Loader2, UserPlus } from "lucide-react";
-import {
-  invitationDeliveryMessage,
-  type InvitationDelivery,
-} from "@/lib/services/email-delivery-service";
+import { AlertCircle, CheckCircle2, Loader2, UserPlus } from "lucide-react";
+import type { InvitationDelivery } from "@/lib/services/email-delivery-service";
+import { TemporaryPasswordPanel } from "@/components/ui/temporary-password-panel";
 
 // `defaultEmail` / `defaultName` : pré-remplissage depuis le contact du prospect à
 // la fin du parcours de conversion. Ce sont des VALEURS PAR DÉFAUT — Sandrine les
@@ -35,7 +33,7 @@ type Result = SuccessResult | ErrorResult;
 export function InviteClientForm({ establishmentId, defaultEmail, defaultName }: Props) {
   const router = useRouter();
   const [result, setResult] = useState<Result | null>(null);
-  const [copied, setCopied] = useState(false);
+
   // Fonction choisie au dernier envoi : reprise pour rattacher un compte existant.
   const [lastRole, setLastRole] = useState("");
   const [linked, setLinked] = useState(false);
@@ -87,61 +85,16 @@ export function InviteClientForm({ establishmentId, defaultEmail, defaultName }:
     });
   }
 
-  function copyPassword(pwd: string) {
-    void navigator.clipboard.writeText(pwd);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  }
 
   if (result && "success" in result) {
-    const delivery = invitationDeliveryMessage(result.invitationDelivery, result.userEmail);
     return (
-      <div className="space-y-4 animate-fade-in">
-        <div className="flex items-start gap-3 bg-vert-ok/10 border border-vert-ok/30 rounded-lg p-4">
-          <CheckCircle2 className="w-5 h-5 text-vert-ok flex-shrink-0 mt-0.5" aria-hidden="true" />
-          <div className="text-sm">
-            <p className="font-semibold text-brun-ancre">Compte créé pour {result.userName}</p>
-            <p className="text-ink2">{result.userEmail}</p>
-          </div>
-        </div>
-        <div className="bg-ivoire border border-gris-light rounded-lg p-4 space-y-2.5">
-          <p className="text-xs text-ink2 font-medium uppercase tracking-wide">
-            Mot de passe temporaire — à communiquer à l&apos;interlocuteur
-          </p>
-          <div className="flex items-center gap-2">
-            <code className="flex-1 bg-surface border border-gris-light rounded px-3 py-2.5 text-sm font-mono text-brun-ancre tracking-wider tabular-nums">
-              {result.tempPassword}
-            </code>
-            <Button
-              type="button"
-              variant="outline"
-              size="icon"
-              onClick={() => copyPassword(result.tempPassword)}
-              aria-label={copied ? "Mot de passe copié" : "Copier le mot de passe"}
-            >
-              {copied ? (
-                <CheckCircle2 className="w-4 h-4 text-vert-ok" aria-hidden="true" />
-              ) : (
-                <Copy className="w-4 h-4" aria-hidden="true" />
-              )}
-            </Button>
-          </div>
-          <p className="flex items-center gap-1.5 text-xs text-rouge-imp">
-            <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" aria-hidden="true" />
-            Ce mot de passe ne sera plus affiché. Copiez-le avant de fermer.
-          </p>
-          {/* Dire si l'e-mail est parti, plutôt que de le supposer : c'est ce qui
-              décide si Sandrine doit communiquer le mot de passe elle-même. Sans
-              RESEND_API_KEY (poste local), rien ne part : on le dit. */}
-          <p role="status" className="flex items-center gap-1.5 text-xs text-ink2">
-            {delivery.tone === "ok" ? (
-              <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0 text-vert-ok" aria-hidden="true" />
-            ) : (
-              <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 text-ambre" aria-hidden="true" />
-            )}
-            {delivery.text}
-          </p>
-        </div>
+      <div className="space-y-4">
+        <TemporaryPasswordPanel
+          userName={result.userName}
+          userEmail={result.userEmail}
+          tempPassword={result.tempPassword}
+          invitationDelivery={result.invitationDelivery}
+        />
         <Button
           variant="outline"
           // La liste est déjà à jour (rafraîchie à la création) : ce bouton ne fait

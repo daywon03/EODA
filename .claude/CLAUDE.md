@@ -35,6 +35,8 @@ vérifie** — sinon elle n'existe pas.
 | Hooks installés par le dépôt | `git config core.hooksPath .githooks` posé par le `postinstall` | `package.json` |
 | Manifeste de migrations à jour | test qui compare `EXPECTED_MIGRATIONS` au dossier `prisma/migrations` | `apps/web/src/lib/db/migration-manifest.test.ts` |
 | Clés étrangères indexées (convention `P6`) | test qui lit le schéma et **échoue** sur toute relation sans index, liste d'exceptions figée | `apps/web/src/lib/db/foreign-key-indexes.test.ts` |
+| Matrice des rôles cabinet appliquée par les gardes (N9) | matrice testée case par case, chaque garde × chaque rôle testée, commercial gardé export par export | `lib/auth/capabilities.test.ts`, `guards-roles.test.ts`, `commercial-pages-guard.test.ts` |
+| La lecture seule n'écrit rien | test qui **échoue** si une action gardée en lecture contient une écriture Prisma | `apps/web/src/lib/auth/read-guards-never-write.test.ts` |
 | CSP à nonce réellement applicable (aucune page pré-rendue) | `pnpm check:csp` après le build, **sort en code 1** si un `<script>` est écrit sans nonce | `apps/web/scripts/check-csp-nonce.mjs` + CI ; le réglage est `export const dynamic = "force-dynamic"` dans `apps/web/src/app/layout.tsx` |
 | Budget de JavaScript par route | `pnpm check:bundle` après le build, **sort en code 1** au-delà du budget | `apps/web/scripts/check-bundle-budget.mjs` + CI |
 | Configuration de production complète | contrôle au démarrage qui **sort en code 1** | `apps/web/src/instrumentation.ts` + `lib/config/production-profile.ts` |
@@ -139,7 +141,7 @@ chantier.
 | 4 | `context/04-charte-eoda.md` | Identité visuelle (couleurs, typo, logo, conventions de nommage fichiers) |
 | 5 | `context/05-prototype-existant.md` | Ce qui existe déjà (HTML statique auto-éval) et pourquoi on le réécrit proprement |
 | 6 | `context/06-mode-operatoire-eoda.md` | Mode opératoire humain : contrôle croisé documentaire (matrice, champs critiques, détection d'écarts) + déroulé complet de la mission ASSAD BENOIT (8 phases, gouvernance, vigilances juridiques) — process métier, complémentaire aux fichiers ci-dessus qui documentent les règles produit |
-| 7 | `context/07-outil-pilotage-missions.md` | Pipeline commercial (prospects, devis, catalogue, KPI — `/dashboard/cabinet/commercial`, CABINET_ADMIN uniquement) et suivi de mission (checklist diagnostic 12 items + 4 phases — `/dashboard/cabinet/etablissements/[id]/mission`, CABINET_ADMIN + CABINET_EVALUATOR) sont tous deux implémentés dans la plateforme. **§12 = refonte des offres décidée au call du 16/08/2026 (prix, périmètres, portails), pas encore implémentée — elle remplace le §4 : lire §12 avant de toucher au catalogue, aux offres ou aux portails.** |
+| 7 | `context/07-outil-pilotage-missions.md` | Pipeline commercial (prospects, devis, catalogue, KPI — `/dashboard/cabinet/commercial`, capacité COMMERCIAL : CABINET_ADMIN + CABINET_COMMERCIAL) et suivi de mission (checklist diagnostic 12 items + 4 phases — `/dashboard/cabinet/etablissements/[id]/mission`, lecture des structures : CABINET_ADMIN, CABINET_EVALUATOR, CABINET_READONLY ; montants : CABINET_ADMIN seul) sont tous deux implémentés dans la plateforme. **§12 = refonte des offres décidée au call du 16/08/2026 (prix, périmètres, portails), pas encore implémentée — elle remplace le §4 : lire §12 avant de toucher au catalogue, aux offres ou aux portails.** |
 | 8 | `context/08-offre-commerciale-v10.md` | Plaquette commerciale v10 (modules, méthode, formules, options). Contenu toujours valide ; sa **mise en marché** change (supplément d'un abonnement) — voir 09 §4 |
 | 9 | `context/09-vision-produit.md` | **Vision arrêtée le 30/09/2026** : SaaS + cabinet, marché et concurrence sourcés, proposition de prix, doctrine IA (vue CTO), exigence d'accessibilité, **décision HDS bloquante**, lots A→D |
 | 10 | `context/10-regles-mise-en-conformite.md` | **Cahier de style de la génération** : règles de rédaction dites par Sandrine en séance (01/09 → 07/10), règles de contenu par document (livret, DIPC, règlement…), « paquet » de preuves d'un critère, branchement des documents finaux validés — **à relire avant de toucher un prompt** |
@@ -330,8 +332,11 @@ Détail complet et état d'avancement : `specs/02-architecture-technique.md` §4
   des fixtures anonymisées génériques.
 - Le pipeline commercial (prospects/devis/catalogue/KPI, décrit dans
   `context/07-outil-pilotage-missions.md`) est intégré à la plateforme depuis le module
-  `/dashboard/cabinet/commercial`, réservé au rôle `CABINET_ADMIN` uniquement (jamais
-  `CABINET_EVALUATOR` ni `CLIENT_USER`). Ces données restent malgré tout strictement internes :
+  `/dashboard/cabinet/commercial`, réservé à la capacité `COMMERCIAL` — rôles
+  `CABINET_ADMIN` **et** `CABINET_COMMERCIAL` depuis N9 (13/10/2026), jamais
+  `CABINET_EVALUATOR`, `CABINET_READONLY` ni `CLIENT_USER`. Garde : `requireCommercialSession()`,
+  vérifiée page par page et export par export (`commercial-pages-guard.test.ts`). Ces données
+  restent malgré tout strictement internes :
   ne jamais les exposer sur une route accessible à un `CLIENT_USER`, ni les inclure dans un
   livrable/export destiné à un client.
   **Exception décidée le 20/08/2026 (Damon), à ne pas « corriger » :** un client voit, sur son
@@ -349,10 +354,28 @@ Détail complet et état d'avancement : `specs/02-architecture-technique.md` §4
   (`formatStartingPrice`). Il n'existe **pas** de lien direct `Establishment → Devis` : la
   résolution passe par `Prospect.establishmentId`, et sans devis `SIGNE` unique **aucun montant
   n'est affiché** — ne jamais « réparer » ça par un rapprochement de noms.
+- **Rôles cabinet et capacités (N9, 13/10/2026).** Quatre rôles : `CABINET_ADMIN` (tout),
+  `CABINET_EVALUATOR` (consultante : structures, documents, évaluation, mission **sans
+  montants**), `CABINET_COMMERCIAL` (pipeline commercial, **aucune** structure, ni équipe EODA
+  ni réglages), `CABINET_READONLY` (lit les structures, n'écrit rien, ne voit pas le
+  commercial). La matrice vit dans `lib/auth/capabilities.ts` (pur, testé case par case) et
+  n'est appliquée QUE par `lib/auth/guards.ts` : chaque garde reçoit la capacité ou le mode
+  (`"READ"` / `"WRITE"` / `"CONTRACT"`, `NEED.*`) en argument **obligatoire** — ne jamais
+  réécrire un `role === "CABINET_ADMIN"` dans une page ou une action. Une action gardée en
+  lecture n'écrit rien (`read-guards-never-write.test.ts`). Les montants d'une structure
+  (périmètre contractuel, contrat, avenant, prix proposés au démarrage d'une mission) exigent
+  `STRUCTURE_CONTRACT` : masqués ET refusés côté serveur pour une consultante.
+  **Affectation consultante ↔ structures** (`EstablishmentAssignment`) : une consultante
+  affectée ne voit QUE ses structures (listes filtrées par `structureScopeWhere`, objet d'une
+  autre structure → `notFound()`) ; **sans aucune affectation elle voit tout** — choix de
+  compatibilité des comptes existants, à ne pas « corriger » en fail-closed sans décision.
+  Équipe EODA : `/dashboard/cabinet/equipe` (administration seule) ; jamais retirer son propre
+  accès ni le dernier administrateur (`cabinet-team-service.ts`).
 - Le suivi de mission (checklist diagnostic 12 items + 4 phases d'accompagnement, §7 du même
   fichier) est également intégré, sous `/dashboard/cabinet/etablissements/[id]/mission` —
-  accessible à `CABINET_ADMIN` **et** `CABINET_EVALUATOR` (contrairement au pipeline commercial
-  ci-dessus) car c'est du suivi opérationnel d'accompagnement, pas de la donnée financière. La
+  lisible par `CABINET_ADMIN`, `CABINET_EVALUATOR` et `CABINET_READONLY` (contrairement au
+  pipeline commercial ci-dessus) car c'est du suivi opérationnel d'accompagnement ; sa carte
+  « Périmètre contractuel » (montants) reste à l'administration. La
   formule contractuelle qui gouverne le périmètre d'une mission (§7.3 — verrouillage
   Suivi/Préparation finale hors Excellence ou bêta-test gratuit) vit sur `Mission.formule`,
   pas sur `Establishment.commercialTier` (resté hardcodé `BETA`, affichage/historique

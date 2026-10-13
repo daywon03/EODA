@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { requireEstablishmentInTenant } from "@/lib/auth/guards";
+import { hasCabinetCapability } from "@/lib/auth/capabilities";
 import { getEstablishment } from "@/lib/actions/establishment";
 import { getEstablishmentChecklist } from "@/lib/actions/checklist";
 import { formatDate } from "@/lib/services/date-format-service";
@@ -37,12 +38,12 @@ function Section({ id, title, description, children }: { id: string; title: stri
 // action serveur et sa garde.
 export default async function StructureSettingsPage({ params }: Props) {
   const { id } = await params;
-  const { role } = await requireEstablishmentInTenant(id);
+  const { role } = await requireEstablishmentInTenant(id, "READ");
   const [establishment, checklist] = await Promise.all([getEstablishment(id), getEstablishmentChecklist(id)]);
   // Basculer un document entre « réclamé » et « produit par EODA » vaut pour tous
   // les clients : politique de cabinet, réservée à CABINET_ADMIN (l'action le
   // revérifie).
-  const isAdmin = role === "CABINET_ADMIN";
+  const isAdmin = hasCabinetCapability(role, "CABINET_SETTINGS");
   const documents = flattenChecklist(checklist);
 
   return (

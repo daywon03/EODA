@@ -1,7 +1,7 @@
 "use server";
 
 import { prisma, AuditAction, type Prisma } from "@eoda/database";
-import { requireCabinetSession, requireEstablishmentInTenant } from "@/lib/auth/guards";
+import { requireCabinetSession, requireEstablishmentInTenant, structureScopeWhere } from "@/lib/auth/guards";
 import { isEnumValue } from "@/lib/validation/form-parsers";
 import { AUDIT_PAGE_SIZE } from "@/lib/services/pagination-service";
 
@@ -66,10 +66,13 @@ const ACTOR_UNKNOWN = "Compte supprimé";
 const ACTOR_ANONYMOUS = "Non authentifié";
 
 export async function listAuditLog(query: AuditLogQuery): Promise<AuditLogPage> {
-  const { tenantId } = await requireCabinetSession();
+  const context = await requireCabinetSession("STRUCTURES_READ");
+  const { tenantId } = context;
 
+  // Périmètre d'affectation (N9) : une consultante restreinte ne lit que le journal
+  // de SES structures — et, faute d'autre structure, rien d'autre.
   const establishments = await prisma.establishment.findMany({
-    where: { tenantId },
+    where: structureScopeWhere(context),
     select: { id: true, name: true },
     orderBy: { name: "asc" },
   });
@@ -110,7 +113,7 @@ export async function listAuditLog(query: AuditLogQuery): Promise<AuditLogPage> 
   // Un `establishmentId` reçu de la requête est une entrée non fiable : il repasse
   // par la garde, qui déclenche notFound() s'il appartient à un autre tenant.
   if (query.establishmentId) {
-    const { establishmentId } = await requireEstablishmentInTenant(query.establishmentId);
+    const { establishmentId } = await requireEstablishmentInTenant(query.establishmentId, "READ");
     filters.push({ establishmentId });
   }
 

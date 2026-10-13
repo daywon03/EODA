@@ -79,7 +79,46 @@ export function buildClientInvitationEmail(input: {
       Votre espace en ligne pour l'accompagnement de ${escapeHtml(input.establishmentName)}
       est ouvert. Vous y déposez les documents attendus et suivez leur avancement.
     </p>
-    <div style="background:${IVOIRE};border-radius:8px;padding:16px;margin:20px 0">
+    ${credentialsBlock(input, "Ouvrir mon espace")}`;
+
+  return {
+    subject: `Votre accès à l'espace EODA — ${input.establishmentName}`,
+    html: layout("Votre espace client est ouvert", body, input.brand),
+  };
+}
+
+// Invitation d'une personne dans l'équipe EODA (N9). Même compromis que
+// l'invitation client (mot de passe temporaire + rotation forcée), et le RÔLE est
+// nommé : la personne doit savoir ce qu'elle pourra faire avant d'entrer.
+export function buildCabinetInvitationEmail(input: {
+  recipientName: string;
+  email: string;
+  temporaryPassword: string;
+  loginUrl: string;
+  roleLabel: string;
+  brand?: BrandAssets;
+}): EmailContent {
+  const body = `
+    <p style="color:${BRUN_ANCRE};font-size:15px;line-height:1.6">
+      Bonjour ${escapeHtml(input.recipientName)},
+    </p>
+    <p style="color:${BRUN_ANCRE};font-size:15px;line-height:1.6">
+      Vous avez désormais un accès au portail du cabinet EODA, avec le rôle
+      <strong>${escapeHtml(input.roleLabel)}</strong>.
+    </p>
+    ${credentialsBlock(input, "Ouvrir le portail")}`;
+
+  return {
+    subject: "Votre accès au portail du cabinet EODA",
+    html: layout("Votre accès est ouvert", body, input.brand),
+  };
+}
+
+function credentialsBlock(
+  input: { email: string; temporaryPassword: string; loginUrl: string },
+  buttonLabel: string
+): string {
+  return `<div style="background:${IVOIRE};border-radius:8px;padding:16px;margin:20px 0">
       <p style="margin:0 0 8px;color:#6B5648;font-size:13px">Identifiant</p>
       <p style="margin:0 0 14px;color:${BRUN_ANCRE};font-size:15px;font-weight:bold">${escapeHtml(input.email)}</p>
       <p style="margin:0 0 8px;color:#6B5648;font-size:13px">Mot de passe temporaire</p>
@@ -92,14 +131,9 @@ export function buildClientInvitationEmail(input: {
     <p style="margin:24px 0">
       <a href="${escapeHtml(input.loginUrl)}"
          style="background:${TERRE};color:#ffffff;text-decoration:none;padding:12px 20px;border-radius:8px;display:inline-block;font-weight:bold">
-        Ouvrir mon espace
+        ${escapeHtml(buttonLabel)}
       </a>
     </p>`;
-
-  return {
-    subject: `Votre accès à l'espace EODA — ${input.establishmentName}`,
-    html: layout("Votre espace client est ouvert", body, input.brand),
-  };
 }
 
 // Alerte interne : un client demande un devis pour une prestation complémentaire.

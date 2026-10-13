@@ -76,6 +76,10 @@ const ACTION_LABELS: Record<AuditAction, string> = {
   DOCUMENT_ACCEPTED_BY_CLIENT: "Document accepté par la structure",
   MISSION_SUPPORT_MODE_CHANGED: "Mode d'accompagnement modifié (autonomie / accompagné)",
   CLIENT_USER_LINKED: "Interlocuteur rattaché à une autre structure",
+  CABINET_USER_INVITED: "Membre de l’équipe EODA invité",
+  CABINET_USER_ROLE_CHANGED: "Rôle d’un membre de l’équipe EODA changé",
+  CABINET_USER_ACCESS_REMOVED: "Accès d’un membre de l’équipe EODA retiré",
+  CABINET_USER_ASSIGNMENTS_UPDATED: "Structures suivies modifiées",
   DOCUMENT_TYPE_CRITERIA_UPDATED: "Matrice documents → critères validée",
   DOCUMENT_TYPE_CRITERION_PROMOTED: "Critère confirmé ajouté à la matrice",
   ACTION_ITEM_CREATED: "Tâche créée",
@@ -94,7 +98,9 @@ const ACTION_LABELS: Record<AuditAction, string> = {
 
 const ROLE_LABELS: Record<string, string> = {
   CABINET_ADMIN: "Cabinet — admin",
-  CABINET_EVALUATOR: "Cabinet — évaluateur",
+  CABINET_EVALUATOR: "Cabinet — consultante",
+  CABINET_COMMERCIAL: "Cabinet — commercial",
+  CABINET_READONLY: "Cabinet — lecture seule",
   CLIENT_USER: "Client",
 };
 

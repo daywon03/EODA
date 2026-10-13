@@ -4,6 +4,7 @@ import { authConfig } from "./auth.config";
 import { NextResponse } from "next/server";
 import type { UserRole } from "@eoda/database";
 import { PASSWORD_ROTATION_PATH, ROTATION_EXEMPT_PATHS } from "@/lib/auth/routes";
+import { capabilityRequiredForPath, hasCabinetCapability, roleHomePath } from "@/lib/auth/capabilities";
 import {
   buildContentSecurityPolicy,
   generateCspNonce,
@@ -17,11 +18,6 @@ const { auth } = NextAuth(authConfig);
 
 const PUBLIC_PATHS = ["/login"];
 
-const ROLE_DASHBOARDS: Record<UserRole, string> = {
-  CABINET_ADMIN: "/dashboard/cabinet",
-  CABINET_EVALUATOR: "/dashboard/cabinet",
-  CLIENT_USER: "/dashboard/client",
-};
 
 // CSP à nonce : la politique ne peut plus être un en-tête statique de next.config,
 // puisqu'elle contient une valeur tirée à chaque requête. Elle est donc posée ici,
@@ -67,9 +63,8 @@ export default auth((req) => {
   }
 
   if (isLoggedIn && isPublic) {
-    const role = session.user.role;
-    const dest = ROLE_DASHBOARDS[role] ?? "/dashboard/cabinet";
-    return applyCsp(NextResponse.redirect(new URL(dest, nextUrl)), csp);
+    const role: UserRole = session.user.role;
+    return applyCsp(NextResponse.redirect(new URL(roleHomePath(role), nextUrl)), csp);
   }
 
   if (isLoggedIn && nextUrl.pathname.startsWith("/dashboard/cabinet")) {
@@ -83,13 +78,11 @@ export default auth((req) => {
     }
   }
 
-  // Pipeline commercial (prospects/devis/catalogue) — réservé à CABINET_ADMIN,
-  // même un CABINET_EVALUATOR légitimement connecté n'y a pas accès.
-  const ADMIN_ONLY_PREFIXES = ["/dashboard/cabinet/commercial", "/imprimer/devis"];
-  if (isLoggedIn && ADMIN_ONLY_PREFIXES.some((p) => nextUrl.pathname.startsWith(p))) {
-    if (session.user.role !== "CABINET_ADMIN") {
-      return applyCsp(NextResponse.redirect(new URL("/dashboard/cabinet", nextUrl)), csp);
-    }
+  // Modules réservés à une capacité (commercial, équipe EODA, montants d'une
+  // structure) — filet sur le rôle du jeton, la garde de chaque page relit la base.
+  const required = capabilityRequiredForPath(nextUrl.pathname);
+  if (isLoggedIn && required && !hasCabinetCapability(session.user.role, required)) {
+    return applyCsp(NextResponse.redirect(new URL(roleHomePath(session.user.role), nextUrl)), csp);
   }
 
   // Le nonce voyage vers le rendu par les en-têtes de la requête : c'est ainsi que

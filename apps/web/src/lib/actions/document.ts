@@ -10,6 +10,7 @@ import {
   tryCabinetSession,
   tryEstablishmentAccess,
 } from "@/lib/auth/guards";
+import { NEED } from "@/lib/auth/capabilities";
 import { canDepositDocuments } from "@/lib/services/mission-access-service";
 import { canDeleteVersion,
   MAX_JUSTIFICATION_LENGTH,
@@ -74,7 +75,7 @@ export async function uploadDocument(formData: FormData): Promise<UploadDocument
 
   // Autorisation avant toute lecture du fichier : ne jamais dépenser de l'I/O ni de
   // l'extraction de texte pour un appelant non habilité sur cet établissement.
-  const access = await requireEstablishmentAccess(establishmentId);
+  const access = await requireEstablishmentAccess(establishmentId, NEED.DOCUMENTS_WRITE);
 
   // Fin de mission : la bibliothèque est en LECTURE SEULE (§12.5). Le refus est
   // ici, côté serveur, et pas seulement dans l'UI qui masque le bouton — une action
@@ -191,7 +192,7 @@ export async function respondToMissingDocument(
   rawAnswer: unknown,
   comment: string | null
 ): Promise<{ error: string } | null> {
-  const access = await requireEstablishmentAccess(establishmentId);
+  const access = await requireEstablishmentAccess(establishmentId, NEED.DOCUMENTS_WRITE);
 
   // Une réponse est une écriture : elle s'arrête avec le dépôt.
   if (!canDepositDocuments(access.missionAccess)) return { error: DEPOSIT_CLOSED_MESSAGE };
@@ -254,7 +255,7 @@ export async function updateMissingJustification(
   documentTypeId: string,
   comment: string | null
 ): Promise<{ error: string } | null> {
-  const access = await requireEstablishmentAccess(establishmentId);
+  const access = await requireEstablishmentAccess(establishmentId, NEED.DOCUMENTS_WRITE);
 
   if (!canDepositDocuments(access.missionAccess)) return { error: DEPOSIT_CLOSED_MESSAGE };
 
@@ -300,7 +301,7 @@ async function getAuthorizedDocumentVersion(documentVersionId: string) {
   });
   if (!version) return null;
 
-  const access = await tryEstablishmentAccess(version.document.establishmentId);
+  const access = await tryEstablishmentAccess(version.document.establishmentId, NEED.DOCUMENTS_READ);
   if (!access) return null;
 
   return { version, access };
@@ -429,7 +430,7 @@ export async function deleteDocumentVersion(
   // l'établissement PROPRIÉTAIRE de la version, jamais sur un identifiant fourni.
   // `requireEstablishmentAccess` ouvre aux deux côtés — le client doit pouvoir
   // corriger son propre dépôt — et notFound() tombe si la version est hors périmètre.
-  const access = await requireEstablishmentAccess(version.document.establishmentId);
+  const access = await requireEstablishmentAccess(version.document.establishmentId, NEED.DOCUMENTS_WRITE);
   const { session, userId } = access;
 
   // Chacun ne supprime que ce qu'il a déposé, et seulement la dernière version.
@@ -563,7 +564,7 @@ export async function setAnalysisReviewed(
   });
   if (!version) notFound();
 
-  const access = await requireEstablishmentAccess(version.document.establishmentId);
+  const access = await requireEstablishmentAccess(version.document.establishmentId, NEED.DOCUMENTS_WRITE);
   if (access.isClient) notFound();
 
   // Rien à publier : refuser plutôt que de poser une date de revue sur une analyse
@@ -620,7 +621,7 @@ export async function reanalyzeDocument(
   });
   if (!version) notFound();
 
-  const access = await requireEstablishmentAccess(version.document.establishmentId);
+  const access = await requireEstablishmentAccess(version.document.establishmentId, NEED.DOCUMENTS_WRITE);
   if (access.isClient) notFound();
 
   const validatedModelId = modelId && isKnownLlmModelId(modelId) ? modelId : null;
@@ -678,7 +679,7 @@ export type CriterionGuidelineItem = {
 };
 
 export async function listCriteriaForPicker(): Promise<CriterionOption[] | null> {
-  const cabinet = await tryCabinetSession();
+  const cabinet = await tryCabinetSession("STRUCTURES_READ");
   if (!cabinet) return null;
 
   const criteria = await prisma.criterion.findMany({
@@ -695,7 +696,7 @@ export async function addCriterionGuideline(
   const validated = validateGuidelineNote(note);
   if (!validated.ok) return { error: validated.error };
 
-  const { tenantId, userId, session } = await requireCabinetSession();
+  const { tenantId, userId, session } = await requireCabinetSession("STRUCTURES_WRITE");
 
   const criterion = await prisma.criterion.findUnique({ where: { id: criterionId }, select: { id: true } });
   if (!criterion) return { error: "Critère invalide." };
@@ -717,7 +718,7 @@ export async function addCriterionGuideline(
 export async function listCriterionGuidelines(
   criterionId: string
 ): Promise<CriterionGuidelineItem[] | null> {
-  const cabinet = await tryCabinetSession();
+  const cabinet = await tryCabinetSession("STRUCTURES_READ");
   if (!cabinet) return null;
 
   const guidelines = await prisma.criterionGuideline.findMany({
@@ -747,7 +748,7 @@ export async function setDocumentValidated(
 ): Promise<{ error: string } | null> {
   if (typeof validated !== "boolean") return { error: "Valeur invalide." };
 
-  const access = await requireEstablishmentAccess(establishmentId);
+  const access = await requireEstablishmentAccess(establishmentId, NEED.DOCUMENTS_WRITE);
   if (access.isClient) notFound();
 
   const document = await prisma.document.findUnique({
@@ -847,7 +848,7 @@ export async function getCorrectedDraft(documentVersionId: string): Promise<Corr
   });
   if (!version) return undefined;
 
-  const access = await tryEstablishmentAccess(version.document.establishmentId);
+  const access = await tryEstablishmentAccess(version.document.establishmentId, NEED.DOCUMENTS_READ);
   if (!access || access.isClient) return undefined;
 
   if (!version.correctedDraftMarkdown || !version.correctedDraftGeneratedAt) return null;
@@ -882,7 +883,7 @@ export async function saveDocumentDraft(
   });
   if (!version) notFound();
 
-  const access = await requireEstablishmentAccess(version.document.establishmentId);
+  const access = await requireEstablishmentAccess(version.document.establishmentId, NEED.DOCUMENTS_WRITE);
   if (access.isClient) notFound();
 
   await saveCorrectedDraft(documentVersionId, markdown.trim());

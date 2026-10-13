@@ -1,7 +1,7 @@
 "use server";
 
 import { prisma, CommercialTier, DevisStatus, type Prisma } from "@eoda/database";
-import { requireCabinetAdminSession } from "@/lib/auth/guards";
+import { requireCommercialSession } from "@/lib/auth/guards";
 import { redirect, notFound } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
@@ -188,7 +188,7 @@ export async function createDevis(
   _prevState: { error: string } | null,
   formData: FormData
 ): Promise<{ error: string } | null> {
-  const { tenantId } = await requireCabinetAdminSession();
+  const { tenantId } = await requireCommercialSession();
 
   const parsed = parseDevisInput(formData);
   if ("error" in parsed) return parsed;
@@ -256,7 +256,7 @@ export async function updateDevis(
   _prevState: { error: string } | null,
   formData: FormData
 ): Promise<{ error: string } | null> {
-  const { tenantId } = await requireCabinetAdminSession();
+  const { tenantId } = await requireCommercialSession();
 
   const existing = await prisma.devis.findFirst({ where: { id, tenantId } });
   if (!existing) notFound();
@@ -310,7 +310,7 @@ export async function changeDevisStatus(
   id: string,
   status: DevisStatus
 ): Promise<{ error: string } | null> {
-  const { userId, tenantId } = await requireCabinetAdminSession();
+  const { userId, tenantId, role } = await requireCommercialSession();
 
   // `status` est un argument d'action serveur : il vient d'une route HTTP publique,
   // pas de la table de transitions du composant client. Sans cette vérification,
@@ -369,7 +369,7 @@ export async function changeDevisStatus(
     await recordAuditEvent({
       action: "DEVIS_CANCELLED",
       actorUserId: userId,
-      actorRole: "CABINET_ADMIN",
+      actorRole: role,
       targetId: id,
       detail: changed.number,
     });
@@ -390,7 +390,7 @@ export async function changeDevisStatus(
 // part d'EODA (adresse Resend configurée), pas de sa boîte personnelle — c'est
 // le prix du PDF en pièce jointe, qu'un `mailto:` ne sait pas produire.
 export async function sendDevisEmail(id: string): Promise<{ error: string } | null> {
-  const { tenantId, session } = await requireCabinetAdminSession();
+  const { tenantId, session, role } = await requireCommercialSession();
 
   const devis = await prisma.devis.findFirst({
     where: { id, tenantId },
@@ -468,7 +468,7 @@ export async function sendDevisEmail(id: string): Promise<{ error: string } | nu
   await recordAuditEvent({
     action: "DEVIS_EMAIL_SENT",
     actorUserId: session.user.id,
-    actorRole: "CABINET_ADMIN",
+    actorRole: role,
     targetId: id,
     detail: devis.number,
   });
@@ -483,7 +483,7 @@ export async function sendDevisEmail(id: string): Promise<{ error: string } | nu
 // émis, lui, ne se supprime jamais — il s'annule (`changeDevisStatus(..., "ANNULE")`),
 // pour que la série DEVIS-AAAA-NNN reste sans trou.
 export async function deleteDevis(id: string): Promise<{ error: string } | void> {
-  const { userId, tenantId } = await requireCabinetAdminSession();
+  const { userId, tenantId, role } = await requireCommercialSession();
 
   const devis = await prisma.devis.findFirst({ where: { id, tenantId } });
   if (!devis) notFound();
@@ -504,7 +504,7 @@ export async function deleteDevis(id: string): Promise<{ error: string } | void>
   await recordAuditEvent({
     action: "DEVIS_DELETED",
     actorUserId: userId,
-    actorRole: "CABINET_ADMIN",
+    actorRole: role,
     targetId: id,
     detail: devis.number,
   });
@@ -536,7 +536,7 @@ export type DevisListPage = {
 // `parsePageSize`, mais on reborne ici : cette fonction est une action serveur,
 // appelable directement — et `tab` est relu par `parseDevisTab` pour la même raison.
 export async function listDevis(pageSize: number = DEFAULT_PAGE_SIZE, tab?: string): Promise<DevisListPage> {
-  const { tenantId } = await requireCabinetAdminSession();
+  const { tenantId } = await requireCommercialSession();
   const take = Math.min(Math.max(Math.trunc(pageSize) || DEFAULT_PAGE_SIZE, 1), MAX_PAGE_SIZE);
   const statuses = statusesForTab(parseDevisTab(tab));
   const where = { tenantId, ...(statuses && { status: { in: [...statuses] } }) };
@@ -584,7 +584,7 @@ export async function listDevis(pageSize: number = DEFAULT_PAGE_SIZE, tab?: stri
 // page de liste. Volontairement non paginé — un indicateur calculé sur une page
 // serait faux. La projection étroite est ce qui rend ce chargement tenable.
 export async function listDevisForKpi() {
-  const { tenantId } = await requireCabinetAdminSession();
+  const { tenantId } = await requireCommercialSession();
 
   return prisma.devis.findMany({
     where: { tenantId },
@@ -606,7 +606,7 @@ export type DevisWithDetails = Prisma.DevisGetPayload<{
 }>;
 
 export async function getDevis(id: string): Promise<DevisWithDetails> {
-  const { tenantId } = await requireCabinetAdminSession();
+  const { tenantId } = await requireCommercialSession();
 
   const devis = await prisma.devis.findFirst({
     where: { id, tenantId },

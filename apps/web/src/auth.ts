@@ -77,6 +77,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         // Succès : le compteur repart de zéro pour que les erreurs de frappe d'un
         // utilisateur légitime ne s'accumulent pas jusqu'au blocage.
         await resetLoginThrottle(identity);
+        // « Dernière connexion » de l'écran Équipe EODA (N9) : un fait daté, rien de plus.
+        await prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
 
         // Le jeton ne porte que l'identifiant et le rôle — jamais l'objet utilisateur
         // complet. Le rôle qui sert à AUTORISER est de toute façon relu en base à

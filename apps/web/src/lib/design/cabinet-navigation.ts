@@ -1,17 +1,19 @@
 import type { UserRole } from "@eoda/database";
+import { hasCabinetCapability } from "@/lib/auth/capabilities";
 import { pluralize, resolveActiveItem, type NavItem, type NavSection } from "./navigation";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // NAVIGATION DU PORTAIL CABINET (maquette « Portail Cabinet v2 »).
 //
 // Masquer une entrée n'est PAS un contrôle d'accès : la section Commercial est
-// absente de la barre d'un CABINET_EVALUATOR, ET chaque page commerciale passe par
-// requireCabinetAdminSession() (lib/auth/guards.ts) — vérifié par
+// absente de la barre d'un rôle sans la capacité COMMERCIAL, ET chaque page
+// commerciale passe par requireCommercialSession() (lib/auth/guards.ts) — vérifié par
 // commercial-pages-guard.test.ts. Retirer la seconde parce que la première existe
 // rouvrirait le module à quiconque tape l'adresse.
 //
-// N'apparaît que ce qui existe : pas d'« Équipe EODA » (tranche N9) tant que sa
-// route n'existe pas — un lien vers une page absente est un bouton mort (D6).
+// Chaque entrée suit une CAPACITÉ (lib/auth/capabilities.ts), jamais un rôle écrit
+// en dur : un commercial n'a ni Structures ni « À relire », une lecture seule n'a
+// pas le Commercial, seule l'administration a « Équipe EODA ».
 // L'accueil est la racine du cabinet ; la liste des structures vit sous
 // /structures, et la fiche reste sous /etablissements/[id].
 // ─────────────────────────────────────────────────────────────────────────────
@@ -22,6 +24,7 @@ export const STRUCTURES_PATH = `${CABINET_ROOT}/structures`;
 // Liste des documents réclamés aux structures : réglage de CABINET, valable pour
 // toutes les structures — il ne vit donc pas dans les Réglages d'une fiche.
 export const REQUESTED_DOCUMENTS_PATH = `${CABINET_ROOT}/documents-reclames`;
+export const TEAM_PATH = `${CABINET_ROOT}/equipe`;
 const COMMERCIAL_ROOT = `${CABINET_ROOT}/commercial`;
 
 export type CabinetNavCounts = {
@@ -32,11 +35,12 @@ export type CabinetNavCounts = {
 };
 
 export function canSeeCommercial(role: UserRole): boolean {
-  return role === "CABINET_ADMIN";
+  return hasCabinetCapability(role, "COMMERCIAL");
 }
 
-export function buildCabinetNav(role: UserRole, counts: CabinetNavCounts): NavSection[] {
-  const main: NavItem[] = [
+function structureItems(role: UserRole, counts: CabinetNavCounts): NavItem[] {
+  if (!hasCabinetCapability(role, "STRUCTURES_READ")) return [];
+  return [
     { id: "home", href: CABINET_ROOT, label: "Accueil", icon: "home", exact: true },
     {
       id: "structures",
@@ -53,17 +57,36 @@ export function buildCabinetNav(role: UserRole, counts: CabinetNavCounts): NavSe
       count: counts.documentsAwaitingReview,
       countLabel: pluralize(counts.documentsAwaitingReview, "document à relire", "documents à relire"),
     },
+  ];
+}
+
+// Réglages de cabinet : administration seule (les pages le revérifient par
+// requireCabinetAdminSession / requireTeamManagerSession).
+function settingsItems(role: UserRole): NavItem[] {
+  const items: NavItem[] = [];
+  if (hasCabinetCapability(role, "CABINET_SETTINGS")) {
+    items.push(
+      { id: "criteria", href: `${CABINET_ROOT}/criteres`, label: "Matrice des critères", icon: "criteria" },
+      { id: "requested-documents", href: REQUESTED_DOCUMENTS_PATH, label: "Documents réclamés", icon: "documents" }
+    );
+  }
+  if (hasCabinetCapability(role, "TEAM_MANAGE")) {
+    items.push({ id: "team", href: TEAM_PATH, label: "Équipe EODA", icon: "team" });
+  }
+  return items;
+}
+
+export function buildCabinetNav(role: UserRole, counts: CabinetNavCounts): NavSection[] {
+  const main: NavItem[] = [
+    ...structureItems(role, counts),
     { id: "agenda", href: `${CABINET_ROOT}/agenda`, label: "Agenda", icon: "agenda" },
-    { id: "library", href: `${CABINET_ROOT}/modeles`, label: "Bibliothèque", icon: "library" },
-    // Matrice documents → critères : configuration de cabinet, CABINET_ADMIN seul (la
-    // page le revérifie par requireCabinetAdminSession).
-    ...(role === "CABINET_ADMIN"
-      ? [
-          { id: "criteria", href: `${CABINET_ROOT}/criteres`, label: "Matrice des critères", icon: "criteria" as const },
-          { id: "requested-documents", href: REQUESTED_DOCUMENTS_PATH, label: "Documents réclamés", icon: "documents" as const },
-        ]
+    ...(hasCabinetCapability(role, "LIBRARY_READ")
+      ? [{ id: "library", href: `${CABINET_ROOT}/modeles`, label: "Bibliothèque", icon: "library" as const }]
       : []),
-    { id: "journal", href: `${CABINET_ROOT}/journal`, label: "Journal", icon: "journal" },
+    ...settingsItems(role),
+    ...(hasCabinetCapability(role, "STRUCTURES_READ")
+      ? [{ id: "journal", href: `${CABINET_ROOT}/journal`, label: "Journal", icon: "journal" as const }]
+      : []),
   ];
 
   const sections: NavSection[] = [{ id: "main", label: null, items: main }];

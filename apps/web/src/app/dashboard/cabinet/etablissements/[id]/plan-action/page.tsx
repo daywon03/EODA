@@ -16,7 +16,7 @@ type Props = {
 // structure — saisies, issues du PAC — et la génération depuis l'auto-évaluation.
 export default async function StructureActionPlanPage({ params, searchParams }: Props) {
   const { id } = await params;
-  await requireEstablishmentInTenant(id);
+  await requireEstablishmentInTenant(id, "READ");
   const filter = parseActionFilter((await searchParams).filtre);
   const data = await listEstablishmentActionItems(id);
 

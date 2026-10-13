@@ -1,5 +1,6 @@
 "use server";
 
+import { NEED } from "@/lib/auth/capabilities";
 import { prisma } from "@eoda/database";
 import { revalidatePath } from "next/cache";
 import { notFound } from "next/navigation";
@@ -34,7 +35,7 @@ export async function getClientDiagnostic(): Promise<DiagnosticData | null> {
 
 // Vue d'ensemble d'une fiche, côté cabinet.
 export async function getStructureDiagnostic(establishmentId: string): Promise<DiagnosticData> {
-  const { establishmentId: id } = await requireEstablishmentInTenant(establishmentId);
+  const { establishmentId: id } = await requireEstablishmentInTenant(establishmentId, "READ");
   const data = await readDiagnostic(id);
   if (!data) notFound();
   return data;
@@ -43,7 +44,7 @@ export async function getStructureDiagnostic(establishmentId: string): Promise<D
 // Le rapport imprimable, des deux côtés. Un rapport est un document : son accès se
 // journalise (CLAUDE.md §5 bis), sans donnée personnelle dans `detail`.
 export async function getDiagnosticForPrint(establishmentId: string): Promise<DiagnosticData> {
-  const access = await requireEstablishmentAccess(establishmentId);
+  const access = await requireEstablishmentAccess(establishmentId, NEED.DIAGNOSTIC_READ);
   const data = await readDiagnostic(access.establishmentId);
   if (!data) notFound();
   await recordAuditEvent({
@@ -65,7 +66,7 @@ function revalidateDiagnostic(establishmentId: string): void {
 // Geste du CABINET : « Marquer le diagnostic relu ». Structure accompagnée seulement.
 export async function markDiagnosticReviewed(establishmentId: string): Promise<{ error: string } | null> {
   if (typeof establishmentId !== "string") notFound();
-  const context = await requireEstablishmentInTenant(establishmentId);
+  const context = await requireEstablishmentInTenant(establishmentId, "WRITE");
   const data = await readDiagnostic(context.establishmentId);
   if (!data) notFound();
 

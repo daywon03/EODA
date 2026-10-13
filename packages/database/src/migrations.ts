@@ -86,4 +86,5 @@ export const EXPECTED_MIGRATIONS: readonly string[] = [
   "20261012090000_diagnostic_validation",
   "20261012100000_practice_answers",
   "20261012110000_compliance_proposals",
+  "20261013090000_cabinet_roles_assignments",
 ] as const;

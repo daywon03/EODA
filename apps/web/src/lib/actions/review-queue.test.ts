@@ -20,6 +20,8 @@ vi.mock("@eoda/database", () => ({
 }));
 vi.mock("@/lib/auth/guards", () => ({
   requireCabinetSession: () => requireCabinetSession(),
+  requireStructureInScope: vi.fn(),
+  structureScopeWhere: (context: { tenantId: string }) => ({ tenantId: context.tenantId }),
   requireEstablishmentInTenant: (id: string) => requireEstablishmentInTenant(id),
 }));
 vi.mock("next/navigation", () => ({

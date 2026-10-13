@@ -45,7 +45,7 @@ export async function getEvaluationComparison(
   establishmentId: string
 ): Promise<EvaluationComparisonResult> {
   // Garde unique : identité + appartenance au tenant.
-  const { establishmentType } = await requireEstablishmentInTenant(establishmentId);
+  const { establishmentType } = await requireEstablishmentInTenant(establishmentId, "READ");
   // Profil SAD aide / mixte : jamais les critères de l'autre profil (N4).
   const applicableTo = { in: applicableToValuesFor(establishmentType) };
 

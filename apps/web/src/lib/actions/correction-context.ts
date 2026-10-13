@@ -1,5 +1,6 @@
 import { prisma, type SupportMode } from "@eoda/database";
 import { notFound } from "next/navigation";
+import { NEED } from "@/lib/auth/capabilities";
 import { requireEstablishmentAccess, type EstablishmentAccessContext } from "@/lib/auth/guards";
 import { findMissionOffer, type MissionOffer } from "@/lib/services/establishment-offer-service";
 import { resolveSupportMode } from "@/lib/services/support-mode-service";
@@ -61,7 +62,7 @@ export async function openCorrectionContext(versionId: unknown): Promise<Correct
   const { document } = version;
   const documentType = document.documentType!;
 
-  const access = await requireEstablishmentAccess(document.establishmentId);
+  const access = await requireEstablishmentAccess(document.establishmentId, NEED.DOCUMENTS_WRITE);
   const offer = await findMissionOffer(document.establishmentId);
   const mode = resolveSupportMode(offer);
   const right = correctionRight(offer, documentType.category);

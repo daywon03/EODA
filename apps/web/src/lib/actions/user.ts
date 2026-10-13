@@ -75,7 +75,8 @@ export async function inviteClientUser(formData: FormData): Promise<InviteClient
   // Sans ce contrôle, un utilisateur Cabinet pouvait créer un compte client rattaché
   // à l'établissement d'un autre cabinet, et donc ouvrir un accès à ses données.
   const { establishmentId, session, userId, tenantId } = await requireEstablishmentInTenant(
-    establishmentIdRaw
+    establishmentIdRaw,
+    "WRITE"
   );
 
   const establishment = await prisma.establishment.findUnique({
@@ -193,7 +194,8 @@ export async function linkExistingClientUser(
     return { error: "Établissement manquant." };
   }
   const { establishmentId, session, userId, tenantId } = await requireEstablishmentInTenant(
-    establishmentIdRaw
+    establishmentIdRaw,
+    "WRITE"
   );
 
   const email = requiredEmail(formData, "email", "L'adresse email");

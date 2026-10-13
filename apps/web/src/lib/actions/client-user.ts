@@ -70,7 +70,7 @@ async function resolveTargetClientUser(
   }
 
   const { establishmentId, session, userId: actorUserId } =
-    await requireEstablishmentInTenant(establishmentIdRaw);
+    await requireEstablishmentInTenant(establishmentIdRaw, "WRITE");
 
   const link = await prisma.establishmentUser.findUnique({
     where: { userId_establishmentId: { userId: userIdRaw, establishmentId } },

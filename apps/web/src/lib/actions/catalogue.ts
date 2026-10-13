@@ -1,7 +1,7 @@
 "use server";
 
 import { prisma, CommercialTier, PricingUnit } from "@eoda/database";
-import { requireCabinetAdminSession } from "@/lib/auth/guards";
+import { requireCommercialSession } from "@/lib/auth/guards";
 import { notFound } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { recordAuditEvent } from "@/lib/services/audit-log-service";
@@ -25,7 +25,7 @@ export async function upsertCatalogueFormule(
   _prevState: { error: string } | null,
   formData: FormData
 ): Promise<{ error: string } | null> {
-  const { tenantId } = await requireCabinetAdminSession();
+  const { tenantId } = await requireCommercialSession();
 
   const formule = requiredEnum(formData, "formule", "La formule", CommercialTier);
   const label = requiredString(formData, "label", "Le libellé", 200);
@@ -63,7 +63,7 @@ export async function upsertCatalogueOption(
   _prevState: { error: string } | null,
   formData: FormData
 ): Promise<{ error: string } | null> {
-  const { tenantId } = await requireCabinetAdminSession();
+  const { tenantId } = await requireCommercialSession();
 
   // Parseurs typés plutôt que casts : une action serveur est une route HTTP
   // publique, `formData.get("pricingUnit") as PricingUnit` ne validerait rien à
@@ -132,6 +132,7 @@ function parseActiveFlag(active: unknown): { error: string } | { value: boolean 
 
 async function recordCatalogueToggle(
   userId: string,
+  role: string,
   active: boolean,
   targetId: string,
   detail: string
@@ -139,7 +140,7 @@ async function recordCatalogueToggle(
   await recordAuditEvent({
     action: active ? "CATALOGUE_ITEM_RESTORED" : "CATALOGUE_ITEM_RETIRED",
     actorUserId: userId,
-    actorRole: "CABINET_ADMIN",
+    actorRole: role,
     targetId,
     // Code de la ligne de catalogue / nom de la formule : clé technique, jamais
     // une donnée personnelle.
@@ -151,7 +152,7 @@ export async function toggleCatalogueOptionActive(
   id: string,
   active: boolean
 ): Promise<{ error: string } | null> {
-  const { userId, tenantId } = await requireCabinetAdminSession();
+  const { userId, tenantId, role } = await requireCommercialSession();
 
   const parsed = parseActiveFlag(active);
   if ("error" in parsed) return parsed;
@@ -163,7 +164,7 @@ export async function toggleCatalogueOptionActive(
   if (!option) notFound();
 
   await prisma.catalogueOption.update({ where: { id }, data: { active: parsed.value } });
-  await recordCatalogueToggle(userId, parsed.value, id, option.code);
+  await recordCatalogueToggle(userId, role, parsed.value, id, option.code);
 
   revalidatePath(CATALOGUE_PATH);
   return null;
@@ -173,7 +174,7 @@ export async function toggleCatalogueFormuleActive(
   id: string,
   active: boolean
 ): Promise<{ error: string } | null> {
-  const { userId, tenantId } = await requireCabinetAdminSession();
+  const { userId, tenantId, role } = await requireCommercialSession();
 
   const parsed = parseActiveFlag(active);
   if ("error" in parsed) return parsed;
@@ -182,7 +183,7 @@ export async function toggleCatalogueFormuleActive(
   if (!formule) notFound();
 
   await prisma.catalogueFormule.update({ where: { id }, data: { active: parsed.value } });
-  await recordCatalogueToggle(userId, parsed.value, id, formule.formule);
+  await recordCatalogueToggle(userId, role, parsed.value, id, formule.formule);
 
   revalidatePath(CATALOGUE_PATH);
   return null;
@@ -192,7 +193,7 @@ export async function updateBillingSettings(
   _prevState: { error: string } | null,
   formData: FormData
 ): Promise<{ error: string } | null> {
-  const { tenantId } = await requireCabinetAdminSession();
+  const { tenantId } = await requireCommercialSession();
 
   // `Number("abc")` vaut NaN, et NaN échoue silencieusement aux comparaisons : sans
   // parseur, une saisie non numérique traversait la validation et partait en base.
@@ -224,7 +225,7 @@ export async function updateBillingSettings(
 }
 
 export async function listCatalogue() {
-  const { tenantId } = await requireCabinetAdminSession();
+  const { tenantId } = await requireCommercialSession();
 
   const [formules, options, billingSettings] = await Promise.all([
     prisma.catalogueFormule.findMany({ where: { tenantId }, orderBy: { priceEuros: "asc" } }),

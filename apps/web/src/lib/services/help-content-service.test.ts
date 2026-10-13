@@ -83,16 +83,16 @@ describe("cloisonnement du guide par rôle", () => {
 });
 
 describe("catalogue réellement livré", () => {
-  it("n'expose aucun article du pipeline commercial hors CABINET_ADMIN", () => {
+  it("n'expose aucun article du pipeline commercial hors capacité COMMERCIAL (admin, commercial)", () => {
     for (const article of HELP_ARTICLES) {
       if (article.category !== "COMMERCIAL") continue;
-      expect(article.audiences).toEqual(["CABINET_ADMIN"]);
+      expect(article.audiences).toEqual(["CABINET_ADMIN", "CABINET_COMMERCIAL"]);
     }
-    const clientSlugs = listHelpArticles("CLIENT_USER").map((a) => a.slug);
-    const evaluatorSlugs = listHelpArticles("CABINET_EVALUATOR").map((a) => a.slug);
-    expect(clientSlugs).not.toContain("pipeline-commercial");
-    expect(evaluatorSlugs).not.toContain("pipeline-commercial");
+    for (const role of ["CLIENT_USER", "CABINET_EVALUATOR", "CABINET_READONLY"] as const) {
+      expect(listHelpArticles(role).map((a) => a.slug)).not.toContain("pipeline-commercial");
+    }
     expect(listHelpArticles("CABINET_ADMIN").map((a) => a.slug)).toContain("pipeline-commercial");
+    expect(listHelpArticles("CABINET_COMMERCIAL").map((a) => a.slug)).toContain("pipeline-commercial");
   });
 
   it("donne à chaque rôle au moins la prise en main", () => {

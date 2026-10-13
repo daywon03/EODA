@@ -54,10 +54,20 @@ describe("fiche structure — chaque route enfant re-vérifie le tenant", () => 
     expect(guarded).toBe(true);
   });
 
+  it.each(pages.map((page) => [path.relative(STRUCTURE_DIR, page), page]))(
+    "%s demande la LECTURE (la lecture seule y entre, la garde décide du reste)",
+    (_name, page) => {
+      const source = readFileSync(page, "utf8");
+      for (const match of source.matchAll(/requireEstablishmentInTenant\(\w+, "(\w+)"\)/g)) {
+        expect(match[1]).toBe("READ");
+      }
+    }
+  );
+
   it.each(Object.entries(GUARDED_READS))("%s commence par la garde du tenant", (call, file) => {
     const body = functionBody(readFileSync(path.join(SRC, file), "utf8"), call.slice(0, -1));
     const firstAwait = body.slice(body.indexOf("{"), body.indexOf("{") + 400);
-    expect(firstAwait).toMatch(/await (requireEstablishmentInTenant|requireCabinetSession)\(/);
+    expect(firstAwait).toMatch(/await (requireEstablishmentInTenant\(\w+, "READ"\)|requireCabinetSession\("STRUCTURES_READ"\))/);
     // getEstablishment borne SA lecture au tenant et répond notFound() sinon.
     if (call === "getEstablishment(") {
       expect(body).toContain("where: { id, tenantId }");

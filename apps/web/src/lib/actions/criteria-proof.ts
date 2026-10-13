@@ -17,7 +17,7 @@ export type StructureCriteriaProof = {
 };
 
 export async function getStructureCriteriaProof(establishmentId: string): Promise<StructureCriteriaProof> {
-  const { establishmentId: id, establishmentType } = await requireEstablishmentInTenant(establishmentId);
+  const { establishmentId: id, establishmentType } = await requireEstablishmentInTenant(establishmentId, "READ");
   const mode = await getEstablishmentSupportMode(id);
   const rows = (await readCriteriaProof([{ id, type: establishmentType, mode }])).get(id) ?? [];
   return {

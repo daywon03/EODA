@@ -10,6 +10,7 @@ import {
 import {
   requireCabinetAdminSession,
   requireCabinetSession,
+  requireStructureInScope,
   requireEstablishmentInTenant,
 } from "@/lib/auth/guards";
 import { notFound } from "next/navigation";
@@ -97,7 +98,7 @@ function missionPaths(establishmentId: string) {
 // reste réservée à CABINET_ADMIN) : un CABINET_EVALUATOR doit pouvoir voir les
 // prix pour choisir l'offre à la création d'une mission.
 export async function listFormulesForMissionSetup() {
-  const { tenantId } = await requireCabinetSession();
+  const { tenantId } = await requireCabinetSession("STRUCTURE_CONTRACT");
 
   return prisma.catalogueFormule.findMany({
     where: { tenantId, active: true },
@@ -109,7 +110,7 @@ export async function listFormulesForMissionSetup() {
 // raisonnement que listFormulesForMissionSetup() : lecture seule ouverte aux deux
 // rôles Cabinet, alors que l'ÉDITION du catalogue reste CABINET_ADMIN.
 export async function listOptionsForMissionSetup(): Promise<CatalogueOption[]> {
-  const { tenantId } = await requireCabinetSession();
+  const { tenantId } = await requireCabinetSession("STRUCTURE_CONTRACT");
 
   return prisma.catalogueOption.findMany({
     where: { tenantId, active: true },
@@ -122,7 +123,7 @@ export async function createMission(
   _prevState: { error: string } | null,
   formData: FormData
 ): Promise<{ error: string } | null> {
-  const { tenantId, userId } = await requireEstablishmentInTenant(establishmentId);
+  const { tenantId, userId } = await requireEstablishmentInTenant(establishmentId, "CONTRACT");
 
   const existing = await prisma.mission.findUnique({ where: { establishmentId } });
   if (existing) return { error: "Une mission existe déjà pour cet établissement." };
@@ -185,7 +186,7 @@ export async function updateMissionScope(
   _prevState: { error: string } | null,
   formData: FormData
 ): Promise<{ error: string } | null> {
-  const { tenantId, userId } = await requireCabinetSession();
+  const { tenantId, userId } = await requireCabinetSession("STRUCTURE_CONTRACT");
 
   const mission = await prisma.mission.findFirst({
     where: { id: missionId, tenantId },
@@ -277,10 +278,12 @@ export async function toggleChecklistItem(
   itemCode: string,
   completed: boolean
 ): Promise<{ error: string } | null> {
-  const { tenantId } = await requireCabinetSession();
+  const context = await requireCabinetSession("STRUCTURES_WRITE");
+  const { tenantId } = context;
 
   const mission = await prisma.mission.findFirst({ where: { id: missionId, tenantId } });
   if (!mission) notFound();
+  requireStructureInScope(context, mission.establishmentId);
 
   const item = await prisma.missionChecklistItem.findUnique({ where: { code: itemCode } });
   if (!item) notFound();
@@ -321,7 +324,8 @@ export async function updatePhaseDates(
   startDate: string | null,
   endDate: string | null
 ): Promise<{ error: string } | null> {
-  const { tenantId } = await requireCabinetSession();
+  const context = await requireCabinetSession("STRUCTURES_WRITE");
+  const { tenantId } = context;
 
   // `phase` est un argument d'action serveur, donc une entrée non fiable : sans
   // ce contrôle, une valeur inconnue produit `fields === undefined` et un accès
@@ -330,6 +334,7 @@ export async function updatePhaseDates(
 
   const mission = await prisma.mission.findFirst({ where: { id: missionId, tenantId } });
   if (!mission) notFound();
+  requireStructureInScope(context, mission.establishmentId);
 
   const fields = PHASE_DATE_FIELDS[phase];
   await prisma.mission.update({
@@ -397,7 +402,7 @@ export type MissionWithProgress = {
 // ─────────────────────────────────────────────────────────────────────────────
 
 async function requireMissionForClosure(missionId: string) {
-  const { tenantId, userId, session } = await requireCabinetAdminSession();
+  const { tenantId, userId, role } = await requireCabinetAdminSession();
 
   const mission = await prisma.mission.findFirst({
     where: { id: missionId, tenantId },
@@ -407,7 +412,7 @@ async function requireMissionForClosure(missionId: string) {
   // autre tenant (CLAUDE.md §5 bis).
   if (!mission) notFound();
 
-  return { mission, userId, role: session.user.role };
+  return { mission, userId, role };
 }
 
 function revalidateAccessViews(establishmentId: string): void {
@@ -492,7 +497,7 @@ export async function setClientAccessRevoked(
 }
 
 export async function getMission(establishmentId: string): Promise<MissionWithProgress | null> {
-  const { tenantId } = await requireCabinetSession();
+  const { tenantId } = await requireEstablishmentInTenant(establishmentId, "READ");
 
   const mission = await prisma.mission.findFirst({
     where: { establishmentId, tenantId },
@@ -585,7 +590,7 @@ export type AvenantData = {
 };
 
 export async function getAvenantData(establishmentId: string): Promise<AvenantData | null> {
-  const { tenantId } = await requireCabinetSession();
+  const { tenantId } = await requireEstablishmentInTenant(establishmentId, "CONTRACT");
 
   const mission = await prisma.mission.findFirst({
     where: { establishmentId, tenantId },
@@ -624,7 +629,7 @@ export async function getAvenantData(establishmentId: string): Promise<AvenantDa
 export async function getMissionDocumentCounters(
   establishmentId: string
 ): Promise<MissionDocumentCounters | null> {
-  const { tenantId } = await requireEstablishmentInTenant(establishmentId);
+  const { tenantId } = await requireEstablishmentInTenant(establishmentId, "READ");
 
   const mission = await prisma.mission.findFirst({ where: { establishmentId, tenantId } });
   if (!mission) return null;
@@ -648,7 +653,7 @@ export async function setAvenantSigned(
   catalogueOptionId: string,
   signed: boolean
 ): Promise<{ error: string } | null> {
-  const { tenantId, userId } = await requireCabinetSession();
+  const { tenantId, userId } = await requireCabinetSession("STRUCTURE_CONTRACT");
 
   // `missionId` et `catalogueOptionId` viennent d'une route HTTP publique : la ligne
   // est relue avec le filtre tenant, jamais atteinte par identifiant seul.

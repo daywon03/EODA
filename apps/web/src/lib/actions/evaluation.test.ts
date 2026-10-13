@@ -30,6 +30,8 @@ vi.mock("next/navigation", () => ({
 }));
 vi.mock("@/lib/auth/guards", () => ({
   requireCabinetSession: () => requireCabinetSession(),
+  requireStructureInScope: vi.fn(),
+  structureScopeWhere: (context: { tenantId: string }) => ({ tenantId: context.tenantId }),
   requireEstablishmentInTenant: vi.fn(),
 }));
 

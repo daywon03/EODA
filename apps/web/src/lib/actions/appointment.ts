@@ -9,7 +9,14 @@ import {
 } from "@eoda/database";
 import { notFound } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { requireCabinetSession, requireClientEstablishment } from "@/lib/auth/guards";
+import {
+  requireCabinetSession,
+  requireClientEstablishment,
+  requireStructureInScope,
+  structureScopeWhere,
+  type CabinetContext,
+} from "@/lib/auth/guards";
+import { hasCabinetCapability } from "@/lib/auth/capabilities";
 import {
   appointmentRangeError,
   endOfMonth,
@@ -33,9 +40,11 @@ import {
 // vérifie aussi, parce qu'un identifiant reçu par une action serveur vient d'une
 // route HTTP publique.
 //
-// Cloisonnement : les rendez-vous de prospection restent réservés à CABINET_ADMIN,
-// comme le reste du pipeline commercial (CLAUDE.md §7). Un évaluateur voit l'agenda
-// des accompagnements, pas celui du démarchage.
+// Cloisonnement : les rendez-vous de prospection suivent le pipeline commercial
+// (capacité COMMERCIAL — admin et commercial, CLAUDE.md §7) ; ceux d'une structure
+// suivent la lecture des structures ET le périmètre d'affectation (N9). Un
+// évaluateur voit l'agenda de SES accompagnements, un commercial celui du
+// démarchage, jamais l'inverse.
 // ─────────────────────────────────────────────────────────────────────────────
 
 const AGENDA_PATH = "/dashboard/cabinet/agenda";
@@ -78,18 +87,22 @@ function toCalendarAppointment(row: AgendaRow): CalendarAppointment {
   };
 }
 
-// Filtre de cloisonnement : hors CABINET_ADMIN, on ne rend que les rendez-vous
-// rattachés à un établissement. Fail-closed — on n'ajoute pas une condition quand on
-// est admin, on en retire une quand on l'est.
-function scopeForRole(tenantId: string, isAdmin: boolean): Prisma.AppointmentWhereInput {
-  return isAdmin ? { tenantId } : { tenantId, establishmentId: { not: null } };
+// Filtre de cloisonnement, fail-closed : on AJOUTE une branche par capacité. Sans
+// aucune, `OR: []` ne rend rien (Prisma le traduit par « faux »).
+function agendaScope(context: CabinetContext): Prisma.AppointmentWhereInput {
+  const branches: Prisma.AppointmentWhereInput[] = [];
+  if (hasCabinetCapability(context.role, "COMMERCIAL")) branches.push({ prospectId: { not: null } });
+  if (hasCabinetCapability(context.role, "STRUCTURES_READ")) {
+    branches.push({ establishment: structureScopeWhere(context) });
+  }
+  return { tenantId: context.tenantId, OR: branches };
 }
 
 export async function listAgendaMonth(
   year: number,
   month: number
 ): Promise<CalendarAppointment[]> {
-  const { tenantId, session } = await requireCabinetSession();
+  const context = await requireCabinetSession("ANY_CABINET_ROLE");
 
   // Bornes calculées côté serveur à partir d'entiers validés : `year`/`month`
   // arrivent d'une URL.
@@ -99,7 +112,7 @@ export async function listAgendaMonth(
 
   const rows = await prisma.appointment.findMany({
     where: {
-      ...scopeForRole(tenantId, session.user.role === "CABINET_ADMIN"),
+      ...agendaScope(context),
       // La grille affiche six semaines : on élargit d'une semaine de chaque côté
       // plutôt que de borner au mois, sinon les jours débordants sont vides à tort.
       startsAt: { gte: addWeeks(startOfMonth(year, month), -1), lte: addWeeks(endOfMonth(year, month), 1) },
@@ -121,12 +134,12 @@ function addWeeks(date: Date, weeks: number): Date {
 // cette semaine ? ». Bornée en base ET filtrée par le service : un rendez-vous
 // annulé garde sa ligne mais n'est pas « à venir ».
 export async function listUpcomingAgenda(limit = 8): Promise<CalendarAppointment[]> {
-  const { tenantId, session } = await requireCabinetSession();
+  const context = await requireCabinetSession("ANY_CABINET_ROLE");
   const now = new Date();
 
   const rows = await prisma.appointment.findMany({
     where: {
-      ...scopeForRole(tenantId, session.user.role === "CABINET_ADMIN"),
+      ...agendaScope(context),
       status: { not: "ANNULE" },
       endsAt: { gte: now },
     },
@@ -151,11 +164,12 @@ export async function listAppointmentsFor(owner: {
   prospectId?: string;
   establishmentId?: string;
 }): Promise<CalendarAppointment[]> {
-  const { tenantId, session } = await requireCabinetSession();
-  const isAdmin = session.user.role === "CABINET_ADMIN";
+  const context = await requireCabinetSession("ANY_CABINET_ROLE");
+  const { tenantId } = context;
+  const canSeeProspection = hasCabinetCapability(context.role, "COMMERCIAL");
 
-  // Un évaluateur n'a pas à lire l'agenda de prospection.
-  if (owner.prospectId && !isAdmin) return [];
+  // Hors commercial, on n'a pas à lire l'agenda de prospection.
+  if (owner.prospectId && !canSeeProspection) return [];
 
   if (owner.prospectId) {
     const rows = await prisma.appointment.findMany({
@@ -167,6 +181,8 @@ export async function listAppointmentsFor(owner: {
   }
 
   if (!owner.establishmentId) return [];
+  if (!hasCabinetCapability(context.role, "STRUCTURES_READ")) return [];
+  requireStructureInScope(context, owner.establishmentId);
 
   const rows = await prisma.appointment.findMany({
     where: {
@@ -176,8 +192,8 @@ export async function listAppointmentsFor(owner: {
         // Le prospect converti en CETTE fiche. Le filtre part de l'établissement et
         // non d'un identifiant de prospect reçu : c'est `Prospect.establishmentId`
         // (unique) qui referme la boucle, il n'y a rien à falsifier.
-        // Réservé à CABINET_ADMIN, comme le reste du pipeline commercial.
-        ...(isAdmin
+        // Réservé au pipeline commercial (capacité COMMERCIAL).
+        ...(canSeeProspection
           ? [{ prospect: { establishmentId: owner.establishmentId } }]
           : []),
       ],
@@ -228,15 +244,18 @@ type AppointmentActionResult = { error: string } | null;
 // rendez-vous dans son agenda.
 async function resolveOwner(
   formData: FormData,
-  tenantId: string,
-  isAdmin: boolean
+  context: CabinetContext
 ): Promise<{ error: string } | { data: { prospectId?: string; establishmentId?: string }; path: string }> {
   const establishmentId = optionalString(formData, "establishmentId", "L'établissement", 40);
   const prospectId = optionalString(formData, "prospectId", "Le prospect", 40);
   if (!establishmentId.ok) return { error: establishmentId.error };
   if (!prospectId.ok) return { error: prospectId.error };
 
+  const { tenantId } = context;
   if (establishmentId.value) {
+    // Écrire dans l'agenda d'une structure, c'est écrire sur la structure.
+    if (!hasCabinetCapability(context.role, "STRUCTURES_WRITE")) notFound();
+    requireStructureInScope(context, establishmentId.value);
     const establishment = await prisma.establishment.findFirst({
       where: { id: establishmentId.value, tenantId },
       select: { id: true },
@@ -249,8 +268,8 @@ async function resolveOwner(
   }
 
   if (prospectId.value) {
-    // Le démarchage reste réservé à CABINET_ADMIN.
-    if (!isAdmin) notFound();
+    // Le démarchage reste réservé au pipeline commercial.
+    if (!hasCabinetCapability(context.role, "COMMERCIAL")) notFound();
     const prospect = await prisma.prospect.findFirst({
       where: { id: prospectId.value, tenantId },
       select: { id: true },
@@ -269,10 +288,10 @@ export async function createAppointment(
   _prevState: AppointmentActionResult,
   formData: FormData
 ): Promise<AppointmentActionResult> {
-  const { tenantId, userId, session } = await requireCabinetSession();
-  const isAdmin = session.user.role === "CABINET_ADMIN";
+  const context = await requireCabinetSession("ANY_CABINET_ROLE");
+  const { tenantId, userId } = context;
 
-  const owner = await resolveOwner(formData, tenantId, isAdmin);
+  const owner = await resolveOwner(formData, context);
   if ("error" in owner) return owner;
 
   const kind = requiredEnum(formData, "kind", "Le type de rendez-vous", AppointmentKind);
@@ -352,18 +371,24 @@ export async function setAppointmentStatus(
   appointmentId: string,
   status: AppointmentStatus
 ): Promise<AppointmentActionResult> {
-  const { tenantId, session } = await requireCabinetSession();
+  const context = await requireCabinetSession("ANY_CABINET_ROLE");
 
   if (!isEnumValue(status, AppointmentStatus)) return { error: "Statut invalide." };
 
   const appointment = await prisma.appointment.findFirst({
     where: {
       id: appointmentId,
-      ...scopeForRole(tenantId, session.user.role === "CABINET_ADMIN"),
+      ...agendaScope(context),
     },
     select: { id: true, status: true, prospectId: true, establishmentId: true },
   });
   if (!appointment) notFound();
+  // Lire n'est pas modifier : un rendez-vous de structure exige l'écriture sur les
+  // structures (la lecture seule voit l'agenda, n'y touche pas).
+  const canWrite = appointment.establishmentId
+    ? hasCabinetCapability(context.role, "STRUCTURES_WRITE")
+    : hasCabinetCapability(context.role, "COMMERCIAL");
+  if (!canWrite) notFound();
   if (appointment.status === status) return null;
 
   await prisma.appointment.update({ where: { id: appointment.id }, data: { status } });

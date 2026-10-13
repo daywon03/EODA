@@ -30,7 +30,7 @@ async function currentProposals(establishmentId: string, establishmentType: "SAD
 }
 
 export async function proposePacFromEvaluation(establishmentId: string): Promise<PacProposal[]> {
-  const { establishmentId: id, establishmentType } = await requireEstablishmentInTenant(establishmentId);
+  const { establishmentId: id, establishmentType } = await requireEstablishmentInTenant(establishmentId, "READ");
   return currentProposals(id, establishmentType);
 }
 
@@ -38,7 +38,7 @@ export async function createPacActions(formData: FormData): Promise<{ error: str
   const establishmentIdRaw = formData.get("establishmentId");
   if (typeof establishmentIdRaw !== "string" || establishmentIdRaw.length === 0) return { error: "Structure manquante." };
   const { establishmentId, establishmentType, tenantId, userId, session } =
-    await requireEstablishmentInTenant(establishmentIdRaw);
+    await requireEstablishmentInTenant(establishmentIdRaw, "WRITE");
 
   const selected = new Set(formData.getAll("criterionId").filter((v): v is string => typeof v === "string"));
   if (selected.size === 0) return { error: "Cochez au moins une action à créer." };

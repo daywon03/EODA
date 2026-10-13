@@ -2,6 +2,7 @@ import { Library } from "lucide-react";
 import { listLibrary, listTemplateCategories } from "@/lib/actions/template-library";
 import { listCriteriaForPicker } from "@/lib/actions/document";
 import { requireCabinetSession } from "@/lib/auth/guards";
+import { hasCabinetCapability } from "@/lib/auth/capabilities";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { TemplateCriterionFilter } from "@/components/modeles/TemplateCriterionFilter";
 import { LibraryToolbar } from "@/components/modeles/LibraryToolbar";
@@ -28,13 +29,13 @@ export default async function ModelesPage({ searchParams }: Props) {
 
   // Quatre lectures indépendantes : elles partent ensemble. En série, l'écran
   // attend quatre allers-retours de base au lieu d'un.
-  const [{ session }, folders, categories, allCriteria] = await Promise.all([
-    requireCabinetSession(),
+  const [{ role }, folders, categories, allCriteria] = await Promise.all([
+    requireCabinetSession("LIBRARY_READ"),
     listLibrary(critere),
     listTemplateCategories(),
     listCriteriaForPicker(),
   ]);
-  const isAdmin = session.user.role === "CABINET_ADMIN";
+  const isAdmin = hasCabinetCapability(role, "CABINET_SETTINGS");
 
   return (
     <div className="max-w-5xl space-y-6">

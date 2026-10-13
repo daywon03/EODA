@@ -11,7 +11,7 @@ import {
   StructureType,
   type Prisma,
 } from "@eoda/database";
-import { requireCabinetAdminSession } from "@/lib/auth/guards";
+import { requireCommercialSession } from "@/lib/auth/guards";
 import { redirect, notFound } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE } from "@/lib/services/pagination-service";
@@ -194,7 +194,7 @@ export async function createProspect(
   _prevState: { error: string } | null,
   formData: FormData
 ): Promise<{ error: string } | null> {
-  const { tenantId } = await requireCabinetAdminSession();
+  const { tenantId } = await requireCommercialSession();
 
   const parsed = parseProspectInput(formData);
   if ("error" in parsed) return parsed;
@@ -210,7 +210,7 @@ export async function updateProspect(
   _prevState: { error: string } | null,
   formData: FormData
 ): Promise<{ error: string } | null> {
-  const { tenantId } = await requireCabinetAdminSession();
+  const { tenantId } = await requireCommercialSession();
 
   const existing = await prisma.prospect.findFirst({ where: { id, tenantId } });
   if (!existing) notFound();
@@ -243,7 +243,7 @@ export async function updateProspectIdentity(
   _prevState: { error: string } | { ok: true } | null,
   formData: FormData
 ): Promise<{ error: string } | { ok: true }> {
-  const { tenantId } = await requireCabinetAdminSession();
+  const { tenantId } = await requireCommercialSession();
 
   // `prospectId` arrive par une route HTTP publique : l'appartenance se vérifie en
   // base, elle ne se déduit pas du fait que l'écran l'a affiché.
@@ -318,7 +318,7 @@ export async function updateProspectStatus(
   id: string,
   status: ProspectStatus
 ): Promise<{ error: string } | null> {
-  const { tenantId, userId } = await requireCabinetAdminSession();
+  const { tenantId, userId } = await requireCommercialSession();
 
   // `status` arrive en argument d'action serveur, donc par une route HTTP publique :
   // le <select> qui le borne à l'écran ne le valide pas (CLAUDE.md §5 bis).
@@ -364,7 +364,7 @@ export async function addProspectComment(
   _prevState: { error: string } | null,
   formData: FormData
 ): Promise<{ error: string } | null> {
-  const { tenantId, userId } = await requireCabinetAdminSession();
+  const { tenantId, userId } = await requireCommercialSession();
 
   const existing = await prisma.prospect.findFirst({ where: { id: prospectId, tenantId } });
   if (!existing) notFound();
@@ -381,7 +381,7 @@ export async function addProspectComment(
 }
 
 export async function deleteProspect(id: string): Promise<{ error: string } | void> {
-  const { tenantId } = await requireCabinetAdminSession();
+  const { tenantId } = await requireCommercialSession();
 
   const existing = await prisma.prospect.findFirst({ where: { id, tenantId } });
   if (!existing) notFound();
@@ -434,7 +434,7 @@ const PROSPECT_STATUSES: readonly ProspectStatus[] = [
 export async function listProspectBoard(
   perColumn: number = DEFAULT_PAGE_SIZE
 ): Promise<ProspectBoardPage> {
-  const { tenantId } = await requireCabinetAdminSession();
+  const { tenantId } = await requireCommercialSession();
   const take = Math.min(Math.max(Math.trunc(perColumn) || DEFAULT_PAGE_SIZE, 1), MAX_PAGE_SIZE);
 
   const [columns, counts] = await Promise.all([
@@ -501,7 +501,7 @@ export async function getProspectKpiCounts(): Promise<{
   byStatus: Record<ProspectStatus, number>;
   byStructureType: Record<StructureType, number>;
 }> {
-  const { tenantId } = await requireCabinetAdminSession();
+  const { tenantId } = await requireCommercialSession();
 
   const [statusRows, typeRows] = await Promise.all([
     prisma.prospect.groupBy({
@@ -532,7 +532,7 @@ export type ProspectWithDevis = Prisma.ProspectGetPayload<{
 }>;
 
 export async function getProspect(id: string): Promise<ProspectWithDevis> {
-  const { tenantId } = await requireCabinetAdminSession();
+  const { tenantId } = await requireCommercialSession();
 
   const prospect = await prisma.prospect.findFirst({
     where: { id, tenantId },

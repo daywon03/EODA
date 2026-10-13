@@ -17,7 +17,7 @@ const requireCabinetAdminSession = vi.fn();
 vi.mock("@eoda/database", () => ({ prisma: prismaMock }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("@/lib/auth/guards", () => ({
-  requireCabinetAdminSession: () => requireCabinetAdminSession(),
+  requireCommercialSession: () => requireCabinetAdminSession(),
 }));
 
 const { saveDiscoveryAnswers } = await import("./discovery");

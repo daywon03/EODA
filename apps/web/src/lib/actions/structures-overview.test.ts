@@ -20,7 +20,10 @@ const getEstablishmentIdsWithUnansweredMessage = vi.fn();
 const countDocumentsAwaitingReviewByEstablishment = vi.fn();
 
 vi.mock("@eoda/database", () => ({ prisma: prismaMock }));
-vi.mock("@/lib/auth/guards", () => ({ requireCabinetSession: () => requireCabinetSession() }));
+vi.mock("@/lib/auth/guards", () => ({
+  requireCabinetSession: () => requireCabinetSession(),
+  structureScopeWhere: (context: { tenantId: string }) => ({ tenantId: context.tenantId }),
+}));
 vi.mock("@/lib/actions/establishment", () => ({ listEstablishments: () => listEstablishments() }));
 vi.mock("@/lib/actions/message", () => ({
   getEstablishmentIdsWithUnansweredMessage: () => getEstablishmentIdsWithUnansweredMessage(),

@@ -6,6 +6,7 @@ import {
   type InvitationDelivery,
 } from "@/lib/services/email-delivery-service";
 import {
+  buildCabinetInvitationEmail,
   buildClientInvitationEmail,
   buildDocumentReminderEmail,
   buildNewMessageEmail,
@@ -59,6 +60,28 @@ export async function sendClientInvitationEmail(input: {
     // Le mot de passe temporaire n'est JAMAIS journalisé, même en cas d'échec : il
     // est encore affiché à l'écran, c'est là qu'il doit être lu.
     console.error("Invitation client — envoi d'e-mail échoué, compte créé malgré tout :", error);
+    return "FAILED";
+  }
+}
+
+// Invitation d'une personne dans l'équipe EODA (N9). Même contrat que l'invitation
+// client : jamais d'exception vers l'appelant, le résultat d'envoi est RENDU pour
+// que l'écran dise si le mot de passe doit être transmis autrement.
+export async function sendCabinetInvitationEmail(input: {
+  recipientName: string;
+  email: string;
+  temporaryPassword: string;
+  roleLabel: string;
+}): Promise<InvitationDelivery> {
+  const content = buildCabinetInvitationEmail({
+    ...input,
+    loginUrl: appUrl("/login"),
+    brand: { logoUrl: appUrl("/logo-eoda.png") },
+  });
+  try {
+    return await getEmailPort().send({ to: input.email, subject: content.subject, html: content.html });
+  } catch (error) {
+    console.error("Invitation équipe EODA — envoi d'e-mail échoué, compte créé malgré tout :", error);
     return "FAILED";
   }
 }

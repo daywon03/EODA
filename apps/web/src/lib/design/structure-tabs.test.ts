@@ -8,13 +8,16 @@ import {
 } from "./structure-tabs";
 
 describe("visibleStructureTabs", () => {
-  it("montre les huit onglets livrés aux deux rôles cabinet, dans l'ordre de la maquette", () => {
+  it("montre les huit onglets livrés aux deux rôles qui écrivent, dans l'ordre de la maquette", () => {
     const expected = ["overview", "documents", "criteres", "plan-action", "evaluation", "mission", "echanges", "reglages"];
     expect(visibleStructureTabs("CABINET_ADMIN").map((t) => t.id)).toEqual(expected);
     expect(visibleStructureTabs("CABINET_EVALUATOR").map((t) => t.id)).toEqual(expected);
   });
 
-  it("ne montre aucun onglet à un compte client", () => {
+  it("la lecture seule voit tout sauf les Réglages ; le commercial et le client, rien", () => {
+    expect(visibleStructureTabs("CABINET_READONLY").map((t) => t.id)).not.toContain("reglages");
+    expect(visibleStructureTabs("CABINET_READONLY").map((t) => t.id)).toContain("documents");
+    expect(visibleStructureTabs("CABINET_COMMERCIAL")).toEqual([]);
     expect(visibleStructureTabs("CLIENT_USER")).toEqual([]);
   });
 
@@ -27,7 +30,7 @@ describe("visibleStructureTabs", () => {
   it("un onglet ajouté en une ligne suit la visibilité par rôle", () => {
     const withAdminTab: StructureTab[] = [
       ...STRUCTURE_TABS,
-      { id: "equipe", label: "Équipe", segment: "equipe", roles: ["CABINET_ADMIN"] },
+      { id: "equipe", label: "Équipe", segment: "equipe", capability: "CABINET_SETTINGS" },
     ];
     expect(visibleStructureTabs("CABINET_ADMIN", withAdminTab).map((t) => t.id)).toContain("equipe");
     expect(visibleStructureTabs("CABINET_EVALUATOR", withAdminTab).map((t) => t.id)).not.toContain("equipe");

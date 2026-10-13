@@ -21,6 +21,13 @@ enum UserRole {
   CABINET_ADMIN
   CABINET_EVALUATOR
   CLIENT_USER
+  // Rôles cabinet ajoutés le 13/10/2026 (tranche N9, décision 5 du plan v2). Ce
+  // qu'ils peuvent faire ne se lit PAS ici : la matrice vit dans un service pur
+  // (apps/web/src/lib/auth/capabilities.ts), appliquée par lib/auth/guards.ts.
+  //   - CABINET_COMMERCIAL : pipeline commercial, jamais les documents des structures ;
+  //   - CABINET_READONLY   : consulte, ne modifie rien, ne voit pas le commercial.
+  CABINET_COMMERCIAL
+  CABINET_READONLY
 }
 
 enum EstablishmentType {
@@ -263,22 +270,23 @@ model Tenant {
   users          User[]
   establishments Establishment[]
 
-  catalogueFormules   CatalogueFormule[]
-  catalogueOptions    CatalogueOption[]
-  billingSettings     BillingSettings?
-  devisCounters       DevisCounter[]
-  prospects           Prospect[]
-  devis               Devis[]
-  missions            Mission[]
-  optionRequests      ClientOptionRequest[]
-  prospectTimeline    ProspectTimelineEntry[]
-  appointments        Appointment[]
-  missionMessages     MissionMessage[]
-  templateDocuments   TemplateDocument[]
-  templateCategories  TemplateCategory[]
-  knowledgeChunks     KnowledgeChunk[]
-  criterionGuidelines CriterionGuideline[]
-  actionItems         ActionItem[]
+  catalogueFormules        CatalogueFormule[]
+  catalogueOptions         CatalogueOption[]
+  billingSettings          BillingSettings?
+  devisCounters            DevisCounter[]
+  prospects                Prospect[]
+  devis                    Devis[]
+  missions                 Mission[]
+  optionRequests           ClientOptionRequest[]
+  prospectTimeline         ProspectTimelineEntry[]
+  appointments             Appointment[]
+  missionMessages          MissionMessage[]
+  templateDocuments        TemplateDocument[]
+  templateCategories       TemplateCategory[]
+  knowledgeChunks          KnowledgeChunk[]
+  criterionGuidelines      CriterionGuideline[]
+  actionItems              ActionItem[]
+  establishmentAssignments EstablishmentAssignment[]
 
   @@map("tenants")
 }
@@ -307,6 +315,9 @@ model User {
   // dans une liste. Réversible : la réactivation repose le drapeau.
   isActive      Boolean   @default(true) @map("is_active")
   deactivatedAt DateTime? @map("deactivated_at")
+  // Dernière connexion réussie — affichée sur « Équipe EODA » (N9). Un fait daté,
+  // posé à l'authentification ; jamais une durée de session ni une adresse IP.
+  lastLoginAt   DateTime? @map("last_login_at")
 
   tenant                      Tenant?                       @relation(fields: [tenantId], references: [id])
   establishmentUsers          EstablishmentUser[]
@@ -332,6 +343,7 @@ model User {
   practiceAnswers             PracticeAnswer[]
   proposalsGenerated          CorrectionProposal[]          @relation("ProposalGeneratedBy")
   proposalsApplied            CorrectionProposal[]          @relation("ProposalAppliedBy")
+  establishmentAssignments    EstablishmentAssignment[]
 
   @@index([tenantId])
   @@map("users")
@@ -381,7 +393,7 @@ model Establishment {
   createdAt               DateTime       @default(now()) @map("created_at")
   updatedAt               DateTime       @updatedAt @map("updated_at")
 
-  tenant                Tenant                 @relation(fields: [tenantId], references: [id])
+  tenant                Tenant                    @relation(fields: [tenantId], references: [id])
   establishmentUsers    EstablishmentUser[]
   documents             Document[]
   evaluationSessions    EvaluationSession[]
@@ -393,6 +405,7 @@ model Establishment {
   actionItems           ActionItem[]
   diagnosticValidations DiagnosticValidation[]
   practiceAnswers       PracticeAnswer[]
+  assignments           EstablishmentAssignment[]
 
   @@index([tenantId])
   @@map("establishments")
@@ -409,6 +422,37 @@ model EstablishmentUser {
   @@id([userId, establishmentId])
   @@index([establishmentId])
   @@map("establishment_users")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// AFFECTATION CONSULTANTE ↔ STRUCTURES — tranche N9 (13/10/2026).
+//
+// « Ses structures » (maquette Équipe EODA). Lue par lib/auth/guards.ts pour un
+// CABINET_EVALUATOR : il ne voit que les structures qui lui sont affectées — ou
+// TOUTES s'il n'en a aucune. Ce second cas est un choix de COMPATIBILITÉ, écrit ici
+// pour qu'on ne le prenne pas pour un oubli : les comptes consultante existants
+// n'ont aucune ligne, et leur retirer d'un coup l'accès à tout le portefeuille
+// serait une régression. Dès la première affectation, le périmètre se ferme.
+// L'administration voit toujours tout ; les autres rôles ne sont pas filtrés par
+// cette table (Commercial n'a aucun accès aux structures, Lecture seule voit tout
+// sans rien modifier).
+// ─────────────────────────────────────────────────────────────────────────────
+model EstablishmentAssignment {
+  id              String   @id @default(cuid())
+  tenantId        String   @map("tenant_id")
+  establishmentId String   @map("establishment_id")
+  userId          String   @map("user_id")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  tenant        Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  // Cascade : une affectation n'existe que par sa structure et par la personne.
+  establishment Establishment @relation(fields: [establishmentId], references: [id], onDelete: Cascade)
+  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, establishmentId])
+  @@index([tenantId])
+  @@index([establishmentId])
+  @@map("establishment_assignments")
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1580,6 +1624,12 @@ enum AuditAction {
   CORRECTION_PROPOSAL_EXPORTED
   CHANGE_REPORT_DOWNLOADED
   TEMPLATE_DOCUMENT_TYPE_LINKED
+  // Équipe EODA (N9). `targetId` = le compte visé, `detail` = le rôle ou le nombre
+  // de structures suivies — jamais un nom ni une adresse.
+  CABINET_USER_INVITED
+  CABINET_USER_ROLE_CHANGED
+  CABINET_USER_ACCESS_REMOVED
+  CABINET_USER_ASSIGNMENTS_UPDATED
 }
 
 model AuditLogEntry {

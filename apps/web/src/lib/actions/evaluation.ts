@@ -1,7 +1,7 @@
 "use server";
 
 import { prisma, Rating } from "@eoda/database";
-import { requireCabinetSession, requireEstablishmentInTenant } from "@/lib/auth/guards";
+import { requireCabinetSession, requireEstablishmentInTenant, requireStructureInScope } from "@/lib/auth/guards";
 import { notFound } from "next/navigation";
 import { isEnumValue } from "@/lib/validation/form-parsers";
 import { revalidatePath } from "next/cache";
@@ -19,13 +19,16 @@ import { isRatingAllowed, type RatingAllowedResult } from "@/lib/services/scorin
 // sans ce contrôle, un identifiant deviné permet de coter l'établissement d'un
 // autre cabinet.
 async function requireEvaluationSessionInTenant(evaluationSessionId: string) {
-  const { tenantId, session, userId } = await requireCabinetSession();
+  // Ses deux appelants ÉCRIVENT (coter, clôturer) : lecture seule refusée.
+  const context = await requireCabinetSession("STRUCTURES_WRITE");
+  const { tenantId, session, userId } = context;
 
   const evaluationSession = await prisma.evaluationSession.findFirst({
     where: { id: evaluationSessionId, establishment: { tenantId } },
     include: { chapter: true },
   });
   if (!evaluationSession) notFound();
+  requireStructureInScope(context, evaluationSession.establishmentId);
 
   return { evaluationSession, session, tenantId, userId };
 }
@@ -64,7 +67,7 @@ export async function getChapterSessionState(
   establishmentId: string,
   chapterId: string
 ): Promise<ChapterSessionState> {
-  await requireEstablishmentInTenant(establishmentId);
+  await requireEstablishmentInTenant(establishmentId, "READ");
 
   const latest = await prisma.evaluationSession.findFirst({
     where: { establishmentId, chapterId },
@@ -94,7 +97,7 @@ export async function startOrResumeEvaluationSession(
   establishmentId: string,
   chapterId: string
 ): Promise<{ sessionId: string; startedAt: Date }> {
-  const { userId } = await requireEstablishmentInTenant(establishmentId);
+  const { userId } = await requireEstablishmentInTenant(establishmentId, "WRITE");
 
   // Le chapitre doit exister dans le référentiel — un identifiant arbitraire ne doit
   // pas produire une session orpheline (erreur de contrainte technique côté client).

@@ -1,7 +1,7 @@
 "use server";
 
 import { prisma } from "@eoda/database";
-import { requireCabinetSession } from "@/lib/auth/guards";
+import { requireCabinetSession, structureScopeWhere } from "@/lib/auth/guards";
 import { listEstablishments } from "@/lib/actions/establishment";
 import { getEstablishmentIdsWithUnansweredMessage } from "@/lib/actions/message";
 import { countDocumentsAwaitingReviewByEstablishment } from "@/lib/actions/review-queue";
@@ -35,7 +35,7 @@ export type StructuresOverview = {
 };
 
 export async function getStructuresOverview(): Promise<StructuresOverview> {
-  const { tenantId } = await requireCabinetSession();
+  const context = await requireCabinetSession("STRUCTURES_READ");
 
   const [establishments, unanswered, awaitingReview, loi2002, loi2002Total] = await Promise.all([
     listEstablishments(),
@@ -44,7 +44,7 @@ export async function getStructuresOverview(): Promise<StructuresOverview> {
     prisma.document.groupBy({
       by: ["establishmentId"],
       where: {
-        establishment: { tenantId },
+        establishment: structureScopeWhere(context),
         documentType: { category: "LOI_2002_2" },
         currentVersionId: { not: null },
       },

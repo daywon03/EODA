@@ -28,7 +28,10 @@ export type NavIconKey =
   | "messages"
   | "criteria"
   | "tasks"
-  | "diagnostic";
+  | "diagnostic"
+  | "team"
+  | "staff"
+  | "settings";
 
 export type NavItem = {
   id: string;

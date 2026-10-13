@@ -24,7 +24,8 @@ import {
   stepTitle,
 } from "@/lib/services/mission-progress-service";
 import { AvenantSignatureToggle } from "@/components/mission/AvenantSignatureToggle";
-import { auth } from "@/auth";
+import { requireEstablishmentInTenant } from "@/lib/auth/guards";
+import { hasCabinetCapability } from "@/lib/auth/capabilities";
 
 export const metadata = { title: "Mission" };
 
@@ -32,13 +33,18 @@ type Props = { params: Promise<{ id: string }> };
 
 export default async function MissionPage({ params }: Props) {
   const { id } = await params;
-  // getEstablishment reste appelé : c'est la garde (tenant, notFound) de la route.
-  const [session, , mission, formules, options, documentCounters] = await Promise.all([
-    auth(),
+  // La garde d'abord : elle rend le rôle RELU EN BASE, qui décide de ce qui se lit.
+  // Les montants (périmètre contractuel, formules et options du catalogue) ne sont
+  // même pas DEMANDÉS pour un rôle sans STRUCTURE_CONTRACT : leurs lectures les
+  // refusent de toute façon (N9 — « une consultante ne voit pas les montants »).
+  const { role } = await requireEstablishmentInTenant(id, "READ");
+  const canSeeContract = hasCabinetCapability(role, "STRUCTURE_CONTRACT");
+  const canManage = hasCabinetCapability(role, "CABINET_SETTINGS");
+  const [, mission, formules, options, documentCounters] = await Promise.all([
     getEstablishment(id),
     getMission(id),
-    listFormulesForMissionSetup(),
-    listOptionsForMissionSetup(),
+    canSeeContract ? listFormulesForMissionSetup() : Promise.resolve([]),
+    canSeeContract ? listOptionsForMissionSetup() : Promise.resolve([]),
     getMissionDocumentCounters(id),
   ]);
 
@@ -56,7 +62,13 @@ export default async function MissionPage({ params }: Props) {
             <CardTitle className="text-base">Démarrer le suivi</CardTitle>
           </CardHeader>
           <CardContent>
-            <CreateMissionForm establishmentId={id} formules={formules} options={options} />
+            {canSeeContract ? (
+              <CreateMissionForm establishmentId={id} formules={formules} options={options} />
+            ) : (
+              <p className="text-ink">
+                Le suivi démarre quand l&apos;administration enregistre le périmètre de la mission.
+              </p>
+            )}
           </CardContent>
         </Card>
       ) : (
@@ -74,11 +86,12 @@ export default async function MissionPage({ params }: Props) {
               <SupportModeSection
                 missionId={mission.id}
                 supportMode={mission.supportMode}
-                canManage={session?.user.role === "CABINET_ADMIN"}
+                canManage={canManage}
               />
             </CardContent>
           </Card>
 
+          {canSeeContract && (
           <Card>
             <CardHeader>
               <CardTitle className="text-base">Périmètre contractuel</CardTitle>
@@ -147,6 +160,7 @@ export default async function MissionPage({ params }: Props) {
               />
             </CardContent>
           </Card>
+          )}
 
           {/* Quatre ÉTAPES affichées (MISSION_STEPS) : la checklist de diagnostic,
               puis les phases datées stockées regroupées. Chaque phase reste éditable
@@ -196,7 +210,7 @@ export default async function MissionPage({ params }: Props) {
                 missionId={mission.id}
                 closedAt={mission.closedAt}
                 clientAccessRevokedAt={mission.clientAccessRevokedAt}
-                canManageClosure={session?.user.role === "CABINET_ADMIN"}
+                canManageClosure={canManage}
               />
             </CardContent>
           </Card>

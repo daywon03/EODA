@@ -32,7 +32,7 @@ vi.mock("next/navigation", () => ({
 }));
 vi.mock("@/lib/storage", () => ({ getFileStoragePort: vi.fn() }));
 vi.mock("@/lib/auth/guards", () => ({
-  requireCabinetAdminSession: () => requireCabinetAdminSession(),
+  requireCommercialSession: () => requireCabinetAdminSession(),
   requireCabinetSession: vi.fn(),
   requireAdminEstablishmentInTenant: vi.fn(),
   requireEstablishmentAccess: vi.fn(),

@@ -1,6 +1,6 @@
 "use server";
 
-import { requireCabinetSession } from "@/lib/auth/guards";
+import { requireEstablishmentInTenant } from "@/lib/auth/guards";
 import { readContractData, type ContractReadResult } from "@/lib/db/read-contract-data";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -26,6 +26,8 @@ import { readContractData, type ContractReadResult } from "@/lib/db/read-contrac
 export async function getContractData(
   establishmentId: string
 ): Promise<ContractReadResult | null> {
-  const { tenantId } = await requireCabinetSession();
+  // Montants de la structure : capacité STRUCTURE_CONTRACT (N9) — une consultante
+  // suit la mission sans voir ce que la structure paie.
+  const { tenantId } = await requireEstablishmentInTenant(establishmentId, "CONTRACT");
   return readContractData(establishmentId, tenantId);
 }

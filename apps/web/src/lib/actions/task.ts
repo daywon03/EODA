@@ -3,7 +3,8 @@
 import { prisma, ActionOwnerKind } from "@eoda/database";
 import { revalidatePath } from "next/cache";
 import { notFound } from "next/navigation";
-import { requireCabinetSession, requireEstablishmentAccess } from "@/lib/auth/guards";
+import { requireCabinetSession, requireEstablishmentAccess, structureScopeWhere } from "@/lib/auth/guards";
+import { NEED } from "@/lib/auth/capabilities";
 import { recordAuditEvent } from "@/lib/services/audit-log-service";
 import { canDepositDocuments } from "@/lib/services/mission-access-service";
 import {
@@ -92,7 +93,7 @@ function revalidateTasks(establishmentId: string): void {
 }
 
 export async function listEstablishmentActionItems(establishmentId: string): Promise<EstablishmentActionItems> {
-  const access = await requireEstablishmentAccess(establishmentId);
+  const access = await requireEstablishmentAccess(establishmentId, NEED.TASKS_READ);
   const [rows, people] = await Promise.all([
     prisma.actionItem.findMany({
       where: { establishmentId: access.establishmentId, ...(access.isClient ? { ownerKind: "STRUCTURE" } : {}) },
@@ -128,7 +129,7 @@ function parseOwner(formData: FormData): { error: string } | { ownerKind: Action
 export async function createActionItem(formData: FormData): Promise<{ error: string } | null> {
   const establishmentIdRaw = formData.get("establishmentId");
   if (typeof establishmentIdRaw !== "string" || establishmentIdRaw.length === 0) return { error: "Structure manquante." };
-  const access = await requireEstablishmentAccess(establishmentIdRaw);
+  const access = await requireEstablishmentAccess(establishmentIdRaw, NEED.TASKS_WRITE);
   if (!canWrite(access)) return { error: "L'accompagnement est clôturé : les tâches sont en lecture seule." };
 
   const title = requiredString(formData, "title", "La tâche", 400);
@@ -179,7 +180,7 @@ async function resolveItem(formData: FormData): Promise<{ access: AccessContext;
   const establishmentId = formData.get("establishmentId");
   const itemId = formData.get("actionItemId");
   if (typeof establishmentId !== "string" || typeof itemId !== "string" || !establishmentId || !itemId) notFound();
-  const access = await requireEstablishmentAccess(establishmentId);
+  const access = await requireEstablishmentAccess(establishmentId, NEED.TASKS_WRITE);
   const item = await prisma.actionItem.findFirst({
     where: { id: itemId, establishmentId: access.establishmentId },
     select: { id: true, title: true, ownerKind: true, ownerUserId: true, ownerFunction: true, dueOn: true, doneAt: true, source: true },
@@ -250,9 +251,10 @@ export async function reassignActionItem(formData: FormData): Promise<{ error: s
 export type TodayTask = ActionItemFacts & { establishmentId: string; establishmentName: string };
 
 export async function listMyTasksToday(now: Date = new Date()): Promise<TodayTask[]> {
-  const { userId, tenantId } = await requireCabinetSession();
+  const context = await requireCabinetSession("STRUCTURES_READ");
+  const { userId, tenantId } = context;
   const rows = await prisma.actionItem.findMany({
-    where: { tenantId, ownerUserId: userId, doneAt: null, dueOn: { not: null } },
+    where: { tenantId, establishment: structureScopeWhere(context), ownerUserId: userId, doneAt: null, dueOn: { not: null } },
     select: {
       id: true,
       title: true,

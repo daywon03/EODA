@@ -28,6 +28,7 @@ vi.mock("next/navigation", () => ({
 vi.mock("@/lib/auth/guards", () => ({
   requireEstablishmentAccess: (id: string) => requireEstablishmentAccess(id),
   requireCabinetSession: () => requireCabinetSession(),
+  structureScopeWhere: (context: { tenantId: string }) => ({ tenantId: context.tenantId }),
 }));
 vi.mock("@/lib/services/audit-log-service", () => ({
   recordAuditEvent: (...args: unknown[]) => recordAuditEvent(...args),
@@ -186,7 +187,9 @@ describe("lectures", () => {
     ]);
     const tasks = await listMyTasksToday(new Date(2026, 9, 12));
     expect(prismaMock.actionItem.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { tenantId: "t-1", ownerUserId: "eoda-1", doneAt: null, dueOn: { not: null } } })
+      expect.objectContaining({
+        where: { tenantId: "t-1", establishment: { tenantId: "t-1" }, ownerUserId: "eoda-1", doneAt: null, dueOn: { not: null } },
+      })
     );
     expect(tasks.map((t) => t.establishmentName)).toEqual(["SAD Les Glycines (fictif)"]);
   });

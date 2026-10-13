@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildCabinetInvitationEmail,
   buildClientInvitationEmail,
   buildDocumentReminderEmail,
   buildOptionRequestEmail,
@@ -168,5 +169,27 @@ describe("buildDocumentReminderEmail", () => {
 
   it("n'affiche aucun bloc de citation sans message", () => {
     expect(buildDocumentReminderEmail(base).html).not.toContain("blockquote");
+  });
+});
+
+describe("buildCabinetInvitationEmail", () => {
+  const invitation = buildCabinetInvitationEmail({
+    recipientName: "Consultante <fictive>",
+    email: "consultante@example.org",
+    temporaryPassword: "Xk7-mots-de-passe",
+    loginUrl: "https://portail.example.org/login",
+    roleLabel: "Consultante",
+  });
+
+  it("nomme le rôle, donne l'identifiant, le mot de passe temporaire et le lien", () => {
+    expect(invitation.html).toContain("Consultante</strong>");
+    expect(invitation.html).toContain("consultante@example.org");
+    expect(invitation.html).toContain("Xk7-mots-de-passe");
+    expect(invitation.html).toContain("https://portail.example.org/login");
+    expect(invitation.html).toContain("Ouvrir le portail");
+  });
+
+  it("échappe le nom saisi", () => {
+    expect(invitation.html).toContain("Consultante &lt;fictive&gt;");
   });
 });

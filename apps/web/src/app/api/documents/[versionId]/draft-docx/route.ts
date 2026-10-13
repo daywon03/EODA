@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { prisma } from "@eoda/database";
 import { tryEstablishmentAccess } from "@/lib/auth/guards";
+import { NEED } from "@/lib/auth/capabilities";
 import { recordAuditEvent } from "@/lib/services/audit-log-service";
 import { generateBrandedDocx } from "@/lib/services/markdown-to-docx-service";
 import { getEstablishmentSupportMode } from "@/lib/services/establishment-offer-service";
@@ -37,7 +38,7 @@ export async function GET(_request: Request, context: Context): Promise<Response
   });
   if (!version) notFound();
 
-  const access = await tryEstablishmentAccess(version.document.establishmentId);
+  const access = await tryEstablishmentAccess(version.document.establishmentId, NEED.DOCUMENTS_READ);
   if (!access || access.isClient) notFound();
   if (!version.correctedDraftMarkdown) notFound();
 

@@ -2,7 +2,7 @@
 
 import { prisma, Prisma } from "@eoda/database";
 import { notFound } from "next/navigation";
-import { requireCabinetSession, requireEstablishmentInTenant } from "@/lib/auth/guards";
+import { requireCabinetSession, requireEstablishmentInTenant, structureScopeWhere } from "@/lib/auth/guards";
 import type { ReviewSummary } from "@/lib/services/structure-sheet-service";
 import { parseAnalysisResult } from "@/lib/services/analysis-view-service";
 import { isCriterionImperativeForEstablishment } from "@/lib/services/criterion-imperativeness-service";
@@ -33,31 +33,31 @@ const REVIEW_QUEUE_LIMIT = 200;
 // Identifiant cuid : une chaîne courte. Tout le reste est refusé avant la base.
 const MAX_ID_LENGTH = 64;
 
-function awaitingReviewWhere(tenantId: string): Prisma.DocumentVersionWhereInput {
+function awaitingReviewWhere(establishment: Prisma.EstablishmentWhereInput): Prisma.DocumentVersionWhereInput {
   return {
     analysisResultJson: { not: Prisma.AnyNull },
     analysisReviewedAt: null,
     currentForDocument: { isNot: null },
-    document: { establishment: { tenantId } },
+    document: { establishment },
   };
 }
 
 // Sert la pastille de la barre latérale, rendue à chaque page : un `count`, pas
 // la liste.
 export async function countDocumentsAwaitingReview(): Promise<number> {
-  const { tenantId } = await requireCabinetSession();
-  return prisma.documentVersion.count({ where: awaitingReviewWhere(tenantId) });
+  const context = await requireCabinetSession("STRUCTURES_READ");
+  return prisma.documentVersion.count({ where: awaitingReviewWhere(structureScopeWhere(context)) });
 }
 
 // Même file, regroupée par structure (accueil, liste des structures). Une requête
 // groupée sur les DOCUMENTS dont la version courante attend : un document n'a
 // qu'une version courante, donc le compte est le même que celui de la file.
 export async function countDocumentsAwaitingReviewByEstablishment(): Promise<Map<string, number>> {
-  const { tenantId } = await requireCabinetSession();
+  const context = await requireCabinetSession("STRUCTURES_READ");
   const groups = await prisma.document.groupBy({
     by: ["establishmentId"],
     where: {
-      establishment: { tenantId },
+      establishment: structureScopeWhere(context),
       currentVersion: {
         is: { analysisResultJson: { not: Prisma.AnyNull }, analysisReviewedAt: null },
       },
@@ -71,9 +71,9 @@ export async function countDocumentsAwaitingReviewByEstablishment(): Promise<Map
 // la plus ancienne). L'identifiant reçu est revérifié dans le tenant (notFound
 // sinon) ; le filtre de la file reste celui ci-dessus, borné à la fiche.
 export async function getEstablishmentReviewSummary(establishmentId: string): Promise<ReviewSummary> {
-  const { tenantId } = await requireEstablishmentInTenant(establishmentId);
+  const { tenantId } = await requireEstablishmentInTenant(establishmentId, "READ");
   const where: Prisma.DocumentVersionWhereInput = {
-    ...awaitingReviewWhere(tenantId),
+    ...awaitingReviewWhere({ tenantId }),
     document: { establishmentId, establishment: { tenantId } },
   };
   const [count, oldest] = await Promise.all([
@@ -87,8 +87,8 @@ export async function listDocumentsAwaitingReview(): Promise<{
   items: ReviewQueueItem[];
   totalCount: number;
 }> {
-  const { tenantId } = await requireCabinetSession();
-  const where = awaitingReviewWhere(tenantId);
+  const context = await requireCabinetSession("STRUCTURES_READ");
+  const where = awaitingReviewWhere(structureScopeWhere(context));
 
   const [rows, totalCount] = await Promise.all([
     prisma.documentVersion.findMany({
@@ -152,11 +152,11 @@ export type ReviewQueueEntry = {
 // lu que s'il appartient au tenant de l'appelant — sinon notFound(), sans dire
 // s'il existe ailleurs.
 export async function getReviewQueueEntry(versionId: string): Promise<ReviewQueueEntry> {
-  const { tenantId } = await requireCabinetSession();
+  const context = await requireCabinetSession("STRUCTURES_READ");
   if (typeof versionId !== "string" || versionId.length === 0 || versionId.length > MAX_ID_LENGTH) notFound();
 
   const version = await prisma.documentVersion.findFirst({
-    where: { id: versionId, document: { establishment: { tenantId } } },
+    where: { id: versionId, document: { establishment: structureScopeWhere(context) } },
     select: {
       id: true,
       versionNumber: true,

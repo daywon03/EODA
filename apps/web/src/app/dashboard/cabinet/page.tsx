@@ -30,7 +30,9 @@ const HAS_HORIZON_DAYS = 180;
 // l'agenda, et « Mes tâches du jour » (tâches confiées à la personne connectée,
 // échues ou en retard — tranche N5).
 export default async function CabinetHomePage() {
-  const { session } = await requireCabinetSession();
+  // Un compte sans lecture des structures (commercial) est renvoyé par la garde vers
+  // SA page d'arrivée — l'accueil ne lui montrerait que des compteurs interdits.
+  const { session } = await requireCabinetSession("STRUCTURES_READ");
   const [{ rows, portfolio }, queue, appointments, todayTasks] = await Promise.all([
     getStructuresOverview(),
     listDocumentsAwaitingReview(),

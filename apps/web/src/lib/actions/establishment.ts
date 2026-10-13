@@ -6,9 +6,12 @@ import { revalidatePath } from "next/cache";
 import {
   requireAdminEstablishmentInTenant,
   requireCabinetSession,
+  requireCommercialSession,
+  structureScopeWhere,
   requireEstablishmentInTenant,
   requireEstablishmentAccess,
 } from "@/lib/auth/guards";
+import { NEED } from "@/lib/auth/capabilities";
 import { canDepositDocuments } from "@/lib/services/mission-access-service";
 import { recordAuditEvent } from "@/lib/services/audit-log-service";
 import { validateLogoUpload } from "@/lib/security/upload-validation-service";
@@ -145,7 +148,7 @@ export async function updateEstablishment(
   _prevState: { error: string } | null,
   formData: FormData
 ): Promise<{ error: string } | null> {
-  await requireEstablishmentInTenant(id);
+  await requireEstablishmentInTenant(id, "WRITE");
 
   const parsed = parseEstablishmentInput(formData);
   if ("error" in parsed) return parsed;
@@ -226,14 +229,14 @@ export async function uploadEstablishmentLogo(
     return { error: "Établissement manquant." };
   }
 
-  const { establishmentId } = await requireEstablishmentInTenant(establishmentIdRaw);
+  const { establishmentId } = await requireEstablishmentInTenant(establishmentIdRaw, "WRITE");
   return applyLogoUpload(establishmentId, formData.get("logo"));
 }
 
 export async function removeEstablishmentLogo(
   establishmentId: string
 ): Promise<{ error: string } | null> {
-  const { establishmentId: id } = await requireEstablishmentInTenant(establishmentId);
+  const { establishmentId: id } = await requireEstablishmentInTenant(establishmentId, "WRITE");
   return applyLogoRemoval(id);
 }
 
@@ -253,7 +256,7 @@ export async function uploadEstablishmentLogoAsClient(
     return { error: "Établissement manquant." };
   }
 
-  const access = await requireEstablishmentAccess(establishmentIdRaw);
+  const access = await requireEstablishmentAccess(establishmentIdRaw, NEED.ACCESS_WRITE);
   if (!access.isClient) return { error: "Réservé à l'espace client." };
   if (!canDepositDocuments(access.missionAccess)) {
     return { error: "Votre accompagnement est clos : le logo ne peut plus être modifié." };
@@ -265,7 +268,7 @@ export async function uploadEstablishmentLogoAsClient(
 export async function removeEstablishmentLogoAsClient(
   establishmentId: string
 ): Promise<{ error: string } | null> {
-  const access = await requireEstablishmentAccess(establishmentId);
+  const access = await requireEstablishmentAccess(establishmentId, NEED.ACCESS_WRITE);
   if (!access.isClient) return { error: "Réservé à l'espace client." };
   if (!canDepositDocuments(access.missionAccess)) {
     return { error: "Votre accompagnement est clos : le logo ne peut plus être modifié." };
@@ -441,10 +444,10 @@ const LIFECYCLE_INCLUDE = {
 // `_count` sur les items cochés plutôt que la liste : on n'a besoin que de savoir si
 // le diagnostic a commencé, pas de quoi il est fait.
 export async function listEstablishments() {
-  const { tenantId } = await requireCabinetSession();
+  const context = await requireCabinetSession("STRUCTURES_READ");
 
   return prisma.establishment.findMany({
-    where: { tenantId },
+    where: structureScopeWhere(context),
     orderBy: { createdAt: "desc" },
     include: { _count: { select: { documents: true } }, ...LIFECYCLE_INCLUDE },
   });
@@ -458,7 +461,7 @@ export async function listEstablishments() {
 // Converti en `PortfolioRow` ici et pas dans la page : la couche de présentation
 // n'a pas à connaître la forme Prisma (huit colonnes de dates, items filtrés).
 export async function listPortfolioRowsForKpi(): Promise<PortfolioRow[]> {
-  const { tenantId } = await requireCabinetSession();
+  const { tenantId } = await requireCommercialSession();
 
   const rows = await prisma.establishment.findMany({
     where: { tenantId },
@@ -496,7 +499,7 @@ export type EstablishmentWithUsers = Prisma.EstablishmentGetPayload<{
 }>;
 
 export async function getEstablishment(id: string): Promise<EstablishmentWithUsers> {
-  const { tenantId } = await requireCabinetSession();
+  const { tenantId } = await requireEstablishmentInTenant(id, "READ");
 
   const establishment = await prisma.establishment.findFirst({
     where: { id, tenantId },

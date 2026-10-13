@@ -11,7 +11,9 @@ export const metadata = { title: "Mon profil" };
 
 const ROLE_LABELS: Record<string, string> = {
   CABINET_ADMIN: "Cabinet — administration",
-  CABINET_EVALUATOR: "Cabinet — évaluation",
+  CABINET_EVALUATOR: "Cabinet — consultante",
+  CABINET_COMMERCIAL: "Cabinet — commercial",
+  CABINET_READONLY: "Cabinet — lecture seule",
   CLIENT_USER: "Structure accompagnée",
 };
 

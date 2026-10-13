@@ -64,7 +64,7 @@ export async function getEvaluationChapter(
   establishmentId: string,
   chapterNumber: number
 ): Promise<EvaluationChapterData> {
-  const { establishmentType } = await requireEstablishmentInTenant(establishmentId);
+  const { establishmentType } = await requireEstablishmentInTenant(establishmentId, "READ");
   // Profil SAD aide / mixte : jamais les critères de l'autre profil (N4).
   const applicableTo = { in: applicableToValuesFor(establishmentType) };
 
@@ -210,6 +210,6 @@ export async function getEvaluationChapter(
 }
 
 export async function listChapters() {
-  await requireCabinetSession();
+  await requireCabinetSession("STRUCTURES_READ");
   return prisma.chapter.findMany({ orderBy: { number: "asc" } });
 }

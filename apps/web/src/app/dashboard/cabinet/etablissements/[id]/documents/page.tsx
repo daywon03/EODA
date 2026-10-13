@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { requireEstablishmentInTenant } from "@/lib/auth/guards";
+import { hasCabinetCapability } from "@/lib/auth/capabilities";
 import { getEstablishmentChecklist, type ChecklistItem } from "@/lib/actions/checklist";
 import { selectReminderLabels } from "@/lib/services/reminder-service";
 import { formatDate } from "@/lib/services/date-format-service";
@@ -79,7 +80,7 @@ function columns(): DataTableColumn<Row>[] {
 export default async function StructureDocumentsPage({ params, searchParams }: Props) {
   const { id } = await params;
   const raw = await searchParams;
-  const { role } = await requireEstablishmentInTenant(id);
+  const { role } = await requireEstablishmentInTenant(id, "READ");
   const checklist = await getEstablishmentChecklist(id);
 
   const filters = parseDocumentFilters(raw);
@@ -152,7 +153,7 @@ export default async function StructureDocumentsPage({ params, searchParams }: P
 
       {opened && (
         <UrlSheet title={opened.label} closeHref={documentsHref(basePath, filters)}>
-          <DocumentSheetBody item={opened} categoryLabel={DOCUMENT_CATEGORY_LABELS[opened.category]} establishmentId={id} canEditScope={role === "CABINET_ADMIN"} />
+          <DocumentSheetBody item={opened} categoryLabel={DOCUMENT_CATEGORY_LABELS[opened.category]} establishmentId={id} canEditScope={hasCabinetCapability(role, "CABINET_SETTINGS")} />
         </UrlSheet>
       )}
     </div>

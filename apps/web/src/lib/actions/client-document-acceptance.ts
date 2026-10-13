@@ -1,5 +1,6 @@
 "use server";
 
+import { NEED } from "@/lib/auth/capabilities";
 import { prisma } from "@eoda/database";
 import { revalidatePath } from "next/cache";
 import { notFound } from "next/navigation";
@@ -35,7 +36,7 @@ export async function acceptDocument(
 ): Promise<{ error: string } | null> {
   if (typeof establishmentId !== "string" || typeof documentTypeId !== "string") notFound();
 
-  const access = await requireEstablishmentAccess(establishmentId);
+  const access = await requireEstablishmentAccess(establishmentId, NEED.DOCUMENTS_WRITE);
   // Accepter est la parole de la STRUCTURE : le cabinet a son propre geste
   // (setDocumentValidated). Un appel cabinet ne révèle rien de plus qu'un refus.
   if (!access.isClient) notFound();

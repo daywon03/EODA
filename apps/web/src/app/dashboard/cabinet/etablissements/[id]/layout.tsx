@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { requireCabinetSession } from "@/lib/auth/guards";
+import { hasCabinetCapability } from "@/lib/auth/capabilities";
 import { getEstablishment } from "@/lib/actions/establishment";
 import { getEstablishmentReviewSummary } from "@/lib/actions/review-queue";
 import { toMissionLifecycleFacts } from "@/lib/db/to-mission-lifecycle-facts";
@@ -31,7 +32,7 @@ const CHIP_CLASS = "whitespace-nowrap rounded-md border border-line bg-card px-2
 export default async function StructureLayout({ children, params }: Props) {
   const { id } = await params;
   const [{ role }, establishment, review] = await Promise.all([
-    requireCabinetSession(),
+    requireCabinetSession("STRUCTURES_READ"),
     getEstablishment(id),
     getEstablishmentReviewSummary(id),
   ]);
@@ -45,10 +46,18 @@ export default async function StructureLayout({ children, params }: Props) {
 
   // Les gestes de l'ancienne fiche, regroupés — aucun n'a disparu : modifier,
   // comptes et logo (Réglages), contrat, rapport, et la suppression (admin).
+  // Ce que le rôle permet (capabilities.ts) : masquer ici n'est qu'un confort, les
+  // routes et les actions visées refusent d'elles-mêmes.
+  const canWrite = hasCabinetCapability(role, "STRUCTURES_WRITE");
+  const canSeeContract = hasCabinetCapability(role, "STRUCTURE_CONTRACT");
   const links: MoreActionLink[] = [
-    { id: "modifier", label: "Modifier la fiche", href: structureHref(id, "modifier") },
-    { id: "reglages", label: "Comptes clients et logo", href: structureHref(id, "reglages") },
-    ...(establishment.mission
+    ...(canWrite
+      ? [
+          { id: "modifier", label: "Modifier la fiche", href: structureHref(id, "modifier") },
+          { id: "reglages", label: "Comptes clients et logo", href: structureHref(id, "reglages") },
+        ]
+      : []),
+    ...(establishment.mission && canSeeContract
       ? [{ id: "contrat", label: "Éditer le contrat", href: `/imprimer/contrat/${id}?auto=1`, newTab: true }]
       : []),
     { id: "rapport", label: "Éditer le rapport de conformité", href: `/imprimer/rapport/${id}?auto=1`, newTab: true },
@@ -64,7 +73,7 @@ export default async function StructureLayout({ children, params }: Props) {
       <MoreActionsMenu
         links={links}
         footer={
-          role === "CABINET_ADMIN" ? (
+          hasCabinetCapability(role, "CABINET_SETTINGS") ? (
             <DeleteEstablishmentButton establishmentId={id} establishmentName={establishment.name} />
           ) : undefined
         }
@@ -88,6 +97,11 @@ export default async function StructureLayout({ children, params }: Props) {
         actions={actions}
         tabs={<StructureTabsNav establishmentId={id} visibleTabIds={visibleStructureTabs(role).map((t) => t.id)} />}
       />
+      {!canWrite && (
+        <p role="status" className="rounded-lg border border-line bg-card px-4 py-3 text-ink">
+          Lecture seule : vous consultez cette structure sans pouvoir la modifier.
+        </p>
+      )}
       {children}
     </div>
   );

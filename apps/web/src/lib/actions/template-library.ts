@@ -60,7 +60,7 @@ type ActionResult = { error: string } | null;
 export type CategorySummary = { id: string; name: string; position: number; templateCount: number };
 
 export async function listTemplateCategories(): Promise<CategorySummary[]> {
-  const { tenantId } = await requireCabinetSession();
+  const { tenantId } = await requireCabinetSession("LIBRARY_READ");
 
   const categories = await prisma.templateCategory.findMany({
     where: { tenantId },
@@ -248,7 +248,7 @@ export type LibraryFolder = { id: string; name: string; templates: TemplateSumma
 // la main, les fiches dedans. Une seule requête — un `findMany` par dossier ferait
 // autant d'allers-retours que de dossiers, pour la même donnée.
 export async function listLibrary(criterionId?: string): Promise<LibraryFolder[]> {
-  const { tenantId } = await requireCabinetSession();
+  const { tenantId } = await requireCabinetSession("LIBRARY_READ");
 
   const categories = await prisma.templateCategory.findMany({
     where: { tenantId },
@@ -320,7 +320,7 @@ export type TemplateDetail = {
 };
 
 export async function getTemplate(templateId: string): Promise<TemplateDetail> {
-  const { tenantId } = await requireCabinetSession();
+  const { tenantId } = await requireCabinetSession("LIBRARY_READ");
 
   // `templateId` arrive par une route HTTP publique : l'appartenance au tenant se
   // vérifie en base. `notFound()` et non `redirect()` — ne pas révéler qu'un
@@ -870,7 +870,7 @@ export async function createCategoryAndMoveTemplate(
 }
 
 export async function getTemplateVersionDownloadUrl(versionId: string): Promise<string | null> {
-  const { tenantId } = await requireCabinetSession();
+  const { tenantId } = await requireCabinetSession("LIBRARY_READ");
 
   const version = await prisma.templateVersion.findFirst({
     // Le filtre remonte jusqu'au tenant par la fiche parente : un identifiant de
@@ -901,7 +901,7 @@ export async function getTemplateVersionDownloadUrl(versionId: string): Promise<
 // (cf. storeVersion ci-dessus). Même forme que getDocumentPreviewData côté
 // documents clients — même modale à l'affichage (FilePreviewModal, D1).
 export async function getTemplateVersionPreviewData(versionId: string): Promise<FilePreviewData | null> {
-  const { tenantId } = await requireCabinetSession();
+  const { tenantId } = await requireCabinetSession("LIBRARY_READ");
 
   const version = await prisma.templateVersion.findFirst({
     where: { id: versionId, templateDocument: { tenantId } },
@@ -933,7 +933,7 @@ export type TemplateExtractedTextData =
 export async function getTemplateVersionExtractedText(
   versionId: string
 ): Promise<TemplateExtractedTextData | null> {
-  const { tenantId } = await requireCabinetSession();
+  const { tenantId } = await requireCabinetSession("LIBRARY_READ");
 
   const version = await prisma.templateVersion.findFirst({
     where: { id: versionId, templateDocument: { tenantId } },

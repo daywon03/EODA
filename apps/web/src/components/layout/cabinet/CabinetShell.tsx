@@ -3,6 +3,7 @@ import { requireCabinetSession } from "@/lib/auth/guards";
 import { countDocumentsAwaitingReview } from "@/lib/actions/review-queue";
 import { countPendingOptionRequests } from "@/lib/actions/option-request";
 import { buildCabinetNav, canSeeCommercial } from "@/lib/design/cabinet-navigation";
+import { hasCabinetCapability } from "@/lib/auth/capabilities";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
 import { HelpLink, MAIN_CONTENT_ID, SkipLink } from "../shell-parts";
 import { CabinetSidebar } from "./CabinetSidebar";
@@ -16,21 +17,20 @@ import { CabinetProfile } from "./CabinetProfile";
 // Composant SERVEUR : il lit la session par la garde (rôle relu en base) et les
 // deux compteurs, puis confie au client le strict nécessaire (repli, tiroir,
 // adresse courante). La visibilité de la section Commercial suit le rôle ; la
-// PROTECTION, elle, reste dans chaque lecture commerciale (requireCabinetAdminSession).
+// PROTECTION, elle, reste dans chaque lecture commerciale (requireCommercialSession).
 //
 // Absents volontairement : « Voir comme le client » et la recherche ⌘K de la
 // maquette. Ce sont des fonctionnalités, pas de l'habillage ; un bouton qui ne fait
 // rien est une donnée factice (D6). Ils arriveront avec leur tranche.
 // ─────────────────────────────────────────────────────────────────────────────
 export async function CabinetShell({ children }: { children: ReactNode }) {
-  const { session, role } = await requireCabinetSession();
-  const isAdmin = canSeeCommercial(role);
+  const { session, role } = await requireCabinetSession("ANY_CABINET_ROLE");
 
+  // Chaque compteur a sa propre garde : il n'est appelé que pour un rôle qui la passe
+  // (sinon elle le renverrait ailleurs au milieu du rendu de la coquille).
   const [documentsAwaitingReview, pendingOptionRequests] = await Promise.all([
-    countDocumentsAwaitingReview(),
-    // Lecture commerciale : réservée à l'admin par sa propre garde, donc jamais
-    // appelée pour un autre rôle (elle le renverrait ailleurs).
-    isAdmin ? countPendingOptionRequests() : Promise.resolve(0),
+    hasCabinetCapability(role, "STRUCTURES_READ") ? countDocumentsAwaitingReview() : Promise.resolve(0),
+    canSeeCommercial(role) ? countPendingOptionRequests() : Promise.resolve(0),
   ]);
 
   const sections = buildCabinetNav(role, { documentsAwaitingReview, pendingOptionRequests });

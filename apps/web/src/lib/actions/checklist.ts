@@ -432,7 +432,7 @@ export async function getEstablishmentChecklist(
   // Vérifie l'appartenance de l'établissement au tenant de l'appelant — sans ce
   // contrôle, un utilisateur Cabinet lisait la checklist de n'importe quel
   // établissement, tous tenants confondus.
-  const { establishmentType } = await requireEstablishmentInTenant(establishmentId);
+  const { establishmentType } = await requireEstablishmentInTenant(establishmentId, "READ");
 
   return (await buildChecklist(establishmentId, establishmentType, "CABINET")).checklist;
 }
@@ -451,7 +451,7 @@ export type ConformityReportData = {
 export async function getConformityReportData(
   establishmentId: string
 ): Promise<ConformityReportData> {
-  const { tenantId } = await requireEstablishmentInTenant(establishmentId);
+  const { tenantId } = await requireEstablishmentInTenant(establishmentId, "READ");
 
   const establishment = await prisma.establishment.findFirst({
     where: { id: establishmentId, tenantId },

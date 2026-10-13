@@ -1,5 +1,6 @@
 "use server";
 
+import { NEED } from "@/lib/auth/capabilities";
 import { prisma } from "@eoda/database";
 import { revalidatePath } from "next/cache";
 import { notFound } from "next/navigation";
@@ -22,7 +23,7 @@ async function reviewSuggestion(
   suggestionId: string,
   decision: "CONFIRMED" | "REJECTED"
 ): Promise<{ error: string } | null> {
-  const access = await requireEstablishmentAccess(establishmentId);
+  const access = await requireEstablishmentAccess(establishmentId, NEED.DOCUMENTS_WRITE);
   if (access.isClient) notFound();
 
   // `suggestionId` vient d'une action serveur : une entrée non fiable (S8). Elle
@@ -79,7 +80,7 @@ export async function confirmAllCriterionSuggestions(
   establishmentId: string,
   suggestionIds: string[]
 ): Promise<{ error: string } | null> {
-  const access = await requireEstablishmentAccess(establishmentId);
+  const access = await requireEstablishmentAccess(establishmentId, NEED.DOCUMENTS_WRITE);
   if (access.isClient) notFound();
   if (suggestionIds.length === 0) return null;
 

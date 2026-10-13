@@ -1,4 +1,5 @@
 import type { UserRole } from "@eoda/database";
+import { hasCabinetCapability, type CabinetCapability } from "@/lib/auth/capabilities";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ONGLETS DE LA FICHE STRUCTURE (cabinet) — configuration pure.
@@ -7,15 +8,15 @@ import type { UserRole } from "@eoda/database";
 // l'adresse dit où l'on est, le bouton « Précédent » fonctionne, et chaque page
 // re-vérifie l'appartenance de la fiche au tenant (requireEstablishmentInTenant).
 //
-// Ajouter un onglet = ajouter UNE ligne ici, et la route qui va avec. L'onglet
-// Équipe de la maquette arrive avec sa tranche
-// (N10) : tant que l'écran n'existe pas, l'onglet n'existe pas — un onglet
-// vide est une donnée factice (D6).
+// Ajouter un onglet = ajouter UNE ligne ici, et la route qui va avec. Tant que
+// l'écran n'existe pas, l'onglet n'existe pas — un onglet vide est une donnée
+// factice (D6).
+//
+// La visibilité suit une CAPACITÉ (lib/auth/capabilities.ts), plus un rôle écrit en
+// dur : la lecture seule voit les onglets de lecture, pas les Réglages.
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const STRUCTURE_BASE_PATH = "/dashboard/cabinet/etablissements";
-
-const CABINET_ROLES = ["CABINET_ADMIN", "CABINET_EVALUATOR"] as const satisfies readonly UserRole[];
 
 export type StructureTab = {
   id: string;
@@ -25,24 +26,25 @@ export type StructureTab = {
   // Autres segments qui appartiennent à cet onglet (l'édition de la fiche vit sous
   // Réglages, par exemple).
   alsoMatches?: readonly string[];
-  // Rôles qui voient l'onglet. L'affichage suit le rôle ; la PROTECTION reste dans
-  // la garde de chaque lecture (masquer un lien n'a jamais fermé une adresse).
-  roles: readonly UserRole[];
+  // Capacité qui fait voir l'onglet. L'affichage suit la capacité ; la PROTECTION
+  // reste dans la garde de chaque lecture (masquer un lien n'a jamais fermé une
+  // adresse).
+  capability: CabinetCapability;
 };
 
 export const STRUCTURE_TABS: readonly StructureTab[] = [
-  { id: "overview", label: "Vue d'ensemble", segment: "", roles: CABINET_ROLES },
-  { id: "documents", label: "Documents", segment: "documents", roles: CABINET_ROLES },
-  { id: "criteres", label: "Critères", segment: "criteres", roles: CABINET_ROLES },
-  { id: "plan-action", label: "Plan d'action", segment: "plan-action", roles: CABINET_ROLES },
-  { id: "evaluation", label: "Auto-évaluation", segment: "evaluation", roles: CABINET_ROLES },
-  { id: "mission", label: "Mission", segment: "mission", roles: CABINET_ROLES },
-  { id: "echanges", label: "Échanges", segment: "echanges", roles: CABINET_ROLES },
-  { id: "reglages", label: "Réglages", segment: "reglages", alsoMatches: ["modifier"], roles: CABINET_ROLES },
+  { id: "overview", label: "Vue d'ensemble", segment: "", capability: "STRUCTURES_READ" },
+  { id: "documents", label: "Documents", segment: "documents", capability: "STRUCTURES_READ" },
+  { id: "criteres", label: "Critères", segment: "criteres", capability: "STRUCTURES_READ" },
+  { id: "plan-action", label: "Plan d'action", segment: "plan-action", capability: "STRUCTURES_READ" },
+  { id: "evaluation", label: "Auto-évaluation", segment: "evaluation", capability: "STRUCTURES_READ" },
+  { id: "mission", label: "Mission", segment: "mission", capability: "STRUCTURES_READ" },
+  { id: "echanges", label: "Échanges", segment: "echanges", capability: "STRUCTURES_READ" },
+  { id: "reglages", label: "Réglages", segment: "reglages", alsoMatches: ["modifier"], capability: "STRUCTURES_WRITE" },
 ];
 
 export function visibleStructureTabs(role: UserRole, tabs: readonly StructureTab[] = STRUCTURE_TABS): StructureTab[] {
-  return tabs.filter((tab) => tab.roles.includes(role));
+  return tabs.filter((tab) => hasCabinetCapability(role, tab.capability));
 }
 
 export function structureHref(establishmentId: string, segment = ""): string {

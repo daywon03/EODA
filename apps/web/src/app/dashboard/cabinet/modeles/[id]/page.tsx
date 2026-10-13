@@ -2,6 +2,7 @@ import { Library } from "lucide-react";
 import { getTemplate, listTemplateCategories } from "@/lib/actions/template-library";
 import { listCriteriaForPicker } from "@/lib/actions/document";
 import { requireCabinetSession } from "@/lib/auth/guards";
+import { hasCabinetCapability } from "@/lib/auth/capabilities";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -44,14 +45,14 @@ export async function generateMetadata({ params }: Props) {
 //    à faire qui n'existe pas.
 export default async function ModelePage({ params }: Props) {
   const { id } = await params;
-  const [{ session }, template, categories, allCriteria, documentTypes] = await Promise.all([
-    requireCabinetSession(),
+  const [{ role }, template, categories, allCriteria, documentTypes] = await Promise.all([
+    requireCabinetSession("LIBRARY_READ"),
     getTemplate(id),
     listTemplateCategories(),
     listCriteriaForPicker(),
     listDocumentTypesForExampleLink(),
   ]);
-  const isAdmin = session.user.role === "CABINET_ADMIN";
+  const isAdmin = hasCabinetCapability(role, "CABINET_SETTINGS");
   const isReference = template.kind === "REFERENCE";
 
   return (

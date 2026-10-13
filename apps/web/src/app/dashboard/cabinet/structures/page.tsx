@@ -87,7 +87,7 @@ function columns(now: Date): DataTableColumn<StructureFacts>[] {
 // naît que de la signature d'un devis (CLAUDE.md §7). Pas de filtre par mode
 // (seul / accompagné) tant que le mode n'est pas modélisé (tranche N1).
 export default async function StructuresPage() {
-  const { role } = await requireCabinetSession();
+  const { role } = await requireCabinetSession("STRUCTURES_READ");
   const { rows } = await getStructuresOverview();
   const now = new Date();
 

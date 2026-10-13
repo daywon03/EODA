@@ -1,9 +1,9 @@
-import { AUDIENCE_CABINET, AUDIENCE_CABINET_ADMIN, type HelpArticle } from "./types";
+import { AUDIENCE_CABINET, AUDIENCE_COMMERCIAL, type HelpArticle } from "./types";
 import { CABINET_REVIEW_ARTICLES } from "./cabinet-relecture";
 
 // Articles réservés aux comptes du cabinet. Le pipeline commercial est en outre
-// restreint à CABINET_ADMIN : ni un CABINET_EVALUATOR ni a fortiori un
-// CLIENT_USER ne doit lire quoi que ce soit sur les prospects, les devis ou les
+// restreint à la capacité COMMERCIAL (admin et commercial, N9) : ni une consultante
+// ni a fortiori un CLIENT_USER ne doit lire quoi que ce soit sur les prospects, les devis ou les
 // prix (CLAUDE.md §7).
 //
 // Réécrits le 13/10/2026 sur les écrans v2 : il n'existe plus de création manuelle
@@ -160,7 +160,7 @@ const ARTICLES: readonly HelpArticle[] = [
     title: "Prospects, devis et catalogue",
     summary: "Le module commercial interne : prospects, grille de découverte, devis, catalogue et indicateurs.",
     category: "COMMERCIAL",
-    audiences: AUDIENCE_CABINET_ADMIN,
+    audiences: AUDIENCE_COMMERCIAL,
     where: "Menu « Commercial » : Vue d'ensemble, Prospects, Devis, Catalogue",
     keywords: ["prospect", "devis", "catalogue", "KPI", "prix", "acompte", "conversion", "découverte"],
     body: [
