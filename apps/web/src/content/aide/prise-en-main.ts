@@ -23,9 +23,9 @@ export const PRISE_EN_MAIN_ARTICLES: readonly HelpArticle[] = [
       {
         kind: "list",
         items: [
-          "Checklist documentaire : la liste des pièces attendues, leur statut, et l'historique des versions déposées.",
-          "Analyse documentaire : chaque document déposé est lu automatiquement et confronté aux exigences (loi 2002-2 et référentiel HAS).",
-          "Auto-évaluation préparatoire : cotation des éléments d'évaluation (E.E.) chapitre par chapitre, réservée aux comptes du cabinet.",
+          "Documents : la liste des pièces attendues, leur état, et l'historique des versions déposées.",
+          "Analyse documentaire : chaque document déposé est lu automatiquement et confronté aux exigences (loi 2002-2 et référentiel HAS). Pour une structure accompagnée, EODA relit chaque analyse avant que la structure la voie.",
+          "Auto-évaluation préparatoire : cotation des éléments d'évaluation (E.E.) chapitre par chapitre, par le cabinet. La structure en lit le résultat dans « Mon diagnostic ».",
         ],
       },
       {
@@ -69,7 +69,7 @@ export const PRISE_EN_MAIN_ARTICLES: readonly HelpArticle[] = [
         kind: "note",
         tone: "info",
         text:
-          "Le bouton de déconnexion est l'icône de sortie, en haut à droite de l'écran, à côté de votre nom.",
+          "Pour vous déconnecter : côté cabinet, l'icône de sortie à côté de votre nom, en bas du menu ; côté structure, « Se déconnecter » dans le menu de votre compte.",
       },
       {
         kind: "note",

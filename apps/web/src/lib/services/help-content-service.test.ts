@@ -103,6 +103,33 @@ describe("catalogue réellement livré", () => {
     }
   });
 
+  it("ne décrit aucun écran ni geste supprimé (test de bout en bout du 12/10/2026)", () => {
+    // Une fiche client ne naît QUE de la signature d'un devis (CLAUDE.md §7) : il
+    // n'existe plus de « Nouvel établissement ». Les autres libellés sont ceux de la
+    // v1, remplacés par les écrans v2 (onglets « Documents », « Mission », section
+    // « Commercial »). Un guide qui envoie vers un bouton absent est un bouton mort.
+    const STALE = [
+      "nouvel etablissement",
+      "creer un etablissement",
+      "tableau de bord cabinet",
+      "checklist documentaire",
+      "suivi de mission",
+      "pipeline commercial",
+      "ouvrir un chapitre demarre",
+    ];
+    for (const article of HELP_ARTICLES) {
+      const text = normalizeSearchText(
+        [
+          article.title,
+          article.summary,
+          article.where,
+          ...article.body.flatMap((b) => ("text" in b ? [b.text] : b.items)),
+        ].join(" ")
+      );
+      for (const phrase of STALE) expect(text, `${article.slug} : « ${phrase} »`).not.toContain(phrase);
+    }
+  });
+
   it("porte des slugs uniques, un titre, un résumé, un emplacement et un corps", () => {
     const slugs = HELP_ARTICLES.map((a) => a.slug);
     expect(new Set(slugs).size).toBe(slugs.length);
