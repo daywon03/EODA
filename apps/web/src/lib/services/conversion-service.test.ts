@@ -5,6 +5,9 @@ import {
   isConversionTransition,
   isDevisSignable,
   planConversion,
+  PROMOTED_ACCESS_ROLE,
+  PROMOTED_POSITION,
+  selectAccountsToPromote,
   signatureRecap,
   summariseConversionForAudit,
   toMissionOptionSnapshots,
@@ -210,5 +213,26 @@ describe("signatureRecap", () => {
     const recap = signatureRecap({ status: "SIGNE", hasEstablishment: true, structureName: name });
     expect(recap).toEqual({ heading: "Ce que la signature a créé", establishmentLabel: name });
     expect(recap.establishmentLabel).not.toMatch(/déjà existante/);
+  });
+});
+
+describe("selectAccountsToPromote — bascule à la signature (tranche 11)", () => {
+  it("ne retient que les comptes encore PROSPECT_USER", () => {
+    expect(
+      selectAccountsToPromote([
+        { userId: "a", role: "PROSPECT_USER" },
+        { userId: "b", role: "CLIENT_USER" },
+        { userId: "c", role: "PROSPECT_USER" },
+      ])
+    ).toEqual(["a", "c"]);
+  });
+
+  it("prospect démarché sans compte : rien", () => {
+    expect(selectAccountsToPromote([])).toEqual([]);
+  });
+
+  it("accès DIRECTION, poste non deviné", () => {
+    expect(PROMOTED_ACCESS_ROLE).toBe("DIRECTION");
+    expect(PROMOTED_POSITION).toBe("AUTRE");
   });
 });

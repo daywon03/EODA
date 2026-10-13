@@ -490,7 +490,17 @@ Détail complet et état d'avancement : `specs/02-architecture-technique.md` §4
     réel dans `after()`). Un compte créé par le cabinet n'est **jamais** concerné.
     Sans Resend, l'écran dit « e-mail non envoyé en local » et, **en développement
     seulement** (`confirmationLinkDisclosure`, testé), montre le lien — jamais en
-    production.
+    production ;
+  - **bascule à la signature** (tranche 11) : `convertDevisToClient` fait des comptes
+    encore `PROSPECT_USER` du prospect des `CLIENT_USER` rattachés à la fiche créée
+    (`accessRole = DIRECTION`, poste `AUTRE` — non deviné), **dans la transaction**
+    de signature (`lib/db/promote-prospect-accounts.ts`, règle pure
+    `selectAccountsToPromote`), une trace `PROSPECT_ACCOUNT_PROMOTED` par compte.
+    L'écran de signature l'annonce avant le clic et ne propose plus d'inviter la même
+    personne. Un prospect démarché sans compte n'est pas touché. La session encore
+    « prospect » est fermée par `requireProspectSession` avec un motif
+    (`prospectSpaceExitPath`) ; à la reconnexion, `/espace` renvoie au portail client.
+    La bascule ne lève pas l'exigence d'adresse confirmée.
 - **L'état d'une fiche est DÉRIVÉ, jamais stocké** — `lib/services/lifecycle-service.ts`
   (pur, testé). `SIGNE` / `EN_COURS` se calculent à partir des faits (items de
   diagnostic cochés, dates de phases posées) ; `TERMINE` vient de `Mission.closedAt`,

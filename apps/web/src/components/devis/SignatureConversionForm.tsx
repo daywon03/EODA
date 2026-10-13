@@ -87,7 +87,21 @@ export function SignatureConversionForm({
           </div>
         </div>
 
-        {!inviteSkipped && (
+        {/* Structure inscrite seule (tranche 11) : son compte en ligne EST désormais
+            son accès au portail — l'inviter une seconde fois créerait un doublon. */}
+        {state.promotedAccountCount > 0 && (
+          <div className="space-y-1 rounded-lg border border-gris-light p-4 text-sm">
+            <h2 className="text-base font-semibold text-brun-ancre">Accès au portail client ouvert</h2>
+            <p className="text-ink2">
+              {state.promotedAccountCount > 1
+                ? `Les ${state.promotedAccountCount} comptes créés par la structure à son inscription deviennent ses accès « Direction ».`
+                : "Le compte créé par la structure à son inscription devient son accès « Direction »."}{" "}
+              La personne se reconnecte avec son mot de passe habituel et arrive dans le portail client.
+            </p>
+          </div>
+        )}
+
+        {!inviteSkipped && state.promotedAccountCount === 0 && (
           <div className="space-y-3">
             <div>
               <h2 className="text-base font-semibold text-brun-ancre">
@@ -140,7 +154,7 @@ export function SignatureConversionForm({
               <ArrowRight className="w-4 h-4" aria-hidden="true" />
             </Link>
           </Button>
-          {!inviteSkipped && (
+          {!inviteSkipped && state.promotedAccountCount === 0 && (
             <Button type="button" variant="outline" onClick={() => setInviteSkipped(true)}>
               Créer l&apos;accès plus tard
             </Button>

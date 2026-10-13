@@ -14,6 +14,7 @@ import {
   type StructureIdentity,
 } from "@/lib/services/structure-identity-service";
 import { recordAuditEvent } from "@/lib/services/audit-log-service";
+import { promoteProspectAccounts } from "@/lib/db/promote-prospect-accounts";
 import { defaultSupportModeForOffer } from "@/lib/services/support-mode-service";
 import {
   CONVERSION_REFUSAL_MESSAGES,
@@ -72,6 +73,9 @@ export type ConvertDevisResult =
       // ne se racontent pas de la même façon.
       establishmentCreated: boolean;
       optionCount: number;
+      // Comptes libre-service de la structure devenus accès client (tranche 11) : s'il
+      // y en a, l'écran ne propose pas d'inviter une seconde fois la même personne.
+      promotedAccountCount: number;
       // Pré-remplissage de l'invitation client, proposée en fin de parcours et
       // toujours facultative.
       contactEmail: string | null;
@@ -245,7 +249,9 @@ export async function convertDevisToClient(
   const missionOptions = toMissionOptionSnapshots(devis.options);
   const prospectId = devis.prospect.id;
 
-  let converted: { establishmentId: string; establishmentName: string } | { error: string };
+  let converted:
+    | { establishmentId: string; establishmentName: string; promotedUserIds: string[] }
+    | { error: string };
   try {
     converted = await prisma.$transaction(async (tx) => {
       // Relecture du statut DANS la transaction : entre la vérification ci-dessus et
@@ -338,7 +344,13 @@ export async function convertDevisToClient(
         });
       }
 
-      return { establishmentId: establishment.id, establishmentName: establishment.name };
+      // 6. Les comptes libre-service de la structure deviennent ses accès client
+      //    (tranche 11), DANS la transaction : jamais une fiche signée sans l'accès
+      //    de la structure qui s'était inscrite. Un prospect démarché, sans compte,
+      //    ne produit rien ici.
+      const promotedUserIds = await promoteProspectAccounts(tx, prospectId, establishment.id);
+
+      return { establishmentId: establishment.id, establishmentName: establishment.name, promotedUserIds };
     });
   } catch {
     // Une contrainte unique a tranché une course entre deux signatures simultanées.
@@ -369,6 +381,18 @@ export async function convertDevisToClient(
     }),
   });
 
+  // Une trace par compte basculé : `targetId` = identifiant technique, jamais l'adresse.
+  for (const promotedUserId of converted.promotedUserIds) {
+    await recordAuditEvent({
+      action: "PROSPECT_ACCOUNT_PROMOTED",
+      actorUserId: userId,
+      actorRole: role,
+      establishmentId: converted.establishmentId,
+      targetId: promotedUserId,
+      detail: "accès DIRECTION",
+    });
+  }
+
   revalidatePath(`${DEVIS_LIST_PATH}/${devis.id}`);
   revalidatePath(DEVIS_LIST_PATH);
   revalidatePath(`${PROSPECT_LIST_PATH}/${prospectId}`);
@@ -384,6 +408,7 @@ export async function convertDevisToClient(
     establishmentName: converted.establishmentName,
     establishmentCreated: plan.createsEstablishment,
     optionCount: missionOptions.length,
+    promotedAccountCount: converted.promotedUserIds.length,
     contactEmail: devis.prospect.contactEmail,
     contactName: devis.prospect.contactName,
   };
@@ -402,6 +427,9 @@ export type SignatureContext = {
   optionLabels: string[];
   contactEmail: string | null;
   contactName: string | null;
+  // Comptes créés par la structure en libre-service, encore « prospect » : la
+  // signature en fera ses accès client (tranche 11). Dit AVANT le clic.
+  onlineAccountCount: number;
   // Fiche déjà rattachée au prospect : la conversion complétera la mission au lieu
   // de créer un doublon.
   existingEstablishmentId: string | null;
@@ -433,6 +461,7 @@ export async function getSignatureContext(devisId: string): Promise<SignatureCon
           contactEmail: true,
           contactName: true,
           establishmentId: true,
+          accounts: { where: { user: { role: "PROSPECT_USER" } }, select: { id: true } },
           finessNumber: true,
           siretNumber: true,
           address: true,
@@ -464,6 +493,7 @@ export async function getSignatureContext(devisId: string): Promise<SignatureCon
     optionLabels: devis.options.map((option) => option.labelSnapshot),
     contactEmail: devis.prospect.contactEmail,
     contactName: devis.prospect.contactName,
+    onlineAccountCount: devis.prospect.accounts.length,
     existingEstablishmentId: devis.prospect.establishmentId,
     defaults: resolveSignatureDefaults({
       prospect: {

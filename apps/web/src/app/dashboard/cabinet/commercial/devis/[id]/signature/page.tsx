@@ -58,6 +58,12 @@ export default async function SignatureDevisPage({ params }: Props) {
               <span className="text-ink2">Montant signé : </span>
               {formatEuros(context.totalAmountEuros)}
             </li>
+            {context.onlineAccountCount > 0 && (
+              <li>
+                <span className="text-ink2">Accès au portail : </span>
+                le compte créé par la structure à son inscription deviendra son accès « Direction »
+              </li>
+            )}
           </ul>
           <p className="text-xs text-ink2 border-t border-gris-light pt-3">
             Le portail client n&apos;affichera que les checklists documentaires, les tâches

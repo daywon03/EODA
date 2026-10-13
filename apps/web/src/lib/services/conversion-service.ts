@@ -1,4 +1,12 @@
-import type { CommercialTier, DevisStatus, EstablishmentType, PricingUnit } from "@eoda/database";
+import type {
+  ClientAccessRole,
+  CommercialTier,
+  DevisStatus,
+  EstablishmentType,
+  EstablishmentUserRole,
+  PricingUnit,
+  UserRole,
+} from "@eoda/database";
 import { canTransitionDevis } from "@/lib/services/devis-transition-service";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -184,4 +192,26 @@ export function summariseConversionForAudit(input: {
   optionCount: number;
 }): string {
   return `${input.devisNumber} · ${input.formule ?? "SANS_OFFRE"} · ${input.optionCount} option(s)`;
+}
+
+// ── Bascule du compte libre-service à la signature (tranche 11) ───────────────
+//
+// Décision de Damon : quand le devis d'une structure inscrite SEULE est signé, son
+// ou ses comptes PROSPECT_USER deviennent des accès CLIENT_USER à la fiche créée,
+// avec le rôle d'accès DIRECTION, dans la MÊME transaction que la fiche — jamais un
+// second compte à inviter pour la même personne. Seuls les comptes encore
+// PROSPECT_USER basculent : un compte qui aurait changé de rôle entre-temps n'est
+// pas touché. Un prospect démarché, sans compte, ne produit aucune bascule.
+//
+// Le POSTE (EstablishmentUserRole) n'est pas connu : l'inscription ne demande qu'un
+// prénom. « AUTRE » plutôt qu'un « DIRECTEUR » deviné ; le cabinet le corrige depuis
+// la fiche. Les droits, eux, sont ceux de la direction (accessRole), comme décidé.
+//
+// La bascule ne lève PAS l'exigence d'adresse confirmée : un compte jamais confirmé
+// reste refusé à la connexion (isEmailVerificationPending ne dépend pas du rôle).
+export const PROMOTED_ACCESS_ROLE: ClientAccessRole = "DIRECTION";
+export const PROMOTED_POSITION: EstablishmentUserRole = "AUTRE";
+
+export function selectAccountsToPromote(accounts: readonly { userId: string; role: UserRole }[]): string[] {
+  return accounts.filter((account) => account.role === "PROSPECT_USER").map((account) => account.userId);
 }
