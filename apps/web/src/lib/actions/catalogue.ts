@@ -242,10 +242,14 @@ export async function updateBillingSettings(
 // Deux gestes étroits : le prix MENSUEL d'une offre (vide = non fixé, jamais 0 par
 // défaut) et le prix de départ d'une option. L'identifiant reçu est une entrée non
 // fiable : il est relu dans le tenant de l'appelant, notFound() sinon.
+// État du prix modifiable sur place : `saved` se distingue de l'état initial (null)
+// pour que l'écran dise « Prix enregistré » — il ne disait rien (recette 13/10/2026).
+export type InlinePriceState = { error: string } | { saved: true } | null;
+
 export async function updateFormuleMonthlyPrice(
-  _prevState: { error: string } | null,
+  _prevState: InlinePriceState,
   formData: FormData
-): Promise<{ error: string } | null> {
+): Promise<InlinePriceState> {
   const { tenantId } = await requireCommercialSession();
   const id = requiredString(formData, "id", "L'offre", 64);
   const price = optionalInt(formData, "monthlyPriceEuros", "Le prix mensuel", { min: 0, max: MAX_PRICE_EUROS });
@@ -257,13 +261,13 @@ export async function updateFormuleMonthlyPrice(
   if (!formule) notFound();
   await prisma.catalogueFormule.update({ where: { id: formule.id }, data: { monthlyPriceEuros: price.value } });
   revalidatePath(CATALOGUE_PATH);
-  return null;
+  return { saved: true };
 }
 
 export async function updateOptionPrice(
-  _prevState: { error: string } | null,
+  _prevState: InlinePriceState,
   formData: FormData
-): Promise<{ error: string } | null> {
+): Promise<InlinePriceState> {
   const { tenantId } = await requireCommercialSession();
   const id = requiredString(formData, "id", "L'option", 64);
   const price = requiredInt(formData, "priceEuros", "Le prix", { min: 0, max: MAX_PRICE_EUROS });
@@ -281,7 +285,7 @@ export async function updateOptionPrice(
   }
   await prisma.catalogueOption.update({ where: { id: option.id }, data: { priceEuros: price.value } });
   revalidatePath(CATALOGUE_PATH);
-  return null;
+  return { saved: true };
 }
 
 // Nombre de structures sur chaque offre : missions non clôturées, par la formule
