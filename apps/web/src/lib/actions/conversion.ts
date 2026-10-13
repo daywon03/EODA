@@ -430,6 +430,8 @@ export type SignatureContext = {
   // Comptes créés par la structure en libre-service, encore « prospect » : la
   // signature en fera ses accès client (tranche 11). Dit AVANT le clic.
   onlineAccountCount: number;
+  // Comptes libre-service déjà basculés en accès client par la signature.
+  promotedAccountCount: number;
   // Fiche déjà rattachée au prospect : la conversion complétera la mission au lieu
   // de créer un doublon.
   existingEstablishmentId: string | null;
@@ -461,7 +463,7 @@ export async function getSignatureContext(devisId: string): Promise<SignatureCon
           contactEmail: true,
           contactName: true,
           establishmentId: true,
-          accounts: { where: { user: { role: "PROSPECT_USER" } }, select: { id: true } },
+          accounts: { select: { user: { select: { role: true } } } },
           finessNumber: true,
           siretNumber: true,
           address: true,
@@ -493,7 +495,8 @@ export async function getSignatureContext(devisId: string): Promise<SignatureCon
     optionLabels: devis.options.map((option) => option.labelSnapshot),
     contactEmail: devis.prospect.contactEmail,
     contactName: devis.prospect.contactName,
-    onlineAccountCount: devis.prospect.accounts.length,
+    onlineAccountCount: devis.prospect.accounts.filter((a) => a.user.role === "PROSPECT_USER").length,
+    promotedAccountCount: devis.prospect.accounts.filter((a) => a.user.role === "CLIENT_USER").length,
     existingEstablishmentId: devis.prospect.establishmentId,
     defaults: resolveSignatureDefaults({
       prospect: {

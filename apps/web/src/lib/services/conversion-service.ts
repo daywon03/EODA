@@ -96,6 +96,19 @@ export function signatureRecap(input: {
   };
 }
 
+// Suite à donner une fois le devis signé (écran de signature revisité). Une structure
+// inscrite seule a déjà un compte, devenu son accès « Direction » à la signature :
+// lui en inviter un second créerait un doublon (recette du 13/10/2026).
+export function signedNextStep(promotedAccountCount: number): string {
+  if (promotedAccountCount > 1) {
+    return `Les ${promotedAccountCount} comptes créés par la structure à son inscription sont devenus ses accès « Direction ». Elle se reconnecte avec son mot de passe habituel et arrive dans le portail client.`;
+  }
+  if (promotedAccountCount === 1) {
+    return "Le compte créé par la structure à son inscription est devenu son accès « Direction ». Elle se reconnecte avec son mot de passe habituel et arrive dans le portail client.";
+  }
+  return "Prochaine étape : inviter l'interlocuteur du client depuis sa fiche. Il recevra un mot de passe temporaire qu'il devra changer à sa première connexion.";
+}
+
 // La signature est la SEULE transition qui produit des effets hors du module
 // commercial (un établissement, une mission, un accès client). Elle ne passe donc
 // pas par l'action générique de changement de statut : celle-ci ne saurait pas quel

@@ -9,6 +9,7 @@ import {
   PROMOTED_POSITION,
   selectAccountsToPromote,
   signatureRecap,
+  signedNextStep,
   summariseConversionForAudit,
   toMissionOptionSnapshots,
   type ConversionInput,
@@ -234,5 +235,24 @@ describe("selectAccountsToPromote — bascule à la signature (tranche 11)", () 
   it("accès DIRECTION, poste non deviné", () => {
     expect(PROMOTED_ACCESS_ROLE).toBe("DIRECTION");
     expect(PROMOTED_POSITION).toBe("AUTRE");
+  });
+});
+
+// Recette du 13/10/2026 : juste après la signature d'une structure inscrite seule,
+// l'écran disait « inviter l'interlocuteur du client depuis sa fiche » — alors que
+// son compte venait de devenir son accès Direction. Inviter créerait un doublon.
+describe("signedNextStep", () => {
+  it("compte libre-service basculé : la structure se reconnecte, rien à inviter", () => {
+    const text = signedNextStep(1);
+    expect(text).toMatch(/inscription est devenu son accès « Direction »/);
+    expect(text).not.toMatch(/inviter/i);
+  });
+
+  it("plusieurs comptes basculés : le dit au pluriel", () => {
+    expect(signedNextStep(2)).toMatch(/Les 2 comptes/);
+  });
+
+  it("aucun compte en ligne : inviter l'interlocuteur depuis la fiche", () => {
+    expect(signedNextStep(0)).toMatch(/inviter l'interlocuteur du client depuis sa fiche/);
   });
 });

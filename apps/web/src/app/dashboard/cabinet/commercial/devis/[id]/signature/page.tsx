@@ -1,5 +1,5 @@
 import { getSignatureContext } from "@/lib/actions/conversion";
-import { isDevisSignable, signatureRecap } from "@/lib/services/conversion-service";
+import { isDevisSignable, signatureRecap, signedNextStep } from "@/lib/services/conversion-service";
 import { formatEuros } from "@/lib/services/price-format-service";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { SignatureConversionForm } from "@/components/devis/SignatureConversionForm";
@@ -92,11 +92,7 @@ export default async function SignatureDevisPage({ params }: Props) {
               <p className="text-sm font-semibold text-brun-ancre">
                 Signature enregistrée — la fiche client et la mission existent.
               </p>
-              <p className="text-sm text-ink2">
-                Prochaine étape : inviter l&apos;interlocuteur du client depuis sa fiche. Il
-                recevra un mot de passe temporaire qu&apos;il devra changer à sa première
-                connexion.
-              </p>
+              <p className="text-sm text-ink2">{signedNextStep(context.promotedAccountCount)}</p>
               <div className="flex flex-wrap gap-3">
                 <Button asChild>
                   <Link href={`/dashboard/cabinet/etablissements/${context.existingEstablishmentId}`}>
