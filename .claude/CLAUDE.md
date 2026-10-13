@@ -53,6 +53,12 @@ qui désactive l'arborescence isolée de pnpm et rend possibles les dépendances
 vérification est un déploiement de **prévisualisation Vercel** sans cette ligne, pas une
 construction locale.
 
+**Ouvert au 13/10/2026 — `braces` (GHSA-vfj7-8cjw-p6xm)** : aucune version corrigée publiée
+(≤ 3.0.3 vulnérable, 3.0.3 est la dernière), atteint seulement par l'outillage de
+développement (`eslint-config-next` > `fast-glob` > `micromatch`, `tailwindcss`). `pnpm
+audit:deps` échoue sur lui seul. **Décision de Damon attendue** : exception écrite dans
+`ignoreGhsas` (comme `xlsx`) ou remplacement de l'outillage ; le seuil n'est pas abaissé.
+
 **Dette acceptée, avec justification écrite** : `xlsx` (GHSA-4r6h-8v6p-xvw6,
 GHSA-5pgg-2g8v-p4x9) n'a pas de version corrigée publiée sur npm. Utilisé uniquement par
 `packages/database/prisma/seed-has-referential.ts`, un script de seed exécuté à la main sur
@@ -446,10 +452,34 @@ Détail complet et état d'avancement : `specs/02-architecture-technique.md` §4
   commerciaux — et redemandait FINESS / adresse / échéance HAS **avant** qu'aucune
   relation commerciale n'existe. Un seul chemin : prospect → devis → signature. Si le
   besoin « client déjà signé hors plateforme » revient, il passe par un prospect et un
-  devis, jamais par une seconde porte. **Libre-service (décision du 08/10/2026)** : une
-  structure qui s'inscrit seule et fait le diagnostic devient un **prospect** (origine
-  « libre-service »), visible du cabinet pour être démarché — **pas** une fiche client.
-  La fiche client naît toujours et seulement de la signature.
+  devis, jamais par une seconde porte. **Libre-service (décision du 08/10/2026, implémenté
+  le 13/10/2026)** : une structure qui s'inscrit seule et fait le diagnostic devient un
+  **prospect** (`AcquisitionChannel.LIBRE_SERVICE`), visible du cabinet pour être
+  démarché — **pas** une fiche client. La fiche client naît toujours et seulement de la
+  signature. Concrètement :
+  - routes publiques `/` (landing) et `/inscription` (trois étapes) — liste EXACTE dans
+    `classifyPath` (`lib/auth/routes.ts`, testée), CSP à nonce comme partout ; un visiteur
+    connecté est renvoyé à son espace. `signUpSelfService` (`lib/actions/self-service.ts`) :
+    débit sur l'IP **et** l'adresse, validation serveur des trois étapes
+    (`self-service-service.ts`), **même réponse** que l'adresse ait un compte ou non (même
+    coût bcrypt, e-mail différent), un seul cabinet en base sinon inscription fermée.
+    Crée `Prospect` + `User` au rôle **`PROSPECT_USER`** + lien `ProspectAccount` ;
+  - `PROSPECT_USER` n'a **aucune capacité** : toutes les gardes le refusent par
+    construction ; `requireProspectSession()` (`guards.ts`) résout le prospect depuis le
+    LIEN, jamais depuis un identifiant reçu ; `portalRedirectFor` (middleware) le
+    cantonne à `/espace` et en tient tout autre rôle à l'écart ;
+  - espace `/espace` : diagnostic **déclaratif** (questions `content/pratiques/` par
+    impératif du profil, table `ProspectPracticeAnswer` **distincte** de `PracticeAnswer`,
+    qui reste rattachée à un établissement), liste de travail estimée DÉRIVÉE
+    (`prospect-diagnostic-service.ts`), « Être accompagné » = `Appointment` R1 au statut
+    **`DEMANDE`** (préférence libre jour + moment, aucun agenda de disponibilités) + alerte
+    au cabinet par le port e-mail **sans** le message. **Aucun dépôt de document** avant
+    la signature — c'est dit à l'écran. Le cabinet confirme une demande ; il ne pose
+    jamais `DEMANDE` lui-même ;
+  - le cabinet voit l'AVANCEMENT et l'activité d'une structure inscrite, jamais le contenu
+    de ses réponses (tableau Prospects, fiche « en autonomie » `SelfServicePanel`).
+  **Limite connue** : l'adresse n'est pas vérifiée par un lien avant création du compte
+  (l'e-mail de bienvenue part, mais le compte existe déjà) — à décider.
 - **L'état d'une fiche est DÉRIVÉ, jamais stocké** — `lib/services/lifecycle-service.ts`
   (pur, testé). `SIGNE` / `EN_COURS` se calculent à partir des faits (items de
   diagnostic cochés, dates de phases posées) ; `TERMINE` vient de `Mission.closedAt`,
@@ -459,16 +489,22 @@ Détail complet et état d'avancement : `specs/02-architecture-technique.md` §4
   jamais mise à jour, elle annonçait « Bêta-test gratuit » à des clients payants.
   Le bêta-test (`Mission.gratuit`) est un **attribut orthogonal**, pas une étape : une
   mission gratuite peut être signée, en cours ou terminée.
-- **Les KPI de portefeuille se dérivent des mêmes faits que les badges d'étape** —
-  `lib/services/portfolio-kpi-service.ts` (pur, testé), conversion dans
-  `lib/db/to-portfolio-row.ts`. Un compteur qui recalculerait l'état à sa façon
-  finirait par contredire la fiche qu'il compte. Ne jamais compter une formule
-  depuis `Establishment.commercialTier` : c'est `Mission.formule`. Corollaire :
-  `getProspectKpiCounts` ne compte dans `byStatus` que les prospects **non
-  convertis** (`establishmentId: null`) — un prospect converti garde `SIGNE` à vie
-  et serait sinon compté deux fois dans l'entonnoir unifié, une fois en « Signé »
-  et une fois à l'étape réelle de sa mission. `byStructureType` reste sur tous les
-  prospects : c'est une lecture de marché, pas une photo du pipeline.
+- **Les indicateurs commerciaux se dérivent des faits, jamais d'un compteur stocké.**
+  Depuis le 13/10/2026 (maquette v2, demande de Damon : « le nouveau design est
+  meilleur »), la vue d'ensemble commerciale est l'entonnoir en **cinq cartes**
+  (Inscrites seules → Diagnostic terminé → Appel réservé → Devis en cours → Signés dans
+  l'année), le bloc **« À faire »** (appel à préparer, devis envoyé depuis > 7 jours —
+  dernier envoi tiré du journal `DEVIS_EMAIL_SENT`/`DEVIS_REMINDER_SENT` —, brouillon à
+  finir, structure inscrite inactive depuis 10 jours) et les **abonnements actifs** par
+  formule de MISSION — `commercial-overview-service.ts` (pur, testé). Les prospects
+  démarchés entrent dans l'entonnoir à « Devis en cours ». Seuls les prospects **non
+  convertis** sont lus (un prospect converti garde `SIGNE` à vie). **Le kanban par étape
+  est retiré** (et avec lui `FunnelChart`, `getProspectKpiCounts`) : le tableau
+  « Prospects » le remplace, avec le filtre **Origine** (libre-service / démarché — la
+  maquette ne montrait que le libre-service) ; l'étape commerciale se change sur la
+  fiche, la grille de découverte y reste. `portfolio-kpi-service.ts` /
+  `to-portfolio-row.ts` restent (purs, testés) mais ne sont plus affichés. Ne jamais
+  compter une formule depuis `Establishment.commercialTier` : c'est `Mission.formule`.
 - 🎨 **Le logo ne se redessine pas.** Assets officiels dans `apps/web/public/`
   (`logo-eoda.png` = bloc complet pour fonds clairs, `marque-eoda.png` = rond pour
   fonds sombres), servis par `components/layout/EodaLogo.tsx`. Source :
@@ -574,7 +610,17 @@ Détail complet et état d'avancement : `specs/02-architecture-technique.md` §4
   (`devis-pdf-service.ts`), envoyé via Resend (`email-port.ts`), Sandrine en copie ; le
   corps du mail ne recopie pas les montants (le PDF fait foi) ; l'envoi passe le devis
   BROUILLON → ENVOYE et se journalise (`DEVIS_EMAIL_SENT`). Toujours **pas de jeton de
-  partage public** : aucune route publique pour consulter un devis.
+  partage public** : aucune route publique pour consulter un devis, aucune signature en
+  ligne (la maquette en montrait une : écart assumé). **Devis par abonnement (maquette
+  v2, 13/10/2026)** : engagement `Devis.commitmentMonths` (12, 24, 0 = sans engagement ;
+  null = devis antérieur), prix mensuel de l'offre `CatalogueFormule.monthlyPriceEuros`
+  (null = « à partir de xx € / mois », jamais un montant inventé) **snapshoté** sur le
+  devis, note pour la structure `Devis.clientNote` (e-mail + PDF). Le récapitulatif range
+  en « Par mois » / « Ponctuel » (`devis-recap-service.ts`) **sans toucher** aux totaux ni
+  à l'acompte (`devis-calculation-service`), ni à la dégressivité. La **relance** d'un
+  devis envoyé est un geste (`remindDevis`, `lib/actions/devis-email.ts`), journalisé
+  `DEVIS_REMINDER_SENT`, sans pièce jointe ni montant ; `NOT_CONFIGURED` n'est jamais
+  compté comme parti.
 - **`StructureType` (statut juridique) et `EstablishmentType` (type SAD) sont deux axes
   indépendants**, portés par `Prospect` *et* `Establishment` pour le premier. Le support
   commercial les aligne sur une même ligne (« SAD Aide · SAD Mixtes · Associations loi
