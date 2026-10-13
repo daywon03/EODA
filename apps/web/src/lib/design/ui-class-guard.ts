@@ -52,6 +52,26 @@ export function findFocusSuppression(source: string): ClassViolation[] {
   }));
 }
 
+// Teintes de charte qui ne tiennent PAS 4.5:1 en texte sur le papier clair
+// (theme-contrast.test.ts le prouve) : `gris-mid` (≈ 3.7:1, réservé aux bordures et
+// au décor) et `terre` (4.29:1, réservé à l'APLAT). En texte, on écrit `text-ink2`
+// (secondaire) ou `text-accent-text` (terre assombri). `muted` est un alias de
+// `gris-mid`. Les variantes (`hover:`, `placeholder:`) et l'opacité (`/60`) sont
+// refusées de même : un texte survolé ou un placeholder reste un texte.
+export const LOW_CONTRAST_TEXT_TOKENS = ["gris-mid", "terre", "muted"] as const;
+const LOW_CONTRAST_TEXT = /(?<![\w-])(?:[\w-]+:)*text-(gris-mid|terre|muted)(?:\/\d+)?(?![\w-])/g;
+
+export function findLowContrastTextColors(source: string): ClassViolation[] {
+  return [...source.matchAll(LOW_CONTRAST_TEXT)].map((m) => ({
+    line: lineOf(source, m.index ?? 0),
+    match: m[0],
+    reason:
+      m[1] === "terre"
+        ? "terre en texte < 4.5:1 sur le papier — utiliser text-accent-text"
+        : `${m[1]} en texte < 4.5:1 — utiliser text-ink2`,
+  }));
+}
+
 // Lit l'entrée `fontSize.xs` de la configuration Tailwind et la convertit en px.
 export function fontSizeToPx(size: string): number {
   const m = /^(\d+(?:\.\d+)?)(px|rem)$/.exec(size.trim());

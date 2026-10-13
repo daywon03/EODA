@@ -101,11 +101,11 @@ export function InviteClientForm({ establishmentId, defaultEmail, defaultName }:
           <CheckCircle2 className="w-5 h-5 text-vert-ok flex-shrink-0 mt-0.5" aria-hidden="true" />
           <div className="text-sm">
             <p className="font-semibold text-brun-ancre">Compte créé pour {result.userName}</p>
-            <p className="text-gris-mid">{result.userEmail}</p>
+            <p className="text-ink2">{result.userEmail}</p>
           </div>
         </div>
         <div className="bg-ivoire border border-gris-light rounded-lg p-4 space-y-2.5">
-          <p className="text-xs text-gris-mid font-medium uppercase tracking-wide">
+          <p className="text-xs text-ink2 font-medium uppercase tracking-wide">
             Mot de passe temporaire — à communiquer à l&apos;interlocuteur
           </p>
           <div className="flex items-center gap-2">
@@ -133,7 +133,7 @@ export function InviteClientForm({ establishmentId, defaultEmail, defaultName }:
           {/* Dire si l'e-mail est parti, plutôt que de le supposer : c'est ce qui
               décide si Sandrine doit communiquer le mot de passe elle-même. Sans
               RESEND_API_KEY (poste local), rien ne part : on le dit. */}
-          <p role="status" className="flex items-center gap-1.5 text-xs text-gris-mid">
+          <p role="status" className="flex items-center gap-1.5 text-xs text-ink2">
             {delivery.tone === "ok" ? (
               <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0 text-vert-ok" aria-hidden="true" />
             ) : (

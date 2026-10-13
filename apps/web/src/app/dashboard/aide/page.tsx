@@ -23,7 +23,7 @@ export default async function HelpCenterPage() {
 
       <HelpArticleList articles={articles} />
 
-      <p className="text-xs text-gris-mid bg-ivoire border border-gris-light rounded-lg px-4 py-3">
+      <p className="text-xs text-ink2 bg-ivoire border border-gris-light rounded-lg px-4 py-3">
         Outil de préparation interne EODA Conseil · Auto-évaluation préparatoire uniquement ·
         Non officiel HAS.
       </p>

@@ -78,18 +78,18 @@ export default async function EvaluationBesoinsPage({ params }: Props) {
             {formatContactIdentity(prospect) && <span>{formatContactIdentity(prospect)}</span>}
             {prospect.contactPhone && (
               <span className="flex items-center gap-1.5">
-                <Phone className="w-3.5 h-3.5 text-gris-mid" aria-hidden="true" />
+                <Phone className="w-3.5 h-3.5 text-ink2" aria-hidden="true" />
                 {prospect.contactPhone}
               </span>
             )}
             {prospect.contactEmail && (
               <span className="flex items-center gap-1.5">
-                <Mail className="w-3.5 h-3.5 text-gris-mid" aria-hidden="true" />
+                <Mail className="w-3.5 h-3.5 text-ink2" aria-hidden="true" />
                 {prospect.contactEmail}
               </span>
             )}
           </div>
-          <p className="text-xs text-gris-mid mt-3">
+          <p className="text-xs text-ink2 mt-3">
             Cochez l&apos;offre et les prestations retenues pendant l&apos;appel : l&apos;envoi
             crée le devis. La fiche client et son profil, eux, ne sont créés qu&apos;à la
             signature.

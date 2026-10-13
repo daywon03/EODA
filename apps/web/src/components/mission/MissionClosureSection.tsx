@@ -49,10 +49,10 @@ export function MissionClosureSection({
         <Badge variant={state === "ACTIVE" ? "secondary" : undefined}>
           {MISSION_ACCESS_LABELS[state]}
         </Badge>
-        {isPending && <Loader2 className="w-4 h-4 animate-spin text-gris-mid" aria-hidden="true" />}
+        {isPending && <Loader2 className="w-4 h-4 animate-spin text-ink2" aria-hidden="true" />}
       </div>
 
-      <p className="text-sm text-gris-mid">
+      <p className="text-sm text-ink2">
         {state === "ACTIVE" &&
           "L'accompagnement est en cours : le client dépose ses documents et consulte son espace."}
         {state === "LIBRARY" &&
@@ -115,7 +115,7 @@ export function MissionClosureSection({
       {/* Dit ce que ces boutons ne font PAS. La crainte légitime devant « révoquer »
           est la perte de données ; ici rien n'est supprimé, et les deux gestes se
           défont. */}
-      <p className="text-xs text-gris-mid">
+      <p className="text-xs text-ink2">
         Aucun de ces gestes ne supprime de document : ils ouvrent ou ferment l&apos;accès,
         et se défont. La rétention reste côté cabinet.
       </p>

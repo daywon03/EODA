@@ -19,8 +19,8 @@ export function ProspectRecap({ steps, closed }: Props) {
     <Card>
       <CardContent className="space-y-3 pt-6">
         <div className="flex items-baseline justify-between gap-3">
-          <p className="text-xs uppercase tracking-wide text-gris-mid">Où en est ce dossier</p>
-          {closed && <span className="text-xs text-gris-mid">Affaire perdue — historique conservé</span>}
+          <p className="text-xs uppercase tracking-wide text-ink2">Où en est ce dossier</p>
+          {closed && <span className="text-xs text-ink2">Affaire perdue — historique conservé</span>}
         </div>
 
         {/* Une colonne par étape à partir de la tablette, empilé en dessous : cinq
@@ -48,14 +48,14 @@ export function ProspectRecap({ steps, closed }: Props) {
                   className={
                     step.done
                       ? "text-sm font-medium leading-snug text-brun-ancre"
-                      : "text-sm leading-snug text-gris-mid"
+                      : "text-sm leading-snug text-ink2"
                   }
                 >
                   {step.label}
                   <span className="sr-only">{step.done ? " — fait" : " — pas encore"}</span>
                 </p>
                 {(step.at || step.detail) && (
-                  <p className="text-xs text-gris-mid">
+                  <p className="text-xs text-ink2">
                     {step.at ? formatDate(step.at) : step.detail}
                     {step.at && step.detail ? ` · ${step.detail}` : ""}
                   </p>

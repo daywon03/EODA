@@ -21,7 +21,7 @@ export type TimelineEntry = {
 export function ProspectTimeline({ entries }: { entries: TimelineEntry[] }) {
   if (entries.length === 0) {
     return (
-      <p className="text-sm text-gris-mid">
+      <p className="text-sm text-ink2">
         Aucun échange consigné pour l&apos;instant. Les changements d&apos;étape
         s&apos;inscrivent ici automatiquement.
       </p>
@@ -37,7 +37,7 @@ export function ProspectTimeline({ entries }: { entries: TimelineEntry[] }) {
             aria-hidden="true"
           >
             {entry.kind === "COMMENTAIRE" ? (
-              <MessageSquare className="w-3.5 h-3.5 text-terre" />
+              <MessageSquare className="w-3.5 h-3.5 text-accent-text" />
             ) : (
               <ArrowRight className="w-3.5 h-3.5 text-ambre" />
             )}
@@ -46,7 +46,7 @@ export function ProspectTimeline({ entries }: { entries: TimelineEntry[] }) {
             <p className="text-sm text-brun-ancre whitespace-pre-wrap break-words">
               {entry.kind === "COMMENTAIRE" ? entry.body : describeStatusChange(entry)}
             </p>
-            <p className="text-xs text-gris-mid mt-0.5">
+            <p className="text-xs text-ink2 mt-0.5">
               {formatDateTime(entry.createdAt)}
               {/* Auteur absent = compte supprimé depuis. On l'écrit plutôt que de
                   laisser une ligne anonyme qui ferait douter de la trace. */}

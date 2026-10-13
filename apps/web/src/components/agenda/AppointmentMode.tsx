@@ -18,7 +18,7 @@ export function AppointmentMode({ mode, location }: { mode: Mode; location: stri
   const isLink = mode === "VISIO" && !!location && /^https?:\/\//.test(location);
 
   return (
-    <span className="inline-flex items-center gap-1.5 text-xs text-gris-mid">
+    <span className="inline-flex items-center gap-1.5 text-xs text-ink2">
       <Icon className="w-3.5 h-3.5 flex-shrink-0" aria-hidden="true" />
       <span>{APPOINTMENT_MODE_LABELS[mode]}</span>
       {location && (
@@ -29,7 +29,7 @@ export function AppointmentMode({ mode, location }: { mode: Mode; location: stri
               href={location}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-terre underline underline-offset-2 hover:text-brun-moyen transition-colors"
+              className="text-accent-text underline underline-offset-2 hover:text-brun-moyen transition-colors"
             >
               Rejoindre la visio
             </a>

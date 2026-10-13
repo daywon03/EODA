@@ -125,7 +125,7 @@ export function EstablishmentForm({ establishment }: Props) {
           <option value="PUBLIC">{STRUCTURE_TYPE_LABELS.PUBLIC}</option>
           <option value="PRIVE">{STRUCTURE_TYPE_LABELS.PRIVE}</option>
         </Select>
-        <p className="text-xs text-gris-mid">
+        <p className="text-xs text-ink2">
           Indépendant du type SAD : une association peut être Aide ou Mixte.
         </p>
       </div>
@@ -156,7 +156,7 @@ export function EstablishmentForm({ establishment }: Props) {
           required
           disabled={isPending}
         />
-        <p className="text-xs text-gris-mid">
+        <p className="text-xs text-ink2">
           Permet de prioriser les établissements selon l'urgence dans le tableau de bord.
         </p>
       </div>

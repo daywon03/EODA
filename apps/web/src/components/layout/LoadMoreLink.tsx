@@ -26,7 +26,7 @@ export function LoadMoreLink({ basePath, shownCount, totalCount, pageSize, query
 
   if (!hasMore(shownCount, totalCount, pageSize)) {
     return (
-      <p className="text-xs text-gris-mid text-center">
+      <p className="text-xs text-ink2 text-center">
         {shownCount} sur {totalCount} affichés — plafond de {MAX_PAGE_SIZE} atteint. Affinez la
         recherche pour voir le reste.
       </p>
@@ -41,7 +41,7 @@ export function LoadMoreLink({ basePath, shownCount, totalCount, pageSize, query
           Voir plus
         </Link>
       </Button>
-      <p className="text-xs text-gris-mid">
+      <p className="text-xs text-ink2">
         {shownCount} sur {totalCount} affichés
       </p>
     </div>

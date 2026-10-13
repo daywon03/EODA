@@ -28,7 +28,7 @@ export default async function ClientMessagesPage() {
         <ShieldAlert className="mt-0.5 h-4 w-4 flex-shrink-0 text-ambre" aria-hidden="true" />
         <div className="space-y-1 text-sm text-brun-ancre">
           <p className="font-medium">Aucune donnée personnelle dans ce fil.</p>
-          <p className="text-gris-mid">
+          <p className="text-ink2">
             Il sert aux questions courtes et au suivi de votre accompagnement. N&apos;y
             mentionnez pas d&apos;informations concernant les personnes accompagnées —
             les documents, eux, se déposent dans votre espace documentaire.

@@ -37,18 +37,18 @@ export function PhaseChecklistSection({
     <div className={`space-y-2 ${hasApplicableItem ? "" : "opacity-60"}`}>
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold text-brun-ancre">{label}</h3>
-        <span className="text-xs text-gris-mid tabular-nums">
+        <span className="text-xs text-ink2 tabular-nums">
           {hasApplicableItem ? `${pct}%` : "—"}
         </span>
       </div>
       {!hasApplicableItem && (
-        <p className="text-xs text-gris-mid italic">
+        <p className="text-xs text-ink2 italic">
           Phase hors du périmètre de l&apos;offre contractée — débloquée par une formule
           supérieure.
         </p>
       )}
       {hasApplicableItem && lockedCount > 0 && (
-        <p className="text-xs text-gris-mid italic">
+        <p className="text-xs text-ink2 italic">
           {lockedCount} item{lockedCount > 1 ? "s" : ""} hors du périmètre de l&apos;offre
           contractée — débloqué{lockedCount > 1 ? "s" : ""} par une formule supérieure.
         </p>

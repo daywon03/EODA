@@ -76,7 +76,7 @@ export function SignatureConversionForm({
                 ? `Fiche client créée : ${state.establishmentName}`
                 : `Profil complété : ${state.establishmentName}`}
             </p>
-            <p className="text-gris-mid">
+            <p className="text-ink2">
               Devis signé, mission créée avec l&apos;offre du devis
               {state.optionCount > 0
                 ? ` et ${state.optionCount} option(s) souscrite(s).`
@@ -93,7 +93,7 @@ export function SignatureConversionForm({
               <h2 className="text-base font-semibold text-brun-ancre">
                 Ouvrir l&apos;accès au portail client
               </h2>
-              <p className="text-sm text-gris-mid">
+              <p className="text-sm text-ink2">
                 Facultatif — l&apos;accès peut être créé plus tard depuis la fiche
                 établissement.
               </p>
@@ -116,7 +116,7 @@ export function SignatureConversionForm({
             <h2 className="text-base font-semibold text-brun-ancre">
               Éditer le contrat d&apos;accompagnement
             </h2>
-            <p className="text-sm text-gris-mid">
+            <p className="text-sm text-ink2">
               Récapitule le devis signé : parties, périmètre, montants fermes et
               engagements réciproques. À faire signer avec le devis en annexe.
             </p>
@@ -181,7 +181,7 @@ export function SignatureConversionForm({
                   <span className="block font-semibold text-brun-ancre text-sm">
                     {choice.label}
                   </span>
-                  <span className="block text-xs text-gris-mid mt-0.5">{choice.hint}</span>
+                  <span className="block text-xs text-ink2 mt-0.5">{choice.hint}</span>
                 </span>
               </label>
             ))}
@@ -201,7 +201,7 @@ export function SignatureConversionForm({
           )}
         </fieldset>
       ) : (
-        <p className="text-sm text-gris-mid border-l-4 border-gris-light pl-3">
+        <p className="text-sm text-ink2 border-l-4 border-gris-light pl-3">
           Ce prospect a déjà une fiche établissement : la signature ne la recrée pas, elle
           y ajoute la mission portant l&apos;offre signée.
         </p>
@@ -265,7 +265,7 @@ export function SignatureConversionForm({
               disabled={isPending}
             />
           </div>
-          <p className="text-xs text-gris-mid">
+          <p className="text-xs text-ink2">
             C&apos;est le moment où ces informations sont connues : la fiche client part
             ensuite dans les livrables HAS, elle ne se crée plus à vide ailleurs. Le nom
             reprend celui du prospect ({structureName}) et le statut juridique est repris

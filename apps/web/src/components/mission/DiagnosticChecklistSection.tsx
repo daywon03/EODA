@@ -16,13 +16,13 @@ export function DiagnosticChecklistSection({ missionId, items, pct }: Props) {
     <div className="space-y-2">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold text-brun-ancre">Diagnostic initial</h3>
-        <span className="text-xs text-gris-mid tabular-nums">
+        <span className="text-xs text-ink2 tabular-nums">
           {items.length > lockedCount ? `${pct}%` : "—"}
         </span>
       </div>
       {items.length > lockedCount && <ProgressBar value={pct} label="Diagnostic initial" colorClassName="bg-ambre" />}
       {lockedCount > 0 && (
-        <p className="text-xs text-gris-mid italic">
+        <p className="text-xs text-ink2 italic">
           {lockedCount} item{lockedCount > 1 ? "s" : ""} hors du périmètre de l&apos;offre
           contractée — débloqué{lockedCount > 1 ? "s" : ""} par une formule supérieure.
         </p>

@@ -54,7 +54,7 @@ export function FilePreviewModal({
             type="button"
             onClick={onClose}
             aria-label="Fermer l'aperçu"
-            className="p-1 text-gris-mid hover:text-brun-ancre rounded-md cursor-pointer flex-shrink-0"
+            className="p-1 text-ink2 hover:text-brun-ancre rounded-md cursor-pointer flex-shrink-0"
           >
             <X className="w-4 h-4" aria-hidden="true" />
           </button>

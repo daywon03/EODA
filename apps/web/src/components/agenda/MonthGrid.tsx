@@ -30,7 +30,7 @@ export function MonthGrid({ year, month, appointments, now, basePath }: Props) {
         <Link
           href={`${basePath}?mois=${previous.y}-${String(previous.m + 1).padStart(2, "0")}`}
           aria-label="Mois précédent"
-          className="inline-flex h-9 w-9 items-center justify-center rounded-md text-gris-mid transition-colors hover:bg-ivoire hover:text-brun-ancre"
+          className="inline-flex h-9 w-9 items-center justify-center rounded-md text-ink2 transition-colors hover:bg-ivoire hover:text-brun-ancre"
         >
           <ChevronLeft className="w-4 h-4" aria-hidden="true" />
         </Link>
@@ -40,7 +40,7 @@ export function MonthGrid({ year, month, appointments, now, basePath }: Props) {
         <Link
           href={`${basePath}?mois=${next.y}-${String(next.m + 1).padStart(2, "0")}`}
           aria-label="Mois suivant"
-          className="inline-flex h-9 w-9 items-center justify-center rounded-md text-gris-mid transition-colors hover:bg-ivoire hover:text-brun-ancre"
+          className="inline-flex h-9 w-9 items-center justify-center rounded-md text-ink2 transition-colors hover:bg-ivoire hover:text-brun-ancre"
         >
           <ChevronRight className="w-4 h-4" aria-hidden="true" />
         </Link>
@@ -52,7 +52,7 @@ export function MonthGrid({ year, month, appointments, now, basePath }: Props) {
         <div className="min-w-[640px]">
           <div className="grid grid-cols-7 border-b border-gris-light bg-ivoire/60">
             {WEEKDAYS.map((day) => (
-              <div key={day} className="px-2 py-2 text-center text-xs font-medium text-gris-mid">
+              <div key={day} className="px-2 py-2 text-center text-xs font-medium text-ink2">
                 {day}
               </div>
             ))}
@@ -73,13 +73,13 @@ export function MonthGrid({ year, month, appointments, now, basePath }: Props) {
                       "inline-flex h-6 min-w-6 items-center justify-center rounded-full px-1.5 text-xs tabular-nums",
                       day.isToday && "bg-terre font-semibold text-ivoire-light",
                       !day.isToday && day.inMonth && "text-brun-ancre",
-                      !day.isToday && !day.inMonth && "text-gris-mid"
+                      !day.isToday && !day.inMonth && "text-ink2"
                     )}
                   >
                     {day.date.getDate()}
                   </span>
                   {day.appointments.length > 2 && (
-                    <span className="text-sm font-medium text-gris-mid tabular-nums">
+                    <span className="text-sm font-medium text-ink2 tabular-nums">
                       +{day.appointments.length - 2}
                     </span>
                   )}
@@ -94,7 +94,7 @@ export function MonthGrid({ year, month, appointments, now, basePath }: Props) {
                         className={cn(
                           "block truncate rounded px-1.5 py-1 text-sm leading-tight",
                           appointment.status === "ANNULE"
-                            ? "bg-gris-light/60 text-gris-mid line-through"
+                            ? "bg-gris-light/60 text-ink2 line-through"
                             : appointment.status === "CONFIRME"
                               ? "bg-vert-ok/15 text-brun-ancre"
                               : "bg-ambre/20 text-brun-ancre"
@@ -113,7 +113,7 @@ export function MonthGrid({ year, month, appointments, now, basePath }: Props) {
         </div>
       </div>
 
-      <p className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-gris-light px-4 py-2 text-xs text-gris-mid">
+      <p className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-gris-light px-4 py-2 text-xs text-ink2">
         <span className="inline-flex items-center gap-1.5">
           <span className="h-2.5 w-2.5 rounded-sm bg-ambre/60" aria-hidden="true" />
           Créneau proposé

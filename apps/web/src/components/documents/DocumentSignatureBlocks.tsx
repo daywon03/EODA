@@ -25,14 +25,14 @@ export function DocumentSignatureBlocks({
         <p className="text-xs font-semibold uppercase tracking-wide text-brun-moyen">
           Pour EODA Conseil
         </p>
-        <p className="mt-1 text-xs text-gris-mid">Date et signature</p>
+        <p className="mt-1 text-xs text-ink2">Date et signature</p>
         <div className="h-20 border-b border-gris-light" />
       </div>
       <div>
         <p className="text-xs font-semibold uppercase tracking-wide text-brun-moyen">
           Pour {counterpartyName}
         </p>
-        <p className="mt-1 text-xs text-gris-mid">{counterpartyInstruction}</p>
+        <p className="mt-1 text-xs text-ink2">{counterpartyInstruction}</p>
         <div className="h-20 border-b border-gris-light" />
       </div>
     </div>

@@ -122,6 +122,17 @@ describe("globals.css — contrastes des tokens de rôle", () => {
     });
   }
 
+  // Ce qui justifie le refus de `text-ink2` / `text-accent-text` dans ui-class-guard :
+  // en clair, ces teintes ne tiennent pas 4.5:1 sur le papier. Si un jour elles le
+  // tiennent, ce test échoue et la règle du garde peut être relâchée.
+  it.each(["gris-mid", "muted", "terre"])("clair : --%s sur --paper < 4.5:1 (interdit en texte)", (fg) => {
+    const ratio = contrastRatio(
+      parseRgbChannels(resolveToken(LIGHT, fg)),
+      parseRgbChannels(resolveToken(LIGHT, "paper"))
+    );
+    expect(ratio).toBeLessThan(AA_NORMAL_TEXT);
+  });
+
   it("le sombre sépare le fond doux de la carte (ivoire ≠ surface)", () => {
     const dark = mergeTokens(LIGHT, DARK_EXPLICIT);
     expect(resolveToken(dark, "soft")).not.toBe(resolveToken(dark, "card"));

@@ -5,6 +5,7 @@ import tailwindConfig from "../../../tailwind.config";
 import {
   MIN_TEXT_PX,
   findFocusSuppression,
+  findLowContrastTextColors,
   findSmallTextSizes,
   fontSizeToPx,
 } from "./ui-class-guard";
@@ -69,6 +70,30 @@ describe("findFocusSuppression", () => {
   });
 });
 
+describe("findLowContrastTextColors", () => {
+  it("refuse gris-mid, terre et muted en texte, avec variante ou opacité", () => {
+    const source = `"text-gris-mid placeholder:text-gris-mid hover:text-terre text-terre/60 text-muted"`;
+    expect(findLowContrastTextColors(source).map((v) => v.match)).toEqual([
+      "text-gris-mid",
+      "placeholder:text-gris-mid",
+      "hover:text-terre",
+      "text-terre/60",
+      "text-muted",
+    ]);
+  });
+
+  it("laisse passer les aplats, les bordures et les tokens de texte conformes", () => {
+    expect(
+      findLowContrastTextColors(`bg-terre border-gris-mid text-ink2 text-accent-text text-terre-fonce bg-gris-mid/10`)
+    ).toEqual([]);
+  });
+
+  it("propose le bon remplaçant", () => {
+    expect(findLowContrastTextColors(`text-terre`)[0]?.reason).toMatch(/text-accent-text/);
+    expect(findLowContrastTextColors(`text-gris-mid`)[0]?.reason).toMatch(/text-ink2/);
+  });
+});
+
 describe("fontSizeToPx", () => {
   it("lit px et rem", () => {
     expect(fontSizeToPx("0.875rem")).toBe(14);
@@ -84,6 +109,12 @@ describe("fontSizeToPx", () => {
 describe("dépôt — CLAUDE.md §6 (accessibilité)", () => {
   it("aucun texte sous 14 px écrit en taille arbitraire dans src/", () => {
     expect(report(findSmallTextSizes)).toEqual([]);
+  });
+
+  // Test de bout en bout du 12/10 : `text-gris-mid` (≈ 3.7:1 sur le papier clair)
+  // servait de texte secondaire dans ~80 fichiers. Dette soldée, refusée désormais.
+  it("aucune teinte sous 4.5:1 (gris-mid, terre, muted) écrite en couleur de texte dans src/", () => {
+    expect(report(findLowContrastTextColors)).toEqual([]);
   });
 
   it("aucun utilitaire ne retire le contour de focus dans src/", () => {

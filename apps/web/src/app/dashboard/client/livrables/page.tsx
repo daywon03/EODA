@@ -37,7 +37,7 @@ export default async function ClientDeliverablesPage() {
         <PageHeader title="Mes livrables" icon={PackageOpen} accent="ambre" />
         <div className="flex items-start gap-3 rounded-lg border border-ambre/30 bg-ambre/10 px-5 py-4">
           <AlertTriangle className="mt-0.5 h-5 w-5 flex-shrink-0 text-ambre" aria-hidden="true" />
-          <p className="text-sm text-gris-mid">
+          <p className="text-sm text-ink2">
             Votre consultant EODA doit d&apos;abord vous rattacher à votre établissement.
           </p>
         </div>
@@ -69,7 +69,7 @@ export default async function ClientDeliverablesPage() {
       {inProgress > 0 && (
         <div className="flex items-start gap-3 rounded-lg border border-gris-light bg-ivoire px-5 py-4">
           <Clock className="mt-0.5 h-5 w-5 flex-shrink-0 text-ambre" aria-hidden="true" />
-          <p className="text-sm text-gris-mid">
+          <p className="text-sm text-ink2">
             {inProgress} document{inProgress > 1 ? "s" : ""} en cours de finalisation par EODA
             Conseil. Il{inProgress > 1 ? "s" : ""} apparaîtra
             {inProgress > 1 ? "ont" : ""} ici après validation.
@@ -80,7 +80,7 @@ export default async function ClientDeliverablesPage() {
       {deliverables.length === 0 ? (
         <div className="rounded-xl border border-gris-light bg-surface px-5 py-8 text-center">
           <p className="text-sm font-semibold text-brun-ancre">Aucun livrable disponible</p>
-          <p className="mt-1 text-sm text-gris-mid">
+          <p className="mt-1 text-sm text-ink2">
             Les documents produits par EODA Conseil dans le cadre de votre accompagnement
             apparaîtront ici dès qu&apos;ils seront validés.
           </p>
@@ -100,7 +100,7 @@ export default async function ClientDeliverablesPage() {
                   >
                     <div className="min-w-0">
                       <p className="text-sm text-brun-ancre">{deliverable.label}</p>
-                      <p className="text-xs text-gris-mid">
+                      <p className="text-xs text-ink2">
                         {deliverable.filename} · remis le {formatDate(deliverable.remittedOn)}
                       </p>
                     </div>
@@ -116,7 +116,7 @@ export default async function ClientDeliverablesPage() {
         </div>
       )}
 
-      <p className="text-xs text-gris-mid">
+      <p className="text-xs text-ink2">
         Ces documents sont produits par EODA Conseil dans le cadre de votre accompagnement et
         restent consultables après la fin de la mission.
       </p>

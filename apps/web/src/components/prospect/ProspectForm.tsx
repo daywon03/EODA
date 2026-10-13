@@ -96,7 +96,7 @@ export function ProspectForm({ prospect }: Props) {
         <legend className="px-1 text-sm font-semibold text-brun-ancre">
           La structure
         </legend>
-        <p className="-mt-2 text-xs text-gris-mid">
+        <p className="-mt-2 text-xs text-ink2">
           Facultatif au premier contact. Ce qui est renseigné ici est repris
           automatiquement à la signature du devis — jamais ressaisi.
         </p>

@@ -28,7 +28,7 @@ export default async function ClientSuiviPage() {
           <AlertTriangle className="w-5 h-5 text-ambre flex-shrink-0 mt-0.5" aria-hidden="true" />
           <div className="text-sm">
             <p className="font-semibold text-brun-ancre">Aucun établissement rattaché</p>
-            <p className="text-gris-mid">
+            <p className="text-ink2">
               Votre consultant EODA doit d&apos;abord vous rattacher à votre établissement.
             </p>
           </div>
@@ -89,7 +89,7 @@ export default async function ClientSuiviPage() {
                 return (
                   <li key={step.id} className="flex items-center justify-between gap-3 py-2.5 first:pt-0 last:pb-0">
                     <span className="text-sm text-brun-ancre">{stepTitle(step)}</span>
-                    <span className="text-sm text-gris-mid tabular-nums">
+                    <span className="text-sm text-ink2 tabular-nums">
                       {pct === undefined ? "—" : `${pct}%`}
                     </span>
                   </li>
@@ -100,7 +100,7 @@ export default async function ClientSuiviPage() {
         </section>
       ) : (
         <div className="bg-surface border border-gris-light rounded-xl p-5">
-          <p className="text-sm text-gris-mid">
+          <p className="text-sm text-ink2">
             Le suivi détaillé s&apos;ouvre dès que votre consultant EODA démarre le diagnostic.
           </p>
         </div>
@@ -110,14 +110,14 @@ export default async function ClientSuiviPage() {
           c'est un indicateur de progression, pas un chiffre financier. */}
       <section className="bg-surface border border-gris-light rounded-xl p-5 space-y-4">
         <h2 className="text-base font-semibold text-brun-ancre">Ce que vous devez fournir</h2>
-        <p className="text-xs text-gris-mid -mt-2">
+        <p className="text-xs text-ink2 -mt-2">
           La contrepartie documentaire de votre offre — seules les pièces couvertes par votre
           formule sont demandées.
         </p>
 
         <div className="flex items-center justify-between text-sm">
           <span className="font-medium text-brun-ancre">Progression documentaire</span>
-          <span className="text-gris-mid tabular-nums">
+          <span className="text-ink2 tabular-nums">
             {documents.compliant} / {documents.total} pièces conformes
           </span>
         </div>
@@ -136,14 +136,14 @@ export default async function ClientSuiviPage() {
               </span>
               <div className="min-w-0">
                 <p className="text-sm font-semibold text-brun-ancre tabular-nums leading-none">{value}</p>
-                <p className="text-xs text-gris-mid leading-tight mt-1">{label}</p>
+                <p className="text-xs text-ink2 leading-tight mt-1">{label}</p>
               </div>
             </div>
           ))}
         </div>
 
         {counters && (
-          <p className="text-xs text-gris-mid border-t border-gris-light pt-3">
+          <p className="text-xs text-ink2 border-t border-gris-light pt-3">
             Traitement EODA sur vos dépôts : {counters.deposited} document
             {counters.deposited > 1 ? "s" : ""} déposé{counters.deposited > 1 ? "s" : ""} ·{" "}
             {counters.analyzed} analysé{counters.analyzed > 1 ? "s" : ""} · {counters.modified} mis

@@ -36,7 +36,7 @@ export default async function DecouvertePage({ params }: Props) {
       />
 
       <Card>
-        <CardContent className="pt-6 text-sm text-gris-mid">
+        <CardContent className="pt-6 text-sm text-ink2">
           <p>
             Grille d&apos;entretien à remplir pendant l&apos;appel : elle sert à écouter avant
             de chiffrer. Aucune réponse n&apos;est obligatoire, et l&apos;enregistrement peut

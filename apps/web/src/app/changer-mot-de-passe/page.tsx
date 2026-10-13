@@ -32,13 +32,13 @@ export default async function ChangePasswordPage() {
               </span>
             </div>
           ) : (
-            <p className="text-gris-mid text-sm mt-2 mb-5">
+            <p className="text-ink2 text-sm mt-2 mb-5">
               Vous serez déconnecté après le changement, sur cet appareil comme sur les
               autres.
             </p>
           )}
 
-          <p className="text-gris-mid text-xs mb-5">
+          <p className="text-ink2 text-xs mb-5">
             {MIN_PASSWORD_LENGTH} caractères minimum. Une phrase de passe longue protège
             mieux qu&apos;un mot court compliqué.
           </p>
@@ -46,7 +46,7 @@ export default async function ChangePasswordPage() {
           <ChangePasswordForm />
         </div>
 
-        <p className="text-center text-gris-mid text-xs mt-6">
+        <p className="text-center text-ink2 text-xs mt-6">
           © 2026 EODA Conseil · Outil de préparation interne · Non officiel HAS
         </p>
       </div>

@@ -28,7 +28,7 @@ export default async function HelpArticlePage({ params }: Props) {
       <PageHeader title={article.title} subtitle={article.summary} backHref="/dashboard/aide" />
 
       <p className="flex items-start gap-2 text-sm text-brun-ancre bg-ivoire border border-gris-light rounded-lg px-4 py-3">
-        <MapPin className="w-4 h-4 text-terre flex-shrink-0 mt-0.5" aria-hidden="true" />
+        <MapPin className="w-4 h-4 text-accent-text flex-shrink-0 mt-0.5" aria-hidden="true" />
         <span>
           <span className="font-semibold">Où : </span>
           {article.where}

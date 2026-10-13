@@ -85,13 +85,13 @@ function VersionRow({
 }) {
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <p className="flex min-w-0 items-center gap-1.5 text-xs text-gris-mid">
+      <p className="flex min-w-0 items-center gap-1.5 text-xs text-ink2">
         <FileText className="w-3 h-3 flex-shrink-0" aria-hidden="true" />
         <span className="font-medium text-brun-ancre tabular-nums">v{version.versionNumber}</span>
         <span className="truncate">{version.originalFilename}</span>
       </p>
 
-      <p className="text-xs text-gris-mid">
+      <p className="text-xs text-ink2">
         {formatDate(version.uploadedAt)} ·{" "}
         {/* D'où vient la version : c'est ce qui distingue l'original du client du
             travail de mise en conformité. */}

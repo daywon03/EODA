@@ -64,7 +64,7 @@ export function PhaseDatesForm({ missionId, phase, startDate, endDate, disabled 
           className="w-40 h-9 text-sm"
         />
       </div>
-      {isPending && <Loader2 className="w-3.5 h-3.5 animate-spin text-gris-mid" aria-hidden="true" />}
+      {isPending && <Loader2 className="w-3.5 h-3.5 animate-spin text-ink2" aria-hidden="true" />}
       {error && (
         <p role="alert" className="flex items-center gap-1 text-xs text-rouge-imp">
           <AlertCircle className="w-3 h-3 flex-shrink-0" aria-hidden="true" />

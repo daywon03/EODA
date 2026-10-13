@@ -53,16 +53,16 @@ export function ContratPrintable({ facts, establishmentLogo, issuedOn }: Props) 
 
       <section className="grid gap-4 sm:grid-cols-2 text-sm">
         <div>
-          <p className="text-xs uppercase tracking-wide text-gris-mid">Le prestataire</p>
+          <p className="text-xs uppercase tracking-wide text-ink2">Le prestataire</p>
           <p className="font-semibold">{EODA_LEGAL_NAME}</p>
-          <p className="text-xs text-gris-mid">
+          <p className="text-xs text-ink2">
             Conseil qualité auprès des établissements et services sociaux et médico-sociaux
           </p>
         </div>
         <div>
-          <p className="text-xs uppercase tracking-wide text-gris-mid">La structure</p>
+          <p className="text-xs uppercase tracking-wide text-ink2">La structure</p>
           <p className="font-semibold">{facts.establishmentName}</p>
-          <p className="text-xs text-gris-mid">{describeStructureIdentityLine({ ...facts, structureName: facts.establishmentName })}</p>
+          <p className="text-xs text-ink2">{describeStructureIdentityLine({ ...facts, structureName: facts.establishmentName })}</p>
         </div>
       </section>
 
@@ -84,7 +84,7 @@ export function ContratPrintable({ facts, establishmentLogo, issuedOn }: Props) 
         </h3>
         <div className="rounded-lg border border-gris-light bg-ivoire/40 px-4 py-3 text-sm">
           <p className="font-semibold">Formule {facts.formuleLabel}</p>
-          {facts.modulesLabel && <p className="text-xs text-gris-mid">{facts.modulesLabel}</p>}
+          {facts.modulesLabel && <p className="text-xs text-ink2">{facts.modulesLabel}</p>}
         </div>
 
         {options.length > 0 && (
@@ -113,9 +113,9 @@ export function ContratPrintable({ facts, establishmentLogo, issuedOn }: Props) 
         {/* Ce qui n'est PAS au contrat est dit, pas tu : une option ouverte dans
             l'outil mais absente du contrat est exactement le trou que le §12.6
             demande de fermer. */}
-        {pendingAvenantNotice && <p className="text-xs text-terre">{pendingAvenantNotice}</p>}
+        {pendingAvenantNotice && <p className="text-xs text-accent-text">{pendingAvenantNotice}</p>}
 
-        <p className="text-xs text-gris-mid">
+        <p className="text-xs text-ink2">
           Toute prestation non listée ci-dessus fait l&apos;objet d&apos;un avenant signé des deux
           parties avant son exécution.
         </p>
@@ -133,7 +133,7 @@ export function ContratPrintable({ facts, establishmentLogo, issuedOn }: Props) 
             </div>
             {facts.depositAmountEuros !== null && (
               <div className="flex justify-between pt-1">
-                <span className="text-gris-mid">
+                <span className="text-ink2">
                   Acompte{facts.depositPercent !== null ? ` (${facts.depositPercent}%)` : ""}
                 </span>
                 <span className="tabular-nums">{formatEuros(facts.depositAmountEuros)}</span>
@@ -141,20 +141,20 @@ export function ContratPrintable({ facts, establishmentLogo, issuedOn }: Props) 
             )}
             {facts.balanceAmountEuros !== null && (
               <div className="flex justify-between">
-                <span className="text-gris-mid">Solde</span>
+                <span className="text-ink2">Solde</span>
                 <span className="tabular-nums">{formatEuros(facts.balanceAmountEuros)}</span>
               </div>
             )}
             {facts.installmentCount !== null && facts.installmentAmountEuros !== null && (
               <div className="flex justify-between">
-                <span className="text-gris-mid">
+                <span className="text-ink2">
                   {facts.installmentCount} échéance{facts.installmentCount > 1 ? "s" : ""} de
                 </span>
                 <span className="tabular-nums">{formatEuros(facts.installmentAmountEuros)}</span>
               </div>
             )}
           </div>
-          <p className="text-xs text-gris-mid">
+          <p className="text-xs text-ink2">
             Montants HT · TVA non applicable, art. 293 B du CGI · acompte à la commande, solde à la
             livraison des livrables.
           </p>
@@ -181,7 +181,7 @@ export function ContratPrintable({ facts, establishmentLogo, issuedOn }: Props) 
           {eodaCommitments.map((commitment) => (
             <li key={commitment.title} className="break-inside-avoid">
               <p className="font-semibold">{commitment.title}</p>
-              <p className="text-gris-mid">{commitment.body}</p>
+              <p className="text-ink2">{commitment.body}</p>
             </li>
           ))}
         </ul>
@@ -195,7 +195,7 @@ export function ContratPrintable({ facts, establishmentLogo, issuedOn }: Props) 
           {structureCommitments.map((commitment) => (
             <li key={commitment.title} className="break-inside-avoid">
               <p className="font-semibold">{commitment.title}</p>
-              <p className="text-gris-mid">{commitment.body}</p>
+              <p className="text-ink2">{commitment.body}</p>
             </li>
           ))}
         </ul>
@@ -206,7 +206,7 @@ export function ContratPrintable({ facts, establishmentLogo, issuedOn }: Props) 
           6 · Indépendance et nature de la prestation
         </h3>
         <p className="text-sm">{CONTRACT_INDEPENDENCE_NOTICE}</p>
-        <p className="text-xs text-gris-mid">{CONTRACT_GENERAL_TERMS_NOTICE}</p>
+        <p className="text-xs text-ink2">{CONTRACT_GENERAL_TERMS_NOTICE}</p>
       </section>
 
       <DocumentSignatureBlocks
@@ -214,7 +214,7 @@ export function ContratPrintable({ facts, establishmentLogo, issuedOn }: Props) 
         counterpartyInstruction="Date, signature et cachet, précédées de la mention « lu et approuvé »"
       />
 
-      <p className="border-t border-gris-light pt-4 text-xs text-gris-mid">
+      <p className="border-t border-gris-light pt-4 text-xs text-ink2">
         {/* Mention de PRESTATION et non de paternité : sur un document contractuel,
             EODA s'engage — elle ne revendique pas la propriété d'une œuvre
             (document-ownership-service). */}

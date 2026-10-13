@@ -65,7 +65,7 @@ export function RequestOptionQuoteForm({
   return (
     <form action={submit} className="w-full sm:w-80 space-y-2">
       <input type="hidden" name="catalogueOptionId" value={catalogueOptionId} />
-      <label htmlFor={`message-${catalogueOptionId}`} className="block text-xs text-gris-mid">
+      <label htmlFor={`message-${catalogueOptionId}`} className="block text-xs text-ink2">
         Précisez votre besoin (facultatif) — {optionLabel}
       </label>
       <Textarea

@@ -30,7 +30,7 @@ export function ProfileIdentityForm({ name, email }: Props) {
           disabled={isPending}
           autoComplete="name"
         />
-        <p className="text-xs text-gris-mid">
+        <p className="text-xs text-ink2">
           C&apos;est ce nom qui signe vos messages et vos dépôts de documents.
         </p>
       </div>
@@ -38,7 +38,7 @@ export function ProfileIdentityForm({ name, email }: Props) {
       <div className="space-y-1.5">
         <Label htmlFor="profile-email">Adresse e-mail</Label>
         <Input id="profile-email" value={email} readOnly disabled className="bg-ivoire" />
-        <p className="text-xs text-gris-mid">
+        <p className="text-xs text-ink2">
           C&apos;est votre identifiant de connexion. Pour le changer, écrivez à votre
           consultante EODA — elle seule peut le faire.
         </p>

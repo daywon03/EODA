@@ -83,13 +83,13 @@ export function DocumentAnalysisPanel({
         className="w-full flex items-center gap-2 px-3 py-2 text-left cursor-pointer focus-visible:-outline-offset-4 rounded-lg"
       >
         <ChevronDown
-          className={`w-3.5 h-3.5 text-gris-mid flex-shrink-0 transition-transform duration-200 ${open ? "rotate-0" : "-rotate-90"}`}
+          className={`w-3.5 h-3.5 text-ink2 flex-shrink-0 transition-transform duration-200 ${open ? "rotate-0" : "-rotate-90"}`}
           aria-hidden="true"
         />
         <Sparkles className="w-3.5 h-3.5 text-ambre flex-shrink-0" aria-hidden="true" />
         <span className="text-xs text-brun-ancre font-medium">Analyse automatique</span>
         <span
-          className={`text-xs ${summary.missingCount > 0 ? "text-rouge-imp" : "text-gris-mid"}`}
+          className={`text-xs ${summary.missingCount > 0 ? "text-rouge-imp" : "text-ink2"}`}
         >
           {describeAnalysis(summary)}
         </span>
@@ -106,7 +106,7 @@ export function DocumentAnalysisPanel({
           {analysis.criteriaCoverage.length > 0 && (
             <div>
               <p className="flex items-center gap-1.5 text-xs font-medium text-brun-ancre mb-1">
-                <CheckCircle2 className="w-3.5 h-3.5 text-terre" aria-hidden="true" />
+                <CheckCircle2 className="w-3.5 h-3.5 text-accent-text" aria-hidden="true" />
                 Couverture par critère HAS
               </p>
               <ul className="space-y-1 pl-5">
@@ -126,7 +126,7 @@ export function DocumentAnalysisPanel({
                       {c.status}
                     </span>
                     {" : "}
-                    <span className="text-gris-mid">{c.note}</span>
+                    <span className="text-ink2">{c.note}</span>
                   </li>
                 ))}
               </ul>
@@ -176,7 +176,7 @@ export function DocumentAnalysisPanel({
                 )}
                 {reviewedAt ? "Retirer du portail client" : "Valider et restituer au client"}
               </Button>
-              <span className="text-xs text-gris-mid">
+              <span className="text-xs text-ink2">
                 {reviewedAt
                   ? "Visible par le client."
                   : "Non visible par le client tant qu'elle n'est pas relue."}
@@ -196,7 +196,7 @@ export function DocumentAnalysisPanel({
           {/* Mention non négociable : EODA est en conseil/préparation, jamais en
               évaluateur officiel (CLAUDE.md §1). Une analyse automatique présentée
               sans réserve serait lue comme un verdict de conformité HAS. */}
-          <p className="text-xs text-gris-mid border-t border-gris-light pt-2">
+          <p className="text-xs text-ink2 border-t border-gris-light pt-2">
             Analyse automatique produite à l&apos;appui de la préparation. Elle ne vaut
             pas évaluation HAS et ne remplace pas l&apos;appréciation de votre
             consultant.
@@ -272,7 +272,7 @@ function AnalysisGuidelines({ open }: { open: boolean }) {
         <button
           type="button"
           onClick={() => setShowForm(true)}
-          className="flex items-center gap-1.5 text-xs text-terre hover:underline"
+          className="flex items-center gap-1.5 text-xs text-accent-text hover:underline"
         >
           <MessageSquarePlus className="w-3.5 h-3.5" aria-hidden="true" />
           Ajouter une guideline sur un critère HAS
@@ -299,7 +299,7 @@ function AnalysisGuidelines({ open }: { open: boolean }) {
               {existing.map((g) => (
                 <li key={g.id} className="rounded-md bg-surface/70 px-2 py-1.5 text-xs text-brun-ancre">
                   <p>{g.note}</p>
-                  <p className="mt-0.5 text-sm text-gris-mid">
+                  <p className="mt-0.5 text-sm text-ink2">
                     {g.createdByName} · {formatDate(g.createdAt)}
                   </p>
                 </li>
@@ -335,7 +335,7 @@ function AnalysisGuidelines({ open }: { open: boolean }) {
             </Button>
             <button
               type="button"
-              className="text-xs text-gris-mid hover:underline"
+              className="text-xs text-ink2 hover:underline"
               onClick={() => {
                 setShowForm(false);
                 setNote("");
@@ -383,7 +383,7 @@ function Section({
       </p>
       <ul className="space-y-1 pl-5">
         {entries.map((entry) => (
-          <li key={entry} className="text-xs text-gris-mid list-disc marker:text-gris-light">
+          <li key={entry} className="text-xs text-ink2 list-disc marker:text-gris-light">
             {entry}
           </li>
         ))}
@@ -414,10 +414,10 @@ function FindingsSection({
       </p>
       <ul className="space-y-1.5 pl-5">
         {findings.map((finding, index) => (
-          <li key={`${finding.text}-${index}`} className="text-xs text-gris-mid list-disc marker:text-gris-light">
+          <li key={`${finding.text}-${index}`} className="text-xs text-ink2 list-disc marker:text-gris-light">
             {finding.text}
             {finding.source && (
-              <blockquote className="mt-0.5 border-l-2 border-gris-light pl-2 italic text-sm text-gris-mid">
+              <blockquote className="mt-0.5 border-l-2 border-gris-light pl-2 italic text-sm text-ink2">
                 « {finding.source} »
               </blockquote>
             )}

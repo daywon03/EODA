@@ -93,7 +93,7 @@ export function TemplateCriteriaPicker({
           </li>
         ))}
         {filtered.length === 0 && (
-          <li className="text-xs text-gris-mid">Aucun critère ne correspond au filtre.</li>
+          <li className="text-xs text-ink2">Aucun critère ne correspond au filtre.</li>
         )}
       </ul>
       <div className="flex items-center gap-2">
@@ -105,7 +105,7 @@ export function TemplateCriteriaPicker({
           )}
           Enregistrer les critères rattachés
         </Button>
-        <span className="text-xs text-gris-mid">{selected.size} sélectionné(s)</span>
+        <span className="text-xs text-ink2">{selected.size} sélectionné(s)</span>
       </div>
       {saved && (
         <p role="status" className="flex items-center gap-1.5 text-xs text-vert-ok">

@@ -88,7 +88,7 @@ export function DevisSummaryPrintable({
       </div>
 
       <div>
-        <p className="text-xs uppercase tracking-wide text-gris-mid">Client</p>
+        <p className="text-xs uppercase tracking-wide text-ink2">Client</p>
         <p className="font-semibold">{prospectStructureName}</p>
       </div>
 
@@ -130,7 +130,7 @@ export function DevisSummaryPrintable({
                 <td className="py-2 pl-2">
                   {o.labelSnapshot}
                   {isMetered ? (
-                    <span className="block text-xs text-gris-mid">{unitLabel}</span>
+                    <span className="block text-xs text-ink2">{unitLabel}</span>
                   ) : null}
                 </td>
                 <td className="py-2 pr-2 text-right tabular-nums">
@@ -148,15 +148,15 @@ export function DevisSummaryPrintable({
           <span className="tabular-nums">{formatStartingPrice({ priceEuros: totalAmountEuros })}</span>
         </div>
         <div className="flex justify-between pt-1">
-          <span className="text-gris-mid">Acompte ({depositPercent}%)</span>
+          <span className="text-ink2">Acompte ({depositPercent}%)</span>
           <span className="tabular-nums">{formatEuros(depositAmountEuros)}</span>
         </div>
         <div className="flex justify-between">
-          <span className="text-gris-mid">Solde</span>
+          <span className="text-ink2">Solde</span>
           <span className="tabular-nums">{formatEuros(balanceAmountEuros)}</span>
         </div>
         <div className="flex justify-between">
-          <span className="text-gris-mid">
+          <span className="text-ink2">
             {installmentCount} échéance{installmentCount > 1 ? "s" : ""} de
           </span>
           <span className="tabular-nums">{formatEuros(installmentAmountEuros)}</span>
@@ -167,7 +167,7 @@ export function DevisSummaryPrintable({
           la main avant chaque envoi. Même bloc que l'avenant et le contrat. */}
       <DocumentSignatureBlocks counterpartyName={prospectStructureName} />
 
-      <p className="border-t border-gris-light pt-4 text-xs text-gris-mid">
+      <p className="border-t border-gris-light pt-4 text-xs text-ink2">
         Tarifs indicatifs HT « à partir de » · TVA non applicable, art. 293 B du CGI · acompte à la
         commande, solde à la livraison des livrables.{" "}
         {buildContractualMention(prospectStructureName)}

@@ -32,11 +32,11 @@ export function CollapsibleSection({ title, summary, defaultOpen = false, childr
         {/* La flèche pivote à l'ouverture. `aria-hidden` : l'état replié/déplié est
             déjà porté par <details>, le redire à voix haute serait du bruit. */}
         <ChevronRight
-          className="h-4 w-4 flex-shrink-0 text-gris-mid transition-transform duration-150 group-open:rotate-90 motion-reduce:transition-none"
+          className="h-4 w-4 flex-shrink-0 text-ink2 transition-transform duration-150 group-open:rotate-90 motion-reduce:transition-none"
           aria-hidden="true"
         />
         <h2 className="text-base font-semibold text-brun-ancre">{title}</h2>
-        {summary && <span className="text-xs text-gris-mid">· {summary}</span>}
+        {summary && <span className="text-xs text-ink2">· {summary}</span>}
       </summary>
 
       <Card>

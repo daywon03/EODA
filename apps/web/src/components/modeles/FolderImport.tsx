@@ -136,7 +136,7 @@ export function FolderImport({ onImported }: { onImported?: () => void }) {
           disabled={isRunning}
           onChange={(event) => handlePick(event.target.files)}
         />
-        <p className="text-xs text-gris-mid">
+        <p className="text-xs text-ink2">
           Le dossier choisi devient un dossier de la bibliothèque, chaque sous-dossier
           une fiche. Rien n&apos;est enregistré tant que vous n&apos;avez pas relu la
           proposition ci-dessous.
@@ -160,7 +160,7 @@ export function FolderImport({ onImported }: { onImported?: () => void }) {
                 Rangement proposé pour les fichiers du dossier choisi
               </caption>
               <thead>
-                <tr className="border-b border-gris-light text-gris-mid">
+                <tr className="border-b border-gris-light text-ink2">
                   <th scope="col" className="py-2 pr-3 font-medium">Fichier</th>
                   <th scope="col" className="py-2 pr-3 font-medium">Dossier</th>
                   <th scope="col" className="py-2 pr-3 font-medium">Fiche</th>
@@ -176,7 +176,7 @@ export function FolderImport({ onImported }: { onImported?: () => void }) {
                         {row.file.name}
                       </span>
                       {row.duplicate && (
-                        <span className="text-gris-mid">
+                        <span className="text-ink2">
                           Doublon dans ce dossier — ignoré.
                         </span>
                       )}
@@ -185,7 +185,7 @@ export function FolderImport({ onImported }: { onImported?: () => void }) {
                           corriger, la première presque jamais. Les confondre ferait
                           relire les cinquante lignes ou aucune. */}
                       {!row.duplicate && !row.stageDetected && (
-                        <span className="flex items-center gap-1 text-gris-mid">
+                        <span className="flex items-center gap-1 text-ink2">
                           <Sparkles className="h-3 w-3 flex-shrink-0" aria-hidden="true" />
                           stade à confirmer
                         </span>

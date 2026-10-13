@@ -87,13 +87,13 @@ export function LibraryBrowser({
           onChange={switchKind}
         />
         <Card>
-          <CardContent className="space-y-2 pt-6 text-sm text-gris-mid">
+          <CardContent className="space-y-2 pt-6 text-sm text-ink2">
             {hasCriterionFilter ? (
               <p>Aucun modèle rattaché à ce critère pour l&apos;instant.</p>
             ) : activeKind === "GABARIT" ? (
               <>
                 <p className="flex items-center gap-2 font-medium text-brun-ancre">
-                  <FolderOpen className="h-4 w-4 text-terre" aria-hidden="true" />
+                  <FolderOpen className="h-4 w-4 text-accent-text" aria-hidden="true" />
                   Aucun gabarit pour l&apos;instant.
                 </p>
                 <p>
@@ -122,7 +122,7 @@ export function LibraryBrowser({
         />
         <div className="relative w-full max-w-xs sm:w-64">
           <Search
-            className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gris-mid"
+            className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink2"
             aria-hidden="true"
           />
           <Input
@@ -138,13 +138,13 @@ export function LibraryBrowser({
         </div>
       </div>
 
-      <nav aria-label="Fil d'Ariane" className="flex items-center gap-1.5 text-xs text-gris-mid">
+      <nav aria-label="Fil d'Ariane" className="flex items-center gap-1.5 text-xs text-ink2">
         {openFolder ? (
           <>
             <button
               type="button"
               onClick={() => setOpenFolderId(null)}
-              className="flex cursor-pointer items-center gap-1 hover:text-terre"
+              className="flex cursor-pointer items-center gap-1 hover:text-accent-text"
             >
               <ChevronLeft className="h-3.5 w-3.5" aria-hidden="true" />
               {activeKind === "GABARIT" ? "Gabarits EODA" : "Documents de référence"}
@@ -159,7 +159,7 @@ export function LibraryBrowser({
 
       {searchResults ? (
         searchResults.length === 0 ? (
-          <p className="text-sm text-gris-mid">Aucun modèle ne correspond à « {query} ».</p>
+          <p className="text-sm text-ink2">Aucun modèle ne correspond à « {query} ».</p>
         ) : (
           <TileGrid>
             {searchResults.map(({ template, folderName }) => (
@@ -204,11 +204,11 @@ function KindTabs({
     <div className="flex gap-4 border-b border-gris-light">
       <TabButton active={active === "GABARIT"} onClick={() => onChange("GABARIT")}>
         Gabarits EODA
-        <span className="ml-1.5 text-xs font-normal text-gris-mid">{gabaritCount}</span>
+        <span className="ml-1.5 text-xs font-normal text-ink2">{gabaritCount}</span>
       </TabButton>
       <TabButton active={active === "REFERENCE"} onClick={() => onChange("REFERENCE")}>
         Documents de référence
-        <span className="ml-1.5 text-xs font-normal text-gris-mid">{referenceCount}</span>
+        <span className="ml-1.5 text-xs font-normal text-ink2">{referenceCount}</span>
       </TabButton>
     </div>
   );
@@ -230,8 +230,8 @@ function TabButton({
       aria-current={active ? "page" : undefined}
       className={`-mb-px cursor-pointer border-b-2 px-1 pb-2 text-sm font-medium transition-colors ${
         active
-          ? "border-terre text-terre"
-          : "border-transparent text-gris-mid hover:text-brun-ancre"
+          ? "border-terre text-accent-text"
+          : "border-transparent text-ink2 hover:text-brun-ancre"
       }`}
     >
       {children}
@@ -253,11 +253,11 @@ function FolderTile({ name, count, onOpen }: { name: string; count: number; onOp
       className="flex flex-col items-start gap-2 rounded-xl border border-gris-light bg-surface p-3.5 text-left transition-all duration-150 hover:-translate-y-0.5 hover:shadow-eoda-md"
     >
       <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-terre/10">
-        <Folder className="h-4.5 w-4.5 text-terre" aria-hidden="true" />
+        <Folder className="h-4.5 w-4.5 text-accent-text" aria-hidden="true" />
       </span>
       <span className="min-w-0">
         <span className="block truncate text-sm font-semibold text-brun-ancre">{name}</span>
-        <span className="block text-xs text-gris-mid">
+        <span className="block text-xs text-ink2">
           {count} modèle{count !== 1 ? "s" : ""}
         </span>
       </span>
@@ -276,8 +276,8 @@ function TemplateTile({ template, subtitle }: { template: TemplateSummary; subti
       </span>
       <span className="min-w-0 w-full">
         <span className="block truncate text-sm font-semibold text-brun-ancre">{template.title}</span>
-        {subtitle && <span className="block truncate text-xs text-gris-mid">{subtitle}</span>}
-        <span className="mt-1 block text-xs text-gris-mid">
+        {subtitle && <span className="block truncate text-xs text-ink2">{subtitle}</span>}
+        <span className="mt-1 block text-xs text-ink2">
           mis à jour le {formatDate(template.updatedAt)}
         </span>
         <span className="mt-1.5 flex flex-wrap gap-1">

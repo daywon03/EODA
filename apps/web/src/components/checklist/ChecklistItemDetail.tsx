@@ -74,7 +74,7 @@ export function ChecklistItemDetail({ item, establishmentId, canManageVersions, 
           silence ressemblerait à une panne. On dit qu'elle arrive, sans
           rien en révéler. */}
       {!canManageVersions && item.currentVersion?.analysisAwaitingReview && !item.currentVersion.analysis && (
-        <p className="mt-2 text-xs text-gris-mid">
+        <p className="mt-2 text-xs text-ink2">
           Analyse en cours de relecture par votre consultant EODA.
         </p>
       )}

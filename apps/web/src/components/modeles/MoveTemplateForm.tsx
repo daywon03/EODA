@@ -87,7 +87,7 @@ export function MoveTemplateForm({
         </Button>
         <button
           type="button"
-          className="pb-2 text-xs text-gris-mid hover:underline"
+          className="pb-2 text-xs text-ink2 hover:underline"
           onClick={() => {
             setCreatingNew(false);
             setNewName("");
@@ -125,7 +125,7 @@ export function MoveTemplateForm({
         </Select>
       </div>
       {isPending && (
-        <p className="flex items-center gap-1.5 pb-3 text-xs text-gris-mid" role="status">
+        <p className="flex items-center gap-1.5 pb-3 text-xs text-ink2" role="status">
           <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />
           Déplacement…
         </p>

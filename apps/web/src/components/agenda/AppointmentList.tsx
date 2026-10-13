@@ -24,7 +24,7 @@ type Props = {
 export function AppointmentList({ appointments, readOnly = false, emptyMessage }: Props) {
   if (appointments.length === 0) {
     return (
-      <div className="flex items-start gap-3 rounded-lg border border-dashed border-gris-light px-4 py-5 text-sm text-gris-mid">
+      <div className="flex items-start gap-3 rounded-lg border border-dashed border-gris-light px-4 py-5 text-sm text-ink2">
         <CalendarDays className="w-4 h-4 flex-shrink-0 mt-0.5" aria-hidden="true" />
         <p>{emptyMessage}</p>
       </div>
@@ -35,7 +35,7 @@ export function AppointmentList({ appointments, readOnly = false, emptyMessage }
     <div className="space-y-5">
       {groupByDay(appointments).map((group) => (
         <section key={group.date.toISOString()} className="space-y-2">
-          <h3 className="text-xs font-semibold uppercase tracking-wide text-gris-mid">
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-ink2">
             {formatDayHeading(group.date)}
           </h3>
           <ul className="divide-y divide-gris-light rounded-lg border border-gris-light bg-surface">
@@ -53,7 +53,7 @@ export function AppointmentList({ appointments, readOnly = false, emptyMessage }
                     </span>
                     <span className="text-sm text-brun-ancre">{appointment.subject}</span>
                   </p>
-                  <p className="text-xs text-gris-mid">
+                  <p className="text-xs text-ink2">
                     {APPOINTMENT_KIND_LABELS[appointment.kind]}
                     {/* Rendez-vous tenu avant la signature : dit en toutes lettres,
                         sinon il se lit comme un point d'accompagnement — et personne
@@ -69,7 +69,7 @@ export function AppointmentList({ appointments, readOnly = false, emptyMessage }
                         {appointment.href ? (
                           <Link
                             href={appointment.href}
-                            className="text-terre underline underline-offset-2 hover:text-brun-moyen transition-colors"
+                            className="text-accent-text underline underline-offset-2 hover:text-brun-moyen transition-colors"
                           >
                             {appointment.structureName}
                           </Link>

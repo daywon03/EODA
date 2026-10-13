@@ -28,7 +28,7 @@ export function OptionRequestQueue({ requests }: { requests: PendingOptionReques
   return (
     <section className="bg-surface border border-line rounded-xl p-5 space-y-4">
       <div className="flex items-center gap-2.5">
-        <Inbox className="w-5 h-5 text-terre flex-shrink-0" aria-hidden="true" />
+        <Inbox className="w-5 h-5 text-accent-text flex-shrink-0" aria-hidden="true" />
         <h2 className="text-base font-semibold text-ink">
           Demandes d&apos;options des clients
           {requests.length > 0 && (
@@ -55,7 +55,7 @@ export function OptionRequestQueue({ requests }: { requests: PendingOptionReques
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-medium text-ink">{request.establishment.name}</p>
                 <p className="text-sm text-ink">{request.option.label}</p>
-                <p className="text-xs text-terre tabular-nums mt-0.5">
+                <p className="text-xs text-accent-text tabular-nums mt-0.5">
                   {formatStartingPrice(request.option)}
                 </p>
                 {request.message && (

@@ -119,7 +119,7 @@ export function MissingDocumentJustification({
               />
             )}
             {isPending && (
-              <Loader2 className="h-4 w-4 animate-spin text-gris-mid" aria-hidden="true" />
+              <Loader2 className="h-4 w-4 animate-spin text-ink2" aria-hidden="true" />
             )}
           </div>
         </div>
@@ -149,7 +149,7 @@ export function MissingDocumentJustification({
               : "Pourquoi il ne s'applique pas, ou bien où il en est de son côté…"
           }
         />
-        <p className="flex min-h-4 items-center gap-1.5 text-sm text-gris-mid">
+        <p className="flex min-h-4 items-center gap-1.5 text-sm text-ink2">
           {isPending ? (
             <>
               <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />
@@ -206,8 +206,8 @@ function ChoiceButton({
       title={hint}
       className={`inline-flex min-h-11 items-center gap-1.5 rounded-lg border px-3 py-2 text-xs transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
         selected
-          ? "border-terre bg-terre/10 font-medium text-terre"
-          : "border-gris-light bg-surface text-gris-mid hover:border-terre/40 hover:text-brun-ancre"
+          ? "border-terre bg-terre/10 font-medium text-accent-text"
+          : "border-gris-light bg-surface text-ink2 hover:border-terre/40 hover:text-brun-ancre"
       }`}
     >
       <Icon
@@ -215,7 +215,7 @@ function ChoiceButton({
         aria-hidden="true"
       />
       <span>{label}</span>
-      <span className="hidden text-gris-mid sm:inline">— {hint}</span>
+      <span className="hidden text-ink2 sm:inline">— {hint}</span>
     </button>
   );
 }

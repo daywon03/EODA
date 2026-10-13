@@ -30,7 +30,7 @@ export function DocumentReminderForm({ establishmentId, missingCount }: Props) {
 
   if (missingCount === 0) {
     return (
-      <p className="text-sm text-gris-mid">
+      <p className="text-sm text-ink2">
         Aucune pièce réclamée ne manque : il n&apos;y a rien à relancer.
       </p>
     );
@@ -39,7 +39,7 @@ export function DocumentReminderForm({ establishmentId, missingCount }: Props) {
   if (!open) {
     return (
       <div className="space-y-2">
-        <p className="text-sm text-gris-mid">
+        <p className="text-sm text-ink2">
           {missingCount} pièce{missingCount > 1 ? "s" : ""} réclamée
           {missingCount > 1 ? "s" : ""} manque{missingCount > 1 ? "nt" : ""} encore.
         </p>
@@ -53,7 +53,7 @@ export function DocumentReminderForm({ establishmentId, missingCount }: Props) {
 
   return (
     <form action={formAction} className="space-y-3">
-      <p className="text-sm text-gris-mid">
+      <p className="text-sm text-ink2">
         La liste des pièces manquantes est jointe automatiquement au message. Les pièces
         déjà justifiées par le client n&apos;y figurent pas.
       </p>

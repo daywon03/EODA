@@ -75,7 +75,7 @@ export function DocumentStepTrail({ establishmentId, documentTypeId, step, isIma
                   // "pastel" déjà corrigé sur les badges.
                   reached
                     ? "border border-vert-ok/40 bg-vert-ok/12 text-vert-ok"
-                    : "border border-transparent text-gris-mid"
+                    : "border border-transparent text-ink2"
                 )}
               >
                 {reached && <Check className="w-3 h-3 text-vert-ok" aria-hidden="true" />}
@@ -90,7 +90,7 @@ export function DocumentStepTrail({ establishmentId, documentTypeId, step, isIma
       <div className="flex flex-wrap items-center justify-between gap-2">
         {/* Ce qu'il reste à faire, en toutes lettres : le fil dit où on en est, cette
             phrase dit quoi faire. */}
-        <p className="text-xs text-gris-mid">{describeNextStep(step, isImage)}</p>
+        <p className="text-xs text-ink2">{describeNextStep(step, isImage)}</p>
 
         <Button
           type="button"

@@ -123,7 +123,7 @@ export default async function MissionPage({ params }: Props) {
                   décochant une case. */}
               {avenantTracked.length > 0 && (
                 <div className="mb-4 space-y-2 rounded-lg border border-gris-light bg-ivoire/40 px-4 py-3">
-                  <p className="text-xs uppercase tracking-wide text-gris-mid">
+                  <p className="text-xs uppercase tracking-wide text-ink2">
                     Suivi des avenants
                   </p>
                   {avenantTracked.map((option) => (

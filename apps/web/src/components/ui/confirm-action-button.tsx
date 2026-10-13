@@ -179,7 +179,7 @@ export function ConfirmActionButton({
           aria-expanded={asking}
           className={
             compact && tone === "destructive"
-              ? "text-gris-mid hover:bg-rouge-imp/10 hover:text-rouge-imp"
+              ? "text-ink2 hover:bg-rouge-imp/10 hover:text-rouge-imp"
               : undefined
           }
         >

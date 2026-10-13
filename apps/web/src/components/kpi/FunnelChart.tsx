@@ -74,7 +74,7 @@ export function FunnelChart({ steps, lost, indetermine }: Props) {
               {step.passRatePercent !== null && index < steps.length - 1 && (
                 <p
                   className={`mt-1 flex items-center gap-1 pl-0.5 text-sm ${
-                    isWorst ? "font-medium text-terre" : "text-ink2"
+                    isWorst ? "font-medium text-accent-text" : "text-ink2"
                   }`}
                 >
                   <ArrowDown className="h-3 w-3 flex-shrink-0" aria-hidden="true" />

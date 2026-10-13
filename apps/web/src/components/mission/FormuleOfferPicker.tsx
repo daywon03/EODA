@@ -36,7 +36,7 @@ export function FormuleOfferPicker({ formules, defaultFormule, defaultGratuit, d
                 />
                 {f.label}
               </span>
-              <span className="text-gris-mid tabular-nums">
+              <span className="text-ink2 tabular-nums">
                 {formatStartingPrice({ priceEuros: f.priceEuros })}
               </span>
             </label>

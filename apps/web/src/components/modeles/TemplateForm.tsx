@@ -28,7 +28,7 @@ export function TemplateForm({ categories }: { categories: CategorySummary[] }) 
 
   if (categories.length === 0) {
     return (
-      <p className="text-sm text-gris-mid">
+      <p className="text-sm text-ink2">
         Créez d&apos;abord un dossier : une fiche se range forcément quelque part.
       </p>
     );
@@ -49,7 +49,7 @@ export function TemplateForm({ categories }: { categories: CategorySummary[] }) 
           required
           disabled={isPending}
         />
-        <p className="text-xs text-gris-mid">
+        <p className="text-xs text-ink2">
           Un titre par ligne pour créer plusieurs fiches d&apos;un coup — toutes dans le
           même dossier, de la même nature. Chaque fiche reste à remplir de fichiers
           ensuite.
@@ -94,7 +94,7 @@ export function TemplateForm({ categories }: { categories: CategorySummary[] }) 
         </Select>
         {/* La conséquence du choix, affichée au moment du choix : « document de
             référence » ne dit pas de lui-même qu'il n'aura ni stade ni version. */}
-        <p className="text-xs text-gris-mid">
+        <p className="text-xs text-ink2">
           {kind === "REFERENCE" ? TEMPLATE_KIND_HINTS.REFERENCE : TEMPLATE_KIND_HINTS.GABARIT}
         </p>
       </div>

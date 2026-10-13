@@ -22,8 +22,8 @@ const badgeVariants = cva(
         // « Analysé » : statut actif/transitoire, sur l'accent terre — plus de bleu
         // hors charte. Le point qui pulse porte l'idée de progression ;
         // la couleur porte l'appartenance à la marque.
-        analyzing: "border-terre/50 bg-terre/12 text-terre",
-        not_applicable: "border-gris-mid/30 bg-gris-light text-gris-mid",
+        analyzing: "border-terre/50 bg-terre/12 text-accent-text",
+        not_applicable: "border-gris-mid/30 bg-gris-light text-ink2",
         // Périmé : même famille qu'incomplet (ambre = correction nécessaire), mais le
         // texte et la bordure passent au rouge pour marquer l'urgence — sans aller
         // jusqu'au rouge plein de "manquant", qui reste le seul statut bloquant.
@@ -34,14 +34,14 @@ const badgeVariants = cva(
         // context/07-outil-pilotage-missions.md §5.1 et §6.3
         nouveau: "border-gris-mid/30 bg-gris-light text-brun-ancre",
         rdv: "border-ambre/60 bg-ambre/15 text-brun-moyen",
-        devisEnvoye: "border-terre/50 bg-terre/12 text-terre",
+        devisEnvoye: "border-terre/50 bg-terre/12 text-accent-text",
         negociation: "border-ambre/60 bg-ambre/15 text-brun-moyen",
         signe: "border-vert-ok/50 bg-vert-ok/12 text-vert-ok",
         perdu: "border-rouge-imp/50 bg-rouge-imp/12 text-rouge-imp",
         brouillon: "text-brun-ancre border-gris-light",
         // Devis annulé : gris barré-neutre, volontairement distinct du rouge
         // « refusé » — un refus vient du prospect, une annulation du cabinet.
-        annule: "border-gris-mid/30 bg-gris-light text-gris-mid line-through",
+        annule: "border-gris-mid/30 bg-gris-light text-ink2 line-through",
       },
     },
     defaultVariants: { variant: "default" },

@@ -263,9 +263,13 @@ Détail complet et état d'avancement : `specs/02-architecture-technique.md` §4
   `globals.css` (`lib/design/ui-class-guard.test.ts`, `lib/design/theme-contrast.test.ts`).
   Le nouveau code écrit les tokens de rôle (`text-ink`, `bg-card`, `text-accent-text`…) ;
   `--muted` / `gris-mid` est réservé au décor (3.7:1 sur le papier).
-  **Reste dette déclarée** : `text-gris-mid` encore utilisé en texte, `text-terre` en
-  texte clair (4.29:1 sur le papier — utiliser `text-accent-text`),
-  `eslint-plugin-jsx-a11y` en error, axe-core en CI sur les pages client.
+  **Dette soldée le 13/10/2026** : `text-gris-mid` (→ `text-ink2`) et `text-terre`
+  (4.29:1 → `text-accent-text`) ne sont plus écrits en couleur de texte, et le garde
+  `findLowContrastTextColors` (`ui-class-guard.test.ts`) refuse désormais `text-gris-mid`,
+  `text-muted` et `text-terre`, avec variante (`hover:`, `placeholder:`) ou opacité ;
+  `theme-contrast.test.ts` prouve que ces teintes sont sous 4.5:1 en clair.
+  **Reste dette déclarée** : `eslint-plugin-jsx-a11y` en error, axe-core en CI sur les
+  pages client, hiérarchie de titres (h1 unique) non vérifiée mécaniquement.
 - 🏥 **Données de santé (HDS) — décision prise le 08/10/2026 : le backend migre.** Un DIPC
   signé, un PAP, une évaluation des besoins, une enquête de satisfaction **nominative**
   sont des données de santé (CSP L1111-8, référentiel CNIL médico-social) ; Supabase et

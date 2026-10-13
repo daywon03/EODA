@@ -18,7 +18,7 @@ const BASE =
   "transition-colors cursor-pointer hover:underline " +
   "disabled:cursor-not-allowed disabled:opacity-50 disabled:no-underline";
 
-export const INLINE_ACTION_CLASS = `${BASE} text-terre`;
+export const INLINE_ACTION_CLASS = `${BASE} text-accent-text`;
 
 // Même géométrie, teinte d'alerte : ce qui supprime ne se confond pas avec ce qui
 // ouvre.
@@ -26,4 +26,4 @@ export const INLINE_ACTION_DESTRUCTIVE_CLASS = `${BASE} text-rouge-imp`;
 
 // Variante sourde, pour un dépliement qui n'est pas une action mais une commande
 // d'affichage.
-export const INLINE_ACTION_MUTED_CLASS = `${BASE} text-gris-mid hover:text-brun-ancre`;
+export const INLINE_ACTION_MUTED_CLASS = `${BASE} text-ink2 hover:text-brun-ancre`;

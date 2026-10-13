@@ -72,7 +72,7 @@ export function CategoryManager({ categories }: { categories: CategorySummary[] 
               <>
                 <div className="min-w-0">
                   <p className="truncate text-sm font-medium text-brun-ancre">{category.name}</p>
-                  <p className="text-xs text-gris-mid">
+                  <p className="text-xs text-ink2">
                     {category.templateCount} modèle{category.templateCount !== 1 ? "s" : ""}
                   </p>
                 </div>

@@ -7,7 +7,7 @@ type Props = { counters: Counters };
 // Reflet en lecture seule du portail client — §12.4. Aucun contrôle de dépôt ici :
 // le dépôt vit dans le portail client opérationnel, jamais dans le portail de suivi.
 const CELLS: { key: keyof Counters; label: string; icon: typeof Upload; color: string }[] = [
-  { key: "deposited", label: "Déposés", icon: Upload, color: "text-terre bg-terre/10" },
+  { key: "deposited", label: "Déposés", icon: Upload, color: "text-accent-text bg-terre/10" },
   { key: "analyzed", label: "Analysés par l'IA", icon: Sparkles, color: "text-ambre bg-ambre/10" },
   { key: "modified", label: "Modifiés", icon: PencilLine, color: "text-brun-ancre bg-brun-ancre/10" },
   { key: "compliant", label: "Conformes", icon: CheckCircle2, color: "text-vert-ok bg-vert-ok/10" },
@@ -36,7 +36,7 @@ export function MissionDocumentCounters({ counters }: Props) {
                 <p className="text-sm font-semibold text-brun-ancre tabular-nums leading-none">
                   {counters[key]}
                 </p>
-                <p className="text-xs text-gris-mid leading-none mt-1">{label}</p>
+                <p className="text-xs text-ink2 leading-none mt-1">{label}</p>
               </div>
             </div>
           ))}

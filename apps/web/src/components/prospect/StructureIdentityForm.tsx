@@ -125,7 +125,7 @@ export function StructureIdentityForm({
           </Select>
           {/* Le périmètre de critères en dépend : un SAD mixte porte un impératif de
               plus (circuit du médicament). D'où sa place dès la découverte. */}
-          <p className="text-xs text-gris-mid">
+          <p className="text-xs text-ink2">
             Détermine le périmètre de critères évalués.
           </p>
         </div>
@@ -143,7 +143,7 @@ export function StructureIdentityForm({
             }
             disabled={isPending}
           />
-          <p className="text-xs text-gris-mid">
+          <p className="text-xs text-ink2">
             Au jour près quand elle est connue : une évaluation au 27 janvier ne laisse
             pas le même temps qu&apos;une évaluation au 1<sup>er</sup>.
           </p>

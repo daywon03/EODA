@@ -33,7 +33,7 @@ export function MissionOptionsPicker({ options, subscribed = [], disabled }: Pro
 
   if (options.length === 0) {
     return (
-      <p className="text-sm text-gris-mid">
+      <p className="text-sm text-ink2">
         Aucune prestation à la carte n&apos;est active au catalogue.
       </p>
     );
@@ -42,7 +42,7 @@ export function MissionOptionsPicker({ options, subscribed = [], disabled }: Pro
   return (
     <div className="space-y-2">
       <Label>Prestations à la carte</Label>
-      <p className="text-xs text-gris-mid">
+      <p className="text-xs text-ink2">
         Ouvre le périmètre côté client. Les prix sont indicatifs — seul un devis signé fige un
         montant.
       </p>
@@ -78,7 +78,7 @@ export function MissionOptionsPicker({ options, subscribed = [], disabled }: Pro
                 />
                 {option.label}
                 {row?.priceIsFirm && (
-                  <span className="inline-flex items-center gap-1 text-xs text-gris-mid">
+                  <span className="inline-flex items-center gap-1 text-xs text-ink2">
                     <Lock className="w-3 h-3" aria-hidden="true" />
                     au devis signé
                   </span>
@@ -101,7 +101,7 @@ export function MissionOptionsPicker({ options, subscribed = [], disabled }: Pro
                   </span>
                 )}
               </span>
-              <span className="text-gris-mid tabular-nums whitespace-nowrap">
+              <span className="text-ink2 tabular-nums whitespace-nowrap">
                 {formatStartingPrice(option)}
               </span>
             </label>

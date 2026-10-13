@@ -81,7 +81,7 @@ export default async function LoginPage({ searchParams }: Props) {
 
           <div className="bg-surface rounded-xl shadow-eoda-lg p-8">
             <h1 className="text-brun-ancre text-lg font-semibold mb-1">Connexion</h1>
-            <p className="text-gris-mid text-sm mb-6">
+            <p className="text-ink2 text-sm mb-6">
               Outil de préparation à l&apos;évaluation qualité HAS
             </p>
             {notice && (
@@ -96,7 +96,7 @@ export default async function LoginPage({ searchParams }: Props) {
             <LoginForm />
           </div>
 
-          <p className="text-center text-gris-mid text-xs mt-6 lg:hidden">
+          <p className="text-center text-ink2 text-xs mt-6 lg:hidden">
             © 2026 EODA Conseil · Outil de préparation interne · Non officiel HAS
           </p>
         </div>

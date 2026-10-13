@@ -94,7 +94,7 @@ export function AppointmentForm(props: Props) {
           disabled={isPending}
           placeholder="ex : Atelier documentaire — jour 1"
         />
-        <p className="text-xs text-gris-mid">Cet intitulé est lu par le client.</p>
+        <p className="text-xs text-ink2">Cet intitulé est lu par le client.</p>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -128,7 +128,7 @@ export function AppointmentForm(props: Props) {
         />
         {/* Aide persistante sous le champ, et non un placeholder qui disparaît à la
             première frappe. */}
-        <p className="text-xs text-gris-mid">{HELP_BY_MODE[mode]}</p>
+        <p className="text-xs text-ink2">{HELP_BY_MODE[mode]}</p>
       </div>
 
       <div className="space-y-1.5">
@@ -140,7 +140,7 @@ export function AppointmentForm(props: Props) {
           disabled={isPending}
           placeholder="Points à aborder, documents à emporter..."
         />
-        <p className="text-xs text-gris-mid">
+        <p className="text-xs text-ink2">
           Ces notes restent internes au cabinet — le client ne les voit jamais.
         </p>
       </div>
@@ -164,7 +164,7 @@ export function AppointmentForm(props: Props) {
           )}
           Programmer le rendez-vous
         </Button>
-        <span className="text-xs text-gris-mid">
+        <span className="text-xs text-ink2">
           Le créneau est enregistré comme <b>proposé</b> : confirmez-le une fois que la
           structure a validé.
         </span>

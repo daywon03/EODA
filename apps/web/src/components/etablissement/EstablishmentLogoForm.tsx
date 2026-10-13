@@ -52,7 +52,7 @@ export function EstablishmentLogoForm({
               className="max-h-full max-w-full object-contain"
             />
           ) : (
-            <span className="px-2 text-center text-xs text-gris-mid">Aucun logo déposé</span>
+            <span className="px-2 text-center text-xs text-ink2">Aucun logo déposé</span>
           )}
         </div>
 
@@ -65,12 +65,12 @@ export function EstablishmentLogoForm({
               accept="image/png,image/jpeg"
               disabled={isPending}
               onChange={() => formRef.current?.requestSubmit()}
-              className="block w-full text-xs text-gris-mid file:mr-3 file:cursor-pointer file:rounded-md file:border file:border-gris-light file:bg-surface file:px-3 file:py-2 file:text-xs file:font-medium file:text-brun-ancre hover:file:border-terre/40 disabled:opacity-50"
+              className="block w-full text-xs text-ink2 file:mr-3 file:cursor-pointer file:rounded-md file:border file:border-gris-light file:bg-surface file:px-3 file:py-2 file:text-xs file:font-medium file:text-brun-ancre hover:file:border-terre/40 disabled:opacity-50"
               aria-label="Déposer le logo de la structure"
             />
           </form>
 
-          <p className="flex items-center gap-1.5 text-xs text-gris-mid">
+          <p className="flex items-center gap-1.5 text-xs text-ink2">
             <ImageUp className="w-3.5 h-3.5 flex-shrink-0" aria-hidden="true" />
             PNG ou JPEG, 300 Ko maximum. Il apparaîtra sur les documents produits pour
             cette structure, à côté du logo EODA.
@@ -101,7 +101,7 @@ export function EstablishmentLogoForm({
         </div>
 
         {isUploading && (
-          <span className="flex items-center gap-1.5 text-xs text-gris-mid">
+          <span className="flex items-center gap-1.5 text-xs text-ink2">
             <Loader2 className="w-3.5 h-3.5 animate-spin" aria-hidden="true" />
             Dépôt en cours…
           </span>

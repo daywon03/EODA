@@ -54,7 +54,7 @@ export function ProspectCommentForm({ prospectId }: { prospectId: string }) {
         </Button>
         {/* Dit à l'avance ce que l'écran ne pourra pas défaire : une entrée
             d'historique ne se modifie ni ne se supprime. */}
-        <span className="text-xs text-gris-mid">
+        <span className="text-xs text-ink2">
           Une entrée ajoutée reste au dossier — elle ne peut plus être modifiée.
         </span>
       </div>

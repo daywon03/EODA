@@ -21,7 +21,7 @@ export function SessionTimer({ startedAt }: { startedAt: Date }) {
   }, [startedAt]);
 
   return (
-    <span className="flex items-center gap-1.5 text-xs text-gris-mid tabular-nums">
+    <span className="flex items-center gap-1.5 text-xs text-ink2 tabular-nums">
       <Clock className="w-3.5 h-3.5" aria-hidden="true" />
       {formatDuration(Math.max(0, elapsed))}
     </span>

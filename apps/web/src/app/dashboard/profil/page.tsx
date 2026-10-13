@@ -48,7 +48,7 @@ export default async function ProfilePage() {
             <p className="font-semibold text-brun-ancre">
               Vous utilisez encore votre mot de passe temporaire
             </p>
-            <p className="text-gris-mid">
+            <p className="text-ink2">
               Choisissez-en un nouveau ci-dessous. Il vous sera demandé à la prochaine
               connexion tant que ce n&apos;est pas fait.
             </p>
@@ -68,7 +68,7 @@ export default async function ProfilePage() {
       <Card>
         <CardHeader>
           <CardTitle as="h2" className="flex items-center gap-2 text-base">
-            <KeyRound className="h-4 w-4 text-terre" aria-hidden="true" />
+            <KeyRound className="h-4 w-4 text-accent-text" aria-hidden="true" />
             Mot de passe
           </CardTitle>
           <CardDescription>
@@ -96,19 +96,19 @@ export default async function ProfilePage() {
         </CardHeader>
         <CardContent className="space-y-3 text-sm">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-gris-mid">Type de compte :</span>
+            <span className="text-ink2">Type de compte :</span>
             <Badge variant="secondary">{ROLE_LABELS[profile.role] ?? profile.role}</Badge>
           </div>
 
           {profile.establishments.length > 0 && (
             <div className="space-y-1">
-              <p className="text-gris-mid">
+              <p className="text-ink2">
                 {profile.establishments.length > 1 ? "Structures rattachées" : "Structure rattachée"} :
               </p>
               <ul className="space-y-1">
                 {profile.establishments.map((name) => (
                   <li key={name} className="flex items-center gap-2 text-brun-ancre">
-                    <Building2 className="h-3.5 w-3.5 flex-shrink-0 text-terre" aria-hidden="true" />
+                    <Building2 className="h-3.5 w-3.5 flex-shrink-0 text-accent-text" aria-hidden="true" />
                     {name}
                   </li>
                 ))}

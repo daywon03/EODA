@@ -198,22 +198,22 @@ export default async function AuditLogPage({
 
       <div className="bg-surface border border-gris-light rounded-xl overflow-hidden">
         <div className="px-5 py-3 border-b border-gris-light flex flex-wrap items-center justify-between gap-2">
-          <p className="text-sm text-gris-mid">
+          <p className="text-sm text-ink2">
             {result.total === 0
               ? "Aucun événement"
               : `Événements ${firstIndex} à ${lastIndex} sur ${result.total}`}
           </p>
-          <p className="text-xs text-gris-mid">Du plus récent au plus ancien</p>
+          <p className="text-xs text-ink2">Du plus récent au plus ancien</p>
         </div>
 
         {result.rows.length === 0 ? (
-          <p className="px-5 py-12 text-center text-sm text-gris-mid">
+          <p className="px-5 py-12 text-center text-sm text-ink2">
             Aucun événement ne correspond à ces filtres.
           </p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="bg-ivoire text-left text-xs uppercase tracking-wide text-gris-mid">
+              <thead className="bg-ivoire text-left text-xs uppercase tracking-wide text-ink2">
                 <tr>
                   <th scope="col" className="px-5 py-2.5 font-semibold">Date</th>
                   <th scope="col" className="px-5 py-2.5 font-semibold">Événement</th>
@@ -225,20 +225,20 @@ export default async function AuditLogPage({
               <tbody className="divide-y divide-gris-light">
                 {result.rows.map((row) => (
                   <tr key={row.id} className="hover:bg-ivoire/50 transition-colors">
-                    <td className="px-5 py-2.5 whitespace-nowrap tabular-nums text-gris-mid">
+                    <td className="px-5 py-2.5 whitespace-nowrap tabular-nums text-ink2">
                       {formatDateTime(row.occurredAt)}
                     </td>
                     <td className="px-5 py-2.5 text-brun-ancre">{ACTION_LABELS[row.action]}</td>
                     <td className="px-5 py-2.5 text-brun-ancre">
                       {row.actorLabel}
                       {row.actorRole && (
-                        <span className="block text-xs text-gris-mid">
+                        <span className="block text-xs text-ink2">
                           {ROLE_LABELS[row.actorRole] ?? row.actorRole}
                         </span>
                       )}
                     </td>
-                    <td className="px-5 py-2.5 text-gris-mid">{row.establishmentName ?? "—"}</td>
-                    <td className="px-5 py-2.5 text-gris-mid">{row.detail ?? "—"}</td>
+                    <td className="px-5 py-2.5 text-ink2">{row.establishmentName ?? "—"}</td>
+                    <td className="px-5 py-2.5 text-ink2">{row.detail ?? "—"}</td>
                   </tr>
                 ))}
               </tbody>
@@ -256,7 +256,7 @@ export default async function AuditLogPage({
                 Précédent
               </Link>
             </Button>
-            <span className="text-xs text-gris-mid tabular-nums">
+            <span className="text-xs text-ink2 tabular-nums">
               Page {result.page} / {result.pageCount}
             </span>
             <Button variant="outline" size="sm" asChild disabled={result.page >= result.pageCount}>

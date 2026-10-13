@@ -39,12 +39,12 @@ export function MissionChecklistItemRow({ missionId, code, label, completed, loc
           disabled={locked || isPending}
           className="h-4 w-4 flex-shrink-0 accent-terre disabled:cursor-not-allowed"
         />
-        <span className={`text-sm flex-1 ${locked ? "text-gris-mid" : "text-brun-ancre"}`}>
+        <span className={`text-sm flex-1 ${locked ? "text-ink2" : "text-brun-ancre"}`}>
           {label}
           {locked && <span className="sr-only"> (hors du périmètre de l&apos;offre)</span>}
         </span>
-        {locked && <Lock className="w-3.5 h-3.5 text-gris-mid flex-shrink-0" aria-hidden="true" />}
-        {isPending && <Loader2 className="w-3.5 h-3.5 animate-spin text-gris-mid flex-shrink-0" aria-hidden="true" />}
+        {locked && <Lock className="w-3.5 h-3.5 text-ink2 flex-shrink-0" aria-hidden="true" />}
+        {isPending && <Loader2 className="w-3.5 h-3.5 animate-spin text-ink2 flex-shrink-0" aria-hidden="true" />}
       </label>
       {error && <p role="alert" className="text-sm text-rouge-imp">{error}</p>}
     </li>
