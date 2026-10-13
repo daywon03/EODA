@@ -6,7 +6,6 @@ import { revalidatePath } from "next/cache";
 import {
   requireAdminEstablishmentInTenant,
   requireCabinetSession,
-  requireCommercialSession,
   structureScopeWhere,
   requireEstablishmentInTenant,
   requireEstablishmentAccess,
@@ -16,8 +15,6 @@ import { canDepositDocuments } from "@/lib/services/mission-access-service";
 import { recordAuditEvent } from "@/lib/services/audit-log-service";
 import { validateLogoUpload } from "@/lib/security/upload-validation-service";
 import { getFileStoragePort } from "@/lib/storage";
-import type { PortfolioRow } from "@/lib/services/portfolio-kpi-service";
-import { toPortfolioRow } from "@/lib/db/to-portfolio-row";
 import {
   firstError,
   optionalString,
@@ -453,23 +450,6 @@ export async function listEstablishments() {
   });
 }
 
-// Portefeuille client agrégé (cf. lib/services/portfolio-kpi-service.ts) — la
-// moitié des indicateurs qui vit APRÈS la signature. Même sélection que la liste
-// des fiches : deux requêtes jumelles finiraient par diverger, et deux écrans
-// compteraient alors des choses différentes sous le même nom.
-//
-// Converti en `PortfolioRow` ici et pas dans la page : la couche de présentation
-// n'a pas à connaître la forme Prisma (huit colonnes de dates, items filtrés).
-export async function listPortfolioRowsForKpi(): Promise<PortfolioRow[]> {
-  const { tenantId } = await requireCommercialSession();
-
-  const rows = await prisma.establishment.findMany({
-    where: { tenantId },
-    include: LIFECYCLE_INCLUDE,
-  });
-
-  return rows.map(toPortfolioRow);
-}
 
 export type EstablishmentWithUsers = Prisma.EstablishmentGetPayload<{
   include: {

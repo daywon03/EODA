@@ -405,50 +405,10 @@ export async function deleteProspect(id: string): Promise<{ error: string } | vo
   redirect(PROSPECT_LIST_PATH);
 }
 
-// Le kanban par étape est retiré (maquette v2, décision de Damon du 13/10/2026) : le
-// tableau « Prospects » (lib/actions/prospect-pipeline.ts) le remplace, et l'étape
-// commerciale d'un prospect se change depuis sa fiche.
-
-function emptyStatusCounts(): Record<ProspectStatus, number> {
-  return { NOUVEAU: 0, RDV: 0, DEVIS_ENVOYE: 0, NEGOCIATION: 0, SIGNE: 0, PERDU: 0 };
-}
-
-// Agrégats du tableau de bord : comptés en base plutôt qu'en chargeant toutes les
-// lignes pour les compter en mémoire. Un KPI calculé sur une page serait faux, et
-// un KPI calculé sur une table entière chargée en RAM ne passe pas l'échelle — le
-// `groupBy` répond aux deux.
-//
-// `byStatus` ne compte que les prospects NON CONVERTIS (`establishmentId: null`).
-// Raison : après la signature, `Prospect.status` reste figé à `SIGNE` — c'est le
-// dernier état commercial et il est correct comme tel, mais la structure est
-// désormais suivie par sa mission. La compter des deux côtés la ferait apparaître
-// deux fois dans l'entonnoir unifié, une fois en « Signé » et une fois à l'étape
-// réelle de son accompagnement. `byStructureType` reste calculé sur TOUS les
-// prospects : c'est une lecture de marché (d'où viennent nos contacts), pas une
-// photo du pipeline.
-export async function getProspectKpiCounts(): Promise<{
-  byStatus: Record<ProspectStatus, number>;
-  byStructureType: Record<StructureType, number>;
-}> {
-  const { tenantId } = await requireCommercialSession();
-
-  const [statusRows, typeRows] = await Promise.all([
-    prisma.prospect.groupBy({
-      by: ["status"],
-      where: { tenantId, establishmentId: null },
-      _count: { _all: true },
-    }),
-    prisma.prospect.groupBy({ by: ["structureType"], where: { tenantId }, _count: { _all: true } }),
-  ]);
-
-  const byStatus = emptyStatusCounts();
-  for (const row of statusRows) byStatus[row.status] = row._count._all;
-
-  const byStructureType: Record<StructureType, number> = { ASSOCIATION: 0, PRIVE: 0, PUBLIC: 0 };
-  for (const row of typeRows) byStructureType[row.structureType] = row._count._all;
-
-  return { byStatus, byStructureType };
-}
+// Le kanban par étape et ses compteurs sont retirés (maquette v2, décision de Damon
+// du 13/10/2026) : le tableau « Prospects » et la vue d'ensemble
+// (lib/actions/prospect-pipeline.ts, commercial-overview.ts) les remplacent ;
+// l'étape commerciale d'un prospect se change depuis sa fiche.
 
 export type ProspectWithDevis = Prisma.ProspectGetPayload<{
   include: {

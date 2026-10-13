@@ -1,175 +1,152 @@
 import Link from "next/link";
-import { getProspectKpiCounts } from "@/lib/actions/prospect";
-import { listDevisForKpi } from "@/lib/actions/devis-read";
-import { listPortfolioRowsForKpi } from "@/lib/actions/establishment";
+import { getCommercialOverview } from "@/lib/actions/commercial-overview";
 import { listPendingOptionRequests } from "@/lib/actions/option-request";
+import { describeSubscriptionSplit, type FunnelStep, type TodoItem } from "@/lib/services/commercial-overview-service";
 import { OptionRequestQueue } from "@/components/devis/OptionRequestQueue";
 import { CommercialHeader } from "@/components/commercial/CommercialHeader";
-import { Button } from "@/components/ui/button";
-import { KpiCard } from "@/components/ui/kpi-card";
-import { BreakdownList } from "@/components/kpi/BreakdownList";
-import { FunnelChart } from "@/components/kpi/FunnelChart";
+import { RemindDevisButton } from "@/components/devis/RemindDevisButton";
+import { RemindProspectButton } from "@/components/prospect/RemindProspectButton";
 import { FORMULE_LABELS } from "@/components/mission/formule-labels";
-import { formatEuros } from "@/lib/services/price-format-service";
-import {
-  computeFunnelBreakdown,
-  groupActiveMissionsByFormule,
-} from "@/lib/services/portfolio-kpi-service";
-import { buildFunnelSteps } from "@/lib/services/funnel-view-service";
-import {
-  computeConversionRatePercent,
-  computeIssuedDevisCount,
-  computeSignedRevenueEuros,
-  computeWeightedPipelineEuros,
-} from "@/lib/services/commercial-kpi-service";
-import { Briefcase, Euro, FileText, Plus, Target, TrendingUp } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+import { Plus } from "lucide-react";
 
 export const metadata = { title: "Pipeline commercial" };
 
-const STRUCTURE_TYPE_LABELS = { ASSOCIATION: "Association", PRIVE: "Privé", PUBLIC: "Public" } as const;
+const ROOT = "/dashboard/cabinet/commercial";
 
+function funnelHref(step: FunnelStep): string {
+  const { target } = step;
+  return target.kind === "devis"
+    ? `${ROOT}/devis?onglet=${target.tab}`
+    : `${ROOT}/prospects?onglet=${target.tab}&origine=${target.origin}`;
+}
+
+const EDGE: Record<number, string> = { 4: "border-t-ambre", 5: "border-t-vert-ok" };
+const TODO_DOT = { accent: "bg-accent-fill", amber: "bg-ambre", red: "bg-danger-fill" } as const;
+
+function TodoAction({ item }: { item: TodoItem }) {
+  const { action } = item;
+  if (action.kind === "remind-devis") {
+    return (
+      <RemindDevisButton
+        devisId={action.devisId}
+        number={action.number}
+        structureName={action.structureName}
+        contactEmail={action.contactEmail}
+      />
+    );
+  }
+  if (action.kind === "remind-prospect") {
+    return <RemindProspectButton prospectId={action.prospectId} structureName={action.structureName} />;
+  }
+  return (
+    <Button size="sm" variant="outline" asChild>
+      <Link href={action.href}>
+        {action.label}
+        <span className="sr-only"> — {item.title}</span>
+      </Link>
+    </Button>
+  );
+}
+
+// Maquette v2 « Commercial — vue d'ensemble » : l'entonnoir en cinq cartes, de
+// l'inscription seule à l'accompagnement signé, le bloc « À faire » et les
+// abonnements actifs — tout DÉRIVÉ des faits (commercial-overview-service). La file
+// des demandes d'option reste ici. Le kanban est retiré (13/10/2026).
 export default async function CommercialDashboardPage() {
-  // Les répartitions prospects sont comptées en base (groupBy) et non en chargeant
-  // la table pour la compter en mémoire ; les devis sont lus en projection étroite
-  // (4 scalaires) — un KPI calculé sur une page serait faux, il n'est donc pas paginé.
-  const [{ byStatus, byStructureType }, devisList, optionRequests, portfolio] = await Promise.all([
-    getProspectKpiCounts(),
-    listDevisForKpi(),
-    // Demandes d'options émises depuis les portails clients (§12.3) — la
-    // contrepartie interne du paywall « Mon contrat ».
-    listPendingOptionRequests(),
-    // L'aval de l'entonnoir : les fiches clients et l'état réel de leur
-    // accompagnement. Sans elles, les indicateurs s'arrêtaient à la signature.
-    listPortfolioRowsForKpi(),
-  ]);
-
-  const conversionRate = computeConversionRatePercent(devisList);
-  const weightedPipeline = computeWeightedPipelineEuros(devisList);
-  const signedRevenue = computeSignedRevenueEuros(devisList);
-
-  // Prospects non convertis + fiches clients sur une seule échelle : « où en est
-  // chaque structure ? », du premier contact à la fin d'accompagnement.
-  const funnel = computeFunnelBreakdown({
-    unconvertedProspectsByStatus: byStatus,
-    establishments: portfolio,
-  });
-  // Passage du « combien à chaque étape » au « où ça décroche » (funnel-view-service).
-  const funnelSteps = buildFunnelSteps(funnel.byStage);
-  const activeMissionsByFormule = groupActiveMissionsByFormule(portfolio);
-
-  // Chaque indicateur porte sa DÉFINITION. Un chiffre dont on ne sait pas ce qu'il
-  // compte se fait mal interpréter une fois, puis plus jamais regarder.
-  const stats = [
-    // Devis annulés exclus partout : ils conservent leur numéro mais sortent des
-    // indicateurs (cf. commercial-kpi-service).
-    {
-      label: "Devis émis",
-      value: String(computeIssuedDevisCount(devisList)),
-      icon: Briefcase,
-      hint: "Hors brouillons et devis annulés.",
-    },
-    {
-      label: "Taux de conversion",
-      value: `${conversionRate}%`,
-      icon: TrendingUp,
-      hint: "Devis signés sur devis émis.",
-    },
-    {
-      label: "Pipeline pondéré",
-      value: formatEuros(weightedPipeline),
-      icon: Target,
-      hint: "Montants en cours, pondérés par la probabilité de l'étape.",
-    },
-    {
-      label: "CA signé cumulé",
-      value: formatEuros(signedRevenue),
-      icon: Euro,
-      hint: "Total des devis signés, depuis l'origine.",
-    },
-  ];
+  const [overview, optionRequests] = await Promise.all([getCommercialOverview(), listPendingOptionRequests()]);
+  const { funnel, todo, subscriptions } = overview;
 
   return (
-    <div className="space-y-6">
+    <div className="mx-auto flex w-full max-w-[1180px] flex-col gap-7">
       <CommercialHeader
         title="Commercial"
-        description="Du premier contact à l'accompagnement signé. Usage interne du cabinet uniquement."
+        description="De l'inscription seule à l'accompagnement signé."
         action={
-          // Une seule action PRIMAIRE par écran (`primary-action`) : créer un
-          // prospect, l'entrée de l'entonnoir. Le devis vient après, et depuis un
-          // prospect — d'où son rang secondaire.
-          <div className="flex flex-wrap gap-2">
-            <Button asChild>
-              <Link href="/dashboard/cabinet/commercial/prospects/nouveau">
-                <Plus className="h-4 w-4" aria-hidden="true" />
-                Nouveau prospect
-              </Link>
-            </Button>
-            <Button variant="outline" asChild>
-              <Link href="/dashboard/cabinet/commercial/devis">
-                <FileText className="h-4 w-4" aria-hidden="true" />
-                Les devis
-              </Link>
-            </Button>
-          </div>
+          <Button asChild>
+            <Link href={`${ROOT}/devis/nouveau`}>
+              <Plus className="h-4 w-4" aria-hidden="true" />
+              Nouveau devis
+            </Link>
+          </Button>
         }
       />
 
-      {/* Les demandes clients EN TÊTE quand il y en a : ce sont les seules lignes de
-          cet écran qui attendent une action, et §12.3 les veut impossibles à rater.
-          File vide, la carte descend en bas de page — une boîte de réception vide
-          n'est pas ce qu'on vient lire ici, et elle occuperait la place de ce qui
-          compte (`content-priority`). Elle ne disparaît pas pour autant : cacher une
-          section rend la fonctionnalité introuvable. */}
       {optionRequests.length > 0 && <OptionRequestQueue requests={optionRequests} />}
 
-      <section className="space-y-3">
-        <h2 className="text-xl font-bold text-ink">
-          Indicateurs commerciaux
-        </h2>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {stats.map(({ label, value, icon, hint }) => (
-            <KpiCard key={label} label={label} value={value} icon={icon} hint={hint} />
+      <nav aria-label="Entonnoir commercial">
+        <ol className="grid grid-cols-[repeat(auto-fit,minmax(min(170px,100%),1fr))] gap-3">
+          {funnel.map((step) => (
+            <li key={step.step}>
+              <Link
+                href={funnelHref(step)}
+                className={cn(
+                  "flex h-full flex-col gap-1 rounded-xl border border-t-4 border-line border-t-accent-fill bg-card px-[18px] py-4 text-ink transition-colors hover:border-accent-fill",
+                  EDGE[step.step]
+                )}
+              >
+                <span className="text-sm tabular-nums text-ink2">Étape {step.step}</span>
+                <span className="text-[30px] font-bold leading-tight tabular-nums">{step.value}</span>
+                <span className="font-bold">{step.label}</span>
+              </Link>
+            </li>
           ))}
-        </div>
-      </section>
+        </ol>
+      </nav>
 
-      <section className="space-y-3">
-        <h2 className="text-xl font-bold text-ink">
-          Du premier contact à la fin d&apos;accompagnement
-        </h2>
-        {/* L'entonnoir prend deux tiers de la largeur : c'est la lecture principale
-            de l'écran, les répartitions sont du contexte. */}
-        <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-3">
-          <div className="lg:col-span-2">
-            <FunnelChart
-              steps={funnelSteps}
-              lost={funnel.byStage.PERDU}
-              indetermine={funnel.indetermine}
-            />
-          </div>
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(min(340px,100%),1fr))] items-start gap-7">
+        <section aria-labelledby="a-faire">
+          <h2 id="a-faire" className="border-b border-line pb-3 text-xl font-bold">
+            À faire
+          </h2>
+          {todo.length === 0 ? (
+            <p className="py-4 text-ink2">Rien d&apos;urgent : aucun appel à préparer, aucun devis à relancer.</p>
+          ) : (
+            <ul>
+              {todo.map((item) => (
+                <li key={item.key} className="flex flex-wrap items-center gap-3.5 border-b border-line px-1 py-3.5">
+                  <span aria-hidden="true" className={cn("h-2 w-2 flex-shrink-0 rounded-full", TODO_DOT[item.tone])} />
+                  <span className="flex min-w-[200px] flex-1 flex-col">
+                    <span className="font-bold">{item.title}</span>
+                    <span className="text-sm text-ink2">{item.meta}</span>
+                  </span>
+                  <TodoAction item={item} />
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
 
-          <div className="space-y-4">
-            {/* Ce qui reste à livrer, pas ce qui a été vendu : missions non closes,
-                réparties par la formule portée par la mission (CLAUDE.md §7). */}
-            <BreakdownList
-              title="Missions actives par formule"
-              entries={Object.entries(activeMissionsByFormule).map(([formule, count]) => ({
-                label: FORMULE_LABELS[formule as keyof typeof FORMULE_LABELS],
-                count,
-              }))}
-              emptyMessage="Aucun accompagnement en cours. Une mission apparaît ici dès la signature d'un devis."
-            />
-            <BreakdownList
-              title="Prospects par type de structure"
-              entries={Object.entries(byStructureType).map(([type, count]) => ({
-                label: STRUCTURE_TYPE_LABELS[type as keyof typeof STRUCTURE_TYPE_LABELS],
-                count,
-              }))}
-              emptyMessage="Aucun prospect enregistré pour l'instant."
-            />
+        <section aria-labelledby="abonnements">
+          <div className="flex justify-between gap-3 border-b border-line pb-3">
+            <h2 id="abonnements" className="text-xl font-bold">
+              Abonnements actifs
+            </h2>
+            <span className="tabular-nums text-ink2">
+              {subscriptions.total} structure{subscriptions.total > 1 ? "s" : ""}
+            </span>
           </div>
-        </div>
-      </section>
+          <ul>
+            {subscriptions.rows.map((row) => (
+              <li
+                key={row.formule}
+                className="grid grid-cols-[minmax(120px,1fr)_minmax(0,2fr)_40px] items-center gap-3.5 border-b border-line px-1 py-3.5"
+              >
+                <span className="flex flex-col">
+                  <span className="font-bold">{FORMULE_LABELS[row.formule]}</span>
+                  <span className="text-sm text-ink2">{describeSubscriptionSplit(row)}</span>
+                </span>
+                <span aria-hidden="true" className="h-2 overflow-hidden rounded bg-line">
+                  <span className="block h-full bg-accent-fill" style={{ width: `${row.percent}%` }} />
+                </span>
+                <span className="text-right font-bold tabular-nums">{row.total}</span>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-2.5 text-sm text-ink2">Missions en cours, par offre. Les montants s&apos;afficheront quand les prix du catalogue seront fixés.</p>
+        </section>
+      </div>
 
       {optionRequests.length === 0 && <OptionRequestQueue requests={optionRequests} />}
     </div>

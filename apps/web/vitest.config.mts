@@ -105,6 +105,7 @@ export default defineConfig({
         "src/lib/services/self-service-service.ts",
         "src/lib/services/prospect-diagnostic-service.ts",
         "src/lib/services/prospect-pipeline-service.ts",
+        "src/lib/services/commercial-overview-service.ts",
         // Mentions de paternité : un texte juridique apposé sur des documents remis
         // au client. Le test verrouille la formulation dictée en séance, et empêche
         // qu'une revendication de propriété atterrisse sur un devis.
