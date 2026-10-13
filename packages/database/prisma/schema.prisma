@@ -28,6 +28,13 @@ enum UserRole {
   //   - CABINET_READONLY   : consulte, ne modifie rien, ne voit pas le commercial.
   CABINET_COMMERCIAL
   CABINET_READONLY
+  // Structure inscrite SEULE en libre-service, avant toute signature (D5, décision 1
+  // du plan v2, 13/10/2026). Ce compte n'est ni cabinet ni client : il ne voit QUE
+  // l'espace /espace de SON prospect (lien ProspectAccount), jamais un établissement
+  // — une fiche ne naît que de la signature d'un devis. Rôle dédié plutôt que
+  // CLIENT_USER sans structure : toutes les gardes existantes le refusent par
+  // construction (fail-closed), sans dépendre d'un lien absent.
+  PROSPECT_USER
 }
 
 enum EstablishmentType {
@@ -117,6 +124,10 @@ enum AppointmentStatus {
   PROPOSE
   CONFIRME
   ANNULE
+  // « Être accompagné » (structure inscrite seule, 13/10/2026) : la STRUCTURE demande
+  // un appel à une date et un moment de son choix. Rien n'est réservé tant qu'EODA ne
+  // l'a pas confirmé — il n'existe pas d'agenda de disponibilités.
+  DEMANDE
 }
 
 enum AcquisitionChannel {
@@ -126,6 +137,9 @@ enum AcquisitionChannel {
   REFERENCEMENT_GOOGLE
   LINKEDIN
   AUTRE
+  // Inscription en ligne depuis la page publique (maquettes v2, 13/10/2026). Jamais
+  // choisi à la main : un prospect libre-service a un compte (ProspectAccount).
+  LIBRE_SERVICE
 }
 
 // Nature d'une entrée d'historique de prospect. Deux natures seulement, et elles ne
@@ -361,6 +375,8 @@ model User {
   establishmentAssignments    EstablishmentAssignment[]
   staffMembers                StaffMember[]
   quizCampaignsSent           QuizCampaign[]                @relation("QuizCampaignSentBy")
+  prospectAccount             ProspectAccount?
+  prospectPracticeAnswers     ProspectPracticeAnswer[]      @relation("ProspectPracticeAnsweredBy")
 
   @@index([tenantId])
   @@map("users")
@@ -545,15 +561,16 @@ model Criterion {
   requirementLevel RequirementLevel @map("requirement_level")
   applicableTo     ApplicableTo     @map("applicable_to")
 
-  objective           Objective                     @relation(fields: [objectiveId], references: [id])
-  evaluationElements  EvaluationElement[]
-  documentTypes       DocumentTypeCriterion[]
-  guidelines          CriterionGuideline[]
-  templateDocuments   TemplateDocumentCriterion[]
-  documentSuggestions DocumentCriterionSuggestion[]
-  templateSuggestions TemplateCriterionSuggestion[]
-  actionItems         ActionItem[]
-  practiceAnswers     PracticeAnswer[]
+  objective               Objective                     @relation(fields: [objectiveId], references: [id])
+  evaluationElements      EvaluationElement[]
+  documentTypes           DocumentTypeCriterion[]
+  guidelines              CriterionGuideline[]
+  templateDocuments       TemplateDocumentCriterion[]
+  documentSuggestions     DocumentCriterionSuggestion[]
+  templateSuggestions     TemplateCriterionSuggestion[]
+  actionItems             ActionItem[]
+  practiceAnswers         PracticeAnswer[]
+  prospectPracticeAnswers ProspectPracticeAnswer[]
 
   @@index([objectiveId])
   @@map("criteria")
@@ -1075,17 +1092,66 @@ model Prospect {
   createdAt               DateTime           @default(now()) @map("created_at")
   updatedAt               DateTime           @updatedAt @map("updated_at")
 
-  tenant        Tenant                  @relation(fields: [tenantId], references: [id])
+  tenant          Tenant                   @relation(fields: [tenantId], references: [id])
   // SetNull et non Cascade : supprimer une fiche client ne doit pas effacer
   // l'historique commercial (prospect, devis signés, chiffre d'affaires). Le
   // prospect survit, simplement détaché.
-  establishment Establishment?          @relation(fields: [establishmentId], references: [id], onDelete: SetNull)
-  devis         Devis[]
-  timeline      ProspectTimelineEntry[]
-  appointments  Appointment[]
+  establishment   Establishment?           @relation(fields: [establishmentId], references: [id], onDelete: SetNull)
+  devis           Devis[]
+  timeline        ProspectTimelineEntry[]
+  appointments    Appointment[]
+  // Libre-service : comptes de la structure inscrite seule, et son diagnostic
+  // déclaratif (questions sur les pratiques), avant toute signature.
+  accounts        ProspectAccount[]
+  practiceAnswers ProspectPracticeAnswer[]
 
   @@index([tenantId])
   @@map("prospects")
+}
+
+// LIEN Prospect ↔ User d'une structure inscrite SEULE (D5, 13/10/2026). Un compte
+// PROSPECT_USER n'ouvre que l'espace de CE prospect (requireProspectSession dans
+// lib/auth/guards.ts). `userId` unique : un compte = un prospect. Plusieurs comptes
+// par prospect possibles (« Compte · n utilisateurs » côté cabinet).
+// Cascade depuis le prospect : un prospect supprimé n'a plus d'espace. Le compte
+// User, lui, n'est pas supprimé par cette cascade — la garde le refuse faute de lien.
+model ProspectAccount {
+  id         String   @id @default(cuid())
+  prospectId String   @map("prospect_id")
+  userId     String   @unique @map("user_id")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  prospect Prospect @relation(fields: [prospectId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([prospectId])
+  @@map("prospect_accounts")
+}
+
+// Diagnostic DÉCLARATIF d'une structure inscrite seule : réponses aux questions sur
+// les pratiques (content/pratiques), une par critère impératif de son profil. Table
+// DISTINCTE de PracticeAnswer, rattachée à un établissement : la fiche ne naît que
+// de la signature, et cette table ne doit jamais en devenir une seconde porte.
+// Append-only, comme PracticeAnswer : la plus récente par critère fait foi. Le
+// cabinet n'en voit QUE l'avancement, jamais le contenu (maquette « Prospects »).
+model ProspectPracticeAnswer {
+  id              String              @id @default(cuid())
+  prospectId      String              @map("prospect_id")
+  criterionId     String              @map("criterion_id")
+  questionVersion Int                 @map("question_version")
+  answer          PracticeAnswerValue
+  text            String?
+  answeredById    String?             @map("answered_by_id")
+  answeredAt      DateTime            @default(now()) @map("answered_at")
+
+  prospect   Prospect  @relation(fields: [prospectId], references: [id], onDelete: Cascade)
+  criterion  Criterion @relation(fields: [criterionId], references: [id], onDelete: Cascade)
+  answeredBy User?     @relation("ProspectPracticeAnsweredBy", fields: [answeredById], references: [id], onDelete: SetNull)
+
+  @@index([prospectId, criterionId, answeredAt])
+  @@index([criterionId])
+  @@index([answeredById])
+  @@map("prospect_practice_answers")
 }
 
 // Rendez-vous — la même ligne sert l'avant-vente et l'accompagnement.
@@ -1699,6 +1765,12 @@ enum AuditAction {
   // Relance manuelle d'un devis envoyé (maquettes v2, 13/10/2026) : un geste, jamais
   // un automate. `detail` = numéro du devis.
   DEVIS_REMINDER_SENT
+  // Libre-service (D5, 13/10/2026). `detail` ne porte jamais l'e-mail ni le nom.
+  SELF_SERVICE_SIGNUP
+  SELF_SERVICE_SIGNUP_RATE_LIMITED
+  ACCOMPANIMENT_REQUESTED
+  PROSPECT_REMINDER_SENT
+  PROSPECT_PRACTICE_ANSWERED
 }
 
 model AuditLogEntry {

@@ -1,0 +1,148 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+// Inscription en libre-service (route publique) : débit sur l'IP et l'adresse,
+// validation serveur, même réponse que le compte existe ou non, prospect + compte
+// PROSPECT_USER créés — jamais un établissement.
+
+class P2002 extends Error {
+  code = "P2002";
+}
+
+const tx = {
+  prospect: { create: vi.fn() },
+  user: { create: vi.fn() },
+  prospectAccount: { create: vi.fn() },
+  establishment: { create: vi.fn() },
+};
+const prismaMock = {
+  tenant: { findMany: vi.fn() },
+  user: { findUnique: vi.fn() },
+  establishment: { create: vi.fn() },
+  $transaction: vi.fn((run: (t: typeof tx) => unknown) => run(tx)),
+};
+const consumeThrottledAttempt = vi.fn();
+const recordAuditEvent = vi.fn();
+const send = vi.fn();
+const hashPassword = vi.fn();
+
+vi.mock("@eoda/database", () => ({
+  prisma: prismaMock,
+  Prisma: { PrismaClientKnownRequestError: P2002 },
+}));
+vi.mock("next/headers", () => ({ headers: () => Promise.resolve(new Headers({ "x-forwarded-for": "203.0.113.9" })) }));
+vi.mock("@/lib/security/attempt-throttle", () => ({
+  consumeThrottledAttempt: (...args: unknown[]) => consumeThrottledAttempt(...args),
+}));
+vi.mock("@/lib/security/password-hashing", () => ({ hashPassword: (p: string) => hashPassword(p) }));
+vi.mock("@/lib/services/audit-log-service", () => ({ recordAuditEvent: (...a: unknown[]) => recordAuditEvent(...a) }));
+vi.mock("@/lib/email", () => ({ getEmailPort: () => ({ send }) }));
+vi.mock("@/lib/config/app-url", () => ({ appUrl: (p: string) => `https://app.example.org${p}` }));
+
+const { signUpSelfService } = await import("./self-service");
+const { SIGNUP_NEUTRAL_MESSAGE } = await import("@/lib/services/self-service-service");
+
+function form(overrides: Record<string, string> = {}): FormData {
+  const data = new FormData();
+  const values = {
+    structureName: "SAD Les Glycines (fictif)",
+    structureType: "ASSOCIATION",
+    establishmentType: "SAD_AIDE",
+    finessNumber: "",
+    formule: "ESSENTIEL",
+    firstName: "Nadia (fictif)",
+    email: "direction@glycines.example.org",
+    password: "une phrase de passe longue",
+    ...overrides,
+  };
+  for (const [k, v] of Object.entries(values)) data.set(k, v);
+  return data;
+}
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  consumeThrottledAttempt.mockResolvedValue(true);
+  prismaMock.tenant.findMany.mockResolvedValue([{ id: "tenant-1" }]);
+  prismaMock.user.findUnique.mockResolvedValue(null);
+  hashPassword.mockResolvedValue("hash");
+  tx.prospect.create.mockResolvedValue({ id: "prospect-1" });
+  tx.user.create.mockResolvedValue({ id: "user-1" });
+  send.mockResolvedValue("SENT");
+});
+
+describe("signUpSelfService", () => {
+  it("crée un prospect LIBRE_SERVICE et un compte PROSPECT_USER rattaché — jamais un établissement", async () => {
+    const state = await signUpSelfService({ status: "IDLE" }, form());
+    expect(state).toEqual({ status: "DONE", message: SIGNUP_NEUTRAL_MESSAGE });
+    expect(tx.prospect.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ tenantId: "tenant-1", channel: "LIBRE_SERVICE", envisagedFormule: "ESSENTIEL", establishmentType: "SAD_AIDE" }),
+      })
+    );
+    expect(tx.user.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ role: "PROSPECT_USER", passwordHash: "hash", mustChangePassword: false, tenantId: null }) })
+    );
+    expect(tx.prospectAccount.create).toHaveBeenCalledWith({ data: { prospectId: "prospect-1", userId: "user-1" } });
+    expect(tx.establishment.create).not.toHaveBeenCalled();
+    expect(prismaMock.establishment.create).not.toHaveBeenCalled();
+    expect(recordAuditEvent).toHaveBeenCalledWith(expect.objectContaining({ action: "SELF_SERVICE_SIGNUP", targetId: "prospect-1" }));
+    // Le journal ne porte ni l'adresse ni le nom.
+    expect(JSON.stringify(recordAuditEvent.mock.calls)).not.toContain("glycines.example.org");
+    expect(send.mock.calls[0]![0]).toMatchObject({ to: "direction@glycines.example.org", subject: "Votre espace EODA est prêt" });
+  });
+
+  it("adresse déjà utilisée : même réponse, rien de créé, un e-mail au titulaire, même coût bcrypt", async () => {
+    prismaMock.user.findUnique.mockResolvedValue({ id: "existing" });
+    const state = await signUpSelfService({ status: "IDLE" }, form());
+    expect(state).toEqual({ status: "DONE", message: SIGNUP_NEUTRAL_MESSAGE });
+    expect(prismaMock.$transaction).not.toHaveBeenCalled();
+    expect(hashPassword).toHaveBeenCalledTimes(1);
+    expect(send.mock.calls[0]![0]).toMatchObject({ subject: "Votre compte EODA existe déjà" });
+  });
+
+  it("course sur l'unicité de l'adresse : traitée comme un compte existant", async () => {
+    prismaMock.$transaction.mockRejectedValueOnce(new P2002("unique"));
+    const state = await signUpSelfService({ status: "IDLE" }, form());
+    expect(state.status).toBe("DONE");
+    expect(recordAuditEvent).not.toHaveBeenCalledWith(expect.objectContaining({ action: "SELF_SERVICE_SIGNUP" }));
+  });
+
+  it("débit dépassé : refus avant toute lecture", async () => {
+    consumeThrottledAttempt.mockResolvedValueOnce(false);
+    const state = await signUpSelfService({ status: "IDLE" }, form());
+    expect(state.status).toBe("ERROR");
+    expect(prismaMock.user.findUnique).not.toHaveBeenCalled();
+    expect(consumeThrottledAttempt).toHaveBeenCalledWith(
+      expect.objectContaining({ key: "signup:ip:203.0.113.9", auditAction: "SELF_SERVICE_SIGNUP_RATE_LIMITED" })
+    );
+  });
+
+  it("deux compteurs : l'IP puis l'adresse", async () => {
+    await signUpSelfService({ status: "IDLE" }, form());
+    expect(consumeThrottledAttempt.mock.calls.map((c) => (c[0] as { key: string }).key)).toEqual([
+      "signup:ip:203.0.113.9",
+      "signup:email:direction@glycines.example.org",
+    ]);
+  });
+
+  it("saisie invalide : refusée côté serveur, rien n'est lu ni créé", async () => {
+    const state = await signUpSelfService({ status: "IDLE" }, form({ password: "court" }));
+    expect(state).toMatchObject({ status: "ERROR" });
+    expect(prismaMock.tenant.findMany).not.toHaveBeenCalled();
+    expect(prismaMock.$transaction).not.toHaveBeenCalled();
+  });
+
+  it("plusieurs cabinets en base : inscription fermée (fail-closed)", async () => {
+    prismaMock.tenant.findMany.mockResolvedValue([{ id: "a" }, { id: "b" }]);
+    const state = await signUpSelfService({ status: "IDLE" }, form());
+    expect(state).toMatchObject({ status: "ERROR" });
+    expect(prismaMock.$transaction).not.toHaveBeenCalled();
+  });
+
+  it("un e-mail qui échoue ne défait pas l'inscription", async () => {
+    send.mockRejectedValue(new Error("SMTP"));
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const state = await signUpSelfService({ status: "IDLE" }, form());
+    expect(state.status).toBe("DONE");
+    errorSpy.mockRestore();
+  });
+});

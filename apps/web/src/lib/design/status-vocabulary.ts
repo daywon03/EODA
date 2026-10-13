@@ -131,6 +131,7 @@ const APPOINTMENT_GLYPH_TONE: Record<AppointmentStatus, [string, PillTone]> = {
   PROPOSE: ["◔", "progress"],
   CONFIRME: ["✓", "ok"],
   ANNULE: ["✕", "danger"],
+  DEMANDE: ["?", "review"],
 };
 
 export function pillForAppointmentStatus(status: AppointmentStatus): PillSpec {

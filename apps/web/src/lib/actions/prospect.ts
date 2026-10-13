@@ -14,7 +14,6 @@ import {
 import { requireCommercialSession } from "@/lib/auth/guards";
 import { redirect, notFound } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE } from "@/lib/services/pagination-service";
 import {
   firstError,
   isEnumValue,
@@ -27,7 +26,7 @@ import {
   requiredString,
 } from "@/lib/validation/form-parsers";
 import {
-  formatContactIdentity,
+  isSelfServiceChannel,
   keepPrecisionOnlyForOther,
   otherPrecisionError,
 } from "@/lib/services/prospect-contact-service";
@@ -190,6 +189,9 @@ function parseProspectInput(formData: FormData): { error: string } | ParsedProsp
   };
 }
 
+const SELF_SERVICE_CHANNEL_ERROR =
+  "Le canal « Inscription en ligne » est réservé aux structures inscrites seules : il ne se choisit ni ne se retire à la main.";
+
 export async function createProspect(
   _prevState: { error: string } | null,
   formData: FormData
@@ -198,6 +200,7 @@ export async function createProspect(
 
   const parsed = parseProspectInput(formData);
   if ("error" in parsed) return parsed;
+  if (isSelfServiceChannel(parsed.channel)) return { error: SELF_SERVICE_CHANNEL_ERROR };
 
   const prospect = await prisma.prospect.create({ data: { ...parsed, tenantId } });
 
@@ -217,6 +220,11 @@ export async function updateProspect(
 
   const parsed = parseProspectInput(formData);
   if ("error" in parsed) return parsed;
+  // Le canal « libre-service » ne se pose qu'à l'inscription en ligne, et ne se perd
+  // pas : il dit que la structure a un espace.
+  if (isSelfServiceChannel(parsed.channel) !== isSelfServiceChannel(existing.channel)) {
+    return { error: SELF_SERVICE_CHANNEL_ERROR };
+  }
 
   await prisma.prospect.update({ where: { id }, data: parsed });
 
@@ -397,88 +405,9 @@ export async function deleteProspect(id: string): Promise<{ error: string } | vo
   redirect(PROSPECT_LIST_PATH);
 }
 
-export type ProspectCardItem = {
-  id: string;
-  structureName: string;
-  structureType: StructureType;
-  status: ProspectStatus;
-  // Identité déjà composée (civilité, nom, fonction) : la carte du Kanban ne
-  // recompose pas la règle de son côté, sinon deux écrans finissent par écrire le
-  // même contact de deux façons.
-  contactIdentity: string | null;
-  estimatedAmountEuros: number | null;
-  devisCount: number;
-};
-
-export type ProspectBoardPage = {
-  items: ProspectCardItem[];
-  // Effectif RÉEL de chaque colonne, calculé en base — pas la longueur de la page
-  // affichée. Sans ça, le compteur du Kanban mentirait dès la première troncature.
-  totalByStatus: Record<ProspectStatus, number>;
-  totalCount: number;
-};
-
-const PROSPECT_STATUSES: readonly ProspectStatus[] = [
-  "NOUVEAU",
-  "RDV",
-  "DEVIS_ENVOYE",
-  "NEGOCIATION",
-  "SIGNE",
-  "PERDU",
-];
-
-// Kanban borné : `perColumn` prospects au plus PAR COLONNE, jamais la table
-// entière. Le Kanban sérialise sa liste vers un composant client — une lecture non
-// bornée y coûte deux fois (requête + payload React). Six requêtes indexées
-// bornées valent mieux qu'un `findMany` sans `take`.
-export async function listProspectBoard(
-  perColumn: number = DEFAULT_PAGE_SIZE
-): Promise<ProspectBoardPage> {
-  const { tenantId } = await requireCommercialSession();
-  const take = Math.min(Math.max(Math.trunc(perColumn) || DEFAULT_PAGE_SIZE, 1), MAX_PAGE_SIZE);
-
-  const [columns, counts] = await Promise.all([
-    Promise.all(
-      PROSPECT_STATUSES.map((status) =>
-        prisma.prospect.findMany({
-          where: { tenantId, status },
-          orderBy: { createdAt: "desc" },
-          take,
-          select: {
-            id: true,
-            structureName: true,
-            structureType: true,
-            status: true,
-            civility: true,
-            contactName: true,
-            contactRole: true,
-            contactRoleOther: true,
-            estimatedAmountEuros: true,
-            _count: { select: { devis: true } },
-          },
-        })
-      )
-    ),
-    prisma.prospect.groupBy({ by: ["status"], where: { tenantId }, _count: { _all: true } }),
-  ]);
-
-  const totalByStatus = emptyStatusCounts();
-  for (const row of counts) totalByStatus[row.status] = row._count._all;
-
-  return {
-    items: columns.flat().map((p) => ({
-      id: p.id,
-      structureName: p.structureName,
-      structureType: p.structureType,
-      status: p.status,
-      contactIdentity: formatContactIdentity(p),
-      estimatedAmountEuros: p.estimatedAmountEuros,
-      devisCount: p._count.devis,
-    })),
-    totalByStatus,
-    totalCount: Object.values(totalByStatus).reduce((sum, n) => sum + n, 0),
-  };
-}
+// Le kanban par étape est retiré (maquette v2, décision de Damon du 13/10/2026) : le
+// tableau « Prospects » (lib/actions/prospect-pipeline.ts) le remplace, et l'étape
+// commerciale d'un prospect se change depuis sa fiche.
 
 function emptyStatusCounts(): Record<ProspectStatus, number> {
   return { NOUVEAU: 0, RDV: 0, DEVIS_ENVOYE: 0, NEGOCIATION: 0, SIGNE: 0, PERDU: 0 };

@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Loader2 } from "lucide-react";
 import type { PracticeAnswerValue } from "@eoda/database";
-import { savePracticeAnswer } from "@/lib/actions/practice";
 import { PRACTICE_ANSWER_LABELS, PRACTICE_ANSWER_VALUES, MAX_PRACTICE_TEXT_LENGTH } from "@/lib/services/practice-service";
 import { cn } from "@/lib/utils";
 
@@ -19,7 +18,14 @@ export function PracticeQuestionForm({
   nextHref,
   isLast,
   disabled,
+  save,
+  lastLabel = "Enregistrer et revenir au diagnostic",
 }: {
+  // Action serveur d'enregistrement, fournie par la page : celle de la structure
+  // (savePracticeAnswer) ou celle d'une structure inscrite seule
+  // (saveProspectPracticeAnswer). Même formulaire, deux gardes (D1).
+  save: (input: { criterionId: unknown; answer: unknown; text: unknown }) => Promise<{ error: string } | null>;
+  lastLabel?: string;
   criterionId: string;
   initialAnswer: PracticeAnswerValue | null;
   initialText: string;
@@ -38,7 +44,7 @@ export function PracticeQuestionForm({
   function submit() {
     setError(null);
     startTransition(async () => {
-      const result = await savePracticeAnswer({ criterionId, answer, text });
+      const result = await save({ criterionId, answer, text });
       if (result) setError(result.error);
       else router.push(nextHref);
     });
@@ -112,7 +118,7 @@ export function PracticeQuestionForm({
             className="inline-flex min-h-14 items-center gap-2 rounded-[10px] bg-ink-fill px-6 text-lg font-bold text-on-ink hover:bg-ink-fill/90 disabled:opacity-60"
           >
             {isPending && <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" />}
-            {isLast ? "Enregistrer et revenir au diagnostic" : "Enregistrer et continuer"}
+            {isLast ? lastLabel : "Enregistrer et continuer"}
           </button>
         )}
       </div>

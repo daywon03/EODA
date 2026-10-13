@@ -39,6 +39,7 @@ export const APPOINTMENT_STATUS_LABELS: Record<AppointmentStatus, string> = {
   PROPOSE: "Créneau proposé",
   CONFIRME: "Confirmé",
   ANNULE: "Annulé",
+  DEMANDE: "Demandé par la structure",
 };
 
 // Les trois étapes de vente. Séparées des rendez-vous d'accompagnement parce qu'elles

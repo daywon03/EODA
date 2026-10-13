@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getClientPractices } from "@/lib/actions/practice";
+import { getClientPractices, savePracticeAnswer } from "@/lib/actions/practice";
 import { parseQuestionIndex } from "@/lib/services/practice-service";
 import { CLIENT_DIAGNOSTIC_PATH, CLIENT_PRACTICES_PATH } from "@/lib/design/client-navigation";
 import { ProgressBar } from "@/components/ui/progress-bar";
@@ -71,6 +71,7 @@ export default async function ClientPracticesPage({ searchParams }: Props) {
         nextHref={nextHref}
         isLast={isLast}
         disabled={!practices.canAnswer}
+        save={savePracticeAnswer}
       />
 
       <div className="flex flex-col gap-1 rounded-xl border border-line bg-card p-4">

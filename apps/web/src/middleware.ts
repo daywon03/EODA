@@ -4,7 +4,12 @@ import { authConfig } from "./auth.config";
 import { NextResponse } from "next/server";
 import type { UserRole } from "@eoda/database";
 import { classifyPath, PASSWORD_ROTATION_PATH, ROTATION_EXEMPT_PATHS } from "@/lib/auth/routes";
-import { capabilityRequiredForPath, hasCabinetCapability, roleHomePath } from "@/lib/auth/capabilities";
+import {
+  capabilityRequiredForPath,
+  hasCabinetCapability,
+  portalRedirectFor,
+  roleHomePath,
+} from "@/lib/auth/capabilities";
 import {
   buildContentSecurityPolicy,
   generateCspNonce,
@@ -69,6 +74,13 @@ export default auth((req) => {
   if (isLoggedIn && isPublic) {
     const role: UserRole = session.user.role;
     return applyCsp(NextResponse.redirect(new URL(roleHomePath(role), nextUrl)), csp);
+  }
+
+  // Structure inscrite seule (libre-service) : son espace, rien d'autre ; et personne
+  // d'autre n'entre dans /espace.
+  const portalRedirect = isLoggedIn ? portalRedirectFor(session.user.role, nextUrl.pathname) : null;
+  if (portalRedirect) {
+    return applyCsp(NextResponse.redirect(new URL(portalRedirect, nextUrl)), csp);
   }
 
   if (isLoggedIn && nextUrl.pathname.startsWith("/dashboard/cabinet")) {

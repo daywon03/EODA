@@ -21,8 +21,20 @@ export const QUIZ_PUBLIC_PREFIX = "/quiz/";
 
 export type PathAccess = "AUTH" | "ANONYMOUS" | "PROTECTED";
 
+// Pages publiques du libre-service (maquettes v2, 13/10/2026) : la page d'accueil
+// (landing) et l'inscription. Même comportement que la connexion : servies sans
+// session, et un visiteur CONNECTÉ est renvoyé vers son espace. Liste EXACTE — un
+// sous-chemin (/inscription/x) reste protégé.
+export const LANDING_PATH = "/";
+export const SIGNUP_PATH = "/inscription";
+const PUBLIC_AUTH_PATHS: readonly string[] = [LANDING_PATH, SIGNUP_PATH];
+
+// Espace d'une structure inscrite seule (rôle PROSPECT_USER).
+export const PROSPECT_SPACE_PATH = "/espace";
+
 export function classifyPath(pathname: string): PathAccess {
   if (pathname === "/login" || pathname.startsWith("/login/")) return "AUTH";
+  if (PUBLIC_AUTH_PATHS.includes(pathname)) return "AUTH";
   // Un seul segment après /quiz/ : /quiz/<jeton>. /quiz seul ou /quiz/a/b restent protégés.
   if (pathname.startsWith(QUIZ_PUBLIC_PREFIX) && /^\/quiz\/[A-Za-z0-9_-]+$/.test(pathname)) return "ANONYMOUS";
   return "PROTECTED";

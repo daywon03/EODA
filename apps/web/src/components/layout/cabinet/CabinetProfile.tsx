@@ -10,6 +10,7 @@ const ROLE_LABELS: Record<UserRole, string> = {
   CABINET_COMMERCIAL: "Cabinet · commercial",
   CABINET_READONLY: "Cabinet · lecture seule",
   CLIENT_USER: "Structure",
+  PROSPECT_USER: "Structure inscrite",
 };
 
 // Bloc profil en bas de la barre latérale (et du tiroir mobile). Composant SERVEUR :

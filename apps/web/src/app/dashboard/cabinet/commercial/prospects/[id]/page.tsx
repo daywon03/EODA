@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { getProspect } from "@/lib/actions/prospect";
+import { getSelfServiceSummary } from "@/lib/actions/prospect-pipeline";
+import { SelfServicePanel } from "@/components/prospect/SelfServicePanel";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -43,9 +45,11 @@ export default async function ProspectDetailPage({ params }: Props) {
   const { id } = await params;
   // Lancées ensemble : la frise des rendez-vous ne dépend pas de la fiche, et chaque
   // aller-retour vers la base coûte ~290 ms. En série, on payait les deux.
-  const [prospect, appointments] = await Promise.all([
+  const [prospect, appointments, selfService] = await Promise.all([
     getProspect(id),
     listAppointmentsFor({ prospectId: id }),
+    // Structure inscrite seule : encart « en autonomie » (maquette v2) ; null sinon.
+    getSelfServiceSummary(id),
   ]);
 
 
@@ -111,6 +115,8 @@ export default async function ProspectDetailPage({ params }: Props) {
           </div>
         }
       />
+
+      {selfService && <SelfServicePanel facts={selfService} />}
 
       {/* Ce qui a déjà eu lieu, avant tout le reste : c'est la première question qu'on
           se pose en ouvrant une fiche, et jusqu'ici il fallait la reconstituer en

@@ -30,7 +30,7 @@ export function AppointmentStatusActions({
     <div className="flex items-center gap-1.5">
       {isPending && <Loader2 className="w-4 h-4 animate-spin text-ink2" aria-hidden="true" />}
 
-      {status === "PROPOSE" && (
+      {(status === "PROPOSE" || status === "DEMANDE") && (
         <Button
           type="button"
           size="sm"

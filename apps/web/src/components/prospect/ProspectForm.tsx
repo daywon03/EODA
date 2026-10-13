@@ -22,6 +22,7 @@ import {
 } from "@/lib/services/structure-identity-service";
 import {
   ACQUISITION_CHANNEL_LABELS,
+  MANUAL_ACQUISITION_CHANNELS,
   CIVILITY_LABELS,
   CONTACT_ROLE_LABELS,
 } from "@/lib/services/prospect-contact-service";
@@ -191,9 +192,10 @@ export function ProspectForm({ prospect }: Props) {
             onChange={(e) => setChannel(e.target.value)}
           >
             <option value="">— Sélectionner —</option>
-            {Object.entries(ACQUISITION_CHANNEL_LABELS).map(([value, label]) => (
+            {/* Un prospect inscrit en ligne garde son canal (non saisissable à la main). */}
+            {(channel === "LIBRE_SERVICE" ? [...MANUAL_ACQUISITION_CHANNELS, "LIBRE_SERVICE" as const] : MANUAL_ACQUISITION_CHANNELS).map((value) => (
               <option key={value} value={value}>
-                {label}
+                {ACQUISITION_CHANNEL_LABELS[value]}
               </option>
             ))}
           </Select>

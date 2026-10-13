@@ -374,6 +374,9 @@ export async function setAppointmentStatus(
   const context = await requireCabinetSession("ANY_CABINET_ROLE");
 
   if (!isEnumValue(status, AppointmentStatus)) return { error: "Statut invalide." };
+  // « Demandé » est le geste de la STRUCTURE (Être accompagné) : le cabinet confirme,
+  // propose ou annule, il ne fabrique pas une demande.
+  if (status === "DEMANDE") return { error: "Seule la structure peut demander un rendez-vous." };
 
   const appointment = await prisma.appointment.findFirst({
     where: {

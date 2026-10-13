@@ -21,7 +21,7 @@ import { CABINET_ROLES, hasCabinetCapability } from "./capabilities";
 
 const SRC = path.resolve(__dirname, "../..");
 const COMMERCIAL_DIR = path.join(SRC, "app/dashboard/cabinet/commercial");
-const ADMIN_ONLY_ACTION_MODULES = ["prospect", "devis", "devis-read", "devis-email", "catalogue", "conversion", "discovery", "option-request"];
+const ADMIN_ONLY_ACTION_MODULES = ["prospect", "prospect-pipeline", "devis", "devis-read", "devis-email", "catalogue", "conversion", "discovery", "option-request"];
 const GUARD = "requireCommercialSession()";
 
 function findPages(dir: string): string[] {

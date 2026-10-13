@@ -60,7 +60,7 @@ export const FALLBACK_QUESTION_VERSION = 0;
 // Questions dans l'ordre des codes ; une question écrite pour un critère que la
 // structure n'a pas (3.6.2 chez un SAD aide) n'apparaît jamais.
 export function resolvePracticeQuestions(
-  imperatives: readonly ImperativeForPractice[],
+  imperatives: readonly Pick<ImperativeForPractice, "id" | "code" | "label">[],
   questionnaire: PracticeQuestionnaire
 ): ResolvedPracticeQuestion[] {
   const byCode = new Map(questionnaire.questions.map((q) => [q.criterionCode, q]));

@@ -12,5 +12,7 @@ export async function RoleShell({ children }: { children: ReactNode }) {
   const session = await auth();
   if (!session) redirect("/login");
   if (session.user.role === "CLIENT_USER") return <ClientShell>{children}</ClientShell>;
+  // Une structure inscrite seule n'a pas ces pages : elle a son espace.
+  if (session.user.role === "PROSPECT_USER") redirect("/espace");
   return <CabinetShell>{children}</CabinetShell>;
 }

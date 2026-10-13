@@ -99,6 +99,12 @@ export default defineConfig({
         "src/lib/services/devis-catalogue-choices.ts",
         "src/lib/services/devis-list-service.ts",
         "src/lib/services/catalogue-view-service.ts",
+        // Libre-service (D5) : validation d'une inscription publique, avancement et
+        // liste de travail dérivés, signal d'activité, tableau Prospects. Un défaut ici
+        // ouvre une inscription mal formée, ou relance une structure qui avance.
+        "src/lib/services/self-service-service.ts",
+        "src/lib/services/prospect-diagnostic-service.ts",
+        "src/lib/services/prospect-pipeline-service.ts",
         // Mentions de paternité : un texte juridique apposé sur des documents remis
         // au client. Le test verrouille la formulation dictée en séance, et empêche
         // qu'une revendication de propriété atterrisse sur un devis.

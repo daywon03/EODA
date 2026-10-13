@@ -87,8 +87,29 @@ export function cabinetLandingPath(role: UserRole): string {
 }
 
 // Page d'arrivée de TOUT compte (racine, /dashboard, middleware après connexion).
+// Une structure inscrite seule (PROSPECT_USER) n'a que son espace.
 export function roleHomePath(role: UserRole): string {
+  if (role === "PROSPECT_USER") return PROSPECT_HOME;
   return role === "CLIENT_USER" ? "/dashboard/client" : cabinetLandingPath(role);
+}
+
+const PROSPECT_HOME = "/espace";
+
+function isUnder(pathname: string, prefix: string): boolean {
+  return pathname === prefix || pathname.startsWith(`${prefix}/`);
+}
+
+// Cloisonnement des PORTAILS par rôle, filet du middleware (Edge, rôle du jeton).
+// Rend l'adresse vers laquelle renvoyer, ou null si le chemin convient au rôle :
+//   - une structure inscrite seule n'atteint ni /dashboard ni /imprimer ;
+//   - personne d'autre n'entre dans /espace.
+// L'autorité reste la garde de chaque page (requireProspectSession, etc.).
+export function portalRedirectFor(role: UserRole, pathname: string): string | null {
+  const inProspectSpace = isUnder(pathname, PROSPECT_HOME);
+  if (role === "PROSPECT_USER") {
+    return isUnder(pathname, "/dashboard") || isUnder(pathname, "/imprimer") ? PROSPECT_HOME : null;
+  }
+  return inProspectSpace ? roleHomePath(role) : null;
 }
 
 // ── Périmètre des structures (affectation consultante) ─────────────────────────

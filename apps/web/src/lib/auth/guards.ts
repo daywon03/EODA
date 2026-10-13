@@ -1,5 +1,5 @@
 import { cache } from "react";
-import { prisma, type EstablishmentType, type UserRole } from "@eoda/database";
+import { prisma, type CommercialTier, type EstablishmentType, type UserRole } from "@eoda/database";
 import type { Session } from "next-auth";
 import { auth } from "@/auth";
 import { redirect, notFound } from "next/navigation";
@@ -18,6 +18,7 @@ import {
   cabinetLandingPath,
   hasCabinetCapability,
   isCabinetRole,
+  roleHomePath,
   isInStructureScope,
   resolveStructureScope,
   structureAccessFor,
@@ -263,7 +264,8 @@ export async function requireCabinetSession(need: CabinetNeed): Promise<CabinetC
   const user = await resolveUser(session.user.id);
   if (!user) redirect("/login");
   enforceAccountState(session, user, { allowRotationPending: false });
-  if (user.role === "CLIENT_USER") redirect("/dashboard/client");
+  // Client ou structure inscrite seule : renvoyé à SON portail, jamais servi.
+  if (!isCabinetRole(user.role)) redirect(roleHomePath(user.role));
   if (!user.tenantId) redirect("/login");
   // Compte légitimement connecté, mais pas habilité sur ce module : renvoyé à SA page
   // d'arrivée (un commercial vers le commercial), jamais vers /login.
@@ -283,7 +285,7 @@ export async function tryCabinetSession(need: CabinetNeed): Promise<CabinetConte
   const user = await resolveUser(session.user.id);
   if (!user) return null;
   if (isAccountRevoked(user) || user.mustChangePassword || isSessionStale(session, user)) return null;
-  if (user.role === "CLIENT_USER") return null;
+  if (!isCabinetRole(user.role)) return null;
   if (!user.tenantId) return null;
   if (!grants(user.role, need)) return null;
 
@@ -428,6 +430,9 @@ export async function requireEstablishmentAccess(
     if (!access) notFound();
     return access;
   }
+  // Ni client ni cabinet (structure inscrite seule) : aucun établissement n'existe
+  // pour elle — introuvable, sans rien révéler.
+  if (!isCabinetRole(user.role)) notFound();
 
   const access = await resolveCabinetEstablishmentAccess(session, user, establishmentId, need);
   if (access === "NO_TENANT") redirect("/login");
@@ -456,6 +461,7 @@ export async function tryEstablishmentAccess(
   }
 
   if (user.role === "CLIENT_USER") return resolveClientEstablishmentAccess(session, establishmentId, need);
+  if (!isCabinetRole(user.role)) return null;
 
   const access = await resolveCabinetEstablishmentAccess(session, user, establishmentId, need);
   return access === "NO_TENANT" ? null : access;
@@ -491,7 +497,7 @@ export async function requireClientEstablishment(need: ClientNeed): Promise<{
   const user = await resolveUser(session.user.id);
   if (!user) redirect("/login");
   enforceAccountState(session, user, { allowRotationPending: false });
-  if (user.role !== "CLIENT_USER") redirect("/dashboard/cabinet");
+  if (user.role !== "CLIENT_USER") redirect(roleHomePath(user.role));
 
   // Lien ACTIF seulement : un accès retiré par la direction ne rattache plus rien.
   const link = await prisma.establishmentUser.findFirst({
@@ -585,4 +591,48 @@ export async function requireHelpAudience(): Promise<{
   enforceAccountState(session, user, { allowRotationPending: false });
 
   return { session, userId: session.user.id, role: user.role };
+}
+
+// ── Structure inscrite seule (libre-service, D5 — 13/10/2026) ─────────────────
+// Garde de l'espace /espace et de ses actions. Le prospect se résout depuis le lien
+// ProspectAccount de l'appelant — JAMAIS depuis un identifiant reçu : un prospect ne
+// peut désigner que le sien. Tout autre rôle est renvoyé à son portail ; un compte
+// sans lien (prospect supprimé) est déconnecté. Fail-closed.
+export type ProspectContext = {
+  session: Session;
+  userId: string;
+  prospect: {
+    id: string;
+    tenantId: string;
+    structureName: string;
+    establishmentType: EstablishmentType | null;
+    envisagedFormule: CommercialTier | null;
+    establishmentId: string | null;
+  };
+};
+
+export async function requireProspectSession(): Promise<ProspectContext> {
+  const session = await requireSession();
+  const user = await resolveUser(session.user.id);
+  if (!user) redirect("/login");
+  enforceAccountState(session, user, { allowRotationPending: false });
+  if (user.role !== "PROSPECT_USER") redirect(roleHomePath(user.role));
+
+  const link = await prisma.prospectAccount.findUnique({
+    where: { userId: session.user.id },
+    select: {
+      prospect: {
+        select: {
+          id: true,
+          tenantId: true,
+          structureName: true,
+          establishmentType: true,
+          envisagedFormule: true,
+          establishmentId: true,
+        },
+      },
+    },
+  });
+  if (!link) redirect(SIGN_OUT_PATH);
+  return { session, userId: session.user.id, prospect: link.prospect };
 }
