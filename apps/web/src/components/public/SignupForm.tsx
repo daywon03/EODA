@@ -16,6 +16,7 @@ import { PublicCard } from "./PublicCard";
 import { LinkDisclosureNotice } from "./LinkDisclosureNotice";
 import { ResendVerificationForm } from "./ResendVerificationForm";
 import { cn } from "@/lib/utils";
+import { submitWithoutReset } from "@/lib/forms/submit-without-reset";
 
 const STEPS = ["Votre structure", "Votre offre", "Votre compte"] as const;
 const SERVICE_TYPES = [
@@ -103,7 +104,7 @@ export function SignupForm({
 
       <main className="flex flex-col gap-6 px-4 py-8 sm:px-10 lg:py-14">
         <p className="text-ink2">Étape {step} sur 3</p>
-        <form action={formAction} className="flex max-w-[640px] flex-col gap-6">
+        <form method="post" onSubmit={submitWithoutReset(formAction)} className="flex max-w-[640px] flex-col gap-6">
           <div className={cn("flex-col gap-5", step === 1 ? "flex" : "hidden")}>
             <h1 className="text-3xl font-bold">Votre structure</h1>
             <div className="flex flex-col gap-1.5">
@@ -221,7 +222,10 @@ export function SignupForm({
               </Link>
             )}
             {step < 3 ? (
+              // Clés distinctes : sans elles React RÉUTILISE ce bouton à l'étape 3 en le
+              // passant en type="submit" pendant le clic, et le formulaire part vide.
               <button
+                key="next"
                 type="button"
                 onClick={() => setStep(step + 1)}
                 disabled={!canContinue}
@@ -230,7 +234,7 @@ export function SignupForm({
                 Continuer
               </button>
             ) : (
-              <button type="submit" disabled={isPending} className="inline-flex min-h-14 items-center gap-2 rounded-[10px] bg-accent-fill px-6 text-lg font-bold text-on-accent disabled:opacity-60">
+              <button key="submit" type="submit" disabled={isPending} className="inline-flex min-h-14 items-center gap-2 rounded-[10px] bg-accent-fill px-6 text-lg font-bold text-on-accent disabled:opacity-60">
                 {isPending && <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" />}
                 Créer mon espace
               </button>

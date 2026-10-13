@@ -3,6 +3,7 @@
 import { useActionState, useState } from "react";
 import Link from "next/link";
 import { convertDevisToClient } from "@/lib/actions/conversion";
+import { submitWithoutReset } from "@/lib/forms/submit-without-reset";
 import {
   impliesSeventeenthImperatif,
   SEVENTEENTH_IMPERATIF_WARNING,
@@ -166,7 +167,9 @@ export function SignatureConversionForm({
 
   // ── Avant la conversion ────────────────────────────────────────────────────
   return (
-    <form action={formAction} className="space-y-5">
+    // Pas de `<form action>` : après un refus (FINESS déjà rattaché…), React viderait
+    // FINESS, adresse et échéance saisis (recette du 13/10/2026).
+    <form method="post" onSubmit={submitWithoutReset(formAction)} className="space-y-5">
       {existingEstablishmentId === null ? (
         <fieldset className="space-y-2">
           <legend className="text-sm font-medium text-brun-ancre mb-2">
