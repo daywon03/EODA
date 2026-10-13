@@ -1,17 +1,15 @@
 "use server";
 
-import { prisma, CommercialTier, DevisStatus, type Prisma } from "@eoda/database";
+import { prisma, CommercialTier, DevisStatus } from "@eoda/database";
 import { requireCommercialSession } from "@/lib/auth/guards";
 import { redirect, notFound } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { cookies } from "next/headers";
-import { getEmailPort, type EmailDelivery } from "@/lib/email";
-import { devisEmailNotSentMessage } from "@/lib/services/email-delivery-service";
-import { devisPdfFailureMessage } from "@/lib/services/devis-pdf-failure";
-import { buildDevisEmail } from "@/lib/email/templates";
-import { renderDevisPdf } from "@/lib/services/devis-pdf-service";
-import { buildDevisFileName } from "@/lib/services/devis-sharing-service";
-import { getEnv } from "@/lib/config/env";
+import { sendDevisEmail } from "@/lib/actions/devis-email";
+import {
+  DEFAULT_COMMITMENT_MONTHS,
+  parseCommitmentMonths,
+  type CommitmentMonths,
+} from "@/lib/services/devis-recap-service";
 import {
   computeDevisAmounts,
   computeValidUntil,
@@ -35,13 +33,6 @@ import {
   optionalEnum,
   requiredInt,
 } from "@/lib/validation/form-parsers";
-import { DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE } from "@/lib/services/pagination-service";
-import {
-  countDevisByTab,
-  parseDevisTab,
-  statusesForTab,
-  type DevisTab,
-} from "@/lib/services/devis-list-service";
 
 const DEVIS_LIST_PATH = "/dashboard/cabinet/commercial/devis";
 const PROSPECT_LIST_PATH = "/dashboard/cabinet/commercial/prospects";
@@ -62,6 +53,10 @@ type ParsedDevisInput = {
   // les options (§12.3). `undefined` = le champ n'était pas au formulaire (écran de
   // correction d'un brouillon) : on ne touche alors pas aux notes du prospect.
   needsAssessmentNotes: string | null | undefined;
+  // Engagement de l'abonnement (12, 24, 0 = sans engagement) — maquette v2.
+  commitmentMonths: CommitmentMonths;
+  // Note pour la structure, reprise dans l'e-mail et sur le devis imprimé.
+  clientNote: string | null;
 };
 
 function parseDevisInput(formData: FormData): { error: string } | ParsedDevisInput {
@@ -99,12 +94,20 @@ function parseDevisInput(formData: FormData): { error: string } | ParsedDevisInp
     4000
   );
 
+  const clientNote = optionalString(formData, "clientNote", "La note pour la structure", 2000);
+  // Valeur fermée (12, 24, 0) : absente = 12 mois, hors liste = refus.
+  const rawCommitment = formData.get("commitmentMonths");
+  const commitmentMonths =
+    rawCommitment === null ? DEFAULT_COMMITMENT_MONTHS : parseCommitmentMonths(rawCommitment);
+  if (commitmentMonths === null) return { error: "Choisissez un engagement : 12 mois, 24 mois ou sans engagement." };
+
   const error = firstError(
     formule,
     depositPercent,
     installmentCount,
     validityDays,
-    needsAssessmentNotes
+    needsAssessmentNotes,
+    clientNote
   );
   if (error) return { error };
   if (
@@ -112,7 +115,8 @@ function parseDevisInput(formData: FormData): { error: string } | ParsedDevisInp
     !depositPercent.ok ||
     !installmentCount.ok ||
     !validityDays.ok ||
-    !needsAssessmentNotes.ok
+    !needsAssessmentNotes.ok ||
+    !clientNote.ok
   ) {
     return { error: "Saisie invalide." };
   }
@@ -133,6 +137,36 @@ function parseDevisInput(formData: FormData): { error: string } | ParsedDevisInp
     installmentCount: installmentCount.value,
     validityDays: validityDays.value,
     needsAssessmentNotes: hasNotesField ? needsAssessmentNotes.value : undefined,
+    commitmentMonths,
+    clientNote: clientNote.value,
+  };
+}
+
+// Colonnes d'un devis communes à la création et à la correction (D1) — snapshots de
+// l'offre (forfait ET prix mensuel), engagement, note, montants recalculés.
+function devisContentData(parsed: ParsedDevisInput, lines: ResolvedDevisLines, validUntil: Date) {
+  return {
+    catalogueFormuleId: lines.catalogueFormule?.id ?? null,
+    formuleLabelSnapshot: lines.catalogueFormule?.label ?? null,
+    formulePriceSnapshotEuros: lines.catalogueFormule?.priceEuros ?? null,
+    formuleMonthlyPriceSnapshotEuros: lines.catalogueFormule?.monthlyPriceEuros ?? null,
+    commitmentMonths: parsed.commitmentMonths,
+    clientNote: parsed.clientNote,
+    depositPercent: parsed.depositPercent,
+    installmentCount: parsed.installmentCount,
+    validityDays: parsed.validityDays,
+    validUntil,
+    ...lines.amounts,
+    options: {
+      create: lines.options.map((o) => ({
+        catalogueOptionId: o.id,
+        labelSnapshot: o.label,
+        priceSnapshotEuros: o.engagedUnitPriceEuros,
+        pricingUnitSnapshot: o.pricingUnit,
+        priceMaxSnapshotEuros: o.priceMaxEuros,
+        minQuantitySnapshot: o.minQuantity,
+      })),
+    },
   };
 }
 
@@ -184,6 +218,8 @@ async function resolveDevisLines(tenantId: string, parsed: ParsedDevisInput) {
   return { catalogueFormule, options: pricedOptions, amounts };
 }
 
+type ResolvedDevisLines = Exclude<Awaited<ReturnType<typeof resolveDevisLines>>, { error: string }>;
+
 export async function createDevis(
   _prevState: { error: string } | null,
   formData: FormData
@@ -220,34 +256,22 @@ export async function createDevis(
     }
 
     return tx.devis.create({
-      data: {
-        tenantId,
-        prospectId: parsed.prospectId,
-        number,
-        catalogueFormuleId: lines.catalogueFormule?.id ?? null,
-        formuleLabelSnapshot: lines.catalogueFormule?.label ?? null,
-        formulePriceSnapshotEuros: lines.catalogueFormule?.priceEuros ?? null,
-        depositPercent: parsed.depositPercent,
-        installmentCount: parsed.installmentCount,
-        validityDays: parsed.validityDays,
-        validUntil,
-        ...lines.amounts,
-        options: {
-          create: lines.options.map((o) => ({
-            catalogueOptionId: o.id,
-            labelSnapshot: o.label,
-            priceSnapshotEuros: o.engagedUnitPriceEuros,
-            pricingUnitSnapshot: o.pricingUnit,
-            priceMaxSnapshotEuros: o.priceMaxEuros,
-            minQuantitySnapshot: o.minQuantity,
-          })),
-        },
-      },
+      data: { tenantId, prospectId: parsed.prospectId, number, ...devisContentData(parsed, lines, validUntil) },
     });
   });
 
   revalidatePath(DEVIS_LIST_PATH);
   revalidatePath(`${PROSPECT_LIST_PATH}/${parsed.prospectId}`);
+
+  // « Envoyer le devis » (maquette v2) : le brouillon est créé PUIS envoyé par le
+  // même chemin que le bouton « Envoyer » (PDF joint, journalisé). Un envoi qui
+  // n'aboutit pas ne défait pas la création : le devis reste en brouillon, et sa
+  // fiche le dit.
+  if (formData.get("intent") === "send") {
+    const sent = await sendDevisEmail(devis.id);
+    if (sent) redirect(`${DEVIS_LIST_PATH}/${devis.id}?envoi=echec`);
+    redirect(`${DEVIS_LIST_PATH}?onglet=en-cours`);
+  }
   redirect(`${DEVIS_LIST_PATH}/${devis.id}`);
 }
 
@@ -278,26 +302,7 @@ export async function updateDevis(
     await tx.devisOption.deleteMany({ where: { devisId: id } });
     await tx.devis.update({
       where: { id },
-      data: {
-        catalogueFormuleId: lines.catalogueFormule?.id ?? null,
-        formuleLabelSnapshot: lines.catalogueFormule?.label ?? null,
-        formulePriceSnapshotEuros: lines.catalogueFormule?.priceEuros ?? null,
-        depositPercent: parsed.depositPercent,
-        installmentCount: parsed.installmentCount,
-        validityDays: parsed.validityDays,
-        validUntil,
-        ...lines.amounts,
-        options: {
-          create: lines.options.map((o) => ({
-            catalogueOptionId: o.id,
-            labelSnapshot: o.label,
-            priceSnapshotEuros: o.engagedUnitPriceEuros,
-            pricingUnitSnapshot: o.pricingUnit,
-            priceMaxSnapshotEuros: o.priceMaxEuros,
-            minQuantitySnapshot: o.minQuantity,
-          })),
-        },
-      },
+      data: devisContentData(parsed, lines, validUntil),
     });
   });
 
@@ -382,102 +387,6 @@ export async function changeDevisStatus(
   return null;
 }
 
-// Envoi réel du devis par e-mail (22/09/2026, retour du call Sandrine et le client
-// pilote : « Préparer l'e-mail n'envoie pas l'e-mail »). Remplace le brouillon
-// `mailto:` — voir devis-sharing-service.ts pour l'historique de la décision.
-//
-// Sandrine (ou qui envoie) est mise en COPIE, jamais en expéditrice : le mail
-// part d'EODA (adresse Resend configurée), pas de sa boîte personnelle — c'est
-// le prix du PDF en pièce jointe, qu'un `mailto:` ne sait pas produire.
-export async function sendDevisEmail(id: string): Promise<{ error: string } | null> {
-  const { tenantId, session, role } = await requireCommercialSession();
-
-  const devis = await prisma.devis.findFirst({
-    where: { id, tenantId },
-    include: { prospect: { select: { structureName: true, contactEmail: true } } },
-  });
-  if (!devis) notFound();
-
-  if (!devis.prospect.contactEmail) {
-    return { error: "Ce prospect n'a pas d'adresse e-mail renseignée." };
-  }
-
-  // Seuls un brouillon ou un devis déjà envoyé peuvent repartir par e-mail — un
-  // devis signé, refusé ou annulé est une décision déjà prise, le renvoyer
-  // laisserait croire à une nouvelle proposition.
-  if (devis.status !== "BROUILLON" && devis.status !== "ENVOYE") {
-    return { error: "Ce devis n'est plus à l'étape de l'envoi." };
-  }
-
-  const senderName = session.user.name ?? "EODA Conseil";
-  const senderEmail = session.user.email;
-
-  let pdf: Buffer;
-  try {
-    const cookieStore = await cookies();
-    const cookieHeader = cookieStore
-      .getAll()
-      .map((c) => `${c.name}=${c.value}`)
-      .join("; ");
-    pdf = await renderDevisPdf(id, cookieHeader);
-  } catch (err) {
-    console.error("Génération du PDF du devis échouée :", err);
-    // Message selon la cause : « réessayez » seulement quand réessayer peut aboutir.
-    return { error: devisPdfFailureMessage(err) };
-  }
-
-  const content = buildDevisEmail({
-    structureName: devis.prospect.structureName,
-    devisNumber: devis.number,
-    senderName,
-    validUntil: devis.validUntil,
-    brand: { logoUrl: `${(getEnv().nextAuthUrl ?? "http://localhost:3000").replace(/\/+$/, "")}/logo-eoda.png` },
-  });
-
-  const fileName = buildDevisFileName({
-    number: devis.number,
-    structureName: devis.prospect.structureName,
-    issuedOn: devis.createdAt,
-  });
-
-  let delivery: EmailDelivery;
-  try {
-    delivery = await getEmailPort().send({
-      to: devis.prospect.contactEmail,
-      ...(senderEmail && { cc: senderEmail }),
-      subject: content.subject,
-      html: content.html,
-      attachments: [{ filename: fileName, content: pdf, contentType: "application/pdf" }],
-    });
-  } catch (err) {
-    console.error("Envoi de l'e-mail du devis échoué :", err);
-    return { error: "L'e-mail n'a pas pu être envoyé. Réessayez dans un instant." };
-  }
-
-  // Envoi non configuré (poste local, pas de RESEND_API_KEY) : rien n'est parti. Le
-  // devis ne passe PAS à ENVOYE et aucun DEVIS_EMAIL_SENT n'est journalisé — sinon
-  // la plateforme affirmerait avoir envoyé un devis que personne n'a reçu.
-  if (delivery === "NOT_CONFIGURED") {
-    return { error: devisEmailNotSentMessage() };
-  }
-
-  if (devis.status === "BROUILLON") {
-    await prisma.devis.update({ where: { id }, data: { status: "ENVOYE" } });
-  }
-
-  await recordAuditEvent({
-    action: "DEVIS_EMAIL_SENT",
-    actorUserId: session.user.id,
-    actorRole: role,
-    targetId: id,
-    detail: devis.number,
-  });
-
-  revalidatePath(DEVIS_LIST_PATH);
-  revalidatePath(`${DEVIS_LIST_PATH}/${id}`);
-  return null;
-}
-
 // Suppression RÉELLE, réservée au brouillon. Un brouillon n'a jamais été émis :
 // son numéro n'a circulé nulle part, rien de contractuel ne s'y rattache. Un devis
 // émis, lui, ne se supprime jamais — il s'annule (`changeDevisStatus(..., "ANNULE")`),
@@ -513,106 +422,4 @@ export async function deleteDevis(id: string): Promise<{ error: string } | void>
   revalidatePath(`${PROSPECT_LIST_PATH}/${prospectId}`);
   revalidatePath(COMMERCIAL_DASHBOARD_PATH);
   redirect(`${PROSPECT_LIST_PATH}/${prospectId}`);
-}
-
-export type DevisListPage = {
-  items: {
-    id: string;
-    number: string;
-    status: DevisStatus;
-    formuleLabelSnapshot: string | null;
-    totalAmountEuros: number;
-    createdAt: Date;
-    validUntil: Date;
-    prospectStructureName: string;
-    prospectContactEmail: string | null;
-  }[];
-  // Effectif de l'onglet affiché (pour « Voir plus »), et de chaque onglet.
-  totalCount: number;
-  countsByTab: Record<DevisTab, number>;
-};
-
-// Liste bornée, filtrée par onglet. `pageSize` est déjà replafonné par
-// `parsePageSize`, mais on reborne ici : cette fonction est une action serveur,
-// appelable directement — et `tab` est relu par `parseDevisTab` pour la même raison.
-export async function listDevis(pageSize: number = DEFAULT_PAGE_SIZE, tab?: string): Promise<DevisListPage> {
-  const { tenantId } = await requireCommercialSession();
-  const take = Math.min(Math.max(Math.trunc(pageSize) || DEFAULT_PAGE_SIZE, 1), MAX_PAGE_SIZE);
-  const statuses = statusesForTab(parseDevisTab(tab));
-  const where = { tenantId, ...(statuses && { status: { in: [...statuses] } }) };
-
-  const [rows, totalCount, byStatus] = await Promise.all([
-    prisma.devis.findMany({
-      where,
-      orderBy: { createdAt: "desc" },
-      take,
-      // Projection explicite : la liste n'a besoin ni des montants d'acompte ni des
-      // options. Une entité renvoyée telle quelle fuit à la première colonne ajoutée.
-      select: {
-        id: true,
-        number: true,
-        status: true,
-        formuleLabelSnapshot: true,
-        totalAmountEuros: true,
-        createdAt: true,
-        validUntil: true,
-        prospect: { select: { structureName: true, contactEmail: true } },
-      },
-    }),
-    prisma.devis.count({ where }),
-    prisma.devis.groupBy({ by: ["status"], where: { tenantId }, _count: { _all: true } }),
-  ]);
-
-  return {
-    items: rows.map((d) => ({
-      id: d.id,
-      number: d.number,
-      status: d.status,
-      formuleLabelSnapshot: d.formuleLabelSnapshot,
-      totalAmountEuros: d.totalAmountEuros,
-      createdAt: d.createdAt,
-      validUntil: d.validUntil,
-      prospectStructureName: d.prospect.structureName,
-      prospectContactEmail: d.prospect.contactEmail,
-    })),
-    totalCount,
-    countsByTab: countDevisByTab(Object.fromEntries(byStatus.map((g) => [g.status, g._count._all]))),
-  };
-}
-
-// Chargement dédié aux KPI : quatre scalaires par devis, sans les includes de la
-// page de liste. Volontairement non paginé — un indicateur calculé sur une page
-// serait faux. La projection étroite est ce qui rend ce chargement tenable.
-export async function listDevisForKpi() {
-  const { tenantId } = await requireCommercialSession();
-
-  return prisma.devis.findMany({
-    where: { tenantId },
-    select: {
-      status: true,
-      totalAmountEuros: true,
-      catalogueFormule: { select: { formule: true } },
-      prospect: { select: { status: true } },
-    },
-  });
-}
-
-export type DevisWithDetails = Prisma.DevisGetPayload<{
-  include: {
-    prospect: true;
-    catalogueFormule: true;
-    options: true;
-  };
-}>;
-
-export async function getDevis(id: string): Promise<DevisWithDetails> {
-  const { tenantId } = await requireCommercialSession();
-
-  const devis = await prisma.devis.findFirst({
-    where: { id, tenantId },
-    include: { prospect: true, catalogueFormule: true, options: true },
-  });
-
-  if (!devis) notFound();
-  return devis;
 }

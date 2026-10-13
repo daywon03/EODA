@@ -91,6 +91,13 @@ export default defineConfig({
         // Modèles d'e-mail : ils sortent de la plateforme vers des gens, et
         // interpolent des saisies dans du HTML.
         "src/lib/email/templates.ts",
+        "src/lib/email/commercial-templates.ts",
+        // Devis par abonnement (maquettes v2, 13/10) : « Par mois » / « Ponctuel »,
+        // engagement, relance due. Un défaut ici affiche un montant inventé à la place
+        // de « xx € », ou propose de relancer un devis signé.
+        "src/lib/services/devis-recap-service.ts",
+        "src/lib/services/devis-catalogue-choices.ts",
+        "src/lib/services/devis-list-service.ts",
         // Mentions de paternité : un texte juridique apposé sur des documents remis
         // au client. Le test verrouille la formulation dictée en séance, et empêche
         // qu'une revendication de propriété atterrisse sur un devis.

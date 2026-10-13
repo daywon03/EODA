@@ -553,3 +553,18 @@ export async function getProspect(id: string): Promise<ProspectWithDevis> {
   if (!prospect) notFound();
   return prospect;
 }
+
+// Structures proposées au choix sur « Nouveau devis » (maquette v2) : prospects non
+// convertis et non perdus, les plus récemment touchés d'abord. Bornée : au-delà, le
+// devis se prépare depuis la fiche du prospect.
+const DEVIS_PICKER_LIMIT = 24;
+
+export async function listProspectsForDevisPicker(): Promise<{ id: string; structureName: string }[]> {
+  const { tenantId } = await requireCommercialSession();
+  return prisma.prospect.findMany({
+    where: { tenantId, establishmentId: null, status: { not: "PERDU" } },
+    orderBy: { updatedAt: "desc" },
+    take: DEVIS_PICKER_LIMIT,
+    select: { id: true, structureName: true },
+  });
+}

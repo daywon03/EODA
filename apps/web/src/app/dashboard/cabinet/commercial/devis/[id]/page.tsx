@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getDevis } from "@/lib/actions/devis";
+import { getDevis } from "@/lib/actions/devis-read";
 import { isDevisDeletable, isDevisEditable } from "@/lib/services/devis-transition-service";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card, CardContent } from "@/components/ui/card";
@@ -10,15 +10,19 @@ import { DevisStatusActions } from "@/components/devis/DevisStatusActions";
 import { DevisSummaryPrintable } from "@/components/devis/DevisSummaryPrintable";
 import { DeleteDevisButton } from "@/components/devis/DeleteDevisButton";
 import { SendDevisEmailButton } from "@/components/devis/SendDevisEmailButton";
+import { RemindDevisButton } from "@/components/devis/RemindDevisButton";
+import { Callout } from "@/components/ui/callout";
 import { Pencil, Download } from "lucide-react";
 
 export const metadata = { title: "Devis" };
 
-type Props = { params: Promise<{ id: string }> };
+type Props = { params: Promise<{ id: string }>; searchParams: Promise<{ envoi?: string }> };
 
-export default async function DevisDetailPage({ params }: Props) {
-  const { id } = await params;
+export default async function DevisDetailPage({ params, searchParams }: Props) {
+  const [{ id }, { envoi }] = await Promise.all([params, searchParams]);
   const devis = await getDevis(id);
+  // « Envoyer le devis » depuis le formulaire : créé, mais l'envoi n'a pas abouti.
+  const sendFailed = envoi === "echec" && devis.status === "BROUILLON";
 
   return (
     <div className="space-y-6 max-w-3xl">
@@ -27,7 +31,7 @@ export default async function DevisDetailPage({ params }: Props) {
         subtitle={devis.prospect.structureName}
         backHref={`/dashboard/cabinet/commercial/prospects/${devis.prospectId}`}
         action={
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <StatusPill pill={pillForDevisStatus(devis.status)} />
             {isDevisEditable(devis.status) && (
               <Button variant="outline" size="sm" asChild>
@@ -60,9 +64,24 @@ export default async function DevisDetailPage({ params }: Props) {
                 contactEmail={devis.prospect.contactEmail}
               />
             )}
+            {devis.status === "ENVOYE" && devis.prospect.contactEmail && (
+              <RemindDevisButton
+                devisId={id}
+                number={devis.number}
+                structureName={devis.prospect.structureName}
+                contactEmail={devis.prospect.contactEmail}
+              />
+            )}
           </div>
         }
       />
+
+      {sendFailed && (
+        <Callout tone="warning" title="Devis enregistré, e-mail non parti">
+          Le devis est en brouillon. L&apos;envoi par e-mail n&apos;a pas abouti : utilisez « Envoyer le devis
+          par e-mail » ci-dessus pour réessayer, ou « Télécharger » pour l&apos;envoyer vous-même.
+        </Callout>
+      )}
 
       <DevisStatusActions key={devis.status} devisId={id} status={devis.status} />
 
@@ -90,6 +109,9 @@ export default async function DevisDetailPage({ params }: Props) {
             balanceAmountEuros={devis.balanceAmountEuros}
             installmentCount={devis.installmentCount}
             installmentAmountEuros={devis.installmentAmountEuros}
+            formuleMonthlyPriceSnapshotEuros={devis.formuleMonthlyPriceSnapshotEuros}
+            commitmentMonths={devis.commitmentMonths}
+            clientNote={devis.clientNote}
           />
         </CardContent>
       </Card>

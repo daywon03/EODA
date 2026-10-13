@@ -1,6 +1,6 @@
 "use client";
 
-import { sendDevisEmail } from "@/lib/actions/devis";
+import { sendDevisEmail } from "@/lib/actions/devis-email";
 import { ConfirmActionButton } from "@/components/ui/confirm-action-button";
 import { Mail } from "lucide-react";
 

@@ -54,3 +54,9 @@ export function countDeliveries(
 export function devisEmailNotSentMessage(): string {
   return "E-mail non envoyé : l'envoi d'e-mails n'est pas configuré sur cet environnement (local). Utilisez « Télécharger », envoyez le PDF vous-même, puis « Marquer comme envoyé ».";
 }
+
+// Relance d'un devis, de la structure inscrite… : rien n'est parti, rien n'est
+// journalisé, et l'écran le dit sans proposer de « marquer » quoi que ce soit.
+export function reminderNotSentMessage(): string {
+  return "Relance non envoyée : l'envoi d'e-mails n'est pas configuré sur cet environnement (local).";
+}

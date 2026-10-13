@@ -924,16 +924,22 @@ model ElementRating {
 // ─────────────────────────────────────────────────────────────────────────────
 
 model CatalogueFormule {
-  id           String         @id @default(cuid())
-  tenantId     String         @map("tenant_id")
-  formule      CommercialTier
-  label        String
-  priceEuros   Int            @map("price_euros")
-  modulesLabel String?        @map("modules_label")
-  description  String?
-  active       Boolean        @default(true)
-  createdAt    DateTime       @default(now()) @map("created_at")
-  updatedAt    DateTime       @updatedAt @map("updated_at")
+  id                String         @id @default(cuid())
+  tenantId          String         @map("tenant_id")
+  formule           CommercialTier
+  label             String
+  priceEuros        Int            @map("price_euros")
+  // PRIX MENSUEL de l'offre (abonnement au portail, maquettes v2 — 13/10/2026).
+  // Nullable : tant que les prix ne sont pas fixés (décision 11 du plan v2), l'écran
+  // affiche « à partir de xx € / mois » et n'invente aucun montant. Distinct de
+  // `priceEuros` (forfait d'accompagnement de l'offre v10), qui reste le montant
+  // ponctuel. Snapshoté sur le devis comme le reste (Devis.formuleMonthlyPriceSnapshotEuros).
+  monthlyPriceEuros Int?           @map("monthly_price_euros")
+  modulesLabel      String?        @map("modules_label")
+  description       String?
+  active            Boolean        @default(true)
+  createdAt         DateTime       @default(now()) @map("created_at")
+  updatedAt         DateTime       @updatedAt @map("updated_at")
 
   tenant Tenant  @relation(fields: [tenantId], references: [id])
   devis  Devis[]
@@ -1176,11 +1182,25 @@ model Devis {
   // Facultative depuis le 11/10/2026 (bilan §3.2, call du 01/09) : un devis peut ne porter
   // que des prestations à la carte, sans offre. Dans ce cas les trois colonnes ci-dessous
   // sont nulles ensemble, et au moins une option est exigée (devis-calculation-service).
-  catalogueFormuleId        String? @map("catalogue_formule_id")
+  catalogueFormuleId               String? @map("catalogue_formule_id")
   // Snapshots — figent le libellé/prix de la formule au moment de la création
   // pour qu'une évolution ultérieure du catalogue ne change jamais un devis existant.
-  formuleLabelSnapshot      String? @map("formule_label_snapshot")
-  formulePriceSnapshotEuros Int?    @map("formule_price_snapshot_euros")
+  formuleLabelSnapshot             String? @map("formule_label_snapshot")
+  formulePriceSnapshotEuros        Int?    @map("formule_price_snapshot_euros")
+  // Prix mensuel de l'offre au jour du devis (CatalogueFormule.monthlyPriceEuros),
+  // figé comme le forfait ci-dessus. Null = prix mensuel non fixé à cette date.
+  formuleMonthlyPriceSnapshotEuros Int?    @map("formule_monthly_price_snapshot_euros")
+
+  // ENGAGEMENT de l'abonnement, en mois (maquette v2 « Nouveau devis ») : 12, 24, ou
+  // 0 = sans engagement (résiliable chaque mois). Null = devis antérieur au
+  // 13/10/2026, qui ne disait rien de l'engagement. Valeurs admises :
+  // devis-recap-service.ts (COMMITMENT_CHOICES). N'entre dans AUCUN montant : les
+  // totaux restent ceux de devis-calculation-service.
+  commitmentMonths Int?    @map("commitment_months")
+  // « Note pour la structure » (facultative), saisie au devis et reprise dans
+  // l'e-mail d'envoi et sur le devis imprimé. Jamais de donnée sur une personne
+  // accompagnée : l'écran le rappelle.
+  clientNote       String? @map("client_note")
 
   depositPercent   Int      @map("deposit_percent")
   installmentCount Int      @map("installment_count")
@@ -1672,6 +1692,9 @@ enum AuditAction {
   QUIZ_ATTEMPT_COMPLETED
   QUIZ_SIGNOFF_EXPORTED
   QUIZ_LINK_RATE_LIMITED
+  // Relance manuelle d'un devis envoyé (maquettes v2, 13/10/2026) : un geste, jamais
+  // un automate. `detail` = numéro du devis.
+  DEVIS_REMINDER_SENT
 }
 
 model AuditLogEntry {

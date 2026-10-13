@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { getProspectKpiCounts } from "@/lib/actions/prospect";
-import { listDevisForKpi } from "@/lib/actions/devis";
+import { listDevisForKpi } from "@/lib/actions/devis-read";
 import { listPortfolioRowsForKpi } from "@/lib/actions/establishment";
 import { listPendingOptionRequests } from "@/lib/actions/option-request";
 import { OptionRequestQueue } from "@/components/devis/OptionRequestQueue";

@@ -1,4 +1,4 @@
-import { getDevis } from "@/lib/actions/devis";
+import { getDevis } from "@/lib/actions/devis-read";
 import { DevisSummaryPrintable } from "@/components/devis/DevisSummaryPrintable";
 import { PrintButton } from "@/components/devis/PrintButton";
 import { buildDevisFileName } from "@/lib/services/devis-sharing-service";
@@ -42,6 +42,9 @@ export default async function ImprimerDevisPage({ params, searchParams }: Props)
         balanceAmountEuros={devis.balanceAmountEuros}
         installmentCount={devis.installmentCount}
         installmentAmountEuros={devis.installmentAmountEuros}
+        formuleMonthlyPriceSnapshotEuros={devis.formuleMonthlyPriceSnapshotEuros}
+        commitmentMonths={devis.commitmentMonths}
+        clientNote={devis.clientNote}
       />
     </div>
   );

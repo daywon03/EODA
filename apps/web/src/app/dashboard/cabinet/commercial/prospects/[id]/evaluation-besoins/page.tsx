@@ -2,6 +2,7 @@ import { getProspect } from "@/lib/actions/prospect";
 import { listCatalogue } from "@/lib/actions/catalogue";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { DevisForm } from "@/components/devis/DevisForm";
+import { toDevisCatalogueChoices } from "@/lib/services/devis-catalogue-choices";
 import { formatContactIdentity } from "@/lib/services/prospect-contact-service";
 import { computeDefaultValidityDays } from "@/lib/services/devis-validity-service";
 import { Card, CardContent } from "@/components/ui/card";
@@ -34,26 +35,7 @@ export default async function EvaluationBesoinsPage({ params }: Props) {
   // un identifiant hors périmètre donne notFound(), jamais une redirection.
   const [prospect, catalogue] = await Promise.all([getProspect(id), listCatalogue()]);
 
-  const formules = catalogue.formules
-    .filter((f) => f.active)
-    .map((f) => ({
-      formule: f.formule,
-      label: f.label,
-      priceEuros: f.priceEuros,
-      modulesLabel: f.modulesLabel,
-      description: f.description,
-    }));
-  const options = catalogue.options
-    .filter((o) => o.active)
-    .map((o) => ({
-      id: o.id,
-      code: o.code,
-      label: o.label,
-      priceEuros: o.priceEuros,
-      pricingUnit: o.pricingUnit,
-      priceMaxEuros: o.priceMaxEuros,
-      minQuantity: o.minQuantity,
-    }));
+  const { formules, options } = toDevisCatalogueChoices(catalogue);
 
   // Validité proposée selon l'échéance HAS du prospect (décision Q10 bis).
   const validity = computeDefaultValidityDays({
@@ -108,6 +90,7 @@ export default async function EvaluationBesoinsPage({ params }: Props) {
         defaultValidityDays={validity.days}
         validityHint={validity.reason}
         envisagedFormule={prospect.envisagedFormule}
+        canSendByEmail={Boolean(prospect.contactEmail)}
       />
     </div>
   );

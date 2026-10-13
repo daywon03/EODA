@@ -43,13 +43,16 @@ export function countDevisByTab(countsByStatus: Partial<Record<DevisStatus, numb
 // Gestes proposés sur une ligne. Aucun « Marquer signé » : la signature passe par
 // le parcours de conversion (convertDevisToClient), qui crée la fiche, la mission
 // et ouvre le portail — d'où un LIEN vers cet écran, jamais un bouton de statut.
-export type DevisRowActions = { canSend: boolean; canSign: boolean };
+export type DevisRowActions = { canSend: boolean; canRemind: boolean; canSign: boolean };
 
 export function devisRowActions(status: DevisStatus, contactEmail: string | null): DevisRowActions {
   return {
     // Mêmes conditions que la fiche du devis : brouillon ou déjà envoyé (renvoi),
     // et une adresse à qui l'envoyer.
-    canSend: (status === "BROUILLON" || status === "ENVOYE") && Boolean(contactEmail),
+    // « Envoyer » sur un brouillon ; un devis déjà envoyé se RELANCE (geste distinct,
+    // journalisé DEVIS_REMINDER_SENT — maquette v2).
+    canSend: status === "BROUILLON" && Boolean(contactEmail),
+    canRemind: status === "ENVOYE" && Boolean(contactEmail),
     canSign: isDevisSignable(status),
   };
 }
@@ -57,13 +60,19 @@ export function devisRowActions(status: DevisStatus, contactEmail: string | null
 // « Créé le 01/10/2026 · valable jusqu'au 31/10/2026 », ou « expiré le … » pour un
 // devis encore en attente dont la validité est passée. Un devis signé ou refusé n'a
 // plus d'échéance utile : on ne dit que sa date de création.
+// Un devis envoyé dit son DERNIER envoi (envoi ou relance, dérivé du journal) plutôt
+// que sa création : c'est la date qui compte pour décider d'une relance.
 export function describeDevisDates(input: {
   status: DevisStatus;
   createdAt: Date;
   validUntil: Date;
   now: Date;
+  lastSentAt?: Date | null;
 }): string {
-  const created = `Créé le ${formatDate(input.createdAt)}`;
+  const created =
+    input.status === "ENVOYE" && input.lastSentAt
+      ? `Envoyé le ${formatDate(input.lastSentAt)}`
+      : `Créé le ${formatDate(input.createdAt)}`;
   if (input.status !== "BROUILLON" && input.status !== "ENVOYE") return created;
   const expired = input.validUntil < input.now;
   return `${created} · ${expired ? "expiré le" : "valable jusqu'au"} ${formatDate(input.validUntil)}`;

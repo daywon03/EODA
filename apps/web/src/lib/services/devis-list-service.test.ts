@@ -35,11 +35,19 @@ describe("onglets de la liste des devis", () => {
 });
 
 describe("devisRowActions — pas de « Marquer signé »", () => {
-  it("envoi : brouillon ou envoyé, et seulement avec une adresse", () => {
+  it("envoi : un brouillon, et seulement avec une adresse", () => {
     expect(devisRowActions("BROUILLON", "contact@example.org").canSend).toBe(true);
-    expect(devisRowActions("ENVOYE", "contact@example.org").canSend).toBe(true);
+    expect(devisRowActions("ENVOYE", "contact@example.org").canSend).toBe(false);
     expect(devisRowActions("BROUILLON", null).canSend).toBe(false);
     expect(devisRowActions("SIGNE", "contact@example.org").canSend).toBe(false);
+  });
+
+  it("relance : un devis envoyé, avec une adresse — jamais un brouillon ni un devis signé", () => {
+    expect(devisRowActions("ENVOYE", "contact@example.org").canRemind).toBe(true);
+    expect(devisRowActions("ENVOYE", null).canRemind).toBe(false);
+    for (const status of ["BROUILLON", "SIGNE", "REFUSE", "ANNULE"] as const) {
+      expect(devisRowActions(status, "contact@example.org").canRemind).toBe(false);
+    }
   });
 
   it("signature : un lien vers le parcours de conversion, ouvert sur un devis envoyé seulement", () => {
@@ -69,5 +77,19 @@ describe("describeDevisDates", () => {
     expect(describeDevisDates({ status: "SIGNE", createdAt, validUntil: new Date(2026, 9, 5), now: NOW })).toBe(
       "Créé le 01/10/2026"
     );
+  });
+});
+
+describe("describeDevisDates — dernier envoi", () => {
+  it("un devis envoyé dit la date de son dernier envoi, dérivée du journal", () => {
+    expect(
+      describeDevisDates({
+        status: "ENVOYE",
+        createdAt: new Date(2026, 9, 1),
+        validUntil: new Date(2026, 9, 31),
+        now: NOW,
+        lastSentAt: new Date(2026, 9, 3),
+      })
+    ).toBe("Envoyé le 03/10/2026 · valable jusqu'au 31/10/2026");
   });
 });

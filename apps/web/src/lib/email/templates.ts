@@ -29,11 +29,11 @@ export type BrandAssets = { logoUrl: string };
 
 // Charte EODA (context/04-charte-eoda.md) — en dur ici, et pas via Tailwind : un
 // client de messagerie n'exécute aucune feuille de style externe, tout est en ligne.
-const BRUN_ANCRE = "#3E2C26";
-const TERRE = "#B45A32";
-const IVOIRE = "#F0E8DC";
+export const BRUN_ANCRE = "#3E2C26";
+export const TERRE = "#B45A32";
+export const IVOIRE = "#F0E8DC";
 
-function layout(title: string, body: string, brand?: BrandAssets): string {
+export function layout(title: string, body: string, brand?: BrandAssets): string {
   // Le logo n'est affiché que si une URL absolue est fournie. Sans elle, on retombe
   // sur le nom en toutes lettres : une image cassée en tête d'e-mail fait plus de
   // dégâts qu'une ligne de texte.
@@ -284,6 +284,9 @@ export function buildDevisEmail(input: {
   devisNumber: string;
   senderName: string;
   validUntil: Date;
+  // « Note pour la structure » saisie au devis (maquette v2). Facultative ; jamais
+  // un montant (le PDF fait foi).
+  clientNote?: string | null;
   brand?: BrandAssets;
 }): EmailContent {
   const validUntilLabel = input.validUntil.toLocaleDateString("fr-FR", {
@@ -291,6 +294,7 @@ export function buildDevisEmail(input: {
     month: "long",
     year: "numeric",
   });
+  const note = input.clientNote?.trim();
 
   const body = `
     <p style="color:${BRUN_ANCRE};font-size:15px;line-height:1.6">
@@ -300,6 +304,7 @@ export function buildDevisEmail(input: {
       Vous trouverez ci-joint notre proposition ${escapeHtml(input.devisNumber)} pour
       ${escapeHtml(input.structureName)}, valable jusqu'au ${escapeHtml(validUntilLabel)}.
     </p>
+    ${note ? `<p style="margin:16px 0;padding:12px 16px;background:${IVOIRE};border-radius:8px;color:${BRUN_ANCRE};font-size:14px;line-height:1.6">${escapeHtml(note)}</p>` : ""}
     <p style="color:#6B5648;font-size:14px;line-height:1.6">
       N'hésitez pas à revenir vers nous pour toute question.
     </p>

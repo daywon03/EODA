@@ -2,6 +2,7 @@ import type { PricingUnit } from "@eoda/database";
 import { formatDate } from "@/lib/services/date-format-service";
 import { formatEuros, formatStartingPrice } from "@/lib/services/price-format-service";
 import { optionCommittedAmountEuros } from "@/lib/services/devis-calculation-service";
+import { describeCommitment } from "@/lib/services/devis-recap-service";
 import { buildContractualMention } from "@/lib/services/document-ownership-service";
 import { DocumentBrandHeader } from "@/components/documents/DocumentBrandHeader";
 import { DocumentSignatureBlocks } from "@/components/documents/DocumentSignatureBlocks";
@@ -28,6 +29,10 @@ type Props = {
   balanceAmountEuros: number;
   installmentCount: number;
   installmentAmountEuros: number;
+  // Abonnement (maquette v2, 13/10/2026) — absents sur un devis antérieur.
+  formuleMonthlyPriceSnapshotEuros?: number | null;
+  commitmentMonths?: number | null;
+  clientNote?: string | null;
 };
 
 // Devis imprimable — le premier document qu'un prospect reçoit d'EODA, donc celui qui
@@ -57,7 +62,11 @@ export function DevisSummaryPrintable({
   balanceAmountEuros,
   installmentCount,
   installmentAmountEuros,
+  formuleMonthlyPriceSnapshotEuros = null,
+  commitmentMonths = null,
+  clientNote = null,
 }: Props) {
+  const commitment = describeCommitment(commitmentMonths);
   return (
     <div className="space-y-6 text-brun-ancre">
       <div className="space-y-4">
@@ -141,6 +150,25 @@ export function DevisSummaryPrintable({
           })}
         </tbody>
       </table>
+
+      {(formuleLabelSnapshot !== null || commitment) && (
+        <div className="space-y-1 text-sm">
+          {formuleLabelSnapshot !== null && (
+            <p>
+              <span className="font-medium">Abonnement {formuleLabelSnapshot} : </span>
+              {/* Prix mensuel non fixé au jour du devis : « xx », jamais un montant inventé. */}
+              {formuleMonthlyPriceSnapshotEuros === null
+                ? "à partir de xx € / mois"
+                : formatStartingPrice({ priceEuros: formuleMonthlyPriceSnapshotEuros, pricingUnit: "MOIS" })}
+            </p>
+          )}
+          {commitment && <p className="text-ink2">{commitment}</p>}
+        </div>
+      )}
+
+      {clientNote && (
+        <p className="whitespace-pre-line rounded-lg border border-gris-light p-3 text-sm">{clientNote}</p>
+      )}
 
       <div className="ml-auto max-w-xs space-y-1 rounded-lg border border-gris-light bg-ivoire/60 p-4 text-sm">
         <div className="flex justify-between border-b border-terre/30 pb-2 text-base font-bold">
