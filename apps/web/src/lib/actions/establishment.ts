@@ -423,10 +423,9 @@ const LIFECYCLE_INCLUDE = {
       consolidationEndDate: true,
       preparationFinaleStartDate: true,
       preparationFinaleEndDate: true,
-      // Formule contractée — lue avec les faits de cycle de vie parce que les
-      // agrégats de portefeuille en ont besoin en même temps qu'eux, et parce que
-      // c'est la mission qui en porte la vérité, jamais `Establishment.commercialTier`
-      // (CLAUDE.md §7).
+      // Formule contractée — lue avec les faits de cycle de vie (l'en-tête de la fiche
+      // structure l'affiche), parce que c'est la mission qui en porte la vérité,
+      // jamais `Establishment.commercialTier` (CLAUDE.md §7).
       formule: true,
       _count: { select: { itemStatuses: { where: { completed: true } } } },
     },

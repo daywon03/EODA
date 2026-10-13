@@ -523,9 +523,15 @@ Détail complet et état d'avancement : `specs/02-architecture-technique.md` §4
   est retiré** (et avec lui `FunnelChart`, `getProspectKpiCounts`) : le tableau
   « Prospects » le remplace, avec le filtre **Origine** (libre-service / démarché — la
   maquette ne montrait que le libre-service) ; l'étape commerciale se change sur la
-  fiche, la grille de découverte y reste. `portfolio-kpi-service.ts` /
-  `to-portfolio-row.ts` restent (purs, testés) mais ne sont plus affichés. Ne jamais
-  compter une formule depuis `Establishment.commercialTier` : c'est `Mission.formule`.
+  fiche, la grille de découverte y reste. Côté **portefeuille**, un seul compteur
+  survit : « Évaluations HAS dans moins de 6 mois » de l'accueil cabinet
+  (`countUpcomingHasEvaluations`, `portfolio-kpi-service.ts`, nourri par
+  `to-portfolio-row.ts` depuis les fiches que `getStructuresOverview` charge déjà) ;
+  les agrégats que plus aucun écran n'affichait (clients actifs, accompagnements en
+  cours, bêta actives, missions par formule, entonnoir unifié) ont été **supprimés**
+  en tranche 11 — l'étape d'une fiche se dérive toujours de `lifecycle-service.ts`, et
+  un futur compteur s'y adosse plutôt que de recalculer l'état. Ne jamais compter une
+  formule depuis `Establishment.commercialTier` : c'est `Mission.formule`.
 - 🎨 **Le logo ne se redessine pas.** Assets officiels dans `apps/web/public/`
   (`logo-eoda.png` = bloc complet pour fonds clairs, `marque-eoda.png` = rond pour
   fonds sombres), servis par `components/layout/EodaLogo.tsx`. Source :
