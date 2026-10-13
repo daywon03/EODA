@@ -7,7 +7,7 @@ import { Callout } from "@/components/ui/callout";
 import { DocumentScopeToggle } from "@/components/checklist/DocumentScopeToggle";
 import type { DocumentCategory } from "@eoda/database";
 
-export const metadata = { title: "Documents réclamés — EODA" };
+export const metadata = { title: "Documents réclamés" };
 
 // ─────────────────────────────────────────────────────────────────────────────
 // DOCUMENTS RÉCLAMÉS AUX STRUCTURES — réglage de CABINET, CABINET_ADMIN seul.

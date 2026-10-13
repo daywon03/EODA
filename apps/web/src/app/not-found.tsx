@@ -1,5 +1,9 @@
 import { ErrorScreen } from "@/components/shared/ErrorScreen";
 
+// Sans titre, l'onglet d'une adresse inconnue portait le nom générique de
+// l'application (vérification navigateur du 13/10).
+export const metadata = { title: "Page introuvable" };
+
 export default function RootNotFound() {
   return (
     <main className="min-h-screen bg-paper">

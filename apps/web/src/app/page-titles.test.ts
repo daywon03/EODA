@@ -43,7 +43,9 @@ describe("titres d'onglet", () => {
     "%s n'écrit pas le suffixe lui-même",
     (_relative, file) => {
       const source = readFileSync(file, "utf8");
-      expect(source).not.toMatch(/title:[^\n]*(EODA Conseil|Modèles EODA)/);
+      // « — EODA » écrit à la main s'ajoutait au gabarit : « Documents réclamés — EODA
+      // — EODA » (vérification navigateur du 13/10).
+      expect(source).not.toMatch(/title:[^\n]*(EODA Conseil|Modèles EODA|— EODA["'`])/);
     }
   );
 });
