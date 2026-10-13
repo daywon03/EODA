@@ -26,4 +26,10 @@ describe("message d'arrivée sur la connexion", () => {
     expect(loginPathAfterSignOut("https://exemple.org")).toBe("/login");
     expect(loginPathAfterSignOut(null)).toBe("/login");
   });
+
+  it("annonce l'adresse confirmée et l'ouverture du portail client (tranche 11)", () => {
+    expect(loginNoticeFor("adresse-confirmee")).toMatch(/adresse est confirmée/);
+    expect(loginNoticeFor("portail-client-ouvert")).toMatch(/portail client/);
+    expect(loginPathAfterSignOut("portail-client-ouvert")).toBe(`/login?${LOGIN_NOTICE_PARAM}=portail-client-ouvert`);
+  });
 });

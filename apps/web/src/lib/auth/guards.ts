@@ -18,6 +18,7 @@ import {
   cabinetLandingPath,
   hasCabinetCapability,
   isCabinetRole,
+  prospectSpaceExitPath,
   roleHomePath,
   isInStructureScope,
   resolveStructureScope,
@@ -112,6 +113,7 @@ type ResolvedUser = {
   isActive: boolean;
   mustChangePassword: boolean;
   passwordChangedAt: Date | null;
+  emailVerifiedAt: Date | null;
 };
 
 // MÉMOÏSÉ PAR RENDU (`react.cache`) — pas un cache applicatif : la mémoïsation ne
@@ -132,6 +134,7 @@ const resolveUser = cache(async (userId: string): Promise<ResolvedUser | null> =
       isActive: true,
       mustChangePassword: true,
       passwordChangedAt: true,
+      emailVerifiedAt: true,
     },
   });
   return user ?? null;
@@ -616,7 +619,14 @@ export async function requireProspectSession(): Promise<ProspectContext> {
   const user = await resolveUser(session.user.id);
   if (!user) redirect("/login");
   enforceAccountState(session, user, { allowRotationPending: false });
-  if (user.role !== "PROSPECT_USER") redirect(roleHomePath(user.role));
+  // Compte devenu client à la signature (tranche 11) : sa session porte encore l'ancien
+  // rôle — elle est fermée avec un motif, sinon middleware et garde se renverraient la
+  // balle. Tout autre rôle va chez lui (prospectSpaceExitPath, testé).
+  const exit = prospectSpaceExitPath(user.role, session.user.role);
+  if (exit) redirect(exit);
+  // Filet : authorize() refuse déjà la connexion d'une adresse non confirmée. Une
+  // session qui existerait malgré tout (jeton émis avant la tranche 11) est fermée.
+  if (user.emailVerifiedAt === null) redirect(SIGN_OUT_PATH);
 
   const link = await prisma.prospectAccount.findUnique({
     where: { userId: session.user.id },

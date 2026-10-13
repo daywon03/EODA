@@ -478,8 +478,19 @@ Détail complet et état d'avancement : `specs/02-architecture-technique.md` §4
     jamais `DEMANDE` lui-même ;
   - le cabinet voit l'AVANCEMENT et l'activité d'une structure inscrite, jamais le contenu
     de ses réponses (tableau Prospects, fiche « en autonomie » `SelfServicePanel`).
-  **Limite connue** : l'adresse n'est pas vérifiée par un lien avant création du compte
-  (l'e-mail de bienvenue part, mais le compte existe déjà) — à décider.
+  - **adresse confirmée avant toute ouverture** (tranche 11, décision de Damon) : le
+    compte naît avec `User.emailVerifiedAt` à null ; l'e-mail porte un lien
+    `/confirmer-email/<jeton>` (route ANONYMOUS, empreinte SHA-256 seule en base dans
+    `EmailVerificationToken`, temps constant, usage unique, 24 h, débit limité — socle
+    `lib/security/one-time-token.ts` partagé avec le quiz). La page ne confirme
+    **qu'au clic** (un scanner de messagerie ne consomme pas le jeton). `authorize()`
+    refuse, APRÈS bcrypt, un compte qui a un `ProspectAccount` et pas d'adresse
+    confirmée (`isEmailVerificationPending`) ; l'écran le dit et propose « renvoyer le
+    lien » (`resendVerificationLink` : même réponse que l'adresse existe ou non, travail
+    réel dans `after()`). Un compte créé par le cabinet n'est **jamais** concerné.
+    Sans Resend, l'écran dit « e-mail non envoyé en local » et, **en développement
+    seulement** (`confirmationLinkDisclosure`, testé), montre le lien — jamais en
+    production.
 - **L'état d'une fiche est DÉRIVÉ, jamais stocké** — `lib/services/lifecycle-service.ts`
   (pur, testé). `SIGNE` / `EN_COURS` se calculent à partir des faits (items de
   diagnostic cochés, dates de phases posées) ; `TERMINE` vient de `Mission.closedAt`,

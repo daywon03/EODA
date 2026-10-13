@@ -52,6 +52,7 @@ function signedInAs(role: string, overrides: Record<string, unknown> = {}) {
     isActive: true,
     mustChangePassword: false,
     passwordChangedAt: null,
+    emailVerifiedAt: new Date("2026-10-13T08:00:00Z"),
     ...overrides,
   });
 }
@@ -98,6 +99,20 @@ describe("requireProspectSession", () => {
   it("compte désactivé : déconnecté", async () => {
     signedInAs("PROSPECT_USER", { isActive: false });
     await expect(outcome(() => guards.requireProspectSession())).resolves.toBe("REDIRECT:/deconnexion");
+  });
+
+  it("adresse non confirmée (session antérieure à la tranche 11) : déconnecté, rien n'est servi", async () => {
+    signedInAs("PROSPECT_USER", { emailVerifiedAt: null });
+    await expect(outcome(() => guards.requireProspectSession())).resolves.toBe("REDIRECT:/deconnexion");
+    expect(prismaMock.prospectAccount.findUnique).not.toHaveBeenCalled();
+  });
+
+  it("compte devenu client à la signature, session encore « prospect » : session fermée avec le motif", async () => {
+    signedInAs("PROSPECT_USER", { role: "CLIENT_USER" });
+    await expect(outcome(() => guards.requireProspectSession())).resolves.toBe(
+      "REDIRECT:/deconnexion?motif=portail-client-ouvert"
+    );
+    expect(prismaMock.prospectAccount.findUnique).not.toHaveBeenCalled();
   });
 
   it.each([

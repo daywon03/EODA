@@ -168,6 +168,12 @@ export function optionalDate(
 // pour la création de compte : une seule arobase, pas d'espace, un domaine pointé.
 const EMAIL_SHAPE = /^[^\s@]+@[^\s@.]+(?:\.[^\s@.]+)+$/;
 
+// Même règle de forme pour toutes les adresses saisies (invitation, inscription en
+// libre-service, renvoi d'un lien de confirmation) : une seule expression (D1).
+export function isEmailShaped(normalizedEmail: string): boolean {
+  return normalizedEmail.length <= 254 && EMAIL_SHAPE.test(normalizedEmail);
+}
+
 export function requiredEmail(
   formData: FormData,
   field: string,

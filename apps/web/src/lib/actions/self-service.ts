@@ -7,8 +7,16 @@ import { clientIpFromHeaders } from "@/lib/security/login-throttle";
 import { hashPassword } from "@/lib/security/password-hashing";
 import { recordAuditEvent } from "@/lib/services/audit-log-service";
 import { getEmailPort } from "@/lib/email";
-import { buildSelfServiceExistingAccountEmail, buildSelfServiceWelcomeEmail } from "@/lib/email/commercial-templates";
+import { buildSelfServiceExistingAccountEmail } from "@/lib/email/commercial-templates";
+import { sendEmailConfirmationEmail } from "@/lib/email/notifications";
 import { appUrl } from "@/lib/config/app-url";
+import { getEnv } from "@/lib/config/env";
+import { issueEmailVerificationToken } from "@/lib/db/email-verification-tokens";
+import {
+  confirmationLinkDisclosure,
+  confirmationPathFor,
+  type LinkDisclosure,
+} from "@/lib/services/email-verification-service";
 import {
   resolveSignupTenant,
   SIGNUP_CLOSED_MESSAGE,
@@ -29,10 +37,14 @@ import {
 // énumération des comptes (même réponse que l'adresse existe ou non, même coût bcrypt
 // dans les deux cas). Ce qui est créé : un PROSPECT (canal LIBRE_SERVICE) et un
 // compte PROSPECT_USER rattaché — JAMAIS un établissement (CLAUDE.md §7 : une fiche
-// ne naît que de la signature d'un devis).
+// ne naît que de la signature d'un devis). Le compte n'ouvre rien tant que l'adresse
+// n'est pas CONFIRMÉE par le lien reçu (tranche 11, email-verification-service.ts).
 // ─────────────────────────────────────────────────────────────────────────────
 
-export type SignupState = { status: "IDLE" } | { status: "ERROR"; error: string } | { status: "DONE"; message: string };
+export type SignupState =
+  | { status: "IDLE" }
+  | { status: "ERROR"; error: string }
+  | { status: "DONE"; message: string; email: string; disclosure: LinkDisclosure };
 
 const BRAND = () => ({ logoUrl: appUrl("/logo-eoda.png") });
 
@@ -46,7 +58,9 @@ async function sendQuietly(to: string, content: { subject: string; html: string 
   }
 }
 
-async function createSelfServiceProspect(tenantId: string, input: SignupInput, passwordHash: string): Promise<string | null> {
+type CreatedSignup = { prospectId: string; userId: string; token: string };
+
+async function createSelfServiceProspect(tenantId: string, input: SignupInput, passwordHash: string): Promise<CreatedSignup | null> {
   try {
     return await prisma.$transaction(async (tx) => {
       const prospect = await tx.prospect.create({
@@ -73,11 +87,14 @@ async function createSelfServiceProspect(tenantId: string, input: SignupInput, p
           // Le mot de passe a été CHOISI par la personne : aucune rotation imposée.
           mustChangePassword: false,
           tenantId: null,
+          // Adresse NON confirmée : le compte n'ouvre rien avant le clic sur le lien.
+          emailVerifiedAt: null,
         },
         select: { id: true },
       });
       await tx.prospectAccount.create({ data: { prospectId: prospect.id, userId: user.id } });
-      return prospect.id;
+      const token = await issueEmailVerificationToken(tx, user.id, new Date());
+      return { prospectId: prospect.id, userId: user.id, token };
     });
   } catch (error) {
     // Course sur l'unicité de l'e-mail : traité comme « compte existant ».
@@ -112,15 +129,28 @@ export async function signUpSelfService(_prev: SignupState, formData: FormData):
   // branches, la latence ne dit rien du compte.
   const passwordHash = await hashPassword(input.password);
   const existing = await prisma.user.findUnique({ where: { email: input.email }, select: { id: true } });
-  const prospectId = existing ? null : await createSelfServiceProspect(tenantId, input, passwordHash);
+  const created = existing ? null : await createSelfServiceProspect(tenantId, input, passwordHash);
 
-  const loginUrl = appUrl("/login");
-  if (prospectId) {
-    await recordAuditEvent({ action: "SELF_SERVICE_SIGNUP", actorRole: "PROSPECT_USER", targetId: prospectId, detail: input.formule });
-    await sendQuietly(input.email, buildSelfServiceWelcomeEmail({ firstName: input.firstName, structureName: input.structureName, loginUrl, brand: BRAND() }));
+  let confirmationPath: string | null = null;
+  if (created) {
+    confirmationPath = confirmationPathFor(created.token);
+    await recordAuditEvent({ action: "SELF_SERVICE_SIGNUP", actorRole: "PROSPECT_USER", targetId: created.prospectId, detail: input.formule });
+    await sendEmailConfirmationEmail({
+      email: input.email,
+      firstName: input.firstName,
+      structureName: input.structureName,
+      confirmationPath,
+    });
+    await recordAuditEvent({ action: "EMAIL_VERIFICATION_SENT", actorUserId: created.userId, targetId: created.userId, detail: "inscription" });
   } else {
-    await sendQuietly(input.email, buildSelfServiceExistingAccountEmail({ loginUrl, brand: BRAND() }));
+    await sendQuietly(input.email, buildSelfServiceExistingAccountEmail({ loginUrl: appUrl("/login"), brand: BRAND() }));
   }
 
-  return { status: "DONE", message: SIGNUP_NEUTRAL_MESSAGE };
+  const env = getEnv();
+  return {
+    status: "DONE",
+    message: SIGNUP_NEUTRAL_MESSAGE,
+    email: input.email,
+    disclosure: confirmationLinkDisclosure({ isDevelopment: env.isDevelopment, isEmailConfigured: env.resend !== null, confirmationPath }),
+  };
 }

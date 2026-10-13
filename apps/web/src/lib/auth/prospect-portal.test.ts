@@ -2,7 +2,14 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { classifyPath } from "./routes";
-import { CABINET_ROLES, hasCabinetCapability, isCabinetRole, portalRedirectFor, roleHomePath } from "./capabilities";
+import {
+  CABINET_ROLES,
+  hasCabinetCapability,
+  isCabinetRole,
+  portalRedirectFor,
+  prospectSpaceExitPath,
+  roleHomePath,
+} from "./capabilities";
 
 // Libre-service (D5, 13/10/2026) : deux routes publiques EXACTES (landing et
 // inscription), un espace réservé au rôle PROSPECT_USER, qui n'a aucune capacité.
@@ -16,6 +23,12 @@ describe("routes publiques du libre-service — exclusion explicite et étroite"
     ["/espace", "PROTECTED"],
     ["/espace/diagnostic", "PROTECTED"],
     ["/inscriptions", "PROTECTED"],
+    // Confirmation d'adresse (tranche 11) : publique, connecté ou non, un seul segment.
+    ["/confirmer-email", "ANONYMOUS"],
+    ["/confirmer-email/AbC_-123", "ANONYMOUS"],
+    ["/confirmer-email/a/b", "PROTECTED"],
+    ["/confirmer-email/", "PROTECTED"],
+    ["/confirmer-emails", "PROTECTED"],
   ])("%s → %s", (pathname, expected) => {
     expect(classifyPath(pathname)).toBe(expected);
   });
@@ -56,5 +69,17 @@ describe("portalRedirectFor", () => {
     ["CABINET_ADMIN", "/espaces", null],
   ] as const)("%s sur %s → %s", (role, pathname, expected) => {
     expect(portalRedirectFor(role, pathname)).toBe(expected);
+  });
+});
+
+describe("prospectSpaceExitPath — sortie de /espace (tranche 11)", () => {
+  it.each([
+    ["PROSPECT_USER", "PROSPECT_USER", null],
+    // Devis signé : le compte est CLIENT_USER en base, la session dit encore prospect.
+    ["CLIENT_USER", "PROSPECT_USER", "/deconnexion?motif=portail-client-ouvert"],
+    ["CLIENT_USER", "CLIENT_USER", "/dashboard/client"],
+    ["CABINET_ADMIN", "CABINET_ADMIN", "/dashboard/cabinet"],
+  ] as const)("en base %s, session %s → %s", (current, session, expected) => {
+    expect(prospectSpaceExitPath(current, session)).toBe(expected);
   });
 });

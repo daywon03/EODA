@@ -29,6 +29,14 @@ export const LANDING_PATH = "/";
 export const SIGNUP_PATH = "/inscription";
 const PUBLIC_AUTH_PATHS: readonly string[] = [LANDING_PATH, SIGNUP_PATH];
 
+// Confirmation de l'adresse d'un compte libre-service (tranche 11) : ANONYMOUS, comme
+// le quiz — le lien arrive par e-mail, souvent ouvert sur un autre appareil, connecté
+// ou non ; aucune redirection. `/confirmer-email` seul (formulaire « renvoyer le
+// lien ») et `/confirmer-email/<jeton>` (un seul segment) ; tout sous-chemin plus
+// profond reste protégé. Le jeton n'ouvre RIEN d'autre que la confirmation, et la
+// page ne la fait qu'au clic (un scanner de liens ne la consomme pas).
+export const EMAIL_CONFIRMATION_PREFIX = "/confirmer-email";
+
 // Espace d'une structure inscrite seule (rôle PROSPECT_USER).
 export const PROSPECT_SPACE_PATH = "/espace";
 
@@ -37,5 +45,6 @@ export function classifyPath(pathname: string): PathAccess {
   if (PUBLIC_AUTH_PATHS.includes(pathname)) return "AUTH";
   // Un seul segment après /quiz/ : /quiz/<jeton>. /quiz seul ou /quiz/a/b restent protégés.
   if (pathname.startsWith(QUIZ_PUBLIC_PREFIX) && /^\/quiz\/[A-Za-z0-9_-]+$/.test(pathname)) return "ANONYMOUS";
+  if (/^\/confirmer-email(?:\/[A-Za-z0-9_-]+)?$/.test(pathname)) return "ANONYMOUS";
   return "PROTECTED";
 }

@@ -13,6 +13,13 @@ export const LOGIN_NOTICE_PARAM = "motif";
 
 const LOGIN_NOTICES = {
   "mot-de-passe-modifie": "Votre mot de passe a bien été modifié. Connectez-vous avec le nouveau.",
+  // Confirmation d'adresse d'un compte libre-service (tranche 11).
+  "adresse-confirmee": "Votre adresse est confirmée. Connectez-vous avec votre adresse et votre mot de passe.",
+  // Devis signé : le compte de la structure est devenu un accès au portail client. La
+  // session ouverte portait encore l'ancien rôle — elle est fermée, et la personne
+  // revient avec le bon (tranche 11).
+  "portail-client-ouvert":
+    "Votre abonnement est signé : votre espace devient le portail client. Reconnectez-vous pour y entrer.",
 } as const;
 
 type LoginNotice = keyof typeof LOGIN_NOTICES;

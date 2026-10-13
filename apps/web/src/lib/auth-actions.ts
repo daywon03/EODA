@@ -8,6 +8,8 @@ import {
   clientIpFromHeaders,
   peekLoginThrottle,
 } from "@/lib/security/login-throttle";
+import { isEmailNotVerifiedError } from "@/lib/auth/email-not-verified";
+import { UNVERIFIED_LOGIN_MESSAGE } from "@/lib/services/email-verification-service";
 
 // Message unique pour tout échec d'authentification — ne jamais distinguer
 // « email inconnu » de « mot de passe incorrect » : la différence permet d'énumérer
@@ -18,7 +20,9 @@ const GENERIC_AUTH_ERROR = "Email ou mot de passe incorrect.";
 // échecs vivent dans authorize() (cf. auth.ts) : c'est le seul point par lequel passent
 // aussi les POST directs sur /api/auth/callback/credentials. On se contente ici de lire
 // l'état du compteur — sans le consommer — pour afficher un message utile.
-export async function loginAction(formData: FormData) {
+export type LoginResult = { error: string; unverifiedEmail?: string } | undefined;
+
+export async function loginAction(formData: FormData): Promise<LoginResult> {
   const email = (formData.get("email") as string | null)?.trim().toLowerCase() ?? "";
   const password = (formData.get("password") as string | null) ?? "";
 
@@ -28,6 +32,10 @@ export async function loginAction(formData: FormData) {
     await signIn("credentials", { email, password, redirect: false });
   } catch (error) {
     if (error instanceof AuthError) {
+      // Mot de passe juste, adresse pas encore confirmée (compte libre-service) : le
+      // message le dit, et l'écran propose de renvoyer le lien à cette adresse.
+      if (isEmailNotVerifiedError(error)) return { error: UNVERIFIED_LOGIN_MESSAGE, unverifiedEmail: email };
+
       // Lecture sans consommation : distinguer « identifiants faux » de « trop de
       // tentatives » côté message, sans fausser le comptage fait par authorize().
       const throttle = await peekLoginThrottle({

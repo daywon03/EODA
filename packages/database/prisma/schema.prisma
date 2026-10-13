@@ -342,11 +342,16 @@ model User {
   // cliente, suspension d'accès). Un compte inactif est refusé À LA CONNEXION et à
   // chaque contrôle d'autorisation (lib/auth/guards.ts) — jamais seulement masqué
   // dans une liste. Réversible : la réactivation repose le drapeau.
-  isActive      Boolean   @default(true) @map("is_active")
-  deactivatedAt DateTime? @map("deactivated_at")
+  isActive        Boolean   @default(true) @map("is_active")
+  deactivatedAt   DateTime? @map("deactivated_at")
   // Dernière connexion réussie — affichée sur « Équipe EODA » (N9). Un fait daté,
   // posé à l'authentification ; jamais une durée de session ni une adresse IP.
-  lastLoginAt   DateTime? @map("last_login_at")
+  lastLoginAt     DateTime? @map("last_login_at")
+  // Adresse CONFIRMÉE par le lien reçu (tranche 11, 13/10/2026). Exigée seulement des
+  // comptes créés en libre-service (ceux qui ont un ProspectAccount) : un compte créé
+  // par le cabinet n'a rien à prouver, son adresse vient d'une relation commerciale.
+  // Null = non confirmée ; la règle vit dans email-verification-service.ts.
+  emailVerifiedAt DateTime? @map("email_verified_at")
 
   tenant                      Tenant?                       @relation(fields: [tenantId], references: [id])
   establishmentUsers          EstablishmentUser[]
@@ -376,6 +381,7 @@ model User {
   staffMembers                StaffMember[]
   quizCampaignsSent           QuizCampaign[]                @relation("QuizCampaignSentBy")
   prospectAccount             ProspectAccount?
+  emailVerificationTokens     EmailVerificationToken[]
   prospectPracticeAnswers     ProspectPracticeAnswer[]      @relation("ProspectPracticeAnsweredBy")
 
   @@index([tenantId])
@@ -1128,6 +1134,24 @@ model ProspectAccount {
   @@map("prospect_accounts")
 }
 
+// Lien de confirmation d'adresse d'un compte libre-service (tranche 11). Même
+// discipline que QuizInvitation : le JETON n'est jamais en base, seule son empreinte
+// SHA-256, comparée en temps constant ; usage unique (`usedAt`), durée courte
+// (`expiresAt`). Un renvoi invalide les liens précédents encore ouverts.
+model EmailVerificationToken {
+  id        String    @id @default(cuid())
+  userId    String    @map("user_id")
+  tokenHash String    @unique @map("token_hash")
+  expiresAt DateTime  @map("expires_at")
+  usedAt    DateTime? @map("used_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("email_verification_tokens")
+}
+
 // Diagnostic DÉCLARATIF d'une structure inscrite seule : réponses aux questions sur
 // les pratiques (content/pratiques), une par critère impératif de son profil. Table
 // DISTINCTE de PracticeAnswer, rattachée à un établissement : la fiche ne naît que
@@ -1771,6 +1795,14 @@ enum AuditAction {
   ACCOMPANIMENT_REQUESTED
   PROSPECT_REMINDER_SENT
   PROSPECT_PRACTICE_ANSWERED
+  // Confirmation de l'adresse d'un compte libre-service et bascule en client à la
+  // signature (tranche 11). `targetId` = identifiant technique du compte, jamais
+  // l'adresse.
+  EMAIL_VERIFICATION_SENT
+  EMAIL_VERIFIED
+  EMAIL_VERIFICATION_RATE_LIMITED
+  LOGIN_REFUSED_UNVERIFIED
+  PROSPECT_ACCOUNT_PROMOTED
 }
 
 model AuditLogEntry {

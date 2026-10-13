@@ -45,27 +45,32 @@ export function buildDevisReminderEmail(input: {
   };
 }
 
-// Inscription en libre-service : l'espace vient d'être créé.
-export function buildSelfServiceWelcomeEmail(input: {
-  firstName: string;
-  structureName: string;
-  loginUrl: string;
+// Inscription en libre-service (et renvoi du lien) : l'espace existe, il s'ouvre une
+// fois l'adresse CONFIRMÉE (tranche 11). Le lien mène à une page qui confirme au
+// CLIC — jamais à l'ouverture, qu'un scanner de messagerie déclencherait seul.
+export function buildEmailConfirmationEmail(input: {
+  firstName: string | null;
+  structureName: string | null;
+  confirmUrl: string;
+  validityHours: number;
   brand?: BrandAssets;
 }): EmailContent {
+  const hello = input.firstName ? `Bonjour ${escapeHtml(input.firstName)},` : "Bonjour,";
+  const space = input.structureName ? `L'espace de ${escapeHtml(input.structureName)}` : "Votre espace";
   const body = `
-    <p style="${P}">Bonjour ${escapeHtml(input.firstName)},</p>
+    <p style="${P}">${hello}</p>
     <p style="${P}">
-      L'espace de ${escapeHtml(input.structureName)} est prêt. Connectez-vous avec votre adresse e-mail
-      et le mot de passe que vous avez choisi.
+      ${space} est créé. Pour l'ouvrir, confirmez votre adresse e-mail : cliquez sur le bouton,
+      puis sur « Confirmer mon adresse ».
     </p>
-    <p style="${P}">Première étape : répondre aux questions sur vos pratiques. Une question à la fois.</p>
-    ${button(input.loginUrl, "Ouvrir mon espace")}
+    ${button(input.confirmUrl, "Confirmer mon adresse")}
+    <p style="${P}">Ce lien sert une seule fois. Il est valable ${input.validityHours} heures.</p>
     <p style="color:#6B5648;font-size:14px;line-height:1.6">
       Auto-évaluation préparatoire. EODA n'est pas un organisme évaluateur : ce n'est pas une
       évaluation officielle de la HAS. Si vous n'êtes pas à l'origine de cette inscription,
-      ignorez ce message.
+      ignorez ce message : sans confirmation, l'espace ne s'ouvre pas.
     </p>`;
-  return { subject: "Votre espace EODA est prêt", html: layout("Votre espace est prêt", body, input.brand) };
+  return { subject: "Confirmez votre adresse e-mail — EODA", html: layout("Confirmez votre adresse", body, input.brand) };
 }
 
 // Inscription avec une adresse qui a DÉJÀ un compte : on ne crée rien, on prévient

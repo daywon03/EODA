@@ -13,6 +13,7 @@ const tx = {
   user: { create: vi.fn() },
   prospectAccount: { create: vi.fn() },
   establishment: { create: vi.fn() },
+  emailVerificationToken: { updateMany: vi.fn(), create: vi.fn() },
 };
 const prismaMock = {
   tenant: { findMany: vi.fn() },
@@ -24,6 +25,7 @@ const consumeThrottledAttempt = vi.fn();
 const recordAuditEvent = vi.fn();
 const send = vi.fn();
 const hashPassword = vi.fn();
+const env = { isDevelopment: false, resend: { apiKey: "k", from: "f" } as { apiKey: string; from: string } | null };
 
 vi.mock("@eoda/database", () => ({
   prisma: prismaMock,
@@ -37,6 +39,7 @@ vi.mock("@/lib/security/password-hashing", () => ({ hashPassword: (p: string) =>
 vi.mock("@/lib/services/audit-log-service", () => ({ recordAuditEvent: (...a: unknown[]) => recordAuditEvent(...a) }));
 vi.mock("@/lib/email", () => ({ getEmailPort: () => ({ send }) }));
 vi.mock("@/lib/config/app-url", () => ({ appUrl: (p: string) => `https://app.example.org${p}` }));
+vi.mock("@/lib/config/env", () => ({ getEnv: () => env }));
 
 const { signUpSelfService } = await import("./self-service");
 const { SIGNUP_NEUTRAL_MESSAGE } = await import("@/lib/services/self-service-service");
@@ -67,19 +70,23 @@ beforeEach(() => {
   tx.prospect.create.mockResolvedValue({ id: "prospect-1" });
   tx.user.create.mockResolvedValue({ id: "user-1" });
   send.mockResolvedValue("SENT");
+  env.isDevelopment = false;
+  env.resend = { apiKey: "k", from: "f" };
 });
+
+const SENT_DISCLOSURE = { emailNotSentLocally: false, devConfirmationPath: null };
 
 describe("signUpSelfService", () => {
   it("crée un prospect LIBRE_SERVICE et un compte PROSPECT_USER rattaché — jamais un établissement", async () => {
     const state = await signUpSelfService({ status: "IDLE" }, form());
-    expect(state).toEqual({ status: "DONE", message: SIGNUP_NEUTRAL_MESSAGE });
+    expect(state).toEqual({ status: "DONE", message: SIGNUP_NEUTRAL_MESSAGE, email: "direction@glycines.example.org", disclosure: SENT_DISCLOSURE });
     expect(tx.prospect.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({ tenantId: "tenant-1", channel: "LIBRE_SERVICE", envisagedFormule: "ESSENTIEL", establishmentType: "SAD_AIDE" }),
       })
     );
     expect(tx.user.create).toHaveBeenCalledWith(
-      expect.objectContaining({ data: expect.objectContaining({ role: "PROSPECT_USER", passwordHash: "hash", mustChangePassword: false, tenantId: null }) })
+      expect.objectContaining({ data: expect.objectContaining({ role: "PROSPECT_USER", passwordHash: "hash", mustChangePassword: false, tenantId: null, emailVerifiedAt: null }) })
     );
     expect(tx.prospectAccount.create).toHaveBeenCalledWith({ data: { prospectId: "prospect-1", userId: "user-1" } });
     expect(tx.establishment.create).not.toHaveBeenCalled();
@@ -87,13 +94,41 @@ describe("signUpSelfService", () => {
     expect(recordAuditEvent).toHaveBeenCalledWith(expect.objectContaining({ action: "SELF_SERVICE_SIGNUP", targetId: "prospect-1" }));
     // Le journal ne porte ni l'adresse ni le nom.
     expect(JSON.stringify(recordAuditEvent.mock.calls)).not.toContain("glycines.example.org");
-    expect(send.mock.calls[0]![0]).toMatchObject({ to: "direction@glycines.example.org", subject: "Votre espace EODA est prêt" });
+    expect(send.mock.calls[0]![0]).toMatchObject({ to: "direction@glycines.example.org", subject: "Confirmez votre adresse e-mail — EODA" });
+  });
+
+  it("émet un lien de confirmation DANS la transaction : seule l'empreinte est écrite, le lien part par e-mail", async () => {
+    await signUpSelfService({ status: "IDLE" }, form());
+    const created = tx.emailVerificationToken.create.mock.calls[0]![0] as { data: { userId: string; tokenHash: string; expiresAt: Date } };
+    expect(created.data.userId).toBe("user-1");
+    expect(created.data.tokenHash).toMatch(/^[0-9a-f]{64}$/);
+    const html = (send.mock.calls[0]![0] as { html: string }).html;
+    const token = /confirmer-email\/([A-Za-z0-9_-]{43})/.exec(html)?.[1];
+    expect(token).toBeDefined();
+    expect(html).not.toContain(created.data.tokenHash);
+    expect(recordAuditEvent).toHaveBeenCalledWith(expect.objectContaining({ action: "EMAIL_VERIFICATION_SENT", targetId: "user-1" }));
+  });
+
+  it("en développement sans service d'e-mail : « non envoyé » et le lien à l'écran", async () => {
+    env.isDevelopment = true;
+    env.resend = null;
+    const state = await signUpSelfService({ status: "IDLE" }, form());
+    expect(state).toMatchObject({ status: "DONE", disclosure: { emailNotSentLocally: true } });
+    if (state.status !== "DONE") throw new Error("attendu DONE");
+    expect(state.disclosure.devConfirmationPath).toMatch(/^\/confirmer-email\/[A-Za-z0-9_-]{43}$/);
+  });
+
+  it("hors développement : jamais de lien à l'écran, même sans service d'e-mail", async () => {
+    env.isDevelopment = false;
+    env.resend = null;
+    const state = await signUpSelfService({ status: "IDLE" }, form());
+    expect(state).toMatchObject({ status: "DONE", disclosure: { emailNotSentLocally: true, devConfirmationPath: null } });
   });
 
   it("adresse déjà utilisée : même réponse, rien de créé, un e-mail au titulaire, même coût bcrypt", async () => {
     prismaMock.user.findUnique.mockResolvedValue({ id: "existing" });
     const state = await signUpSelfService({ status: "IDLE" }, form());
-    expect(state).toEqual({ status: "DONE", message: SIGNUP_NEUTRAL_MESSAGE });
+    expect(state).toEqual({ status: "DONE", message: SIGNUP_NEUTRAL_MESSAGE, email: "direction@glycines.example.org", disclosure: SENT_DISCLOSURE });
     expect(prismaMock.$transaction).not.toHaveBeenCalled();
     expect(hashPassword).toHaveBeenCalledTimes(1);
     expect(send.mock.calls[0]![0]).toMatchObject({ subject: "Votre compte EODA existe déjà" });

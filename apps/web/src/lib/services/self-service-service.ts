@@ -1,5 +1,6 @@
 import type { CommercialTier, EstablishmentType, StructureType } from "@eoda/database";
 import { finessFormatError, normaliseFiness } from "./structure-identity-service";
+import { isEmailShaped } from "@/lib/validation/form-parsers";
 import { MAX_PASSWORD_BYTES, MIN_PASSWORD_LENGTH } from "@/lib/security/password-policy";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -14,7 +15,7 @@ import { MAX_PASSWORD_BYTES, MIN_PASSWORD_LENGTH } from "@/lib/security/password
 // Réponse IDENTIQUE que l'adresse ait déjà un compte ou non (pas d'énumération des
 // comptes, S9) : seul l'e-mail reçu diffère.
 export const SIGNUP_NEUTRAL_MESSAGE =
-  "C'est noté. Si un espace peut être créé avec cette adresse, vous recevez un e-mail dans quelques minutes. Vous pourrez ensuite vous connecter avec votre adresse et votre mot de passe.";
+  "C'est noté. Si un espace peut être créé avec cette adresse, vous recevez un e-mail dans quelques minutes. Cliquez sur le lien qu'il contient pour confirmer votre adresse : votre espace s'ouvre ensuite avec votre adresse et votre mot de passe.";
 
 export const SIGNUP_CLOSED_MESSAGE = "L'inscription en ligne n'est pas ouverte pour le moment. Écrivez-nous, nous vous rappelons.";
 export const SIGNUP_RATE_LIMITED_MESSAGE = "Trop de demandes depuis votre connexion. Réessayez dans une heure.";
@@ -76,8 +77,6 @@ export type SignupInput = {
 
 export type SignupCheck = { ok: true; value: SignupInput } | { ok: false; error: string };
 
-const EMAIL_SHAPE = /^[^\s@]+@[^\s@.]+(?:\.[^\s@.]+)+$/;
-
 function text(raw: unknown): string {
   return typeof raw === "string" ? raw.trim() : "";
 }
@@ -110,7 +109,7 @@ export function validateSignupInput(raw: Record<string, unknown>): SignupCheck {
   const firstName = text(raw.firstName);
   if (firstName.length < 1 || firstName.length > 100) return { ok: false, error: "Écrivez votre prénom." };
   const email = text(raw.email).toLowerCase();
-  if (email.length > 254 || !EMAIL_SHAPE.test(email)) return { ok: false, error: "Votre adresse e-mail n'est pas valide." };
+  if (!isEmailShaped(email)) return { ok: false, error: "Votre adresse e-mail n'est pas valide." };
   const password = typeof raw.password === "string" ? raw.password : "";
   const passwordError = checkPassword(password);
   if (passwordError) return { ok: false, error: passwordError };

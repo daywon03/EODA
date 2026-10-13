@@ -106,6 +106,11 @@ export default defineConfig({
         "src/lib/services/prospect-diagnostic-service.ts",
         "src/lib/services/prospect-pipeline-service.ts",
         "src/lib/services/commercial-overview-service.ts",
+        // Confirmation d'adresse du libre-service (tranche 11) : qui doit confirmer,
+        // quand un lien part, et que le lien ne s'affiche JAMAIS en production. Le
+        // jeton à usage unique est le socle partagé avec le quiz par QR code.
+        "src/lib/services/email-verification-service.ts",
+        "src/lib/security/one-time-token.ts",
         // Mentions de paternité : un texte juridique apposé sur des documents remis
         // au client. Le test verrouille la formulation dictée en séance, et empêche
         // qu'une revendication de propriété atterrisse sur un devis.

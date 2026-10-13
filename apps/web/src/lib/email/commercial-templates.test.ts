@@ -4,7 +4,7 @@ import {
   buildDevisReminderEmail,
   buildProspectReminderEmail,
   buildSelfServiceExistingAccountEmail,
-  buildSelfServiceWelcomeEmail,
+  buildEmailConfirmationEmail,
 } from "./commercial-templates";
 import { buildDevisEmail } from "./templates";
 
@@ -37,16 +37,25 @@ describe("note pour la structure dans l'envoi du devis", () => {
 });
 
 describe("inscription en libre-service", () => {
-  it("bienvenue : lien de connexion, rappel « pas une évaluation officielle »", () => {
-    const mail = buildSelfServiceWelcomeEmail({
+  it("confirmation : lien de confirmation, durée dite, rappel « pas une évaluation officielle »", () => {
+    const mail = buildEmailConfirmationEmail({
       firstName: "Nadia (fictif)",
       structureName: hostile,
-      loginUrl: "https://app.example.org/login",
+      confirmUrl: "https://app.example.org/confirmer-email/abc",
+      validityHours: 24,
       brand,
     });
-    expect(mail.html).toContain("https://app.example.org/login");
+    expect(mail.subject).toBe("Confirmez votre adresse e-mail — EODA");
+    expect(mail.html).toContain("https://app.example.org/confirmer-email/abc");
+    expect(mail.html).toContain("valable 24 heures");
     expect(mail.html).toContain("pas une\n      évaluation officielle de la HAS");
     expect(mail.html).not.toContain("<script>");
+  });
+
+  it("confirmation sans prénom ni structure (renvoi du lien) : formule neutre", () => {
+    const mail = buildEmailConfirmationEmail({ firstName: null, structureName: null, confirmUrl: "https://app.example.org/x", validityHours: 24 });
+    expect(mail.html).toContain("Bonjour,");
+    expect(mail.html).toContain("Votre espace est créé");
   });
 
   it("compte existant : aucun détail sur le compte, seulement un lien de connexion", () => {

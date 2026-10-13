@@ -162,6 +162,7 @@ describe("isSessionStale", () => {
       isActive: true,
       mustChangePassword: false,
       passwordChangedAt: AFTER_LOGIN,
+      emailVerifiedAt: null,
     };
     expect(isSessionStale(session() as never, user)).toBe(true);
     expect(isSessionStale(session(AFTER_LOGIN.getTime() + 1) as never, user)).toBe(false);

@@ -112,6 +112,21 @@ export function portalRedirectFor(role: UserRole, pathname: string): string | nu
   return inProspectSpace ? roleHomePath(role) : null;
 }
 
+// Sortie de l'espace /espace pour un compte qui n'est plus PROSPECT_USER en base.
+// Cas réel : la signature du devis a fait du compte libre-service un CLIENT_USER
+// (tranche 11), mais sa session porte encore l'ancien rôle — le middleware, qui ne
+// lit que le jeton, le renverrait vers /espace et la garde vers le portail : une
+// boucle. La session est donc FERMÉE avec un motif lisible à la connexion ; à la
+// reconnexion, le nouveau rôle est dans le jeton. Tout autre rôle va chez lui.
+// null = le compte est bien PROSPECT_USER, l'espace le concerne.
+export const PORTAL_OPENED_SIGN_OUT_PATH = "/deconnexion?motif=portail-client-ouvert";
+
+export function prospectSpaceExitPath(currentRole: UserRole, sessionRole: UserRole): string | null {
+  if (currentRole === "PROSPECT_USER") return null;
+  if (sessionRole === "PROSPECT_USER") return PORTAL_OPENED_SIGN_OUT_PATH;
+  return roleHomePath(currentRole);
+}
+
 // ── Périmètre des structures (affectation consultante) ─────────────────────────
 //
 // `ALL` : toutes les structures du tenant. `ONLY` : la liste des structures

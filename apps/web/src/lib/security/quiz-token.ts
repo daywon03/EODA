@@ -1,13 +1,20 @@
-import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
+import {
+  decideOneTimeTokenState,
+  generateOneTimeToken,
+  hashOneTimeToken,
+  isOneTimeTokenWellFormed,
+  oneTimeTokenExpiry,
+  oneTimeTokenMatches,
+  type OneTimeTokenState,
+} from "./one-time-token";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// JETON D'INVITATION AU QUIZ (N10) — la seule porte publique nouvelle.
+// JETON D'INVITATION AU QUIZ (N10) — la seule porte publique nouvelle de N10.
 //
-//  - 32 octets aléatoires (256 bits), encodés base64url : impossible à deviner ;
-//  - seule l'EMPREINTE SHA-256 est en base (QuizInvitation.tokenHash) : une fuite
-//    de la base ne donne aucun lien utilisable ;
-//  - comparaison en TEMPS CONSTANT de l'empreinte relue ;
-//  - usage UNIQUE et durée COURTE (QUIZ_INVITATION_TTL_HOURS).
+// Les règles du jeton (256 bits, empreinte SHA-256 seule en base, comparaison en
+// temps constant, usage unique, durée courte) vivent dans `one-time-token.ts`,
+// partagé avec la confirmation d'adresse du libre-service. Ce module n'en garde que
+// la durée propre au quiz et ses noms historiques.
 // Pas de SMS (décision 8) : le jeton voyage par QR code ou lien montré en réunion.
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -16,36 +23,13 @@ import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 // confirmer par Damon.
 export const QUIZ_INVITATION_TTL_HOURS = 72;
 
-const TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/;
-
-export function generateQuizToken(): string {
-  return randomBytes(32).toString("base64url");
-}
-
-export function isQuizTokenWellFormed(token: unknown): token is string {
-  return typeof token === "string" && TOKEN_PATTERN.test(token);
-}
-
-export function hashQuizToken(token: string): string {
-  return createHash("sha256").update(token, "utf8").digest("hex");
-}
-
-// Comparaison en temps constant de deux empreintes hexadécimales.
-export function quizTokenHashesMatch(expectedHash: string, candidateToken: string): boolean {
-  const expected = Buffer.from(expectedHash, "hex");
-  const candidate = Buffer.from(hashQuizToken(candidateToken), "hex");
-  if (expected.length !== candidate.length || expected.length === 0) return false;
-  return timingSafeEqual(expected, candidate);
-}
+export const generateQuizToken = generateOneTimeToken;
+export const isQuizTokenWellFormed = isOneTimeTokenWellFormed;
+export const hashQuizToken = hashOneTimeToken;
+export const quizTokenHashesMatch = oneTimeTokenMatches;
+export const decideInvitationState = decideOneTimeTokenState;
+export type InvitationState = OneTimeTokenState;
 
 export function quizInvitationExpiry(now: Date): Date {
-  return new Date(now.getTime() + QUIZ_INVITATION_TTL_HOURS * 60 * 60 * 1000);
-}
-
-export type InvitationState = "VALID" | "EXPIRED" | "USED";
-
-export function decideInvitationState(invitation: { expiresAt: Date; usedAt: Date | null }, now: Date): InvitationState {
-  if (invitation.usedAt) return "USED";
-  if (invitation.expiresAt <= now) return "EXPIRED";
-  return "VALID";
+  return oneTimeTokenExpiry(now, QUIZ_INVITATION_TTL_HOURS);
 }

@@ -12,6 +12,8 @@ import {
   buildNewMessageEmail,
   buildOptionRequestEmail,
 } from "./templates";
+import { buildEmailConfirmationEmail } from "./commercial-templates";
+import { EMAIL_VERIFICATION_TTL_HOURS } from "@/lib/services/email-verification-service";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ENVOI DES NOTIFICATIONS — la couche qui a le droit de parler au monde extérieur.
@@ -230,4 +232,28 @@ export async function notifyNewMessage(input: {
     console.error(`Notification de message — ${failed}/${recipients.length} envoi(s) échoué(s).`);
   }
   return sent > 0;
+}
+
+// Lien de confirmation d'adresse d'un compte libre-service (tranche 11). Même contrat
+// que les invitations : jamais d'exception vers l'appelant. Ni l'adresse ni le lien ne
+// sont journalisés — le lien EST la preuve de possession de l'adresse.
+export async function sendEmailConfirmationEmail(input: {
+  email: string;
+  firstName: string | null;
+  structureName: string | null;
+  confirmationPath: string;
+}): Promise<InvitationDelivery> {
+  const content = buildEmailConfirmationEmail({
+    firstName: input.firstName,
+    structureName: input.structureName,
+    confirmUrl: appUrl(input.confirmationPath),
+    validityHours: EMAIL_VERIFICATION_TTL_HOURS,
+    brand: { logoUrl: appUrl("/logo-eoda.png") },
+  });
+  try {
+    return await getEmailPort().send({ to: input.email, subject: content.subject, html: content.html });
+  } catch (error) {
+    console.error("Confirmation d'adresse — e-mail non envoyé :", error instanceof Error ? error.message : "erreur inconnue");
+    return "FAILED";
+  }
 }

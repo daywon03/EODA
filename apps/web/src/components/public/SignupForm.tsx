@@ -12,6 +12,9 @@ import {
 import { EodaMark } from "@/components/layout/EodaLogo";
 import { PasswordInput } from "@/components/ui/password-input";
 import { PublicOfferPrice } from "./PublicOfferPrice";
+import { PublicCard } from "./PublicCard";
+import { LinkDisclosureNotice } from "./LinkDisclosureNotice";
+import { ResendVerificationForm } from "./ResendVerificationForm";
 import { cn } from "@/lib/utils";
 
 const STEPS = ["Votre structure", "Votre offre", "Votre compte"] as const;
@@ -49,18 +52,22 @@ export function SignupForm({
   const ids = { name: useId(), finess: useId(), first: useId(), email: useId(), password: useId() };
   const canContinue = step !== 1 || (name.trim().length >= 2 && serviceType !== "" && status !== "");
 
+  // Fin d'inscription (tranche 11) : l'espace s'ouvre une fois l'adresse confirmée.
+  // Même écran que l'adresse ait déjà un compte ou non ; « renvoyer le lien » aussi.
   if (state.status === "DONE") {
     return (
-      <main className="flex min-h-dvh items-center justify-center bg-paper px-4 py-10 text-lg text-ink">
-        <div role="status" className="flex max-w-xl flex-col gap-4 rounded-2xl border border-line bg-card p-8">
-          <EodaMark size={48} />
-          <h1 className="text-3xl font-bold">Vérifiez vos e-mails</h1>
-          <p>{state.message}</p>
-          <Link href="/login" className="inline-flex min-h-12 w-fit items-center rounded-[10px] bg-accent-fill px-6 font-bold text-on-accent">
-            Se connecter
-          </Link>
+      <PublicCard title="Confirmez votre adresse e-mail">
+        <p role="status">{state.message}</p>
+        <LinkDisclosureNotice disclosure={state.disclosure} />
+        <div className="flex flex-col gap-3 border-t border-line pt-5">
+          <h2 className="text-xl font-bold">Rien reçu ?</h2>
+          <p className="text-ink2">Regardez dans les courriers indésirables, ou demandez un nouveau lien.</p>
+          <ResendVerificationForm knownEmail={state.email} />
         </div>
-      </main>
+        <Link href="/login" className="inline-flex min-h-12 w-fit items-center rounded-[10px] bg-accent-fill px-6 font-bold text-on-accent">
+          Se connecter
+        </Link>
+      </PublicCard>
     );
   }
 
