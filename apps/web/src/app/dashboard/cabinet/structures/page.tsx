@@ -18,7 +18,7 @@ import { Button } from "@/components/ui/button";
 import { StageBadge } from "@/components/crm/StageBadge";
 import { describeImperativesProof } from "@/lib/services/criteria-proof-service";
 
-export const metadata = { title: "Structures · EODA Conseil" };
+export const metadata = { title: "Structures" };
 
 function columns(now: Date): DataTableColumn<StructureFacts>[] {
   return [

@@ -5,7 +5,7 @@ import { computeDefaultValidityDays } from "@/lib/services/devis-validity-servic
 import { CommercialHeader } from "@/components/commercial/CommercialHeader";
 import { DevisForm } from "@/components/devis/DevisForm";
 
-export const metadata = { title: "Nouveau devis · EODA Conseil" };
+export const metadata = { title: "Nouveau devis" };
 
 // Repli si aucun réglage de facturation n'a encore été enregistré — acompte de 40 %
 // à la commande, validité 30 jours, CGP de l'offre commerciale v10 §06.

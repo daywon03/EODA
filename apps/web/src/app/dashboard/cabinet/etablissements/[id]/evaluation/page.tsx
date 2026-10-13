@@ -14,6 +14,8 @@ import { Callout } from "@/components/ui/callout";
 import { Button } from "@/components/ui/button";
 import { Download, GitCompareArrows } from "lucide-react";
 
+export const metadata = { title: "Auto-évaluation" };
+
 type Props = { params: Promise<{ id: string }> };
 
 export default async function EvaluationOverviewPage({ params }: Props) {

@@ -5,7 +5,7 @@ import { isDevisEditable } from "@/lib/services/devis-transition-service";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { DevisForm } from "@/components/devis/DevisForm";
 
-export const metadata = { title: "Corriger un devis · EODA Conseil" };
+export const metadata = { title: "Corriger un devis" };
 
 // Repli si aucun réglage de facturation n'est enregistré — CGP v10 §06.
 const DEFAULT_DEPOSIT_PERCENT = 40;

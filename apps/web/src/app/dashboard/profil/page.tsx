@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { formatDate } from "@/lib/services/date-format-service";
 import { Building2, KeyRound, ShieldAlert, UserRound } from "lucide-react";
 
-export const metadata = { title: "Mon profil · EODA Conseil" };
+export const metadata = { title: "Mon profil" };
 
 const ROLE_LABELS: Record<string, string> = {
   CABINET_ADMIN: "Cabinet — administration",

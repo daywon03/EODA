@@ -18,7 +18,7 @@ import { WatchList } from "@/components/cabinet-home/WatchList";
 import { UpcomingAppointments } from "@/components/cabinet-home/UpcomingAppointments";
 import { TodayTasks } from "@/components/cabinet-home/TodayTasks";
 
-export const metadata = { title: "Accueil · EODA Conseil" };
+export const metadata = { title: "Accueil" };
 
 // Horizon des échéances mises en avant : deux trimestres. Au-delà, une évaluation
 // HAS n'appelle aucune action cette semaine ; en deçà, la préparation est engagée.

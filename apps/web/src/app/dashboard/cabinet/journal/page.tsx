@@ -9,7 +9,7 @@ import { Select } from "@/components/ui/select";
 import { formatDateTime } from "@/lib/services/date-format-service";
 import { ScrollText } from "lucide-react";
 
-export const metadata = { title: "Journal d'audit · EODA Conseil" };
+export const metadata = { title: "Journal d'audit" };
 
 // Libellés exhaustifs : le Record<AuditAction, string> cesse de compiler dès qu'une
 // valeur est ajoutée à l'enum sans être traduite ici. C'est le contrôle mécanique

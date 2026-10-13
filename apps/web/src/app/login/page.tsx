@@ -3,7 +3,7 @@ import { CheckCircle2, ShieldCheck, FileCheck2, ClipboardCheck } from "lucide-re
 import { EodaLockup, EodaMark } from "@/components/layout/EodaLogo";
 import { LOGIN_NOTICE_PARAM, loginNoticeFor } from "@/lib/services/login-notice-service";
 
-export const metadata = { title: "Connexion · EODA Conseil" };
+export const metadata = { title: "Connexion" };
 
 const HIGHLIGHTS = [
   { icon: FileCheck2, text: "Checklist documentaire loi 2002-2 et HAS" },

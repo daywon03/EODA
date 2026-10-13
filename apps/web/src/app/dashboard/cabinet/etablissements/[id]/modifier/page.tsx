@@ -7,7 +7,7 @@ type Props = { params: Promise<{ id: string }> };
 export async function generateMetadata({ params }: Props) {
   const { id } = await params;
   const establishment = await getEstablishment(id);
-  return { title: `Modifier ${establishment.name} · EODA Conseil` };
+  return { title: `Modifier ${establishment.name}` };
 }
 
 export default async function ModifierEtablissementPage({ params }: Props) {

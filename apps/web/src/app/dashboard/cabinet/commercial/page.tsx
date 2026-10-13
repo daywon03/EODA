@@ -24,7 +24,7 @@ import {
 } from "@/lib/services/commercial-kpi-service";
 import { Briefcase, Euro, FileText, Plus, Target, TrendingUp } from "lucide-react";
 
-export const metadata = { title: "Pipeline commercial · EODA Conseil" };
+export const metadata = { title: "Pipeline commercial" };
 
 const STRUCTURE_TYPE_LABELS = { ASSOCIATION: "Association", PRIVE: "Privé", PUBLIC: "Public" } as const;
 

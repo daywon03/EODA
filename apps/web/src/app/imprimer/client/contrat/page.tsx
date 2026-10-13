@@ -4,7 +4,7 @@ import { ContratPrintable } from "@/components/documents/ContratPrintable";
 import { PrintButton } from "@/components/devis/PrintButton";
 import { buildContractFileName, canIssueContract } from "@/lib/services/contract-service";
 
-export const metadata = { title: "Mon contrat d'accompagnement · EODA Conseil" };
+export const metadata = { title: "Mon contrat d'accompagnement" };
 
 // Le contrat, vu par la structure qu'il engage. Même remarque que pour le devis :
 // aucun identifiant dans l'URL, tout est résolu depuis la session.

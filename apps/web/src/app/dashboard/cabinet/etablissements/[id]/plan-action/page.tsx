@@ -5,6 +5,8 @@ import { structureHref } from "@/lib/design/structure-tabs";
 import { TaskBoard } from "@/components/tasks/TaskBoard";
 import { PacGenerator } from "@/components/tasks/PacGenerator";
 
+export const metadata = { title: "Plan d'action" };
+
 type Props = {
   params: Promise<{ id: string }>;
   searchParams: Promise<{ filtre?: string | string[] }>;

@@ -4,7 +4,7 @@ import { parseActionFilter } from "@/lib/services/action-item-service";
 import { CLIENT_TASKS_PATH } from "@/lib/design/client-navigation";
 import { TaskBoard } from "@/components/tasks/TaskBoard";
 
-export const metadata = { title: "Tâches · EODA Conseil" };
+export const metadata = { title: "Tâches" };
 
 type Props = { searchParams: Promise<{ filtre?: string | string[] }> };
 

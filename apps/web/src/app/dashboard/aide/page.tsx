@@ -4,7 +4,7 @@ import { HelpArticleList } from "@/components/help/HelpArticleList";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { LifeBuoy } from "lucide-react";
 
-export const metadata = { title: "Aide et guide · EODA Conseil" };
+export const metadata = { title: "Aide et guide" };
 
 export default async function HelpCenterPage() {
   // Le rôle vient de la couche d'autorisation (relu en base), jamais du client :

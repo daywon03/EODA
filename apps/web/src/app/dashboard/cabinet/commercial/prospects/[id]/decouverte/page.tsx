@@ -5,7 +5,7 @@ import { StructureIdentityForm } from "@/components/prospect/StructureIdentityFo
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
-export const metadata = { title: "Réunion de découverte · EODA Conseil" };
+export const metadata = { title: "Réunion de découverte" };
 
 type Props = { params: Promise<{ id: string }> };
 

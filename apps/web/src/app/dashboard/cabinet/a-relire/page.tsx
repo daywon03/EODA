@@ -8,7 +8,7 @@ import { ReviewPanel } from "@/components/review/ReviewPanel";
 import { EodaMark } from "@/components/layout/EodaLogo";
 import { cn } from "@/lib/utils";
 
-export const metadata = { title: "À relire · EODA Conseil" };
+export const metadata = { title: "À relire" };
 
 type SearchParams = { v?: string | string[] };
 

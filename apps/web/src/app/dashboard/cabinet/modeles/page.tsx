@@ -7,7 +7,7 @@ import { TemplateCriterionFilter } from "@/components/modeles/TemplateCriterionF
 import { LibraryToolbar } from "@/components/modeles/LibraryToolbar";
 import { LibraryBrowser } from "@/components/modeles/LibraryBrowser";
 
-export const metadata = { title: "Modèles EODA · EODA Conseil" };
+export const metadata = { title: "Modèles" };
 
 // ─────────────────────────────────────────────────────────────────────────────
 // BIBLIOTHÈQUE DE MODÈLES — les gabarits du cabinet, et sa base de connaissances.

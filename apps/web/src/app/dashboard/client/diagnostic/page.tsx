@@ -7,7 +7,7 @@ import { DiagnosticChapters, DiagnosticCounters, PriorityActions } from "@/compo
 import { DiagnosticValidationBanner } from "@/components/diagnostic/DiagnosticValidationBanner";
 import { GestureButton } from "@/components/diagnostic/GestureButton";
 
-export const metadata = { title: "Mon diagnostic · EODA Conseil" };
+export const metadata = { title: "Mon diagnostic" };
 
 // « Mon diagnostic » (maquette Portail Client v2, N6). Tout ce qui s'y lit est DÉRIVÉ
 // des critères & preuves (N4) ; seuls les deux gestes — relu par EODA, accepté par

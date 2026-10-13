@@ -18,7 +18,7 @@ import { CLIENT_DOCUMENTS_PATH } from "@/lib/design/client-navigation";
 import { cn } from "@/lib/utils";
 import { ClientDocumentCard } from "@/components/client/documents/ClientDocumentCard";
 
-export const metadata = { title: "Mes documents · EODA Conseil" };
+export const metadata = { title: "Mes documents" };
 
 type Props = { searchParams: Promise<{ filtre?: string | string[] }> };
 

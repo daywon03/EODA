@@ -7,7 +7,7 @@ import { computeDefaultValidityDays } from "@/lib/services/devis-validity-servic
 import { Card, CardContent } from "@/components/ui/card";
 import { Mail, Phone } from "lucide-react";
 
-export const metadata = { title: "Évaluation des besoins · EODA Conseil" };
+export const metadata = { title: "Évaluation des besoins" };
 
 // Repli si aucun réglage de facturation n'a encore été enregistré — acompte de 40 %
 // à la commande, CGP de l'offre commerciale v10 §06.

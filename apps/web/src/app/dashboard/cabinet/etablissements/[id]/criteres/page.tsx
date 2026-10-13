@@ -12,6 +12,8 @@ import { DataTable, type DataTableColumn } from "@/components/ui/data-table";
 import { StatusPill } from "@/components/ui/status-pill";
 import { TabsNav } from "@/components/ui/tabs-nav";
 
+export const metadata = { title: "Critères et preuves" };
+
 type Props = {
   params: Promise<{ id: string }>;
   searchParams: Promise<{ filtre?: string | string[] }>;

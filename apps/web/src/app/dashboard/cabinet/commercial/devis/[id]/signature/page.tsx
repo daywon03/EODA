@@ -7,7 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 
-export const metadata = { title: "Signature du devis · EODA Conseil" };
+export const metadata = { title: "Signature du devis" };
 
 type Props = { params: Promise<{ id: string }> };
 

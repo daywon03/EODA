@@ -24,7 +24,7 @@ import { EstablishmentLogoForm } from "@/components/etablissement/EstablishmentL
 import { DepositButton } from "@/components/client/documents/DepositButton";
 import { AccompaniedHomeCard, AutonomyHomeCard } from "@/components/client/home/HomeSupportCards";
 
-export const metadata = { title: "Accueil · EODA Conseil" };
+export const metadata = { title: "Accueil" };
 
 // ACCUEIL DU PORTAIL CLIENT (maquette « Portail Client v2 », R6).
 //

@@ -2,7 +2,7 @@ import { getEstablishment } from "@/lib/actions/establishment";
 import { getCabinetThread, postCabinetMessage } from "@/lib/actions/message";
 import { MessageThread } from "@/components/messages/MessageThread";
 
-export const metadata = { title: "Échanges · EODA Conseil" };
+export const metadata = { title: "Échanges" };
 
 type Props = { params: Promise<{ id: string }> };
 

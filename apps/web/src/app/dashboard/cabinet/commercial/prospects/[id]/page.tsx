@@ -35,6 +35,8 @@ import {
 } from "@/lib/services/prospect-next-action-service";
 import { ClipboardList, Pencil, Plus, Phone, Mail, ArrowRight, Building2 } from "lucide-react";
 
+export const metadata = { title: "Fiche prospect" };
+
 type Props = { params: Promise<{ id: string }> };
 
 export default async function ProspectDetailPage({ params }: Props) {

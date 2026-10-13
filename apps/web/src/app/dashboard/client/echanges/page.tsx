@@ -3,7 +3,7 @@ import { MessageThread } from "@/components/messages/MessageThread";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { MessagesSquare, ShieldAlert } from "lucide-react";
 
-export const metadata = { title: "Mes échanges · EODA Conseil" };
+export const metadata = { title: "Mes échanges" };
 
 // Fil d'échange, côté client (CDC §5). Aucun identifiant d'établissement n'entre ici :
 // `getClientThread` le résout depuis le lien EstablishmentUser de la session.

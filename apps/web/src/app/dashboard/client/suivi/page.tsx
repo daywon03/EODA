@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { MissionProgressSummary } from "@/components/mission/MissionProgressSummary";
 import { MISSION_STEPS, stepPercent, stepTitle } from "@/lib/services/mission-progress-service";
 
-export const metadata = { title: "Mon suivi · EODA Conseil" };
+export const metadata = { title: "Mon suivi" };
 
 // « Mon suivi » — la progression du projet, séparée du cadre contractuel et
 // financier (« Mon contrat »). Demande du 07/09/2026 : la structure veut voir où

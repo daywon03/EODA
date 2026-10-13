@@ -3,6 +3,8 @@ import { PageHeader } from "@/components/layout/PageHeader";
 import { ProspectForm } from "@/components/prospect/ProspectForm";
 import { Card, CardContent } from "@/components/ui/card";
 
+export const metadata = { title: "Modifier le prospect" };
+
 type Props = { params: Promise<{ id: string }> };
 
 export default async function ModifierProspectPage({ params }: Props) {

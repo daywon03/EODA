@@ -11,7 +11,7 @@ export async function generateMetadata({ params }: Props) {
   const { slug } = await params;
   const { role } = await requireHelpAudience();
   const article = findHelpArticle(slug, role);
-  return { title: `${article ? article.title : "Aide"} · EODA Conseil` };
+  return { title: `${article ? article.title : "Aide"}` };
 }
 
 export default async function HelpArticlePage({ params }: Props) {

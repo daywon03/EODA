@@ -23,7 +23,7 @@ import {
   SUBSCRIPTION_COMMITMENT_NOTICE,
 } from "@/lib/services/subscription-service";
 
-export const metadata = { title: "Mon contrat · EODA Conseil" };
+export const metadata = { title: "Mon contrat" };
 
 // « Ce que j'ai payé / ce que je dois donner en face. »
 // Périmètre visible par un CLIENT_USER : exception du 20/08/2026, .claude/CLAUDE.md §7.

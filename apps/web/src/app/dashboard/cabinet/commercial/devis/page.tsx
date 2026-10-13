@@ -14,7 +14,7 @@ import { SendDevisEmailButton } from "@/components/devis/SendDevisEmailButton";
 import { DeleteDevisButton } from "@/components/devis/DeleteDevisButton";
 import { Download, FileSignature } from "lucide-react";
 
-export const metadata = { title: "Devis · Pipeline commercial · EODA Conseil" };
+export const metadata = { title: "Devis · Pipeline commercial" };
 
 const BASE_PATH = "/dashboard/cabinet/commercial/devis";
 

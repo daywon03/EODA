@@ -18,6 +18,17 @@ import { Callout } from "@/components/ui/callout";
 
 type Props = { params: Promise<{ id: string; number: string }> };
 
+// Titre tiré de l'URL seule : aucune lecture de données hors de la garde de la page.
+export async function generateMetadata({ params }: Props): Promise<{ title: string }> {
+  const { number } = await params;
+  const chapterNumber = Number(number);
+  return {
+    title: Number.isInteger(chapterNumber)
+      ? `Chapitre ${chapterNumber} · Auto-évaluation`
+      : "Auto-évaluation",
+  };
+}
+
 export default async function EvaluationChapterPage({ params }: Props) {
   const { id, number } = await params;
   const chapterNumber = Number(number);

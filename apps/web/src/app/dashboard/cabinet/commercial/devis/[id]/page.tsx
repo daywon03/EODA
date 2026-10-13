@@ -12,6 +12,8 @@ import { DeleteDevisButton } from "@/components/devis/DeleteDevisButton";
 import { SendDevisEmailButton } from "@/components/devis/SendDevisEmailButton";
 import { Pencil, Download } from "lucide-react";
 
+export const metadata = { title: "Devis" };
+
 type Props = { params: Promise<{ id: string }> };
 
 export default async function DevisDetailPage({ params }: Props) {

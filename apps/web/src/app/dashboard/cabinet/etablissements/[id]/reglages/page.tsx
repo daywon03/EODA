@@ -13,7 +13,7 @@ import { ClientUserRow } from "@/components/etablissement/ClientUserRow";
 import { EstablishmentLogoForm } from "@/components/etablissement/EstablishmentLogoForm";
 import { DocumentScopeToggle } from "@/components/checklist/DocumentScopeToggle";
 
-export const metadata = { title: "Réglages · EODA Conseil" };
+export const metadata = { title: "Réglages" };
 
 type Props = { params: Promise<{ id: string }> };
 

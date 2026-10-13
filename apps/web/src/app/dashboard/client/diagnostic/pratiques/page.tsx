@@ -5,7 +5,7 @@ import { CLIENT_DIAGNOSTIC_PATH, CLIENT_PRACTICES_PATH } from "@/lib/design/clie
 import { ProgressBar } from "@/components/ui/progress-bar";
 import { PracticeQuestionForm } from "@/components/diagnostic/PracticeQuestionForm";
 
-export const metadata = { title: "Questions sur vos pratiques · EODA Conseil" };
+export const metadata = { title: "Questions sur vos pratiques" };
 
 type Props = { searchParams: Promise<{ q?: string | string[] }> };
 

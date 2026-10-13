@@ -8,7 +8,7 @@ import { scoreLabel } from "@/lib/services/scoring-service";
 import { chapterLabel } from "@/lib/services/chapter-label-service";
 import { AlertTriangle, ArrowDownRight, ArrowUpRight, Equal, Minus } from "lucide-react";
 
-export const metadata = { title: "Comparaison des sessions · EODA Conseil" };
+export const metadata = { title: "Comparaison des sessions" };
 
 type Props = { params: Promise<{ id: string }> };
 

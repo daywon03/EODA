@@ -8,7 +8,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Button } from "@/components/ui/button";
 import { Plus, Users } from "lucide-react";
 
-export const metadata = { title: "Prospects · Pipeline commercial · EODA Conseil" };
+export const metadata = { title: "Prospects · Pipeline commercial" };
 
 const BASE_PATH = "/dashboard/cabinet/commercial/prospects";
 

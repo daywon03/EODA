@@ -28,7 +28,7 @@ type Props = { params: Promise<{ id: string }> };
 export async function generateMetadata({ params }: Props) {
   const { id } = await params;
   const establishment = await getEstablishment(id);
-  return { title: `${establishment.name} · EODA Conseil` };
+  return { title: `${establishment.name}` };
 }
 
 // Vue d'ensemble de la fiche structure. Tout ce qui s'y lit est DÉRIVÉ

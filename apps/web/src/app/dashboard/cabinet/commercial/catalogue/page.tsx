@@ -6,7 +6,7 @@ import { CatalogueActiveToggle } from "@/components/catalogue/CatalogueActiveTog
 import { BillingSettingsForm } from "@/components/catalogue/BillingSettingsForm";
 import { cn } from "@/lib/utils";
 
-export const metadata = { title: "Catalogue · Pipeline commercial · EODA Conseil" };
+export const metadata = { title: "Catalogue · Pipeline commercial" };
 
 // Maquette v2 « Catalogue » : les offres en cartes, les options en lignes. L'édition
 // reste celle d'avant (un formulaire par ligne, upsertCatalogue*) — seule la mise en

@@ -30,7 +30,7 @@ type Props = { params: Promise<{ id: string }> };
 export async function generateMetadata({ params }: Props) {
   const { id } = await params;
   const template = await getTemplate(id);
-  return { title: `${template.title} · Modèles EODA` };
+  return { title: `${template.title} · Modèles` };
 }
 
 // Un modèle et ses fichiers.

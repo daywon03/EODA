@@ -3,7 +3,7 @@ import { PageHeader } from "@/components/layout/PageHeader";
 import { ProspectForm } from "@/components/prospect/ProspectForm";
 import { Card, CardContent } from "@/components/ui/card";
 
-export const metadata = { title: "Nouveau prospect · EODA Conseil" };
+export const metadata = { title: "Nouveau prospect" };
 
 export default async function NouveauProspectPage() {
   // Seule page commerciale qui ne lisait aucune donnée : elle s'affichait donc à un

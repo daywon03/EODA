@@ -26,6 +26,8 @@ import {
 import { AvenantSignatureToggle } from "@/components/mission/AvenantSignatureToggle";
 import { auth } from "@/auth";
 
+export const metadata = { title: "Mission" };
+
 type Props = { params: Promise<{ id: string }> };
 
 export default async function MissionPage({ params }: Props) {

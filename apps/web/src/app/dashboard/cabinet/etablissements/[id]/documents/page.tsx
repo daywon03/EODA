@@ -29,7 +29,7 @@ import { DocumentReminderForm } from "@/components/etablissement/DocumentReminde
 import { UrlSheet } from "@/components/structure/UrlSheet";
 import { DocumentSheetBody } from "@/components/structure/DocumentSheetBody";
 
-export const metadata = { title: "Documents · EODA Conseil" };
+export const metadata = { title: "Documents" };
 
 type Props = {
   params: Promise<{ id: string }>;

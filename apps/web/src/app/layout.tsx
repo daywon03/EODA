@@ -3,7 +3,9 @@ import "./globals.css";
 import { ThemeInit } from "@/components/theme/ThemeInit";
 
 export const metadata: Metadata = {
-  title: "EODA Conseil · Plateforme Qualité HAS",
+  // Chaque page déclare son nom ; le suffixe vient d'ici, une seule fois
+  // (vérifié par app/page-titles.test.ts).
+  title: { default: "EODA Conseil · Plateforme Qualité HAS", template: "%s — EODA" },
   description: "Outil de préparation à l'évaluation qualité HAS pour les ESSMS",
 };
 

@@ -2,7 +2,7 @@ import { getCorrectionWorkspace } from "@/lib/actions/correction-proposal";
 import { CLIENT_DOCUMENTS_PATH } from "@/lib/design/client-navigation";
 import { CorrectionWorkspaceView } from "@/components/conformite/CorrectionWorkspaceView";
 
-export const metadata = { title: "Mettre en conformité · EODA Conseil" };
+export const metadata = { title: "Mettre en conformité" };
 
 type Props = { params: Promise<{ versionId: string }> };
 

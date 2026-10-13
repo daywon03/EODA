@@ -3,7 +3,7 @@ import { MIN_PASSWORD_LENGTH } from "@/lib/security/password-policy";
 import { ChangePasswordForm } from "@/components/auth/ChangePasswordForm";
 import { KeyRound, ShieldAlert } from "lucide-react";
 
-export const metadata = { title: "Changer mon mot de passe · EODA Conseil" };
+export const metadata = { title: "Changer mon mot de passe" };
 
 export default async function ChangePasswordPage() {
   // Seule route authentifiée ouverte à un compte dont la rotation est due.

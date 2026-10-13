@@ -11,7 +11,7 @@ import {
 import type { DocumentCategory } from "@eoda/database";
 import { AlertTriangle, Clock, PackageOpen } from "lucide-react";
 
-export const metadata = { title: "Mes livrables · EODA Conseil" };
+export const metadata = { title: "Mes livrables" };
 
 const CATEGORY_LABELS: Record<DocumentCategory, string> = {
   LOI_2002_2: "Documents loi 2002-2 (droits des personnes accompagnées)",

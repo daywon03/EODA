@@ -6,7 +6,7 @@ import { Callout } from "@/components/ui/callout";
 import { MatrixTypeForm } from "@/components/criteres/MatrixTypeForm";
 import { PromoteSuggestionButton } from "@/components/criteres/PromoteSuggestionButton";
 
-export const metadata = { title: "Matrice des critères · EODA Conseil" };
+export const metadata = { title: "Matrice des critères" };
 
 // ─────────────────────────────────────────────────────────────────────────────
 // MATRICE DOCUMENTS → CRITÈRES HAS (tranche N4, spec 04) — CABINET_ADMIN seul.

@@ -6,7 +6,7 @@ import { PrintButton } from "@/components/devis/PrintButton";
 import { EodaLockup } from "@/components/layout/EodaLogo";
 import { DiagnosticChapters, DiagnosticCounters, PriorityActions } from "@/components/diagnostic/DiagnosticSections";
 
-export const metadata = { title: "Rapport de diagnostic · EODA Conseil" };
+export const metadata = { title: "Rapport de diagnostic" };
 
 type Props = { params: Promise<{ id: string }>; searchParams: Promise<{ auto?: string }> };
 
