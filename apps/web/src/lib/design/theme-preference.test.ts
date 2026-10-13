@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   THEME_PREFERENCES,
   nextThemePreference,
+  type ThemePreference,
   parseThemePreference,
   themePreferenceLabel,
 } from "./theme-preference";
@@ -20,7 +21,7 @@ describe("préférence de thème", () => {
 
   it("fait le tour des trois états, sans en sauter aucun", () => {
     const seen = new Set<string>();
-    let current = THEME_PREFERENCES[0];
+    let current: ThemePreference = THEME_PREFERENCES[0];
     for (let step = 0; step < THEME_PREFERENCES.length; step += 1) {
       seen.add(current);
       current = nextThemePreference(current);

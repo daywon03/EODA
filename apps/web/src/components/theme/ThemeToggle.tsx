@@ -51,10 +51,12 @@ export function ThemeToggle({ className }: { className?: string }) {
   const Icon = ICONS[preference];
   const label = themePreferenceLabel(preference);
   return (
-    <button type="button" onClick={cycle} className={base} title={`${label} — cliquer pour changer`}>
+    // aria-label plutôt qu'un second texte masqué : le menu du compte (ClientShell)
+    // rend visibles les `.sr-only` de ce bouton, et la consigne s'y afficherait.
+    // Le nom commence par le texte visible (WCAG 2.5.3).
+    <button type="button" onClick={cycle} className={base} aria-label={`${label} — changer de thème`}>
       <Icon className="h-5 w-5 flex-shrink-0" aria-hidden="true" />
       <span className="sr-only sm:not-sr-only">{label}</span>
-      <span className="sr-only"> — changer de thème</span>
     </button>
   );
 }
