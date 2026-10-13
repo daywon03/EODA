@@ -137,6 +137,7 @@ const SEGMENT_LABELS: Record<string, string | null> = {
   "evaluation-besoins": "Évaluation des besoins",
   criteres: "Critères",
   "plan-action": "Plan d'action",
+  equipe: "Équipe et formations",
 };
 
 // Libellé d'un identifiant selon son parent : le nom réel (« SAD Les Glycines »)

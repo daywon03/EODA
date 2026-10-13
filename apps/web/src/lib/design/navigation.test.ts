@@ -81,6 +81,7 @@ describe("navigation du portail client", () => {
       "Mes livrables",
       "Mon suivi",
       "Messages",
+      "Mon équipe",
       "Paramètres",
     ]);
   });
@@ -91,7 +92,7 @@ describe("navigation du portail client", () => {
     expect(ids("RESPONSABLE_QUALITE")).not.toContain("settings");
     expect(ids("RESPONSABLE_QUALITE")).toContain("diagnostic");
     expect(ids("ADMINISTRATIF")).toEqual(["home", "documents", "tasks", "deliverables", "messages"]);
-    expect(ids("INTERVENANT")).toEqual(["home", "tasks"]);
+    expect(ids("INTERVENANT")).toEqual(["home", "tasks", "team"]);
   });
 
   it("« Mon contrat » n'est proposé qu'au rôle qui voit le contrat", () => {

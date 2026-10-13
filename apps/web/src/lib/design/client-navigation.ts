@@ -22,6 +22,7 @@ export const CLIENT_TASKS_PATH = `${CLIENT_ROOT}/taches`;
 export const CLIENT_DIAGNOSTIC_PATH = `${CLIENT_ROOT}/diagnostic`;
 export const CLIENT_PRACTICES_PATH = `${CLIENT_DIAGNOSTIC_PATH}/pratiques`;
 export const CLIENT_SETTINGS_PATH = `${CLIENT_ROOT}/parametres`;
+export const CLIENT_TEAM_PATH = `${CLIENT_ROOT}/equipe`;
 
 export type ClientNavFacts = {
   // Le dernier message du fil vient d'EODA et attend une réponse.
@@ -74,6 +75,9 @@ function allClientEntries(facts: ClientNavFacts): NavItem[] {
       icon: "messages",
       ...(facts.hasUnansweredMessage ? { attentionLabel: "nouveau message" } : {}),
     },
+    // « Mon équipe » (N10) : équipe et quiz de sensibilisation ; l'intervenant y voit
+    // ses propres quiz.
+    { id: "team", href: CLIENT_TEAM_PATH, label: "Mon équipe", icon: "staff" },
     // Paramètres (N9) : les accès de la structure — la direction seule les gère.
     { id: "settings", href: CLIENT_SETTINGS_PATH, label: "Paramètres", icon: "settings" },
   ];

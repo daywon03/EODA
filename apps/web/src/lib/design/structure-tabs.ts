@@ -38,6 +38,8 @@ export const STRUCTURE_TABS: readonly StructureTab[] = [
   { id: "criteres", label: "Critères", segment: "criteres", capability: "STRUCTURES_READ" },
   { id: "plan-action", label: "Plan d'action", segment: "plan-action", capability: "STRUCTURES_READ" },
   { id: "evaluation", label: "Auto-évaluation", segment: "evaluation", capability: "STRUCTURES_READ" },
+  // Lot B (N10) : équipe de la structure et quiz de sensibilisation.
+  { id: "equipe", label: "Équipe et formations", segment: "equipe", capability: "STRUCTURES_READ" },
   { id: "mission", label: "Mission", segment: "mission", capability: "STRUCTURES_READ" },
   { id: "echanges", label: "Échanges", segment: "echanges", capability: "STRUCTURES_READ" },
   { id: "reglages", label: "Réglages", segment: "reglages", alsoMatches: ["modifier"], capability: "STRUCTURES_WRITE" },

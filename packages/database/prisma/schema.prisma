@@ -299,6 +299,9 @@ model Tenant {
   criterionGuidelines      CriterionGuideline[]
   actionItems              ActionItem[]
   establishmentAssignments EstablishmentAssignment[]
+  staffMembers             StaffMember[]
+  quizCampaigns            QuizCampaign[]
+  quizAttempts             QuizAttempt[]
 
   @@map("tenants")
 }
@@ -356,6 +359,8 @@ model User {
   proposalsGenerated          CorrectionProposal[]          @relation("ProposalGeneratedBy")
   proposalsApplied            CorrectionProposal[]          @relation("ProposalAppliedBy")
   establishmentAssignments    EstablishmentAssignment[]
+  staffMembers                StaffMember[]
+  quizCampaignsSent           QuizCampaign[]                @relation("QuizCampaignSentBy")
 
   @@index([tenantId])
   @@map("users")
@@ -418,6 +423,9 @@ model Establishment {
   diagnosticValidations DiagnosticValidation[]
   practiceAnswers       PracticeAnswer[]
   assignments           EstablishmentAssignment[]
+  staffMembers          StaffMember[]
+  quizCampaigns         QuizCampaign[]
+  quizAttempts          QuizAttempt[]
 
   @@index([tenantId])
   @@map("establishments")
@@ -1655,6 +1663,15 @@ enum AuditAction {
   CLIENT_ACCESS_GRANTED
   CLIENT_ACCESS_ROLE_CHANGED
   CLIENT_ACCESS_REVOKED
+  // Équipe et quiz de sensibilisation (N10). `targetId` = fiche salarié, campagne ou
+  // tentative ; `detail` = code du module, nombre de lignes — jamais un nom.
+  STAFF_MEMBER_CREATED
+  STAFF_MEMBER_UPDATED
+  STAFF_MEMBERS_IMPORTED
+  QUIZ_CAMPAIGN_SENT
+  QUIZ_ATTEMPT_COMPLETED
+  QUIZ_SIGNOFF_EXPORTED
+  QUIZ_LINK_RATE_LIMITED
 }
 
 model AuditLogEntry {
@@ -2136,4 +2153,114 @@ model CorrectionProposal {
   @@index([generatedById])
   @@index([appliedById])
   @@map("correction_proposals")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ÉQUIPE DE LA STRUCTURE ET QUIZ DE SENSIBILISATION — lot B, tranche N10 (13/10/2026).
+//
+// « Sensibiliser », jamais « former » (context/11). Les QUESTIONS ne sont pas en
+// base : elles vivent dans le contenu versionné apps/web/src/content/quiz/ ; la base
+// ne garde que les FAITS — qui a été invité, qui a répondu quoi, quand, sur quelle
+// version. « À jour / À refaire / Pas fait » se DÉRIVE de la dernière tentative et
+// de `retestMonths` (quiz-status-service), jamais stocké.
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Un salarié de la structure. La fiche existe SANS compte (forte rotation des
+// intervenants à domicile) ; `userId` la relie à un compte quand il y en a un.
+// Jamais supprimée : un départ pose `active = false` et `leftAt`, l'émargement de
+// ses quiz reste une preuve.
+model StaffMember {
+  id              String    @id @default(cuid())
+  tenantId        String    @map("tenant_id")
+  establishmentId String    @map("establishment_id")
+  displayName     String    @map("display_name")
+  jobTitle        String    @map("job_title")
+  email           String?
+  phone           String?
+  userId          String?   @map("user_id")
+  active          Boolean   @default(true)
+  leftAt          DateTime? @map("left_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  tenant        Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  establishment Establishment    @relation(fields: [establishmentId], references: [id], onDelete: Cascade)
+  // SetNull : le compte peut disparaître, la fiche et ses preuves restent.
+  user          User?            @relation(fields: [userId], references: [id], onDelete: SetNull)
+  invitations   QuizInvitation[]
+  attempts      QuizAttempt[]
+
+  @@index([tenantId])
+  @@index([establishmentId, active])
+  @@index([userId])
+  @@map("staff_members")
+}
+
+// Un envoi de quiz : un module, une version, à une liste de salariés.
+model QuizCampaign {
+  id              String   @id @default(cuid())
+  tenantId        String   @map("tenant_id")
+  establishmentId String   @map("establishment_id")
+  moduleCode      String   @map("module_code")
+  moduleVersion   Int      @map("module_version")
+  sentByUserId    String?  @map("sent_by_user_id")
+  sentAt          DateTime @default(now()) @map("sent_at")
+
+  tenant        Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  establishment Establishment    @relation(fields: [establishmentId], references: [id], onDelete: Cascade)
+  sentBy        User?            @relation("QuizCampaignSentBy", fields: [sentByUserId], references: [id], onDelete: SetNull)
+  invitations   QuizInvitation[]
+
+  @@index([tenantId])
+  @@index([establishmentId, sentAt])
+  @@index([sentByUserId])
+  @@map("quiz_campaigns")
+}
+
+// Une invitation personnelle (lien / QR code). Le JETON n'est jamais en base : seule
+// son empreinte SHA-256 (`tokenHash`), comparée en temps constant. Usage unique
+// (`usedAt`) et durée courte (`expiresAt`).
+model QuizInvitation {
+  id            String    @id @default(cuid())
+  campaignId    String    @map("campaign_id")
+  staffMemberId String    @map("staff_member_id")
+  tokenHash     String    @unique @map("token_hash")
+  expiresAt     DateTime  @map("expires_at")
+  usedAt        DateTime? @map("used_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+
+  campaign    QuizCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  staffMember StaffMember  @relation(fields: [staffMemberId], references: [id], onDelete: Cascade)
+  attempt     QuizAttempt?
+
+  @@index([campaignId])
+  @@index([staffMemberId])
+  @@map("quiz_invitations")
+}
+
+// Une tentative — APPEND-ONLY : aucune action ne la modifie ni ne la supprime.
+// `answersJson` : identifiants de questions et de réponses, jamais de texte libre.
+model QuizAttempt {
+  id              String   @id @default(cuid())
+  tenantId        String   @map("tenant_id")
+  establishmentId String   @map("establishment_id")
+  staffMemberId   String   @map("staff_member_id")
+  invitationId    String?  @unique @map("invitation_id")
+  moduleCode      String   @map("module_code")
+  moduleVersion   Int      @map("module_version")
+  score           Int
+  total           Int
+  passed          Boolean
+  answersJson     Json     @map("answers_json")
+  completedAt     DateTime @default(now()) @map("completed_at")
+
+  tenant        Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  establishment Establishment   @relation(fields: [establishmentId], references: [id], onDelete: Cascade)
+  staffMember   StaffMember     @relation(fields: [staffMemberId], references: [id], onDelete: Cascade)
+  invitation    QuizInvitation? @relation(fields: [invitationId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId])
+  @@index([establishmentId, completedAt])
+  @@index([staffMemberId, moduleCode, completedAt])
+  @@map("quiz_attempts")
 }

@@ -381,6 +381,18 @@ Détail complet et état d'avancement : `specs/02-architecture-technique.md` §4
   (`revokedAt`), jamais de suppression, et les gardes ignorent un lien retiré. EODA n'est
   jamais un rôle client. Messages / rendez-vous ouverts aux trois rôles de bureau, fermés à
   l'intervenant : choix de N9, à confirmer.
+- **Équipe et quiz de sensibilisation (lot B, N10).** « Sensibiliser », jamais « former ».
+  `StaffMember` existe sans compte (rotation), ne se supprime pas (`active`/`leftAt`). Les
+  questions sont du CONTENU versionné (`content/quiz/`, provisoires, à valider par Sandrine)
+  — corriger une question incrémente `version`. `QuizAttempt` est append-only ; « À jour /
+  À refaire / Pas fait » se DÉRIVE (`quiz-status-service.ts`, retest 6 mois). La seule route
+  publique nouvelle est `/quiz/[token]` (`classifyPath` dans `lib/auth/routes.ts`, testé) :
+  jeton 256 bits jamais stocké (empreinte SHA-256 comparée en temps constant), usage unique
+  posé atomiquement, 72 h, limitation de débit par IP, rien d'autre que le nom de la
+  structure et le quiz sans ses réponses. QR code rendu côté serveur (`qrcode-generator`
+  épinglé, aucune dépendance), pas de SMS. L'alerte d'échéance (D12) est une tâche
+  `ActionItem` source QUIZ créée **idempotemment au chargement** de l'onglet par un rôle qui
+  écrit — pas d'horloge ni de cron (aucun n'existe sur Vercel ici).
 - Le suivi de mission (checklist diagnostic 12 items + 4 phases d'accompagnement, §7 du même
   fichier) est également intégré, sous `/dashboard/cabinet/etablissements/[id]/mission` —
   lisible par `CABINET_ADMIN`, `CABINET_EVALUATOR` et `CABINET_READONLY` (contrairement au

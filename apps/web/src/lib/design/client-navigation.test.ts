@@ -22,7 +22,7 @@ describe("splitClientNav — entrées principales et menu « Plus »", () => {
 
   it("range les autres entrées dans « Plus », dans l'ordre, sans perte ni doublon", () => {
     const { primary, more } = splitClientNav(items, "/dashboard/client");
-    expect(more.map((i) => i.id)).toEqual(["tasks", "deliverables", "progress", "settings"]);
+    expect(more.map((i) => i.id)).toEqual(["tasks", "deliverables", "progress", "team", "settings"]);
     const all = [...primary, ...more].map((i) => i.id).sort();
     expect(all).toEqual(items.map((i) => i.id).sort());
   });

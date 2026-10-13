@@ -1,5 +1,5 @@
 import { prisma } from "@eoda/database";
-import { getEnv } from "@/lib/config/env";
+import { appUrl } from "@/lib/config/app-url";
 import { getEmailPort } from "./index";
 import {
   countDeliveries,
@@ -28,12 +28,8 @@ import {
 // (adaptateur console) ne compte jamais comme un envoi réussi.
 // ─────────────────────────────────────────────────────────────────────────────
 
-// Base des liens envoyés par e-mail. En production, `NEXTAUTH_URL` est exigée par le
-// profil de démarrage : un lien relatif dans un e-mail ne mène nulle part.
-function appUrl(path: string): string {
-  const base = getEnv().nextAuthUrl ?? "http://localhost:3000";
-  return `${base.replace(/\/+$/, "")}${path}`;
-}
+// Base des liens envoyés par e-mail : lib/config/app-url.ts (partagée avec le QR code
+// des quiz).
 
 export async function sendClientInvitationEmail(input: {
   recipientName: string;

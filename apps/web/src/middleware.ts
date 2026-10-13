@@ -3,7 +3,7 @@ import NextAuth from "next-auth";
 import { authConfig } from "./auth.config";
 import { NextResponse } from "next/server";
 import type { UserRole } from "@eoda/database";
-import { PASSWORD_ROTATION_PATH, ROTATION_EXEMPT_PATHS } from "@/lib/auth/routes";
+import { classifyPath, PASSWORD_ROTATION_PATH, ROTATION_EXEMPT_PATHS } from "@/lib/auth/routes";
 import { capabilityRequiredForPath, hasCabinetCapability, roleHomePath } from "@/lib/auth/capabilities";
 import {
   buildContentSecurityPolicy,
@@ -16,7 +16,6 @@ import { isProductionRuntime } from "@/lib/config/env";
 
 const { auth } = NextAuth(authConfig);
 
-const PUBLIC_PATHS = ["/login"];
 
 
 // CSP à nonce : la politique ne peut plus être un en-tête statique de next.config,
@@ -41,7 +40,12 @@ export default auth((req) => {
   const csp = buildContentSecurityPolicy({ nonce, isProduction: isProductionRuntime() });
   const session = req.auth;
   const isLoggedIn = !!session;
-  const isPublic = PUBLIC_PATHS.some((p) => nextUrl.pathname.startsWith(p));
+  const access = classifyPath(nextUrl.pathname);
+  const isPublic = access === "AUTH";
+
+  // Quiz par QR code (N10) : public, connecté ou non — aucune redirection, seulement
+  // la CSP à nonce (même chemin de sortie que toute autre page ci-dessous).
+  if (access === "ANONYMOUS") return passThroughWithCsp(req.headers, nonce, csp);
 
   if (!isLoggedIn && !isPublic) {
     const loginUrl = new URL("/login", nextUrl);
@@ -85,14 +89,17 @@ export default auth((req) => {
     return applyCsp(NextResponse.redirect(new URL(roleHomePath(session.user.role), nextUrl)), csp);
   }
 
-  // Le nonce voyage vers le rendu par les en-têtes de la requête : c'est ainsi que
-  // Next.js le retrouve pour ses propres scripts.
-  const requestHeaders = new Headers(req.headers);
+  return passThroughWithCsp(req.headers, nonce, csp);
+});
+
+// Le nonce voyage vers le rendu par les en-têtes de la requête : c'est ainsi que
+// Next.js le retrouve pour ses propres scripts.
+function passThroughWithCsp(incoming: Headers, nonce: string, csp: string): NextResponse {
+  const requestHeaders = new Headers(incoming);
   requestHeaders.set("x-nonce", nonce);
   requestHeaders.set("Content-Security-Policy", csp);
-
   return applyCsp(NextResponse.next({ request: { headers: requestHeaders } }), csp);
-});
+}
 
 export const config = {
   // Les assets de MARQUE sont publics : le logo doit se charger dans un e-mail, donc

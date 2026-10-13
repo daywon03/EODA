@@ -86,6 +86,9 @@ importers:
       puppeteer-core:
         specifier: ^25.11.0
         version: 25.11.0
+      qrcode-generator:
+        specifier: 2.0.4
+        version: 2.0.4
       react:
         specifier: ^19.0.0
         version: 19.2.7
@@ -3105,6 +3108,9 @@ packages:
   puppeteer-core@25.11.0:
     resolution: {integrity: sha512-Ujym7JbxoAqanaxGcHgmTomfhC01HfDCSuGZ8Hs9boHrDjzbNVMnFRJo2KtbDT9LCRgeJoFnkn9JQZ41eEUrLw==}
     engines: {node: '>=22.12.0'}
+
+  qrcode-generator@2.0.4:
+    resolution: {integrity: sha512-mZSiP6RnbHl4xL2Ap5HfkjLnmxfKcPWpWe/c+5XxCuetEenqmNFf1FH/ftXPCtFG5/TDobjsjz6sSNL0Sr8Z9g==}
 
   queue-microtask@1.2.3:
     resolution: {integrity: sha512-NuaNSa6flKT5JaSYQzJok04JzTL1CA6aGhv5rfLW3PgqA+M2ChpZQnAC8h8i4ZFkBS8X5RqkDBHA7r4hej3K9A==}
@@ -6969,6 +6975,8 @@ snapshots:
       - proxy-agent
       - utf-8-validate
       - yauzl
+
+  qrcode-generator@2.0.4: {}
 
   queue-microtask@1.2.3: {}
 
