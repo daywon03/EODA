@@ -146,3 +146,12 @@ export function computeTemplateStats(
     verbatims: texts((isRule) => !isRule),
   };
 }
+
+// MINIMISATION (décision de Damon, 14/10/2026) : le cabinet ne lit pas les
+// commentaires libres. Un texte libre peut contenir un nom — celui de la personne,
+// d'un proche ou d'un intervenant — et l'agrégat ne le neutralise pas. Les chiffres
+// restent ; les textes (idées ET propositions sur le règlement) sont vidés. La
+// structure, elle, garde ses commentaires.
+export function withoutFreeTexts(stats: TemplateStats): TemplateStats {
+  return { ...stats, verbatims: [], ruleProposals: [] };
+}

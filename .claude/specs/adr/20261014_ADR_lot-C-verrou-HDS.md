@@ -62,6 +62,14 @@ construit** dès maintenant, mais **rien de nominatif** ne s'écrit avant la mig
    et `getSurveyBoard`, qui lisent `listBeneficiaryTimelines` — requête qui ne
    sélectionne qu'un identifiant opaque et deux dates. Le calcul est un service pur
    (`beneficiary-aggregate-service.ts`) qui ne reçoit aucun nom.
+   **Complément du 14/10/2026 (décision de Damon) : pas de commentaires libres côté
+   cabinet.** L'onglet cabinet « Enquêtes » n'affiche ni les idées (verbatims) ni les
+   propositions sur le règlement : un texte libre peut contenir un nom (la personne, un
+   proche, un intervenant), et l'agrégation ne le neutralise pas. Retrait côté serveur
+   dans `getSurveyBoard` (`withoutFreeTexts`, `survey-stats-service.ts`) pour tout
+   appelant qui n'est pas la structure ; l'écran dit que les commentaires restent chez
+   la structure (`freeTextsWithheld`). La structure garde ses commentaires. L'export CSV
+   agrégé n'en contenait déjà aucun.
 
 ## Contrôles mécaniques (Règle zéro)
 
@@ -71,7 +79,7 @@ construit** dès maintenant, mais **rien de nominatif** ne s'écrit avant la mig
 | Configuration par défaut : chaque écriture du port et du stockage HDS rejette, chaque lecture est vide | `apps/web/src/lib/hds/hds-lock.test.ts` |
 | Chaque action serveur d'écriture usager répond l'état verrouillé, sans écrire | `apps/web/src/lib/actions/beneficiary-actions-locked.test.ts` |
 | Le profil de production refuse `HDS_BACKEND_ENABLED=true` sans hébergeur ni stockage distinct | `apps/web/src/lib/config/production-profile.test.ts` |
-| Un compte cabinet n'atteint jamais la lecture nominative : `getPeopleBoard` refuse avant toute lecture, agrégats et statistiques n'appellent pas `listBeneficiaries` | `apps/web/src/lib/actions/terrain-read.test.ts`, `apps/web/src/lib/services/beneficiary-aggregate-service.test.ts` |
+| Un compte cabinet n'atteint jamais la lecture nominative : `getPeopleBoard` refuse avant toute lecture, agrégats et statistiques n'appellent pas `listBeneficiaries` ; le tableau d'enquête du cabinet ne contient aucun commentaire libre | `apps/web/src/lib/actions/terrain-read.test.ts`, `apps/web/src/lib/services/beneficiary-aggregate-service.test.ts` |
 
 ## Ce qu'il faut pour ouvrir le verrou
 

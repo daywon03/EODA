@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { surveyTemplateFor } from "@/content/enquete";
 import type { SurveyAnswerInput, SurveyChoice } from "@/lib/hds/beneficiary-data-port";
-import { computeTemplateStats, gradeFor, gradeLabel, type SurveyResponseForStats } from "./survey-stats-service";
+import { computeTemplateStats, gradeFor, gradeLabel, withoutFreeTexts, type SurveyResponseForStats } from "./survey-stats-service";
 import { buildSurveyCsv, csvCell, proposeSurveyActions, selectSurveyActionsToCreate } from "./survey-report-service";
 
 // Données SYNTHÉTIQUES uniquement : aucune personne, seulement des réponses.
@@ -102,6 +102,18 @@ describe("computeTemplateStats", () => {
     ]);
     expect(stats.ruleProposals).toEqual(["Prévenir la veille"]);
     expect(stats.verbatims).toEqual(["Merci"]);
+  });
+
+  it("withoutFreeTexts retire idées et propositions, garde les chiffres", () => {
+    const stats = computeTemplateStats(PERSONNE, [
+      response("PERSONNE", { "p01-respect": "TRES" }, { "p08b-regle-proposee": "Prévenir la veille", "p13-message": "Merci Mme X" }),
+    ]);
+    const stripped = withoutFreeTexts(stats);
+    expect(stripped.verbatims).toEqual([]);
+    expect(stripped.ruleProposals).toEqual([]);
+    expect(stripped.questions).toEqual(stats.questions);
+    expect(stripped.rate).toBe(stats.rate);
+    expect(JSON.stringify(stripped)).not.toMatch(/Merci|veille/);
   });
 });
 

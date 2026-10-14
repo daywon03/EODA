@@ -118,6 +118,12 @@ export function SurveyBoard({ board, establishmentId, canWrite }: Props) {
         <SurveyPlanForm establishmentId={establishmentId} proposals={board.proposals} canWrite={canWrite} />
       )}
 
+      {board.freeTextsWithheld && responses > 0 && (
+        <p className="text-ink2">
+          Les commentaires libres restent dans l&apos;espace de la structure : un texte libre peut contenir un nom.
+        </p>
+      )}
+
       {ideas.length > 0 && (
         <section aria-labelledby="idees-titre" className="flex flex-col gap-2 rounded-xl border border-line bg-card p-5">
           <h2 id="idees-titre" className="text-xl font-bold">Idées des personnes et des familles</h2>

@@ -6,7 +6,7 @@ import { requireEstablishmentAccess, type EstablishmentAccessContext } from "@/l
 import { NEED } from "@/lib/auth/capabilities";
 import { getBeneficiaryDataPort, type BeneficiaryScope, type SurveyResponseRecord } from "@/lib/hds";
 import { SURVEY_CAMPAIGN_MONTHS, SURVEY_TEMPLATES } from "@/content/enquete";
-import { computeTemplateStats, type TemplateStats } from "@/lib/services/survey-stats-service";
+import { computeTemplateStats, withoutFreeTexts, type TemplateStats } from "@/lib/services/survey-stats-service";
 import { buildSurveyCsv, proposeSurveyActions, type SurveyActionProposal } from "@/lib/services/survey-report-service";
 import { deriveDeadlineAlerts, isActiveOn, type DeadlineAlert } from "@/lib/services/beneficiary-deadline-service";
 import { computeBeneficiaryAggregates, type BeneficiaryAggregates } from "@/lib/services/beneficiary-aggregate-service";
@@ -46,6 +46,8 @@ export type TerrainSurveyBoard = {
   hdsAvailable: boolean;
   surveyStats: TemplateStats[];
   proposals: SurveyActionProposal[];
+  // Vrai côté cabinet : les commentaires libres ont été retirés côté serveur.
+  freeTextsWithheld: boolean;
   coverage: { done: number; total: number; personne: number; famille: number };
 };
 
@@ -120,8 +122,11 @@ export async function getPeopleAggregates(establishmentId: string): Promise<Terr
   };
 }
 
+// Le cabinet reçoit les statistiques SANS les commentaires libres (minimisation,
+// 14/10/2026) : le retrait se fait ici, pas dans le composant — ce que le serveur
+// n'envoie pas ne peut pas fuir.
 export async function getSurveyBoard(establishmentId: string): Promise<TerrainSurveyBoard> {
-  const { scope } = await contextOf(establishmentId);
+  const { scope, access } = await contextOf(establishmentId);
   const port = getBeneficiaryDataPort();
   const now = new Date();
   const [timelines, responses] = await Promise.all([
@@ -130,12 +135,14 @@ export async function getSurveyBoard(establishmentId: string): Promise<TerrainSu
   ]);
   const surveyed = surveyedIdsOf(responses);
   const active = timelines.filter((b) => isActiveOn(b, now));
-  const surveyStats = SURVEY_TEMPLATES.map((template) => computeTemplateStats(template, responses));
+  const computed = SURVEY_TEMPLATES.map((template) => computeTemplateStats(template, responses));
+  const surveyStats = access.isClient ? computed : computed.map(withoutFreeTexts);
 
   return {
     hdsAvailable: port.isAvailable,
     surveyStats,
     proposals: proposeSurveyActions(surveyStats),
+    freeTextsWithheld: !access.isClient,
     coverage: {
       done: active.filter((b) => surveyed.has(b.id)).length,
       total: active.length,

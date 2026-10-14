@@ -436,7 +436,10 @@ Détail complet et état d'avancement : `specs/02-architecture-technique.md` §4
   CSV agrégé `/api/export/enquete/[id]`), onglets `personnes` / `enquetes` de la fiche —
   l'onglet cabinet `personnes` n'affiche **que des agrégats** (nombre de personnes,
   feuilles de réception à jour / à remettre ou à renouveler, enquêtes faites, échéances ;
-  `beneficiary-aggregate-service.ts`), jamais de liste nominative (§6).
+  `beneficiary-aggregate-service.ts`), jamais de liste nominative (§6) ; l'onglet cabinet
+  `enquetes` n'affiche **aucun commentaire libre** (idées, propositions sur le règlement —
+  un texte libre peut contenir un nom ; décision de Damon du 14/10/2026) : retirés côté
+  serveur par `getSurveyBoard` (`withoutFreeTexts`), la structure les garde.
   **Tablette** `/tablette` (route ANONYMOUS de `classifyPath`) : « jamais un code seul » —
   appareil enregistré par la structure (`DeviceEnrollment`, jeton en cookie httpOnly,
   empreinte seule en base) + fiche salarié + code de 6 chiffres (`StaffPin`, scrypt, blocage

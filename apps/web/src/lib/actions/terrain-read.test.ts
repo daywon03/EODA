@@ -27,6 +27,7 @@ vi.mock("@/lib/services/audit-log-service", () => ({ recordAuditEvent: audit }))
 vi.mock("@/lib/hds", () => ({ getBeneficiaryDataPort: () => port }));
 
 const { buildSurveyExport, getPeopleAggregates, getPeopleBoard, getSurveyBoard } = await import("./terrain-read");
+const { surveyTemplateFor } = await import("@/content/enquete");
 
 const CABINET_ACCESS = { establishmentId: "etab-1", userId: "u-cab", isClient: false, session: { user: { role: "CABINET_EVALUATOR" } } };
 const CLIENT_ACCESS = { establishmentId: "etab-1", userId: "u-cli", isClient: true, session: { user: { role: "CLIENT_USER" } } };
@@ -102,6 +103,39 @@ describe("getSurveyBoard et export — statistiques", () => {
     const board = await getSurveyBoard("etab-1");
     expect(board.coverage).toEqual({ done: 0, total: 1, personne: 0, famille: 0 });
     expect(port.listBeneficiaries).not.toHaveBeenCalled();
+  });
+
+  const WITH_TEXTS = [
+    {
+      templateCode: "PERSONNE",
+      templateVersion: surveyTemplateFor("PERSONNE").version,
+      beneficiaryId: "b1",
+      answers: [
+        { questionId: "p01-respect", choice: "TRES", freeText: null },
+        { questionId: "p08b-regle-proposee", choice: null, freeText: "Prévenir la veille" },
+        { questionId: "p13-message", choice: null, freeText: "Merci à Mme Fictive" },
+      ],
+    },
+  ];
+
+  it("le cabinet ne reçoit AUCUN commentaire libre (minimisation, 14/10/2026)", async () => {
+    guards.requireEstablishmentAccess.mockResolvedValue(CABINET_ACCESS);
+    port.listSurveyResponses.mockResolvedValue(WITH_TEXTS);
+    const board = await getSurveyBoard("etab-1");
+    expect(board.freeTextsWithheld).toBe(true);
+    expect(board.surveyStats.every((s) => s.verbatims.length === 0 && s.ruleProposals.length === 0)).toBe(true);
+    expect(board.surveyStats.find((s) => s.templateCode === "PERSONNE")?.responses).toBe(1);
+    expect(JSON.stringify(board)).not.toMatch(/Fictive|veille/);
+  });
+
+  it("la structure garde ses commentaires libres", async () => {
+    guards.requireEstablishmentAccess.mockResolvedValue(CLIENT_ACCESS);
+    port.listSurveyResponses.mockResolvedValue(WITH_TEXTS);
+    const board = await getSurveyBoard("etab-1");
+    const personne = board.surveyStats.find((s) => s.templateCode === "PERSONNE");
+    expect(board.freeTextsWithheld).toBe(false);
+    expect(personne?.verbatims).toEqual(["Merci à Mme Fictive"]);
+    expect(personne?.ruleProposals).toEqual(["Prévenir la veille"]);
   });
 
   it("l'export est journalisé sans contenu", async () => {
