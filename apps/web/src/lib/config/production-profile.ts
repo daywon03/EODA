@@ -52,6 +52,35 @@ export function productionConfigProblems(env: AppEnv): string[] {
     );
   }
 
+  problems.push(...hdsConfigProblems(env));
+
+  return problems;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// VERROU HDS (lot C — ADR .claude/specs/adr/20261014_ADR_lot-C-verrou-HDS.md).
+//
+// Ouvrir le backend des données nominatives de personnes accompagnées est une
+// DÉCLARATION : « tout le backend tourne chez un hébergeur certifié HDS ». Une
+// déclaration sans nom d'hébergeur ni stockage distinct n'en est pas une — le
+// démarrage est refusé. Utilisée aussi par le sélecteur d'adaptateur
+// (lib/hds/index.ts) : en développement, la même incohérence garde le verrou fermé.
+// ─────────────────────────────────────────────────────────────────────────────
+export function hdsConfigProblems(env: Pick<AppEnv, "hds" | "s3">): string[] {
+  if (!env.hds.enabled) return [];
+  const problems: string[] = [];
+  if (!env.hds.provider) {
+    problems.push(
+      "HDS_BACKEND_ENABLED=true sans HDS_PROVIDER : ouvrir les données des personnes accompagnées exige de déclarer l'hébergeur certifié HDS (registre ANS) qui héberge le backend. Cf. ADR 20261014 lot C."
+    );
+  }
+  if (!env.hds.storage) {
+    problems.push(
+      "HDS_BACKEND_ENABLED=true sans stockage HDS (HDS_S3_ENDPOINT, HDS_S3_REGION, HDS_S3_BUCKET, HDS_S3_ACCESS_KEY_ID, HDS_S3_SECRET_ACCESS_KEY) : les documents signés ne vont jamais dans le bucket des documents institutionnels."
+    );
+  } else if (env.s3 && env.hds.storage.endpoint === env.s3.endpoint && env.hds.storage.bucket === env.s3.bucket) {
+    problems.push("Le stockage HDS désigne le même bucket que les documents institutionnels : un bucket distinct, chez l'hébergeur HDS, est exigé.");
+  }
   return problems;
 }
 

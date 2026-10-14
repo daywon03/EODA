@@ -44,6 +44,7 @@ vérifie** — sinon elle n'existe pas.
 | Dépendances vulnérables | `pnpm audit:deps` — **sort en code 1** sur toute vulnérabilité haute ou critique, **sans `\|\| true`** ; distingue « vulnérabilité trouvée » de « registre npm injoignable », qu'il réessaie avant d'échouer en le disant | `scripts/audit-dependencies.mjs` + CI |
 | CI qui dit la vérité | aucun `continue-on-error`, aucun masquage d'échec | CI |
 | Texte ≥ 14 px, focus jamais retiré | test qui parcourt `src/**/*.{ts,tsx}` et **échoue** sur une taille arbitraire < 14 px ou un `outline-none` ; vérifie que `text-xs` vaut 14 px | `apps/web/src/lib/design/ui-class-guard.test.ts` |
+| Verrou HDS : aucune donnée de personne accompagnée écrite hors hébergeur certifié (lot C) | (1) test qui lit tout `src/` et **échoue** sur un accès aux tables usager (délégué Prisma ou SQL brut) hors de l'adaptateur du port ; (2) avec la configuration par défaut, chaque écriture du port, du stockage HDS et de chaque action usager est refusée ; (3) le profil de production **refuse de démarrer** sur `HDS_BACKEND_ENABLED=true` sans `HDS_PROVIDER` ni stockage distinct | `lib/hds/beneficiary-tables-guard.test.ts`, `lib/hds/hds-lock.test.ts`, `lib/actions/beneficiary-actions-locked.test.ts`, `lib/config/production-profile.test.ts` — ADR `specs/adr/20261014_ADR_lot-C-verrou-HDS.md` |
 | Contraste des tokens ≥ 4.5:1 (clair et sombre) | test qui lit `globals.css`, résout les alias et **échoue** sous 4.5:1 ; vérifie que les deux voies du sombre sont identiques | `apps/web/src/lib/design/theme-contrast.test.ts` |
 
 **Dette acceptée, à réexaminer après le 22/09/2026** : `.npmrc` porte `node-linker=hoisted`,
@@ -287,6 +288,22 @@ Détail complet et état d'avancement : `specs/02-architecture-technique.md` §4
   interdit, c'est d'**envoyer en production** une donnée nominative de personne
   accompagnée **avant** que la migration soit faite et vérifiée. Les documents
   institutionnels restent dans le périmètre actuel.
+  **Le verrou est mécanique depuis le 14/10/2026** (ADR
+  `specs/adr/20261014_ADR_lot-C-verrou-HDS.md`) : toute donnée de personne accompagnée
+  (dossier, représentant, feuille de réception signée, preuve de signature, remise,
+  journal, réponse d'enquête) passe par `BeneficiaryDataPort` (`lib/hds/`). L'adaptateur
+  par défaut, `LockedBeneficiaryDataAdapter`, **refuse toute écriture**
+  (`HdsNotAvailableError`) et rend des lectures vides ; les fichiers signés passent par
+  `getHdsFileStoragePort()`, jamais par le bucket `eoda-documents`, verrouillé de même.
+  L'adaptateur Prisma réel n'est sélectionnable que si `HDS_BACKEND_ENABLED="true"` **et**
+  `HDS_PROVIDER` + `HDS_S3_*` (bucket distinct) sont posés — sinon la production refuse
+  de démarrer. Ne **jamais** écrire `prisma.beneficiary…` / `prisma.survey…` ailleurs que
+  dans `lib/hds/prisma-beneficiary-data-adapter.ts` (test qui échoue), ne jamais poser
+  `HDS_BACKEND_ENABLED` sur l'infrastructure actuelle, et ne jamais « tester » avec une
+  vraie personne : les écrans d'écriture affichent l'état verrouillé et se démontrent en
+  **mode démonstration** (en mémoire du navigateur, données fictives, port jamais appelé).
+  Les appareils enregistrés et codes des salariés (`DeviceEnrollment`, `StaffPin`) ne
+  sont pas des données usager et restent sur l'infrastructure actuelle.
 
 ## 7. Ce que Claude Code ne doit PAS faire
 
