@@ -25,6 +25,7 @@ export const STRUCTURES_PATH = `${CABINET_ROOT}/structures`;
 // toutes les structures — il ne vit donc pas dans les Réglages d'une fiche.
 export const REQUESTED_DOCUMENTS_PATH = `${CABINET_ROOT}/documents-reclames`;
 export const TEAM_PATH = `${CABINET_ROOT}/equipe`;
+export const CONTENT_REVIEW_PATH = `${CABINET_ROOT}/contenus`;
 const COMMERCIAL_ROOT = `${CABINET_ROOT}/commercial`;
 
 export type CabinetNavCounts = {
@@ -60,7 +61,7 @@ function structureItems(role: UserRole, counts: CabinetNavCounts): NavItem[] {
   ];
 }
 
-// Réglages de cabinet : administration seule (les pages le revérifient par
+// Réglages de cabinet : administration (les pages le revérifient par
 // requireCabinetAdminSession / requireTeamManagerSession).
 function settingsItems(role: UserRole): NavItem[] {
   const items: NavItem[] = [];
@@ -69,6 +70,11 @@ function settingsItems(role: UserRole): NavItem[] {
       { id: "criteria", href: `${CABINET_ROOT}/criteres`, label: "Matrice des critères", icon: "criteria" },
       { id: "requested-documents", href: REQUESTED_DOCUMENTS_PATH, label: "Documents réclamés", icon: "documents" }
     );
+  }
+  // Relecture du contenu provisoire : administration ET consultante (la page le
+  // revérifie par requireContentReviewSession).
+  if (hasCabinetCapability(role, "CONTENT_REVIEW")) {
+    items.push({ id: "content-review", href: CONTENT_REVIEW_PATH, label: "Contenus à valider", icon: "content" });
   }
   if (hasCabinetCapability(role, "TEAM_MANAGE")) {
     items.push({ id: "team", href: TEAM_PATH, label: "Équipe EODA", icon: "team" });

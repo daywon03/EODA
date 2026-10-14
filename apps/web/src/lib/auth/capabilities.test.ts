@@ -26,6 +26,7 @@ const EXPECTED: Record<CabinetRole, Record<CabinetCapability, boolean>> = {
     LIBRARY_READ: true,
     TEAM_MANAGE: true,
     CABINET_SETTINGS: true,
+    CONTENT_REVIEW: true,
   },
   CABINET_EVALUATOR: {
     STRUCTURES_READ: true,
@@ -35,6 +36,7 @@ const EXPECTED: Record<CabinetRole, Record<CabinetCapability, boolean>> = {
     LIBRARY_READ: true,
     TEAM_MANAGE: false,
     CABINET_SETTINGS: false,
+    CONTENT_REVIEW: true,
   },
   CABINET_COMMERCIAL: {
     STRUCTURES_READ: false,
@@ -44,6 +46,7 @@ const EXPECTED: Record<CabinetRole, Record<CabinetCapability, boolean>> = {
     LIBRARY_READ: false,
     TEAM_MANAGE: false,
     CABINET_SETTINGS: false,
+    CONTENT_REVIEW: false,
   },
   CABINET_READONLY: {
     STRUCTURES_READ: true,
@@ -53,14 +56,15 @@ const EXPECTED: Record<CabinetRole, Record<CabinetCapability, boolean>> = {
     LIBRARY_READ: true,
     TEAM_MANAGE: false,
     CABINET_SETTINGS: false,
+    CONTENT_REVIEW: false,
   },
 };
 
 describe("matrice des capacités cabinet — chaque rôle × chaque capacité", () => {
   const cases = CABINET_ROLES.flatMap((role) => CABINET_CAPABILITIES.map((cap) => [role, cap] as const));
 
-  it("couvre 4 rôles × 7 capacités", () => {
-    expect(cases).toHaveLength(28);
+  it("couvre 4 rôles × 8 capacités", () => {
+    expect(cases).toHaveLength(32);
   });
 
   it.each(cases)("%s / %s", (role, capability) => {
@@ -138,6 +142,8 @@ describe("filet du middleware", () => {
     ["/dashboard/cabinet/commercial/devis/1", "COMMERCIAL"],
     ["/imprimer/devis/1", "COMMERCIAL"],
     ["/dashboard/cabinet/equipe", "TEAM_MANAGE"],
+    ["/dashboard/cabinet/contenus", "CONTENT_REVIEW"],
+    ["/api/export/contenus", "CONTENT_REVIEW"],
     ["/imprimer/contrat/e1", "STRUCTURE_CONTRACT"],
     ["/imprimer/avenant/e1", "STRUCTURE_CONTRACT"],
   ])("%s exige %s", (pathname, capability) => {

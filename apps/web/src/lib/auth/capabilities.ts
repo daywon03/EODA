@@ -47,13 +47,18 @@ export const CABINET_CAPABILITIES = [
   // des critères, documents réclamés, écriture de la bibliothèque, mode
   // d'accompagnement, clôture de mission, suppression d'une fiche.
   "CABINET_SETTINGS",
+  // « Contenus à valider » : quiz, questions sur les pratiques, questionnaires
+  // d'enquête, grille de découverte, points de la feuille de réception — en LECTURE,
+  // pour la relecture de Sandrine. Administration et consultante (décision de Damon,
+  // 14/10/2026).
+  "CONTENT_REVIEW",
 ] as const;
 
 export type CabinetCapability = (typeof CABINET_CAPABILITIES)[number];
 
 const CABINET_MATRIX: Record<CabinetRole, readonly CabinetCapability[]> = {
   CABINET_ADMIN: CABINET_CAPABILITIES,
-  CABINET_EVALUATOR: ["STRUCTURES_READ", "STRUCTURES_WRITE", "LIBRARY_READ"],
+  CABINET_EVALUATOR: ["STRUCTURES_READ", "STRUCTURES_WRITE", "LIBRARY_READ", "CONTENT_REVIEW"],
   // « Prospects et devis. Ne voit pas les documents des structures. »
   CABINET_COMMERCIAL: ["COMMERCIAL"],
   // « Consulte les tableaux de bord. Ne modifie rien. » — et ne voit pas le
@@ -285,6 +290,8 @@ const PATH_CAPABILITIES: readonly (readonly [string, CabinetCapability])[] = [
   ["/dashboard/cabinet/commercial", "COMMERCIAL"],
   ["/imprimer/devis", "COMMERCIAL"],
   ["/dashboard/cabinet/equipe", "TEAM_MANAGE"],
+  ["/dashboard/cabinet/contenus", "CONTENT_REVIEW"],
+  ["/api/export/contenus", "CONTENT_REVIEW"],
   ["/imprimer/contrat", "STRUCTURE_CONTRACT"],
   ["/imprimer/avenant", "STRUCTURE_CONTRACT"],
 ];

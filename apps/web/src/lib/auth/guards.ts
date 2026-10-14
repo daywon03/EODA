@@ -313,6 +313,11 @@ export async function requireCommercialSession(): Promise<CabinetContext> {
   return requireCabinetSession("COMMERCIAL");
 }
 
+// « Contenus à valider » (lecture et export) — CABINET_ADMIN et CABINET_EVALUATOR.
+export async function requireContentReviewSession(): Promise<CabinetContext> {
+  return requireCabinetSession("CONTENT_REVIEW");
+}
+
 // Équipe EODA : inviter, changer un rôle, affecter, retirer l'accès.
 export async function requireTeamManagerSession(): Promise<CabinetContext> {
   return requireCabinetSession("TEAM_MANAGE");

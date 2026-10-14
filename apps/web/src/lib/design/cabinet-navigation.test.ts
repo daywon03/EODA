@@ -24,7 +24,7 @@ describe("visibilité par rôle", () => {
 
   it("une évaluatrice ne voit aucune entrée commerciale", () => {
     expect(canSeeCommercial("CABINET_EVALUATOR")).toBe(false);
-    expect(ids("CABINET_EVALUATOR")).toEqual(["home", "structures", "review", "agenda", "library", "journal"]);
+    expect(ids("CABINET_EVALUATOR")).toEqual(["home", "structures", "review", "agenda", "library", "content-review", "journal"]);
   });
 
   it("« Documents réclamés » (réglage de cabinet, toutes structures) : admin seulement", () => {
@@ -49,6 +49,14 @@ describe("visibilité par rôle", () => {
     for (const role of ["CABINET_EVALUATOR", "CABINET_COMMERCIAL", "CABINET_READONLY"] as const) {
       expect(ids(role)).not.toContain("team");
     }
+  });
+
+  it("« Contenus à valider » : administration et consultante seulement", () => {
+    expect(ids("CABINET_ADMIN")).toContain("content-review");
+    expect(ids("CABINET_EVALUATOR")).toContain("content-review");
+    expect(ids("CABINET_COMMERCIAL")).not.toContain("content-review");
+    expect(ids("CABINET_READONLY")).not.toContain("content-review");
+    expect(ids("CLIENT_USER")).not.toContain("content-review");
   });
 
   it("un commercial : le pipeline et l'agenda, aucune structure ni bibliothèque (N9)", () => {

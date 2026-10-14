@@ -738,6 +738,15 @@ Détail complet et état d'avancement : `specs/02-architecture-technique.md` §4
   `grille.ts`), et non plus un gabarit d'attente. **L'ouverture de cette grille au
   client n'est pas tranchée** —
   `CABINET_ADMIN` uniquement jusqu'à décision explicite.
+- **« Contenus à valider » se LIT depuis `content/`, il ne se recopie pas**
+  (`/dashboard/cabinet/contenus`, décision de Damon du 14/10/2026 ; capacité
+  `CONTENT_REVIEW` = `CABINET_ADMIN` + consultante). Quiz, questions sur les
+  pratiques, questionnaires d'enquête, grille de découverte et points « à dire » de
+  la feuille de réception, versionnés, chacun marqué « provisoire, à valider par
+  Sandrine » ; export Word ou CSV (`/api/export/contenus?format=docx|csv`) pour
+  l'annotation hors ligne. Un seul catalogue (`content-review-service.ts`, pur) sert
+  l'écran et les deux exports. Lecture seule : une correction se fait dans
+  `content/`, en augmentant la version.
 - **La bibliothèque de modèles se range avec les mots de Sandrine, pas ceux du
   référentiel.** Le dossier est une ligne de `TemplateCategory` créée à la main,
   ordonnée à la main — jamais l'enum `DocumentCategory`, qui classe les pièces
