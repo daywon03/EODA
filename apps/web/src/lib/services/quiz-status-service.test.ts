@@ -4,6 +4,7 @@ import {
   buildQuizMatrix,
   countUpToDate,
   deriveQuizCell,
+  initialCampaignChoice,
   listRetestsDue,
   preselectForCampaign,
   retestTaskTitle,
@@ -111,5 +112,21 @@ describe("alerte d'échéance (D12) — idempotente", () => {
 
   it("un module inconnu du contenu est ignoré", () => {
     expect(retestTasksToCreate([{ staffMemberId: "s", moduleCode: "Z", dueOn: NOW }], titles, new Set())).toEqual([]);
+  });
+});
+
+// Recette du 13/10/2026 : après l'ajout d'une 2e personne, « Envoyer un quiz » ne
+// cochait que la 1re — la sélection était figée au premier affichage du bouton.
+// Elle est recalculée à CHAQUE ouverture, depuis la présélection du serveur.
+describe("initialCampaignChoice", () => {
+  it("premier quiz, et ceux qui doivent le faire, recopiés (jamais partagés)", () => {
+    const preselection = { BIENTRAITANCE: ["s-1", "s-2"] };
+    const choice = initialCampaignChoice(["BIENTRAITANCE", "CRISE"], preselection);
+    expect(choice).toEqual({ moduleCode: "BIENTRAITANCE", selected: ["s-1", "s-2"] });
+    expect(choice.selected).not.toBe(preselection.BIENTRAITANCE);
+  });
+
+  it("aucun quiz : rien de choisi", () => {
+    expect(initialCampaignChoice([], {})).toEqual({ moduleCode: "", selected: [] });
   });
 });

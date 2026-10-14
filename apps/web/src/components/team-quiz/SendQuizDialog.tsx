@@ -8,6 +8,7 @@ import { Modal } from "@/components/ui/modal";
 import { cn } from "@/lib/utils";
 import { formatDateTime } from "@/lib/services/date-format-service";
 import { sendQuizCampaign, type CampaignInvitationView } from "@/lib/actions/staff-quiz-write";
+import { initialCampaignChoice } from "@/lib/services/quiz-status-service";
 
 // « Envoyer un quiz » : choisir le quiz, puis les personnes — celles qui doivent le
 // faire ou le refaire sont pré-cochées. L'envoi crée une campagne et affiche, pour
@@ -25,8 +26,8 @@ const CHIP = "flex min-h-11 cursor-pointer items-center gap-2 rounded-full borde
 export function SendQuizDialog({ establishmentId, modules, staff, preselection }: Props) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
-  const [moduleCode, setModuleCode] = useState(modules[0]?.code ?? "");
-  const [selected, setSelected] = useState<string[]>(preselection[modules[0]?.code ?? ""] ?? []);
+  const [moduleCode, setModuleCode] = useState("");
+  const [selected, setSelected] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [sent, setSent] = useState<{ moduleTitle: string; invitations: CampaignInvitationView[] } | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -34,6 +35,17 @@ export function SendQuizDialog({ establishmentId, modules, staff, preselection }
   function pickModule(code: string) {
     setModuleCode(code);
     setSelected(preselection[code] ?? []);
+  }
+
+  // Présélection relue à chaque ouverture : l'équipe a pu changer depuis l'affichage.
+  function openDialog() {
+    const choice = initialCampaignChoice(
+      modules.map((m) => m.code),
+      preselection
+    );
+    setModuleCode(choice.moduleCode);
+    setSelected(choice.selected);
+    setOpen(true);
   }
 
   function toggle(id: string) {
@@ -62,7 +74,7 @@ export function SendQuizDialog({ establishmentId, modules, staff, preselection }
 
   return (
     <>
-      <Button onClick={() => setOpen(true)}>
+      <Button onClick={openDialog}>
         <Send className="h-4 w-4" aria-hidden="true" />
         Envoyer un quiz
       </Button>

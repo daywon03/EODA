@@ -105,7 +105,18 @@ export function preselectForCampaign(
     .map((row) => row.staff.id);
 }
 
-// ── Alerte d'échéance (D12) ──────────────────────────────────────────────────
+// Choix proposé à l'OUVERTURE de « Envoyer un quiz » : le premier quiz et sa
+// présélection. Recalculé à chaque ouverture — figé au premier affichage, il oubliait
+// les personnes ajoutées depuis (recette du 13/10/2026).
+export function initialCampaignChoice(
+  moduleCodes: readonly string[],
+  preselection: Readonly<Record<string, readonly string[]>>
+): { moduleCode: string; selected: string[] } {
+  const moduleCode = moduleCodes[0] ?? "";
+  return { moduleCode, selected: [...(preselection[moduleCode] ?? [])] };
+}
+
+// ── Alerte d'échéance (D12)──────────────────────────────────────────────────
 // Les rappels dus dans les `alertDays` jours — ou déjà dépassés. Une personne qui
 // n'a JAMAIS réussi n'est pas un « rappel » : elle est « pas fait / à refaire », et
 // apparaît déjà comme telle dans la matrice et dans la présélection.
