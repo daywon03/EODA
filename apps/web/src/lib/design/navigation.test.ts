@@ -82,6 +82,8 @@ describe("navigation du portail client", () => {
       "Mon suivi",
       "Messages",
       "Mon équipe",
+      "Personnes accompagnées",
+      "Enquêtes",
       "Paramètres",
     ]);
   });

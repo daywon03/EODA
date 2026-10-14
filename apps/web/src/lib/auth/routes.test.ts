@@ -9,6 +9,11 @@ import { classifyPath } from "./routes";
 describe("classifyPath — refuser par défaut", () => {
   it.each([
     ["/quiz/abcDEF123_-xyz", "ANONYMOUS"],
+    // Tablette terrain (lot C) : l'appareil enregistré + le code font l'autorisation.
+    ["/tablette", "ANONYMOUS"],
+    ["/tablette/demonstration", "ANONYMOUS"],
+    ["/tablette/autre", "PROTECTED"],
+    ["/tablette/demonstration/x", "PROTECTED"],
     ["/login", "AUTH"],
     ["/login/oubli", "AUTH"],
     ["/quiz", "PROTECTED"],

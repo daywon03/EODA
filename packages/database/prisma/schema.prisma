@@ -1816,6 +1816,16 @@ enum AuditAction {
   EMAIL_VERIFICATION_RATE_LIMITED
   LOGIN_REFUSED_UNVERIFIED
   PROSPECT_ACCOUNT_PROMOTED
+  // Lot C (14/10/2026) — tablette et enquête. `targetId` = identifiant technique de
+  // l'appareil ou de la fiche salarié ; `detail` ne porte jamais un nom ni un code.
+  DEVICE_ENROLLED
+  DEVICE_REVOKED
+  STAFF_PIN_SET
+  STAFF_PIN_UNLOCKED
+  TABLET_SIGN_IN_FAILED
+  TABLET_PIN_LOCKED
+  TABLET_SIGNED_IN
+  SURVEY_RESULTS_EXPORTED
 }
 
 model AuditLogEntry {

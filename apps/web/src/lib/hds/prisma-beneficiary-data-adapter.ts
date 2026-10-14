@@ -27,6 +27,7 @@ export class PrismaBeneficiaryDataAdapter implements BeneficiaryDataPort {
   async listBeneficiaries(scope: BeneficiaryScope): Promise<BeneficiarySummary[]> {
     const rows = await prisma.beneficiary.findMany({
       where: { tenantId: scope.tenantId, establishmentId: scope.establishmentId },
+      include: { representatives: { select: { kind: true, fullName: true }, orderBy: { createdAt: "desc" }, take: 1 } },
       orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
     });
     return rows.map((row) => ({
@@ -40,6 +41,7 @@ export class PrismaBeneficiaryDataAdapter implements BeneficiaryDataPort {
       startedOn: row.startedOn,
       endedOn: row.endedOn,
       referentStaffMemberId: row.referentStaffMemberId,
+      representative: row.representatives[0] ?? null,
     }));
   }
 

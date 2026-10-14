@@ -65,9 +65,9 @@ describe("état et lecture", () => {
     expect(parseClientAccessRole(undefined)).toBeNull();
   });
 
-  it("la matrice affichée a 4 rôles × 7 modules", () => {
+  it("la matrice affichée a 4 rôles × 8 modules", () => {
     const matrix = clientPermissionMatrix();
     expect(matrix.map((m) => m.role)).toEqual(["DIRECTION", "RESPONSABLE_QUALITE", "ADMINISTRATIF", "INTERVENANT"]);
-    expect(matrix.every((m) => m.rows.length === 7)).toBe(true);
+    expect(matrix.every((m) => m.rows.length === 8)).toBe(true);
   });
 });

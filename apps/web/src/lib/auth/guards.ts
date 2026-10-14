@@ -3,7 +3,11 @@ import { prisma, type CommercialTier, type EstablishmentType, type UserRole } fr
 import type { Session } from "next-auth";
 import { auth } from "@/auth";
 import { redirect, notFound } from "next/navigation";
+import { cookies } from "next/headers";
 import { PASSWORD_ROTATION_PATH, SIGN_OUT_PATH } from "./routes";
+import { getEnv } from "@/lib/config/env";
+import { hashOneTimeToken, isOneTimeTokenWellFormed } from "@/lib/security/one-time-token";
+import { DEVICE_COOKIE, readTabletSessionToken, TABLET_SESSION_COOKIE } from "@/lib/security/tablet-session";
 import {
   canClientRead,
   deriveMissionAccessState,
@@ -645,4 +649,51 @@ export async function requireProspectSession(): Promise<ProspectContext> {
   });
   if (!link) redirect(SIGN_OUT_PATH);
   return { session, userId: session.user.id, prospect: link.prospect };
+}
+
+// ── Tablette terrain (lot C, décision 7) ─────────────────────────────────────
+// « Appareil enregistré + fiche salarié + code, jamais un code seul. » Deux cookies
+// httpOnly, relus À CHAQUE requête, comme le rôle d'un compte :
+//   1. l'appareil : jeton aléatoire dont seule l'empreinte est en base
+//      (`DeviceEnrollment.tokenHash`) ; un appareil révoqué n'ouvre plus rien ;
+//   2. la session : jeton signé court (salarié + appareil + expiration).
+// Le salarié doit être actif, rattaché à la structure de l'appareil, avec un code
+// posé et non bloqué. Tout refus rend null : la page affiche l'écran de connexion,
+// sans dire ce qui a manqué.
+export type TabletDeviceContext = {
+  deviceEnrollmentId: string;
+  tenantId: string;
+  establishmentId: string;
+  establishmentName: string;
+};
+
+export type TabletSessionContext = TabletDeviceContext & { staffMemberId: string; staffDisplayName: string };
+
+export async function resolveTabletDevice(): Promise<TabletDeviceContext | null> {
+  const token = (await cookies()).get(DEVICE_COOKIE)?.value;
+  if (!isOneTimeTokenWellFormed(token)) return null;
+  const device = await prisma.deviceEnrollment.findUnique({
+    where: { tokenHash: hashOneTimeToken(token) },
+    select: { id: true, tenantId: true, establishmentId: true, revokedAt: true, establishment: { select: { name: true } } },
+  });
+  if (!device || device.revokedAt) return null;
+  return {
+    deviceEnrollmentId: device.id,
+    tenantId: device.tenantId,
+    establishmentId: device.establishmentId,
+    establishmentName: device.establishment.name,
+  };
+}
+
+export async function resolveTabletSession(now: Date = new Date()): Promise<TabletSessionContext | null> {
+  const device = await resolveTabletDevice();
+  if (!device) return null;
+  const claims = readTabletSessionToken((await cookies()).get(TABLET_SESSION_COOKIE)?.value, getEnv().authSecret, now);
+  if (!claims || claims.deviceEnrollmentId !== device.deviceEnrollmentId) return null;
+  const staff = await prisma.staffMember.findFirst({
+    where: { id: claims.staffMemberId, establishmentId: device.establishmentId, active: true },
+    select: { id: true, displayName: true, pin: { select: { lockedAt: true } } },
+  });
+  if (!staff?.pin || staff.pin.lockedAt) return null;
+  return { ...device, staffMemberId: staff.id, staffDisplayName: staff.displayName };
 }

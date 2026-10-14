@@ -215,6 +215,7 @@ export default defineConfig({
         "src/lib/services/beneficiary-deadline-service.ts",
         "src/lib/security/tablet-pin.ts",
         "src/lib/security/tablet-session.ts",
+        "src/lib/services/survey-answer-parser.ts",
       ],
       // Le seuil FAIT ÉCHOUER la commande (`vitest run --coverage`). Un seuil qui
       // n'échoue pas n'est pas un garde-fou. À relever au fur et à mesure, jamais à

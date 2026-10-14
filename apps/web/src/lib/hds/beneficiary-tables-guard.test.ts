@@ -27,9 +27,11 @@ const DELEGATES = [
   "surveyAnswer",
 ];
 const DELEGATE_PATTERN = new RegExp(`\\.\\s*(?:${DELEGATES.join("|")})\\s*\\.\\s*(?:\\w+)\\s*\\(`);
-// Noms de tables SQL (@@map) — pour un $queryRaw / $executeRaw.
+// Noms de tables SQL (@@map) dans une requête brute ($queryRaw / $executeRaw) :
+// après FROM, INTO, UPDATE, JOIN ou TABLE — un nom de variable « beneficiaries » n'est
+// pas une requête.
 const TABLE_PATTERN =
-  /\b(?:beneficiaries|beneficiary_representatives|beneficiary_documents|signature_evidences|delivery_records|beneficiary_journal_entries|survey_responses|survey_answers)\b/;
+  /\b(?:FROM|INTO|UPDATE|JOIN|TABLE)\s+"?(?:beneficiaries|beneficiary_representatives|beneficiary_documents|signature_evidences|delivery_records|beneficiary_journal_entries|survey_responses|survey_answers)\b/i;
 
 function listSourceFiles(dir: string): string[] {
   return readdirSync(dir).flatMap((entry) => {
@@ -60,5 +62,7 @@ describe("tables usager — accessibles par le port seulement", () => {
     expect(DELEGATE_PATTERN.test("tx.surveyAnswer.createMany({})")).toBe(true);
     expect(DELEGATE_PATTERN.test("prisma.staffMember.findMany()")).toBe(false);
     expect(TABLE_PATTERN.test("SELECT * FROM survey_responses")).toBe(true);
+    expect(TABLE_PATTERN.test('INSERT INTO "beneficiaries" VALUES')).toBe(true);
+    expect(TABLE_PATTERN.test("const beneficiaries = await port.listBeneficiaries(scope)")).toBe(false);
   });
 });

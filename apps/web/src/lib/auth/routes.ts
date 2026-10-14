@@ -40,12 +40,21 @@ export const EMAIL_CONFIRMATION_PREFIX = "/confirmer-email";
 // Espace d'une structure inscrite seule (rôle PROSPECT_USER).
 export const PROSPECT_SPACE_PATH = "/espace";
 
+// Tablette terrain (lot C) : ni compte ni session Auth.js — l'autorisation vient de
+// l'APPAREIL ENREGISTRÉ et du code du salarié (resolveTabletSession, guards.ts). La
+// démonstration tourne en mémoire du navigateur sur des données fictives. Liste
+// EXACTE : tout sous-chemin reste protégé.
+export const TABLET_PATH = "/tablette";
+export const TABLET_DEMO_PATH = "/tablette/demonstration";
+const TABLET_PATHS: readonly string[] = [TABLET_PATH, TABLET_DEMO_PATH];
+
 export function classifyPath(pathname: string): PathAccess {
   if (pathname === "/login" || pathname.startsWith("/login/")) return "AUTH";
   if (PUBLIC_AUTH_PATHS.includes(pathname)) return "AUTH";
   // Un seul segment après /quiz/ : /quiz/<jeton>. /quiz seul ou /quiz/a/b restent protégés.
   if (pathname.startsWith(QUIZ_PUBLIC_PREFIX) && /^\/quiz\/[A-Za-z0-9_-]+$/.test(pathname)) return "ANONYMOUS";
   if (/^\/confirmer-email(?:\/[A-Za-z0-9_-]+)?$/.test(pathname)) return "ANONYMOUS";
+  if (TABLET_PATHS.includes(pathname)) return "ANONYMOUS";
   return "PROTECTED";
 }
 

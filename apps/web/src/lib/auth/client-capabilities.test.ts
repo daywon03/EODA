@@ -12,17 +12,17 @@ import {
 
 // Matrice CLIENT attendue, écrite une seconde fois ici volontairement (décisions N9).
 const EXPECTED: Record<ClientAccessRole, Record<ClientModule, ClientAccessLevel>> = {
-  DIRECTION: { DOCUMENTS: "FULL", DIAGNOSTIC: "FULL", TASKS: "FULL", TEAM: "FULL", MESSAGES: "FULL", CONTRACT: "FULL", ACCESS: "FULL" },
-  RESPONSABLE_QUALITE: { DOCUMENTS: "FULL", DIAGNOSTIC: "FULL", TASKS: "FULL", TEAM: "FULL", MESSAGES: "FULL", CONTRACT: "NONE", ACCESS: "NONE" },
-  ADMINISTRATIF: { DOCUMENTS: "FULL", DIAGNOSTIC: "NONE", TASKS: "FULL", TEAM: "NONE", MESSAGES: "FULL", CONTRACT: "NONE", ACCESS: "NONE" },
-  INTERVENANT: { DOCUMENTS: "NONE", DIAGNOSTIC: "NONE", TASKS: "OWN", TEAM: "OWN", MESSAGES: "NONE", CONTRACT: "NONE", ACCESS: "NONE" },
+  DIRECTION: { DOCUMENTS: "FULL", DIAGNOSTIC: "FULL", TASKS: "FULL", TEAM: "FULL", MESSAGES: "FULL", CONTRACT: "FULL", ACCESS: "FULL", TERRAIN: "FULL" },
+  RESPONSABLE_QUALITE: { DOCUMENTS: "FULL", DIAGNOSTIC: "FULL", TASKS: "FULL", TEAM: "FULL", MESSAGES: "FULL", CONTRACT: "NONE", ACCESS: "NONE", TERRAIN: "FULL" },
+  ADMINISTRATIF: { DOCUMENTS: "FULL", DIAGNOSTIC: "NONE", TASKS: "FULL", TEAM: "NONE", MESSAGES: "FULL", CONTRACT: "NONE", ACCESS: "NONE", TERRAIN: "NONE" },
+  INTERVENANT: { DOCUMENTS: "NONE", DIAGNOSTIC: "NONE", TASKS: "OWN", TEAM: "OWN", MESSAGES: "NONE", CONTRACT: "NONE", ACCESS: "NONE", TERRAIN: "NONE" },
 };
 
 describe("matrice client — chaque rôle d'accès × chaque module", () => {
   const cases = CLIENT_ACCESS_ROLES.flatMap((role) => CLIENT_MODULES.map((module) => [role, module] as const));
 
-  it("couvre 4 rôles × 7 modules", () => {
-    expect(cases).toHaveLength(28);
+  it("couvre 4 rôles × 8 modules", () => {
+    expect(cases).toHaveLength(32);
   });
 
   it.each(cases)("%s / %s", (role, module) => {

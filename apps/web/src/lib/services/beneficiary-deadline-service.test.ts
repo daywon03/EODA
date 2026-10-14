@@ -17,6 +17,7 @@ function person(id: string, startedOn: string, endedOn: string | null = null): B
     startedOn: new Date(startedOn),
     endedOn: endedOn ? new Date(endedOn) : null,
     referentStaffMemberId: null,
+    representative: null,
   };
 }
 

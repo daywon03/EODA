@@ -40,6 +40,9 @@ export const STRUCTURE_TABS: readonly StructureTab[] = [
   { id: "evaluation", label: "Auto-évaluation", segment: "evaluation", capability: "STRUCTURES_READ" },
   // Lot B (N10) : équipe de la structure et quiz de sensibilisation.
   { id: "equipe", label: "Équipe et formations", segment: "equipe", capability: "STRUCTURES_READ" },
+  // Lot C (terrain) : en lecture côté cabinet — la structure tient les dossiers.
+  { id: "personnes", label: "Personnes accompagnées", segment: "personnes", capability: "STRUCTURES_READ" },
+  { id: "enquetes", label: "Enquêtes", segment: "enquetes", capability: "STRUCTURES_READ" },
   { id: "mission", label: "Mission", segment: "mission", capability: "STRUCTURES_READ" },
   { id: "echanges", label: "Échanges", segment: "echanges", capability: "STRUCTURES_READ" },
   { id: "reglages", label: "Réglages", segment: "reglages", alsoMatches: ["modifier"], capability: "STRUCTURES_WRITE" },

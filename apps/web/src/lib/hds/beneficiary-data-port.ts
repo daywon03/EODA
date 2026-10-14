@@ -34,9 +34,10 @@ export type BeneficiarySummary = {
   startedOn: Date;
   endedOn: Date | null;
   referentStaffMemberId: string | null;
+  representative: { kind: RepresentativeKind; fullName: string } | null;
 };
 
-export type NewBeneficiary = Omit<BeneficiarySummary, "id" | "endedOn"> & {
+export type NewBeneficiary = Omit<BeneficiarySummary, "id" | "endedOn" | "representative"> & {
   birthDate: Date | null;
   phone: string | null;
   email: string | null;

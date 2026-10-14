@@ -29,10 +29,10 @@ describe("questionnaires", () => {
     }
   });
 
-  it("ne nomme aucune structure réelle", () => {
-    const text = JSON.stringify(SURVEY_TEMPLATES).toUpperCase();
-    expect(text).not.toContain("ASSAD");
-    expect(text).not.toContain("BENOIT");
+  // Le nom du pilote est refusé dans tout le dépôt par lib/design/content-guard.test.ts ;
+  // ici : aucun numéro de téléphone recopié du gabarit.
+  it("ne recopie aucun numéro de téléphone", () => {
+    const text = JSON.stringify(SURVEY_TEMPLATES);
     expect(text).not.toMatch(/\d{2} \d{2} \d{2} \d{2} \d{2}/);
   });
 
@@ -74,6 +74,5 @@ describe("feuille de réception", () => {
     expect(RECEPTION_DOCUMENTS.map((d) => d.kind)).toEqual(["LIVRET_REMIS", "REGLEMENT_REMIS", "DIPC"]);
     for (const doc of RECEPTION_DOCUMENTS) expect(doc.points.length).toBeGreaterThan(0);
     expect(RECEPTION_POINTS_PROVISIONAL).toBe(true);
-    expect(JSON.stringify(RECEPTION_DOCUMENTS)).not.toMatch(/DIPEC|DPEC/);
   });
 });

@@ -19,6 +19,8 @@ import {
   UserCog,
   UsersRound,
   Settings,
+  HeartHandshake,
+  MessageSquareHeart,
   type LucideIcon,
 } from "lucide-react";
 import type { NavIconKey } from "@/lib/design/navigation";
@@ -48,4 +50,6 @@ export const NAV_ICONS: Record<NavIconKey, LucideIcon> = {
   team: UserCog,
   staff: UsersRound,
   settings: Settings,
+  people: HeartHandshake,
+  surveys: MessageSquareHeart,
 };

@@ -152,7 +152,7 @@ export function isInStructureScope(scope: StructureScope, establishmentId: strin
 // côté cabinet, READ / WRITE se traduisent en STRUCTURES_READ / STRUCTURES_WRITE
 // (CONTRACT exige STRUCTURE_CONTRACT) ; côté client, en niveau d'accès du rôle
 // dans la structure (matrice client ci-dessous).
-export const CLIENT_MODULES = ["DOCUMENTS", "DIAGNOSTIC", "TASKS", "TEAM", "MESSAGES", "CONTRACT", "ACCESS"] as const;
+export const CLIENT_MODULES = ["DOCUMENTS", "DIAGNOSTIC", "TASKS", "TEAM", "MESSAGES", "CONTRACT", "ACCESS", "TERRAIN"] as const;
 export type ClientModule = (typeof CLIENT_MODULES)[number];
 export type AccessMode = "READ" | "WRITE";
 export type EstablishmentNeed = { module: ClientModule; mode: AccessMode };
@@ -170,6 +170,8 @@ export const NEED = {
   TEAM_WRITE: { module: "TEAM", mode: "WRITE" },
   ACCESS_READ: { module: "ACCESS", mode: "READ" },
   ACCESS_WRITE: { module: "ACCESS", mode: "WRITE" },
+  TERRAIN_READ: { module: "TERRAIN", mode: "READ" },
+  TERRAIN_WRITE: { module: "TERRAIN", mode: "WRITE" },
 } as const satisfies Record<string, EstablishmentNeed>;
 
 export function cabinetCapabilityFor(access: StructureAccess): CabinetCapability {
@@ -192,6 +194,8 @@ export function structureAccessFor(need: EstablishmentNeed): StructureAccess {
 // Les ÉCHANGES avec EODA (messages, rendez-vous) sont ouverts aux trois rôles de
 // bureau et fermés à l'intervenant — choix de cette tranche, à confirmer par Damon.
 // Le CONTRAT (montants, options) reste à la direction.
+// TERRAIN (lot C) : personnes accompagnées, enquêtes, tablettes et codes — direction
+// et responsable qualité seulement ; données de santé, verrouillées HDS (lib/hds/).
 export const CLIENT_ACCESS_ROLES = [
   "DIRECTION",
   "RESPONSABLE_QUALITE",
@@ -209,12 +213,13 @@ const ALL_FULL: Record<ClientModule, ClientAccessLevel> = {
   MESSAGES: "FULL",
   CONTRACT: "FULL",
   ACCESS: "FULL",
+  TERRAIN: "FULL",
 };
 
 const CLIENT_MATRIX: Record<ClientAccessRole, Record<ClientModule, ClientAccessLevel>> = {
   DIRECTION: ALL_FULL,
   RESPONSABLE_QUALITE: { ...ALL_FULL, CONTRACT: "NONE", ACCESS: "NONE" },
-  ADMINISTRATIF: { ...ALL_FULL, DIAGNOSTIC: "NONE", TEAM: "NONE", CONTRACT: "NONE", ACCESS: "NONE" },
+  ADMINISTRATIF: { ...ALL_FULL, DIAGNOSTIC: "NONE", TEAM: "NONE", CONTRACT: "NONE", ACCESS: "NONE", TERRAIN: "NONE" },
   INTERVENANT: {
     DOCUMENTS: "NONE",
     DIAGNOSTIC: "NONE",
@@ -223,6 +228,8 @@ const CLIENT_MATRIX: Record<ClientAccessRole, Record<ClientModule, ClientAccessL
     MESSAGES: "NONE",
     CONTRACT: "NONE",
     ACCESS: "NONE",
+    // L'intervenant travaille sur la TABLETTE (appareil + code), pas dans le portail.
+    TERRAIN: "NONE",
   },
 };
 
@@ -261,6 +268,7 @@ export const CLIENT_MODULE_LABELS: Record<ClientModule, string> = {
   MESSAGES: "Messages et rendez-vous",
   CONTRACT: "Contrat et options",
   ACCESS: "Paramètres et accès",
+  TERRAIN: "Personnes accompagnées et enquêtes",
 };
 
 export const CLIENT_LEVEL_LABELS: Record<ClientAccessLevel, string> = {

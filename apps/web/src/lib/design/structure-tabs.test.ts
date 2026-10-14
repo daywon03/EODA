@@ -9,7 +9,7 @@ import {
 
 describe("visibleStructureTabs", () => {
   it("montre les huit onglets livrés aux deux rôles qui écrivent, dans l'ordre de la maquette", () => {
-    const expected = ["overview", "documents", "criteres", "plan-action", "evaluation", "equipe", "mission", "echanges", "reglages"];
+    const expected = ["overview", "documents", "criteres", "plan-action", "evaluation", "equipe", "personnes", "enquetes", "mission", "echanges", "reglages"];
     expect(visibleStructureTabs("CABINET_ADMIN").map((t) => t.id)).toEqual(expected);
     expect(visibleStructureTabs("CABINET_EVALUATOR").map((t) => t.id)).toEqual(expected);
   });

@@ -23,6 +23,8 @@ export const CLIENT_DIAGNOSTIC_PATH = `${CLIENT_ROOT}/diagnostic`;
 export const CLIENT_PRACTICES_PATH = `${CLIENT_DIAGNOSTIC_PATH}/pratiques`;
 export const CLIENT_SETTINGS_PATH = `${CLIENT_ROOT}/parametres`;
 export const CLIENT_TEAM_PATH = `${CLIENT_ROOT}/equipe`;
+export const CLIENT_PEOPLE_PATH = `${CLIENT_ROOT}/personnes`;
+export const CLIENT_SURVEYS_PATH = `${CLIENT_ROOT}/enquetes`;
 
 export type ClientNavFacts = {
   // Le dernier message du fil vient d'EODA et attend une réponse.
@@ -44,6 +46,8 @@ const ENTRY_MODULE: Record<string, ClientModule | null> = {
   progress: "DIAGNOSTIC",
   messages: "MESSAGES",
   settings: "ACCESS",
+  people: "TERRAIN",
+  surveys: "TERRAIN",
 };
 
 export function canSeeClientEntry(accessRole: ClientAccessRole | null, id: string): boolean {
@@ -78,6 +82,11 @@ function allClientEntries(facts: ClientNavFacts): NavItem[] {
     // « Mon équipe » (N10) : équipe et quiz de sensibilisation ; l'intervenant y voit
     // ses propres quiz.
     { id: "team", href: CLIENT_TEAM_PATH, label: "Mon équipe", icon: "staff" },
+    // Lot C (terrain) : personnes accompagnées et enquêtes — direction et
+    // responsable qualité. Données de santé : verrouillées tant que l'hébergement
+    // n'est pas certifié HDS (les pages le disent).
+    { id: "people", href: CLIENT_PEOPLE_PATH, label: "Personnes accompagnées", icon: "people" },
+    { id: "surveys", href: CLIENT_SURVEYS_PATH, label: "Enquêtes", icon: "surveys" },
     // Paramètres (N9) : les accès de la structure — la direction seule les gère.
     { id: "settings", href: CLIENT_SETTINGS_PATH, label: "Paramètres", icon: "settings" },
   ];

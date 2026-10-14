@@ -31,7 +31,9 @@ export type NavIconKey =
   | "diagnostic"
   | "team"
   | "staff"
-  | "settings";
+  | "settings"
+  | "people"
+  | "surveys";
 
 export type NavItem = {
   id: string;
