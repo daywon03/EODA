@@ -7,6 +7,7 @@ import {
   SEED_CLIENT_USER,
   SEED_TENANT_ID,
 } from "@eoda/database/seed-data";
+import { DOCUMENT_TYPE_SEEDS, PILOT_DOCUMENT_TYPES } from "@eoda/database/document-types";
 
 // RÈGLE ZÉRO (bug 7 du test de bout en bout, 12/10/2026) : sur une base NEUVE, les
 // migrations s'exécutent AVANT le seed. Les mises à jour de données qu'elles portent
@@ -107,6 +108,62 @@ describe("seed — critères SAD mixte", () => {
     expect(SAD_MIXTE_CRITERIA.filter((c) => c.requirementLevel === "IMPERATIF").map((c) => c.code)).toEqual([
       "3.6.2",
     ]);
+  });
+});
+
+// Les lignes `('doctype-…', 'CODE', 'CATEGORIE'::"DocumentCategory", 'Libellé', false, NULL, false)`.
+function insertedDocumentTypesIn(sql: string) {
+  const pattern =
+    /\('(doctype-[a-z0-9-]+)', '([A-Z0-9_]+)', '([A-Z0-9_]+)'::"DocumentCategory", '((?:[^']|'')*)', false, NULL, false\)/g;
+  return [...sql.matchAll(pattern)].map((m) => ({
+    id: m[1],
+    code: m[2],
+    category: m[3],
+    label: m[4]!.replace(/''/g, "'"),
+  }));
+}
+
+describe("seed — types de document du référentiel du pilote", () => {
+  const sql = migrationSql("20261014120000_pilot_document_types");
+  const inserted = insertedDocumentTypesIn(sql);
+
+  it("reprend exactement les 19 types insérés par 20261014120000 (code, catégorie, libellé)", () => {
+    expect(inserted).toHaveLength(19);
+    expect(PILOT_DOCUMENT_TYPES.map(({ code, category, label }) => ({ code, category, label }))).toEqual(
+      inserted.map(({ code, category, label }) => ({ code, category, label }))
+    );
+  });
+
+  it("la migration est idempotente et n'écrase jamais un type existant", () => {
+    expect(sql).toMatch(/ON CONFLICT \("code"\) DO NOTHING;\s*$/);
+    expect(sql).not.toMatch(/\b(UPDATE|DELETE|DROP|ALTER)\b/);
+  });
+
+  it("identifiants stables dérivés du code", () => {
+    for (const row of inserted) expect(row.id).toBe(`doctype-${row.code!.toLowerCase().replace(/_/g, "-")}`);
+  });
+
+  it("aucun type réclamé à la structure, aucun dans la catégorie des sept documents de la loi 2002-2", () => {
+    for (const type of PILOT_DOCUMENT_TYPES) {
+      expect(REQUESTED_FROM_CLIENT_DOCUMENT_CODES).not.toContain(type.code);
+      expect(type.category).not.toBe("LOI_2002_2");
+    }
+  });
+
+  it("aucune périodicité posée : elles portent sur le document individuel, pas sur le modèle", () => {
+    for (const type of PILOT_DOCUMENT_TYPES) expect(type.expectedFrequency).toBeUndefined();
+  });
+
+  it("HDS : PAP, fiche des tâches et grille d'évaluation des besoins ne désignent que le modèle vierge", () => {
+    for (const code of ["FONCT_PAP_GABARIT", "FONCT_FICHE_TACHES_GABARIT", "FONCT_GRILLE_EVAL_BESOINS"]) {
+      expect(PILOT_DOCUMENT_TYPES.find((t) => t.code === code)?.label).toMatch(/modèle vierge/);
+    }
+  });
+
+  it("aucun code en double dans la liste complète du seed (66 types)", () => {
+    const codes = DOCUMENT_TYPE_SEEDS.map((t) => t.code);
+    expect(new Set(codes).size).toBe(codes.length);
+    expect(codes).toHaveLength(66);
   });
 });
 
