@@ -24,6 +24,8 @@ const QUIZ: QuizModule = {
     ],
     correctChoiceId: "a",
     explanation: "Parce que.",
+    pictogram: "hand" as const,
+    source: "Fixture de test.",
   })),
 };
 

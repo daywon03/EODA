@@ -1,11 +1,16 @@
 import type { QuizModule } from "./types";
 
-// Quiz « Bientraitance » — PROVISOIRE, à valider par Sandrine avant usage réel.
-// Sources : context/10 §« Maltraitance » (définition de la bientraitance, droit à
-// l'image, questions sensibles, vocabulaire HAS) ; référentiel HAS critère 3.11.1.
+// Quiz « Bientraitance » — v2, PROVISOIRE, à valider par Sandrine avant usage réel.
+// Réécrit sur le manuel d'évaluation HAS (juillet 2025), chapitre 2 « Les
+// professionnels » : critères évalués en entretien avec les professionnels (2.2.2 à
+// 2.2.5, 2.10.2) et 2.2.7 (l'ESSMS sensibilise à la confidentialité). 2.2.1 (liberté
+// d'aller et venir) n'est PAS repris : son champ d'application est « Établissement »,
+// il ne vise pas un service à domicile. Les gestes précis (expliquer le soin, fermer
+// la porte…) illustrent les « pratiques » que le manuel demande de connaître sans les
+// lister : ils sont à confirmer par Sandrine.
 export const BIENTRAITANCE_QUIZ: QuizModule = {
   code: "BIENTRAITANCE",
-  version: 1,
+  version: 2,
   title: "Bientraitance",
   shortTitle: "Bientraitance",
   pictogram: "heart",
@@ -13,13 +18,18 @@ export const BIENTRAITANCE_QUIZ: QuizModule = {
   retestMonths: 6,
   provisional: true,
   sources: [
-    "context/10-regles-mise-en-conformite.md — Maltraitance (définition de la bientraitance)",
-    "context/10-regles-mise-en-conformite.md — Droit à l'image, Questions sensibles",
-    "context/02-referentiel-has.md — critère 3.11.1",
+    "Manuel HAS juillet 2025 — critère 2.2.2 dignité et intégrité (impératif, tous ESSMS dont SAD), p. 80",
+    "Manuel HAS juillet 2025 — critère 2.2.3 vie privée et intimité (impératif, SAD), p. 81",
+    "Manuel HAS juillet 2025 — critère 2.2.4 opinion, croyances (impératif, SAD), p. 82",
+    "Manuel HAS juillet 2025 — critère 2.2.5 droit à l'image (impératif, SAD), p. 83",
+    "Manuel HAS juillet 2025 — critère 2.2.7 confidentialité (impératif, SAD), p. 85",
+    "Manuel HAS juillet 2025 — critère 2.10.2 sécurisation des données (standard, SAD), p. 112",
+    "Manuel HAS juillet 2025 — critère 3.1.1 définition commune de la bientraitance (standard, SAD), p. 114",
+    "context/10-regles-mise-en-conformite.md — Droit à l'image, Maltraitance (définition de la bientraitance)",
   ],
   questions: [
     {
-      id: "bt-1",
+      id: "bt-v2-1",
       prompt: "La bientraitance, c'est d'abord…",
       choices: [
         { id: "a", label: "Faire vite pour finir à l'heure" },
@@ -27,73 +37,108 @@ export const BIENTRAITANCE_QUIZ: QuizModule = {
         { id: "c", label: "Décider à la place de la personne" },
       ],
       correctChoiceId: "b",
-      explanation: "La bientraitance part du respect de la personne et de ce qu'elle veut.",
+      explanation: "Être bientraitant, c'est respecter la personne, ce qu'elle veut et ce qu'elle choisit.",
+      pictogram: "heart-handshake",
+      source:
+        "Manuel HAS juillet 2025, critère 3.1.1, p. 114 — « L'ESSMS partage une définition commune de la bientraitance avec l'ensemble des acteurs (…) professionnels » ; context/10 §Maltraitance (définition de la bientraitance).",
     },
     {
-      id: "bt-2",
-      prompt: "Avant d'entrer chez la personne accompagnée, que faites-vous ?",
+      id: "bt-v2-2",
+      prompt: "Pendant un soin, vous parlez à la personne. Pourquoi ?",
       choices: [
-        { id: "a", label: "Je frappe et j'attends sa réponse" },
-        { id: "b", label: "J'entre directement avec ma clé" },
-        { id: "c", label: "J'appelle la famille" },
+        { id: "a", label: "Pour lui expliquer ce que je fais" },
+        { id: "b", label: "Je ne parle pas, pour aller plus vite" },
+        { id: "c", label: "Je parle seulement à sa famille" },
       ],
       correctChoiceId: "a",
-      explanation: "Le domicile est le lieu de vie de la personne : on s'annonce.",
+      explanation: "Expliquer chaque geste respecte la dignité de la personne et la rassure.",
+      pictogram: "message-circle",
+      source:
+        "Manuel HAS juillet 2025, critère 2.2.2, p. 80 — entretien avec les professionnels : « connaissent les pratiques qui favorisent le respect de la dignité et de l'intégrité ». Geste précis à valider.",
     },
     {
-      id: "bt-3",
+      id: "bt-v2-3",
+      prompt: "Pendant la toilette, que faites-vous ?",
+      choices: [
+        { id: "a", label: "Je laisse la porte ouverte" },
+        { id: "b", label: "Je demande au voisin de m'aider" },
+        { id: "c", label: "Je ferme la porte et je couvre la personne" },
+      ],
+      correctChoiceId: "c",
+      explanation: "Fermer la porte et couvrir le corps protège l'intimité de la personne.",
+      pictogram: "shower-head",
+      source:
+        "Manuel HAS juillet 2025, critère 2.2.3, p. 81 — entretien avec les professionnels : « connaissent les pratiques qui favorisent le respect de la vie privée et de l'intimité ». Geste précis à valider.",
+    },
+    {
+      id: "bt-v2-4",
       prompt: "La personne refuse sa toilette aujourd'hui. Que faites-vous ?",
       choices: [
         { id: "a", label: "Je la fais quand même" },
-        { id: "b", label: "Je pars sans rien dire" },
-        { id: "c", label: "J'écoute, je propose plus tard, je préviens mon responsable" },
-      ],
-      correctChoiceId: "c",
-      explanation: "On respecte le refus, on cherche une solution et on transmet l'information.",
-    },
-    {
-      id: "bt-4",
-      prompt: "Pouvez-vous prendre la personne en photo pour la famille ?",
-      choices: [
-        { id: "a", label: "Oui, si la famille le demande" },
-        { id: "b", label: "Seulement si la personne a donné son accord" },
-        { id: "c", label: "Oui, toujours" },
+        { id: "b", label: "J'écoute, je propose plus tard et je préviens le service" },
+        { id: "c", label: "Je pars sans rien dire" },
       ],
       correctChoiceId: "b",
-      explanation: "Aucune photo sans l'accord libre et éclairé de la personne.",
+      explanation: "On respecte le refus. On cherche une autre solution et on prévient le service.",
+      pictogram: "hand",
+      source:
+        "Manuel HAS juillet 2025, critère 2.2.2, p. 80 — respect de la dignité et de l'intégrité (pratiques à connaître et à mettre en œuvre). Conduite précise à valider.",
     },
     {
-      id: "bt-5",
-      prompt: "Pendant les soins, comment parlez-vous à la personne ?",
+      id: "bt-v2-5",
+      prompt: "La personne a une religion différente de la vôtre. Vous…",
       choices: [
-        { id: "a", label: "Je lui explique ce que je fais" },
-        { id: "b", label: "Je parle au téléphone en même temps" },
-        { id: "c", label: "Je ne dis rien pour aller plus vite" },
+        { id: "a", label: "Respectez sa religion, sans donner votre avis" },
+        { id: "b", label: "Essayez de la faire changer d'avis" },
+        { id: "c", label: "Refusez d'aller chez elle" },
       ],
       correctChoiceId: "a",
-      explanation: "Expliquer chaque geste rassure la personne et respecte sa dignité.",
+      explanation: "Chacun est libre de ses idées et de ses croyances. On les respecte.",
+      pictogram: "church",
+      source:
+        "Manuel HAS juillet 2025, critère 2.2.4, p. 82 — entretien avec les professionnels : « connaissent les pratiques qui favorisent le respect de la liberté d'opinion, des croyances et de la vie spirituelle ».",
     },
     {
-      id: "bt-6",
-      prompt: "La personne veut garder ses habitudes de repas. Que faites-vous ?",
+      id: "bt-v2-6",
+      prompt: "Pouvez-vous prendre la personne en photo ?",
       choices: [
-        { id: "a", label: "J'impose mes habitudes" },
-        { id: "b", label: "Je respecte ses goûts et ses horaires" },
-        { id: "c", label: "Je demande à un voisin" },
-      ],
-      correctChoiceId: "b",
-      explanation: "Les habitudes de vie de la personne font partie de son accompagnement.",
-    },
-    {
-      id: "bt-7",
-      prompt: "Une question délicate se pose devant la famille. Que faire ?",
-      choices: [
-        { id: "a", label: "Ne jamais en reparler" },
-        { id: "b", label: "Demander à la famille de répondre" },
-        { id: "c", label: "La reposer plus tard à la personne seule" },
+        { id: "a", label: "Oui, si la famille le demande" },
+        { id: "b", label: "Oui, toujours" },
+        { id: "c", label: "Seulement si la personne a donné son accord" },
       ],
       correctChoiceId: "c",
-      explanation: "Certaines questions se posent à la personne seule, sans pression.",
+      explanation: "Pas de photo ni de vidéo sans l'accord de la personne. On respecte son choix.",
+      pictogram: "camera",
+      source:
+        "Manuel HAS juillet 2025, critère 2.2.5, p. 83 — « Les professionnels recueillent le choix de la personne (…) sur son droit à l'image » et « respectent le choix exprimé » ; context/10 §Droit à l'image (consentement libre et éclairé).",
+    },
+    {
+      id: "bt-v2-7",
+      prompt: "Un voisin demande des nouvelles de la santé de la personne. Vous…",
+      choices: [
+        { id: "a", label: "Ne dites rien sur sa santé ni sur sa vie" },
+        { id: "b", label: "Racontez tout, il connaît bien la personne" },
+        { id: "c", label: "Lui montrez le cahier de liaison" },
+      ],
+      correctChoiceId: "a",
+      explanation: "Ce que vous savez sur la personne reste secret. Vous n'en parlez qu'au service.",
+      pictogram: "lock",
+      source:
+        "Manuel HAS juillet 2025, critère 2.2.7, p. 85 — « L'ESSMS (…) sensibilise les professionnels au respect des règles de confidentialité et de protection des informations » ; critère 2.10.2, p. 112.",
+    },
+    {
+      id: "bt-v2-8",
+      prompt: "Votre mot de passe pour l'outil du service, vous…",
+      choices: [
+        { id: "a", label: "Le prêtez à une collègue" },
+        { id: "b", label: "Le gardez pour vous seul" },
+        { id: "c", label: "L'écrivez sur la porte du frigo" },
+      ],
+      correctChoiceId: "b",
+      explanation: "Le mot de passe est personnel. Il protège les informations des personnes.",
+      pictogram: "key-round",
+      source:
+        "Manuel HAS juillet 2025, critère 2.10.2, p. 112 — « Les professionnels connaissent les règles de sécurisation des données » ; observation : « utilisation des identifiants et mots de passe personnels ».",
     },
   ],
 };

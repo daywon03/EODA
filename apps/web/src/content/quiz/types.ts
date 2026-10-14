@@ -9,8 +9,15 @@
 // tentative garde la version qu'elle a passée (QuizAttempt.moduleVersion), c'est ce
 // qui rend l'émargement opposable.
 //
-// Tous les modules livrés sont PROVISOIRES : rédigés à partir des modes opératoires
-// et du référentiel HAS, ils attendent la relecture de Sandrine (`provisional`).
+// Tous les modules livrés sont PROVISOIRES : rédigés à partir du manuel d'évaluation
+// HAS (juillet 2025), des modes opératoires et des règles dites en séance, ils
+// attendent la relecture de Sandrine (`provisional`).
+//
+// Identifiants de questions : ils portent la version du module (`bt-v2-1`). Une
+// nouvelle version change donc tous les identifiants, et une réponse préparée sur
+// l'ancienne version (page ouverte avant la mise en ligne) est ignorée par la
+// correction — le quiz est déclaré incomplet au lieu d'être noté contre des
+// questions que le salarié n'a pas vues. Vérifié par `quiz-content.test.ts`.
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const QUIZ_MODULE_CODES = [
@@ -26,6 +33,37 @@ export type QuizModuleCode = (typeof QUIZ_MODULE_CODES)[number];
 // Pictogrammes : icônes Lucide nommées (CLAUDE.md §7 — jamais ARASAAC ni SantéBD).
 export type QuizPictogram = "heart" | "shield" | "siren" | "droplets" | "message";
 
+// Pictogramme SUGGÉRÉ par question (nom d'icône Lucide), pour la relecture FALC et un
+// futur affichage — il n'est pas encore rendu à l'écran.
+export type QuizQuestionPictogram =
+  | "message-circle"
+  | "shower-head"
+  | "church"
+  | "camera"
+  | "hand-heart"
+  | "lock"
+  | "key-round"
+  | "heart-handshake"
+  | "glass-water"
+  | "wallet"
+  | "phone"
+  | "battery-low"
+  | "triangle-alert"
+  | "user-round-check"
+  | "clipboard-list"
+  | "users"
+  | "notebook-tabs"
+  | "siren"
+  | "door-closed"
+  | "hand"
+  | "droplets"
+  | "trash-2"
+  | "thermometer"
+  | "wind"
+  | "book-open"
+  | "megaphone"
+  | "mail-check";
+
 export type QuizChoice = { id: string; label: string };
 
 export type QuizQuestion = {
@@ -36,6 +74,11 @@ export type QuizQuestion = {
   correctChoiceId: string;
   // Montrée APRÈS la réponse : on sensibilise, on ne piège pas.
   explanation: string;
+  pictogram: QuizQuestionPictogram;
+  // D'où vient la bonne réponse : critère et élément d'évaluation du manuel HAS (page),
+  // ou section de context/10 / context/11. Réservé au cabinet : jamais envoyé au
+  // salarié (la route publique ne transmet qu'identifiant, intitulé et choix).
+  source: string;
 };
 
 export type QuizModule = {

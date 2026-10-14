@@ -44,14 +44,46 @@ describe("modules de quiz livrés", () => {
   });
 
   it("aucun nom réel, et « sensibiliser » jamais « former »", () => {
-    const texts = QUIZ_MODULES.flatMap((m) => [
-      m.title,
-      m.shortTitle,
-      ...m.questions.flatMap((q) => [q.prompt, q.explanation, ...q.choices.map((c) => c.label)]),
-    ]);
+    const texts = staffVisibleTexts();
     // Motif assemblé : le nom du client pilote ne s'écrit nulle part, même dans un test.
     const forbidden = new RegExp(["AS", "SAD|Sandrine|\\bformer\\b|\\bformations?\\b"].join(""), "i");
     for (const text of texts) expect(text).not.toMatch(forbidden);
+  });
+});
+
+// Textes que voit le salarié (titre, question, choix, explication) — jamais la source.
+function staffVisibleTexts(): string[] {
+  return QUIZ_MODULES.flatMap((m) => [
+    m.title,
+    m.shortTitle,
+    ...m.questions.flatMap((q) => [q.prompt, q.explanation, ...q.choices.map((c) => c.label)]),
+  ]);
+}
+
+describe("sources du manuel HAS et FALC", () => {
+  it.each(QUIZ_MODULES.map((m) => [m.code, m] as const))("%s : mention « Manuel HAS juillet 2025 »", (_code, quiz) => {
+    expect(quiz.sources.some((s) => s.startsWith("Manuel HAS juillet 2025"))).toBe(true);
+  });
+
+  it.each(QUIZ_MODULES.flatMap((m) => m.questions.map((q) => [q.id, q] as const)))(
+    "%s : source précise et non vide",
+    (_id, question) => {
+      expect(question.source.trim().length).toBeGreaterThan(0);
+      // Une page du manuel, une section de context/10 ou 11, ou l'aveu « hors manuel ».
+      expect(question.source).toMatch(/p\. \d+|context\/1[01]|hors manuel/i);
+    }
+  );
+
+  it("aucun jargon d'évaluation ni sigle non expliqué dans ce que lit le salarié", () => {
+    const forbidden =
+      /\bE\.\s?E\.|traceur|élément d'évaluation|\bcrit[èe]res?\b|impératif|\bESSMS\b|Synaé|\bDIPE?C\b|\bDPEC\b|\bEIG?\b|\bPCA\b/i;
+    for (const text of staffVisibleTexts()) expect(text).not.toMatch(forbidden);
+  });
+
+  it("les identifiants de questions portent la version du module (une réponse d'une ancienne version est ignorée)", () => {
+    for (const quiz of QUIZ_MODULES) {
+      for (const question of quiz.questions) expect(question.id).toContain(`-v${quiz.version}-`);
+    }
   });
 });
 
