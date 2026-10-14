@@ -1,5 +1,5 @@
 import { DIPC_DELIVERY_MAX_DAYS } from "@/content/enquete/reception";
-import type { BeneficiaryDocumentKind, BeneficiaryDocumentSummary, BeneficiarySummary } from "@/lib/hds/beneficiary-data-port";
+import type { BeneficiaryDocumentKind, BeneficiaryDocumentSummary, BeneficiaryTimeline } from "@/lib/hds/beneficiary-data-port";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ÉCHÉANCES DU DOSSIER — service PUR (lot C, alertes D12).
@@ -49,12 +49,17 @@ function isWithinWarning(dueOn: Date, today: Date): boolean {
   return startOfDay(dueOn) <= startOfDay(addDays(today, DEADLINE_WARNING_DAYS));
 }
 
+// Accompagnement en cours ce jour-là (une fin posée aujourd'hui vaut fin).
+export function isActiveOn(person: Pick<BeneficiaryTimeline, "endedOn">, today: Date): boolean {
+  return !person.endedOn || startOfDay(person.endedOn) > startOfDay(today);
+}
+
 export function deriveDeadlineAlerts(
-  beneficiaries: readonly BeneficiarySummary[],
+  beneficiaries: readonly BeneficiaryTimeline[],
   documents: readonly BeneficiaryDocumentSummary[],
   today: Date
 ): DeadlineAlert[] {
-  const active = beneficiaries.filter((b) => !b.endedOn || startOfDay(b.endedOn) > startOfDay(today));
+  const active = beneficiaries.filter((b) => isActiveOn(b, today));
   const alerts: DeadlineAlert[] = [];
   for (const person of active) {
     const own = documents.filter((doc) => doc.beneficiaryId === person.id);

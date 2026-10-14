@@ -2,7 +2,7 @@ import { Download, MessageSquareHeart } from "lucide-react";
 import { ProgressBar } from "@/components/ui/progress-bar";
 import { EmptyState } from "@/components/ui/empty-state";
 import { gradeLabel, type SatisfactionGrade, type TemplateStats } from "@/lib/services/survey-stats-service";
-import type { TerrainBoard } from "@/lib/actions/terrain-read";
+import type { TerrainSurveyBoard } from "@/lib/actions/terrain-read";
 import { SurveyPlanForm } from "./SurveyPlanForm";
 
 // Enquêtes de satisfaction (maquette « Espace structure », A5) : avancement,
@@ -60,7 +60,7 @@ function StatsSection({ stats }: { stats: TemplateStats }) {
   );
 }
 
-type Props = { board: TerrainBoard; establishmentId: string; canWrite: boolean };
+type Props = { board: TerrainSurveyBoard; establishmentId: string; canWrite: boolean };
 
 export function SurveyBoard({ board, establishmentId, canWrite }: Props) {
   const ideas = board.surveyStats.flatMap((s) => [

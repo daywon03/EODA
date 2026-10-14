@@ -307,7 +307,12 @@ Détail complet et état d'avancement : `specs/02-architecture-technique.md` §4
   de démarrer. Ne **jamais** écrire `prisma.beneficiary…` / `prisma.survey…` ailleurs que
   dans `lib/hds/prisma-beneficiary-data-adapter.ts` (test qui échoue), ne jamais poser
   `HDS_BACKEND_ENABLED` sur l'infrastructure actuelle, et ne jamais « tester » avec une
-  vraie personne : les écrans d'écriture affichent l'état verrouillé et se démontrent en
+  vraie personne. **Le cabinet ne lit que des chiffres** (décision de Damon, 14/10/2026,
+  minimisation RGPD/HDS ; ADR 20261014 point 8) : la liste nominative est réservée à la
+  structure — `getPeopleBoard` répond `notFound()` à un compte cabinet, qui passe par
+  `getPeopleAggregates` / `getSurveyBoard` et `listBeneficiaryTimelines` (identifiant +
+  dates, aucun champ nominatif sélectionné). Ne jamais « rendre service » en rouvrant la
+  liste côté cabinet. Les écrans d'écriture affichent l'état verrouillé et se démontrent en
   **mode démonstration** (en mémoire du navigateur, données fictives, port jamais appelé).
   Les appareils enregistrés et codes des salariés (`DeviceEnrollment`, `StaffPin`) ne
   sont pas des données usager et restent sur l'infrastructure actuelle.
@@ -428,7 +433,10 @@ Détail complet et état d'avancement : `specs/02-architecture-technique.md` §4
   cabinet : `STRUCTURES_READ`, en lecture) : `/dashboard/client/personnes` (dossiers, tablettes
   et codes), `/dashboard/client/enquetes` (statistiques AGRÉGÉES, jamais nominatives ; plan
   d'action PROPOSÉ sous 75 %, `ActionItem` source `ENQUETE` recalculé côté serveur ; export
-  CSV agrégé `/api/export/enquete/[id]`), onglets `personnes` / `enquetes` de la fiche.
+  CSV agrégé `/api/export/enquete/[id]`), onglets `personnes` / `enquetes` de la fiche —
+  l'onglet cabinet `personnes` n'affiche **que des agrégats** (nombre de personnes,
+  feuilles de réception à jour / à remettre ou à renouveler, enquêtes faites, échéances ;
+  `beneficiary-aggregate-service.ts`), jamais de liste nominative (§6).
   **Tablette** `/tablette` (route ANONYMOUS de `classifyPath`) : « jamais un code seul » —
   appareil enregistré par la structure (`DeviceEnrollment`, jeton en cookie httpOnly,
   empreinte seule en base) + fiche salarié + code de 6 chiffres (`StaffPin`, scrypt, blocage

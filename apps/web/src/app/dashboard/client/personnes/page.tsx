@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { requireClientEstablishment } from "@/lib/auth/guards";
 import { clientAllows, NEED } from "@/lib/auth/capabilities";
-import { getTerrainBoard } from "@/lib/actions/terrain-read";
+import { getPeopleBoard } from "@/lib/actions/terrain-read";
 import { getTabletAdmin } from "@/lib/actions/tablet";
 import { HdsLockedNotice } from "@/components/terrain/HdsLockedNotice";
 import { PeopleBoard } from "@/components/terrain/PeopleBoard";
@@ -24,7 +24,7 @@ export default async function ClientPeoplePage() {
     );
   }
   const canWrite = accessRole !== null && clientAllows(accessRole, NEED.TERRAIN_WRITE);
-  const [board, tablets] = await Promise.all([getTerrainBoard(establishment.id), getTabletAdmin(establishment.id)]);
+  const [board, tablets] = await Promise.all([getPeopleBoard(establishment.id), getTabletAdmin(establishment.id)]);
 
   return (
     <div className="flex flex-col gap-6">

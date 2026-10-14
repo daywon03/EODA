@@ -3,6 +3,7 @@ import type {
   BeneficiaryDataPort,
   BeneficiaryDocumentSummary,
   BeneficiarySummary,
+  BeneficiaryTimeline,
   JournalEntry,
   SurveyResponseRecord,
 } from "./beneficiary-data-port";
@@ -20,6 +21,10 @@ export class LockedBeneficiaryDataAdapter implements BeneficiaryDataPort {
   readonly isAvailable = false;
 
   async listBeneficiaries(): Promise<BeneficiarySummary[]> {
+    return [];
+  }
+
+  async listBeneficiaryTimelines(): Promise<BeneficiaryTimeline[]> {
     return [];
   }
 

@@ -129,6 +129,7 @@ describe("adaptateur par défaut — verrouillé", () => {
   it("rend vide chaque lecture", async () => {
     const port = getBeneficiaryDataPort();
     expect(await port.listBeneficiaries(SCOPE)).toEqual([]);
+    expect(await port.listBeneficiaryTimelines(SCOPE)).toEqual([]);
     expect(await port.listBeneficiaryDocuments(SCOPE)).toEqual([]);
     expect(await port.listJournal(SCOPE, "b1")).toEqual([]);
     expect(await port.listSurveyResponses(SCOPE, null)).toEqual([]);

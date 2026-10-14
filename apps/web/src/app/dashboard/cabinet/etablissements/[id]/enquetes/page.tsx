@@ -1,6 +1,6 @@
 import { requireEstablishmentInTenant } from "@/lib/auth/guards";
 import { hasCabinetCapability } from "@/lib/auth/capabilities";
-import { getTerrainBoard } from "@/lib/actions/terrain-read";
+import { getSurveyBoard } from "@/lib/actions/terrain-read";
 import { HdsLockedNotice } from "@/components/terrain/HdsLockedNotice";
 import { SurveyBoard } from "@/components/terrain/SurveyBoard";
 
@@ -14,7 +14,7 @@ type Props = { params: Promise<{ id: string }> };
 export default async function StructureSurveysPage({ params }: Props) {
   const { id } = await params;
   const { role } = await requireEstablishmentInTenant(id, "READ");
-  const board = await getTerrainBoard(id);
+  const board = await getSurveyBoard(id);
 
   return (
     <section aria-labelledby="enquetes-titre" className="flex flex-col gap-4">

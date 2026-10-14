@@ -37,7 +37,12 @@ export type BeneficiarySummary = {
   representative: { kind: RepresentativeKind; fullName: string } | null;
 };
 
-export type NewBeneficiary = Omit<BeneficiarySummary, "id" | "endedOn" | "representative"> & {
+// Ce que le CABINET lit d'une personne accompagnée (décision de Damon, 14/10/2026 —
+// minimisation RGPD/HDS) : un identifiant opaque et deux dates, de quoi compter et
+// dériver des échéances. Ni nom, ni adresse, ni GIR, ni heures, ni représentant.
+export type BeneficiaryTimeline = Pick<BeneficiarySummary, "id" | "startedOn" | "endedOn">;
+
+export type NewBeneficiary =Omit<BeneficiarySummary, "id" | "endedOn" | "representative"> & {
   birthDate: Date | null;
   phone: string | null;
   email: string | null;
@@ -111,7 +116,11 @@ export interface BeneficiaryDataPort {
   // drapeau pour afficher l'état honnête AVANT que la personne ne remplisse quoi que ce soit.
   readonly isAvailable: boolean;
 
+  // Liste NOMINATIVE : réservée à la structure (direction, responsable qualité, tablette).
   listBeneficiaries(scope: BeneficiaryScope): Promise<BeneficiarySummary[]>;
+  // Lecture MINIMALE, la seule que le cabinet emprunte : la requête ne sélectionne
+  // aucun champ nominatif, ils ne quittent donc jamais la base.
+  listBeneficiaryTimelines(scope: BeneficiaryScope): Promise<BeneficiaryTimeline[]>;
   createBeneficiary(scope: BeneficiaryScope, input: NewBeneficiary): Promise<{ id: string }>;
 
   recordSignedDocument(scope: BeneficiaryScope, input: NewSignedDocument): Promise<{ documentId: string }>;

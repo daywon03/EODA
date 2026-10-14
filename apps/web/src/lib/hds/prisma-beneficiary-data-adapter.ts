@@ -4,6 +4,7 @@ import type {
   BeneficiaryDocumentSummary,
   BeneficiaryScope,
   BeneficiarySummary,
+  BeneficiaryTimeline,
   JournalEntry,
   NewBeneficiary,
   NewJournalEntry,
@@ -43,6 +44,15 @@ export class PrismaBeneficiaryDataAdapter implements BeneficiaryDataPort {
       referentStaffMemberId: row.referentStaffMemberId,
       representative: row.representatives[0] ?? null,
     }));
+  }
+
+  // `select` explicite : aucun champ nominatif n'est lu en base pour le cabinet.
+  async listBeneficiaryTimelines(scope: BeneficiaryScope): Promise<BeneficiaryTimeline[]> {
+    return prisma.beneficiary.findMany({
+      where: { tenantId: scope.tenantId, establishmentId: scope.establishmentId },
+      select: { id: true, startedOn: true, endedOn: true },
+      orderBy: { startedOn: "asc" },
+    });
   }
 
   async createBeneficiary(scope: BeneficiaryScope, input: NewBeneficiary): Promise<{ id: string }> {

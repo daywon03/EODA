@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { requireClientEstablishment } from "@/lib/auth/guards";
 import { clientAllows, NEED } from "@/lib/auth/capabilities";
-import { getTerrainBoard } from "@/lib/actions/terrain-read";
+import { getSurveyBoard } from "@/lib/actions/terrain-read";
 import { HdsLockedNotice } from "@/components/terrain/HdsLockedNotice";
 import { SurveyBoard } from "@/components/terrain/SurveyBoard";
 
@@ -20,7 +20,7 @@ export default async function ClientSurveysPage() {
       </div>
     );
   }
-  const board = await getTerrainBoard(establishment.id);
+  const board = await getSurveyBoard(establishment.id);
   const canWrite = accessRole !== null && clientAllows(accessRole, NEED.TERRAIN_WRITE);
 
   return (

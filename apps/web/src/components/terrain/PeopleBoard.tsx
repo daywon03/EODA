@@ -2,7 +2,7 @@ import { CalendarClock, Check, Circle, HeartHandshake } from "lucide-react";
 import { EmptyState } from "@/components/ui/empty-state";
 import { cn } from "@/lib/utils";
 import { formatDate } from "@/lib/services/date-format-service";
-import type { TerrainBoard } from "@/lib/actions/terrain-read";
+import type { TerrainPeopleBoard } from "@/lib/actions/terrain-read";
 
 // Liste des personnes accompagnées (maquette « Espace structure », A3). La pastille
 // d'enquête porte un glyphe ET un mot (jamais la couleur seule) ; le GIR est un repère
@@ -19,7 +19,7 @@ const ALERT_LABEL = {
   RENOUVELLEMENT: "À revoir",
 } as const;
 
-export function PeopleBoard({ board }: { board: TerrainBoard }) {
+export function PeopleBoard({ board }: { board: TerrainPeopleBoard }) {
   return (
     <div className="flex flex-col gap-6">
       {board.alerts.length > 0 && (

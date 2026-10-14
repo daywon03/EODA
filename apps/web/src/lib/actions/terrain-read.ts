@@ -2,22 +2,28 @@
 
 import { prisma } from "@eoda/database";
 import { notFound } from "next/navigation";
-import { requireEstablishmentAccess } from "@/lib/auth/guards";
+import { requireEstablishmentAccess, type EstablishmentAccessContext } from "@/lib/auth/guards";
 import { NEED } from "@/lib/auth/capabilities";
-import { getBeneficiaryDataPort } from "@/lib/hds";
+import { getBeneficiaryDataPort, type BeneficiaryScope, type SurveyResponseRecord } from "@/lib/hds";
 import { SURVEY_CAMPAIGN_MONTHS, SURVEY_TEMPLATES } from "@/content/enquete";
 import { computeTemplateStats, type TemplateStats } from "@/lib/services/survey-stats-service";
 import { buildSurveyCsv, proposeSurveyActions, type SurveyActionProposal } from "@/lib/services/survey-report-service";
-import { deriveDeadlineAlerts, type DeadlineAlert } from "@/lib/services/beneficiary-deadline-service";
+import { deriveDeadlineAlerts, isActiveOn, type DeadlineAlert } from "@/lib/services/beneficiary-deadline-service";
+import { computeBeneficiaryAggregates, type BeneficiaryAggregates } from "@/lib/services/beneficiary-aggregate-service";
 import { buildEodaFileName } from "@/lib/services/document-naming-service";
 import { recordAuditEvent } from "@/lib/services/audit-log-service";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TERRAIN — LECTURES (lot C). Garde : requireEstablishmentAccess(id, TERRAIN_READ)
-// — direction et responsable qualité côté structure, STRUCTURES_READ côté cabinet
-// (« mêmes onglets en lecture »). Toutes les données usager passent par le port :
-// avec le verrou HDS fermé, elles sont vides et `hdsAvailable` vaut false — l'écran
-// le dit, il n'invente rien.
+// — direction et responsable qualité côté structure, STRUCTURES_READ côté cabinet.
+// Toutes les données usager passent par le port : avec le verrou HDS fermé, elles
+// sont vides et `hdsAvailable` vaut false — l'écran le dit, il n'invente rien.
+//
+// MINIMISATION (décision de Damon, 14/10/2026) : la liste NOMINATIVE
+// (`getPeopleBoard`) est réservée à la structure ; un compte cabinet y reçoit
+// `notFound()`. Le cabinet lit des chiffres (`getPeopleAggregates`) et les
+// statistiques d'enquête, calculés sur `listBeneficiaryTimelines` — qui ne
+// sélectionne aucun champ nominatif.
 // ─────────────────────────────────────────────────────────────────────────────
 
 export type PeopleRow = {
@@ -28,14 +34,22 @@ export type PeopleRow = {
   surveyDone: boolean;
 };
 
-export type TerrainBoard = {
+export type TerrainPeopleBoard = {
   hdsAvailable: boolean;
   people: PeopleRow[];
   alerts: (DeadlineAlert & { name: string })[];
+};
+
+export type TerrainPeopleAggregates = { hdsAvailable: boolean; aggregates: BeneficiaryAggregates };
+
+export type TerrainSurveyBoard = {
+  hdsAvailable: boolean;
   surveyStats: TemplateStats[];
   proposals: SurveyActionProposal[];
   coverage: { done: number; total: number; personne: number; famille: number };
 };
+
+type TerrainContext = { scope: BeneficiaryScope; name: string; access: EstablishmentAccessContext };
 
 function campaignStart(now: Date): Date {
   const start = new Date(now.getTime());
@@ -43,18 +57,25 @@ function campaignStart(now: Date): Date {
   return start;
 }
 
-async function scopeOf(establishmentId: unknown): Promise<{ tenantId: string; establishmentId: string; name: string }> {
+async function contextOf(establishmentId: unknown): Promise<TerrainContext> {
   if (typeof establishmentId !== "string" || establishmentId.length === 0) notFound();
   const access = await requireEstablishmentAccess(establishmentId, NEED.TERRAIN_READ);
   const row = await prisma.establishment.findUniqueOrThrow({
     where: { id: access.establishmentId },
     select: { tenantId: true, name: true },
   });
-  return { tenantId: row.tenantId, establishmentId: access.establishmentId, name: row.name };
+  return { scope: { tenantId: row.tenantId, establishmentId: access.establishmentId }, name: row.name, access };
 }
 
-export async function getTerrainBoard(establishmentId: string): Promise<TerrainBoard> {
-  const scope = await scopeOf(establishmentId);
+function surveyedIdsOf(responses: readonly SurveyResponseRecord[]): Set<string> {
+  return new Set(responses.flatMap((r) => (r.beneficiaryId ? [r.beneficiaryId] : [])));
+}
+
+// Liste nominative — STRUCTURE seulement. Le refus est ici, côté serveur : masquer
+// l'onglet ne suffirait pas.
+export async function getPeopleBoard(establishmentId: string): Promise<TerrainPeopleBoard> {
+  const { scope, access } = await contextOf(establishmentId);
+  if (!access.isClient) notFound();
   const port = getBeneficiaryDataPort();
   const now = new Date();
   const [beneficiaries, documents, responses] = await Promise.all([
@@ -62,24 +83,57 @@ export async function getTerrainBoard(establishmentId: string): Promise<TerrainB
     port.listBeneficiaryDocuments(scope),
     port.listSurveyResponses(scope, campaignStart(now)),
   ]);
-  const surveyed = new Set(responses.flatMap((r) => (r.beneficiaryId ? [r.beneficiaryId] : [])));
+  const surveyed = surveyedIdsOf(responses);
   const nameOf = new Map(beneficiaries.map((b) => [b.id, `${b.firstName} ${b.lastName}`]));
-  const surveyStats = SURVEY_TEMPLATES.map((template) => computeTemplateStats(template, responses));
-  const active = beneficiaries.filter((b) => !b.endedOn || b.endedOn > now);
 
   return {
     hdsAvailable: port.isAvailable,
-    people: active.map((b) => ({
-      id: b.id,
-      name: nameOf.get(b.id) ?? "",
-      girLevel: b.girLevel,
-      monthlyHours: b.monthlyHours,
-      surveyDone: surveyed.has(b.id),
-    })),
+    people: beneficiaries
+      .filter((b) => isActiveOn(b, now))
+      .map((b) => ({
+        id: b.id,
+        name: nameOf.get(b.id) ?? "",
+        girLevel: b.girLevel,
+        monthlyHours: b.monthlyHours,
+        surveyDone: surveyed.has(b.id),
+      })),
     alerts: deriveDeadlineAlerts(beneficiaries, documents, now).map((alert) => ({
       ...alert,
       name: nameOf.get(alert.beneficiaryId) ?? "",
     })),
+  };
+}
+
+// Chiffres agrégés — ce que lit le cabinet (et que la structure peut lire aussi).
+export async function getPeopleAggregates(establishmentId: string): Promise<TerrainPeopleAggregates> {
+  const { scope } = await contextOf(establishmentId);
+  const port = getBeneficiaryDataPort();
+  const now = new Date();
+  const [timelines, documents, responses] = await Promise.all([
+    port.listBeneficiaryTimelines(scope),
+    port.listBeneficiaryDocuments(scope),
+    port.listSurveyResponses(scope, campaignStart(now)),
+  ]);
+  return {
+    hdsAvailable: port.isAvailable,
+    aggregates: computeBeneficiaryAggregates({ timelines, documents, surveyedIds: surveyedIdsOf(responses), today: now }),
+  };
+}
+
+export async function getSurveyBoard(establishmentId: string): Promise<TerrainSurveyBoard> {
+  const { scope } = await contextOf(establishmentId);
+  const port = getBeneficiaryDataPort();
+  const now = new Date();
+  const [timelines, responses] = await Promise.all([
+    port.listBeneficiaryTimelines(scope),
+    port.listSurveyResponses(scope, campaignStart(now)),
+  ]);
+  const surveyed = surveyedIdsOf(responses);
+  const active = timelines.filter((b) => isActiveOn(b, now));
+  const surveyStats = SURVEY_TEMPLATES.map((template) => computeTemplateStats(template, responses));
+
+  return {
+    hdsAvailable: port.isAvailable,
     surveyStats,
     proposals: proposeSurveyActions(surveyStats),
     coverage: {
@@ -94,8 +148,7 @@ export async function getTerrainBoard(establishmentId: string): Promise<TerrainB
 // Export AGRÉGÉ (une ligne par question, jamais par répondant), servi par la route
 // /api/export/enquete/[id]. Journalisé sans contenu.
 export async function buildSurveyExport(establishmentId: string): Promise<{ csv: string; fileName: string }> {
-  const scope = await scopeOf(establishmentId);
-  const access = await requireEstablishmentAccess(scope.establishmentId, NEED.TERRAIN_READ);
+  const { scope, name, access } = await contextOf(establishmentId);
   const responses = await getBeneficiaryDataPort().listSurveyResponses(scope, campaignStart(new Date()));
   const csv = buildSurveyCsv(SURVEY_TEMPLATES.map((template) => computeTemplateStats(template, responses)));
   await recordAuditEvent({
@@ -107,7 +160,7 @@ export async function buildSurveyExport(establishmentId: string): Promise<{ csv:
   const fileName = buildEodaFileName({
     issuedOn: new Date(),
     type: "ENQUETE",
-    clientName: scope.name,
+    clientName: name,
     objet: "Resultats-satisfaction",
     audience: "Interne",
     extension: "csv",

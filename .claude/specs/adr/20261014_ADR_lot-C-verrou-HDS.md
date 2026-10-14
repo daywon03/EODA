@@ -53,6 +53,15 @@ construit** dès maintenant, mais **rien de nominatif** ne s'écrit avant la mig
    empreinte SHA-256 du document rendu, horodatage, signataire et rôle (personne,
    représentant légal, service), intervenant témoin, appareil enregistré, points « à
    dire » cochés et horodatés. `SignatureEvidence` et le journal sont append-only.
+8. **Le cabinet ne lit que des chiffres** (décision de Damon, 14/10/2026 — minimisation
+   RGPD/HDS). L'onglet cabinet « Personnes accompagnées » affiche des agrégats : nombre
+   de personnes en cours, feuilles de réception à jour / à remettre ou à renouveler,
+   enquêtes faites, échéances par nature. La structure (direction, responsable qualité)
+   garde la liste nominative. Appliqué côté serveur : `getPeopleBoard` (nominatif)
+   répond `notFound()` à un compte cabinet ; le cabinet passe par `getPeopleAggregates`
+   et `getSurveyBoard`, qui lisent `listBeneficiaryTimelines` — requête qui ne
+   sélectionne qu'un identifiant opaque et deux dates. Le calcul est un service pur
+   (`beneficiary-aggregate-service.ts`) qui ne reçoit aucun nom.
 
 ## Contrôles mécaniques (Règle zéro)
 
@@ -62,6 +71,7 @@ construit** dès maintenant, mais **rien de nominatif** ne s'écrit avant la mig
 | Configuration par défaut : chaque écriture du port et du stockage HDS rejette, chaque lecture est vide | `apps/web/src/lib/hds/hds-lock.test.ts` |
 | Chaque action serveur d'écriture usager répond l'état verrouillé, sans écrire | `apps/web/src/lib/actions/beneficiary-actions-locked.test.ts` |
 | Le profil de production refuse `HDS_BACKEND_ENABLED=true` sans hébergeur ni stockage distinct | `apps/web/src/lib/config/production-profile.test.ts` |
+| Un compte cabinet n'atteint jamais la lecture nominative : `getPeopleBoard` refuse avant toute lecture, agrégats et statistiques n'appellent pas `listBeneficiaries` | `apps/web/src/lib/actions/terrain-read.test.ts`, `apps/web/src/lib/services/beneficiary-aggregate-service.test.ts` |
 
 ## Ce qu'il faut pour ouvrir le verrou
 
