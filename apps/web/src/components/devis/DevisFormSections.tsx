@@ -129,7 +129,9 @@ export function OptionPicker({
                 <span className="text-base text-accent-text">{subscriptionNotice}</span>
               )}
             </span>
-            <span className="whitespace-nowrap text-base tabular-nums">
+            {/* Passe à la ligne sur téléphone : « 360 € / mois (engagement 12 mois
+                minimum) » d'un seul tenant élargissait la page à 390 px. */}
+            <span className="max-w-[45%] text-right text-base tabular-nums sm:max-w-none sm:whitespace-nowrap">
               {formatPriceWithUnit({ ...o, priceEuros: optionUnitPriceForFormule(o, formule === "" ? null : formule) })}
             </span>
           </label>
