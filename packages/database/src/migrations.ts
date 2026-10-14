@@ -95,4 +95,5 @@ export const EXPECTED_MIGRATIONS: readonly string[] = [
   "20261013150000_email_verification",
   "20261014090000_lot_c_terrain",
   "20261014100000_lot_c_audit_actions",
+  "20261014110000_sad_mixte_full_labels",
 ] as const;

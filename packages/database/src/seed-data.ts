@@ -54,7 +54,9 @@ export type SadMixteCriterionSeed = {
 // Les 15 critères « Médico-social » du manuel HAS (juillet 2025) absents des grilles
 // Synaé SAD aide — source et justification : migration 20261011110000_sad_mixte_criteria.
 // `applicableTo = SAD_MIXTE` pour tous. SANS éléments d'évaluation (le manuel ne les
-// porte pas, aucune grille SAD mixte fournie). Trois intitulés tronqués, signalés.
+// porte pas, aucune grille SAD mixte fournie). Les intitulés de 3.6.1, 3.6.3 et 3.6.5,
+// tronqués dans la migration d'origine, sont complétés depuis le manuel HAS par la
+// migration 20261014110000_sad_mixte_full_labels (les 15 relus contre le manuel).
 export const SAD_MIXTE_CRITERIA: readonly SadMixteCriterionSeed[] = [
   {
     id: "crit-sad-mixte-1-15-1",
@@ -156,7 +158,7 @@ export const SAD_MIXTE_CRITERIA: readonly SadMixteCriterionSeed[] = [
   {
     id: "crit-sad-mixte-3-6-1",
     code: "3.6.1",
-    label: "L'ESSMS définit sa stratégie de gestion du risque […] (intitulé tronqué — à compléter depuis le manuel HAS)",
+    label: "L'ESSMS définit sa stratégie de gestion du risque médicamenteux et s'assure de sa mise en œuvre.",
     requirementLevel: "STANDARD",
     chapterNumber: 3,
     objectiveCode: "3.6",
@@ -172,8 +174,7 @@ export const SAD_MIXTE_CRITERIA: readonly SadMixteCriterionSeed[] = [
   {
     id: "crit-sad-mixte-3-6-3",
     code: "3.6.3",
-    label:
-      "Les professionnels accompagnent les personnes dans la […] (intitulé tronqué — à compléter depuis le manuel HAS)",
+    label: "Les professionnels accompagnent les personnes dans la continuité de leur prise en charge médicamenteuse.",
     requirementLevel: "STANDARD",
     chapterNumber: 3,
     objectiveCode: "3.6",
@@ -182,7 +183,7 @@ export const SAD_MIXTE_CRITERIA: readonly SadMixteCriterionSeed[] = [
     id: "crit-sad-mixte-3-6-5",
     code: "3.6.5",
     label:
-      "Les professionnels sont régulièrement sensibilisés et/ou […] (intitulé tronqué — à compléter depuis le manuel HAS)",
+      "Les professionnels sont régulièrement sensibilisés et/ou formés à la prévention et à la gestion du risque médicamenteux.",
     requirementLevel: "STANDARD",
     chapterNumber: 3,
     objectiveCode: "3.6",

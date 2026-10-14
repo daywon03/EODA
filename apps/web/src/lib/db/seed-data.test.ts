@@ -49,6 +49,22 @@ function sadMixteCriteriaIn(sql: string) {
   }));
 }
 
+// Les corrections d'intitulé : `UPDATE "criteria" SET "label" = '…' WHERE "code" = 'x' …`.
+function labelUpdatesIn(sql: string): Map<string, string> {
+  const pattern = /UPDATE "criteria"\s+SET "label" = '((?:[^']|'')*)'\s+WHERE "code" = '([\d.]+)'/g;
+  return new Map([...sql.matchAll(pattern)].map((m) => [m[2]!, m[1]!.replace(/''/g, "'")]));
+}
+
+// État FINAL des critères SAD mixte sur une base existante : insertion d'origine, puis
+// corrections d'intitulé des migrations suivantes, dans l'ordre.
+function sadMixteCriteriaAfterMigrations() {
+  const corrections = labelUpdatesIn(migrationSql("20261014110000_sad_mixte_full_labels"));
+  return sadMixteCriteriaIn(migrationSql("20261011110000_sad_mixte_criteria")).map((criterion) => ({
+    ...criterion,
+    label: corrections.get(criterion.code!) ?? criterion.label,
+  }));
+}
+
 describe("seed — documents réclamés à la structure", () => {
   it("reprend exactement les codes des migrations 20260827140000 et 20261010120000 (les 7 de la loi 2002-2)", () => {
     const fromMigrations = [
@@ -63,11 +79,28 @@ describe("seed — documents réclamés à la structure", () => {
 });
 
 describe("seed — critères SAD mixte", () => {
-  it("reprend à l'identique les 15 critères de la migration 20261011110000_sad_mixte_criteria", () => {
-    const fromMigration = sadMixteCriteriaIn(migrationSql("20261011110000_sad_mixte_criteria"));
+  it("reprend à l'identique les 15 critères de 20261011110000, intitulés corrigés par 20261014110000", () => {
+    const fromMigrations = sadMixteCriteriaAfterMigrations();
 
-    expect(fromMigration).toHaveLength(15);
-    expect(SAD_MIXTE_CRITERIA.map((c) => ({ ...c, applicableTo: "SAD_MIXTE" }))).toEqual(fromMigration);
+    expect(fromMigrations).toHaveLength(15);
+    expect(SAD_MIXTE_CRITERIA.map((c) => ({ ...c, applicableTo: "SAD_MIXTE" }))).toEqual(fromMigrations);
+  });
+
+  it("la migration corrective ne vise que les trois intitulés tronqués, et elle est idempotente", () => {
+    const sql = migrationSql("20261014110000_sad_mixte_full_labels");
+
+    expect([...labelUpdatesIn(sql).keys()]).toEqual(["3.6.1", "3.6.3", "3.6.5"]);
+    for (const [code, label] of labelUpdatesIn(sql)) {
+      const guard = `WHERE "code" = '${code}' AND "applicable_to" = 'SAD_MIXTE'::"ApplicableTo"\n  AND "label" <> '${label.replace(/'/g, "''")}'`;
+      expect(sql).toContain(guard);
+    }
+  });
+
+  it("plus aucun intitulé tronqué : chaque intitulé est une phrase complète du manuel", () => {
+    for (const criterion of SAD_MIXTE_CRITERIA) {
+      expect(criterion.label).not.toMatch(/tronqué|\[…\]/);
+      expect(criterion.label.endsWith(".")).toBe(true);
+    }
   });
 
   it("un seul impératif (3.6.2), conformément au context/02 §4 (17 impératifs SAD mixte)", () => {
