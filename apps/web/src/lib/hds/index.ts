@@ -3,6 +3,8 @@ import { hdsConfigProblems } from "@/lib/config/production-profile";
 import type { FileStoragePort } from "@/lib/storage/file-storage-port";
 import type { BeneficiaryDataPort } from "./beneficiary-data-port";
 import { LockedBeneficiaryDataAdapter, LockedHdsFileStorageAdapter } from "./locked-beneficiary-data-adapter";
+import { PrismaBeneficiaryDataAdapter } from "./prisma-beneficiary-data-adapter";
+import { S3StorageAdapter } from "@/lib/storage/s3-storage-adapter";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SÉLECTEUR DES ADAPTATEURS HDS — le verrou du lot C (ADR 20261014).
@@ -26,13 +28,14 @@ export function resolveHdsBackendState(env: Pick<AppEnv, "hds" | "s3">): HdsBack
 
 export function getBeneficiaryDataPort(): BeneficiaryDataPort {
   if (resolveHdsBackendState(getEnv()) === "LOCKED") return new LockedBeneficiaryDataAdapter();
-  // L'adaptateur réel arrive avec les tables (migration du lot C). Tant qu'il n'est
-  // pas livré, une ouverture déclarée échoue bruyamment plutôt que d'écrire ailleurs.
-  throw new Error("Adaptateur HDS non livré : le verrou ne peut pas s'ouvrir dans cette version.");
+  return new PrismaBeneficiaryDataAdapter();
 }
 
+// Fichiers signés : bucket HDS distinct, jamais `eoda-documents` (getFileStoragePort).
 export function getHdsFileStoragePort(): FileStoragePort {
-  return new LockedHdsFileStorageAdapter();
+  const env = getEnv();
+  if (resolveHdsBackendState(env) === "LOCKED" || !env.hds.storage) return new LockedHdsFileStorageAdapter();
+  return new S3StorageAdapter(env.hds.storage);
 }
 
 export { HDS_LOCKED_MESSAGE, HdsNotAvailableError, isHdsNotAvailableError } from "./hds-errors";

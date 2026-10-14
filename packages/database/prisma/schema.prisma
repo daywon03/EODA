@@ -316,6 +316,11 @@ model Tenant {
   staffMembers             StaffMember[]
   quizCampaigns            QuizCampaign[]
   quizAttempts             QuizAttempt[]
+  beneficiaries            Beneficiary[]
+  beneficiaryDocuments     BeneficiaryDocument[]
+  beneficiaryJournal       BeneficiaryJournalEntry[]
+  surveyResponses          SurveyResponse[]
+  deviceEnrollments        DeviceEnrollment[]
 
   @@map("tenants")
 }
@@ -383,6 +388,10 @@ model User {
   prospectAccount             ProspectAccount?
   emailVerificationTokens     EmailVerificationToken[]
   prospectPracticeAnswers     ProspectPracticeAnswer[]      @relation("ProspectPracticeAnsweredBy")
+  beneficiaryJournalEntries   BeneficiaryJournalEntry[]     @relation("BeneficiaryJournalAuthorUser")
+  devicesEnrolled             DeviceEnrollment[]            @relation("DeviceEnrolledBy")
+  devicesRevoked              DeviceEnrollment[]            @relation("DeviceRevokedBy")
+  staffPinsSet                StaffPin[]                    @relation("StaffPinSetBy")
 
   @@index([tenantId])
   @@map("users")
@@ -448,6 +457,10 @@ model Establishment {
   staffMembers          StaffMember[]
   quizCampaigns         QuizCampaign[]
   quizAttempts          QuizAttempt[]
+  beneficiaries         Beneficiary[]
+  beneficiaryDocuments  BeneficiaryDocument[]
+  surveyResponses       SurveyResponse[]
+  deviceEnrollments     DeviceEnrollment[]
 
   @@index([tenantId])
   @@map("establishments")
@@ -2047,6 +2060,7 @@ model TemplateVersion {
   uploadedBy           User                          @relation("TemplateUploadedBy", fields: [uploadedByUserId], references: [id])
   knowledgeChunks      KnowledgeChunk[]
   criterionSuggestions TemplateCriterionSuggestion[]
+  beneficiaryDocuments BeneficiaryDocument[]
 
   // Le même libellé ne peut pas désigner deux fichiers différents au même stade.
   // PostgreSQL considère deux NULL comme distincts : un document de référence peut
@@ -2314,12 +2328,19 @@ model StaffMember {
   createdAt       DateTime  @default(now()) @map("created_at")
   updatedAt       DateTime  @updatedAt @map("updated_at")
 
-  tenant        Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  establishment Establishment    @relation(fields: [establishmentId], references: [id], onDelete: Cascade)
+  tenant                Tenant                    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  establishment         Establishment             @relation(fields: [establishmentId], references: [id], onDelete: Cascade)
   // SetNull : le compte peut disparaître, la fiche et ses preuves restent.
-  user          User?            @relation(fields: [userId], references: [id], onDelete: SetNull)
-  invitations   QuizInvitation[]
-  attempts      QuizAttempt[]
+  user                  User?                     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  invitations           QuizInvitation[]
+  attempts              QuizAttempt[]
+  // Lot C (terrain) — voir le bloc « PERSONNES ACCOMPAGNÉES » en fin de schéma.
+  referredBeneficiaries Beneficiary[]             @relation("BeneficiaryReferent")
+  witnessedSignatures   SignatureEvidence[]
+  deliveries            DeliveryRecord[]
+  journalEntries        BeneficiaryJournalEntry[] @relation("BeneficiaryJournalAuthorStaff")
+  surveysCollected      SurveyResponse[]
+  pin                   StaffPin?
 
   @@index([tenantId])
   @@index([establishmentId, active])
@@ -2394,4 +2415,320 @@ model QuizAttempt {
   @@index([establishmentId, completedAt])
   @@index([staffMemberId, moduleCode, completedAt])
   @@map("quiz_attempts")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PERSONNES ACCOMPAGNÉES, SIGNATURE, ENQUÊTE — lot C (terrain), 14/10/2026.
+//
+// ⚠️ DONNÉES DE SANTÉ (CSP L1111-8). Ces tables existent pour que le schéma décrive
+// le lot C ; elles restent VIDES sur l'infrastructure actuelle (Supabase + Vercel,
+// non certifiés HDS). Toute lecture/écriture passe par `BeneficiaryDataPort`
+// (apps/web/src/lib/hds/), verrouillé par défaut ; un test échoue si une ligne de
+// code les touche ailleurs que dans l'adaptateur Prisma. ADR
+// .claude/specs/adr/20261014_ADR_lot-C-verrou-HDS.md.
+//
+// `onDelete: Restrict` vers la structure : une fiche qui porte des dossiers de
+// personnes accompagnées ne disparaît pas par effet de bord d'une suppression — leur
+// conservation a ses propres obligations.
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum RepresentativeKind {
+  PROCHE
+  TUTEUR
+  CURATEUR
+}
+
+enum BeneficiaryDocumentKind {
+  // Feuille de réception UNIQUE (décision 6 des maquettes v2) : livret d'accueil,
+  // règlement de fonctionnement et DIPC présentés, une signature.
+  FEUILLE_RECEPTION
+  // DIPC signé — en option, quand la structure le fait signer à part.
+  DIPC
+  PAP
+  LIVRET_REMIS
+  REGLEMENT_REMIS
+}
+
+enum SignerRole {
+  PERSONNE
+  // Représentant légal (tuteur, curateur) ou proche mandaté.
+  REPRESENTANT
+  SERVICE
+}
+
+enum DeliveryChannel {
+  MAIN_PROPRE
+  EMAIL
+}
+
+enum SurveyTemplateCode {
+  PERSONNE
+  FAMILLE
+}
+
+enum SurveyRespondentKind {
+  PERSONNE
+  PROCHE
+}
+
+enum SurveyMode {
+  // Un intervenant lit les questions et note la réponse de la personne.
+  ASSISTEE
+  SEULE
+}
+
+// Valeurs STOCKÉES. Le libellé et le poids dépendent de l'échelle de la question
+// (content/enquete/) : « Un peu » (FALC 3 niveaux) et « Peu satisfait(e) » (échelle
+// famille) sont tous deux PEU, avec des poids différents. NSP et NON_CONCERNE sont
+// exclus du calcul.
+enum SurveyChoice {
+  TRES
+  PLUTOT
+  PEU
+  PAS
+  NSP
+  NON_CONCERNE
+}
+
+model Beneficiary {
+  id                    String    @id @default(cuid())
+  tenantId              String    @map("tenant_id")
+  establishmentId       String    @map("establishment_id")
+  civility              Civility?
+  firstName             String    @map("first_name")
+  lastName              String    @map("last_name")
+  birthDate             DateTime? @map("birth_date") @db.Date
+  address               String
+  phone                 String?
+  email                 String?
+  girLevel              Int?      @map("gir_level")
+  monthlyHours          Int?      @map("monthly_hours")
+  startedOn             DateTime  @map("started_on") @db.Date
+  referentStaffMemberId String?   @map("referent_staff_member_id")
+  // Identifiant dans l'ERP de la structure (Ximi…) : rapprochement futur, jamais une clé.
+  externalErpId         String?   @map("external_erp_id")
+  endedOn               DateTime? @map("ended_on") @db.Date
+  createdAt             DateTime  @default(now()) @map("created_at")
+  updatedAt             DateTime  @updatedAt @map("updated_at")
+
+  tenant          Tenant                      @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  establishment   Establishment               @relation(fields: [establishmentId], references: [id], onDelete: Restrict)
+  referentStaff   StaffMember?                @relation("BeneficiaryReferent", fields: [referentStaffMemberId], references: [id], onDelete: SetNull)
+  representatives BeneficiaryRepresentative[]
+  documents       BeneficiaryDocument[]
+  journalEntries  BeneficiaryJournalEntry[]
+  surveyResponses SurveyResponse[]
+
+  @@index([tenantId])
+  @@index([establishmentId, endedOn])
+  @@index([referentStaffMemberId])
+  @@map("beneficiaries")
+}
+
+model BeneficiaryRepresentative {
+  id            String             @id @default(cuid())
+  beneficiaryId String             @map("beneficiary_id")
+  kind          RepresentativeKind
+  fullName      String             @map("full_name")
+  // Lien avec la personne (« sa fille », « tuteur ») — texte, jamais déduit.
+  relationship  String
+  createdAt     DateTime           @default(now()) @map("created_at")
+
+  beneficiary Beneficiary @relation(fields: [beneficiaryId], references: [id], onDelete: Cascade)
+
+  @@index([beneficiaryId])
+  @@map("beneficiary_representatives")
+}
+
+// Un document remis ou signé. Le fichier rendu vit dans le stockage HDS
+// (`renderedFileKey`), jamais dans `eoda-documents` ; `sha256` est l'empreinte de ce
+// fichier, celle que la preuve de signature recopie.
+model BeneficiaryDocument {
+  id                      String                  @id @default(cuid())
+  tenantId                String                  @map("tenant_id")
+  establishmentId         String                  @map("establishment_id")
+  beneficiaryId           String                  @map("beneficiary_id")
+  kind                    BeneficiaryDocumentKind
+  // Gabarit FINALE de la bibliothèque dont le document est issu.
+  sourceTemplateVersionId String?                 @map("source_template_version_id")
+  renderedFileKey         String                  @map("rendered_file_key")
+  sha256                  String
+  issuedAt                DateTime                @map("issued_at")
+  // Échéance de renouvellement (DIPC / documents de suivi annuels) → alerte D12.
+  renewDueOn              DateTime?               @map("renew_due_on") @db.Date
+  createdAt               DateTime                @default(now()) @map("created_at")
+
+  tenant                Tenant              @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  establishment         Establishment       @relation(fields: [establishmentId], references: [id], onDelete: Restrict)
+  beneficiary           Beneficiary         @relation(fields: [beneficiaryId], references: [id], onDelete: Restrict)
+  sourceTemplateVersion TemplateVersion?    @relation(fields: [sourceTemplateVersionId], references: [id], onDelete: SetNull)
+  signatures            SignatureEvidence[]
+  deliveries            DeliveryRecord[]
+
+  @@index([tenantId])
+  @@index([establishmentId, renewDueOn])
+  @@index([beneficiaryId])
+  @@index([sourceTemplateVersionId])
+  @@map("beneficiary_documents")
+}
+
+// DOSSIER DE PREUVE — APPEND-ONLY. Aucune action ne le modifie ni ne le supprime.
+// `signatureImageKey` : l'image PNG FINALE seule — jamais le tracé ni sa dynamique
+// (vitesse, pression : donnée biométrique, 09 §8). `checklistJson` : les points « à
+// dire » cochés, chacun horodaté.
+model SignatureEvidence {
+  id                   String     @id @default(cuid())
+  documentId           String     @map("document_id")
+  signerRole           SignerRole @map("signer_role")
+  signerName           String     @map("signer_name")
+  witnessStaffMemberId String     @map("witness_staff_member_id")
+  deviceEnrollmentId   String     @map("device_enrollment_id")
+  signedAt             DateTime   @map("signed_at")
+  signatureImageKey    String     @map("signature_image_key")
+  documentSha256       String     @map("document_sha256")
+  checklistJson        Json       @map("checklist_json")
+  createdAt            DateTime   @default(now()) @map("created_at")
+
+  document         BeneficiaryDocument @relation(fields: [documentId], references: [id], onDelete: Restrict)
+  witness          StaffMember         @relation(fields: [witnessStaffMemberId], references: [id], onDelete: Restrict)
+  deviceEnrollment DeviceEnrollment    @relation(fields: [deviceEnrollmentId], references: [id], onDelete: Restrict)
+
+  @@index([documentId])
+  @@index([witnessStaffMemberId])
+  @@index([deviceEnrollmentId])
+  @@map("signature_evidences")
+}
+
+model DeliveryRecord {
+  id                      String          @id @default(cuid())
+  documentId              String          @map("document_id")
+  channel                 DeliveryChannel
+  deliveredAt             DateTime        @map("delivered_at")
+  recordedByStaffMemberId String?         @map("recorded_by_staff_member_id")
+  createdAt               DateTime        @default(now()) @map("created_at")
+
+  document   BeneficiaryDocument @relation(fields: [documentId], references: [id], onDelete: Restrict)
+  recordedBy StaffMember?        @relation(fields: [recordedByStaffMemberId], references: [id], onDelete: SetNull)
+
+  @@index([documentId])
+  @@index([recordedByStaffMemberId])
+  @@map("delivery_records")
+}
+
+// JOURNAL DU DOSSIER — APPEND-ONLY. `possibleAdverseEvent` est la passerelle future
+// vers le registre des événements indésirables (lot E) : cocher ne déclare rien.
+model BeneficiaryJournalEntry {
+  id                   String   @id @default(cuid())
+  tenantId             String   @map("tenant_id")
+  beneficiaryId        String   @map("beneficiary_id")
+  authorStaffMemberId  String?  @map("author_staff_member_id")
+  authorUserId         String?  @map("author_user_id")
+  text                 String
+  possibleAdverseEvent Boolean  @default(false) @map("possible_adverse_event")
+  occurredAt           DateTime @map("occurred_at")
+  createdAt            DateTime @default(now()) @map("created_at")
+
+  tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  beneficiary Beneficiary  @relation(fields: [beneficiaryId], references: [id], onDelete: Restrict)
+  authorStaff StaffMember? @relation("BeneficiaryJournalAuthorStaff", fields: [authorStaffMemberId], references: [id], onDelete: SetNull)
+  authorUser  User?        @relation("BeneficiaryJournalAuthorUser", fields: [authorUserId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId])
+  @@index([beneficiaryId, occurredAt])
+  @@index([authorStaffMemberId])
+  @@index([authorUserId])
+  @@map("beneficiary_journal_entries")
+}
+
+// Une réponse d'enquête. Nominative quand `beneficiaryId` est posé (décision du
+// 08/10 : l'enquête est nominative) ; les statistiques ne lisent jamais l'identité.
+// `templateVersion` fige la version du questionnaire (content/enquete/).
+model SurveyResponse {
+  id                       String               @id @default(cuid())
+  tenantId                 String               @map("tenant_id")
+  establishmentId          String               @map("establishment_id")
+  beneficiaryId            String?              @map("beneficiary_id")
+  templateCode             SurveyTemplateCode   @map("template_code")
+  templateVersion          Int                  @map("template_version")
+  respondentKind           SurveyRespondentKind @map("respondent_kind")
+  mode                     SurveyMode
+  collectedByStaffMemberId String?              @map("collected_by_staff_member_id")
+  completedAt              DateTime             @map("completed_at")
+  createdAt                DateTime             @default(now()) @map("created_at")
+
+  tenant        Tenant         @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  establishment Establishment  @relation(fields: [establishmentId], references: [id], onDelete: Restrict)
+  beneficiary   Beneficiary?   @relation(fields: [beneficiaryId], references: [id], onDelete: SetNull)
+  collectedBy   StaffMember?   @relation(fields: [collectedByStaffMemberId], references: [id], onDelete: SetNull)
+  answers       SurveyAnswer[]
+
+  @@index([tenantId])
+  @@index([establishmentId, completedAt])
+  @@index([beneficiaryId])
+  @@index([collectedByStaffMemberId])
+  @@map("survey_responses")
+}
+
+model SurveyAnswer {
+  id         String        @id @default(cuid())
+  responseId String        @map("response_id")
+  questionId String        @map("question_id")
+  choice     SurveyChoice?
+  freeText   String?       @map("free_text")
+
+  response SurveyResponse @relation(fields: [responseId], references: [id], onDelete: Cascade)
+
+  @@unique([responseId, questionId])
+  @@map("survey_answers")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TABLETTE — appareil enregistré + code du salarié (décision 7 des maquettes v2 :
+// « jamais un code seul »). Données de SALARIÉS, pas de santé : hors verrou HDS.
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Un appareil enregistré par la direction. Le jeton (cookie httpOnly de l'appareil)
+// n'est jamais en base : seule son empreinte SHA-256.
+model DeviceEnrollment {
+  id               String    @id @default(cuid())
+  tenantId         String    @map("tenant_id")
+  establishmentId  String    @map("establishment_id")
+  label            String
+  tokenHash        String    @unique @map("token_hash")
+  enrolledByUserId String?   @map("enrolled_by_user_id")
+  enrolledAt       DateTime  @default(now()) @map("enrolled_at")
+  lastSeenAt       DateTime? @map("last_seen_at")
+  revokedAt        DateTime? @map("revoked_at")
+  revokedByUserId  String?   @map("revoked_by_user_id")
+
+  tenant        Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  establishment Establishment       @relation(fields: [establishmentId], references: [id], onDelete: Cascade)
+  enrolledBy    User?               @relation("DeviceEnrolledBy", fields: [enrolledByUserId], references: [id], onDelete: SetNull)
+  revokedBy     User?               @relation("DeviceRevokedBy", fields: [revokedByUserId], references: [id], onDelete: SetNull)
+  signatures    SignatureEvidence[]
+
+  @@index([tenantId])
+  @@index([establishmentId, revokedAt])
+  @@index([enrolledByUserId])
+  @@index([revokedByUserId])
+  @@map("device_enrollments")
+}
+
+// Code personnel d'un salarié sur la tablette : empreinte seule, compteur d'échecs,
+// blocage à 5 (`lockedAt`), déblocage par la direction (remise à zéro du compteur).
+model StaffPin {
+  id             String    @id @default(cuid())
+  staffMemberId  String    @unique @map("staff_member_id")
+  pinHash        String    @map("pin_hash")
+  failedAttempts Int       @default(0) @map("failed_attempts")
+  lockedAt       DateTime? @map("locked_at")
+  setByUserId    String?   @map("set_by_user_id")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  staffMember StaffMember @relation(fields: [staffMemberId], references: [id], onDelete: Cascade)
+  setBy       User?       @relation("StaffPinSetBy", fields: [setByUserId], references: [id], onDelete: SetNull)
+
+  @@index([setByUserId])
+  @@map("staff_pins")
 }
