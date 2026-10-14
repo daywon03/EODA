@@ -101,11 +101,18 @@ describe("réponses", () => {
 
   it("compte la progression sur les réponses à jour seulement", () => {
     const questions = resolvePracticeQuestions([imperative("3.12.1"), imperative("3.14.1")], PRACTICE_QUESTIONNAIRE);
-    const progress = describePracticeProgress(questions, latestAnswersByCriterion([answer("c-3.12.1", 1)]));
+    // La version courante vient du contenu : une reformulation ne casse pas ce test.
+    const v = (code: string) => questions.find((q) => q.criterionCode === code)!.version;
+    const progress = describePracticeProgress(questions, latestAnswersByCriterion([answer("c-3.12.1", 1, v("3.12.1"))]));
     expect(progress).toEqual({ answered: 1, total: 2, label: "1 réponse sur 2" });
-    expect(describePracticeProgress(questions, latestAnswersByCriterion([answer("c-3.12.1", 1), answer("c-3.14.1", 1)])).label).toBe(
-      "2 réponses sur 2"
-    );
+    expect(
+      describePracticeProgress(
+        questions,
+        latestAnswersByCriterion([answer("c-3.12.1", 1, v("3.12.1")), answer("c-3.14.1", 1, v("3.14.1"))])
+      ).label
+    ).toBe("2 réponses sur 2");
+    // Une réponse donnée sous une formulation antérieure ne compte pas.
+    expect(describePracticeProgress(questions, latestAnswersByCriterion([answer("c-3.12.1", 1, v("3.12.1") - 1)])).answered).toBe(0);
   });
 });
 
