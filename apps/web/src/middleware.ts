@@ -54,7 +54,9 @@ export default auth((req) => {
 
   if (!isLoggedIn && !isPublic) {
     const loginUrl = new URL("/login", nextUrl);
-    loginUrl.searchParams.set("callbackUrl", nextUrl.pathname);
+    // Chemin ET paramètres (onglet, filtre) : la connexion ramène exactement à la
+    // page demandée. Relu à l'arrivée par safeCallbackPath (chemin interne seul).
+    loginUrl.searchParams.set("callbackUrl", `${nextUrl.pathname}${nextUrl.search}`);
     return applyCsp(NextResponse.redirect(loginUrl), csp);
   }
 

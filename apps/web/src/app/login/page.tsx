@@ -2,6 +2,7 @@ import { LoginForm } from "./LoginForm";
 import { CheckCircle2, ShieldCheck, FileCheck2, ClipboardCheck } from "lucide-react";
 import { EodaLockup, EodaMark } from "@/components/layout/EodaLogo";
 import { LOGIN_NOTICE_PARAM, loginNoticeFor } from "@/lib/services/login-notice-service";
+import { safeCallbackPath } from "@/lib/auth/routes";
 
 export const metadata = { title: "Connexion" };
 
@@ -14,7 +15,11 @@ const HIGHLIGHTS = [
 type Props = { searchParams: Promise<Record<string, string | string[] | undefined>> };
 
 export default async function LoginPage({ searchParams }: Props) {
-  const notice = loginNoticeFor((await searchParams)[LOGIN_NOTICE_PARAM]);
+  const params = await searchParams;
+  const notice = loginNoticeFor(params[LOGIN_NOTICE_PARAM]);
+  // Page demandée avant la connexion (posée par le middleware) — chemin interne
+  // uniquement, sinon rien : la connexion retombe sur la page d'arrivée du rôle.
+  const callbackUrl = safeCallbackPath(params.callbackUrl);
   return (
     <div className="min-h-dvh grid lg:grid-cols-2">
       {/* Panneau de marque — masqué sur mobile pour prioriser le formulaire */}
@@ -93,7 +98,7 @@ export default async function LoginPage({ searchParams }: Props) {
                 <span>{notice}</span>
               </p>
             )}
-            <LoginForm />
+            <LoginForm callbackUrl={callbackUrl} />
           </div>
 
           <p className="text-center text-ink2 text-xs mt-6 lg:hidden">

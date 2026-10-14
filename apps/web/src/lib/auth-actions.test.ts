@@ -60,4 +60,28 @@ describe("loginAction", () => {
     signIn.mockResolvedValue(undefined);
     await expect(loginAction(form())).resolves.toEqual({ redirectTo: "/dashboard" });
   });
+
+  it("succès : reprend la page demandée avant la connexion (chemin interne)", async () => {
+    signIn.mockResolvedValue(undefined);
+    const data = form();
+    data.set("callbackUrl", "/dashboard/client/documents");
+    await expect(loginAction(data)).resolves.toEqual({ redirectTo: "/dashboard/client/documents" });
+  });
+
+  it.each(["https://piege.example", "//piege.example", "/\\piege.example"])(
+    "succès : un callbackUrl externe (%s) retombe sur /dashboard, jamais hors du site",
+    async (callbackUrl) => {
+      signIn.mockResolvedValue(undefined);
+      const data = form();
+      data.set("callbackUrl", callbackUrl);
+      await expect(loginAction(data)).resolves.toEqual({ redirectTo: "/dashboard" });
+    }
+  );
+
+  it("échec : le callbackUrl ne change rien au message", async () => {
+    signIn.mockRejectedValue(new CredentialsSignin());
+    const data = form();
+    data.set("callbackUrl", "/dashboard/client");
+    await expect(loginAction(data)).resolves.toEqual({ error: "Email ou mot de passe incorrect." });
+  });
 });

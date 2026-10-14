@@ -9,7 +9,9 @@ import { Label } from "@/components/ui/label";
 import { AlertCircle, Loader2 } from "lucide-react";
 import { ResendVerificationForm } from "@/components/public/ResendVerificationForm";
 
-export function LoginForm() {
+// `callbackUrl` : déjà filtré par la page (safeCallbackPath) et refiltré par
+// l'action — le champ caché est une entrée comme une autre.
+export function LoginForm({ callbackUrl = null }: { callbackUrl?: string | null }) {
   const [error, setError] = useState<string | null>(null);
   // Adresse d'un compte libre-service pas encore confirmée (tranche 11) : connue
   // seulement après un mot de passe JUSTE — on propose de renvoyer le lien.
@@ -36,6 +38,7 @@ export function LoginForm() {
   return (
     <>
       <form onSubmit={handleSubmit} className="space-y-4">
+        {callbackUrl && <input type="hidden" name="callbackUrl" value={callbackUrl} />}
         <div className="space-y-1.5">
           <Label htmlFor="email">Adresse email</Label>
           <Input

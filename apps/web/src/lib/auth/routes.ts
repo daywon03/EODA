@@ -48,3 +48,37 @@ export function classifyPath(pathname: string): PathAccess {
   if (/^\/confirmer-email(?:\/[A-Za-z0-9_-]+)?$/.test(pathname)) return "ANONYMOUS";
   return "PROTECTED";
 }
+
+// ── Retour après connexion (`callbackUrl`) ───────────────────────────────────
+// Le middleware renvoie vers /login?callbackUrl=<chemin demandé>. Ce paramètre arrive
+// par l'adresse : c'est une entrée HOSTILE. Sans contrôle, /login?callbackUrl=
+// https://site-piege.example envoie la personne, juste après une connexion réussie,
+// vers une page qui imite la plateforme (open redirect).
+//
+// Seul un CHEMIN INTERNE est accepté : un « / » unique en tête, aucune barre
+// oblique inverse, aucun caractère de contrôle ni espace (un navigateur retire les
+// tabulations d'une URL : « /\t/piege.example » deviendrait « //piege.example »,
+// l'adresse d'un autre site), et la résolution contre une origine fictive doit
+// rester sur cette origine. Les pages de connexion et de déconnexion sont refusées
+// (boucle). null = repli sur la page d'arrivée du rôle (/dashboard aiguille par rôle).
+const CALLBACK_MAX_LENGTH = 512;
+const PROBE_ORIGIN = "https://origine.invalid";
+const FORBIDDEN_CALLBACK_CHARS = /[\\\s\u0000-\u001f\u007f]/;
+
+export function safeCallbackPath(raw: unknown): string | null {
+  if (typeof raw !== "string") return null;
+  if (raw.length === 0 || raw.length > CALLBACK_MAX_LENGTH) return null;
+  if (!raw.startsWith("/") || raw.startsWith("//")) return null;
+  if (FORBIDDEN_CALLBACK_CHARS.test(raw)) return null;
+
+  let resolved: URL;
+  try {
+    resolved = new URL(raw, PROBE_ORIGIN);
+  } catch {
+    return null;
+  }
+  if (resolved.origin !== PROBE_ORIGIN) return null;
+  if (classifyPath(resolved.pathname) === "AUTH" || resolved.pathname.startsWith(SIGN_OUT_PATH)) return null;
+
+  return `${resolved.pathname}${resolved.search}${resolved.hash}`;
+}

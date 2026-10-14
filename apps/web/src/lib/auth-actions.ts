@@ -8,6 +8,7 @@ import {
   peekLoginThrottle,
 } from "@/lib/security/login-throttle";
 import { isEmailNotVerifiedError } from "@/lib/auth/email-not-verified";
+import { safeCallbackPath } from "@/lib/auth/routes";
 import { UNVERIFIED_LOGIN_MESSAGE } from "@/lib/services/email-verification-service";
 
 // Message unique pour tout échec d'authentification — ne jamais distinguer
@@ -57,7 +58,10 @@ export async function loginAction(formData: FormData): Promise<LoginResult> {
   // Pas de redirect() d'action serveur : après une déconnexion forcée, le routeur
   // client resservait sa copie en cache de /dashboard (écran blanc, recette du
   // 13/10/2026). L'écran fait une navigation complète ; /dashboard aiguille par rôle.
-  return { redirectTo: "/dashboard" };
+  // La page demandée avant la connexion (`callbackUrl`) est reprise si — et
+  // seulement si — c'est un chemin interne (safeCallbackPath, anti open-redirect).
+  // Un chemin hors du portail du rôle est rattrapé par le middleware et les gardes.
+  return { redirectTo: safeCallbackPath(formData.get("callbackUrl")) ?? "/dashboard" };
 }
 
 export async function logoutAction() {
