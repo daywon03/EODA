@@ -1,5 +1,6 @@
 "use client";
 
+import { submitWithoutReset } from "@/lib/forms/submit-without-reset";
 import { useActionState } from "react";
 import type { EstablishmentType, StructureType } from "@eoda/database";
 import { updateProspectIdentity } from "@/lib/actions/prospect";
@@ -55,7 +56,7 @@ export function StructureIdentityForm({
   );
 
   return (
-    <form action={formAction} className="space-y-4">
+    <form method="post" onSubmit={submitWithoutReset(formAction)} className="space-y-4">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="space-y-1.5">
           <Label htmlFor="identity-structureType">

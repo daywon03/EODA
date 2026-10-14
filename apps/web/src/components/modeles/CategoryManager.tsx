@@ -1,5 +1,7 @@
 "use client";
 
+import { submitWithoutReset } from "@/lib/forms/submit-without-reset";
+import { useResetAfterSuccess } from "@/lib/forms/use-reset-after-success";
 import { useActionState, useState } from "react";
 import {
   createTemplateCategory,
@@ -28,10 +30,12 @@ import { AlertCircle, ArrowDown, ArrowUp, Check, FolderPlus, Loader2, Pencil, Tr
 export function CategoryManager({ categories }: { categories: CategorySummary[] }) {
   const [state, formAction, isPending] = useActionState(createTemplateCategory, null);
   const [editing, setEditing] = useState<string | null>(null);
+  // Le dossier créé rejoint la liste : le champ se vide après un succès seulement.
+  const formRef = useResetAfterSuccess(isPending, state === null);
 
   return (
     <div className="space-y-4">
-      <form action={formAction} className="flex flex-wrap items-end gap-3">
+      <form ref={formRef} method="post" onSubmit={submitWithoutReset(formAction)} className="flex flex-wrap items-end gap-3">
         <div className="min-w-[14rem] flex-1 space-y-1.5">
           <Label htmlFor="new-category">Nom du dossier</Label>
           <Input
@@ -166,7 +170,7 @@ function RenameForm({ category, onDone }: { category: CategorySummary; onDone: (
   );
 
   return (
-    <form action={formAction} className="flex w-full flex-wrap items-center gap-2">
+    <form method="post" onSubmit={submitWithoutReset(formAction)} className="flex w-full flex-wrap items-center gap-2">
       <Input
         name="name"
         defaultValue={category.name}

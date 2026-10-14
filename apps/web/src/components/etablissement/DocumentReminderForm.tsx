@@ -1,5 +1,7 @@
 "use client";
 
+import { submitWithoutReset } from "@/lib/forms/submit-without-reset";
+import { useResetAfterSuccess } from "@/lib/forms/use-reset-after-success";
 import { useActionState, useState } from "react";
 import { sendDocumentReminder } from "@/lib/actions/reminder";
 import { Button } from "@/components/ui/button";
@@ -27,6 +29,9 @@ export function DocumentReminderForm({ establishmentId, missingCount }: Props) {
     null
   );
   const [open, setOpen] = useState(false);
+  // Relance partie : le mot d'accompagnement se vide, pour qu'un second clic ne
+  // renvoie pas le même message. Un refus le garde à l'écran.
+  const formRef = useResetAfterSuccess(isPending, state !== null && "ok" in state);
 
   if (missingCount === 0) {
     return (
@@ -52,7 +57,7 @@ export function DocumentReminderForm({ establishmentId, missingCount }: Props) {
   }
 
   return (
-    <form action={formAction} className="space-y-3">
+    <form ref={formRef} method="post" onSubmit={submitWithoutReset(formAction)} className="space-y-3">
       <p className="text-sm text-ink2">
         La liste des pièces manquantes est jointe automatiquement au message. Les pièces
         déjà justifiées par le client n&apos;y figurent pas.

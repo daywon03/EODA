@@ -1,5 +1,7 @@
 "use client";
 
+import { submitWithoutReset } from "@/lib/forms/submit-without-reset";
+import { useResetAfterSuccess } from "@/lib/forms/use-reset-after-success";
 import { useActionState, useState } from "react";
 import { upsertCatalogueOption } from "@/lib/actions/catalogue";
 import { formatStartingPrice } from "@/lib/services/price-format-service";
@@ -38,9 +40,12 @@ export function CatalogueOptionForm({ option }: { option?: CatalogueOption }) {
   const [minQuantity, setMinQuantity] = useState(option?.minQuantity ?? null);
 
   const id = option?.id ?? "new";
+  // Création seulement : la prestation ajoutée rejoint la liste, le formulaire se vide
+  // pour la suivante. En modification, la saisie enregistrée reste affichée.
+  const formRef = useResetAfterSuccess(isPending, !isEdit && state === null);
 
   return (
-    <form action={formAction} className="space-y-2 px-5 py-4">
+    <form ref={formRef} method="post" onSubmit={submitWithoutReset(formAction)} className="space-y-2 px-5 py-4">
       <div className="flex flex-wrap items-end gap-3">
         <div className="space-y-1">
           <Label htmlFor={`code-${id}`}>Code</Label>

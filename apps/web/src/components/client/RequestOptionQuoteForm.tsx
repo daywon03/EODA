@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { submitWithoutReset } from "@/lib/forms/submit-without-reset";
 import { requestOptionQuote } from "@/lib/actions/client-contract";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -63,7 +64,7 @@ export function RequestOptionQuoteForm({
   }
 
   return (
-    <form action={submit} className="w-full sm:w-80 space-y-2">
+    <form method="post" onSubmit={submitWithoutReset(submit)} className="w-full sm:w-80 space-y-2">
       <input type="hidden" name="catalogueOptionId" value={catalogueOptionId} />
       <label htmlFor={`message-${catalogueOptionId}`} className="block text-xs text-ink2">
         Précisez votre besoin (facultatif) — {optionLabel}

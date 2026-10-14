@@ -1,5 +1,6 @@
 "use client";
 
+import { submitWithoutReset } from "@/lib/forms/submit-without-reset";
 import { useActionState, useEffect, useRef, useState } from "react";
 import type { MessageAuthorSide } from "@eoda/database";
 import type { MessageResult, ThreadMessage } from "@/lib/actions/message";
@@ -147,7 +148,7 @@ export function MessageThread({
       )}
 
       {canPost ? (
-        <form ref={formRef} action={formAction} className="space-y-2">
+        <form ref={formRef} method="post" onSubmit={submitWithoutReset(formAction)} className="space-y-2">
           <Label htmlFor="message-body">Écrire un message</Label>
           <Textarea
             ref={fieldRef}

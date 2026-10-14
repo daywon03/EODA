@@ -1,5 +1,6 @@
 "use client";
 
+import { submitWithoutReset } from "@/lib/forms/submit-without-reset";
 import { useActionState, useId } from "react";
 import { AlertCircle, Loader2 } from "lucide-react";
 import { resendVerificationLink, type ResendLinkState } from "@/lib/actions/email-verification";
@@ -14,7 +15,7 @@ export function ResendVerificationForm({ knownEmail }: { knownEmail?: string }) 
   const emailId = useId();
 
   return (
-    <form action={formAction} className="flex flex-col gap-3">
+    <form method="post" onSubmit={submitWithoutReset(formAction)} className="flex flex-col gap-3">
       {knownEmail ? (
         <input type="hidden" name="email" value={knownEmail} />
       ) : (

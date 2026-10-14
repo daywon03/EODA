@@ -1,5 +1,6 @@
 "use client";
 
+import { submitWithoutReset } from "@/lib/forms/submit-without-reset";
 import { useActionState } from "react";
 import { updateBillingSettings } from "@/lib/actions/catalogue";
 import { Button } from "@/components/ui/button";
@@ -12,7 +13,7 @@ export function BillingSettingsForm({ settings }: { settings: BillingSettings | 
   const [state, formAction, isPending] = useActionState(updateBillingSettings, null);
 
   return (
-    <form action={formAction} className="flex flex-wrap items-end gap-4">
+    <form method="post" onSubmit={submitWithoutReset(formAction)} className="flex flex-wrap items-end gap-4">
       <div className="space-y-1">
         <Label htmlFor="defaultDepositPercent">Acompte par défaut (%)</Label>
         <Input

@@ -1,6 +1,8 @@
 "use client";
 
-import { useActionState, useEffect, useRef } from "react";
+import { submitWithoutReset } from "@/lib/forms/submit-without-reset";
+import { useResetAfterSuccess } from "@/lib/forms/use-reset-after-success";
+import { useActionState } from "react";
 import { addProspectComment } from "@/lib/actions/prospect";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -12,16 +14,12 @@ export function ProspectCommentForm({ prospectId }: { prospectId: string }) {
     addProspectComment.bind(null, prospectId),
     null
   );
-  const formRef = useRef<HTMLFormElement>(null);
-
   // Vidé après un enregistrement réussi. Sans ça, le texte reste sous les yeux
   // au-dessus de la ligne qu'il vient de créer, et on le saisit deux fois.
-  useEffect(() => {
-    if (!isPending && state === null) formRef.current?.reset();
-  }, [isPending, state]);
+  const formRef = useResetAfterSuccess(isPending, state === null);
 
   return (
-    <form ref={formRef} action={formAction} className="space-y-2">
+    <form ref={formRef} method="post" onSubmit={submitWithoutReset(formAction)} className="space-y-2">
       <Label htmlFor="body">Consigner un échange</Label>
       <Textarea
         id="body"

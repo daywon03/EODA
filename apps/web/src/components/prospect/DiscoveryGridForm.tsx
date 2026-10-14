@@ -1,5 +1,6 @@
 "use client";
 
+import { submitWithoutReset } from "@/lib/forms/submit-without-reset";
 import { useActionState } from "react";
 import Link from "next/link";
 import { saveDiscoveryAnswers } from "@/lib/actions/discovery";
@@ -40,7 +41,7 @@ export function DiscoveryGridForm({ prospectId, grid, answers, updatedAt }: Prop
   const percent = discoveryCompletionPercent(answers, grid);
 
   return (
-    <form key={discoveryFormRevision(updatedAt)} action={formAction} className="space-y-6">
+    <form key={discoveryFormRevision(updatedAt)} method="post" onSubmit={submitWithoutReset(formAction)} className="space-y-6">
       <div className="space-y-2 rounded-lg border border-gris-light bg-surface p-4">
         <div className="flex items-center justify-between text-sm">
           <span className="font-medium text-brun-ancre">Grille renseignée</span>

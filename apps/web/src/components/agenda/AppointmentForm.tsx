@@ -1,5 +1,7 @@
 "use client";
 
+import { submitWithoutReset } from "@/lib/forms/submit-without-reset";
+import { useResetAfterSuccess } from "@/lib/forms/use-reset-after-success";
 import { useActionState, useState } from "react";
 import { createAppointment } from "@/lib/actions/appointment";
 import { Button } from "@/components/ui/button";
@@ -39,9 +41,12 @@ export function AppointmentForm(props: Props) {
   const isProspect = "prospectId" in props && !!props.prospectId;
   const [state, formAction, isPending] = useActionState(createAppointment, null);
   const [mode, setMode] = useState<string>("VISIO");
+  // Un rendez-vous programmé apparaît dans la liste : le formulaire se vide pour le
+  // suivant, comme avant le passage à onSubmit — et seulement après un succès.
+  const formRef = useResetAfterSuccess(isPending, state === null);
 
   return (
-    <form action={formAction} className="space-y-4">
+    <form ref={formRef} method="post" onSubmit={submitWithoutReset(formAction)} className="space-y-4">
       {isProspect ? (
         <input type="hidden" name="prospectId" value={props.prospectId} />
       ) : (

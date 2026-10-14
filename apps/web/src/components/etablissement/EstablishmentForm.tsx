@@ -1,5 +1,6 @@
 "use client";
 
+import { submitWithoutReset } from "@/lib/forms/submit-without-reset";
 import { useActionState } from "react";
 import { updateEstablishment } from "@/lib/actions/establishment";
 import { Button } from "@/components/ui/button";
@@ -46,7 +47,7 @@ export function EstablishmentForm({ establishment }: Props) {
   const cancelHref = `/dashboard/cabinet/etablissements/${establishment.id}`;
 
   return (
-    <form action={formAction} className="space-y-5">
+    <form method="post" onSubmit={submitWithoutReset(formAction)} className="space-y-5">
       <div className="space-y-1.5">
         <Label htmlFor="name">
           Raison sociale <span className="text-rouge-imp">*</span>

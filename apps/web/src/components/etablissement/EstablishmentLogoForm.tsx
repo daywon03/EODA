@@ -1,6 +1,8 @@
 "use client";
 
-import { useActionState, useRef, useState, useTransition } from "react";
+import { submitWithoutReset } from "@/lib/forms/submit-without-reset";
+import { useResetAfterSuccess } from "@/lib/forms/use-reset-after-success";
+import { useActionState, useState, useTransition } from "react";
 import { uploadEstablishmentLogo, removeEstablishmentLogo } from "@/lib/actions/establishment";
 import { Button } from "@/components/ui/button";
 import { AlertCircle, ImageUp, Loader2, Trash2 } from "lucide-react";
@@ -36,7 +38,10 @@ export function EstablishmentLogoForm({
   const [state, formAction, isUploading] = useActionState(uploadAction, null);
   const [removeError, setRemoveError] = useState<string | null>(null);
   const [isRemoving, startRemove] = useTransition();
-  const formRef = useRef<HTMLFormElement>(null);
+  // Le champ fichier se vide après CHAQUE dépôt, accepté ou refusé : sinon,
+  // reprendre le même fichier ne déclencherait plus `onChange` (la valeur ne change
+  // pas). Un fichier sélectionné n'est pas une saisie qu'on aurait à retaper.
+  const formRef = useResetAfterSuccess(isUploading, true);
 
   const isPending = isUploading || isRemoving;
 
@@ -57,7 +62,7 @@ export function EstablishmentLogoForm({
         </div>
 
         <div className="space-y-2">
-          <form ref={formRef} action={formAction}>
+          <form ref={formRef} method="post" onSubmit={submitWithoutReset(formAction)}>
             <input type="hidden" name="establishmentId" value={establishmentId} />
             <input
               type="file"

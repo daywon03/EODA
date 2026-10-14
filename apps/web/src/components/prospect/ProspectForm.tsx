@@ -1,5 +1,6 @@
 "use client";
 
+import { submitWithoutReset } from "@/lib/forms/submit-without-reset";
 import { useActionState, useState } from "react";
 import { createProspect, updateProspect } from "@/lib/actions/prospect";
 import { Button } from "@/components/ui/button";
@@ -73,7 +74,7 @@ export function ProspectForm({ prospect }: Props) {
     : "/dashboard/cabinet/commercial/prospects";
 
   return (
-    <form action={formAction} className="space-y-5">
+    <form method="post" onSubmit={submitWithoutReset(formAction)} className="space-y-5">
       <div className="space-y-1.5">
         <Label htmlFor="structureName">
           Nom de la structure <span className="text-rouge-imp">*</span>

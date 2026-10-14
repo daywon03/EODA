@@ -1,5 +1,6 @@
 "use client";
 
+import { submitWithoutReset } from "@/lib/forms/submit-without-reset";
 import { useActionState, useState } from "react";
 import { upsertCatalogueFormule } from "@/lib/actions/catalogue";
 import { formatStartingPrice } from "@/lib/services/price-format-service";
@@ -16,7 +17,7 @@ export function CatalogueFormuleForm({ formule }: { formule: CatalogueFormule })
   const [priceEuros, setPriceEuros] = useState(formule.priceEuros);
 
   return (
-    <form action={formAction} className="space-y-3">
+    <form method="post" onSubmit={submitWithoutReset(formAction)} className="space-y-3">
       <input type="hidden" name="formule" value={formule.formule} />
       <div className="grid grid-cols-1 gap-3">
         <div className="space-y-1">

@@ -1,5 +1,6 @@
 "use client";
 
+import { submitWithoutReset } from "@/lib/forms/submit-without-reset";
 import { useActionState, useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { AlertCircle, Loader2 } from "lucide-react";
@@ -128,7 +129,7 @@ export function DevisForm({
   }
 
   return (
-    <form action={formAction} className="grid items-start gap-7 lg:grid-cols-[minmax(0,1fr)_minmax(320px,380px)]">
+    <form method="post" onSubmit={submitWithoutReset(formAction)} className="grid items-start gap-7 lg:grid-cols-[minmax(0,1fr)_minmax(320px,380px)]">
       <input type="hidden" name="prospectId" value={prospectId} />
 
       <div className="flex min-w-0 flex-col gap-6">

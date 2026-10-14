@@ -1,5 +1,6 @@
 "use client";
 
+import { submitWithoutReset } from "@/lib/forms/submit-without-reset";
 import { useActionState } from "react";
 import { updateMissionScope } from "@/lib/actions/mission";
 import { FormuleOfferPicker } from "./FormuleOfferPicker";
@@ -35,7 +36,7 @@ export function MissionScopeEditor({
   const [state, formAction, isPending] = useActionState(action, null);
 
   return (
-    <form action={formAction} className="space-y-4">
+    <form method="post" onSubmit={submitWithoutReset(formAction)} className="space-y-4">
       <FormuleOfferPicker formules={formules} defaultFormule={currentFormule ?? undefined} defaultGratuit={currentGratuit} />
       <MissionOptionsPicker options={options} subscribed={subscribedOptions} />
 

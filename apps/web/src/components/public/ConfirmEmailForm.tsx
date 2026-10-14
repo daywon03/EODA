@@ -1,5 +1,6 @@
 "use client";
 
+import { submitWithoutReset } from "@/lib/forms/submit-without-reset";
 import { useActionState } from "react";
 import Link from "next/link";
 import { AlertCircle, CheckCircle2, Loader2 } from "lucide-react";
@@ -32,7 +33,7 @@ export function ConfirmEmailForm({ token }: { token: string }) {
   return (
     <div className="flex flex-col gap-5">
       <p>Un clic pour confirmer que cette adresse est bien la vôtre. Votre espace s&apos;ouvre ensuite.</p>
-      <form action={formAction}>
+      <form method="post" onSubmit={submitWithoutReset(formAction)}>
         <input type="hidden" name="token" value={token} />
         <button
           type="submit"

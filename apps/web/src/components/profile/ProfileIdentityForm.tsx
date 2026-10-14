@@ -1,5 +1,6 @@
 "use client";
 
+import { submitWithoutReset } from "@/lib/forms/submit-without-reset";
 import { useActionState } from "react";
 import { updateOwnProfile } from "@/lib/actions/profile";
 import { Button } from "@/components/ui/button";
@@ -18,7 +19,7 @@ export function ProfileIdentityForm({ name, email }: Props) {
   const [state, formAction, isPending] = useActionState(updateOwnProfile, null);
 
   return (
-    <form action={formAction} className="space-y-4">
+    <form method="post" onSubmit={submitWithoutReset(formAction)} className="space-y-4">
       <div className="space-y-1.5">
         <Label htmlFor="profile-name">Nom affiché</Label>
         <Input

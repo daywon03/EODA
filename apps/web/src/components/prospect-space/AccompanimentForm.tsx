@@ -1,5 +1,6 @@
 "use client";
 
+import { submitWithoutReset } from "@/lib/forms/submit-without-reset";
 import { useActionState, useId } from "react";
 import { AlertCircle, Loader2 } from "lucide-react";
 import { requestAccompaniment, type AccompanimentState } from "@/lib/actions/prospect-space";
@@ -25,7 +26,7 @@ export function AccompanimentForm({ minDay, maxDay }: { minDay: string; maxDay: 
   }
 
   return (
-    <form action={formAction} className="flex flex-col gap-4">
+    <form method="post" onSubmit={submitWithoutReset(formAction)} className="flex flex-col gap-4">
       <div className="flex flex-col gap-1.5">
         <label htmlFor={dayId} className="font-bold">
           Quel jour pouvons-nous vous appeler ?

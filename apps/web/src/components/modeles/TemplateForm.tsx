@@ -1,5 +1,6 @@
 "use client";
 
+import { submitWithoutReset } from "@/lib/forms/submit-without-reset";
 import { useActionState, useState } from "react";
 import { createTemplate, type CategorySummary } from "@/lib/actions/template-library";
 import {
@@ -35,7 +36,7 @@ export function TemplateForm({ categories }: { categories: CategorySummary[] }) 
   }
 
   return (
-    <form action={formAction} className="space-y-4">
+    <form method="post" onSubmit={submitWithoutReset(formAction)} className="space-y-4">
       <div className="space-y-1.5">
         <Label htmlFor="titles">
           Titre(s) du modèle <span className="text-rouge-imp">*</span>
