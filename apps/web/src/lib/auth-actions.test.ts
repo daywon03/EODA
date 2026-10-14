@@ -52,8 +52,12 @@ describe("loginAction", () => {
     await expect(loginAction(form())).resolves.toEqual({ error: "Email ou mot de passe incorrect." });
   });
 
-  it("succès : vers le tableau de bord", async () => {
+  // Recette du 13/10/2026 : après une déconnexion forcée (mot de passe changé,
+  // abonnement signé), la redirection d'action serveur vers /dashboard réutilisait
+  // la page déjà en cache du routeur client pour cette adresse — écran blanc. Le
+  // succès rend la main à l'écran, qui fait une navigation complète.
+  it("succès : pas de redirection d'action serveur, une navigation complète vers /dashboard", async () => {
     signIn.mockResolvedValue(undefined);
-    await expect(loginAction(form())).rejects.toThrow("REDIRECT:/dashboard");
+    await expect(loginAction(form())).resolves.toEqual({ redirectTo: "/dashboard" });
   });
 });

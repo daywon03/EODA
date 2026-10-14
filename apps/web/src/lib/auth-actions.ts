@@ -3,7 +3,6 @@
 import { headers } from "next/headers";
 import { signIn, signOut } from "@/auth";
 import { AuthError } from "next-auth";
-import { redirect } from "next/navigation";
 import {
   clientIpFromHeaders,
   peekLoginThrottle,
@@ -20,7 +19,7 @@ const GENERIC_AUTH_ERROR = "Email ou mot de passe incorrect.";
 // échecs vivent dans authorize() (cf. auth.ts) : c'est le seul point par lequel passent
 // aussi les POST directs sur /api/auth/callback/credentials. On se contente ici de lire
 // l'état du compteur — sans le consommer — pour afficher un message utile.
-export type LoginResult = { error: string; unverifiedEmail?: string } | undefined;
+export type LoginResult = { error: string; unverifiedEmail?: string } | { redirectTo: string };
 
 export async function loginAction(formData: FormData): Promise<LoginResult> {
   const email = (formData.get("email") as string | null)?.trim().toLowerCase() ?? "";
@@ -55,7 +54,10 @@ export async function loginAction(formData: FormData): Promise<LoginResult> {
     throw error;
   }
 
-  redirect("/dashboard");
+  // Pas de redirect() d'action serveur : après une déconnexion forcée, le routeur
+  // client resservait sa copie en cache de /dashboard (écran blanc, recette du
+  // 13/10/2026). L'écran fait une navigation complète ; /dashboard aiguille par rôle.
+  return { redirectTo: "/dashboard" };
 }
 
 export async function logoutAction() {

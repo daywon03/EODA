@@ -23,8 +23,13 @@ export function LoginForm() {
     const formData = new FormData(e.currentTarget);
     startTransition(async () => {
       const result = await loginAction(formData);
-      if (result?.error) setError(result.error);
-      if (result?.unverifiedEmail) setUnverifiedEmail(result.unverifiedEmail);
+      if ("redirectTo" in result) {
+        // Navigation complète, jamais le cache du routeur client (cf. loginAction).
+        window.location.assign(result.redirectTo);
+        return;
+      }
+      setError(result.error);
+      if (result.unverifiedEmail) setUnverifiedEmail(result.unverifiedEmail);
     });
   }
 
