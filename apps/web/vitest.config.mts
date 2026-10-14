@@ -202,6 +202,19 @@ export default defineConfig({
         // logique clavier des primitives. Un défaut ici ne fait échouer aucun test
         // métier : il rend un écran illisible ou inutilisable au clavier.
         "src/lib/design/**/*.ts",
+        // Lot C (terrain, 14/10/2026) : le verrou HDS et les services purs de
+        // l'enquête et de la signature. Un défaut ici écrit une donnée de santé sur
+        // une infrastructure non certifiée, affiche un taux de satisfaction faux dans
+        // un dossier d'évaluation, ou accepte une signature sans son dossier de preuve.
+        "src/lib/hds/index.ts",
+        "src/lib/hds/locked-beneficiary-data-adapter.ts",
+        "src/lib/services/survey-stats-service.ts",
+        "src/lib/services/survey-report-service.ts",
+        "src/lib/services/signature-evidence-service.ts",
+        "src/lib/services/reception-sheet-service.ts",
+        "src/lib/services/beneficiary-deadline-service.ts",
+        "src/lib/security/tablet-pin.ts",
+        "src/lib/security/tablet-session.ts",
       ],
       // Le seuil FAIT ÉCHOUER la commande (`vitest run --coverage`). Un seuil qui
       // n'échoue pas n'est pas un garde-fou. À relever au fur et à mesure, jamais à
