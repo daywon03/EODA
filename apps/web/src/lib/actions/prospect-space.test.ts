@@ -50,7 +50,7 @@ vi.mock("@/lib/db/read-prospect-diagnostic", () => ({
         [
           "prospect-1",
           {
-            latest: new Map([["crit-1", { criterionId: "crit-1", questionVersion: 1, answer: "PAS_ENCORE", text: null, answeredAt: new Date() }]]),
+            latest: new Map([["crit-1", { criterionId: "crit-1", questionVersion: 2, answer: "PAS_ENCORE", text: null, answeredAt: new Date() }]]),
             lastAnswerAt: new Date(),
           },
         ],

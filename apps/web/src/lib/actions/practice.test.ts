@@ -61,7 +61,7 @@ describe("savePracticeAnswer", () => {
       data: {
         establishmentId: ETAB,
         criterionId: "c-3.12.1",
-        questionVersion: 1,
+        questionVersion: 2,
         answer: "EN_PARTIE",
         text: "On note dans un cahier.",
         answeredById: "user-client",
@@ -107,7 +107,7 @@ describe("savePracticeAnswer", () => {
 describe("getClientPractices", () => {
   it("une question par impératif, documents liés et progression", async () => {
     prismaMock.practiceAnswer.findMany.mockResolvedValue([
-      { criterionId: "c-3.12.1", questionVersion: 1, answer: "OUI", text: null, answeredAt: new Date() },
+      { criterionId: "c-3.12.1", questionVersion: 2, answer: "OUI", text: null, answeredAt: new Date() },
     ]);
     const practices = await getClientPractices();
     expect(practices?.questions.map((q) => q.criterionCode)).toEqual(["3.12.1", "3.14.1"]);
