@@ -91,7 +91,7 @@ export function QuizBoardView({ board, large = false }: { board: QuizBoard; larg
             : "Personne dans l'équipe pour l'instant. Ajoutez une personne ou importez une liste."}
         </p>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-line bg-card" tabIndex={0} role="region" aria-label="Quiz par personne">
+        <div className="relative overflow-x-auto rounded-xl border border-line bg-card" tabIndex={0} role="region" aria-label="Quiz par personne">
           <table className="w-full min-w-[960px] border-collapse">
             <caption className="sr-only">Statut des quiz de sensibilisation, par personne</caption>
             <thead className="bg-soft">

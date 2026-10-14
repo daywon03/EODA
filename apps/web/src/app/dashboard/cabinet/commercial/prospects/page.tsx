@@ -147,7 +147,7 @@ export default async function ProspectsPage({ searchParams }: Props) {
         tabs={PIPELINE_TABS.map((t) => ({ id: t.id, label: t.label, href: href(t.id, origin), count: counts[t.id] }))}
       />
 
-      <div role="region" aria-label="Prospects" tabIndex={0} className="overflow-x-auto rounded-xl border border-line bg-card">
+      <div role="region" aria-label="Prospects" tabIndex={0} className="relative overflow-x-auto rounded-xl border border-line bg-card">
         <table className="w-full min-w-[1000px] border-collapse text-left text-base">
           <caption className="sr-only">Prospects</caption>
           <thead className="bg-soft">

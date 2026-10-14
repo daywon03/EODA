@@ -93,7 +93,7 @@ export default async function EvaluationComparisonPage({ params }: Props) {
                 </div>
               )}
 
-              <div className="overflow-x-auto">
+              <div className="relative overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-line text-left text-xs uppercase tracking-wide text-ink2">

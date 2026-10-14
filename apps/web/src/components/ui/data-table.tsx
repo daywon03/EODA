@@ -47,7 +47,7 @@ export function DataTable<Row>({
       role="region"
       aria-label={caption}
       tabIndex={0}
-      className={cn("overflow-x-auto rounded-xl border border-line bg-card", className)}
+      className={cn("relative overflow-x-auto rounded-xl border border-line bg-card", className)}
     >
       <table className="w-full border-collapse text-left text-base">
         <caption className={showCaption ? "px-4 py-3 text-left font-bold text-ink" : "sr-only"}>{caption}</caption>

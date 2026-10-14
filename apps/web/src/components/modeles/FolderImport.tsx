@@ -154,7 +154,7 @@ export function FolderImport({ onImported }: { onImported?: () => void }) {
 
       {rows.length > 0 && (
         <>
-          <div className="overflow-x-auto">
+          <div className="relative overflow-x-auto">
             <table className="w-full min-w-[46rem] text-left text-xs">
               <caption className="sr-only">
                 Rangement proposé pour les fichiers du dossier choisi

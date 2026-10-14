@@ -3,7 +3,7 @@ import { cn } from "@/lib/utils";
 // Apparence commune des deux variantes d'onglets — boutons (TabsWithCount, motif
 // ARIA « Tabs ») et liens (TabsNav, navigation entre routes). Une seule définition
 // pour qu'un onglet ait le même aspect quel que soit son mécanisme (D1).
-export const TAB_LIST_CLASS = "flex gap-1 overflow-x-auto border-b border-line";
+export const TAB_LIST_CLASS = "relative flex gap-1 overflow-x-auto border-b border-line";
 
 export function tabClassName(isSelected: boolean): string {
   return cn(

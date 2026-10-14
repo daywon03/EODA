@@ -48,7 +48,7 @@ export function MonthGrid({ year, month, appointments, now, basePath }: Props) {
 
       {/* La grille déborde en largeur sur un petit écran plutôt que d'écraser les
           colonnes : sept jours ne tiennent pas lisiblement dans 375 px. */}
-      <div className="overflow-x-auto">
+      <div className="relative overflow-x-auto">
         <div className="min-w-[640px]">
           <div className="grid grid-cols-7 border-b border-gris-light bg-ivoire/60">
             {WEEKDAYS.map((day) => (
