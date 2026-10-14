@@ -67,6 +67,13 @@ les grilles Synaé locales de Sandrine — jamais dans le chemin d'exécution de
 jamais sur un fichier provenant d'un tiers. Exception déclarée explicitement dans
 `pnpm.auditConfig.ignoreGhsas`, pas en abaissant le seuil global d'audit.
 
+**Dette acceptée, décision de Damon du 14/10/2026** : `braces` (GHSA-vfj7-8cjw-p6xm, haute)
+n'a **aucune version corrigée publiée**. Il n'arrive que par l'outillage de lint
+(`eslint-config-next > @next/eslint-plugin-next > fast-glob > micromatch > braces`) : exécuté
+sur le poste et en CI, **jamais** dans l'application livrée ni sur Vercel en réponse à une
+requête. Exception déclarée dans `pnpm.auditConfig.ignoreGhsas`, seuil global inchangé.
+**À retirer dès qu'un correctif sort** (vérifier à chaque `pnpm audit:deps`).
+
 ## 1. Contexte métier (à connaître avant tout)
 
 **Qui :** Sandrine Regina, fondatrice d'EODA Conseil (auto-entreprise), consultante qualité
