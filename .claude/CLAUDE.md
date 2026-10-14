@@ -128,8 +128,8 @@ lots dans `context/09-vision-produit.md` §7 :
   & preuves, plan d'action (PAC), échéancier des documents, file « À relire ».
 - **Lot B — équipe et sensibilisation** : quiz par QR code **dans la plateforme** (remplace
   le renvoi vers Kahoot du doc 07 §12.5), fiches, preuve de sensibilisation par salarié.
-- **Lot C — terrain** (signature sur tablette, enquêtes) : **bloqué par la décision HDS**
-  (§6 ci-dessous).
+- **Lot C — terrain** (signature sur tablette, enquêtes) : **construit le 14/10/2026 et
+  verrouillé** derrière le port HDS (§6 ci-dessous) — démonstration sur données fictives.
 - **Lot D — offre SaaS** : paliers d'abonnement, **après** validation des prix par Sandrine.
 - Ensuite seulement : fonctionnalités métier (registres EI / plaintes, KPI, liens ERP).
 
@@ -416,6 +416,22 @@ Détail complet et état d'avancement : `specs/02-architecture-technique.md` §4
   épinglé, aucune dépendance), pas de SMS. L'alerte d'échéance (D12) est une tâche
   `ActionItem` source QUIZ créée **idempotemment au chargement** de l'onglet par un rôle qui
   écrit — pas d'horloge ni de cron (aucun n'existe sur Vercel ici).
+- **Terrain (lot C, 14/10/2026) — construit, verrouillé HDS** (§6, ADR 20261014). Module
+  client `TERRAIN` (direction + responsable qualité ; administratif et intervenant : aucun ;
+  cabinet : `STRUCTURES_READ`, en lecture) : `/dashboard/client/personnes` (dossiers, tablettes
+  et codes), `/dashboard/client/enquetes` (statistiques AGRÉGÉES, jamais nominatives ; plan
+  d'action PROPOSÉ sous 75 %, `ActionItem` source `ENQUETE` recalculé côté serveur ; export
+  CSV agrégé `/api/export/enquete/[id]`), onglets `personnes` / `enquetes` de la fiche.
+  **Tablette** `/tablette` (route ANONYMOUS de `classifyPath`) : « jamais un code seul » —
+  appareil enregistré par la structure (`DeviceEnrollment`, jeton en cookie httpOnly,
+  empreinte seule en base) + fiche salarié + code de 6 chiffres (`StaffPin`, scrypt, blocage
+  au 5e échec, déblocage par la direction), session signée de 30 min ; gardes
+  `resolveTabletDevice` / `resolveTabletSession` dans `guards.ts`. Les écritures usager
+  (`lib/actions/terrain-write.ts`) vérifient la garde PUIS le verrou avant même de lire le
+  formulaire. Le parcours se montre sur `/tablette/demonstration` (en mémoire, données
+  fictives, aucun appel serveur) — ne jamais y brancher d'action. Questionnaires = contenu
+  versionné (`content/enquete/`, transcription du gabarit de Sandrine) ; points « à dire » de
+  la feuille de réception **provisoires**. Signature : PNG final seul, jamais le tracé.
 - Le suivi de mission (checklist diagnostic 12 items + 4 phases d'accompagnement, §7 du même
   fichier) est également intégré, sous `/dashboard/cabinet/etablissements/[id]/mission` —
   lisible par `CABINET_ADMIN`, `CABINET_EVALUATOR` et `CABINET_READONLY` (contrairement au
@@ -479,7 +495,8 @@ Détail complet et état d'avancement : `specs/02-architecture-technique.md` §4
     connecté est renvoyé à son espace. `signUpSelfService` (`lib/actions/self-service.ts`) :
     débit sur l'IP **et** l'adresse, validation serveur des trois étapes
     (`self-service-service.ts`), **même réponse** que l'adresse ait un compte ou non (même
-    coût bcrypt, e-mail différent), un seul cabinet en base sinon inscription fermée.
+    coût bcrypt, e-mail différent ; depuis le 14/10, création du compte et envois
+    **déférés par `after()`** des deux côtés — aucune fuite de durée, test), un seul cabinet en base sinon inscription fermée.
     Crée `Prospect` + `User` au rôle **`PROSPECT_USER`** + lien `ProspectAccount` ;
   - `PROSPECT_USER` n'a **aucune capacité** : toutes les gardes le refusent par
     construction ; `requireProspectSession()` (`guards.ts`) résout le prospect depuis le

@@ -250,7 +250,7 @@ cahier des charges. **À demander** :
 |---|---|---|
 | **A — Refonte et socle conformité** | Nouveau design (brief `.claude/design/`), navigation latérale cabinet, fiche structure en onglets, panneau document, file « À relire », **critères & preuves**, **plan d'action (PAC)**, échéancier / renouvellement des documents, agenda commenté, journal des modifications d'un document | Maquettes validées par Sandrine ; fichier PAC |
 | **B — Équipe et sensibilisation** | Liste de l'équipe (import tableur), quiz par QR code **dans la plateforme**, fiches et bibliothèque d'auto-formation, matrice de preuve, retest tous les 6 mois, accusé de lecture des procédures | Décision « compte ou choix du nom » |
-| **C — Terrain** | Signature sur tablette avec dossier de preuve, enquête de satisfaction (en ligne + papier photographié), feuille de réception unique | **Décision HDS (§8)** |
+| **C — Terrain** | Signature sur tablette avec dossier de preuve, enquête de satisfaction (en ligne + papier photographié), feuille de réception unique | **Construit le 14/10/2026, verrouillé** : tout ce qui est nominatif passe par un port refusé tant que le backend n'est pas chez un hébergeur HDS (§8, ADR 20261014) ; démonstration sur données fictives |
 | **D — Offre SaaS** | Paliers d'abonnement (Diagnostic, Mise en conformité, Pilotage), remplacement de la dégressivité actuelle, paiement en ligne | Validation des prix (§4) ; prestataire de paiement |
 | **E — Pilotage en autonomie** | Ce qui fait le palier Pilotage : plan d'action PDCA avec pilotes, revue qualité guidée, **registres plaintes / EI** (remontés ici : trois impératifs, les plus faibles au niveau national), rôles dans l'équipe cliente, **24 KPI** + rapport mensuel, répétition de l'évaluation | Rôles côté client à modéliser (aujourd'hui un seul rôle `CLIENT_USER`) |
 | **Ensuite — métier** | Connexion aux ERP du domicile (Ximi, Arche MC2) **plutôt que** de reconstruire planning, tournées, paie et facturation | Demande récurrente de clients payants |
@@ -294,6 +294,8 @@ sont en pratique des données de santé** ([CNIL](https://www.cnil.fr/fr/quest-c
 certifié HDS en UE (OVHcloud, Scaleway, 3DS Outscale — certifications à revérifier au
 registre ANS) ; (c) laisser les pièces nominatives dans l'ERP du client (Ximi…) et ne
 stocker chez EODA que la preuve qu'elles existent. **Décidé le 08/10/2026 : option (b)** — le backend migre vers un hébergement certifié HDS ; enquête nominative ; le lot C se construit, rien de nominatif en production avant la migration (CLAUDE.md §6).
+
+**Mis en œuvre le 14/10/2026** (ADR `specs/adr/20261014_ADR_lot-C-verrou-HDS.md`) : le lot C est construit derrière un **verrou mécanique** — port de persistance dont l'adaptateur par défaut refuse toute écriture, adaptateur réel sélectionnable seulement avec `HDS_BACKEND_ENABLED="true"`, un hébergeur déclaré et un stockage distinct, sinon refus de démarrer en production. Signature : une image PNG finale, jamais le tracé ; dossier de preuve (empreinte SHA-256, horodatage, signataire ou représentant légal, intervenant témoin, appareil enregistré, points « à dire » cochés et horodatés). Ce qu'il faut pour ouvrir le verrou est listé dans l'ADR (hébergeur certifié, AIPD, contrat, migration des données, tests).
 
 **Signature électronique** : la signature simple est recevable pour un DIPC (aucun niveau
 imposé par le CASF), à condition d'un **dossier de preuve** (identité du signataire et de
