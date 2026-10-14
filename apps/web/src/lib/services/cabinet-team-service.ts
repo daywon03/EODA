@@ -83,6 +83,26 @@ export function describeFollowedStructures(role: UserRole, structureNames: reado
   return structureNames.join(", ");
 }
 
+// Avertissement du formulaire d'invitation / de modification (recette du 14/10) :
+// une consultante sans structure cochée suit TOUT le portefeuille, y compris les
+// structures signées plus tard — choix de compatibilité (CLAUDE.md §7), qui doit se
+// voir au moment de valider, pas se découvrir après.
+export type AssignmentNotice = { tone: "warning" | "info"; text: string };
+
+export function assignmentScopeNotice(role: UserRole, checkedCount: number): AssignmentNotice | null {
+  if (role !== "CABINET_EVALUATOR") return null;
+  if (checkedCount === 0) {
+    return {
+      tone: "warning",
+      text: "Aucune structure cochée : elle suivra toutes les structures du cabinet, y compris celles signées plus tard. Cochez ses structures pour limiter son accès.",
+    };
+  }
+  return {
+    tone: "info",
+    text: `Elle ne verra que ${checkedCount === 1 ? "la structure cochée" : `les ${checkedCount} structures cochées`}.`,
+  };
+}
+
 export function countByRole(members: readonly TeamMemberFacts[]): Record<CabinetRole, number> {
   const counts = Object.fromEntries(CABINET_ROLES.map((role) => [role, 0])) as Record<CabinetRole, number>;
   for (const member of members) {

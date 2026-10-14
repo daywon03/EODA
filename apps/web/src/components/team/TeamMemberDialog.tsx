@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { Callout } from "@/components/ui/callout";
+import { assignmentScopeNotice } from "@/lib/services/cabinet-team-service";
 import { useRouter } from "next/navigation";
 import { Loader2, Pencil, UserMinus, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -128,7 +130,14 @@ export function TeamMemberDialog(props: Props) {
                 {role === "CABINET_EVALUATOR" && (
                   <fieldset className="space-y-2">
                     <legend className="font-bold text-ink">Structures suivies</legend>
-                    <p className="text-ink2">Aucune cochée : elle suit toutes les structures.</p>
+                    {(() => {
+                      const notice = assignmentScopeNotice(role, structures.length);
+                      return notice ? (
+                        <Callout tone={notice.tone} role="note">
+                          {notice.text}
+                        </Callout>
+                      ) : null;
+                    })()}
                     <div className="flex flex-wrap gap-2">
                       {props.establishments.map((establishment) => {
                         const checked = structures.includes(establishment.id);

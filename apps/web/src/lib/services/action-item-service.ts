@@ -55,6 +55,28 @@ export const ACTION_FILTER_LABELS: Record<ActionFilter, string> = {
   TERMINEES: "Terminées",
 };
 
+// Phrase d'une liste VIDE, selon le filtre et ce que la personne voit (recette du
+// 14/10). « Aucune tâche dans cette liste. » se lisait pareil pour un intervenant à
+// qui rien n'est encore confié et pour une direction dont tout est fait : la phrase
+// doit dire laquelle des deux situations on regarde. Phrases courtes (FALC).
+export function describeEmptyTaskList(filter: ActionFilter, viewer: { ownOnly: boolean }): string {
+  if (viewer.ownOnly && (filter === "EN_COURS" || filter === "MIENNES")) {
+    return "Aucune tâche ne vous est confiée pour l'instant. Quand on vous en confie une, elle apparaît ici.";
+  }
+  switch (filter) {
+    case "EN_COURS":
+      return "Aucune tâche en cours : tout ce qui était prévu est fait.";
+    case "MIENNES":
+      return "Aucune tâche ne vous est confiée en ce moment.";
+    case "EODA":
+      return "Aucune tâche confiée à EODA en ce moment.";
+    case "EN_RETARD":
+      return "Aucune tâche en retard.";
+    case "TERMINEES":
+      return "Aucune tâche terminée pour l'instant.";
+  }
+}
+
 export function parseActionFilter(raw: string | string[] | undefined): ActionFilter {
   return typeof raw === "string" && (ACTION_FILTERS as readonly string[]).includes(raw)
     ? (raw as ActionFilter)

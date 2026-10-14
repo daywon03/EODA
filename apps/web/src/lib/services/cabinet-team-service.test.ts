@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  assignmentScopeNotice,
   countActiveAdmins,
   countByRole,
   decideAccessRemoval,
@@ -103,5 +104,23 @@ describe("parseCabinetRole — pas de cast d'enum sur une entrée", () => {
     expect(parseCabinetRole("CLIENT_USER")).toBeNull();
     expect(parseCabinetRole("SUPERADMIN")).toBeNull();
     expect(parseCabinetRole(null)).toBeNull();
+  });
+});
+
+describe("assignmentScopeNotice — consultante sans structure cochée", () => {
+  it("avertit explicitement qu'elle suivra toutes les structures", () => {
+    const notice = assignmentScopeNotice("CABINET_EVALUATOR", 0);
+    expect(notice?.tone).toBe("warning");
+    expect(notice?.text).toContain("suivra toutes les structures");
+  });
+
+  it("dit la portée quand des structures sont cochées", () => {
+    expect(assignmentScopeNotice("CABINET_EVALUATOR", 1)?.text).toBe("Elle ne verra que la structure cochée.");
+    expect(assignmentScopeNotice("CABINET_EVALUATOR", 3)).toEqual({ tone: "info", text: "Elle ne verra que les 3 structures cochées." });
+  });
+
+  it("ne dit rien pour les autres rôles", () => {
+    expect(assignmentScopeNotice("CABINET_ADMIN", 0)).toBeNull();
+    expect(assignmentScopeNotice("CABINET_READONLY", 0)).toBeNull();
   });
 });

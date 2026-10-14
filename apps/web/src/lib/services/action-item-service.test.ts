@@ -7,6 +7,7 @@ import {
   canActorActOnItem,
   countActionFilters,
   describeActionForAudit,
+  describeEmptyTaskList,
   describeOwner,
   isOverdue,
   isVisibleToClient,
@@ -151,5 +152,21 @@ describe("responsable affiché et tâches du jour", () => {
     expect(actions.map((a) => a.id)).toEqual(["task-t1"]);
     expect(actions[0]?.href).toContain("plan-action");
     expect(actions[0]?.detail).toContain("La structure");
+  });
+});
+
+describe("describeEmptyTaskList", () => {
+  it("intervenant : dit que rien ne lui est encore confié, pas que tout est fait", () => {
+    expect(describeEmptyTaskList("EN_COURS", { ownOnly: true })).toContain("ne vous est confiée");
+    expect(describeEmptyTaskList("MIENNES", { ownOnly: true })).toContain("ne vous est confiée");
+  });
+
+  it("une phrase propre à chaque filtre, pour les autres rôles", () => {
+    const phrases = (["EN_COURS", "MIENNES", "EODA", "EN_RETARD", "TERMINEES"] as const).map((f) =>
+      describeEmptyTaskList(f, { ownOnly: false })
+    );
+    expect(new Set(phrases).size).toBe(5);
+    expect(describeEmptyTaskList("EN_COURS", { ownOnly: false })).toContain("tout ce qui était prévu est fait");
+    expect(describeEmptyTaskList("TERMINEES", { ownOnly: true })).toBe("Aucune tâche terminée pour l'instant.");
   });
 });

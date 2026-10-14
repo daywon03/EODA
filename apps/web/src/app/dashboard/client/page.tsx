@@ -2,6 +2,7 @@ import Link from "next/link";
 import { requireClientEstablishment } from "@/lib/auth/guards";
 import { clientAllows, NEED } from "@/lib/auth/capabilities";
 import { LimitedClientHome } from "@/components/client/home/LimitedClientHome";
+import { getClientGreetingName } from "@/lib/actions/client-greeting";
 import { getClientChecklist } from "@/lib/actions/checklist";
 import { listClientAppointments } from "@/lib/actions/appointment";
 import { getClientContract } from "@/lib/actions/client-contract";
@@ -42,7 +43,7 @@ export default async function ClientHomePage() {
   // réduit à ce qu'il peut faire — ses lectures gardées le renverraient ici en boucle.
   const { accessRole } = await requireClientEstablishment("HOME");
   if (accessRole && !clientAllows(accessRole, NEED.DOCUMENTS_READ)) {
-    return <LimitedClientHome accessRole={accessRole} />;
+    return <LimitedClientHome accessRole={accessRole} firstName={await getClientGreetingName()} />;
   }
   const canSeeAppointments = !accessRole || clientAllows(accessRole, { module: "MESSAGES", mode: "READ" });
   const canSeeContract = !accessRole || clientAllows(accessRole, { module: "CONTRACT", mode: "READ" });

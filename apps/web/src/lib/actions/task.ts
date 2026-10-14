@@ -41,6 +41,8 @@ export type EstablishmentActionItems = {
   isClient: boolean;
   canWrite: boolean;
   canCreate: boolean;
+  // Intervenant (niveau OWN) : ne voit que ses tâches — la liste vide le dit.
+  ownOnly: boolean;
   cabinetPeople: ActionPerson[];
   structurePeople: ActionPerson[];
 };
@@ -122,6 +124,7 @@ export async function listEstablishmentActionItems(establishmentId: string): Pro
     canWrite: canWrite(access),
     // Un intervenant (OWN) coche ses tâches mais n'en crée pas.
     canCreate: canWrite(access) && !access.ownOnly,
+    ownOnly: access.ownOnly,
     cabinetPeople: access.isClient ? [] : people.cabinet,
     structurePeople: people.structure,
   };

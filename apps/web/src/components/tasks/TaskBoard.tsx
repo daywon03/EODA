@@ -3,6 +3,7 @@ import {
   ACTION_FILTERS,
   ACTION_FILTER_LABELS,
   countActionFilters,
+  describeEmptyTaskList,
   matchesActionFilter,
   sortActionItems,
   type ActionFilter,
@@ -52,7 +53,7 @@ export function TaskBoard({ establishmentId, data, filter, basePath, now }: Prop
         }))}
       />
       {items.length === 0 ? (
-        <p className="py-4 text-ink2">Aucune tâche dans cette liste.</p>
+        <p className="py-4 text-ink2">{describeEmptyTaskList(filter, { ownOnly: data.ownOnly })}</p>
       ) : (
         <ul className="divide-y divide-line rounded-xl border border-line bg-card">
           {items.map((item) => (

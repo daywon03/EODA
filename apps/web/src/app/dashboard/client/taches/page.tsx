@@ -13,7 +13,7 @@ type Props = { searchParams: Promise<{ filtre?: string | string[] }> };
 // la personne connectée. L'établissement vient du lien du compte, jamais de
 // l'adresse ; un accès révoqué ne montre rien.
 export default async function ClientTasksPage({ searchParams }: Props) {
-  const { establishment } = await requireClientEstablishment(NEED.TASKS_READ);
+  const { establishment, ownOnly } = await requireClientEstablishment(NEED.TASKS_READ);
   if (!establishment) {
     return (
       <div className="space-y-3">
@@ -29,7 +29,11 @@ export default async function ClientTasksPage({ searchParams }: Props) {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-ink">Tâches</h1>
-        <p className="text-ink2">Ce qu&apos;il reste à faire dans votre structure. Cochez une tâche quand elle est faite.</p>
+        <p className="text-ink2">
+          {ownOnly
+            ? "Les tâches qu'on vous a confiées. Cochez une tâche quand elle est faite."
+            : "Ce qu'il reste à faire dans votre structure. Cochez une tâche quand elle est faite."}
+        </p>
       </div>
       <TaskBoard
         establishmentId={establishment.id}

@@ -6,14 +6,15 @@ import { NAV_ICONS } from "@/components/layout/nav-icons";
 
 // Accueil d'un rôle d'accès qui n'a pas les documents de la structure (intervenant,
 // N9) : pas de compteurs qu'il ne pourrait pas ouvrir, seulement ce qu'il peut faire,
-// en gros boutons. Phrases courtes (FALC, CLAUDE.md §6).
-export function LimitedClientHome({ accessRole }: { accessRole: ClientAccessRole }) {
+// en gros boutons. Phrases courtes (FALC, CLAUDE.md §6). « Bonjour {prénom}. » comme
+// sur la maquette (recette du 14/10) ; sans prénom connu, « Bonjour. » — jamais l'e-mail.
+export function LimitedClientHome({ accessRole, firstName }: { accessRole: ClientAccessRole; firstName: string | null }) {
   const entries = buildClientNav({ hasUnansweredMessage: false, accessRole }).filter((item) => item.id !== "home");
 
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h1 className="text-[36px] font-bold leading-tight">Bonjour.</h1>
+        <h1 className="text-[36px] font-bold leading-tight">{firstName ? `Bonjour ${firstName}.` : "Bonjour."}</h1>
         <p className="mt-2 max-w-[60ch] text-[21px]">
           Votre accès : {CLIENT_ACCESS_ROLE_LABELS[accessRole].label}. Voici ce que vous pouvez faire.
         </p>

@@ -29,7 +29,13 @@ export function AutonomyHomeCard({
     <section aria-label="Votre liste de travail" className="flex flex-wrap items-center gap-4 rounded-xl bg-soft px-5 py-[18px]">
       <div className="flex min-w-[260px] flex-1 flex-col">
         <span className="font-bold">{workTitle}</span>
-        <span>EODA peut vous accompagner pour les rédiger.</span>
+        {/* « pour les rédiger » sous « Votre liste de travail est vide. » ne
+            renvoyait à rien (recette du 14/10) : la phrase suit la liste. */}
+        <span>
+          {hasWork
+            ? "EODA peut vous accompagner pour les rédiger."
+            : "Rien à créer pour l'instant. EODA peut vous accompagner pour la suite."}
+        </span>
       </div>
       {hasWork && (
         <Link href={`${CLIENT_DOCUMENTS_PATH}#travail`} className={LINK_BUTTON}>

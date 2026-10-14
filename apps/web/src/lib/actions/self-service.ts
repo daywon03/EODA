@@ -2,6 +2,7 @@
 
 import { prisma, Prisma } from "@eoda/database";
 import { headers } from "next/headers";
+import { after } from "next/server";
 import { consumeThrottledAttempt } from "@/lib/security/attempt-throttle";
 import { clientIpFromHeaders } from "@/lib/security/login-throttle";
 import { hashPassword } from "@/lib/security/password-hashing";
@@ -129,28 +130,62 @@ export async function signUpSelfService(_prev: SignupState, formData: FormData):
   // branches, la latence ne dit rien du compte.
   const passwordHash = await hashPassword(input.password);
   const existing = await prisma.user.findUnique({ where: { email: input.email }, select: { id: true } });
-  const created = existing ? null : await createSelfServiceProspect(tenantId, input, passwordHash);
-
-  let confirmationPath: string | null = null;
-  if (created) {
-    confirmationPath = confirmationPathFor(created.token);
-    await recordAuditEvent({ action: "SELF_SERVICE_SIGNUP", actorRole: "PROSPECT_USER", targetId: created.prospectId, detail: input.formule });
-    await sendEmailConfirmationEmail({
-      email: input.email,
-      firstName: input.firstName,
-      structureName: input.structureName,
-      confirmationPath,
-    });
-    await recordAuditEvent({ action: "EMAIL_VERIFICATION_SENT", actorUserId: created.userId, targetId: created.userId, detail: "inscription" });
-  } else {
-    await sendQuietly(input.email, buildSelfServiceExistingAccountEmail({ loginUrl: appUrl("/login"), brand: BRAND() }));
-  }
-
   const env = getEnv();
+  const finish = existing ? () => notifyExistingAccount(input.email) : () => completeNewSignup(tenantId, input, passwordHash);
+
+  // FUITE DE DURÉE (recette du 14/10) : créer le compte et envoyer l'e-mail prenait
+  // plus longtemps qu'avertir le titulaire d'un compte existant — la latence disait
+  // si l'adresse avait un compte. Les deux branches répondent donc AVANT leur travail
+  // lourd, déféré par `after()` : même chemin synchrone, même réponse.
+  // Seule exception : le développement local sans service d'e-mail, où le lien de
+  // confirmation doit s'afficher à l'écran (jamais en production).
+  if (shouldDiscloseLinkInline(env)) {
+    const confirmationPath = (await finish()) ?? null;
+    return signupDone(input.email, env, confirmationPath);
+  }
+  after(() => runQuietly(finish));
+  return signupDone(input.email, env, null);
+}
+
+function shouldDiscloseLinkInline(env: { isDevelopment: boolean; resend: unknown }): boolean {
+  return env.isDevelopment && env.resend === null;
+}
+
+function signupDone(email: string, env: { isDevelopment: boolean; resend: unknown }, confirmationPath: string | null): SignupState {
   return {
     status: "DONE",
     message: SIGNUP_NEUTRAL_MESSAGE,
-    email: input.email,
+    email,
     disclosure: confirmationLinkDisclosure({ isDevelopment: env.isDevelopment, isEmailConfigured: env.resend !== null, confirmationPath }),
   };
+}
+
+// Travail déféré : une erreur ici n'a plus de requête à faire échouer — elle est
+// journalisée, jamais avalée en silence.
+async function runQuietly(work: () => Promise<unknown>): Promise<void> {
+  try {
+    await work();
+  } catch (error) {
+    console.error("[EODA] Inscription libre-service : travail différé en échec", error);
+  }
+}
+
+async function notifyExistingAccount(email: string): Promise<null> {
+  await sendQuietly(email, buildSelfServiceExistingAccountEmail({ loginUrl: appUrl("/login"), brand: BRAND() }));
+  return null;
+}
+
+async function completeNewSignup(tenantId: string, input: SignupInput, passwordHash: string): Promise<string | null> {
+  const created = await createSelfServiceProspect(tenantId, input, passwordHash);
+  if (!created) return null;
+  const confirmationPath = confirmationPathFor(created.token);
+  await recordAuditEvent({ action: "SELF_SERVICE_SIGNUP", actorRole: "PROSPECT_USER", targetId: created.prospectId, detail: input.formule });
+  await sendEmailConfirmationEmail({
+    email: input.email,
+    firstName: input.firstName,
+    structureName: input.structureName,
+    confirmationPath,
+  });
+  await recordAuditEvent({ action: "EMAIL_VERIFICATION_SENT", actorUserId: created.userId, targetId: created.userId, detail: "inscription" });
+  return confirmationPath;
 }

@@ -40,8 +40,20 @@ vi.mock("@/lib/services/audit-log-service", () => ({ recordAuditEvent: (...a: un
 vi.mock("@/lib/email", () => ({ getEmailPort: () => ({ send }) }));
 vi.mock("@/lib/config/app-url", () => ({ appUrl: (p: string) => `https://app.example.org${p}` }));
 vi.mock("@/lib/config/env", () => ({ getEnv: () => env }));
+// `after()` de Next.js : le travail lourd de l'inscription est DÉFÉRÉ (fuite de durée,
+// recette du 14/10). Les tests l'exécutent explicitement avec `runDeferred()`.
+const deferred: (() => unknown)[] = [];
+vi.mock("next/server", () => ({ after: (work: () => unknown) => deferred.push(work) }));
+async function runDeferred(): Promise<void> {
+  while (deferred.length > 0) await deferred.shift()!();
+}
 
 const { signUpSelfService } = await import("./self-service");
+async function signUp(data: FormData) {
+  const state = await signUpSelfService({ status: "IDLE" }, data);
+  await runDeferred();
+  return state;
+}
 const { SIGNUP_NEUTRAL_MESSAGE } = await import("@/lib/services/self-service-service");
 
 function form(overrides: Record<string, string> = {}): FormData {
@@ -63,6 +75,7 @@ function form(overrides: Record<string, string> = {}): FormData {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  deferred.length = 0;
   consumeThrottledAttempt.mockResolvedValue(true);
   prismaMock.tenant.findMany.mockResolvedValue([{ id: "tenant-1" }]);
   prismaMock.user.findUnique.mockResolvedValue(null);
@@ -78,7 +91,7 @@ const SENT_DISCLOSURE = { emailNotSentLocally: false, devConfirmationPath: null 
 
 describe("signUpSelfService", () => {
   it("crée un prospect LIBRE_SERVICE et un compte PROSPECT_USER rattaché — jamais un établissement", async () => {
-    const state = await signUpSelfService({ status: "IDLE" }, form());
+    const state = await signUp(form());
     expect(state).toEqual({ status: "DONE", message: SIGNUP_NEUTRAL_MESSAGE, email: "direction@glycines.example.org", disclosure: SENT_DISCLOSURE });
     expect(tx.prospect.create).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -98,7 +111,7 @@ describe("signUpSelfService", () => {
   });
 
   it("émet un lien de confirmation DANS la transaction : seule l'empreinte est écrite, le lien part par e-mail", async () => {
-    await signUpSelfService({ status: "IDLE" }, form());
+    await signUp(form());
     const created = tx.emailVerificationToken.create.mock.calls[0]![0] as { data: { userId: string; tokenHash: string; expiresAt: Date } };
     expect(created.data.userId).toBe("user-1");
     expect(created.data.tokenHash).toMatch(/^[0-9a-f]{64}$/);
@@ -112,7 +125,7 @@ describe("signUpSelfService", () => {
   it("en développement sans service d'e-mail : « non envoyé » et le lien à l'écran", async () => {
     env.isDevelopment = true;
     env.resend = null;
-    const state = await signUpSelfService({ status: "IDLE" }, form());
+    const state = await signUp(form());
     expect(state).toMatchObject({ status: "DONE", disclosure: { emailNotSentLocally: true } });
     if (state.status !== "DONE") throw new Error("attendu DONE");
     expect(state.disclosure.devConfirmationPath).toMatch(/^\/confirmer-email\/[A-Za-z0-9_-]{43}$/);
@@ -121,13 +134,13 @@ describe("signUpSelfService", () => {
   it("hors développement : jamais de lien à l'écran, même sans service d'e-mail", async () => {
     env.isDevelopment = false;
     env.resend = null;
-    const state = await signUpSelfService({ status: "IDLE" }, form());
+    const state = await signUp(form());
     expect(state).toMatchObject({ status: "DONE", disclosure: { emailNotSentLocally: true, devConfirmationPath: null } });
   });
 
   it("adresse déjà utilisée : même réponse, rien de créé, un e-mail au titulaire, même coût bcrypt", async () => {
     prismaMock.user.findUnique.mockResolvedValue({ id: "existing" });
-    const state = await signUpSelfService({ status: "IDLE" }, form());
+    const state = await signUp(form());
     expect(state).toEqual({ status: "DONE", message: SIGNUP_NEUTRAL_MESSAGE, email: "direction@glycines.example.org", disclosure: SENT_DISCLOSURE });
     expect(prismaMock.$transaction).not.toHaveBeenCalled();
     expect(hashPassword).toHaveBeenCalledTimes(1);
@@ -136,14 +149,14 @@ describe("signUpSelfService", () => {
 
   it("course sur l'unicité de l'adresse : traitée comme un compte existant", async () => {
     prismaMock.$transaction.mockRejectedValueOnce(new P2002("unique"));
-    const state = await signUpSelfService({ status: "IDLE" }, form());
+    const state = await signUp(form());
     expect(state.status).toBe("DONE");
     expect(recordAuditEvent).not.toHaveBeenCalledWith(expect.objectContaining({ action: "SELF_SERVICE_SIGNUP" }));
   });
 
   it("débit dépassé : refus avant toute lecture", async () => {
     consumeThrottledAttempt.mockResolvedValueOnce(false);
-    const state = await signUpSelfService({ status: "IDLE" }, form());
+    const state = await signUp(form());
     expect(state.status).toBe("ERROR");
     expect(prismaMock.user.findUnique).not.toHaveBeenCalled();
     expect(consumeThrottledAttempt).toHaveBeenCalledWith(
@@ -152,7 +165,7 @@ describe("signUpSelfService", () => {
   });
 
   it("deux compteurs : l'IP puis l'adresse", async () => {
-    await signUpSelfService({ status: "IDLE" }, form());
+    await signUp(form());
     expect(consumeThrottledAttempt.mock.calls.map((c) => (c[0] as { key: string }).key)).toEqual([
       "signup:ip:203.0.113.9",
       "signup:email:direction@glycines.example.org",
@@ -160,7 +173,7 @@ describe("signUpSelfService", () => {
   });
 
   it("saisie invalide : refusée côté serveur, rien n'est lu ni créé", async () => {
-    const state = await signUpSelfService({ status: "IDLE" }, form({ password: "court" }));
+    const state = await signUp(form({ password: "court" }));
     expect(state).toMatchObject({ status: "ERROR" });
     expect(prismaMock.tenant.findMany).not.toHaveBeenCalled();
     expect(prismaMock.$transaction).not.toHaveBeenCalled();
@@ -168,15 +181,39 @@ describe("signUpSelfService", () => {
 
   it("plusieurs cabinets en base : inscription fermée (fail-closed)", async () => {
     prismaMock.tenant.findMany.mockResolvedValue([{ id: "a" }, { id: "b" }]);
-    const state = await signUpSelfService({ status: "IDLE" }, form());
+    const state = await signUp(form());
     expect(state).toMatchObject({ status: "ERROR" });
     expect(prismaMock.$transaction).not.toHaveBeenCalled();
+  });
+
+  it("même chemin synchrone que l'adresse ait un compte ou non : tout le travail lourd est différé", async () => {
+    const fresh = await signUpSelfService({ status: "IDLE" }, form());
+    expect(deferred).toHaveLength(1);
+    expect(prismaMock.$transaction).not.toHaveBeenCalled();
+    expect(send).not.toHaveBeenCalled();
+    deferred.length = 0;
+    prismaMock.user.findUnique.mockResolvedValue({ id: "existing" });
+    const known = await signUpSelfService({ status: "IDLE" }, form());
+    expect(deferred).toHaveLength(1);
+    expect(send).not.toHaveBeenCalled();
+    expect(known).toEqual(fresh);
+    expect(hashPassword).toHaveBeenCalledTimes(2);
+    expect(prismaMock.user.findUnique).toHaveBeenCalledTimes(2);
+  });
+
+  it("un travail différé en échec est journalisé, jamais avalé", async () => {
+    prismaMock.$transaction.mockRejectedValueOnce(new Error("base"));
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const state = await signUp(form());
+    expect(state.status).toBe("DONE");
+    expect(errorSpy).toHaveBeenCalled();
+    errorSpy.mockRestore();
   });
 
   it("un e-mail qui échoue ne défait pas l'inscription", async () => {
     send.mockRejectedValue(new Error("SMTP"));
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
-    const state = await signUpSelfService({ status: "IDLE" }, form());
+    const state = await signUp(form());
     expect(state.status).toBe("DONE");
     errorSpy.mockRestore();
   });
