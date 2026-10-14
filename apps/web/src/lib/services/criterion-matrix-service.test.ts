@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
+import { DOCUMENT_TYPE_SEEDS, PILOT_DOCUMENT_TYPES } from "@eoda/database/document-types";
 import { PROPOSED_MATRIX_CSV } from "@/content/criteres/matrice-proposition";
 import {
   buildMatrixView,
@@ -21,15 +22,27 @@ describe("copie embarquée de la matrice proposée", () => {
     expect(PROPOSED_MATRIX_CSV).toBe(readFileSync(SOURCE, "utf8").replace(/\r\n/g, "\n"));
   });
 
-  it("se lit entièrement : 207 rattachements, 36 types, aucune remarque ne cite le sigle erroné", () => {
+  it("se lit entièrement : 390 rattachements, 55 types, aucune remarque ne cite le sigle erroné", () => {
     const rows = parseProposedMatrix(PROPOSED_MATRIX_CSV);
-    expect(rows).toHaveLength(207);
-    expect(new Set(rows.map((r) => r.documentTypeCode)).size).toBe(36);
+    expect(rows).toHaveLength(390);
+    expect(new Set(rows.map((r) => r.documentTypeCode)).size).toBe(55);
     const counts = { HAUTE: 0, MOYENNE: 0, BASSE: 0 };
     for (const r of rows) counts[r.confidence]++;
-    expect(counts).toEqual({ HAUTE: 110, MOYENNE: 87, BASSE: 10 });
+    expect(counts).toEqual({ HAUTE: 164, MOYENNE: 203, BASSE: 23 });
     const wrongAcronym = new RegExp(["DI", "PEC"].join(""), "i");
     expect(rows.some((r) => wrongAcronym.test(r.remark ?? ""))).toBe(false);
+  });
+
+  it("ne propose que des types du seed, sous leur libellé exact (aucun type « inconnu » à l'écran)", () => {
+    const seedLabels = new Map(DOCUMENT_TYPE_SEEDS.map((t) => [t.code, t.label]));
+    for (const row of parseProposedMatrix(PROPOSED_MATRIX_CSV)) {
+      expect(seedLabels.get(row.documentTypeCode)).toBe(row.documentTypeLabel);
+    }
+  });
+
+  it("propose au moins un critère pour chacun des 19 types du référentiel du pilote (14/10/2026)", () => {
+    const proposed = new Set(parseProposedMatrix(PROPOSED_MATRIX_CSV).map((r) => r.documentTypeCode));
+    expect(PILOT_DOCUMENT_TYPES.filter((t) => !proposed.has(t.code))).toEqual([]);
   });
 });
 
