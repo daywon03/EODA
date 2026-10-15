@@ -11,13 +11,19 @@ describe("rangement des types de document en sept groupes", () => {
   it("sept groupes, dans l'ordre de la maquette", () => {
     expect(DOCUMENT_GROUPS.map((g) => g.label)).toEqual([
       "Loi 2002-2",
-      "Processus P1-P7",
+      "Processus",
       "Gestion des risques",
       "Personne accompagnée",
       "Registres",
       "Ressources humaines",
       "Qualité",
     ]);
+  });
+
+  it("les libellés s'adressent à la structure : ni sigle interne, ni numérotation", () => {
+    // « Processus P1-P7 » exposait nos codes de travail (P11/P12/P13/P14/P22) sur un
+    // écran lu par la structure. La maquette écrit « Processus ».
+    for (const { label } of DOCUMENT_GROUPS) expect(label).not.toMatch(/\bP\d/);
   });
 
   it("tout type de document du seed a un groupe", () => {

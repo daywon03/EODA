@@ -2,22 +2,21 @@
 // RANGEMENT DES TYPES DE DOCUMENT EN SEPT GROUPES — contenu, pas schéma
 //
 // Les sept groupes de l'espace « structure accompagnée » des maquettes v2 : Loi 2002-2 ·
-// Processus P1-P7 · Gestion des risques · Personne accompagnée · Registres · Ressources
+// Processus · Gestion des risques · Personne accompagnée · Registres · Ressources
 // humaines · Qualité. C'est un classement D'AFFICHAGE, comme `TemplateCategory` : il
 // n'appartient qu'à EODA et peut bouger sans migration. Il est DISTINCT de l'enum
 // `DocumentCategory` (LOI_2002_2 / FONCTIONNEMENT / QUALITE_RISQUES / RH), qui classe
 // les pièces attendues au regard de la loi et ne s'invente pas (CLAUDE.md §7) — les
 // deux ne se remplacent jamais l'un par l'autre.
 //
-// Préparé le 14/10/2026 ; l'écran ne le lit pas encore (étape suivante).
-// `groupes.test.ts` échoue si un type du seed n'a pas de groupe, ou si un code rangé
-// ici n'existe pas.
+// Branché sur « Mes documents » du portail client le 15/10/2026. `groupes.test.ts` échoue
+// si un type du seed n'a pas de groupe, ou si un code rangé ici n'existe pas.
 //
 // Choix de rangement (provisoires, à relire par Sandrine) :
 //  - Loi 2002-2 : les sept documents de la loi, plus le questionnaire d'enquête et sa
 //    synthèse — « autre forme de participation » des personnes (context/10 §6), comme
 //    la maquette les y range ;
-//  - Processus : les procédures écrites (P1 plaintes, P2 EI, P3 maltraitance, P5 RGPD —
+//  - Processus : les procédures écrites (plaintes, EI, maltraitance, RGPD —
 //    numérotation du Guide de Sandrine, qui diffère de celle de la maquette) et leurs
 //    modèles d'annexe (accusé de réception, réponse, fiche de déclaration, FAMO) ;
 //  - Gestion des risques : plans (crise, PCA, plan bleu), cartographie, annuaire,
@@ -28,7 +27,10 @@
 
 export const DOCUMENT_GROUPS = [
   { id: "LOI_2002_2", label: "Loi 2002-2" },
-  { id: "PROCESSUS", label: "Processus P1-P7" },
+  // Libellé de la maquette « structure accompagnée », sans la numérotation interne.
+  // « Processus P1-P7 » était un sigle de travail (nos codes sont P11/P12/P13/P14/P22) :
+  // il n'apprend rien à une structure et ne s'adresse pas à elle.
+  { id: "PROCESSUS", label: "Processus" },
   { id: "RISQUES", label: "Gestion des risques" },
   { id: "PERSONNE_ACCOMPAGNEE", label: "Personne accompagnée" },
   { id: "REGISTRES", label: "Registres" },

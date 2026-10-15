@@ -1,18 +1,21 @@
 import { describe, expect, it } from "vitest";
 import {
   DIPC_BLANK_MODEL_NOTICE,
+  UNRANKED_GROUP_LABEL,
   buildClientWorkList,
   canClientAcceptDocument,
   clientDocumentPill,
   countClientFilters,
   depositNoticeFor,
   deriveClientDocumentState,
+  describeGroupProgress,
   describeWorkList,
   documentsToDeposit,
   greetingFor,
   groupClientDocuments,
   isAcceptanceCurrent,
   isReviewedByEoda,
+  isSettledForClient,
   parseClientDocumentFilter,
   toClientDocumentRow,
   type ClientDocumentFacts,
@@ -142,6 +145,7 @@ describe("toClientDocumentRow", () => {
   it("dérive l'état depuis la checklist et le mode", () => {
     const item = {
       documentTypeId: "dt-1",
+      code: "L2002_LIVRET_ACCUEIL",
       label: "Livret d'accueil",
       category: "LOI_2002_2" as const,
       status: "INCOMPLETE" as const,
@@ -152,17 +156,122 @@ describe("toClientDocumentRow", () => {
     expect(toClientDocumentRow(item, "AUTONOMIE").state).toBe("TO_CHECK");
     expect(toClientDocumentRow(item, "ACCOMPAGNE").state).toBe("IN_PROGRESS");
     expect(toClientDocumentRow({ ...item, currentVersion: null, status: "MISSING" }, "ACCOMPAGNE").state).toBe("TO_DEPOSIT");
+    // Le code du type remonte à la ligne : il porte le rangement en sept groupes.
+    expect(toClientDocumentRow(item, "ACCOMPAGNE").code).toBe("L2002_LIVRET_ACCUEIL");
   });
 });
 
-describe("filtres, groupes, accueil, liste de travail", () => {
+describe("les sept groupes de « Mes documents »", () => {
+  // Codes réels du seed (content/documents/groupes.ts) : un rangement testé sur des
+  // codes inventés ne dirait rien du rangement réel.
   const rows: ClientDocumentRow[] = [
-    { documentTypeId: "rh", label: "Plan de formation", category: "RH", state: "TO_DEPOSIT" },
-    { documentTypeId: "livret", label: "Livret", category: "LOI_2002_2", state: "ACCEPTED" },
-    { documentTypeId: "dipc", label: "DIPC", category: "LOI_2002_2", state: "TO_DEPOSIT" },
-    { documentTypeId: "cvs", label: "CR CVS", category: "LOI_2002_2", state: "TO_PRODUCE" },
-    { documentTypeId: "pca", label: "PCA", category: "QUALITE_RISQUES", state: "TO_CHECK" },
-    { documentTypeId: "cpom", label: "CPOM", category: "FONCTIONNEMENT", state: "NOT_CONCERNED" },
+    { documentTypeId: "rh", code: "RH_PLAN_FORMATION", label: "Plan de formation", category: "RH", state: "TO_DEPOSIT" },
+    { documentTypeId: "livret", code: "L2002_LIVRET_ACCUEIL", label: "Livret", category: "LOI_2002_2", state: "ACCEPTED" },
+    { documentTypeId: "dipc", code: "L2002_DIPC", label: "DIPC", category: "LOI_2002_2", state: "TO_DEPOSIT" },
+    { documentTypeId: "cvs", code: "L2002_CR_CVS", label: "CR CVS", category: "LOI_2002_2", state: "TO_PRODUCE" },
+    { documentTypeId: "pca", code: "P14_PCA_REDIGE", label: "PCA", category: "QUALITE_RISQUES", state: "TO_CHECK" },
+    { documentTypeId: "cpom", code: "FONCT_CPOM", label: "CPOM", category: "FONCTIONNEMENT", state: "NOT_CONCERNED" },
+  ];
+  const ids = (groups: readonly { rows: readonly ClientDocumentRow[] }[]) =>
+    groups.flatMap((g) => g.rows.map((r) => r.documentTypeId));
+
+  it("rangé dans l'ordre de la maquette, groupes vides omis", () => {
+    // Processus, Personne accompagnée et Registres n'ont aucune ligne ici : un
+    // intertitre suivi du vide ne renseigne personne.
+    expect(groupClientDocuments(rows, null, "ACCOMPAGNE").map((g) => g.label)).toEqual([
+      "Loi 2002-2",
+      "Gestion des risques",
+      "Ressources humaines",
+      "Qualité",
+    ]);
+    // …mais l'ordre des groupes présents reste celui de la liste complète.
+    expect(groupClientDocuments(rows, null, "ACCOMPAGNE").map((g) => g.id)).toEqual([
+      "LOI_2002_2",
+      "RISQUES",
+      "RESSOURCES_HUMAINES",
+      "QUALITE",
+    ]);
+  });
+
+  it("ne perd aucun document, et garde les gestes d'abord à l'intérieur d'un groupe", () => {
+    expect(ids(groupClientDocuments(rows, null, "ACCOMPAGNE"))).toHaveLength(rows.length);
+    expect(groupClientDocuments(rows, null, "ACCOMPAGNE")[0]?.rows.map((r) => r.documentTypeId)).toEqual([
+      "dipc",
+      "cvs",
+      "livret",
+    ]);
+  });
+
+  it("l'avancement d'un groupe parle le vocabulaire du mode, jamais « validé »", () => {
+    const accompagne = groupClientDocuments(rows, null, "ACCOMPAGNE");
+    expect(accompagne[0]?.progress).toBe("1 relu par EODA sur 3");
+    expect(accompagne[1]?.progress).toBe("1 relu par EODA sur 1");
+    expect(accompagne[2]?.progress).toBe("Aucun relu par EODA sur 1");
+    // En autonomie personne ne relit : « relu par EODA » y serait faux.
+    expect(groupClientDocuments(rows, null, "AUTONOMIE")[0]?.progress).toBe("1 accepté par vous sur 3");
+    expect(groupClientDocuments(rows, null, "AUTONOMIE")[1]?.progress).toBe("Aucun accepté par vous sur 1");
+    for (const group of [...accompagne, ...groupClientDocuments(rows, null, "AUTONOMIE")]) {
+      expect(group.progress).not.toMatch(/validé/i);
+    }
+  });
+
+  it("le compte décrit ce qui est affiché sous lui, pas le total du groupe", () => {
+    // Sous le filtre « À déposer », le groupe Loi 2002-2 ne montre plus que le DIPC :
+    // annoncer « 1 relu sur 3 » juste au-dessus d'une ligne serait faux.
+    const filtered = groupClientDocuments(rows, "a-deposer", "ACCOMPAGNE");
+    expect(filtered.map((g) => g.label)).toEqual(["Loi 2002-2", "Ressources humaines"]);
+    expect(filtered[0]?.progress).toBe("Aucun relu par EODA sur 1");
+  });
+
+  it("un filtre vide ne laisse aucun groupe", () => {
+    const nonConcerne: ClientDocumentRow[] = [
+      { documentTypeId: "dipc", code: "L2002_DIPC", label: "DIPC", category: "LOI_2002_2", state: "NOT_CONCERNED" },
+    ];
+    expect(groupClientDocuments(nonConcerne, "a-deposer", "ACCOMPAGNE")).toEqual([]);
+  });
+
+  it("un type créé en base sans rangement est montré à part, jamais perdu", () => {
+    // Un CABINET_ADMIN peut ajouter un type de document : son code n'est alors rangé
+    // nulle part. Le faire disparaître du portail cacherait une pièce déposée.
+    const avecInconnu = [...rows, { documentTypeId: "x", code: "TYPE_INCONNU", label: "Pièce nouvelle", category: "FONCTIONNEMENT" as const, state: "TO_DEPOSIT" as const }];
+    const groups = groupClientDocuments(avecInconnu, null, "ACCOMPAGNE");
+    expect(groups[groups.length - 1]).toMatchObject({ id: "AUTRES", label: UNRANKED_GROUP_LABEL });
+    expect(ids(groups)).toContain("x");
+  });
+});
+
+describe("isSettledForClient", () => {
+  it("accompagnée : relu par EODA, ou accepté (ce qui suppose la relecture)", () => {
+    expect(isSettledForClient("TO_CHECK", "ACCOMPAGNE")).toBe(true);
+    expect(isSettledForClient("ACCEPTED", "ACCOMPAGNE")).toBe(true);
+    expect(isSettledForClient("RENEW", "ACCOMPAGNE")).toBe(false);
+    expect(isSettledForClient("TO_DEPOSIT", "ACCOMPAGNE")).toBe(false);
+  });
+
+  it("autonomie : seul l'accord de la structure compte", () => {
+    expect(isSettledForClient("ACCEPTED", "AUTONOMIE")).toBe(true);
+    expect(isSettledForClient("TO_CHECK", "AUTONOMIE")).toBe(false);
+  });
+});
+
+describe("describeGroupProgress", () => {
+  it("accorde le participe, et ne dit jamais « aucun … sur 0 »", () => {
+    expect(describeGroupProgress(0, 9, "ACCOMPAGNE")).toBe("Aucun relu par EODA sur 9");
+    expect(describeGroupProgress(1, 9, "ACCOMPAGNE")).toBe("1 relu par EODA sur 9");
+    expect(describeGroupProgress(4, 9, "ACCOMPAGNE")).toBe("4 relus par EODA sur 9");
+    expect(describeGroupProgress(0, 0, "AUTONOMIE")).toBe("Aucun accepté par vous sur 0");
+    expect(describeGroupProgress(2, 2, "AUTONOMIE")).toBe("2 acceptés par vous sur 2");
+  });
+});
+
+describe("filtres, accueil, liste de travail", () => {
+  const rows: ClientDocumentRow[] = [
+    { documentTypeId: "rh", code: "RH_PLAN_FORMATION", label: "Plan de formation", category: "RH", state: "TO_DEPOSIT" },
+    { documentTypeId: "livret", code: "L2002_LIVRET_ACCUEIL", label: "Livret", category: "LOI_2002_2", state: "ACCEPTED" },
+    { documentTypeId: "dipc", code: "L2002_DIPC", label: "DIPC", category: "LOI_2002_2", state: "TO_DEPOSIT" },
+    { documentTypeId: "cvs", code: "L2002_CR_CVS", label: "CR CVS", category: "LOI_2002_2", state: "TO_PRODUCE" },
+    { documentTypeId: "pca", code: "P14_PCA_REDIGE", label: "PCA", category: "QUALITE_RISQUES", state: "TO_CHECK" },
+    { documentTypeId: "cpom", code: "FONCT_CPOM", label: "CPOM", category: "FONCTIONNEMENT", state: "NOT_CONCERNED" },
   ];
 
   it("lit le filtre d'adresse et refuse l'inconnu", () => {
@@ -177,22 +286,11 @@ describe("filtres, groupes, accueil, liste de travail", () => {
   });
 
   it("« à déposer » exclut ce qui est à produire : un document qu'on n'a pas ne se dépose pas", () => {
-    const toDeposit = groupClientDocuments(rows, "a-deposer");
-    expect([...toDeposit.obligatory, ...toDeposit.others].map((r) => r.documentTypeId)).not.toContain("cvs");
-    const toProduce = groupClientDocuments(rows, "a-produire");
-    expect([...toProduce.obligatory, ...toProduce.others].map((r) => r.documentTypeId)).toEqual(["cvs"]);
+    const toDeposit = groupClientDocuments(rows, "a-deposer", "ACCOMPAGNE").flatMap((g) => g.rows.map((r) => r.documentTypeId));
+    expect(toDeposit).not.toContain("cvs");
+    const toProduce = groupClientDocuments(rows, "a-produire", "ACCOMPAGNE").flatMap((g) => g.rows.map((r) => r.documentTypeId));
+    expect(toProduce).toEqual(["cvs"]);
     expect(parseClientDocumentFilter("a-produire")).toBe("a-produire");
-  });
-
-  it("sépare les 7 obligatoires des autres, gestes d'abord", () => {
-    const { obligatory, others } = groupClientDocuments(rows, null);
-    expect(obligatory.map((r) => r.documentTypeId)).toEqual(["dipc", "cvs", "livret"]);
-    expect(others.map((r) => r.documentTypeId)).toEqual(["rh", "pca", "cpom"]);
-  });
-
-  it("applique le filtre", () => {
-    const { obligatory, others } = groupClientDocuments(rows, "a-deposer");
-    expect([...obligatory, ...others].map((r) => r.documentTypeId)).toEqual(["dipc", "rh"]);
   });
 
   it("accueil : les pièces à déposer, obligatoires d'abord, bornées", () => {

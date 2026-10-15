@@ -1,5 +1,6 @@
 import type { DocumentCategory, DocumentStatus, SupportMode } from "@eoda/database";
 import { DOCUMENT_PILLS, type PillSpec } from "@/lib/design/status-vocabulary";
+import { groupDocumentTypes, type DocumentGroupId } from "@/content/documents/groupes";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // « MES DOCUMENTS » VU PAR LA STRUCTURE — règles pures (tranches N2, N3, R6).
@@ -120,6 +121,9 @@ export function clientDocumentPill(
 // Ce que la checklist (lib/actions/checklist.ts) porte déjà, au plus étroit.
 export type ClientChecklistFacts = {
   documentTypeId: string;
+  // Code du TYPE (« L2002_DIPC ») : c'est lui qui porte le rangement en sept groupes
+  // (content/documents/groupes.ts). Un libellé se réécrit, un code non.
+  code: string;
   label: string;
   category: DocumentCategory;
   status: DocumentStatus;
@@ -128,7 +132,10 @@ export type ClientChecklistFacts = {
   currentVersion: { analysis: unknown; reviewedByEoda: boolean } | null;
 };
 
-export function toClientDocumentRow<T extends ClientChecklistFacts>(item: T, mode: SupportMode): T & { state: ClientDocumentState } {
+export function toClientDocumentRow<T extends ClientChecklistFacts>(
+  item: T,
+  mode: SupportMode
+): T & { state: ClientDocumentState } {
   const state = deriveClientDocumentState({
     mode,
     status: item.status,
@@ -183,6 +190,8 @@ export function parseClientDocumentFilter(raw: string | string[] | undefined): C
 
 export type ClientDocumentRow = {
   documentTypeId: string;
+  // Code du type : porte le rangement en sept groupes.
+  code: string;
   label: string;
   category: DocumentCategory;
   state: ClientDocumentState;
@@ -193,8 +202,8 @@ const STATE_RANK: Record<ClientDocumentState, number> = Object.fromEntries(
   CLIENT_DOCUMENT_STATES.map((state, index) => [state, index])
 ) as Record<ClientDocumentState, number>;
 
-// Les obligatoires d'abord : loi 2002-2, puis les preuves des objectifs impératifs
-// et les procédures (qualité et risques), puis le reste.
+// À l'intérieur d'un groupe, et pour les listes qui n'en ont pas : loi 2002-2, puis les
+// preuves des objectifs impératifs et les procédures (qualité et risques), puis le reste.
 const CATEGORY_RANK: Record<DocumentCategory, number> = {
   LOI_2002_2: 0,
   QUALITE_RISQUES: 1,
@@ -206,16 +215,73 @@ function byPriority<T extends ClientDocumentRow>(a: T, b: T): number {
   return STATE_RANK[a.state] - STATE_RANK[b.state] || CATEGORY_RANK[a.category] - CATEGORY_RANK[b.category];
 }
 
+// « AUTRES » n'est pas un huitième groupe de rangement : c'est le filet des types dont
+// le code a été créé en base sans être rangé (un CABINET_ADMIN peut en ajouter un).
+// L'écran le montre en dernier — perdre la ligne ferait disparaître du portail un
+// document que la structure a déposé.
+export type ClientDocumentGroupId = DocumentGroupId | "AUTRES";
+
+export type ClientDocumentGroup<T> = {
+  id: ClientDocumentGroupId;
+  label: string;
+  rows: T[];
+  // « 3 relus par EODA sur 9 » — le compte décrit la liste juste en dessous de lui,
+  // jamais un total qu'on ne voit pas.
+  progress: string;
+};
+
+export const UNRANKED_GROUP_LABEL = "Autres documents";
+
+// Les sept groupes de la maquette « structure accompagnée » (« Loi 2002-2 · Processus ·
+// Gestion des risques · Personne accompagnée · Registres · Ressources humaines ·
+// Qualité »), dans cet ordre — un classement de CONTENU propre à EODA, jamais la
+// catégorie réglementaire (CLAUDE.md §7). Un groupe sans ligne visible n'est pas rendu :
+// un intertitre suivi du vide ne renseigne personne.
 export function groupClientDocuments<T extends ClientDocumentRow>(
   rows: readonly T[],
-  filter: ClientDocumentFilter | null
-): { obligatory: T[]; others: T[] } {
+  filter: ClientDocumentFilter | null,
+  mode: SupportMode
+): ClientDocumentGroup<T>[] {
   const visible = rows.filter((row) => filter === null || clientFilterOf(row.state) === filter);
   const sorted = [...visible].sort(byPriority);
-  return {
-    obligatory: sorted.filter((row) => row.category === "LOI_2002_2"),
-    others: sorted.filter((row) => row.category !== "LOI_2002_2"),
-  };
+  const { groups, unranked } = groupDocumentTypes(sorted);
+
+  const ranked: ClientDocumentGroup<T>[] = groups
+    .filter((group) => group.types.length > 0)
+    .map((group) => ({
+      id: group.id,
+      label: group.label,
+      rows: group.types,
+      progress: groupProgress(group.types, mode),
+    }));
+
+  if (unranked.length === 0) return ranked;
+  return [
+    ...ranked,
+    { id: "AUTRES", label: UNRANKED_GROUP_LABEL, rows: unranked, progress: groupProgress(unranked, mode) },
+  ];
+}
+
+function groupProgress<T extends ClientDocumentRow>(rows: readonly T[], mode: SupportMode): string {
+  return describeGroupProgress(rows.filter((row) => isSettledForClient(row.state, mode)).length, rows.length, mode);
+}
+
+// Un document est-il « réglé » du point de vue de la structure selon le mode ?
+// Accompagnée : relu par EODA (l'état « Relu par EODA », ou « Accepté par vous » qui
+// suppose la relecture dans ce mode). En autonomie : accepté par elle — « relu par
+// EODA » y serait faux, personne ne relit.
+export function isSettledForClient(state: ClientDocumentState, mode: SupportMode): boolean {
+  if (mode === "AUTONOMIE") return state === "ACCEPTED";
+  return state === "TO_CHECK" || state === "ACCEPTED";
+}
+
+// L'avancement d'un groupe, dit avec le vocabulaire du portail (D6/D8) : « validé » est
+// banni côté client tant qu'un humain n'a pas relu (le mot n'existe nulle part dans les
+// pastilles, ce n'est pas pour le remettre dans un intertitre).
+export function describeGroupProgress(count: number, total: number, mode: SupportMode): string {
+  const what = mode === "AUTONOMIE" ? ["accepté par vous", "acceptés par vous"] : ["relu par EODA", "relus par EODA"];
+  if (count === 0) return `Aucun ${what[0]} sur ${total}`;
+  return `${count} ${count > 1 ? what[1] : what[0]} sur ${total}`;
 }
 
 export function countClientFilters(rows: readonly ClientDocumentRow[]): Record<ClientDocumentFilter, number> {

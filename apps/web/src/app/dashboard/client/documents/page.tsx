@@ -26,10 +26,14 @@ function filterHref(filter: ClientDocumentFilter | null): string {
   return filter ? `${CLIENT_DOCUMENTS_PATH}?filtre=${filter}` : CLIENT_DOCUMENTS_PATH;
 }
 
-// « Mes documents » (maquette Portail Client v2, R6). Deux groupes — les sept
-// documents de la loi 2002-2, puis les autres pièces réclamées —, des filtres
-// d'adresse (partageables, sans JavaScript), une carte par document avec UN geste
-// principal. L'état de chaque document est dérivé (client-documents-view-service).
+// « Mes documents » (maquette Portail Client v2, R6), rangé dans les SEPT groupes de
+// l'espace de la structure — Loi 2002-2 · Processus · Gestion des risques · Personne
+// accompagnée · Registres · Ressources humaines · Qualité — et non par catégorie
+// réglementaire : c'est le vocabulaire de Sandrine, pas celui de la loi (contenu, pas
+// schéma : content/documents/groupes.ts). Des filtres d'adresse (partageables, sans
+// JavaScript), un intertitre « X relus par EODA sur N » par groupe, une carte par
+// document avec UN geste principal. L'état de chaque document est dérivé
+// (client-documents-view-service).
 export default async function ClientDocumentsPage({ searchParams }: Props) {
   const [{ establishment, checklist, missionAccess, supportMode, offer }, params] = await Promise.all([
     getClientChecklist(),
@@ -48,24 +52,9 @@ export default async function ClientDocumentsPage({ searchParams }: Props) {
   const rows = flattenChecklist(checklist).map((item) => toClientDocumentRow(item, supportMode));
   const filter = parseClientDocumentFilter(params.filtre);
   const counts = countClientFilters(rows);
-  const { obligatory, others } = groupClientDocuments(rows, filter);
+  const groups = groupClientDocuments(rows, filter, supportMode);
   const workList = buildClientWorkList(rows);
   const canAct = canDepositDocuments(missionAccess);
-
-  const groups = [
-    {
-      id: "obligatoires",
-      title: "Les 7 documents obligatoires (loi 2002-2)",
-      hint: "La loi du 2 janvier 2002 les demande à tous les services.",
-      rows: obligatory,
-    },
-    {
-      id: "autres",
-      title: "Les autres documents demandés",
-      hint: "Ils prouvent ce que vous faites au quotidien.",
-      rows: others,
-    },
-  ].filter((group) => group.rows.length > 0);
 
   return (
     <div className="flex flex-col gap-6">
@@ -111,9 +100,9 @@ export default async function ClientDocumentsPage({ searchParams }: Props) {
         <section key={group.id} aria-labelledby={`groupe-${group.id}`} className="flex flex-col gap-2.5">
           <div>
             <h2 id={`groupe-${group.id}`} className="text-2xl font-bold">
-              {group.title}
+              {group.label}
             </h2>
-            <p className="text-[17px] text-ink2">{group.hint}</p>
+            <p className="text-[17px] text-ink2">{group.progress}</p>
           </div>
           {group.rows.map((row) => (
             <ClientDocumentCard
