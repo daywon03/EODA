@@ -130,8 +130,10 @@ Le détail fonctionnel complet de chaque module est dans `specs/01-mvp-v1.md`.
 
 **Suite (arrêtée le 30/09/2026)** — ces trois modules existent ; la suite est découpée en
 lots dans `context/09-vision-produit.md` §7 :
-- **Lot A — refonte et socle conformité** : nouveau design (brief :
-  `.claude/design/20260930_DOC_EODA_Brief-Claude-Design-Refonte_v01_Interne.md`), critères
+- **Lot A — refonte et socle conformité** : nouveau design (`DESIGN.md` à la racine,
+  écrit le 15/10/2026 — il décrit le système **implémenté** et remplace le brief
+  `.claude/design/20260930_DOC_EODA_Brief-Claude-Design-Refonte_v01_Interne.md`,
+  devenu la référence d'intention), critères
   & preuves, plan d'action (PAC), échéancier des documents, file « À relire ».
 - **Lot B — équipe et sensibilisation** : quiz par QR code **dans la plateforme** (remplace
   le renvoi vers Kahoot du doc 07 §12.5), fiches, preuve de sensibilisation par salarié.
@@ -166,7 +168,8 @@ chantier.
 | 14 | `specs/04-liaison-document-type-critere.md` | Rattachement type de document ↔ critères HAS (`DocumentTypeCriterion`, **vide au 08/10** — levier n°1 de la qualité des analyses) |
 | 15 | `specs/05-bilan-2026-10.md` | **Bilan au 08/10/2026** : décisions bloquantes, correctifs, pipeline IA réel, reste à faire, lisibilité des documents de `context/Documents/` |
 | — | `PRODUCT.md` (racine) | Vérité produit lue par la skill impeccable (utilisateurs, positionnement, principes, accessibilité) |
-| — | `.claude/design/…Brief-Claude-Design-Refonte_v01_Interne.md` | Brief de refonte remis à Claude Design ; **toute implémentation d'écran s'y conforme** jusqu'à ce qu'un DESIGN.md le remplace |
+| — | `DESIGN.md` (racine) | **Système de design réellement implémenté** (jetons de rôle, typographie, coquilles, vocabulaire des statuts, seuils des gardes, écarts assumés par rapport aux maquettes) : **toute implémentation d'écran s'y conforme**. Il **remplace** le brief du 30/09 comme référence d'implémentation ; en cas de contradiction avec le code, c'est le code qui gagne et `DESIGN.md` qui se corrige |
+| — | `.claude/design/…Brief-Claude-Design-Refonte_v01_Interne.md` | Brief de refonte remis à Claude Design — **historique** : intention, maquettes, voix et anti-objectifs. Ne fait plus autorité sur l'implémentation, que `DESIGN.md` décrit |
 | — | `.claude/design/20261009_PLAN_EODA_Implementation-maquettes-v2_v01_Interne.md` | **Plan d'implémentation des maquettes v2** (Cabinet, Client, Espace structure accompagnée, Tablette) : ordre de construction (socle → refontes → schéma), écarts maquette → règles du dépôt, questions avec réponse par défaut. Les maquettes elles-mêmes restent hors dépôt (noms réels du pilote) |
 
 **Règle :** avant de générer du code touchant au métier HAS (cotation, critères, documents

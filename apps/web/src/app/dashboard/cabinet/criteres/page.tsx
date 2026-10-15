@@ -11,9 +11,12 @@ export const metadata = { title: "Matrice des critères" };
 // ─────────────────────────────────────────────────────────────────────────────
 // MATRICE DOCUMENTS → CRITÈRES HAS (tranche N4, spec 04) — CABINET_ADMIN seul.
 //
-// La proposition du 08/10 (207 rattachements) est relue type par type, puis validée :
-// c'est elle qui dit quelles pièces prouvent quel critère (onglet « Critères » des
-// fiches), quelles guidelines rappeler à l'analyse, et nourrit la pré-cotation.
+// La proposition embarquée — 207 rattachements du 08/10, plus les 183 du 14/10 pour
+// les types du Guide pilote, soit 390 au 15/10/2026 — est relue type par type, puis
+// validée : c'est elle qui dit quelles pièces prouvent quel critère (onglet « Critères »
+// des fiches), quelles guidelines rappeler à l'analyse, et nourrit la pré-cotation.
+// Le compte vit dans `content/criteres/matrice-proposition.ts`, jamais recopié ici :
+// ce commentaire a déjà annoncé 207 après l'ajout des 183.
 // ─────────────────────────────────────────────────────────────────────────────
 export default async function CriterionMatrixPage() {
   await requireCabinetAdminSession();
