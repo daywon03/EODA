@@ -50,6 +50,11 @@ context2/
 # Ajouté par `vercel link` : identifiants du projet Vercel, propres à cette machine.
 .vercel
 
+# Rapports Lighthouse de l'audit d'accessibilité (outil impeccable) : mesures locales,
+# 3,8 Mo de HTML et de JSON, régénérables. Le résultat de l'audit se versionne dans les
+# correctifs qu'il a produits, pas dans ses relevés.
+.impeccable/
+
 # Le motif `.env.local` ne couvre PAS `.env.local.bak` ni `.env.local.old`. Une copie
 # de sauvegarde du fichier de secrets serait donc committable. Fermé explicitement.
 .env.local.*
