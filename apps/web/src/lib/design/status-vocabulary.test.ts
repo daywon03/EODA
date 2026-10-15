@@ -6,6 +6,7 @@ import { FUNNEL_STAGES, FUNNEL_STAGE_LABELS } from "@/lib/services/lifecycle-ser
 import { AA_NORMAL_TEXT, contrastRatio, parseRgbChannels } from "./contrast";
 import { mergeTokens, readCustomProperties, resolveToken, type TokenMap } from "./css-tokens";
 import {
+  DELIVERABLE_PILLS,
   DEVIS_STATUS_LABELS,
   DOCUMENT_PILLS,
   PILL_TONES,
@@ -99,6 +100,17 @@ describe("vocabulaire des pastilles", () => {
 
   it("rendez-vous : un créneau confirmé et un créneau proposé ont des glyphes différents", () => {
     expect(pillForAppointmentStatus("CONFIRME").glyph).not.toBe(pillForAppointmentStatus("PROPOSE").glyph);
+  });
+
+  it("livrable remis : un mot ET un glyphe, jamais la couleur seule", () => {
+    // La pastille « Nouveau » est le seul repère d'un livrable remis depuis la
+    // dernière visite : si elle ne tenait qu'à un ton, elle disparaîtrait pour qui
+    // ne distingue pas les couleurs (WCAG 1.4.1).
+    expect(DELIVERABLE_PILLS.nouveau.label).toBe("Nouveau");
+    expect(DELIVERABLE_PILLS.nouveau.glyph.trim()).not.toBe("");
+    // Son glyphe ne se confond pas avec celui d'un statut du parcours documentaire.
+    expect(DELIVERABLE_PILLS.nouveau.glyph).not.toBe(DOCUMENT_PILLS.manquant.glyph);
+    expect(DELIVERABLE_PILLS.nouveau.glyph).not.toBe(DOCUMENT_PILLS.valide.glyph);
   });
 });
 

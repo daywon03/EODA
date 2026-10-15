@@ -2,9 +2,15 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { requireClientEstablishment } from "@/lib/auth/guards";
 import { getClientHasUnansweredMessage } from "@/lib/actions/message";
+import { getClientNewDeliverablesCount } from "@/lib/actions/deliverables";
 import { getClientSupportContext } from "@/lib/actions/client-support";
 import { describeModeTag, toUiSupportMode } from "@/lib/services/support-mode-service";
-import { buildClientNav, clientAccountLinks, CLIENT_ROOT } from "@/lib/design/client-navigation";
+import {
+  buildClientNav,
+  canSeeClientEntry,
+  clientAccountLinks,
+  CLIENT_ROOT,
+} from "@/lib/design/client-navigation";
 import { clientAllows } from "@/lib/auth/capabilities";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
 import { EodaMark } from "../EodaLogo";
@@ -32,8 +38,15 @@ export async function ClientShell({ children }: { children: ReactNode }) {
   // Le signal « nouveau message » n'est lu que pour un rôle qui a les messages : sa
   // lecture est gardée et renverrait ailleurs au milieu du rendu de la coquille.
   const canReadMessages = !accessRole || clientAllows(accessRole, { module: "MESSAGES", mode: "READ" });
-  const hasUnansweredMessage = canReadMessages ? await getClientHasUnansweredMessage() : false;
-  const items = buildClientNav({ hasUnansweredMessage, accessRole });
+  // Même règle que le filtre de la barre, appelée par la même fonction : un rôle sans
+  // le module DOCUMENTS ne voit pas l'entrée, donc il n'a rien à compter — et on ne
+  // lit pas un compteur en son nom.
+  const canReadDeliverables = canSeeClientEntry(accessRole, "deliverables");
+  const [hasUnansweredMessage, newDeliverablesCount] = await Promise.all([
+    canReadMessages ? getClientHasUnansweredMessage() : Promise.resolve(false),
+    canReadDeliverables ? getClientNewDeliverablesCount() : Promise.resolve(0),
+  ]);
+  const items = buildClientNav({ hasUnansweredMessage, accessRole, newDeliverablesCount });
   const userName = session.user.name ?? session.user.email ?? "Mon compte";
 
   return (

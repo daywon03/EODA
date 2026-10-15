@@ -62,6 +62,15 @@ export const DOCUMENT_PILLS = {
   chezLaStructure: pill("Chez la structure", "↗", "elsewhere"),
 } as const satisfies Record<string, PillSpec>;
 
+// ── Livrables (remise au client) ──────────────────────────────────────────────
+// « Nouveau » n'est pas un statut du document, c'est un fait DATÉ : il a été remis
+// depuis la dernière ouverture de « Mes livrables » par cette personne
+// (`EstablishmentUser.deliverablesSeenAt`). La pastille s'éteint à la lecture, sans
+// qu'aucun statut ait changé. Ton « review » : ce qui est à voir de son côté.
+export const DELIVERABLE_PILLS = {
+  nouveau: pill("Nouveau", "●", "review"),
+} as const satisfies Record<string, PillSpec>;
+
 // ── Quiz de sensibilisation (lot B) ───────────────────────────────────────────
 export const QUIZ_PILLS = {
   reussi: pill("Réussi", "✓", "ok"),

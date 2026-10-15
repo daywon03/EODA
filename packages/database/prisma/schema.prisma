@@ -478,6 +478,12 @@ model EstablishmentUser {
   // ignorent un lien retiré. (Le retrait par le cabinet garde son geste existant.)
   revokedAt           DateTime?             @map("revoked_at")
   createdAt           DateTime              @default(now()) @map("created_at")
+  // Dernière ouverture de « Mes livrables » par CETTE personne pour CET
+  // établissement. Seul fait stocké de la notification dans l'application : ce qui
+  // est « nouveau » se DÉRIVE (livrable remis après cette date,
+  // deliverables-service). Porté par le lien et non par User : une personne qui suit
+  // deux structures n'a pas vu les livrables de l'une en ouvrant ceux de l'autre.
+  deliverablesSeenAt  DateTime?             @map("deliverables_seen_at")
 
   user          User          @relation(fields: [userId], references: [id])
   establishment Establishment @relation(fields: [establishmentId], references: [id])

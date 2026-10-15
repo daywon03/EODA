@@ -70,6 +70,9 @@ export type ChecklistItem = {
   versions: DocumentVersionItem[];
   // Étape atteinte dans le parcours documentaire (document-workflow-service).
   step: DocumentStep;
+  // Date de validation par la consultante — dit QUAND un livrable a été remis
+  // (deliverables-service), l'étape ne disant que s'il l'a été.
+  validatedAt: Date | null;
   currentVersion: {
     id: string;
     versionNumber: number;
@@ -295,6 +298,7 @@ async function buildChecklist(
         producedByCabinet: version.uploadedBy.role !== "CLIENT_USER",
         hasAnalysis: version.analysisResultJson !== null,
       })),
+      validatedAt: doc?.validatedAt ?? null,
       step: deriveDocumentStep({
         hasVersion: !!doc?.currentVersion,
         hasAnalysis: doc?.currentVersion?.analysisResultJson != null,

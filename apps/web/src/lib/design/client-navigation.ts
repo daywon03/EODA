@@ -17,6 +17,7 @@ import { clientAccessLevel, type ClientAccessRole, type ClientModule } from "@/l
 export const CLIENT_ROOT = "/dashboard/client";
 export const CLIENT_MESSAGES_PATH = `${CLIENT_ROOT}/echanges`;
 export const CLIENT_DOCUMENTS_PATH = `${CLIENT_ROOT}/documents`;
+export const CLIENT_DELIVERABLES_PATH = `${CLIENT_ROOT}/livrables`;
 export const CLIENT_CONTRACT_PATH = `${CLIENT_ROOT}/contrat`;
 export const CLIENT_TASKS_PATH = `${CLIENT_ROOT}/taches`;
 export const CLIENT_DIAGNOSTIC_PATH = `${CLIENT_ROOT}/diagnostic`;
@@ -32,6 +33,11 @@ export type ClientNavFacts = {
   // Rôle d'accès dans la structure (N9). null = aucune structure rattachée : les
   // pages le disent elles-mêmes, la navigation reste complète.
   accessRole: ClientAccessRole | null;
+  // Livrables remis depuis la dernière ouverture de « Mes livrables »
+  // (lib/actions/deliverables.ts). Ce qui est NOUVEAU se dérive de
+  // `EstablishmentUser.deliverablesSeenAt` — aucune table de notifications.
+  // Absent ou nul : rien à annoncer, aucune pastille.
+  newDeliverablesCount?: number;
 };
 
 // Module que chaque entrée ouvre — l'entrée n'apparaît que si le rôle d'accès y a
@@ -60,7 +66,29 @@ export function buildClientNav(facts: ClientNavFacts): NavItem[] {
   return allClientEntries(facts).filter((item) => canSeeClientEntry(facts.accessRole, item.id));
 }
 
+// Éteint le compteur des livrables. Appelée par la barre DÈS que « Mes livrables » est
+// ouverte : le layout n'est pas rejoué d'une page du portail à l'autre, la pastille
+// resterait donc affichée après la lecture. Au chargement suivant, c'est le fait
+// enregistré (`markDeliverablesSeen`) qui la laisse éteinte — l'état client ne fait
+// qu'éviter un aller-retour visible.
+export function clearDeliverablesCount(items: readonly NavItem[]): NavItem[] {
+  return items.map((item) => {
+    if (item.id !== "deliverables" || !item.count) return item;
+    const cleared = { ...item };
+    delete cleared.count;
+    delete cleared.countLabel;
+    return cleared;
+  });
+}
+
+// Le lecteur d'écran lit le libellé PUIS cette phrase : « Mes livrables, 3 nouveaux
+// documents ». Un chiffre seul ne dit pas à quoi il se rapporte.
+function unseenDeliverablesLabel(count: number): string {
+  return count > 1 ? `${count} nouveaux documents` : "1 nouveau document";
+}
+
 function allClientEntries(facts: ClientNavFacts): NavItem[] {
+  const newDeliverables = facts.newDeliverablesCount ?? 0;
   return [
     // Racine du portail = l'accueil (R6) : `exact` pour ne pas rester actif sur
     // toutes les autres pages.
@@ -70,7 +98,18 @@ function allClientEntries(facts: ClientNavFacts): NavItem[] {
     { id: "diagnostic", href: CLIENT_DIAGNOSTIC_PATH, label: "Mon diagnostic", icon: "diagnostic" },
     // Tâches de la structure (N5) : celles qu'EODA ou la structure lui a confiées.
     { id: "tasks", href: CLIENT_TASKS_PATH, label: "Tâches", icon: "tasks" },
-    { id: "deliverables", href: `${CLIENT_ROOT}/livrables`, label: "Mes livrables", icon: "deliverables" },
+    {
+      id: "deliverables",
+      href: CLIENT_DELIVERABLES_PATH,
+      label: "Mes livrables",
+      icon: "deliverables",
+      // Le SEUL compteur du portail client, et le seul qui s'éteigne à la lecture :
+      // l'entrée est dans « Plus », donc le bouton « Plus » porte aussi le nombre
+      // (splitClientNav.moreCount) — sans lui, personne ne saurait qu'il y a du nouveau.
+      ...(newDeliverables > 0
+        ? { count: newDeliverables, countLabel: unseenDeliverablesLabel(newDeliverables) }
+        : {}),
+    },
     { id: "progress", href: `${CLIENT_ROOT}/suivi`, label: "Mon suivi", icon: "progress" },
     {
       id: "messages",
@@ -131,6 +170,9 @@ export type ClientNavSplit = {
   isMoreActive: boolean;
   // Une entrée de « Plus » attend une action : le bouton porte le point.
   moreAttention: boolean;
+  // Somme des compteurs rangés DANS « Plus ». Sans elle, un livrable neuf serait
+  // annoncé par une pastille que personne ne voit — le bouton est fermé.
+  moreCount: number;
 };
 
 export function splitClientNav(items: readonly NavItem[], pathname: string): ClientNavSplit {
@@ -148,5 +190,6 @@ export function splitClientNav(items: readonly NavItem[], pathname: string): Cli
     activeId,
     isMoreActive: more.some((item) => item.id === activeId),
     moreAttention: more.some((item) => Boolean(item.attentionLabel)),
+    moreCount: more.reduce((total, item) => total + (item.count ?? 0), 0),
   };
 }

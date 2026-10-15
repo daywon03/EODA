@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { CountBadge } from "@/components/ui/count-badge";
 import {
   accessibleItemLabel,
   isSectionOpen,
@@ -150,17 +151,6 @@ function SectionToggle({
         </span>
       )}
     </button>
-  );
-}
-
-function CountBadge({ count }: { count: number }) {
-  return (
-    <span
-      className="flex h-6 min-w-[26px] items-center justify-center rounded-full bg-accent-fill px-2 text-sm font-bold tabular-nums text-on-accent"
-      aria-hidden="true"
-    >
-      {count}
-    </span>
   );
 }
 

@@ -863,6 +863,17 @@ Détail complet et état d'avancement : `specs/02-architecture-technique.md` §4
 - **Les exemples validés ne se mélangent jamais au référentiel** (N8, context/10 §9) :
   `KnowledgeChunk.nature` (`REFERENCE` / `EXEMPLE_VALIDE`), filtre de nature dans
   chaque lecture, exemples filtrés par tenant ET type de document dans la requête.
+- **Le client est prévenu à la VALIDATION, jamais au dépôt** (27/09/2026). Un e-mail
+  part vers chaque compte actif de l'établissement quand Sandrine valide un document
+  (`setDocumentValidated` → `notifyDocumentAvailable`), ou quand EODA dépose une
+  nouvelle version sur un document DÉJÀ validé (elle devient le livrable
+  sur-le-champ). Un dépôt sur un document non validé ne prévient personne : c'est un
+  travail en cours, l'annoncer serait promettre à la place de la consultante. Deux
+  libellés : « nouveau livrable » si EODA a produit une version, « document validé »
+  si seule la pièce du client a été jugée conforme. L'e-mail porte l'INTITULÉ du type,
+  jamais le nom de fichier ni le contenu. Dans l'application, la pastille « Mes
+  livrables » se DÉRIVE de `EstablishmentUser.deliverablesSeenAt` (seul fait stocké)
+  par `countNewDeliverables` — pas de table de notifications.
 - Ne pas faire passer un devis à `SIGNE` par `changeDevisStatus` : la signature est la seule
   transition qui produit des effets hors du module commercial (fiche établissement, mission,
   périmètre ouvert au client) et passe par `convertDevisToClient` (`lib/actions/conversion.ts`),

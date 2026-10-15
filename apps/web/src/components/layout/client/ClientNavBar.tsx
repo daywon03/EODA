@@ -1,12 +1,17 @@
 "use client";
 
-import { useId } from "react";
+import { useId, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Ellipsis } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { splitClientNav } from "@/lib/design/client-navigation";
+import {
+  clearDeliverablesCount,
+  CLIENT_DELIVERABLES_PATH,
+  splitClientNav,
+} from "@/lib/design/client-navigation";
 import type { NavItem } from "@/lib/design/navigation";
+import { CountBadge } from "@/components/ui/count-badge";
 import { NAV_ICONS } from "../nav-icons";
 import { useDisclosure } from "./use-disclosure";
 
@@ -21,7 +26,20 @@ type Variant = "top" | "bottom";
 // Icône ET libellé partout ; cible ≥ 48 px côté client.
 export function ClientNavBar({ items, variant }: { items: readonly NavItem[]; variant: Variant }) {
   const pathname = usePathname();
-  const { primary, more, activeId, isMoreActive, moreAttention } = splitClientNav(items, pathname);
+
+  // Le compteur des livrables s'éteint dès que la page est ouverte. Le layout n'étant
+  // pas rejoué d'une page du portail à l'autre, c'est cet état client qui l'éteint
+  // (clearDeliverablesCount) ; la lecture elle-même est enregistrée en base par
+  // `markDeliverablesSeen`, page « Mes livrables ».
+  const onDeliverables = pathname.startsWith(CLIENT_DELIVERABLES_PATH);
+  const [deliverablesOpened, setDeliverablesOpened] = useState(onDeliverables);
+  if (onDeliverables && !deliverablesOpened) setDeliverablesOpened(true);
+  const visibleItems = deliverablesOpened ? clearDeliverablesCount(items) : items;
+
+  const { primary, more, activeId, isMoreActive, moreAttention, moreCount } = splitClientNav(
+    visibleItems,
+    pathname
+  );
   const isTop = variant === "top";
 
   return (
@@ -42,7 +60,10 @@ export function ClientNavBar({ items, variant }: { items: readonly NavItem[]; va
               className={entryClass(isTop, item.id === activeId)}
             >
               <EntryIcon item={item} isTop={isTop} />
-              <span className={isTop ? undefined : "text-center leading-tight"}>{item.label}</span>
+              <span className="flex items-center gap-1.5">
+                <span className={isTop ? undefined : "text-center leading-tight"}>{item.label}</span>
+                <EntryCount item={item} />
+              </span>
               {item.attentionLabel && <span className="sr-only">, {item.attentionLabel}</span>}
             </Link>
           </li>
@@ -55,6 +76,7 @@ export function ClientNavBar({ items, variant }: { items: readonly NavItem[]; va
               isTop={isTop}
               isActive={isMoreActive}
               hasAttention={moreAttention}
+              count={moreCount}
             />
           </li>
         )}
@@ -85,20 +107,49 @@ function EntryIcon({ item, isTop }: { item: Pick<NavItem, "icon" | "attentionLab
   );
 }
 
+// Le nombre est décoratif (CountBadge), la phrase qui le porte est lue : « Mes
+// livrables, 3 nouveaux documents ». Le libellé de ce qu'on compte vit dans
+// client-navigation (`countLabel`), pas ici.
+function EntryCount({
+  item,
+  className,
+}: {
+  item: Pick<NavItem, "count" | "countLabel">;
+  className?: string;
+}) {
+  const count = item.count ?? 0;
+  if (count <= 0) return null;
+  return (
+    <>
+      <CountBadge count={count} className={className} />
+      <span className="sr-only">, {item.countLabel}</span>
+    </>
+  );
+}
+
 type MoreMenuProps = {
   items: readonly NavItem[];
   activeId: string | null;
   isTop: boolean;
   isActive: boolean;
   hasAttention: boolean;
+  count: number;
 };
 
 // « Plus » : les entrées secondaires (Tâches, Mes livrables, Mon suivi…). Sous le
 // bouton dans l'en-tête, au-dessus de la barre en bas — jamais hors écran : le
 // panneau s'ancre au bord droit.
-function MoreMenu({ items, activeId, isTop, isActive, hasAttention }: MoreMenuProps) {
+//
+// Le bouton porte la somme des compteurs qu'il RENFERME : « Mes livrables » est dans
+// ce menu, et une pastille qu'on ne voit pas ne prévient personne.
+function MoreMenu({ items, activeId, isTop, isActive, hasAttention, count }: MoreMenuProps) {
   const { isOpen, toggle, root, button } = useDisclosure();
   const panelId = useId();
+  const countLabel = items
+    .filter((item) => (item.count ?? 0) > 0)
+    .map((item) => item.countLabel)
+    .filter(Boolean)
+    .join(", ");
 
   return (
     <div ref={root} className="relative">
@@ -116,8 +167,14 @@ function MoreMenu({ items, activeId, isTop, isActive, hasAttention }: MoreMenuPr
             <span className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full bg-accent-fill" aria-hidden="true" />
           )}
         </span>
-        <span className={isTop ? undefined : "text-center leading-tight"}>Plus</span>
+        <span className="flex items-center gap-1.5">
+          <span className={isTop ? undefined : "text-center leading-tight"}>Plus</span>
+          {count > 0 && <CountBadge count={count} />}
+        </span>
         {isActive && <span className="sr-only">, contient la page actuelle</span>}
+        {/* Le bouton est FERMÉ : le nombre n'y dit rien de lui-même, c'est le libellé
+            de ce qu'on compte — porté par l'entrée — qui est lu. */}
+        {count > 0 && <span className="sr-only">, {countLabel}</span>}
       </button>
 
       {isOpen && (
@@ -144,6 +201,7 @@ function MoreMenu({ items, activeId, isTop, isActive, hasAttention }: MoreMenuPr
                   >
                     <Icon className="h-5 w-5 flex-shrink-0" aria-hidden="true" />
                     {item.label}
+                    <EntryCount item={item} className="ml-auto" />
                     {item.attentionLabel && <span className="sr-only">, {item.attentionLabel}</span>}
                   </Link>
                 </li>
