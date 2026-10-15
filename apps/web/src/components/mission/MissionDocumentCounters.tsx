@@ -8,9 +8,9 @@ type Props = { counters: Counters };
 // le dépôt vit dans le portail client opérationnel, jamais dans le portail de suivi.
 const CELLS: { key: keyof Counters; label: string; icon: typeof Upload; color: string }[] = [
   { key: "deposited", label: "Déposés", icon: Upload, color: "text-accent-text bg-terre/10" },
-  { key: "analyzed", label: "Analysés par l'IA", icon: Sparkles, color: "text-ambre bg-ambre/10" },
+  { key: "analyzed", label: "Analysés par l'IA", icon: Sparkles, color: "text-amber-text bg-ambre/10" },
   { key: "modified", label: "Modifiés", icon: PencilLine, color: "text-brun-ancre bg-brun-ancre/10" },
-  { key: "compliant", label: "Conformes", icon: CheckCircle2, color: "text-vert-ok bg-vert-ok/10" },
+  { key: "compliant", label: "Conformes", icon: CheckCircle2, color: "text-ok-text bg-vert-ok/10" },
 ];
 
 export function MissionDocumentCounters({ counters }: Props) {

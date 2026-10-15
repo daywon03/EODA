@@ -157,7 +157,7 @@ export function MissingDocumentJustification({
             </>
           ) : saved ? (
             // L'accusé qui manquait. `role="status"` : annoncé sans interrompre.
-            <span role="status" className="flex items-center gap-1.5 text-vert-ok">
+            <span role="status" className="flex items-center gap-1.5 text-ok-text">
               <CheckCircle2 className="h-3 w-3" aria-hidden="true" />
               Enregistré.
             </span>

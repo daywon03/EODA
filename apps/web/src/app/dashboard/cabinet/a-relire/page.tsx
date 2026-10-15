@@ -72,7 +72,7 @@ export default async function ReviewQueuePage({ searchParams }: { searchParams: 
             <InlineDocumentPreview key={entry.versionId} versionId={entry.versionId} />
             <Link
               href={`/dashboard/cabinet/etablissements/${entry.establishmentId}`}
-              className="text-base font-bold text-accent-text underline-offset-4 hover:underline"
+              className="inline-flex min-h-11 items-center text-base font-bold text-accent-text underline-offset-4 hover:underline"
             >
               Ouvrir la fiche de {entry.establishmentName}
             </Link>

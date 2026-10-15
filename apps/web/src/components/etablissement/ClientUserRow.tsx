@@ -217,7 +217,7 @@ export function ClientUserRow({ establishmentId, user, roleInEstablishment }: Pr
               aria-label={copied ? "Mot de passe copié" : "Copier le mot de passe"}
             >
               {copied ? (
-                <CheckCircle2 className="w-4 h-4 text-vert-ok" aria-hidden="true" />
+                <CheckCircle2 className="w-4 h-4 text-ok-text" aria-hidden="true" />
               ) : (
                 <Copy className="w-4 h-4" aria-hidden="true" />
               )}

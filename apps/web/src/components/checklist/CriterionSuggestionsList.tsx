@@ -90,7 +90,7 @@ export function CriterionSuggestionsList({
           {isConfirmingAll ? (
             <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
           ) : (
-            <Check className="h-3.5 w-3.5 text-vert-ok" aria-hidden="true" />
+            <Check className="h-3.5 w-3.5 text-ok-text" aria-hidden="true" />
           )}
           Tout accepter ({visible.length})
         </Button>
@@ -124,7 +124,7 @@ export function CriterionSuggestionsList({
                 {pendingId === s.id ? (
                   <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
                 ) : (
-                  <Check className="h-3.5 w-3.5 text-vert-ok" aria-hidden="true" />
+                  <Check className="h-3.5 w-3.5 text-ok-text" aria-hidden="true" />
                 )}
               </Button>
               <Button

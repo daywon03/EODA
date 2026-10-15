@@ -33,7 +33,7 @@ export function HelpArticleList({ articles }: { articles: readonly HelpArticle[]
           onChange={(event) => setQuery(event.target.value)}
           placeholder="Rechercher : déposer un document, cotation, mot de passe…"
           aria-label="Rechercher dans le guide"
-          className="w-full rounded-lg border border-gris-light bg-surface pl-9 pr-3 py-2.5 text-sm text-brun-ancre placeholder:text-ink2"
+          className="h-11 w-full rounded-lg border border-gris-light bg-surface pl-9 pr-3 text-base text-brun-ancre placeholder:text-ink2"
         />
       </div>
 
@@ -63,7 +63,7 @@ export function HelpArticleList({ articles }: { articles: readonly HelpArticle[]
                         {article.title}
                       </span>
                       <span className="block text-sm text-ink2 mt-0.5">{article.summary}</span>
-                      <span className="block text-xs text-ambre mt-1">{article.where}</span>
+                      <span className="block text-xs text-amber-text mt-1">{article.where}</span>
                     </span>
                     <ChevronRight
                       className="w-4 h-4 text-ink2 flex-shrink-0 mt-1"

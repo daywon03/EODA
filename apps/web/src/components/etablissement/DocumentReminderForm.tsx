@@ -83,7 +83,7 @@ export function DocumentReminderForm({ establishmentId, missingCount }: Props) {
       )}
 
       {state && "ok" in state && (
-        <p className="flex items-center gap-2 text-sm text-vert-ok">
+        <p className="flex items-center gap-2 text-sm text-ok-text">
           <CheckCircle2 className="h-4 w-4 flex-shrink-0" aria-hidden="true" />
           {state.message}
         </p>

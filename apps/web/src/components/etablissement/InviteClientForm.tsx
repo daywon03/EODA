@@ -167,7 +167,7 @@ export function InviteClientForm({ establishmentId, defaultEmail, defaultName }:
       )}
       {linked && (
         <p role="status" className="flex items-center gap-2 text-sm text-ink">
-          <CheckCircle2 className="w-4 h-4 text-vert-ok" aria-hidden="true" />
+          <CheckCircle2 className="w-4 h-4 text-ok-text" aria-hidden="true" />
           Compte rattaché : l&apos;interlocuteur se connecte avec son mot de passe habituel.
         </p>
       )}

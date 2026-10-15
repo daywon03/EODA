@@ -25,7 +25,7 @@ export default async function ClientMessagesPage() {
           Il devient un encart identifié — icône, contraste, texte de corps — sans
           devenir alarmant : le fil doit rester utilisé, c'est sa raison d'être. */}
       <div className="flex items-start gap-3 rounded-lg border border-ambre/40 bg-ambre/10 px-4 py-3">
-        <ShieldAlert className="mt-0.5 h-4 w-4 flex-shrink-0 text-ambre" aria-hidden="true" />
+        <ShieldAlert className="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-text" aria-hidden="true" />
         <div className="space-y-1 text-sm text-brun-ancre">
           <p className="font-medium">Aucune donnée personnelle dans ce fil.</p>
           <p className="text-ink2">

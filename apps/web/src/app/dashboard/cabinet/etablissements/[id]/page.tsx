@@ -95,7 +95,7 @@ export default async function StructureOverviewPage({ params }: Props) {
           <h2 id="overview-mission" className="text-xl font-bold text-ink">
             Mission
           </h2>
-          <Link href={structureHref(id, "mission")} className="font-bold text-accent-text hover:underline">
+          <Link href={structureHref(id, "mission")} className="inline-flex min-h-11 items-center font-bold text-accent-text hover:underline">
             Ouvrir le suivi de mission →
           </Link>
         </div>
@@ -113,7 +113,7 @@ export default async function StructureOverviewPage({ params }: Props) {
           <h2 id="overview-next" className="text-xl font-bold text-ink">
             Les prochaines actions
           </h2>
-          <Link href={structureHref(id, "documents")} className="font-bold text-accent-text hover:underline">
+          <Link href={structureHref(id, "documents")} className="inline-flex min-h-11 items-center font-bold text-accent-text hover:underline">
             Voir les documents →
           </Link>
         </div>
@@ -125,7 +125,7 @@ export default async function StructureOverviewPage({ params }: Props) {
               <li key={action.id} className="flex flex-wrap items-center justify-between gap-3 px-2 py-3.5">
                 <span className="flex min-w-0 flex-col">
                   {action.href ? (
-                    <Link href={action.href} className="font-bold text-ink hover:underline">
+                    <Link href={action.href} className="inline-flex min-h-11 items-center font-bold text-ink hover:underline">
                       {action.label}
                     </Link>
                   ) : (

@@ -49,7 +49,7 @@ function ProspectRow({ row }: { row: PipelineFacts }) {
     <tr className={cn("border-t border-line align-middle", row.hasPendingCall ? "bg-paper" : "bg-card")}>
       <th scope="row" className="px-4 py-3.5 text-left font-normal">
         <span className="flex flex-col gap-1">
-          <Link href={`${BASE_PATH}/${row.id}`} className="w-fit font-bold text-ink underline-offset-4 hover:underline">
+          <Link href={`${BASE_PATH}/${row.id}`} className="inline-flex min-h-11 w-fit items-center font-bold text-ink underline-offset-4 hover:underline">
             {row.structureName}
           </Link>
           <span

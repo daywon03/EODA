@@ -25,7 +25,7 @@ export function WatchList({ items, now }: { items: WatchItem<StructureFacts>[]; 
         </h2>
         <Link
           href="/dashboard/cabinet/structures"
-          className="text-base font-bold text-accent-text underline-offset-4 hover:underline"
+          className="inline-flex min-h-11 items-center text-base font-bold text-accent-text underline-offset-4 hover:underline"
         >
           Voir toutes les structures →
         </Link>

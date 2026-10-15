@@ -17,7 +17,7 @@ export function ConfirmEmailForm({ token }: { token: string }) {
     return (
       <div className="flex flex-col gap-5">
         <p role="status" className="flex items-start gap-2">
-          <CheckCircle2 className="mt-1 h-5 w-5 flex-shrink-0 text-vert-ok" aria-hidden="true" />
+          <CheckCircle2 className="mt-1 h-5 w-5 flex-shrink-0 text-ok-text" aria-hidden="true" />
           {CONFIRMATION_MESSAGES.CONFIRMED}
         </p>
         <Link

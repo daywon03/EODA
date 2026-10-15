@@ -91,6 +91,10 @@ const TEXT_PAIRS: [string, string][] = [
   ["danger-text", "paper"],
   ["ok-text", "card"],
   ["ok-text", "ok-soft"],
+  ["ok-text", "paper"],
+  ["amber-text", "card"],
+  ["amber-text", "paper"],
+  ["amber-text", "soft"],
   ["on-accent", "accent-fill"],
   ["on-accent", "danger-fill"],
   // Bouton secondaire.
@@ -125,7 +129,7 @@ describe("globals.css — contrastes des tokens de rôle", () => {
   // Ce qui justifie le refus de `text-ink2` / `text-accent-text` dans ui-class-guard :
   // en clair, ces teintes ne tiennent pas 4.5:1 sur le papier. Si un jour elles le
   // tiennent, ce test échoue et la règle du garde peut être relâchée.
-  it.each(["gris-mid", "muted", "terre"])("clair : --%s sur --paper < 4.5:1 (interdit en texte)", (fg) => {
+  it.each(["gris-mid", "muted", "terre", "ambre", "vert-ok"])("clair : --%s sur --paper < 4.5:1 (interdit en texte)", (fg) => {
     const ratio = contrastRatio(
       parseRgbChannels(resolveToken(LIGHT, fg)),
       parseRgbChannels(resolveToken(LIGHT, "paper"))

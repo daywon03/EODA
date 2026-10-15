@@ -67,6 +67,9 @@
     --ok-text: 46 125 79;
     --ok-soft: 242 250 245;      /* #F2FAF5 */
     --amber-fill: var(--ambre);
+    /* #8A5A22 — l'ambre de charte ne fait que 2.4:1 en texte sur blanc (audit du
+     * 14/10/2026) : il reste l'APLAT, le texte et les icônes prennent ce token. */
+    --amber-text: 138 90 34;
     --green-fill: var(--vert-ok);
     --highlight: 246 227 198;    /* #F6E3C6 — surlignage d'une ligne */
     /* Focus : ambre FIXE dans les deux thèmes, 3 px (maquette). */
@@ -110,6 +113,7 @@
       --ok-text: 111 207 151;      /* #6FCF97 */
       --ok-soft: 31 51 40;         /* #1F3328 */
       --amber-fill: 138 90 34;     /* #8A5A22 — aplat assombri, texte clair dessus */
+      --amber-text: 230 179 110;   /* #E6B36E */
       --green-fill: 30 107 64;     /* #1E6B40 */
       --highlight: 74 55 32;       /* #4A3720 */
     }
@@ -134,6 +138,7 @@
     --ok-text: 111 207 151;
     --ok-soft: 31 51 40;
     --amber-fill: 138 90 34;
+    --amber-text: 230 179 110;
     --green-fill: 30 107 64;
     --highlight: 74 55 32;
   }

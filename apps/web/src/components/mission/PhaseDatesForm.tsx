@@ -47,7 +47,7 @@ export function PhaseDatesForm({ missionId, phase, startDate, endDate, disabled 
             setStart(e.target.value);
             commit(e.target.value, end);
           }}
-          className="w-40 h-9 text-sm"
+          className="w-40 h-11 text-sm"
         />
       </div>
       <div className="space-y-1">
@@ -61,7 +61,7 @@ export function PhaseDatesForm({ missionId, phase, startDate, endDate, disabled 
             setEnd(e.target.value);
             commit(start, e.target.value);
           }}
-          className="w-40 h-9 text-sm"
+          className="w-40 h-11 text-sm"
         />
       </div>
       {isPending && <Loader2 className="w-3.5 h-3.5 animate-spin text-ink2" aria-hidden="true" />}

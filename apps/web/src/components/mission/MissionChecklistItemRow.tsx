@@ -37,7 +37,7 @@ export function MissionChecklistItemRow({ missionId, code, label, completed, loc
           checked={completed}
           onChange={handleChange}
           disabled={locked || isPending}
-          className="h-4 w-4 flex-shrink-0 accent-terre disabled:cursor-not-allowed"
+          className="h-5 w-5 flex-shrink-0 accent-terre disabled:cursor-not-allowed"
         />
         <span className={`text-sm flex-1 ${locked ? "text-ink2" : "text-brun-ancre"}`}>
           {label}

@@ -74,11 +74,11 @@ export function DocumentStepTrail({ establishmentId, documentTypeId, step, isIma
                   // un fond seul — sinon la frise retombe dans le même défaut
                   // "pastel" déjà corrigé sur les badges.
                   reached
-                    ? "border border-vert-ok/40 bg-vert-ok/12 text-vert-ok"
+                    ? "border border-vert-ok/40 bg-vert-ok/12 text-ok-text"
                     : "border border-transparent text-ink2"
                 )}
               >
-                {reached && <Check className="w-3 h-3 text-vert-ok" aria-hidden="true" />}
+                {reached && <Check className="w-3 h-3 text-ok-text" aria-hidden="true" />}
                 {DOCUMENT_STEP_LABELS[candidate]}
                 <span className="sr-only">{reached ? " — étape franchie" : " — à venir"}</span>
               </span>

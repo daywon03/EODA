@@ -112,7 +112,7 @@ function QuizResult({ title, result }: { title: string; result: Extract<PublicQu
     <section aria-labelledby="quiz-result" className="flex flex-col gap-5">
       <div className="flex flex-col items-start gap-3 rounded-2xl border border-line bg-card p-6">
         {result.passed ? (
-          <CheckCircle2 className="h-12 w-12 text-vert-ok" aria-hidden="true" />
+          <CheckCircle2 className="h-12 w-12 text-ok-text" aria-hidden="true" />
         ) : (
           <RotateCcw className="h-12 w-12 text-accent-text" aria-hidden="true" />
         )}
@@ -132,7 +132,7 @@ function QuizResult({ title, result }: { title: string; result: Extract<PublicQu
             </p>
             <p className="mt-1 flex items-start gap-2">
               {c.wasCorrect ? (
-                <Check className="mt-1 h-5 w-5 flex-shrink-0 text-vert-ok" aria-label="Juste" />
+                <Check className="mt-1 h-5 w-5 flex-shrink-0 text-ok-text" aria-label="Juste" />
               ) : (
                 <X className="mt-1 h-5 w-5 flex-shrink-0 text-rouge-imp" aria-label="Faux" />
               )}

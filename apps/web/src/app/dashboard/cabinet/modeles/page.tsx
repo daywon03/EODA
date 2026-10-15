@@ -44,7 +44,7 @@ export default async function ModelesPage({ searchParams }: Props) {
         icon={Library}
         subtitle="Les gabarits du cabinet et ses sources HAS. Rien n'appartient à une structure."
         action={
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <TemplateCriterionFilter allCriteria={allCriteria ?? []} selectedCriterionId={critere} />
             {isAdmin && <LibraryToolbar categories={categories} />}
           </div>

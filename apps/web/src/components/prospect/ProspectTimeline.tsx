@@ -39,7 +39,7 @@ export function ProspectTimeline({ entries }: { entries: TimelineEntry[] }) {
             {entry.kind === "COMMENTAIRE" ? (
               <MessageSquare className="w-3.5 h-3.5 text-accent-text" />
             ) : (
-              <ArrowRight className="w-3.5 h-3.5 text-ambre" />
+              <ArrowRight className="w-3.5 h-3.5 text-amber-text" />
             )}
           </span>
           <div className="min-w-0 flex-1">

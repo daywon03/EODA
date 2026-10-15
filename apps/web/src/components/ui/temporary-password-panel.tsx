@@ -32,7 +32,7 @@ export function TemporaryPasswordPanel({
   return (
     <div className="space-y-4 animate-fade-in">
       <div className="flex items-start gap-3 rounded-lg border border-vert-ok/30 bg-vert-ok/10 p-4">
-        <CheckCircle2 className="mt-0.5 h-5 w-5 flex-shrink-0 text-vert-ok" aria-hidden="true" />
+        <CheckCircle2 className="mt-0.5 h-5 w-5 flex-shrink-0 text-ok-text" aria-hidden="true" />
         <div>
           <p className="font-semibold text-ink">Compte créé pour {userName}</p>
           <p className="text-ink2">{userEmail}</p>
@@ -52,7 +52,7 @@ export function TemporaryPasswordPanel({
             aria-label={copied ? "Mot de passe copié" : "Copier le mot de passe"}
           >
             {copied ? (
-              <CheckCircle2 className="h-4 w-4 text-vert-ok" aria-hidden="true" />
+              <CheckCircle2 className="h-4 w-4 text-ok-text" aria-hidden="true" />
             ) : (
               <Copy className="h-4 w-4" aria-hidden="true" />
             )}
@@ -64,9 +64,9 @@ export function TemporaryPasswordPanel({
         </p>
         <p role="status" className="flex items-center gap-1.5 text-ink2">
           {delivery.tone === "ok" ? (
-            <CheckCircle2 className="h-4 w-4 flex-shrink-0 text-vert-ok" aria-hidden="true" />
+            <CheckCircle2 className="h-4 w-4 flex-shrink-0 text-ok-text" aria-hidden="true" />
           ) : (
-            <AlertCircle className="h-4 w-4 flex-shrink-0 text-ambre" aria-hidden="true" />
+            <AlertCircle className="h-4 w-4 flex-shrink-0 text-amber-text" aria-hidden="true" />
           )}
           {delivery.text}
         </p>

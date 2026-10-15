@@ -43,7 +43,7 @@ export function ContratPrintable({ facts, establishmentLogo, issuedOn }: Props) 
         />
 
         <div className="rounded-lg border border-ambre bg-brun-ancre px-5 py-4 text-ivoire print:bg-brun-ancre">
-          <p className="text-sm uppercase tracking-[0.18em] text-ambre">
+          <p className="text-sm uppercase tracking-[0.18em] text-ivoire/80">
             Accompagnement à la préparation de l&apos;évaluation qualité HAS
           </p>
           <h2 className="text-lg font-bold leading-tight">Contrat d&apos;accompagnement</h2>

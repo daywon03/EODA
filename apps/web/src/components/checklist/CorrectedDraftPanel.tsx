@@ -108,7 +108,7 @@ function DraftDrawer({ documentVersionId, onClose }: { documentVersionId: string
       <div className="flex h-full w-full max-w-xl flex-col bg-surface shadow-xl">
         <header className="flex items-center justify-between border-b border-gris-light px-4 py-3">
           <div className="flex items-center gap-2">
-            <Sparkles className="h-4 w-4 text-ambre" aria-hidden="true" />
+            <Sparkles className="h-4 w-4 text-amber-text" aria-hidden="true" />
             <h2 className="text-sm font-medium text-brun-ancre">Document corrigé — brouillon IA</h2>
           </div>
           <button type="button" onClick={onClose} aria-label="Fermer" className="text-ink2 hover:text-brun-ancre">
@@ -192,7 +192,7 @@ function DraftDrawer({ documentVersionId, onClose }: { documentVersionId: string
                     }
                     if (segment.kind === "added") {
                       return (
-                        <span key={index} className="text-vert-ok underline decoration-2">
+                        <span key={index} className="text-ok-text underline decoration-2">
                           {segment.text}
                         </span>
                       );
@@ -248,7 +248,7 @@ function DraftDrawer({ documentVersionId, onClose }: { documentVersionId: string
                 </div>
               </div>
 
-              {saved && <p role="status" className="text-xs text-vert-ok">Modifications enregistrées.</p>}
+              {saved && <p role="status" className="text-xs text-ok-text">Modifications enregistrées.</p>}
             </div>
           )}
 

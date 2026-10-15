@@ -91,6 +91,12 @@ describe("findLowContrastTextColors", () => {
   it("propose le bon remplaçant", () => {
     expect(findLowContrastTextColors(`text-terre`)[0]?.reason).toMatch(/text-accent-text/);
     expect(findLowContrastTextColors(`text-gris-mid`)[0]?.reason).toMatch(/text-ink2/);
+    expect(findLowContrastTextColors(`text-ambre`)[0]?.reason).toMatch(/text-amber-text/);
+    expect(findLowContrastTextColors(`hover:text-vert-ok`)[0]?.reason).toMatch(/text-ok-text/);
+  });
+
+  it("laisse passer les aplats ambre et vert et leurs tokens de texte", () => {
+    expect(findLowContrastTextColors(`bg-ambre/10 border-vert-ok/40 text-amber-text text-ok-text bg-amber-fill`)).toEqual([]);
   });
 });
 
@@ -113,7 +119,7 @@ describe("dépôt — CLAUDE.md §6 (accessibilité)", () => {
 
   // Test de bout en bout du 12/10 : `text-gris-mid` (≈ 3.7:1 sur le papier clair)
   // servait de texte secondaire dans ~80 fichiers. Dette soldée, refusée désormais.
-  it("aucune teinte sous 4.5:1 (gris-mid, terre, muted) écrite en couleur de texte dans src/", () => {
+  it("aucune teinte sous 4.5:1 (gris-mid, terre, muted, ambre, vert-ok) écrite en couleur de texte dans src/", () => {
     expect(report(findLowContrastTextColors)).toEqual([]);
   });
 

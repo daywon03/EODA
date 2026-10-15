@@ -13,7 +13,7 @@ export function UpcomingAppointments({ appointments }: { appointments: CalendarA
         </h2>
         <Link
           href="/dashboard/cabinet/agenda"
-          className="text-base font-bold text-accent-text underline-offset-4 hover:underline"
+          className="inline-flex min-h-11 items-center text-base font-bold text-accent-text underline-offset-4 hover:underline"
         >
           Ouvrir l&apos;agenda →
         </Link>

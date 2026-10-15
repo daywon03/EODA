@@ -42,7 +42,7 @@ export function AppointmentList({ appointments, readOnly = false, emptyMessage }
             {group.appointments.map((appointment) => (
               <li
                 key={appointment.id}
-                className="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-start sm:justify-between"
+                className="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between"
               >
                 <div className="min-w-0 space-y-1">
                   <p className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
@@ -82,7 +82,7 @@ export function AppointmentList({ appointments, readOnly = false, emptyMessage }
                   <AppointmentMode mode={appointment.mode} location={appointment.location} />
                 </div>
 
-                <div className="flex flex-shrink-0 flex-wrap items-center gap-2">
+                <div className="flex min-w-0 flex-wrap items-center gap-2">
                   <StatusPill pill={pillForAppointmentStatus(appointment.status)} />
                   {!readOnly && (
                     <AppointmentStatusActions

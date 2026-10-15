@@ -58,7 +58,7 @@ export function HelpArticleBody({ blocks }: { blocks: readonly HelpBlock[] }) {
             }`}
           >
             <Icon
-              className={`w-4 h-4 flex-shrink-0 mt-0.5 ${isWarning ? "text-rouge-imp" : "text-ambre"}`}
+              className={`w-4 h-4 flex-shrink-0 mt-0.5 ${isWarning ? "text-rouge-imp" : "text-amber-text"}`}
               aria-hidden="true"
             />
             <span className="leading-relaxed">{block.text}</span>

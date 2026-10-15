@@ -32,7 +32,7 @@ export function ProspectRecap({ steps, closed }: Props) {
             <li key={step.id} className="flex items-start gap-2">
               {step.done ? (
                 <Check
-                  className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-vert-ok"
+                  className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-ok-text"
                   aria-hidden="true"
                 />
               ) : (

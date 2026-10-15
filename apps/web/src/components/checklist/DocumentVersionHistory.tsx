@@ -103,7 +103,7 @@ function VersionRow({
           tourné dessus n'a rien à faire dans cet écran (Damon, 22/09/2026). */}
       {canManageVersions && version.hasAnalysis && (
         <span
-          className="inline-flex items-center gap-1 text-xs text-ambre"
+          className="inline-flex items-center gap-1 text-xs text-amber-text"
           title="Cette version a été analysée"
         >
           <Sparkles className="w-3 h-3" aria-hidden="true" />

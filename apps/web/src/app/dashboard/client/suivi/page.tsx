@@ -25,7 +25,7 @@ export default async function ClientSuiviPage() {
       <div className="space-y-6">
         <PageHeader title="Mon suivi" icon={TrendingUp} accent="ambre" />
         <div className="flex items-start gap-3 bg-ambre/10 border border-ambre/30 rounded-lg px-5 py-4">
-          <AlertTriangle className="w-5 h-5 text-ambre flex-shrink-0 mt-0.5" aria-hidden="true" />
+          <AlertTriangle className="w-5 h-5 text-amber-text flex-shrink-0 mt-0.5" aria-hidden="true" />
           <div className="text-sm">
             <p className="font-semibold text-brun-ancre">Aucun établissement rattaché</p>
             <p className="text-ink2">
@@ -48,7 +48,7 @@ export default async function ClientSuiviPage() {
       label: "Commentés, en attente d'arbitrage",
       value: documents.justified,
       icon: MessageSquareWarning,
-      color: "text-ambre bg-ambre/10",
+      color: "text-amber-text bg-ambre/10",
     },
     {
       label: "Déposés, en cours de revue",
@@ -60,7 +60,7 @@ export default async function ClientSuiviPage() {
       label: "Conformes",
       value: documents.compliant,
       icon: CheckCircle2,
-      color: "text-vert-ok bg-vert-ok/10",
+      color: "text-ok-text bg-vert-ok/10",
     },
   ];
 

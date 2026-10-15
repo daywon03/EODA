@@ -77,7 +77,7 @@ function DevisRow({ devis, now }: { devis: DevisListItem; now: Date }) {
       <span className="flex min-w-0 flex-[2_1_14rem] flex-col">
         <Link
           href={`${BASE_PATH}/${devis.id}`}
-          className="w-fit font-bold text-ink underline-offset-4 hover:underline"
+          className="inline-flex min-h-11 w-fit items-center font-bold text-ink underline-offset-4 hover:underline"
         >
           {devis.prospectStructureName}
         </Link>

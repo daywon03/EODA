@@ -86,7 +86,7 @@ export function DocumentAnalysisPanel({
           className={`w-3.5 h-3.5 text-ink2 flex-shrink-0 transition-transform duration-200 ${open ? "rotate-0" : "-rotate-90"}`}
           aria-hidden="true"
         />
-        <Sparkles className="w-3.5 h-3.5 text-ambre flex-shrink-0" aria-hidden="true" />
+        <Sparkles className="w-3.5 h-3.5 text-amber-text flex-shrink-0" aria-hidden="true" />
         <span className="text-xs text-brun-ancre font-medium">Analyse automatique</span>
         <span
           className={`text-xs ${summary.missingCount > 0 ? "text-rouge-imp" : "text-ink2"}`}
@@ -117,9 +117,9 @@ export function DocumentAnalysisPanel({
                     <span
                       className={
                         c.status === "couvert"
-                          ? "text-vert-ok"
+                          ? "text-ok-text"
                           : c.status === "partiel"
-                            ? "text-ambre"
+                            ? "text-amber-text"
                             : "text-rouge-imp"
                       }
                     >
@@ -147,7 +147,7 @@ export function DocumentAnalysisPanel({
 
           {summary.suggestionCount > 0 && (
             <Section
-              icon={<Lightbulb className="w-3.5 h-3.5 text-ambre" aria-hidden="true" />}
+              icon={<Lightbulb className="w-3.5 h-3.5 text-amber-text" aria-hidden="true" />}
               title="Suggestions de correction"
               entries={analysis.suggestionsCorrection}
             />
@@ -155,7 +155,7 @@ export function DocumentAnalysisPanel({
 
           {summary.presentCount > 0 && (
             <FindingsSection
-              icon={<Check className="w-3.5 h-3.5 text-vert-ok" aria-hidden="true" />}
+              icon={<Check className="w-3.5 h-3.5 text-ok-text" aria-hidden="true" />}
               title="Éléments retrouvés"
               findings={analysis.elementsPresents}
             />
@@ -350,7 +350,7 @@ function AnalysisGuidelines({ open }: { open: boolean }) {
       )}
 
       {saved && (
-        <p role="status" className="flex items-center gap-1.5 text-xs text-vert-ok">
+        <p role="status" className="flex items-center gap-1.5 text-xs text-ok-text">
           <CheckCircle2 className="w-3.5 h-3.5" aria-hidden="true" />
           Guideline enregistrée — reprise dans les prochaines analyses rattachées à ce critère.
         </p>

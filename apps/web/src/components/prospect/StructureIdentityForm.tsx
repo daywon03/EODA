@@ -146,7 +146,7 @@ export function StructureIdentityForm({
           />
           <p className="text-xs text-ink2">
             Au jour près quand elle est connue : une évaluation au 27 janvier ne laisse
-            pas le même temps qu&apos;une évaluation au 1<sup>er</sup>.
+            pas le même temps qu&apos;une évaluation au 1er.
           </p>
         </div>
       </div>
@@ -159,7 +159,7 @@ export function StructureIdentityForm({
         {/* Confirmation explicite : sans elle, un enregistrement réussi en plein appel
             ne se distingue pas d'un clic qui n'a rien fait. */}
         {state && "ok" in state && !isPending && (
-          <p className="flex items-center gap-1.5 text-xs text-vert-ok">
+          <p className="flex items-center gap-1.5 text-xs text-ok-text">
             <CheckCircle2 className="h-3.5 w-3.5 flex-shrink-0" aria-hidden="true" />
             Identité enregistrée.
           </p>

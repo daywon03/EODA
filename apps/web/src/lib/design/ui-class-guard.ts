@@ -58,17 +58,24 @@ export function findFocusSuppression(source: string): ClassViolation[] {
 // (secondaire) ou `text-accent-text` (terre assombri). `muted` est un alias de
 // `gris-mid`. Les variantes (`hover:`, `placeholder:`) et l'opacité (`/60`) sont
 // refusées de même : un texte survolé ou un placeholder reste un texte.
-export const LOW_CONTRAST_TEXT_TOKENS = ["gris-mid", "terre", "muted"] as const;
-const LOW_CONTRAST_TEXT = /(?<![\w-])(?:[\w-]+:)*text-(gris-mid|terre|muted)(?:\/\d+)?(?![\w-])/g;
+// Depuis l'audit du 14/10/2026, `ambre` (≈ 2.4:1) et `vert-ok` (≈ 2.6:1) aussi :
+// aplats seulement ; en texte ou en icône, `text-amber-text` et `text-ok-text`.
+export const LOW_CONTRAST_TEXT_TOKENS = ["gris-mid", "terre", "muted", "ambre", "vert-ok"] as const;
+const LOW_CONTRAST_TEXT = /(?<![\w-])(?:[\w-]+:)*text-(gris-mid|terre|muted|ambre|vert-ok)(?:\/\d+)?(?![\w-])/g;
+
+const REPLACEMENT: Record<(typeof LOW_CONTRAST_TEXT_TOKENS)[number], string> = {
+  "gris-mid": "text-ink2",
+  muted: "text-ink2",
+  terre: "text-accent-text",
+  ambre: "text-amber-text",
+  "vert-ok": "text-ok-text",
+};
 
 export function findLowContrastTextColors(source: string): ClassViolation[] {
   return [...source.matchAll(LOW_CONTRAST_TEXT)].map((m) => ({
     line: lineOf(source, m.index ?? 0),
     match: m[0],
-    reason:
-      m[1] === "terre"
-        ? "terre en texte < 4.5:1 sur le papier — utiliser text-accent-text"
-        : `${m[1]} en texte < 4.5:1 — utiliser text-ink2`,
+    reason: `${m[1]} en texte < 4.5:1 sur le papier — utiliser ${REPLACEMENT[m[1] as keyof typeof REPLACEMENT]}`,
   }));
 }
 

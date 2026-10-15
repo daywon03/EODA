@@ -12,16 +12,33 @@ export function CabinetBreadcrumb({ sections }: { sections: readonly NavSection[
   const crumbs = buildCabinetBreadcrumb(sections, usePathname());
   if (crumbs.length === 0) return <span className="min-w-0 flex-1" />;
 
+  // Sur téléphone, la page courante est déjà le titre de l'écran : seule la miette
+  // PARENTE reste, en lien de retour pleine taille (« ‹ Structures »). Trois miettes
+  // tronquées laissaient des liens de 3 px de large (audit du 14/10/2026).
+  const parentIndex = crumbs.length - 2;
   return (
     <nav aria-label="Fil d'Ariane" className="min-w-0 flex-1 overflow-hidden">
       <ol className="flex min-w-0 items-center gap-2 whitespace-nowrap text-base text-ink2">
         {crumbs.map((crumb, index) => {
           const isLast = index === crumbs.length - 1;
+          const isParent = index === parentIndex;
+          const hiddenOnPhone = crumbs.length > 1 && !isParent;
           return (
-            <li key={`${crumb.label}-${index}`} className="flex min-w-0 items-center gap-2">
+            <li
+              key={`${crumb.label}-${index}`}
+              className={`${hiddenOnPhone ? "hidden sm:flex" : "flex"} min-w-0 items-center gap-2`}
+            >
               {crumb.href ? (
-                <Link href={crumb.href} className="truncate text-ink2 hover:text-ink hover:underline">
-                  {crumb.label}
+                <Link
+                  href={crumb.href}
+                  className="inline-flex min-h-11 min-w-0 items-center gap-1 text-ink2 hover:text-ink hover:underline"
+                >
+                  {isParent && (
+                    <span className="sm:hidden" aria-hidden="true">
+                      ‹
+                    </span>
+                  )}
+                  <span className="truncate">{crumb.label}</span>
                 </Link>
               ) : (
                 <span className={isLast ? "truncate font-bold text-ink" : "truncate"} aria-current={isLast ? "page" : undefined}>
@@ -29,7 +46,7 @@ export function CabinetBreadcrumb({ sections }: { sections: readonly NavSection[
                 </span>
               )}
               {!isLast && (
-                <span className="text-ink2" aria-hidden="true">
+                <span className={isParent ? "hidden text-ink2 sm:inline" : "text-ink2"} aria-hidden="true">
                   ›
                 </span>
               )}

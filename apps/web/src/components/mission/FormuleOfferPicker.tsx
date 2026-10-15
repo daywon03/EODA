@@ -22,7 +22,7 @@ export function FormuleOfferPicker({ formules, defaultFormule, defaultGratuit, d
           {formules.map((f) => (
             <label
               key={f.formule}
-              className="flex items-center justify-between gap-3 border border-gris-light rounded-md px-3 py-2.5 text-sm cursor-pointer has-[:checked]:border-terre has-[:checked]:bg-terre/5"
+              className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border border-gris-light rounded-md px-3 py-2.5 text-sm cursor-pointer has-[:checked]:border-terre has-[:checked]:bg-terre/5"
             >
               <span className="flex items-center gap-2">
                 <input
@@ -32,7 +32,7 @@ export function FormuleOfferPicker({ formules, defaultFormule, defaultGratuit, d
                   defaultChecked={defaultFormule ? defaultFormule === f.formule : f.formule === "ESSENTIEL"}
                   disabled={disabled}
                   required
-                  className="accent-terre"
+                  className="h-5 w-5 flex-shrink-0 accent-terre"
                 />
                 {f.label}
               </span>
@@ -44,13 +44,13 @@ export function FormuleOfferPicker({ formules, defaultFormule, defaultGratuit, d
         </div>
       </div>
 
-      <label className="flex items-center gap-2 text-sm text-brun-ancre cursor-pointer">
+      <label className="flex min-h-11 items-center gap-2 text-sm text-brun-ancre cursor-pointer">
         <input
           type="checkbox"
           name="gratuit"
           defaultChecked={defaultGratuit}
           disabled={disabled}
-          className="accent-terre"
+          className="h-5 w-5 flex-shrink-0 accent-terre"
         />
         Mission bêta-test gratuite (accorde le périmètre Excellence complet)
       </label>

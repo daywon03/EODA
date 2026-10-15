@@ -70,7 +70,7 @@ export function DocumentScopeToggle({ documentTypeId, requestedFromClient, canEd
         disabled={isPending}
         aria-label={`${label}. ${switchHint}`}
         title={switchHint}
-        className="inline-flex min-h-9 items-center gap-1.5 rounded-full border border-gris-light px-3 py-2 text-xs text-ink2 transition-colors hover:border-terre/40 hover:text-brun-ancre cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+        className="inline-flex min-h-11 items-center gap-1.5 rounded-full border border-gris-light px-3 py-2 text-xs text-ink2 transition-colors hover:border-terre/40 hover:text-brun-ancre cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
       >
         {content}
       </button>

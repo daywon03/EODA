@@ -186,7 +186,7 @@ export function MessageThread({
               ) : sent && !isPending ? (
                 // Confirmation explicite : le message apparaît bien dans le fil, mais
                 // rien ne distingue « envoyé » de « la page n'a pas bougé ».
-                <span className="flex items-center gap-1.5 text-vert-ok">
+                <span className="flex items-center gap-1.5 text-ok-text">
                   <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
                   Message envoyé.
                 </span>

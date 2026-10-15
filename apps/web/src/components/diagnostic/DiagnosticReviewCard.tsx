@@ -18,7 +18,7 @@ export function DiagnosticReviewCard({ data }: { data: DiagnosticData }) {
         <Link
           href={`/imprimer/diagnostic/${data.establishmentId}`}
           target="_blank"
-          className="font-bold text-accent-text hover:underline"
+          className="inline-flex min-h-11 items-center font-bold text-accent-text hover:underline"
         >
           Voir le rapport →
         </Link>

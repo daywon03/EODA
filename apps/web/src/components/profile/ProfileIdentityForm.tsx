@@ -51,7 +51,7 @@ export function ProfileIdentityForm({ name, email }: Props) {
           Enregistrer
         </Button>
         {state && "ok" in state && !isPending && (
-          <p role="status" className="flex items-center gap-1.5 text-xs text-vert-ok">
+          <p role="status" className="flex items-center gap-1.5 text-xs text-ok-text">
             <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
             Profil enregistré.
           </p>

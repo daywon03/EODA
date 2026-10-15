@@ -74,7 +74,7 @@ export default async function ClientContratPage() {
       <div className="space-y-6">
         <PageHeader title="Mon contrat" icon={ReceiptText} accent="ambre" />
         <div className="flex items-start gap-3 bg-ambre/10 border border-ambre/30 rounded-lg px-5 py-4">
-          <AlertTriangle className="w-5 h-5 text-ambre flex-shrink-0 mt-0.5" aria-hidden="true" />
+          <AlertTriangle className="w-5 h-5 text-amber-text flex-shrink-0 mt-0.5" aria-hidden="true" />
           <div className="text-sm">
             <p className="font-semibold text-brun-ancre">Aucun établissement rattaché</p>
             <p className="text-ink2">
@@ -213,7 +213,7 @@ export default async function ClientContratPage() {
 
         {contract.kind === "AMBIGUOUS" && (
           <div className="flex items-start gap-3 bg-ambre/10 border border-ambre/30 rounded-lg px-4 py-3">
-            <AlertTriangle className="w-4 h-4 text-ambre flex-shrink-0 mt-0.5" aria-hidden="true" />
+            <AlertTriangle className="w-4 h-4 text-amber-text flex-shrink-0 mt-0.5" aria-hidden="true" />
             <p className="text-sm text-brun-ancre">
               {contract.signedCount} devis signés sont rattachés à votre établissement. Aucun
               montant n&apos;est affiché tant que le devis contractuel n&apos;est pas identifié —

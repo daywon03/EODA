@@ -45,7 +45,7 @@ export default async function ProfilePage() {
 
       {profile.mustChangePassword && (
         <div className="flex items-start gap-3 rounded-lg border border-ambre/30 bg-ambre/10 px-5 py-4">
-          <ShieldAlert className="mt-0.5 h-5 w-5 flex-shrink-0 text-ambre" aria-hidden="true" />
+          <ShieldAlert className="mt-0.5 h-5 w-5 flex-shrink-0 text-amber-text" aria-hidden="true" />
           <div className="text-sm">
             <p className="font-semibold text-brun-ancre">
               Vous utilisez encore votre mot de passe temporaire

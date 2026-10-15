@@ -15,7 +15,7 @@ export default async function ChangePasswordPage() {
         <div className="bg-surface rounded-xl shadow-eoda-lg p-8">
           <div className="flex items-center gap-3 mb-1">
             <span className="flex items-center justify-center w-10 h-10 rounded-full bg-ambre/15 flex-shrink-0">
-              <KeyRound className="w-5 h-5 text-ambre" aria-hidden="true" />
+              <KeyRound className="w-5 h-5 text-amber-text" aria-hidden="true" />
             </span>
             <h1 className="text-brun-ancre text-lg font-semibold">Changer mon mot de passe</h1>
           </div>
@@ -25,7 +25,7 @@ export default async function ChangePasswordPage() {
               role="status"
               className="flex items-start gap-2 text-sm text-brun-ancre bg-ambre/10 border border-ambre/30 rounded-md px-3 py-2.5 my-5"
             >
-              <ShieldAlert className="w-4 h-4 mt-0.5 flex-shrink-0 text-ambre" aria-hidden="true" />
+              <ShieldAlert className="w-4 h-4 mt-0.5 flex-shrink-0 text-amber-text" aria-hidden="true" />
               <span>
                 Votre compte utilise encore le mot de passe temporaire qui vous a été
                 communiqué. Choisissez-en un nouveau pour accéder à la plateforme.

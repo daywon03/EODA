@@ -63,19 +63,20 @@ export function MissionOptionsPicker({ options, subscribed = [], disabled }: Pro
           return (
             <label
               key={option.id}
-              className={`flex items-center justify-between gap-3 border border-gris-light rounded-md px-3 py-2.5 text-sm has-[:checked]:border-terre has-[:checked]:bg-terre/5 ${
+              className={`flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border border-gris-light rounded-md px-3 py-2.5 text-sm has-[:checked]:border-terre has-[:checked]:bg-terre/5 ${
                 locked ? "cursor-not-allowed opacity-90" : "cursor-pointer"
               }`}
             >
-              <span className="flex items-center gap-2">
+              <span className="flex min-w-0 items-start gap-2">
                 <input
                   type="checkbox"
                   name="optionIds"
                   value={option.id}
                   defaultChecked={row !== undefined}
                   disabled={disabled || locked}
-                  className="accent-terre"
+                  className="h-5 w-5 flex-shrink-0 accent-terre"
                 />
+                <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
                 {option.label}
                 {row?.priceIsFirm && (
                   <span className="inline-flex items-center gap-1 text-xs text-ink2">
@@ -89,7 +90,7 @@ export function MissionOptionsPicker({ options, subscribed = [], disabled }: Pro
                 {avenantState && (
                   <span
                     className={`inline-flex items-center gap-1 text-xs ${
-                      row?.avenantSignedOn ? "text-vert-ok" : "text-ambre"
+                      row?.avenantSignedOn ? "text-ok-text" : "text-amber-text"
                     }`}
                   >
                     {row?.avenantSignedOn ? (
@@ -100,8 +101,9 @@ export function MissionOptionsPicker({ options, subscribed = [], disabled }: Pro
                     {avenantState}
                   </span>
                 )}
+                </span>
               </span>
-              <span className="text-ink2 tabular-nums whitespace-nowrap">
+              <span className="text-ink2 tabular-nums sm:whitespace-nowrap">
                 {formatStartingPrice(option)}
               </span>
             </label>

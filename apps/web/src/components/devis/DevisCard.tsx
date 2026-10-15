@@ -21,7 +21,7 @@ export function DevisCard({ id, number, status, formuleLabelSnapshot, totalAmoun
     // Lien en superposition plutôt que carte enveloppée dans un <a> : la carte porte
     // désormais une action, et un bouton dans un lien est invalide autant
     // qu'inutilisable — le clic partirait sur le devis.
-    <Card className="relative border-l-4 border-l-ambre transition-all duration-150 hover:-translate-y-0.5 hover:shadow-eoda-md">
+    <Card className="relative transition-all duration-150 hover:-translate-y-0.5 hover:shadow-eoda-md">
       <Link
         href={`/dashboard/cabinet/commercial/devis/${id}`}
         className="absolute inset-0 z-0 rounded-xl"
@@ -32,7 +32,7 @@ export function DevisCard({ id, number, status, formuleLabelSnapshot, totalAmoun
       <div className="pointer-events-none flex items-center justify-between gap-3 p-4">
         <div className="flex min-w-0 items-center gap-2.5">
           <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-ambre/15">
-            <FileText className="h-4 w-4 text-ambre" aria-hidden="true" />
+            <FileText className="h-4 w-4 text-amber-text" aria-hidden="true" />
           </span>
           <div className="min-w-0">
             <p className="truncate text-sm font-semibold text-ink">{number}</p>

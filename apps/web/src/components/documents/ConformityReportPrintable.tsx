@@ -93,9 +93,9 @@ export function ConformityReportPrintable({
                           <span
                             className={
                               c.status === "couvert"
-                                ? "text-vert-ok"
+                                ? "text-ok-text"
                                 : c.status === "partiel"
-                                  ? "text-ambre"
+                                  ? "text-amber-text"
                                   : "text-rouge-imp"
                             }
                           >

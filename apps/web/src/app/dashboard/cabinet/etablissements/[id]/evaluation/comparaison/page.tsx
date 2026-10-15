@@ -38,6 +38,7 @@ export default async function EvaluationComparisonPage({ params }: Props) {
     <div className="space-y-6">
       <PageHeader
         title="Comparaison des auto-évaluations"
+        headingLevel={2}
         subtitle={establishment.name}
         backHref={`/dashboard/cabinet/etablissements/${id}/evaluation`}
       />

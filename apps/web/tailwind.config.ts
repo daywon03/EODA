@@ -73,6 +73,7 @@ const config: Config = {
         "ok-text": "rgb(var(--ok-text) / <alpha-value>)",
         "ok-soft": "rgb(var(--ok-soft) / <alpha-value>)",
         "amber-fill": "rgb(var(--amber-fill) / <alpha-value>)",
+        "amber-text": "rgb(var(--amber-text) / <alpha-value>)",
         "green-fill": "rgb(var(--green-fill) / <alpha-value>)",
         highlight: "rgb(var(--highlight) / <alpha-value>)",
         focus: "rgb(var(--focus) / <alpha-value>)",

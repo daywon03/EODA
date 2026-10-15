@@ -30,7 +30,7 @@ export function MonthGrid({ year, month, appointments, now, basePath }: Props) {
         <Link
           href={`${basePath}?mois=${previous.y}-${String(previous.m + 1).padStart(2, "0")}`}
           aria-label="Mois précédent"
-          className="inline-flex h-9 w-9 items-center justify-center rounded-md text-ink2 transition-colors hover:bg-ivoire hover:text-brun-ancre"
+          className="inline-flex h-11 w-11 items-center justify-center rounded-md text-ink2 transition-colors hover:bg-ivoire hover:text-brun-ancre"
         >
           <ChevronLeft className="w-4 h-4" aria-hidden="true" />
         </Link>
@@ -40,7 +40,7 @@ export function MonthGrid({ year, month, appointments, now, basePath }: Props) {
         <Link
           href={`${basePath}?mois=${next.y}-${String(next.m + 1).padStart(2, "0")}`}
           aria-label="Mois suivant"
-          className="inline-flex h-9 w-9 items-center justify-center rounded-md text-ink2 transition-colors hover:bg-ivoire hover:text-brun-ancre"
+          className="inline-flex h-11 w-11 items-center justify-center rounded-md text-ink2 transition-colors hover:bg-ivoire hover:text-brun-ancre"
         >
           <ChevronRight className="w-4 h-4" aria-hidden="true" />
         </Link>

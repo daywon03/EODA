@@ -41,7 +41,7 @@ export default async function LoginPage({ searchParams }: Props) {
               tiendrait pas sur ce fond. */}
           <EodaMark size={44} />
           <div>
-            {/* Couleurs LITTÉRALES, jamais `text-ivoire`/`text-ambre` : ce panneau a
+            {/* Couleurs LITTÉRALES, jamais les classes ivoire / ambre de la charte : ce panneau a
                 un fond dégradé fixe en hex (ci-dessus), qui ne suit pas le thème.
                 Les classes de la charte, elles, s'inversent en mode sombre — les y
                 laisser rendait ce texte sombre sur un fond qui reste sombre. */}
@@ -94,7 +94,7 @@ export default async function LoginPage({ searchParams }: Props) {
                 role="status"
                 className="mb-5 flex items-start gap-2 rounded-md border border-vert-ok/30 bg-vert-ok/10 px-3 py-2.5 text-sm text-brun-ancre"
               >
-                <CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0 text-vert-ok" aria-hidden="true" />
+                <CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0 text-ok-text" aria-hidden="true" />
                 <span>{notice}</span>
               </p>
             )}

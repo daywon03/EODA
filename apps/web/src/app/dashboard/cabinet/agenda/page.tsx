@@ -43,7 +43,7 @@ export default async function AgendaPage({ searchParams }: Props) {
         subtitle="Tous vos rendez-vous, prospects et clients confondus — le planning reste prévisionnel jusqu'à confirmation."
       />
 
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-6 items-start">
+      <div className="grid grid-cols-1 xl:grid-cols-[1fr_360px] gap-6 items-start">
         <MonthGrid
           year={year}
           month={month}

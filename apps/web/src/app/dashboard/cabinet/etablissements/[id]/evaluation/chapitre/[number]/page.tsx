@@ -56,7 +56,7 @@ export default async function EvaluationChapterPage({ params }: Props) {
     <div className="max-w-5xl space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="space-y-2">
-          <Link href={structureHref(id, "evaluation")} className="font-bold text-accent-text hover:underline">
+          <Link href={structureHref(id, "evaluation")} className="inline-flex min-h-11 items-center font-bold text-accent-text hover:underline">
             ← Auto-évaluation
           </Link>
           <h2 className="text-2xl font-bold text-ink">

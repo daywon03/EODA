@@ -17,7 +17,7 @@ const badgeVariants = cva(
         default: "border-transparent bg-terre text-ivoire-light",
         secondary: "border-transparent bg-gris-light text-brun-ancre",
         missing: "border-rouge-imp/50 bg-rouge-imp/12 text-rouge-imp",
-        compliant: "border-vert-ok/50 bg-vert-ok/12 text-vert-ok",
+        compliant: "border-vert-ok/50 bg-vert-ok/12 text-ok-text",
         incomplete: "border-ambre/60 bg-ambre/15 text-brun-moyen",
         // « Analysé » : statut actif/transitoire, sur l'accent terre — plus de bleu
         // hors charte. Le point qui pulse porte l'idée de progression ;
@@ -36,7 +36,7 @@ const badgeVariants = cva(
         rdv: "border-ambre/60 bg-ambre/15 text-brun-moyen",
         devisEnvoye: "border-terre/50 bg-terre/12 text-accent-text",
         negociation: "border-ambre/60 bg-ambre/15 text-brun-moyen",
-        signe: "border-vert-ok/50 bg-vert-ok/12 text-vert-ok",
+        signe: "border-vert-ok/50 bg-vert-ok/12 text-ok-text",
         perdu: "border-rouge-imp/50 bg-rouge-imp/12 text-rouge-imp",
         brouillon: "text-brun-ancre border-gris-light",
         // Devis annulé : gris barré-neutre, volontairement distinct du rouge

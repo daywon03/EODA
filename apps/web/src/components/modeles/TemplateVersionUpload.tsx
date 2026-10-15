@@ -212,7 +212,7 @@ function ReferenceUpload({ templateId }: { templateId: string }) {
       {outcome && (
         <div role="status" className="space-y-1 text-xs">
           {outcome.done > 0 && (
-            <p className="flex items-center gap-1.5 text-vert-ok">
+            <p className="flex items-center gap-1.5 text-ok-text">
               <CheckCircle2 className="h-3.5 w-3.5 flex-shrink-0" aria-hidden="true" />
               {outcome.done} fichier{outcome.done > 1 ? "s" : ""} déposé
               {outcome.done > 1 ? "s" : ""}.

@@ -108,7 +108,7 @@ export function TemplateCriteriaPicker({
         <span className="text-xs text-ink2">{selected.size} sélectionné(s)</span>
       </div>
       {saved && (
-        <p role="status" className="flex items-center gap-1.5 text-xs text-vert-ok">
+        <p role="status" className="flex items-center gap-1.5 text-xs text-ok-text">
           <CheckCircle2 className="w-3.5 h-3.5" aria-hidden="true" />
           Critères enregistrés.
         </p>
