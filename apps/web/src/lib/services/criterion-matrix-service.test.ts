@@ -13,6 +13,7 @@ import {
   promotionError,
   sanitizeRemark,
   type MatrixRow,
+  type MatrixView,
 } from "./criterion-matrix-service";
 
 const SOURCE = path.resolve(__dirname, "../../../../../.claude/specs/data/20261008_proposition-document-type-criterion.csv");
@@ -43,6 +44,37 @@ describe("copie embarquée de la matrice proposée", () => {
   it("propose au moins un critère pour chacun des 19 types du référentiel du pilote (14/10/2026)", () => {
     const proposed = new Set(parseProposedMatrix(PROPOSED_MATRIX_CSV).map((r) => r.documentTypeCode));
     expect(PILOT_DOCUMENT_TYPES.filter((t) => !proposed.has(t.code))).toEqual([]);
+  });
+
+  it("laisse 11 types du seed sans aucune proposition — aucun n'est un type du pilote", () => {
+    // Mesuré le 15/10/2026 : ces types sont muets, donc indécidables depuis l'écran
+    // « Matrice » — c'est cette liste que la page affiche pour qu'ils ne disparaissent
+    // pas en silence. Le chiffre vit ici : le commentaire d'en-tête a déjà dérivé une fois.
+    const rows = parseProposedMatrix(PROPOSED_MATRIX_CSV);
+    const seedLabels = new Map(DOCUMENT_TYPE_SEEDS.map((t) => [t.code, t.label]));
+    // Les intitulés de critères vivent dans le référentiel en base, hors de ces règles
+    // pures : ici ils ne servent qu'à rendre les critères cités applicables.
+    const criterionLabels = new Map([...new Set(rows.map((r) => r.criterionCode))].map((c) => [c, c]));
+    const view = buildMatrixView(rows, {
+      criterionLabels,
+      documentTypeLabels: seedLabels,
+      linkedPairs: new Set<string>(),
+    });
+    expect(view.typesWithoutProposal.map((t) => t.code)).toEqual([
+      "FONCT_CPOM",
+      "FONCT_CR_COMMISSIONS",
+      "FONCT_ORGANIGRAMME",
+      "FONCT_PLANNING_ANIMATION",
+      "FONCT_PLAQUETTE",
+      "FONCT_RAPPORTS_ACTIVITE",
+      "L2002_PERSONNES_QUALIFIEES",
+      "P12_BILAN_ANNUEL",
+      "P13_SIGNALEMENT_ARS",
+      "P14_DATE_REVISION",
+      "P14_PREUVE_SIMULATION",
+    ]);
+    const pilotCodes = new Set(PILOT_DOCUMENT_TYPES.map((t) => t.code));
+    expect(view.typesWithoutProposal.filter((t) => pilotCodes.has(t.code))).toEqual([]);
   });
 });
 
@@ -128,6 +160,74 @@ describe("buildMatrixView", () => {
   it("liste à part les critères absents du référentiel et les types inconnus — jamais écrits", () => {
     expect(view.notApplicable).toEqual([{ criterionCode: "1.4.2", documentTypeCodes: ["L2002_DIPC"] }]);
     expect(view.unknownDocumentTypes).toEqual(["INCONNU"]);
+  });
+
+  it("ne signale aucun type sans proposition quand tous les types connus sont cités", () => {
+    expect(view.typesWithoutProposal).toEqual([]);
+  });
+});
+
+describe("buildMatrixView — types de la base sans rattachement proposé", () => {
+  const DOCUMENT_TYPE_LABELS = new Map([
+    ["A_TYPE", "Type A"],
+    ["B_TYPE", "Type B"],
+    ["L2002_DIPC", "DIPC / Contrat de séjour"],
+  ]);
+
+  function viewOf(rows: MatrixRow[], criterionLabels: [string, string][]): MatrixView {
+    return buildMatrixView(rows, {
+      criterionLabels: new Map(criterionLabels),
+      documentTypeLabels: DOCUMENT_TYPE_LABELS,
+      linkedPairs: new Set<string>(),
+    });
+  }
+
+  const row = (documentTypeCode: string, criterionCode: string): MatrixRow => ({
+    documentTypeCode,
+    documentTypeLabel: "?",
+    criterionCode,
+    confidence: "HAUTE",
+    remark: null,
+  });
+
+  const INTITULE: [string, string][] = [["1.2.1", "La personne est informée de ses droits"]];
+
+  it("liste les types de la base qu'aucune ligne ne cite — triés par code, avec leur libellé", () => {
+    const v = viewOf([row("L2002_DIPC", "1.2.1")], INTITULE);
+    expect(v.typesWithoutProposal).toEqual([
+      { code: "A_TYPE", label: "Type A" },
+      { code: "B_TYPE", label: "Type B" },
+    ]);
+  });
+
+  it("ne liste PAS un type cité dont les critères sont tous hors périmètre : cité n'est pas décidable", () => {
+    // B_TYPE a bien une proposition — elle est seulement inexploitable en l'état, faute
+    // de critères au référentiel. Le dire « sans proposition » serait faux.
+    const v = viewOf([row("B_TYPE", "9.9.9")], INTITULE);
+    expect(v.notApplicable).toEqual([{ criterionCode: "9.9.9", documentTypeCodes: ["B_TYPE"] }]);
+    expect(v.groups).toEqual([]);
+    expect(v.typesWithoutProposal).toEqual([
+      { code: "A_TYPE", label: "Type A" },
+      { code: "L2002_DIPC", label: "DIPC / Contrat de séjour" },
+    ]);
+  });
+
+  it("ne compte pas deux fois un type inconnu de la base", () => {
+    const v = viewOf([row("INCONNU", "1.2.1")], INTITULE);
+    expect(v.unknownDocumentTypes).toEqual(["INCONNU"]);
+    expect(v.typesWithoutProposal.map((t) => t.code)).toEqual(["A_TYPE", "B_TYPE", "L2002_DIPC"]);
+  });
+
+  it("trie les codes nombre à nombre (P2 avant P10), pas alphabétiquement", () => {
+    const numbered = buildMatrixView([], {
+      criterionLabels: new Map(INTITULE),
+      documentTypeLabels: new Map([
+        ["P10_X", "Type 10"],
+        ["P2_X", "Type 2"],
+      ]),
+      linkedPairs: new Set<string>(),
+    });
+    expect(numbered.typesWithoutProposal.map((t) => t.code)).toEqual(["P2_X", "P10_X"]);
   });
 });
 

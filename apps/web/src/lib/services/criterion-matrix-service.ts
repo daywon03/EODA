@@ -128,6 +128,11 @@ export type MatrixView = {
   notApplicable: { criterionCode: string; documentTypeCodes: string[] }[];
   // Types de document proposés mais absents de la base : jamais créés.
   unknownDocumentTypes: string[];
+  // Types de la base qu'AUCUNE ligne de la proposition ne cite. Ils existent, mais ils
+  // n'ont rien à décider : `planMatrixDecision` n'écrit que ce qui lui a été proposé,
+  // donc ils sont indécidables depuis cet écran. Sans cette liste ils seraient purement
+  // absents de la page — indistinguables d'un type qui n'existe pas.
+  typesWithoutProposal: { code: string; label: string }[];
 };
 
 export function buildMatrixView(
@@ -142,8 +147,13 @@ export function buildMatrixView(
   const groups = new Map<string, MatrixGroup>();
   const notApplicable = new Map<string, Set<string>>();
   const unknownTypes = new Set<string>();
+  // Tout type CITÉ par la proposition, même si ses critères sont hors périmètre : « cité »
+  // et « décidable » ne sont pas la même chose. Un type cité avec des critères non
+  // applicables a bien une proposition — elle est seulement inexploitable en l'état.
+  const citedTypes = new Set<string>();
 
   for (const row of rows) {
+    citedTypes.add(row.documentTypeCode);
     const typeLabel = known.documentTypeLabels.get(row.documentTypeCode);
     if (typeLabel === undefined) {
       unknownTypes.add(row.documentTypeCode);
@@ -180,6 +190,10 @@ export function buildMatrixView(
       .map(([criterionCode, types]) => ({ criterionCode, documentTypeCodes: [...types].sort() }))
       .sort((a, b) => byCode(a.criterionCode, b.criterionCode)),
     unknownDocumentTypes: [...unknownTypes].sort(),
+    typesWithoutProposal: [...known.documentTypeLabels.entries()]
+      .filter(([code]) => !citedTypes.has(code))
+      .map(([code, label]) => ({ code, label }))
+      .sort((a, b) => byCode(a.code, b.code)),
   };
 }
 

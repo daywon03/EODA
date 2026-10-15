@@ -67,6 +67,27 @@ export default async function CriterionMatrixPage() {
         ))}
       </section>
 
+      {review.typesWithoutProposal.length > 0 && (
+        <section aria-labelledby="matrix-sans-proposition" className="space-y-3">
+          <h2 id="matrix-sans-proposition" className="text-xl font-bold text-ink">
+            Sans aucun rattachement proposé ({review.typesWithoutProposal.length})
+          </h2>
+          <p className="text-ink2">
+            Ces types existent dans le référentiel, mais la proposition ne cite aucun critère pour
+            eux : rien n&apos;étant proposé, rien ne peut être coché ci-dessus. Seul un critère
+            confirmé sur un document déposé, puis « Ajouter à la matrice », peut les rattacher.
+          </p>
+          <ul className="divide-y divide-line rounded-xl border border-line bg-card">
+            {review.typesWithoutProposal.map((type) => (
+              <li key={type.code} className="flex flex-wrap items-baseline gap-x-2 px-4 py-2.5">
+                <span className="font-bold text-ink">{type.label}</span>
+                <span className="text-sm text-ink2">{type.code}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
       {review.notApplicable.length > 0 && (
         <section aria-labelledby="matrix-na" className="space-y-2">
           <h2 id="matrix-na" className="text-xl font-bold text-ink">
