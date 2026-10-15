@@ -5,7 +5,12 @@ import Link from "next/link";
 import { ChevronsLeft, ChevronsRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { NavSection } from "@/lib/design/navigation";
-import { readSidebarState, writeSidebarState, type SidebarState } from "@/lib/design/sidebar-preference";
+import {
+  CABINET_SIDEBAR_KEY,
+  readSidebarState,
+  writeSidebarState,
+  type SidebarState,
+} from "@/lib/design/sidebar-preference";
 import { EodaMark } from "../EodaLogo";
 import { CabinetNavList } from "./CabinetNavList";
 
@@ -22,7 +27,7 @@ export function CabinetSidebar({ sections, profile }: { sections: readonly NavSe
   // Dépliée au premier rendu (serveur), puis la préférence du poste au montage.
   const [state, setState] = useState<SidebarState>("expanded");
   useEffect(() => {
-    setState(readSidebarState(browserStorage));
+    setState(readSidebarState(browserStorage, CABINET_SIDEBAR_KEY));
   }, []);
 
   const collapsed = state === "collapsed";
@@ -31,7 +36,7 @@ export function CabinetSidebar({ sections, profile }: { sections: readonly NavSe
   function toggle() {
     const next: SidebarState = collapsed ? "expanded" : "collapsed";
     setState(next);
-    writeSidebarState(browserStorage, next);
+    writeSidebarState(browserStorage, next, CABINET_SIDEBAR_KEY);
   }
 
   return (

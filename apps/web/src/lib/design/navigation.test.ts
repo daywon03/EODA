@@ -11,9 +11,10 @@ import {
 } from "./navigation";
 import { buildClientNav, CLIENT_ACCOUNT_LINKS, CLIENT_MESSAGES_PATH, clientAccountLinks } from "./client-navigation";
 import {
+  CABINET_SIDEBAR_KEY,
+  CLIENT_SIDEBAR_KEY,
   parseSidebarState,
   readSidebarState,
-  SIDEBAR_STORAGE_KEY,
   SIDEBAR_WIDTH_PX,
   writeSidebarState,
 } from "./sidebar-preference";
@@ -206,13 +207,26 @@ describe("préférence de repli de la barre latérale", () => {
 
   it("lit et écrit la préférence", () => {
     const storage = memoryStorage();
-    writeSidebarState(() => storage, "collapsed");
-    expect(storage.data.get(SIDEBAR_STORAGE_KEY)).toBe("collapsed");
-    expect(readSidebarState(() => storage)).toBe("collapsed");
+    writeSidebarState(() => storage, "collapsed", CABINET_SIDEBAR_KEY);
+    expect(storage.data.get(CABINET_SIDEBAR_KEY)).toBe("collapsed");
+    expect(readSidebarState(() => storage, CABINET_SIDEBAR_KEY)).toBe("collapsed");
   });
 
   it("stockage refusé : ni plantage en lecture, ni en écriture", () => {
-    expect(readSidebarState(failing)).toBe("expanded");
-    expect(() => writeSidebarState(failing, "collapsed")).not.toThrow();
+    expect(readSidebarState(failing, CABINET_SIDEBAR_KEY)).toBe("expanded");
+    expect(() => writeSidebarState(failing, "collapsed", CABINET_SIDEBAR_KEY)).not.toThrow();
+  });
+
+  // Deux coquilles, deux publics, deux postes : replier la barre du cabinet ne doit
+  // jamais replier celle du portail client. Une clé commune serait invisible à la
+  // relecture — d'où l'affirmation, plutôt que la confiance dans deux littéraux.
+  it("le cabinet et le client ne partagent pas leur préférence de repli", () => {
+    expect(CLIENT_SIDEBAR_KEY).not.toBe(CABINET_SIDEBAR_KEY);
+    const storage = memoryStorage();
+    writeSidebarState(() => storage, "collapsed", CABINET_SIDEBAR_KEY);
+    expect(readSidebarState(() => storage, CLIENT_SIDEBAR_KEY)).toBe("expanded");
+    writeSidebarState(() => storage, "collapsed", CLIENT_SIDEBAR_KEY);
+    expect(readSidebarState(() => storage, CLIENT_SIDEBAR_KEY)).toBe("collapsed");
+    expect(readSidebarState(() => storage, CABINET_SIDEBAR_KEY)).toBe("collapsed");
   });
 });

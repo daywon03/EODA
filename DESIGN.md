@@ -149,7 +149,10 @@ composant, pas de prop. La densité guidée tient à la classe posée sur la coq
 Comme l'échelle typographique est en `rem` absolus, ce `text-lg` **ne propage rien** à un enfant
 qui écrit lui-même `text-sm`. Autrement dit : un écran client peut redevenir dense sans qu'aucun
 test ne s'en aperçoive. C'est le premier candidat à transformer en règle vérifiée le jour où un
-écran client sera repris.
+écran client sera repris. **Une exception depuis le 15/10/2026** : l'entrée de la barre latérale
+du client est vérifiée (48 px et `text-lg` côté client, 44 px et `text-base` au cabinet,
+`client-sidebar.test.ts`) — la barre latérale est le seul endroit où les deux densités se
+côtoient à l'écran, donc le seul où une copie pouvait passer inaperçue.
 
 Ce qui fait vraiment « un seul système » : mêmes primitives, mêmes jetons, même vocabulaire de
 statuts, même contour de focus.
@@ -180,17 +183,37 @@ propre garde** — masquer une entrée n'a jamais été un contrôle d'accès.
 
 ### 4.2 Client
 
-- En-tête `sticky`, fond **carte** et non papier, ligne unique à toute largeur,
-  **`max-w-[1200px]`**. Logo EODA, logo de la structure quand il existe, nom de la structure qui
-  se tronque et s'efface entre `lg` et `xl` pour laisser vivre la navigation.
-- Deux rendus de la **même** répartition : onglets d'en-tête dès `lg` et barre du bas en dessous.
-  Le partage (4 entrées principales, ordre préféré) est calculé une fois dans
-  `lib/design/client-navigation.ts` ; les entrées masquées par le rôle remontent les suivantes.
+- **Barre latérale** `sticky top-0 h-screen`, `bg-soft`, **visible dès `lg` (1024 px)** —
+  mêmes largeurs que le cabinet (**264 px dépliée / 76 px repliée**,
+  `lib/design/sidebar-preference.ts`), même bouton de repli, et repli **mémorisé par poste**
+  sous **sa propre clé** (`eoda-client-sidebar` ; jamais celle du cabinet — deux coquilles, deux
+  publics : replier l'une ne doit pas replier l'autre, et personne n'irait chercher la cause
+  dans l'autre portail). Elle est montée par `ClientSidebar`.
+- En tête de cette barre : la marque EODA, le nom de la structure, son logo quand elle en a
+  déposé un, et son **palier** (`describeModeTag`) — ce dernier **seulement s'il est un fait de
+  la mission** ; sans mission, rien n'est écrit, comme pour le bandeau de mode. Le palier ne
+  change **rien d'autre** : un seul espace pour tous les paliers, la maquette du portail en
+  autonomie l'écrit elle-même (« Même espace, mêmes écrans »). Ce qui se ferme selon l'offre est
+  une **action** (`correctionRight`), et ça se refuse côté serveur.
+- Elle rend **toutes** les entrées du portail à plat (onze) : la répartition « 4 principales +
+  Plus » n'existe que dans la barre du bas, où la place manque. Une entrée rangée dans la barre
+  latérale derrière un « Plus » n'aurait plus de menu pour l'accueillir.
+- En-tête `sticky`, fond **carte** et non papier, **64 px**. La marque et le nom de la structure
+  y sont **`lg:hidden`** (au-dessus, la barre latérale les porte déjà — les écrire deux fois
+  ferait deux fois la même annonce) ; « ? Aide », le compte et le thème (dans le panneau du
+  compte) restent à droite, à toute largeur.
 - Barre du bas `fixed`, `lg:hidden`, entrées de **64 px**, respect de
-  `env(safe-area-inset-bottom)`. Le contenu réserve `pb-28` pour ne jamais passer dessous.
+  `env(safe-area-inset-bottom)`. Le contenu réserve `pb-28` pour ne jamais passer dessous. C'est
+  le **seul** rendu sous `lg` : pas de tiroir — le bas couvre déjà toutes les entrées (4 +
+  « Plus ») et le pouce l'atteint.
+- **Une seule source** : `buildClientNav` est appelé **une fois**, dans `ClientShell` ; la même
+  liste part à la barre latérale et à la barre du bas. La répartition principale / « Plus »
+  (`splitClientNav`, `lib/design/client-navigation.ts`) ne s'applique qu'à la barre du bas ; les
+  entrées masquées par le rôle remontent les suivantes.
 - Bandeau de mode sous l'en-tête ; **il ne rend rien si le mode est inconnu** — un mode deviné
   annoncerait un niveau de relecture non acheté.
-- Cibles **48 px**, texte **18 px** (§3).
+- Cibles **48 px**, texte **18 px** (§3) : l'entrée de la barre latérale mesure **48 px** contre
+  **44 px** au cabinet.
 
 ### 4.3 Breakpoints réellement utilisés
 
@@ -320,11 +343,14 @@ vérifie.**
 | Piège à focus et flèches d'onglets | `lib/design/keyboard-navigation.test.ts` | — |
 | Cible tactile des boutons ≥ 44 px | `lib/design/primitives.test.ts` | les 4 tailles de `Button` |
 | Contrat d'accessibilité des primitives | idem | `role`/`aria-*` de `StatusPill`, `ProgressBar`, `Tabs`, `FilterChip`, `DataTable`, `Toast` |
+| Une seule source de navigation côté client, et la barre latérale rend la liste **entière** | `lib/design/client-sidebar.test.ts` | `buildClientNav` appelé une fois ; pas de `splitClientNav` ni de `slice(` dans `ClientNavList` ; barre du bas `lg:hidden` seul rendu sous `lg` |
+| La densité du client survit à la copie de la barre latérale | idem | entrée client `h-12` **et** `text-lg`, entrée cabinet `h-11` — l'une ne se recopie jamais dans l'autre |
+| Le repli d'une barre latérale ne replie pas l'autre | `lib/design/navigation.test.ts` | `CLIENT_SIDEBAR_KEY ≠ CABINET_SIDEBAR_KEY`, et clés passées en argument obligatoire |
 
 **Dette déclarée — non vérifié à ce jour** : `eslint-plugin-jsx-a11y` en `error`, un passage
 axe-core en CI sur les pages client, la hiérarchie de titres (un seul `h1` par page), et la
-double densité (§3). Tant qu'ils ne sont pas branchés, ce sont des points de revue obligatoires,
-pas des règles.
+double densité (§3) **hors entrée de barre latérale**, qui est désormais vérifiée. Tant qu'ils ne
+sont pas branchés, ce sont des points de revue obligatoires, pas des règles.
 
 ---
 
@@ -342,6 +368,10 @@ Quand une règle du dépôt contredit la maquette, **la règle gagne**, et l'éc
 | Pas d'accordéon dans la barre latérale | section « Réglages » repliable | la barre retrouve la sobriété de la maquette sans perdre quatre entrées d'administration |
 | « Journal » hors du groupe principal | conservé dans le groupe principal | c'est un écran de consultation quotidien, pas un réglage |
 | Bouton de repli 15 px | cible de 44 px | cible tactile (WCAG 2.5.5) |
+| En-tête à hamburger sur les écrans du client, tiroir sous 960 px | barre latérale dès `lg` (1024 px) **et** barre du bas en dessous | le tiroir refermait ce que le bas montrait déjà (4 entrées + « Plus »), et demandait deux gestes là où il en fallait un ; sous `lg`, le pouce atteint le bas sans rien ouvrir |
+| Neuf à onze entrées, rangées par thème dans la barre latérale | liste à plat, sans section | onze entrées à 48 px tiennent dans une hauteur de bureau (528 px) ; un regroupement ne se justifiait que pour en cacher |
+| Personnes accompagnées, GIR nominatif, « Exporter vers Ximi » dans l'espace du client | absent | hors périmètre V1 : l'export ERP n'existe pas, le GIR n'est pas un champ d'EODA et la liste nominative côté cabinet est fermée par l'ADR du 14/10/2026 (§6 de CLAUDE.md) — **signalé, non implémenté** |
+| Rayons 14 px, tailles 15/17/19/21 px | échelle du dépôt : 12 px max, 14/16/18 px | l'échelle typographique et les rayons sont vérifiés ; une maquette n'impose pas une sixième taille |
 | Statuts de document stockés | dérivés | un état stocké finit par mentir |
 | Cotation avec couleurs de statut, ★ et RI oubliés, NC permis sur impératif | 1/2/3/4/★/NC/RI, NC refusé sur impératif | référentiel HAS |
 | « 141 critères SAD » | 137 grilles Synaé / 157 manuel | les deux périmètres ne se confondent pas |
