@@ -61,8 +61,15 @@ function structureItems(role: UserRole, counts: CabinetNavCounts): NavItem[] {
   ];
 }
 
-// Réglages de cabinet : administration (les pages le revérifient par
-// requireCabinetAdminSession / requireTeamManagerSession).
+// Réglages : ce qui se règle une fois pour tout le cabinet et ne se consulte pas
+// tous les jours. Ces entrées sont réelles mais n'ont aucun emplacement dans la
+// maquette (« Portail Cabinet v2 » n'en montre que six) : les regrouper dans une
+// section repliable rend à la barre la sobriété de la maquette sans retirer une
+// fonctionnalité. Repliable par défaut, ouverte dès qu'on est sur une de ses pages
+// (`isSectionOpen`, navigation.ts).
+//
+// Les pages le revérifient : requireCabinetAdminSession / requireTeamManagerSession /
+// requireContentReviewSession.
 function settingsItems(role: UserRole): NavItem[] {
   const items: NavItem[] = [];
   if (hasCabinetCapability(role, "CABINET_SETTINGS")) {
@@ -89,13 +96,18 @@ export function buildCabinetNav(role: UserRole, counts: CabinetNavCounts): NavSe
     ...(hasCabinetCapability(role, "LIBRARY_READ")
       ? [{ id: "library", href: `${CABINET_ROOT}/modeles`, label: "Bibliothèque", icon: "library" as const }]
       : []),
-    ...settingsItems(role),
     ...(hasCabinetCapability(role, "STRUCTURES_READ")
       ? [{ id: "journal", href: `${CABINET_ROOT}/journal`, label: "Journal", icon: "journal" as const }]
       : []),
   ];
 
   const sections: NavSection[] = [{ id: "main", label: null, items: main }];
+
+  const settings = settingsItems(role);
+  if (settings.length > 0) {
+    sections.push({ id: "reglages", label: "Réglages", items: settings, collapsible: true });
+  }
+
   if (!canSeeCommercial(role)) return sections;
 
   sections.push({

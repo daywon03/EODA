@@ -4,11 +4,14 @@ import type { UserRole } from "@eoda/database";
 import { logoutAction } from "@/lib/auth-actions";
 import { initialsOf } from "@/lib/design/navigation";
 
+// Libellés de la maquette, à une nuance près : elle écrit « administratrice », notre
+// rôle s'appelle « administration » — un intitulé de rôle ne présume pas du genre de
+// qui le porte (même règle que la civilité, qui ne se recopie jamais dans un nom).
 const ROLE_LABELS: Record<UserRole, string> = {
-  CABINET_ADMIN: "Cabinet · administration",
-  CABINET_EVALUATOR: "Cabinet · consultante",
-  CABINET_COMMERCIAL: "Cabinet · commercial",
-  CABINET_READONLY: "Cabinet · lecture seule",
+  CABINET_ADMIN: "Cabinet EODA · administration",
+  CABINET_EVALUATOR: "Cabinet EODA · consultante",
+  CABINET_COMMERCIAL: "Cabinet EODA · commercial",
+  CABINET_READONLY: "Cabinet EODA · lecture seule",
   CLIENT_USER: "Structure",
   PROSPECT_USER: "Structure inscrite",
 };

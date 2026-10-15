@@ -60,6 +60,11 @@ export type NavSection = {
   // Intertitre visible de la section ; null pour la section principale.
   label: string | null;
   items: readonly NavItem[];
+  // Section repliable (« Réglages ») : intertitre cliquable, corps masquable.
+  // Une section repliable se replie pour rendre la barre à ce qu'on consulte tous
+  // les jours (maquette Portail Cabinet v2) — jamais pour cacher où l'on est : la
+  // règle d'ouverture est `isSectionOpen`, ci-dessous.
+  collapsible?: boolean;
 };
 
 function isUnder(pathname: string, base: string): boolean {
@@ -94,6 +99,30 @@ export function resolveActiveItem(sections: readonly NavSection[], pathname: str
     }
   }
   return active;
+}
+
+// La section contient-elle la page courante ? Comparaison par IDENTIFIANT et non par
+// préfixe d'adresse : « Structures » (racine du cabinet) revendique presque tout le
+// cabinet, une section se reconnaît donc à l'entrée active, pas à l'adresse.
+export function sectionHoldsActiveItem(section: NavSection, active: NavItem | null): boolean {
+  return active !== null && section.items.some((item) => item.id === active.id);
+}
+
+// Une section repliable est-elle ouverte ?
+//  1. une section ordinaire l'est toujours ;
+//  2. un choix explicite du poste (`true` / `false`) l'emporte, y compris pour
+//     refermer la section où l'on se trouve ;
+//  3. sans choix mémorisé, elle s'ouvre d'elle-même quand la page courante est
+//     dedans — sinon replier « Réglages » cacherait la page qu'on est en train de
+//     lire, et la barre n'indiquerait plus où l'on est.
+export function isSectionOpen(
+  section: NavSection,
+  active: NavItem | null,
+  preference: boolean | null
+): boolean {
+  if (!section.collapsible) return true;
+  if (preference !== null) return preference;
+  return sectionHoldsActiveItem(section, active);
 }
 
 // Libellé accessible complet d'une entrée, pastille comprise : c'est lui que porte

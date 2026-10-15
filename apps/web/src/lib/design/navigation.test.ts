@@ -1,5 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { accessibleItemLabel, initialsOf, matchLength, pluralize, resolveActiveItem, type NavItem } from "./navigation";
+import {
+  accessibleItemLabel,
+  initialsOf,
+  isSectionOpen,
+  matchLength,
+  pluralize,
+  resolveActiveItem,
+  sectionHoldsActiveItem,
+  type NavItem,
+} from "./navigation";
 import { buildClientNav, CLIENT_ACCOUNT_LINKS, CLIENT_MESSAGES_PATH, clientAccountLinks } from "./client-navigation";
 import {
   parseSidebarState,
@@ -42,6 +51,45 @@ describe("resolveActiveItem", () => {
     expect(resolveActiveItem(sections, "/a/b/c")?.id).toBe("fille");
     expect(resolveActiveItem(sections, "/a")?.id).toBe("racine");
     expect(resolveActiveItem(sections, "/z")).toBeNull();
+  });
+});
+
+describe("sections repliables", () => {
+  const main = { id: "main", label: null as string | null, items: [item({ id: "home", href: "/a" })] };
+  const reglages = {
+    id: "reglages",
+    label: "Réglages",
+    collapsible: true as const,
+    items: [item({ id: "criteria", href: "/r" }), item({ id: "team", href: "/t" })],
+  };
+  const activeOn = (pathname: string) => resolveActiveItem([main, reglages], pathname);
+
+  it("une section ordinaire est toujours ouverte", () => {
+    expect(isSectionOpen(main, null, null)).toBe(true);
+    expect(isSectionOpen(main, null, false)).toBe(true);
+  });
+
+  it("sans choix mémorisé, elle s'ouvre quand la page courante est dedans", () => {
+    expect(isSectionOpen(reglages, activeOn("/r"), null)).toBe(true);
+    expect(isSectionOpen(reglages, activeOn("/t"), null)).toBe(true);
+    expect(isSectionOpen(reglages, activeOn("/a"), null)).toBe(false);
+    expect(isSectionOpen(reglages, null, null)).toBe(false);
+  });
+
+  it("un choix du poste l'emporte, y compris pour refermer la section où l'on est", () => {
+    expect(isSectionOpen(reglages, activeOn("/a"), true)).toBe(true);
+    expect(isSectionOpen(reglages, activeOn("/r"), false)).toBe(false);
+  });
+
+  it("reconnaît la page courante par l'entrée active, pas par un préfixe d'adresse", () => {
+    // « Structures » est la racine du cabinet et revendique presque toutes ses
+    // adresses : une section ne doit pas s'ouvrir parce qu'on est ailleurs.
+    const racine = { id: "m", label: null, items: [item({ id: "structures", href: "/dashboard" })] };
+    const autre = { id: "r", label: "Réglages", collapsible: true as const, items: [item({ id: "team", href: "/t" })] };
+    const sections = [racine, autre];
+    const active = resolveActiveItem(sections, "/dashboard/structures");
+    expect(sectionHoldsActiveItem(autre, active)).toBe(false);
+    expect(isSectionOpen(autre, active, null)).toBe(false);
   });
 });
 

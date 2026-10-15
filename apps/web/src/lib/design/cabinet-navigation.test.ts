@@ -16,7 +16,7 @@ describe("visibilité par rôle", () => {
   it("l'admin voit la section Commercial", () => {
     expect(canSeeCommercial("CABINET_ADMIN")).toBe(true);
     const sections = buildCabinetNav("CABINET_ADMIN", NO_COUNTS);
-    expect(sections.map((s) => s.label)).toEqual([null, "Commercial"]);
+    expect(sections.map((s) => s.label)).toEqual([null, "Réglages", "Commercial"]);
     expect(ids("CABINET_ADMIN")).toEqual(
       expect.arrayContaining(["commercial-overview", "prospects", "devis", "catalogue"])
     );
@@ -24,7 +24,15 @@ describe("visibilité par rôle", () => {
 
   it("une évaluatrice ne voit aucune entrée commerciale", () => {
     expect(canSeeCommercial("CABINET_EVALUATOR")).toBe(false);
-    expect(ids("CABINET_EVALUATOR")).toEqual(["home", "structures", "review", "agenda", "library", "content-review", "journal"]);
+    expect(ids("CABINET_EVALUATOR")).toEqual([
+      "home",
+      "structures",
+      "review",
+      "agenda",
+      "library",
+      "journal",
+      "content-review",
+    ]);
   });
 
   it("« Documents réclamés » (réglage de cabinet, toutes structures) : admin seulement", () => {
@@ -70,6 +78,49 @@ describe("visibilité par rôle", () => {
   });
 });
 
+describe("section Réglages", () => {
+  const reglages = (role: Parameters<typeof buildCabinetNav>[0]) =>
+    buildCabinetNav(role, NO_COUNTS).find((s) => s.id === "reglages");
+
+  it("regroupe les entrées d'administration, repliable, après le groupe principal", () => {
+    // Les trois entrées sans emplacement dans la maquette (« Matrice des critères »,
+    // « Documents réclamés », « Contenus à valider ») plus « Équipe EODA » y sont
+    // rangées : la barre retrouve les six entrées principales de la maquette.
+    expect(buildCabinetNav("CABINET_ADMIN", NO_COUNTS).map((s) => s.id)).toEqual(["main", "reglages", "commercial"]);
+    expect(reglages("CABINET_ADMIN")).toMatchObject({ label: "Réglages", collapsible: true });
+    expect(reglages("CABINET_ADMIN")?.items.map((i) => i.id)).toEqual([
+      "criteria",
+      "requested-documents",
+      "content-review",
+      "team",
+    ]);
+  });
+
+  it("ne retient que ce que le rôle a le droit d'y régler", () => {
+    // La consultante ne règle rien du cabinet ; elle relit le contenu provisoire.
+    expect(reglages("CABINET_EVALUATOR")?.items.map((i) => i.id)).toEqual(["content-review"]);
+  });
+
+  it("absente quand il n'y a rien à y mettre", () => {
+    expect(reglages("CABINET_COMMERCIAL")).toBeUndefined();
+    expect(reglages("CABINET_READONLY")).toBeUndefined();
+    expect(reglages("CLIENT_USER")).toBeUndefined();
+  });
+
+  it("le groupe principal garde les six entrées de la maquette, dans l'ordre", () => {
+    // Ce que voit l'administration : les cinq entrées de terrain, plus « Journal »,
+    // seules visibles sans déplier quoi que ce soit.
+    expect(buildCabinetNav("CABINET_ADMIN", NO_COUNTS)[0]?.items.map((i) => i.label)).toEqual([
+      "Accueil",
+      "Structures",
+      "À relire",
+      "Agenda",
+      "Bibliothèque",
+      "Journal",
+    ]);
+  });
+});
+
 describe("compteurs", () => {
   it("porte le nombre de documents à relire et son libellé accordé", () => {
     const review = buildCabinetNav("CABINET_EVALUATOR", { documentsAwaitingReview: 3, pendingOptionRequests: 9 })[0]
@@ -84,8 +135,13 @@ describe("compteurs", () => {
   });
 
   it("place les demandes de prestation sur la vue d'ensemble commerciale", () => {
-    const overview = buildCabinetNav("CABINET_ADMIN", { documentsAwaitingReview: 0, pendingOptionRequests: 2 })[1]
-      ?.items.find((i) => i.id === "commercial-overview");
+    // Par identifiant de section, jamais par position : « Réglages » s'insère entre
+    // le groupe principal et le commercial, et un test écrit en indices casserait
+    // à chaque nouvelle section sans rien dire de faux.
+    const commercial = buildCabinetNav("CABINET_ADMIN", { documentsAwaitingReview: 0, pendingOptionRequests: 2 }).find(
+      (s) => s.id === "commercial"
+    );
+    const overview = commercial?.items.find((i) => i.id === "commercial-overview");
     expect(overview).toMatchObject({ count: 2, countLabel: "2 demandes de prestation en attente" });
   });
 });
