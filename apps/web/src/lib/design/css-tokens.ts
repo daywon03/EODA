@@ -6,7 +6,10 @@
 
 export type TokenMap = Readonly<Record<string, string>>;
 
-function stripComments(css: string): string {
+// Exporté parce qu'un second lecteur de globals.css en a besoin (hidden-attribute.ts) :
+// une règle citée en commentaire ne doit pas être lue comme une règle réelle, et deux
+// implémentations de ce nettoyage finiraient par diverger (D1).
+export function stripComments(css: string): string {
   return css.replace(/\/\*[\s\S]*?\*\//g, "");
 }
 

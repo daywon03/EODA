@@ -164,6 +164,23 @@
     @apply bg-paper text-ink;
     font-family: 'Trebuchet MS', 'Segoe UI', Arial, sans-serif;
   }
+  /* L'attribut `hidden` DOIT masquer, même sous une classe d'affichage.
+   *
+   * Le préflight de Tailwind écrit déjà `[hidden]:where(:not([hidden=until-found])){display:none}`,
+   * mais avec la MÊME spécificité que `.flex` (0,1,0) et plus TÔT dans la feuille : mesuré
+   * sur le CSS construit, cette règle est à l'offset 4638 et `.flex` à 28046 — à spécificité
+   * égale, la dernière gagne, donc `.flex` gagnait. L'attribut ne masquait plus rien : le
+   * 16/10/2026, le groupe « Réglages » de la barre latérale cabinet tournait son chevron et
+   * annonçait « 4 entrées masquées » sans jamais replier une seule entrée (et ses liens
+   * restaient tabulables).
+   *
+   * Corrigé ici, à la racine : un `display` utilitaire ne peut pas transformer un `hidden`
+   * en décoration. Le `!important` est le seul moyen de faire gagner l'attribut sur la
+   * couche `utilities`, quelle que soit la classe posée à côté. Contrôle mécanique :
+   * lib/design/hidden-attribute.test.ts (retirer le `!important` fait échouer le test). */
+  [hidden]:where(:not([hidden="until-found"])) {
+    display: none !important;
+  }
   /* Focus visible : 3 px ambre sur TOUT élément focalisable, dans les deux
    * thèmes. Posé une fois ici plutôt que composant par composant — c'est ainsi
    * qu'on en oublie. `outline-none` sur un focus est refusé par un test
