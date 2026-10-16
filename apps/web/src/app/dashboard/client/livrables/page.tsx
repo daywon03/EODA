@@ -2,6 +2,7 @@ import { getClientChecklist } from "@/lib/actions/checklist";
 import { getClientDeliverablesSeenAt } from "@/lib/actions/deliverables";
 import { MarkDeliverablesSeen } from "@/components/checklist/MarkDeliverablesSeen";
 import { PageHeader } from "@/components/layout/PageHeader";
+import { canRenderDocumentPages } from "@/lib/services/file-type-service";
 import { DocumentDownloadLink } from "@/components/checklist/DocumentDownloadLink";
 import { DocumentPreviewLink } from "@/components/checklist/DocumentPreviewLink";
 import { formatDate } from "@/lib/services/date-format-service";
@@ -126,7 +127,17 @@ export default async function ClientDeliverablesPage() {
                     </div>
                     <div className="flex flex-shrink-0 items-center gap-4">
                       <DocumentPreviewLink documentVersionId={deliverable.documentVersionId} />
-                      <DocumentDownloadLink documentVersionId={deliverable.documentVersionId} />
+                      <DocumentDownloadLink
+                        documentVersionId={deliverable.documentVersionId}
+                        // Ce dont on sait produire les pages s'exporte aussi en PDF :
+                        // un livrable que la structure doit transmettre (à sa
+                        // fédération, à un financeur) part souvent en PDF.
+                        pdfUrl={
+                          canRenderDocumentPages(deliverable.filename)
+                            ? `/api/documents/${deliverable.documentVersionId}/pdf?download=1`
+                            : null
+                        }
+                      />
                     </div>
                   </li>
                 ))}

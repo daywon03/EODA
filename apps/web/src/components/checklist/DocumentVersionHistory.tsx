@@ -9,7 +9,7 @@ import { DocumentDownloadLink } from "./DocumentDownloadLink";
 import { DeleteDocumentVersionButton } from "./DeleteDocumentVersionButton";
 import { AnalyzeDocumentButton } from "./AnalyzeDocumentButton";
 import { CorrectedDraftPanel } from "./CorrectedDraftPanel";
-import { isImageFile } from "@/lib/services/file-type-service";
+import { canRenderDocumentPages, isImageFile } from "@/lib/services/file-type-service";
 import { INLINE_ACTION_MUTED_CLASS } from "@/components/ui/inline-action";
 
 type Props = {
@@ -113,7 +113,18 @@ function VersionRow({
 
       <span className="flex items-center gap-3">
         <DocumentPreviewLink documentVersionId={version.id} canViewExtractedText={canManageVersions} />
-        <DocumentDownloadLink documentVersionId={version.id} />
+        <DocumentDownloadLink
+          documentVersionId={version.id}
+          // Même prédicat que celui qui décide de l'aperçu paginé : ce dont on sait
+          // produire les pages s'exporte en PDF. Absent pour un `.doc`/`.xls`, qu'aucun
+          // convertisseur du dépôt ne prend en charge — mieux vaut pas de bouton qu'un
+          // bouton qui répond « aperçu indisponible ».
+          pdfUrl={
+            canRenderDocumentPages(version.originalFilename)
+              ? `/api/documents/${version.id}/pdf?download=1`
+              : null
+          }
+        />
         {/* Réservé au cabinet et à la version courante : réanalyser une version
             reléguée à l'historique écrirait un résultat qui n'appartient plus au
             document tel qu'il se présente aujourd'hui. Absent pour une image :

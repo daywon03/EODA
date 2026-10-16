@@ -47,6 +47,7 @@ vérifie** — sinon elle n'existe pas.
 | Verrou HDS : aucune donnée de personne accompagnée écrite hors hébergeur certifié (lot C) | (1) test qui lit tout `src/` et **échoue** sur un accès aux tables usager (délégué Prisma ou SQL brut) hors de l'adaptateur du port ; (2) avec la configuration par défaut, chaque écriture du port, du stockage HDS et de chaque action usager est refusée ; (3) le profil de production **refuse de démarrer** sur `HDS_BACKEND_ENABLED=true` sans `HDS_PROVIDER` ni stockage distinct | `lib/hds/beneficiary-tables-guard.test.ts`, `lib/hds/hds-lock.test.ts`, `lib/actions/beneficiary-actions-locked.test.ts`, `lib/config/production-profile.test.ts` — ADR `specs/adr/20261014_ADR_lot-C-verrou-HDS.md` |
 | Contraste des tokens ≥ 4.5:1 (clair et sombre) | test qui lit `globals.css`, résout les alias et **échoue** sous 4.5:1 ; vérifie que les deux voies du sombre sont identiques | `apps/web/src/lib/design/theme-contrast.test.ts` |
 | Ce que la structure fait prévient le cabinet, et personne d'autre | destinataires résolus par le périmètre (`resolveStructureScope` — commercial exclu, consultante non affectée exclue), compte désactivé exclu, dépôt du cabinet muet, « il arrive » muet, libellé du type jamais le nom de fichier | `lib/services/cabinet-recipients-service.test.ts`, `lib/email/templates.test.ts`, `lib/actions/document.test.ts`, `lib/actions/client-document-acceptance.test.ts` |
+| « Voir » montre le document, jamais le texte extrait | `.docx`/`.xlsx`/`.csv`/images passent par les pages rendues côté serveur (`document` AVANT `markdown` dans `buildFilePreview`), le PDF est servi en `inline`, son export et son aperçu sont le MÊME artefact, et seuls les formats convertibles proposent le bouton | `lib/services/printable-html-service.test.ts` (nettoyage : script, `on*`, styles, ressources distantes), `document-pdf-render-service.test.ts` (**la signature décide, pas l'extension**), `document-pdf-service.test.ts`, `document-pdf-response.test.ts`, `file-preview-service.test.ts` (ordre des branches), `file-type-service.test.ts` |
 | Un envoi « non configuré » n'est jamais compté comme parti | décompte par `countDeliveries` dans toute la couche d'envoi — aucun comptage brut de promesses tenues (il annonçait « Client prévenu (2 personnes) » pour zéro e-mail) | `lib/email/notifications.test.ts` |
 
 **Dette acceptée, à réexaminer après le 22/09/2026** : `.npmrc` porte `node-linker=hoisted`,
@@ -167,7 +168,7 @@ chantier.
 | 11 | `specs/01-mvp-v1.md` | Spécification fonctionnelle détaillée des 3 modules V1 (+ modules suivants en fin de fichier) |
 | 12 | `specs/02-architecture-technique.md` | Stack, schéma BDD, architecture, ADRs |
 | 13 | `specs/03-roadmap-developpement.md` | Ordre de build, jalons, definition of done |
-| 14 | `specs/04-liaison-document-type-critere.md` | Rattachement type de document ↔ critères HAS (`DocumentTypeCriterion`, **vide au 08/10** — levier n°1 de la qualité des analyses) |
+| 14 | `.claude/specs/04-liaison-document-type-critere.md` | Rattachement type de document ↔ critères HAS (`DocumentTypeCriterion`, **vide au 08/10** — levier n°1 de la qualité des analyses ; **vérifié le 16/10** : la matrice est bien lue et injectée dans le prompt, le maillon est désormais testé) |
 | 15 | `specs/05-bilan-2026-10.md` | **Bilan au 08/10/2026** : décisions bloquantes, correctifs, pipeline IA réel, reste à faire, lisibilité des documents de `context/Documents/` |
 | — | `PRODUCT.md` (racine) | Vérité produit lue par la skill impeccable (utilisateurs, positionnement, principes, accessibilité) |
 | — | `DESIGN.md` (racine) | **Système de design réellement implémenté** (jetons de rôle, typographie, coquilles, vocabulaire des statuts, seuils des gardes, écarts assumés par rapport aux maquettes) : **toute implémentation d'écran s'y conforme**. Il **remplace** le brief du 30/09 comme référence d'implémentation ; en cas de contradiction avec le code, c'est le code qui gagne et `DESIGN.md` qui se corrige |
@@ -634,6 +635,33 @@ Détail complet et état d'avancement : `specs/02-architecture-technique.md` §4
   autonomie « À vérifier par vous » → « Accepté par vous · non revérifié par un humain »
   — « les deux portails ne regardent pas la même chose » (call du 26/08). Côté cabinet,
   « À rédiger · EODA » / « Chez la structure » sont dérivés (`deriveMissingOwner`).
+- **« Voir » montre le DOCUMENT, jamais ce que l'IA en a lu** (décision de Damon,
+  16/10/2026). L'aperçu d'un `.docx` affichait le texte extrait — un texte, pas une
+  pièce. Désormais tout document déposé est converti côté serveur en PAGES puis rendu
+  par le lecteur PDF du navigateur (vignettes, « n / N », zoom, rotation) : aucun
+  visualiseur écrit à la main, aucun kilo-octet de bundle, et le **même artefact** sert
+  l'aperçu et l'export PDF (deux artefacts auraient divergé — ce que Sandrine voit ne
+  serait plus ce qu'elle envoie). Chaîne : `lib/services/printable-html-service.ts`
+  (HTML autonome + nettoyage), `document-pdf-render-service.ts` (conversion puis
+  Chromium), `document-pdf-service.ts` (cache), routes
+  `/api/documents/[versionId]/pdf` et `/api/templates/versions/[versionId]/pdf`.
+  Quatre règles à ne pas casser :
+  - **le type se décide par SIGNATURE**, jamais par l'extension ni par `File.type`
+    (un `.docx` qui n'en est pas un rend `null`, donc « aperçu indisponible » — pas des
+    pages vides) ; le prédicat sur le nom (`canRenderDocumentPages`) ne sert qu'à
+    afficher ou non les boutons ;
+  - **le fichier est hostile** : `sanitizeExtractedHtml` retire script, `on*`, styles et
+    ressources distantes, et Chromium rend avec le réseau COUPÉ (seuls `data:` et
+    `about:` passent) — la requête partirait sinon du réseau de l'hébergeur, où
+    `169.254.169.254` répond ;
+  - **l'aperçu le DIT quand il n'est pas fidèle** (en-têtes, pieds de page, colonnes,
+    mise en forme Excel) : c'est la même doctrine que la réserve de l'IA ;
+  - **ce qui est dérivé disparaît avec sa source** : `deleteDocumentVersion` supprime le
+    rendu en cache (`deleteCachedDocumentPdf`), et un cache illisible ou de signature
+    invalide n'est jamais servi — il est refait.
+  Le PDF **du document** (`?download=1`, bouton « PDF ») existe là où la structure
+  remet une pièce (checklist, `/dashboard/client/livrables`) ; la bibliothèque de
+  modèles a l'aperçu paginé et laisse le téléchargement au lecteur natif.
 - **Chacun ne supprime que son propre dernier dépôt** (`canDeleteVersion`). Le cabinet
   ne peut pas effacer une pièce déposée par le client — demande explicite de Sandrine,
   risque juridique autant que mauvaise manip — et aucune version antérieure n'est

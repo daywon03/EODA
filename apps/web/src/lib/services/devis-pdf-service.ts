@@ -1,7 +1,7 @@
-import chromium from "@sparticuz/chromium";
-import puppeteer from "puppeteer-core";
+import type { Browser } from "puppeteer-core";
 import { getEnv } from "@/lib/config/env";
 import { DevisPdfError } from "@/lib/services/devis-pdf-failure";
+import { launchHeadlessChromium } from "@/lib/services/headless-chromium-service";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // PDF DU DEVIS POUR PIÈCE JOINTE — première génération de PDF côté serveur de ce
@@ -23,24 +23,14 @@ export async function renderDevisPdf(
   const base = getEnv().nextAuthUrl ?? "http://localhost:3000";
   const url = new URL(`/imprimer/devis/${devisId}`, base);
 
-  const localExecutablePath = getEnv().puppeteerExecutablePath;
-
-  // `chromium.args` (--single-process, --no-zygote, --disable-setuid-sandbox…) est
-  // taillé pour le bac à sable serverless (Lambda/Vercel) — constaté le 22/09/2026 :
-  // passés à un Chrome de bureau réel (repli PUPPETEER_EXECUTABLE_PATH, développement
-  // local), ils font fermer la session Chromium juste après le lancement
-  // ("Session closed", TargetCloseError). Ils ne s'appliquent donc qu'au binaire
-  // serverless ; un override local se lance sans eux, comme n'importe quel Chrome.
-  // Chaque étape qui échoue est ÉTIQUETÉE (DevisPdfError) : l'écran ne peut dire la
-  // vraie cause — et ne proposer de réessayer que quand ça a un sens — que s'il la
-  // connaît (test de bout en bout du 12/10, Chromium non exécutable en local).
-  let browser: Awaited<ReturnType<typeof puppeteer.launch>>;
+  // Le LANCEMENT vit dans `headless-chromium-service` (recette unique, partagée avec le
+  // rendu des documents déposés). Chaque étape qui échoue est ÉTIQUETÉE (DevisPdfError) :
+  // l'écran ne peut dire la vraie cause — et ne proposer de réessayer que quand ça a un
+  // sens — que s'il la connaît (test de bout en bout du 12/10, Chromium non exécutable
+  // en local).
+  let browser: Browser;
   try {
-    browser = await puppeteer.launch({
-      args: localExecutablePath ? [] : chromium.args,
-      executablePath: localExecutablePath ?? (await chromium.executablePath()),
-      headless: true,
-    });
+    browser = await launchHeadlessChromium();
   } catch (error) {
     throw new DevisPdfError("LAUNCH", error);
   }

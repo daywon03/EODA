@@ -21,6 +21,8 @@ import { canDeleteVersion,
   MAX_JUSTIFICATION_LENGTH,
 } from "@/lib/services/document-workflow-service";
 import { extractMarkdown } from "@/lib/services/text-extraction-service";
+import { canRenderDocumentPages } from "@/lib/services/file-type-service";
+import { deleteCachedDocumentPdf } from "@/lib/services/document-pdf-service";
 import { suggestDocumentType } from "@/lib/services/document-categorization-service";
 import { ingestDocumentVersion, reanalyzeDocumentVersion } from "@/lib/services/document-ingestion-service";
 import { saveCorrectedDraft } from "@/lib/services/document-generation-service";
@@ -372,10 +374,11 @@ export async function getDocumentDownloadUrl(documentVersionId: string): Promise
   });
 }
 
-// Un navigateur ne sait afficher nativement qu'un PDF — un .docx est toujours
-// proposé au téléchargement par le système, quel que soit le Content-Disposition.
-// Pour les .docx, l'aperçu affiche donc le texte déjà extrait à l'upload
-// (mammoth, cf. text-extraction-service) plutôt que le fichier brut.
+// Un navigateur ne sait afficher nativement qu'un PDF et une image. Pour tout le
+// reste — et l'essentiel de ce que déposent les structures est en `.docx` — les pages
+// sont PRODUITES côté serveur (document-pdf-service) puis affichées par le lecteur PDF
+// du navigateur (16/10/2026). Le Markdown extrait reste le repli des formats qu'aucun
+// convertisseur ne prend en charge.
 export type { FilePreviewData as DocumentPreviewData } from "@/lib/services/file-preview-types";
 
 export async function getDocumentPreviewData(
@@ -386,19 +389,32 @@ export async function getDocumentPreviewData(
 
   const { version, access } = authorized;
 
-  await recordAuditEvent({
-    action: "DOCUMENT_PREVIEWED",
-    actorUserId: access.userId,
-    actorRole: access.session.user.role,
-    establishmentId: version.document.establishmentId,
-    targetId: version.id,
-    detail: version.document.documentType?.code ?? null,
-  });
+  const documentPagesUrl = canRenderDocumentPages(version.originalFilename)
+    ? `/api/documents/${version.id}/pdf`
+    : null;
+
+  // L'audit suit ce qui sert les OCTETS, une fois par accès. Ici on ne remet qu'une
+  // adresse : quand elle mène à notre route, c'est la route qui journalise, à
+  // l'instant où elle rend les pages — journaliser aussi l'affichage de la modale
+  // compterait deux fois un seul clic. Pour un PDF ou une image, l'adresse signée
+  // mène au stockage, hors de notre portée : la révélation de cette adresse est le
+  // seul point de journalisation que nous ayons, et c'est celui-ci.
+  if (!documentPagesUrl) {
+    await recordAuditEvent({
+      action: "DOCUMENT_PREVIEWED",
+      actorUserId: access.userId,
+      actorRole: access.session.user.role,
+      establishmentId: version.document.establishmentId,
+      targetId: version.id,
+      detail: version.document.documentType?.code ?? null,
+    });
+  }
 
   return buildFilePreview({
     originalFilename: version.originalFilename,
     fileStorageKey: version.fileStorageKey,
     extractedText: version.extractedText,
+    documentPagesUrl,
   });
 }
 
@@ -527,6 +543,13 @@ export async function deleteDocumentVersion(
       console.error("Suppression d'une image de document échouée — objet orphelin dans le stockage :", error);
     }
   }
+
+  // Les pages rendues pour l'aperçu sont DÉRIVÉES de la pièce qui vient d'être
+  // supprimée : elles partent avec elle, pour la même raison que les images
+  // ci-dessus (droit à l'effacement — un PDF garde le texte du document). Best-effort
+  // lui aussi, et il le faut : la plupart des versions n'ont jamais été ouvertes en
+  // aperçu, donc n'ont aucun rendu à supprimer.
+  await deleteCachedDocumentPdf(version.id);
 
   await prisma.$transaction(async (tx) => {
     // Versions régénérées à partir de celle-ci : le lien de filiation est coupé

@@ -80,14 +80,18 @@ async function extractDocx(content: Buffer): Promise<ExtractionResult | null> {
   return { markdown: markdown.trim(), images };
 }
 
-// Un tableau Markdown par feuille, séparés par un titre — une feuille de calcul
-// n'a pas de paragraphes, juste des lignes ; c'est la structure la plus fidèle
-// qu'un format texte puisse en donner à un LLM.
-async function extractXlsx(content: Buffer): Promise<string | null> {
+// LECTURE D'UN CLASSEUR — partagée (16/10/2026). Deux lecteurs veulent les mêmes
+// lignes : l'extraction Markdown (ci-dessous, pour le LLM) et le rendu en pages
+// imprimables (document-pdf-render-service). Deux boucles `eachSheet` auraient fini
+// par ne plus lire les cellules de la même façon — donc par montrer à l'écran autre
+// chose que ce que l'IA a lu.
+export type SheetRows = { name: string; rows: string[][] };
+
+export async function readWorkbookSheets(content: Buffer): Promise<SheetRows[]> {
   const workbook = new ExcelJS.Workbook();
   await workbook.xlsx.load(content as unknown as ExcelJS.Buffer);
 
-  const sections: string[] = [];
+  const sheets: SheetRows[] = [];
   workbook.eachSheet((sheet) => {
     const rows: string[][] = [];
     sheet.eachRow((row) => {
@@ -99,30 +103,49 @@ async function extractXlsx(content: Buffer): Promise<string | null> {
     });
     if (rows.length === 0) return;
 
-    sections.push(`## ${sheet.name}\n\n${rowsToMarkdownTable(rows)}`);
+    sheets.push({ name: sheet.name, rows });
   });
+  return sheets;
+}
 
-  const markdown = sections.join("\n\n").trim();
+// Un tableau Markdown par feuille, séparés par un titre — une feuille de calcul
+// n'a pas de paragraphes, juste des lignes ; c'est la structure la plus fidèle
+// qu'un format texte puisse en donner à un LLM.
+async function extractXlsx(content: Buffer): Promise<string | null> {
+  const sheets = await readWorkbookSheets(content);
+
+  const markdown = sheets
+    .map((sheet) => `## ${sheet.name}\n\n${rowsToMarkdownTable(sheet.rows)}`)
+    .join("\n\n")
+    .trim();
   return markdown || null;
 }
 
+// La VALEUR d'une cellule, telle qu'elle est écrite. Aucun échappement ici : le texte
+// lu sert deux sorties qui n'échappent pas la même chose — le Markdown de l'analyse
+// (où un `|` couperait la colonne) et les pages de l'aperçu, rendues en HTML (où un
+// `\|` s'afficherait tel quel). L'échappement appartient donc au formateur, pas à la
+// lecture — il vivait ici, et un tableau contenant un `|` affichait une barre oblique
+// dans l'aperçu.
 function cellToText(value: ExcelJS.CellValue): string {
   if (value === null || value === undefined) return "";
   if (typeof value === "object" && "text" in value) return String(value.text);
   if (typeof value === "object" && "result" in value) return String(value.result ?? "");
-  return String(value).replace(/\|/g, "\\|").replace(/\n/g, " ");
+  return String(value);
 }
 
 function rowsToMarkdownTable(rows: string[][]): string {
   const width = Math.max(...rows.map((row) => row.length));
   const pad = (row: string[]) => Array.from({ length: width }, (_, i) => row[i] ?? "");
+  // `|` refermerait la cellule, et un saut de ligne casserait la ligne du tableau.
+  const cell = (value: string) => value.replace(/\|/g, "\\|").replace(/\n/g, " ");
 
   const header = rows[0] ?? [];
   const body = rows.slice(1);
   const lines = [
-    `| ${pad(header).join(" | ")} |`,
+    `| ${pad(header).map(cell).join(" | ")} |`,
     `| ${pad([]).map(() => "---").join(" | ")} |`,
-    ...body.map((row) => `| ${pad(row).join(" | ")} |`),
+    ...body.map((row) => `| ${pad(row).map(cell).join(" | ")} |`),
   ];
   return lines.join("\n");
 }

@@ -22,6 +22,7 @@ import { getEmbeddingPort } from "@/lib/embeddings";
 import { getLLMAnalysisPort } from "@/lib/llm";
 import { detectTemplateCriteria } from "@/lib/services/template-criterion-detection-service";
 import { buildFilePreview } from "@/lib/services/file-preview-service";
+import { canRenderDocumentPages } from "@/lib/services/file-type-service";
 import type { FilePreviewData } from "@/lib/services/file-preview-types";
 import {
   buildTemplateStorageKey,
@@ -913,6 +914,12 @@ export async function getTemplateVersionPreviewData(versionId: string): Promise<
     originalFilename: version.originalFilename,
     fileStorageKey: version.fileStorageKey,
     extractedText: version.extractedText,
+    // Un `.docx` de la bibliothèque s'aperçoit comme un document client : ses pages
+    // sont produites par la route (16/10/2026). Le chemin est absolu, et non relatif
+    // au segment courant, parce que la modale est montée sur plusieurs écrans.
+    documentPagesUrl: canRenderDocumentPages(version.originalFilename)
+      ? `/api/templates/versions/${versionId}/pdf`
+      : null,
   });
 }
 

@@ -1,5 +1,5 @@
 import { getFileStoragePort } from "@/lib/storage";
-import { isImageFile } from "./file-type-service";
+import { isImageFile, isPdfFile } from "./file-type-service";
 import type { FilePreviewData } from "./file-preview-types";
 
 // Un seul endroit pour décider COMMENT prévisualiser un fichier déposé — documents
@@ -9,26 +9,31 @@ import type { FilePreviewData } from "./file-preview-types";
 // Corrige le retour du 15/09/2026 : « Voir » affichait le texte brut extrait par
 // l'IA à la place du document d'origine, pour tout ce qui n'était pas un PDF —
 // y compris une image déposée telle quelle (charte, organigramme photographiés).
-// Un navigateur ne sait toujours afficher nativement qu'un PDF ; mais une image
-// se sert elle-même (URL signée), et un .docx/.xlsx se rend maintenant en
-// Markdown formaté plutôt qu'en texte brut (cf. FilePreviewModal) — pas une
-// fidélité de mise en page totale, mais un document qui se lit, avec ses titres,
-// ses tableaux et ses images inline.
-function hasExtension(filename: string, extensions: string[]): boolean {
-  const lower = filename.toLowerCase();
-  return extensions.some((ext) => lower.endsWith(ext));
-}
-
+//
+// Second corrigé, du 16/10/2026 — décision de Damon : un `.docx` s'affichait en
+// Markdown formaté (titres, tableaux, « [Image 1] » à la place des images), ce qui
+// reste un texte, pas un document. Depuis, ce qui se convertit est rendu en PAGES
+// (`kind: "document"`, cf. document-pdf-service) : le lecteur du navigateur affiche
+// le document comme un document. L'aperçu Markdown reste le REPLI, pour les formats
+// qu'aucun convertisseur ne prend en charge — mieux vaut du texte que rien.
 export { isImageFile };
 
 export async function buildFilePreview(params: {
   originalFilename: string;
   fileStorageKey: string;
   extractedText: string | null;
+  // Adresse des pages servies par la plateforme (`/api/documents/{versionId}/pdf`).
+  // L'appelant la fournit quand le format se convertit (`canRenderDocumentPages`) ;
+  // `null` quand il n'y a pas de route pour ce fichier (bibliothèque de modèles, ou
+  // format sans convertisseur). La décision de convertir est PRISE PAR L'APPELANT,
+  // une seule fois — ici on ne fait que la suivre, comme pour `.pdf` et les images,
+  // qui sont reconnus au nom sans vérifier le contenu (le rendu, lui, détecte par
+  // signature et refuse ce qu'il ne sait pas lire).
+  documentPagesUrl: string | null;
 }): Promise<FilePreviewData> {
-  const { originalFilename, fileStorageKey, extractedText } = params;
+  const { originalFilename, fileStorageKey, extractedText, documentPagesUrl } = params;
 
-  if (hasExtension(originalFilename, [".pdf"])) {
+  if (isPdfFile(originalFilename)) {
     const url = await getFileStoragePort().getSignedDownloadUrl(fileStorageKey, {
       disposition: "inline",
       filename: originalFilename,
@@ -42,6 +47,10 @@ export async function buildFilePreview(params: {
       filename: originalFilename,
     });
     return { kind: "image", url, filename: originalFilename };
+  }
+
+  if (documentPagesUrl) {
+    return { kind: "document", url: documentPagesUrl, filename: originalFilename };
   }
 
   if (extractedText) {
