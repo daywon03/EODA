@@ -1,5 +1,7 @@
 "use client";
 
+import { submitWithoutReset } from "@/lib/forms/submit-without-reset";
+import { useResetAfterSuccess } from "@/lib/forms/use-reset-after-success";
 import { useActionState, useState } from "react";
 import { upsertCatalogueOption } from "@/lib/actions/catalogue";
 import { formatStartingPrice } from "@/lib/services/price-format-service";
@@ -38,9 +40,12 @@ export function CatalogueOptionForm({ option }: { option?: CatalogueOption }) {
   const [minQuantity, setMinQuantity] = useState(option?.minQuantity ?? null);
 
   const id = option?.id ?? "new";
+  // Création seulement : la prestation ajoutée rejoint la liste, le formulaire se vide
+  // pour la suivante. En modification, la saisie enregistrée reste affichée.
+  const formRef = useResetAfterSuccess(isPending, !isEdit && state === null);
 
   return (
-    <form action={formAction} className="space-y-2 border border-gris-light rounded-xl p-3">
+    <form ref={formRef} method="post" onSubmit={submitWithoutReset(formAction)} className="space-y-2 px-5 py-4">
       <div className="flex flex-wrap items-end gap-3">
         <div className="space-y-1">
           <Label htmlFor={`code-${id}`}>Code</Label>
@@ -57,6 +62,17 @@ export function CatalogueOptionForm({ option }: { option?: CatalogueOption }) {
         <div className="space-y-1 flex-1 min-w-[180px]">
           <Label htmlFor={`label-${id}`}>Libellé</Label>
           <Input id={`label-${id}`} name="label" defaultValue={option?.label} disabled={isPending} required />
+        </div>
+        <div className="space-y-1 min-w-[160px]">
+          <Label htmlFor={`audience-${id}`}>Pour qui</Label>
+          <Input
+            id={`audience-${id}`}
+            name="audienceLabel"
+            defaultValue={option?.audienceLabel ?? ""}
+            disabled={isPending}
+            maxLength={120}
+            placeholder="ex : Essentiel"
+          />
         </div>
         <div className="space-y-1">
           <Label htmlFor={`price-${id}`}>Prix (€)</Label>
@@ -128,12 +144,12 @@ export function CatalogueOptionForm({ option }: { option?: CatalogueOption }) {
         </Button>
       </div>
 
-      <p className="text-xs text-gris-mid">
-        Affiché au client : <span className="text-brun-ancre">{formatStartingPrice({ priceEuros, pricingUnit, priceMaxEuros, minQuantity })}</span>
+      <p className="text-sm text-ink2">
+        Affiché au client : <span className="text-ink">{formatStartingPrice({ priceEuros, pricingUnit, priceMaxEuros, minQuantity })}</span>
       </p>
 
       {state?.error && (
-        <p role="alert" className="flex items-center gap-1 text-xs text-rouge-imp w-full">
+        <p role="alert" className="flex items-center gap-1 text-sm text-danger-text w-full">
           <AlertCircle className="w-3 h-3 flex-shrink-0" aria-hidden="true" />
           {state.error}
         </p>

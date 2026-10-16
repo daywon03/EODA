@@ -69,6 +69,29 @@ export type AppEnv = {
   // quel sur un poste de développement. Absent = chromium.executablePath() (le
   // binaire serverless), utilisé tel quel en production.
   puppeteerExecutablePath: string | null;
+
+  // VERROU HDS (lot C, ADR 20261014). Données nominatives des personnes accompagnées :
+  // tant que `enabled` est faux — c'est le défaut —, aucun adaptateur d'écriture réel
+  // n'est sélectionnable (lib/hds/index.ts). `enabled` sans `provider` ni `storage`
+  // est refusé par le profil de production. Seule la chaîne exacte "true" ouvre :
+  // une valeur mal orthographiée est une erreur de configuration, jamais un oui.
+  hds: HdsConfig;
+};
+
+export type S3Config = {
+  endpoint: string;
+  region: string;
+  bucket: string;
+  accessKeyId: string;
+  secretAccessKey: string;
+};
+
+export type HdsConfig = {
+  enabled: boolean;
+  // Nom de l'hébergeur certifié HDS (registre ANS) qui héberge TOUT le backend.
+  provider: string | null;
+  // Stockage objet distinct de `eoda-documents`, chez l'hébergeur HDS.
+  storage: S3Config | null;
 };
 
 class ConfigurationError extends Error {
@@ -124,6 +147,25 @@ function readOptionalGroup(
   return Object.fromEntries(values.map((v) => [v.name, v.value!]));
 }
 
+// Absent ou "false" : fermé. "true" : demandé (le profil de production juge s'il est
+// recevable). Toute autre valeur est une erreur — « yes », « 1 », « True » ne
+// doivent ni ouvrir le verrou ni passer inaperçus.
+export function parseHdsFlag(raw: string | undefined): boolean | "INVALID" {
+  const value = raw?.trim();
+  if (!value || value === "false") return false;
+  if (value === "true") return true;
+  return "INVALID";
+}
+
+function readHdsFlag(problems: string[]): boolean {
+  const parsed = parseHdsFlag(process.env.HDS_BACKEND_ENABLED);
+  if (parsed === "INVALID") {
+    problems.push('HDS_BACKEND_ENABLED doit valoir exactement "true" ou "false" (absent = "false").');
+    return false;
+  }
+  return parsed;
+}
+
 let cached: AppEnv | null = null;
 
 export function getEnv(): AppEnv {
@@ -151,6 +193,13 @@ export function getEnv(): AppEnv {
   const voyageApiKey = process.env.VOYAGE_API_KEY?.trim() || null;
   const nextAuthUrl = process.env.NEXTAUTH_URL?.trim() || null;
   const puppeteerExecutablePath = process.env.PUPPETEER_EXECUTABLE_PATH?.trim() || null;
+  const hdsEnabled = readHdsFlag(problems);
+  const hdsProvider = process.env.HDS_PROVIDER?.trim() || null;
+  const hdsStorageGroup = readOptionalGroup(
+    "Le stockage HDS",
+    ["HDS_S3_ENDPOINT", "HDS_S3_REGION", "HDS_S3_BUCKET", "HDS_S3_ACCESS_KEY_ID", "HDS_S3_SECRET_ACCESS_KEY"],
+    problems
+  );
 
   if (problems.length > 0) throw new ConfigurationError(problems);
 
@@ -179,6 +228,19 @@ export function getEnv(): AppEnv {
       : null,
     voyage: voyageApiKey ? { apiKey: voyageApiKey } : null,
     puppeteerExecutablePath,
+    hds: {
+      enabled: hdsEnabled,
+      provider: hdsProvider,
+      storage: hdsStorageGroup
+        ? {
+            endpoint: hdsStorageGroup.HDS_S3_ENDPOINT!,
+            region: hdsStorageGroup.HDS_S3_REGION!,
+            bucket: hdsStorageGroup.HDS_S3_BUCKET!,
+            accessKeyId: hdsStorageGroup.HDS_S3_ACCESS_KEY_ID!,
+            secretAccessKey: hdsStorageGroup.HDS_S3_SECRET_ACCESS_KEY!,
+          }
+        : null,
+    },
   };
 
   return cached;

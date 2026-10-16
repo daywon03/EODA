@@ -1,5 +1,6 @@
 "use client";
 
+import { submitWithoutReset } from "@/lib/forms/submit-without-reset";
 import { useActionState } from "react";
 import { updateEstablishment } from "@/lib/actions/establishment";
 import { Button } from "@/components/ui/button";
@@ -46,7 +47,7 @@ export function EstablishmentForm({ establishment }: Props) {
   const cancelHref = `/dashboard/cabinet/etablissements/${establishment.id}`;
 
   return (
-    <form action={formAction} className="space-y-5">
+    <form method="post" onSubmit={submitWithoutReset(formAction)} className="space-y-5">
       <div className="space-y-1.5">
         <Label htmlFor="name">
           Raison sociale <span className="text-rouge-imp">*</span>
@@ -54,7 +55,7 @@ export function EstablishmentForm({ establishment }: Props) {
         <Input
           id="name"
           name="name"
-          placeholder="ex : Association ASSAD BENOIT"
+          placeholder="ex : Association SAD Les Glycines"
           defaultValue={establishment.name}
           required
           autoFocus
@@ -71,10 +72,10 @@ export function EstablishmentForm({ establishment }: Props) {
             id="finessNumber"
             name="finessNumber"
             inputMode="numeric"
-            placeholder="ex : 930034459"
+            placeholder="ex : 990000017"
             defaultValue={establishment.finessNumber ?? undefined}
             // 20 et non 9 : le numéro se recopie couramment par groupes
-            // (« 93 00 34 459 »), et le serveur le normalise. Bloquer la saisie à
+            // (« 99 00 00 017 »), et le serveur le normalise. Bloquer la saisie à
             // 9 caractères rendait cette normalisation inatteignable depuis cet
             // écran — le champ refusait la forme même qu'il accepte ailleurs.
             maxLength={20}
@@ -125,7 +126,7 @@ export function EstablishmentForm({ establishment }: Props) {
           <option value="PUBLIC">{STRUCTURE_TYPE_LABELS.PUBLIC}</option>
           <option value="PRIVE">{STRUCTURE_TYPE_LABELS.PRIVE}</option>
         </Select>
-        <p className="text-xs text-gris-mid">
+        <p className="text-xs text-ink2">
           Indépendant du type SAD : une association peut être Aide ou Mixte.
         </p>
       </div>
@@ -137,7 +138,7 @@ export function EstablishmentForm({ establishment }: Props) {
         <Input
           id="address"
           name="address"
-          placeholder="ex : 12 rue de la Paix, 93150 Le Blanc-Mesnil"
+          placeholder="ex : 12 rue de la Paix, 99000 Ville-Fictive"
           defaultValue={establishment.address ?? undefined}
           required
           disabled={isPending}
@@ -156,7 +157,7 @@ export function EstablishmentForm({ establishment }: Props) {
           required
           disabled={isPending}
         />
-        <p className="text-xs text-gris-mid">
+        <p className="text-xs text-ink2">
           Permet de prioriser les établissements selon l'urgence dans le tableau de bord.
         </p>
       </div>

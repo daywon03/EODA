@@ -1,24 +1,64 @@
-// Seed du référentiel HAS réel (137/138 critères, 295 E.E.) — source : les 3 fichiers
-// `Grille Chapitre {1,2,3}... SAA ASSAD BENOIT.xlsx` dans `.claude/context/Documents/`
-// (non committés au repo — nom de fichier référence un vrai client, cf. CLAUDE.md §7).
+// Seed du référentiel HAS réel (137 critères, 295 E.E., grilles SAD aide) — source : les
+// 3 grilles Synaé `Grille Chapitre {1,2,3} … .xlsx` dans `.claude/context/Documents/`
+// (non committées au dépôt — leur nom porte celui d'un vrai client, cf. CLAUDE.md §7 :
+// on les retrouve par leur préfixe, jamais par un nom écrit en dur).
+// Les critères propres au SAD mixte ne sont PAS dans ces grilles (manuel HAS, champ
+// médico-social) : ils sont chargés à la fin, depuis `src/seed-data.ts` — la même
+// donnée que la migration `20261011110000_sad_mixte_criteria`, qui sur une base neuve
+// s'exécute avant que les objectifs existent et n'insère donc rien.
 // Idempotent (upsert par clé stable) — cf. context/05-prototype-existant.md.
 import path from "node:path";
-import { existsSync } from "node:fs";
+import { existsSync, readdirSync } from "node:fs";
 import * as XLSX from "xlsx";
 import { PrismaClient, RequirementLevel } from "@prisma/client";
+import { seedSadMixteCriteria } from "../src/seed-steps";
 
 const DOCUMENTS_DIR = path.join(__dirname, "..", "..", "..", ".claude", "context", "Documents");
 
 type ChapterSource = { number: number; method: string; filename: string };
 
-const CHAPTERS: ChapterSource[] = [
-  { number: 1, method: "Accompagné traceur", filename: "Grille Chapitre 1  Accompagné traceur  SAA ASSAD BENOIT.xlsx" },
-  { number: 2, method: "Traceur ciblé", filename: "Grille Chapitre 2  Traceur ciblé  SAA ASSAD BENOIT.xlsx" },
-  { number: 3, method: "Audit système", filename: "Grille Chapitre 3  Audit système  SAA ASSAD BENOIT.xlsx" },
+const CHAPTER_METHODS: ReadonlyArray<{ number: number; method: string }> = [
+  { number: 1, method: "Accompagné traceur" },
+  { number: 2, method: "Traceur ciblé" },
+  { number: 3, method: "Audit système" },
 ];
 
-// Colonnes (0-indexées) de la feuille "Grille d'évaluation Synaé", données à partir de la
-// ligne 4 (1-indexée) — vérifié par exploration manuelle des 3 fichiers.
+// Un fichier par chapitre, reconnu par son préfixe « Grille Chapitre N » et son
+// extension. Nom vide si absent : le contrôle d'existence le signale.
+function resolveChapterSources(): ChapterSource[] {
+  const files = existsSync(DOCUMENTS_DIR) ? readdirSync(DOCUMENTS_DIR) : [];
+  return CHAPTER_METHODS.map(({ number, method }) => ({
+    number,
+    method,
+    filename:
+      files.find((f) => f.startsWith(`Grille Chapitre ${number} `) && f.endsWith(".xlsx")) ?? "",
+  }));
+}
+
+// La colonne O de l'en-tête s'intitule « Critère ID ». Les trois grilles ne placent PAS
+// leur en-tête sur la même ligne (ligne 4 au chapitre 1, ligne 3 aux chapitres 2 et 3) :
+// l'ancienne lecture à `range: 3` enregistrait donc, au chapitre 1, la ligne d'en-tête
+// comme un critère de code « Critère ID » (le « 137/138 » du bilan du 08/10 ; nettoyé en
+// base par la migration `20261011100000_drop_seed_header_criterion`). On cherche
+// désormais l'en-tête, et une ligne dont le code n'a pas la forme N.N.N est ignorée.
+const HEADER_CRITERION_ID = "Critère ID";
+const CRITERION_CODE_PATTERN = /^\d+\.\d+\.\d+$/;
+
+function readDataRows(sheet: XLSX.WorkSheet): unknown[][] {
+  const all: unknown[][] = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+  const headerIndex = all.findIndex(
+    (row) => String(row?.[COL.ID_CRITERE] ?? "").trim() === HEADER_CRITERION_ID
+  );
+  if (headerIndex < 0) {
+    throw new Error(`En-tête « ${HEADER_CRITERION_ID} » introuvable dans la grille.`);
+  }
+  return all
+    .slice(headerIndex + 1)
+    .filter((row) => CRITERION_CODE_PATTERN.test(String(row?.[COL.ID_CRITERE] ?? "").trim()));
+}
+
+// Colonnes (0-indexées) de la feuille "Grille d'évaluation Synaé" — vérifié par
+// exploration manuelle des 3 fichiers. Les données suivent la ligne d'en-tête.
 const COL = {
   CHAPITRE_LABEL: 0,
   THEME_LABEL: 1,
@@ -48,11 +88,14 @@ const EXPECTED_IMPERATIFS: Record<number, string[]> = {
 };
 
 export async function seedHasReferential(prisma: PrismaClient): Promise<void> {
-  const missingFiles = CHAPTERS.filter((c) => !existsSync(path.join(DOCUMENTS_DIR, c.filename)));
+  const CHAPTERS = resolveChapterSources();
+  const missingFiles = CHAPTERS.filter(
+    (c) => c.filename === "" || !existsSync(path.join(DOCUMENTS_DIR, c.filename))
+  );
   if (missingFiles.length > 0) {
     console.warn(
-      `⚠️  Référentiel HAS non seedé — fichiers source absents (${missingFiles
-        .map((c) => c.filename)
+      `⚠️  Référentiel HAS non seedé — grilles absentes (chapitres ${missingFiles
+        .map((c) => c.number)
         .join(", ")}). Attendu dans .claude/context/Documents/ (non committé, cf. CLAUDE.md §7).`
     );
     return;
@@ -72,7 +115,7 @@ export async function seedHasReferential(prisma: PrismaClient): Promise<void> {
     const filePath = path.join(DOCUMENTS_DIR, chapterSource.filename);
     const workbook = XLSX.readFile(filePath);
     const sheet = workbook.Sheets[workbook.SheetNames[0]!]!;
-    const rows: unknown[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, range: 3 });
+    const rows = readDataRows(sheet);
 
     // Pas de contrainte unique composite sur Chapter en base — upsert manuel par recherche
     // (referentialVersionId + number identifie un chapitre de façon stable).
@@ -110,7 +153,7 @@ export async function seedHasReferential(prisma: PrismaClient): Promise<void> {
       const themeCode = String(row[COL.ID_THEME]);
       const themeName = String(row[COL.THEME_LABEL]);
       const objectiveCode = String(row[COL.ID_OBJECTIF]);
-      const criterionCode = String(row[COL.ID_CRITERE]);
+      const criterionCode = String(row[COL.ID_CRITERE]).trim();
       const criterionLabel = String(row[COL.INTITULE]);
       const niveau = row[COL.NIVEAU] === "Impératif" ? RequirementLevel.IMPERATIF : RequirementLevel.STANDARD;
 
@@ -157,7 +200,7 @@ export async function seedHasReferential(prisma: PrismaClient): Promise<void> {
       if (!row || !row[COL.CRITERE_LABEL]) continue;
       if (row[COL.IS_QUESTION] !== "true") continue;
 
-      const criterionCode = String(row[COL.ID_CRITERE]);
+      const criterionCode = String(row[COL.ID_CRITERE]).trim();
       const criterionId = criterionCache.get(criterionCode);
       if (!criterionId) {
         throw new Error(`E.E. sans critère parent trouvé : ${criterionCode} (${chapterSource.filename})`);
@@ -200,5 +243,23 @@ export async function seedHasReferential(prisma: PrismaClient): Promise<void> {
     console.log(
       `  Chapitre ${chapterSource.number} (${chapterSource.method}) : ${criterionRows} critères, ${eeRows} E.E., ${actual.length} impératifs ✓`
     );
+  }
+
+  const sadMixte = await seedSadMixteCriteria({
+    findObjectiveId: async (chapterNumber, objectiveCode) => {
+      const objective = await prisma.objective.findFirst({
+        where: {
+          code: objectiveCode,
+          theme: { chapter: { referentialVersionId: referentialVersion.id, number: chapterNumber } },
+        },
+        select: { id: true },
+      });
+      return objective?.id ?? null;
+    },
+    upsertCriterion: (args) => prisma.criterion.upsert(args),
+  });
+  console.log(`  SAD mixte : ${sadMixte.seeded.length} critères ✓`);
+  if (sadMixte.skipped.length > 0) {
+    console.warn(`⚠️  Critères SAD mixte sans objectif de rattachement : ${sadMixte.skipped.join(", ")}`);
   }
 }

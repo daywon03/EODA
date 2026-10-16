@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { FUNCTION_LABELS } from "@/lib/services/action-item-service";
 import { ConfirmActionButton } from "@/components/ui/confirm-action-button";
 import {
   AlertCircle,
@@ -30,13 +31,8 @@ type Props = {
   roleInEstablishment: string;
 };
 
-const ROLE_LABELS: Record<string, string> = {
-  DIRECTEUR: "Directeur / Directrice",
-  COORDINATEUR: "Coordinateur / Coordinatrice",
-  ASSISTANT_QUALITE: "Assistant(e) qualité",
-  RESPONSABLE_QUALITE: "Responsable Qualité",
-  AUTRE: "Autre",
-};
+// Libellés des fonctions : source unique, partagée avec le pilote du plan d'action.
+const ROLE_LABELS: Record<string, string> = FUNCTION_LABELS;
 
 // Ligne d'interlocuteur client — lecture ET révocation. Les trois opérations
 // destructrices (retrait d'accès, désactivation, réinitialisation) posent une
@@ -111,7 +107,7 @@ export function ClientUserRow({ establishmentId, user, roleInEstablishment }: Pr
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="font-medium text-brun-ancre">{user.name}</p>
-          <p className="text-gris-mid text-xs">{user.email}</p>
+          <p className="text-ink2 text-xs">{user.email}</p>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
           {!user.isActive && <Badge variant="missing">Compte désactivé</Badge>}
@@ -124,6 +120,17 @@ export function ClientUserRow({ establishmentId, user, roleInEstablishment }: Pr
           <div className="space-y-1.5">
             <Label htmlFor={`name-${user.id}`}>Nom complet</Label>
             <Input id={`name-${user.id}`} name="name" defaultValue={user.name} required disabled={isPending} />
+          </div>
+          <div className="space-y-1.5 sm:col-span-2">
+            <Label htmlFor={`email-${user.id}`}>Adresse e-mail (identifiant de connexion)</Label>
+            <Input
+              id={`email-${user.id}`}
+              name="email"
+              type="email"
+              defaultValue={user.email}
+              required
+              disabled={isPending}
+            />
           </div>
           <div className="space-y-1.5">
             <Label htmlFor={`role-${user.id}`}>Fonction dans la structure</Label>
@@ -195,7 +202,7 @@ export function ClientUserRow({ establishmentId, user, roleInEstablishment }: Pr
 
       {tempPassword && (
         <div className="bg-ivoire border border-gris-light rounded-lg p-3 space-y-2">
-          <p className="text-xs text-gris-mid font-medium uppercase tracking-wide">
+          <p className="text-xs text-ink2 font-medium uppercase tracking-wide">
             Nouveau mot de passe temporaire — à communiquer à l&apos;interlocuteur
           </p>
           <div className="flex items-center gap-2">
@@ -210,7 +217,7 @@ export function ClientUserRow({ establishmentId, user, roleInEstablishment }: Pr
               aria-label={copied ? "Mot de passe copié" : "Copier le mot de passe"}
             >
               {copied ? (
-                <CheckCircle2 className="w-4 h-4 text-vert-ok" aria-hidden="true" />
+                <CheckCircle2 className="w-4 h-4 text-ok-text" aria-hidden="true" />
               ) : (
                 <Copy className="w-4 h-4" aria-hidden="true" />
               )}

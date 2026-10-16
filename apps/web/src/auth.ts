@@ -10,6 +10,8 @@ import {
   resetLoginThrottle,
 } from "@/lib/security/login-throttle";
 import { recordAuditEvent } from "@/lib/services/audit-log-service";
+import { isEmailVerificationPending } from "@/lib/services/email-verification-service";
+import { EmailNotVerifiedError } from "@/lib/auth/email-not-verified";
 
 // Empreinte bcrypt factice, de coût identique aux vraies. Comparer contre elle quand
 // l'email est inconnu fait que la réponse prend le même temps que pour un compte
@@ -39,7 +41,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const identity = { ip: clientIpFromHeaders(request.headers), email };
         if (!(await consumeLoginAttempt(identity))) return null;
 
-        const user = await prisma.user.findUnique({ where: { email } });
+        const user = await prisma.user.findUnique({
+          where: { email },
+          include: { prospectAccount: { select: { id: true } } },
+        });
 
         if (!user) {
           // Comparaison à vide volontaire — voir DUMMY_HASH ci-dessus.
@@ -74,9 +79,25 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           return null;
         }
 
+        // Compte créé en libre-service dont l'adresse n'est pas confirmée (tranche 11) :
+        // refusé, APRÈS la comparaison bcrypt pour la même raison que ci-dessus. Le
+        // mot de passe étant juste, la personne apprend POURQUOI (message clair et
+        // « renvoyer le lien ») — ce qui ne renseigne que le titulaire du mot de passe.
+        if (isEmailVerificationPending({ isSelfRegistered: user.prospectAccount !== null, emailVerifiedAt: user.emailVerifiedAt })) {
+          await recordAuditEvent({
+            action: "LOGIN_REFUSED_UNVERIFIED",
+            actorUserId: user.id,
+            actorRole: user.role,
+            detail: "adresse non confirmée",
+          });
+          throw new EmailNotVerifiedError();
+        }
+
         // Succès : le compteur repart de zéro pour que les erreurs de frappe d'un
         // utilisateur légitime ne s'accumulent pas jusqu'au blocage.
         await resetLoginThrottle(identity);
+        // « Dernière connexion » de l'écran Équipe EODA (N9) : un fait daté, rien de plus.
+        await prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
 
         // Le jeton ne porte que l'identifiant et le rôle — jamais l'objet utilisateur
         // complet. Le rôle qui sert à AUTORISER est de toute façon relu en base à

@@ -1,12 +1,23 @@
 "use server";
 
+import { NEED } from "@/lib/auth/capabilities";
 import { prisma } from "@eoda/database";
 import { notFound } from "next/navigation";
 import { requireClientEstablishment, requireEstablishmentInTenant } from "@/lib/auth/guards";
 import type { ReportSourceItem } from "@/lib/services/conformity-report-service";
-import { getEstablishmentCoveredCategories } from "@/lib/services/establishment-offer-service";
+import { findMissionOffer, type MissionOffer } from "@/lib/services/establishment-offer-service";
+import { getCoveredDocumentCategories } from "@/lib/services/offer-scope-service";
+import { resolveSupportMode, STRICT_SUPPORT_MODE } from "@/lib/services/support-mode-service";
+import { documentMention } from "@/lib/services/review-mention-service";
+import { normaliseMissingState } from "@/lib/services/missing-answer-service";
+import {
+  canClientAcceptDocument,
+  isAcceptanceCurrent,
+  isReviewedByEoda,
+} from "@/lib/services/client-documents-view-service";
+import { deriveMissingOwner, type MissingOwner } from "@/lib/services/structure-documents-service";
 import { isCriterionImperativeForEstablishment } from "@/lib/services/criterion-imperativeness-service";
-import type { DocumentCategory, DocumentStatus, EstablishmentType } from "@eoda/database";
+import type { DocumentCategory, DocumentStatus, EstablishmentType, SupportMode } from "@eoda/database";
 import {
   deriveDocumentStep,
   type DocumentStep,
@@ -28,6 +39,9 @@ export type ChecklistItem = {
   documentTypeId: string;
   code: string;
   label: string;
+  // Catégorie du type (aussi la clé de la checklist) : elle décide, entre autres,
+  // si « ne nous concerne pas » est une réponse possible (loi 2002-2 : non).
+  category: DocumentCategory;
   isConditional: boolean;
   expectedFrequency: string | null;
   // Réclamé à la structure, ou produit par EODA (§ call du 26/08). Le portail client
@@ -39,6 +53,16 @@ export type ChecklistItem = {
   status: DocumentStatus;
   documentId: string | null;
   missingJustification: string | null;
+  // « Je ne l'ai pas » (N3, missing-answer-service) : à produire, pas à déposer.
+  declaredMissing: boolean;
+  // Qui doit produire ce document encore manquant — pastilles cabinet « À rédiger ·
+  // EODA » / « Chez la structure » (structure-documents-service).
+  missingOwner: MissingOwner | null;
+  // Acceptation par la structure (D6), valable pour la version COURANTE seulement.
+  clientAcceptedAt: Date | null;
+  clientAccepted: boolean;
+  // La structure peut-elle dire « Je l'accepte » (client-documents-view-service) ?
+  canClientAccept: boolean;
   // TOUTES les versions, de la plus récente à la plus ancienne — demande du 26/08 :
   // « il faut que je puisse les stocker […] la version originale, le rapport et la
   // version modifiée ». Elles étaient toutes conservées en base, l'écran n'en
@@ -46,6 +70,9 @@ export type ChecklistItem = {
   versions: DocumentVersionItem[];
   // Étape atteinte dans le parcours documentaire (document-workflow-service).
   step: DocumentStep;
+  // Date de validation par la consultante — dit QUAND un livrable a été remis
+  // (deliverables-service), l'étape ne disant que s'il l'a été.
+  validatedAt: Date | null;
   currentVersion: {
     id: string;
     versionNumber: number;
@@ -59,6 +86,11 @@ export type ChecklistItem = {
     // Date de revue par la consultante. Null = analyse non restituable au client
     // (CDC §5, §7). Côté cabinet, sert à distinguer « à relire » de « publiée ».
     analysisReviewedAt: Date | null;
+    // Relu par EODA : revue de l'analyse, ou validation posée après ce dépôt.
+    reviewedByEoda: boolean;
+    // Mention à afficher à la STRUCTURE sous ce qu'elle lit (review-mention-service) :
+    // « Relu par EODA, le JJ/MM » ou, en autonomie, la réserve complète.
+    clientMention: string | null;
     // Vrai quand une analyse existe mais attend la relecture. Côté client, permet de
     // dire « en cours de relecture » sans rien montrer du contenu.
     analysisAwaitingReview: boolean;
@@ -96,7 +128,7 @@ export type DocumentVersionItem = {
 export type ChecklistByCategory = Record<DocumentCategory, ChecklistItem[]>;
 
 // Chemin de chargement PARTAGÉ par le portail client et la fiche établissement du
-// cabinet : les deux rendent ChecklistCategory et doivent filtrer à l'identique.
+// cabinet : les deux lisent ChecklistItem et doivent filtrer à l'identique.
 // `audience` gouverne UNE chose : l'analyse automatique est-elle restituable ?
 // Elle est passée en paramètre plutôt que déduite de la session, pour que les deux
 // points d'entrée (portail client, fiche cabinet) la déclarent explicitement — une
@@ -106,14 +138,17 @@ async function buildChecklist(
   establishmentId: string,
   establishmentType: EstablishmentType,
   audience: AnalysisAudience
-): Promise<ChecklistByCategory> {
+): Promise<{ checklist: ChecklistByCategory; offer: MissionOffer | null; mode: SupportMode }> {
   // Une seule lecture d'horloge par construction de checklist : deux documents
   // déposés le même jour ne doivent pas se périmer à une milliseconde d'écart.
   const now = new Date();
-  // Périmètre de l'offre contractée (null = pas de mission ⇒ avant-vente, checklist
-  // complète). Résolu par establishment-offer-service, la MÊME couche que celle qui
-  // arbitre les dépôts dans document.ts — affichage et mutations ne peuvent pas diverger.
-  const covered = await getEstablishmentCoveredCategories(establishmentId);
+  // Offre contractée et mode d'accompagnement, lus UNE fois (null = pas de mission ⇒
+  // avant-vente : checklist complète, règle stricte). Résolus par
+  // establishment-offer-service, la MÊME couche que celle qui arbitre les dépôts
+  // dans document.ts — affichage et mutations ne peuvent pas diverger.
+  const mission = await findMissionOffer(establishmentId);
+  const covered = mission ? getCoveredDocumentCategories(mission.formule, mission.gratuit) : null;
+  const mode = resolveSupportMode(mission);
 
   // Types de documents attendus, restreints au périmètre de l'offre.
   const allTypes = await prisma.documentType.findMany({
@@ -128,8 +163,10 @@ async function buildChecklist(
       id: true,
       documentTypeId: true,
       status: true,
+      statusOverriddenByUser: true,
       missingJustification: true,
       validatedAt: true,
+      clientAcceptedAt: true,
       currentVersion: {
         select: {
           id: true,
@@ -183,19 +220,41 @@ async function buildChecklist(
       currentVersionAt: doc?.currentVersion?.uploadedAt ?? null,
     };
 
-    let status: DocumentStatus;
+    let rawStatus: DocumentStatus;
     if (doc) {
-      status = applyExpiry(doc.status, expiryFacts, now);
+      rawStatus = applyExpiry(doc.status, expiryFacts, now);
     } else if (dt.isConditional) {
-      status = "NOT_APPLICABLE";
+      rawStatus = "NOT_APPLICABLE";
     } else {
-      status = "MISSING";
+      rawStatus = "MISSING";
     }
+    // « Je ne l'ai pas » (N3) : statut à afficher et fait « à produire », y compris
+    // le rattrapage des anciens « Non » sur la loi 2002-2 (missing-answer-service).
+    const hasVersion = !!doc?.currentVersion;
+    const { status, declaredMissing } = normaliseMissingState({
+      category: dt.category,
+      status: rawStatus,
+      statusOverriddenByUser: doc?.statusOverriddenByUser ?? false,
+      hasVersion,
+    });
+    const currentVersion = doc?.currentVersion
+      ? toChecklistVersion(
+          doc.currentVersion,
+          { audience, mode, validatedAt: doc.validatedAt },
+          // Jamais transmis au CLIENT : une suggestion non tranchée est une
+          // hypothèse de travail interne (CDC §5, §7), gatée ici plutôt qu'à la
+          // lecture (cf. commentaire sur le `select` ci-dessus).
+          audience === "CABINET" ? doc.criterionSuggestions : [],
+          establishmentType
+        )
+      : null;
+    const clientAcceptedAt = doc?.clientAcceptedAt ?? null;
 
     const item: ChecklistItem = {
       documentTypeId: dt.id,
       code: dt.code,
       label: dt.label,
+      category: dt.category,
       isConditional: dt.isConditional,
       expectedFrequency: dt.expectedFrequency,
       requestedFromClient: dt.requestedFromClient,
@@ -203,19 +262,30 @@ async function buildChecklist(
       status,
       documentId: doc?.id ?? null,
       missingJustification: doc?.missingJustification ?? null,
+      declaredMissing,
+      missingOwner: deriveMissingOwner({
+        status,
+        hasVersion,
+        requestedFromClient: dt.requestedFromClient,
+        declaredMissing,
+        mode,
+      }),
+      clientAcceptedAt,
+      clientAccepted: isAcceptanceCurrent({
+        clientAcceptedAt,
+        versionUploadedAt: currentVersion?.uploadedAt ?? null,
+      }),
+      canClientAccept: canClientAcceptDocument({
+        mode,
+        hasVersion,
+        // L'analyse telle que l'audience la VOIT : pour le client, déjà passée par
+        // analysisVisibleTo.
+        analysisVisible: currentVersion?.analysis != null,
+        reviewedByEoda: currentVersion?.reviewedByEoda ?? false,
+      }),
       // Le JSON brut ne sort jamais de cette couche : il est validé ici, une fois,
       // et le composant ne reçoit qu'une forme sûre (D2).
-      currentVersion: doc?.currentVersion
-        ? toChecklistVersion(
-            doc.currentVersion,
-            audience,
-            // Jamais transmis au CLIENT : une suggestion non tranchée est une
-            // hypothèse de travail interne (CDC §5, §7), gatée ici plutôt qu'à la
-            // lecture (cf. commentaire sur le `select` ci-dessus).
-            audience === "CABINET" ? doc.criterionSuggestions : [],
-            establishmentType
-          )
-        : null,
+      currentVersion,
       versions: (doc?.versions ?? []).map((version) => ({
         id: version.id,
         versionNumber: version.versionNumber,
@@ -228,6 +298,7 @@ async function buildChecklist(
         producedByCabinet: version.uploadedBy.role !== "CLIENT_USER",
         hasAnalysis: version.analysisResultJson !== null,
       })),
+      validatedAt: doc?.validatedAt ?? null,
       step: deriveDocumentStep({
         hasVersion: !!doc?.currentVersion,
         hasAnalysis: doc?.currentVersion?.analysisResultJson != null,
@@ -243,7 +314,9 @@ async function buildChecklist(
     // version existe déjà — sa bibliothèque, qu'il ait déposé lui-même ou qu'EODA
     // ait produit pour lui. Les autres sont le plan de production du cabinet ; les
     // lui montrer, c'est lui réclamer ce qu'on s'est engagé à écrire à sa place.
-    if (audience === "CLIENT" && !dt.requestedFromClient && !doc?.currentVersion) {
+    // « Je ne l'ai pas » ne fait pas disparaître le document (N3) : il reste visible,
+    // à produire.
+    if (audience === "CLIENT" && !dt.requestedFromClient && !hasVersion && !declaredMissing) {
       continue;
     }
 
@@ -251,7 +324,7 @@ async function buildChecklist(
     checklist[dt.category]!.push(item);
   }
 
-  return checklist as ChecklistByCategory;
+  return { checklist: checklist as ChecklistByCategory, offer: mission, mode };
 }
 
 // Barrière de restitution, appliquée UNE fois, ici. Un composant qui la
@@ -266,7 +339,7 @@ function toChecklistVersion(
     analysisResultJson: unknown;
     analysisReviewedAt: Date | null;
   },
-  audience: AnalysisAudience,
+  context: { audience: AnalysisAudience; mode: SupportMode; validatedAt: Date | null },
   // Déjà filtré au statut PENDING et à l'audience CABINET par la requête
   // appelante (jamais sélectionné du tout côté client) — cette fonction ne fait
   // que mettre en forme, pas de second contrôle de périmètre ici.
@@ -281,15 +354,27 @@ function toChecklistVersion(
     analysis: parseAnalysisResult(version.analysisResultJson),
     reviewedAt: version.analysisReviewedAt,
   };
+  const reviewedByEoda = isReviewedByEoda({
+    analysisReviewedAt: version.analysisReviewedAt,
+    validatedAt: context.validatedAt,
+    versionUploadedAt: version.uploadedAt,
+  });
 
   return {
     id: version.id,
     versionNumber: version.versionNumber,
     originalFilename: version.originalFilename,
     uploadedAt: version.uploadedAt,
-    analysis: analysisVisibleTo(audience, reviewable),
+    analysis: analysisVisibleTo(context.audience, reviewable, context.mode),
     analysisReviewedAt: version.analysisReviewedAt,
     analysisAwaitingReview: isAnalysisAwaitingReview(reviewable),
+    reviewedByEoda,
+    // La date affichée est celle de la revue de l'analyse ; à défaut, celle de la
+    // validation (posée après ce dépôt, sinon reviewedByEoda serait faux).
+    clientMention: documentMention({
+      mode: context.mode,
+      reviewedAt: reviewedByEoda ? (version.analysisReviewedAt ?? context.validatedAt) : null,
+    }),
     criterionSuggestions: criterionSuggestions.map((s) => ({
       id: s.id,
       criterionCode: s.criterion.code,
@@ -312,10 +397,16 @@ export async function getClientChecklist(): Promise<{
   // Vrai quand la bibliothèque date de 5 mois ou plus (§12.5) — le moment où des
   // documents figés commencent à vieillir, pas une expiration.
   libraryUpdateAlert: boolean;
+  // Mode d'accompagnement (N1) — règle stricte sans mission — et offre contractée.
+  supportMode: SupportMode;
+  offer: MissionOffer | null;
+  // Nom de la personne connectée (« Bonjour {prénom} »), lu de la session.
+  userName: string | null;
 }> {
   // L'établissement est résolu depuis le lien EstablishmentUser de la session, pas
   // depuis un identifiant fourni par la requête : non falsifiable par construction.
-  const { establishment, missionAccess, missionClosure } = await requireClientEstablishment();
+  const { session, establishment, missionAccess, missionClosure } = await requireClientEstablishment(NEED.DOCUMENTS_READ);
+  const userName = session.user.name ?? null;
   // `now` lu ici, à la frontière : le service reste pur et testable sans horloge.
   const libraryUpdateAlert = isLibraryUpdateAlertDue(missionClosure, new Date());
 
@@ -325,16 +416,19 @@ export async function getClientChecklist(): Promise<{
       checklist: {} as ChecklistByCategory,
       missionAccess,
       libraryUpdateAlert,
+      supportMode: STRICT_SUPPORT_MODE,
+      offer: null,
+      userName,
     };
   }
 
-  const checklist = await buildChecklist(
+  const { checklist, offer, mode } = await buildChecklist(
     establishment.id,
     establishment.type as EstablishmentType,
     "CLIENT"
   );
 
-  return { establishment, checklist, missionAccess, libraryUpdateAlert };
+  return { establishment, checklist, missionAccess, libraryUpdateAlert, supportMode: mode, offer, userName };
 }
 
 export async function getEstablishmentChecklist(
@@ -343,9 +437,9 @@ export async function getEstablishmentChecklist(
   // Vérifie l'appartenance de l'établissement au tenant de l'appelant — sans ce
   // contrôle, un utilisateur Cabinet lisait la checklist de n'importe quel
   // établissement, tous tenants confondus.
-  const { establishmentType } = await requireEstablishmentInTenant(establishmentId);
+  const { establishmentType } = await requireEstablishmentInTenant(establishmentId, "READ");
 
-  return buildChecklist(establishmentId, establishmentType, "CABINET");
+  return (await buildChecklist(establishmentId, establishmentType, "CABINET")).checklist;
 }
 
 // ── Rapport de mise en conformité ────────────────────────────────────────────
@@ -362,7 +456,7 @@ export type ConformityReportData = {
 export async function getConformityReportData(
   establishmentId: string
 ): Promise<ConformityReportData> {
-  const { tenantId } = await requireEstablishmentInTenant(establishmentId);
+  const { tenantId } = await requireEstablishmentInTenant(establishmentId, "READ");
 
   const establishment = await prisma.establishment.findFirst({
     where: { id: establishmentId, tenantId },
@@ -370,7 +464,7 @@ export async function getConformityReportData(
   });
   if (!establishment) notFound();
 
-  const checklist = await buildChecklist(establishmentId, establishment.type, "CABINET");
+  const { checklist } = await buildChecklist(establishmentId, establishment.type, "CABINET");
   // La catégorie est la CLÉ de la checklist, pas un champ de l'item : on la rattache
   // ici plutôt que de l'ajouter partout dans le modèle.
   const items = Object.entries(checklist).flatMap(([category, categoryItems]) =>

@@ -29,11 +29,18 @@ export function CorrectedDraftPanel({ documentVersionId }: { documentVersionId: 
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="inline-flex items-center gap-1 text-xs text-terre hover:underline"
+        className="inline-flex items-center gap-1 text-xs text-accent-text hover:underline"
       >
         <Pencil className="h-3 w-3 flex-shrink-0" aria-hidden="true" />
         Document corrigé
       </button>
+      {/* Écran côte à côte (N8) : décision ajout par ajout, version N+1. */}
+      <a
+        href={`/dashboard/cabinet/conformite/${documentVersionId}`}
+        className="inline-flex items-center gap-1 text-xs text-accent-text hover:underline"
+      >
+        Mettre en conformité côte à côte
+      </a>
 
       {open && <DraftDrawer documentVersionId={documentVersionId} onClose={() => setOpen(false)} />}
     </>
@@ -101,17 +108,17 @@ function DraftDrawer({ documentVersionId, onClose }: { documentVersionId: string
       <div className="flex h-full w-full max-w-xl flex-col bg-surface shadow-xl">
         <header className="flex items-center justify-between border-b border-gris-light px-4 py-3">
           <div className="flex items-center gap-2">
-            <Sparkles className="h-4 w-4 text-ambre" aria-hidden="true" />
+            <Sparkles className="h-4 w-4 text-amber-text" aria-hidden="true" />
             <h2 className="text-sm font-medium text-brun-ancre">Document corrigé — brouillon IA</h2>
           </div>
-          <button type="button" onClick={onClose} aria-label="Fermer" className="text-gris-mid hover:text-brun-ancre">
+          <button type="button" onClick={onClose} aria-label="Fermer" className="text-ink2 hover:text-brun-ancre">
             <X className="h-4 w-4" aria-hidden="true" />
           </button>
         </header>
 
         <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
           {draft === undefined && (
-            <p className="flex items-center gap-2 text-xs text-gris-mid">
+            <p className="flex items-center gap-2 text-xs text-ink2">
               <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
               Chargement…
             </p>
@@ -119,7 +126,7 @@ function DraftDrawer({ documentVersionId, onClose }: { documentVersionId: string
 
           {draft === null && (
             <div className="space-y-2">
-              <p className="text-xs text-gris-mid">
+              <p className="text-xs text-ink2">
                 Aucun brouillon généré pour cette version. L&apos;IA réécrit le document en intégrant les
                 éléments manquants et les suggestions de l&apos;analyse.
               </p>
@@ -152,21 +159,21 @@ function DraftDrawer({ documentVersionId, onClose }: { documentVersionId: string
           {draft && (
             <div className="space-y-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <p className="text-xs text-gris-mid">
+                <p className="text-xs text-ink2">
                   Généré le {formatDate(draft.generatedAt)} — brouillon de travail, à relire avant tout usage.
                 </p>
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
                     onClick={() => setMode("diff")}
-                    className={`text-xs ${mode === "diff" ? "font-medium text-terre" : "text-gris-mid hover:underline"}`}
+                    className={`text-xs ${mode === "diff" ? "font-medium text-accent-text" : "text-ink2 hover:underline"}`}
                   >
                     Avant / après
                   </button>
                   <button
                     type="button"
                     onClick={() => setMode("edit")}
-                    className={`text-xs ${mode === "edit" ? "font-medium text-terre" : "text-gris-mid hover:underline"}`}
+                    className={`text-xs ${mode === "edit" ? "font-medium text-accent-text" : "text-ink2 hover:underline"}`}
                   >
                     Modifier
                   </button>
@@ -185,7 +192,7 @@ function DraftDrawer({ documentVersionId, onClose }: { documentVersionId: string
                     }
                     if (segment.kind === "added") {
                       return (
-                        <span key={index} className="text-vert-ok underline decoration-2">
+                        <span key={index} className="text-ok-text underline decoration-2">
                           {segment.text}
                         </span>
                       );
@@ -211,7 +218,7 @@ function DraftDrawer({ documentVersionId, onClose }: { documentVersionId: string
                 )}
                 <a
                   href={`/api/documents/${documentVersionId}/draft-docx`}
-                  className="inline-flex items-center gap-1.5 text-xs text-terre hover:underline"
+                  className="inline-flex items-center gap-1.5 text-xs text-accent-text hover:underline"
                 >
                   <Download className="h-3.5 w-3.5" aria-hidden="true" />
                   Télécharger le .docx
@@ -234,14 +241,14 @@ function DraftDrawer({ documentVersionId, onClose }: { documentVersionId: string
                     type="button"
                     onClick={handleGenerate}
                     disabled={isPending}
-                    className="text-xs text-gris-mid hover:underline"
+                    className="text-xs text-ink2 hover:underline"
                   >
                     Régénérer
                   </button>
                 </div>
               </div>
 
-              {saved && <p role="status" className="text-xs text-vert-ok">Modifications enregistrées.</p>}
+              {saved && <p role="status" className="text-xs text-ok-text">Modifications enregistrées.</p>}
             </div>
           )}
 

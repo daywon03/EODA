@@ -2,10 +2,18 @@ import { describe, expect, it } from "vitest";
 import {
   analysisVisibleTo,
   describeAnalysis,
+  describeReviewMention,
   isAnalysisAwaitingReview,
   parseAnalysisResult,
   summariseAnalysis,
 } from "./analysis-view-service";
+
+describe("describeReviewMention", () => {
+  it("dit « EODA » et la date JJ/MM, jamais un prénom (D7)", () => {
+    expect(describeReviewMention(new Date(2026, 8, 30, 23, 30))).toBe("Relu par EODA, le 30/09");
+    expect(describeReviewMention(new Date(2026, 0, 5))).toBe("Relu par EODA, le 05/01");
+  });
+});
 
 const COMPLETE = {
   elementsPresents: [{ text: "Objet du séjour", source: "Le présent séjour a pour objet…" }],
@@ -114,7 +122,7 @@ describe("describeAnalysis", () => {
   });
 });
 
-describe("analysisVisibleTo — revue humaine obligatoire (CDC §5, §7)", () => {
+describe("analysisVisibleTo — structure ACCOMPAGNÉE : revue humaine obligatoire (CDC §5, §7)", () => {
   const reviewed = { analysis: COMPLETE, reviewedAt: new Date("2026-08-26") };
   const pending = { analysis: COMPLETE, reviewedAt: null };
 
@@ -122,21 +130,44 @@ describe("analysisVisibleTo — revue humaine obligatoire (CDC §5, §7)", () =>
     // Le cas qui compte : une analyse produite par un modèle, lue directement par le
     // client, ferait dire au cabinet des choses qu'il n'a pas vérifiées — sur des
     // documents qui seront présentés à la HAS.
-    expect(analysisVisibleTo("CLIENT", pending)).toBeNull();
+    expect(analysisVisibleTo("CLIENT", pending, "ACCOMPAGNE")).toBeNull();
   });
 
   it("montre l'analyse au client une fois la revue faite", () => {
-    expect(analysisVisibleTo("CLIENT", reviewed)).toEqual(COMPLETE);
+    expect(analysisVisibleTo("CLIENT", reviewed, "ACCOMPAGNE")).toEqual(COMPLETE);
   });
 
   it("montre tout au cabinet, revue ou non — c'est son travail de relire", () => {
-    expect(analysisVisibleTo("CABINET", pending)).toEqual(COMPLETE);
-    expect(analysisVisibleTo("CABINET", reviewed)).toEqual(COMPLETE);
+    expect(analysisVisibleTo("CABINET", pending, "ACCOMPAGNE")).toEqual(COMPLETE);
+    expect(analysisVisibleTo("CABINET", reviewed, "ACCOMPAGNE")).toEqual(COMPLETE);
   });
 
   it("ne fabrique pas d'analyse là où il n'y en a pas", () => {
-    expect(analysisVisibleTo("CABINET", { analysis: null, reviewedAt: null })).toBeNull();
-    expect(analysisVisibleTo("CLIENT", { analysis: null, reviewedAt: new Date() })).toBeNull();
+    expect(analysisVisibleTo("CABINET", { analysis: null, reviewedAt: null }, "ACCOMPAGNE")).toBeNull();
+    expect(analysisVisibleTo("CLIENT", { analysis: null, reviewedAt: new Date() }, "ACCOMPAGNE")).toBeNull();
+  });
+});
+
+describe("analysisVisibleTo — structure en AUTONOMIE (09 §4.2, N1)", () => {
+  const reviewed = { analysis: COMPLETE, reviewedAt: new Date("2026-08-26") };
+  const pending = { analysis: COMPLETE, reviewedAt: null };
+
+  it("montre au client l'analyse NON relue : c'est l'offre qu'il a choisie", () => {
+    expect(analysisVisibleTo("CLIENT", pending, "AUTONOMIE")).toEqual(COMPLETE);
+  });
+
+  it("montre aussi l'analyse relue", () => {
+    expect(analysisVisibleTo("CLIENT", reviewed, "AUTONOMIE")).toEqual(COMPLETE);
+  });
+
+  it("ne change rien côté cabinet", () => {
+    expect(analysisVisibleTo("CABINET", pending, "AUTONOMIE")).toEqual(COMPLETE);
+    expect(analysisVisibleTo("CABINET", reviewed, "AUTONOMIE")).toEqual(COMPLETE);
+  });
+
+  it("ne fabrique pas d'analyse là où il n'y en a pas", () => {
+    expect(analysisVisibleTo("CLIENT", { analysis: null, reviewedAt: null }, "AUTONOMIE")).toBeNull();
+    expect(analysisVisibleTo("CABINET", { analysis: null, reviewedAt: null }, "AUTONOMIE")).toBeNull();
   });
 });
 

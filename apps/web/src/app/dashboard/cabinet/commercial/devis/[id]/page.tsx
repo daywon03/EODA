@@ -1,21 +1,28 @@
 import Link from "next/link";
-import { getDevis } from "@/lib/actions/devis";
+import { getDevis } from "@/lib/actions/devis-read";
 import { isDevisDeletable, isDevisEditable } from "@/lib/services/devis-transition-service";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { DevisStatusBadge } from "@/components/devis/DevisStatusBadge";
+import { StatusPill } from "@/components/ui/status-pill";
+import { pillForDevisStatus } from "@/lib/design/status-vocabulary";
 import { DevisStatusActions } from "@/components/devis/DevisStatusActions";
 import { DevisSummaryPrintable } from "@/components/devis/DevisSummaryPrintable";
 import { DeleteDevisButton } from "@/components/devis/DeleteDevisButton";
 import { SendDevisEmailButton } from "@/components/devis/SendDevisEmailButton";
+import { RemindDevisButton } from "@/components/devis/RemindDevisButton";
+import { Callout } from "@/components/ui/callout";
 import { Pencil, Download } from "lucide-react";
 
-type Props = { params: Promise<{ id: string }> };
+export const metadata = { title: "Devis" };
 
-export default async function DevisDetailPage({ params }: Props) {
-  const { id } = await params;
+type Props = { params: Promise<{ id: string }>; searchParams: Promise<{ envoi?: string }> };
+
+export default async function DevisDetailPage({ params, searchParams }: Props) {
+  const [{ id }, { envoi }] = await Promise.all([params, searchParams]);
   const devis = await getDevis(id);
+  // « Envoyer le devis » depuis le formulaire : créé, mais l'envoi n'a pas abouti.
+  const sendFailed = envoi === "echec" && devis.status === "BROUILLON";
 
   return (
     <div className="space-y-6 max-w-3xl">
@@ -24,8 +31,8 @@ export default async function DevisDetailPage({ params }: Props) {
         subtitle={devis.prospect.structureName}
         backHref={`/dashboard/cabinet/commercial/prospects/${devis.prospectId}`}
         action={
-          <div className="flex items-center gap-2">
-            <DevisStatusBadge status={devis.status} />
+          <div className="flex flex-wrap items-center gap-2">
+            <StatusPill pill={pillForDevisStatus(devis.status)} />
             {isDevisEditable(devis.status) && (
               <Button variant="outline" size="sm" asChild>
                 <Link href={`/dashboard/cabinet/commercial/devis/${id}/modifier`}>
@@ -47,6 +54,18 @@ export default async function DevisDetailPage({ params }: Props) {
             </Button>
             {(devis.status === "BROUILLON" || devis.status === "ENVOYE") && (
               <SendDevisEmailButton
+                // Clé = statut : quand « Marquer comme envoyé » (ou un envoi réussi)
+                // change le statut, le bouton repart à neuf — un ancien message
+                // d'erreur ne survit pas à l'action qui a réussi (test du 12/10).
+                key={devis.status}
+                devisId={id}
+                number={devis.number}
+                structureName={devis.prospect.structureName}
+                contactEmail={devis.prospect.contactEmail}
+              />
+            )}
+            {devis.status === "ENVOYE" && devis.prospect.contactEmail && (
+              <RemindDevisButton
                 devisId={id}
                 number={devis.number}
                 structureName={devis.prospect.structureName}
@@ -57,10 +76,17 @@ export default async function DevisDetailPage({ params }: Props) {
         }
       />
 
-      <DevisStatusActions devisId={id} status={devis.status} />
+      {sendFailed && (
+        <Callout tone="warning" title="Devis enregistré, e-mail non parti">
+          Le devis est en brouillon. L&apos;envoi par e-mail n&apos;a pas abouti : utilisez « Envoyer le devis
+          par e-mail » ci-dessus pour réessayer, ou « Télécharger » pour l&apos;envoyer vous-même.
+        </Callout>
+      )}
+
+      <DevisStatusActions key={devis.status} devisId={id} status={devis.status} />
 
       {devis.status === "ANNULE" && (
-        <p className="text-sm text-gris-mid border-l-4 border-gris-light pl-3">
+        <p className="rounded-lg border border-gris-light bg-surface px-4 py-3 text-sm text-ink2">
           Ce devis est annulé. Son numéro reste réservé dans la série annuelle — une série
           commerciale numérotée ne comporte pas de trou — et il n&apos;entre plus dans aucun
           indicateur du pipeline.
@@ -83,6 +109,9 @@ export default async function DevisDetailPage({ params }: Props) {
             balanceAmountEuros={devis.balanceAmountEuros}
             installmentCount={devis.installmentCount}
             installmentAmountEuros={devis.installmentAmountEuros}
+            formuleMonthlyPriceSnapshotEuros={devis.formuleMonthlyPriceSnapshotEuros}
+            commitmentMonths={devis.commitmentMonths}
+            clientNote={devis.clientNote}
           />
         </CardContent>
       </Card>

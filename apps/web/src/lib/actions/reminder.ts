@@ -39,7 +39,7 @@ export async function sendDocumentReminder(
 ): Promise<ReminderResult> {
   // Garde unique : identité + appartenance au tenant. Le cabinet uniquement — un
   // client ne se relance pas lui-même.
-  const { userId, session } = await requireEstablishmentInTenant(establishmentId);
+  const { userId, session } = await requireEstablishmentInTenant(establishmentId, "WRITE");
 
   const establishment = await prisma.establishment.findUnique({
     where: { id: establishmentId },

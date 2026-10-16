@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildCabinetInvitationEmail,
   buildClientInvitationEmail,
+  buildDocumentAvailableEmail,
   buildDocumentReminderEmail,
   buildOptionRequestEmail,
+  buildStructureActivityEmail,
   escapeHtml,
 } from "./templates";
 
@@ -18,19 +21,19 @@ describe("escapeHtml", () => {
 
 describe("buildClientInvitationEmail", () => {
   const invitation = buildClientInvitationEmail({
-    recipientName: "Tania Leborgne",
-    email: "tania@structure.fr",
+    recipientName: "Camille Durand",
+    email: "camille@structure.fr",
     temporaryPassword: "Xk7-mots-de-passe",
     loginUrl: "https://portail.eoda-conseil.com/login",
-    establishmentName: "ASSAD BENOIT",
+    establishmentName: "SAD Les Glycines (fictif)",
   });
 
   it("nomme la structure dans l'objet — la personne accompagne peut en suivre plusieurs", () => {
-    expect(invitation.subject).toContain("ASSAD BENOIT");
+    expect(invitation.subject).toContain("SAD Les Glycines (fictif)");
   });
 
   it("donne l'identifiant, le mot de passe temporaire et le lien", () => {
-    expect(invitation.html).toContain("tania@structure.fr");
+    expect(invitation.html).toContain("camille@structure.fr");
     expect(invitation.html).toContain("Xk7-mots-de-passe");
     expect(invitation.html).toContain("https://portail.eoda-conseil.com/login");
   });
@@ -56,15 +59,15 @@ describe("buildClientInvitationEmail", () => {
 
 describe("buildOptionRequestEmail", () => {
   const alert = buildOptionRequestEmail({
-    establishmentName: "ASSAD BENOIT",
+    establishmentName: "SAD Les Glycines (fictif)",
     optionLabel: "Audit de conformité flash",
     message: "On aimerait le faire avant la visite.",
-    requestedByName: "Tania Leborgne",
+    requestedByName: "Camille Durand",
     requestUrl: "https://portail.eoda-conseil.com/dashboard/cabinet/commercial",
   });
 
   it("dit qui demande quoi, dès l'objet", () => {
-    expect(alert.subject).toContain("ASSAD BENOIT");
+    expect(alert.subject).toContain("SAD Les Glycines (fictif)");
     expect(alert.subject).toContain("Audit de conformité flash");
   });
 
@@ -75,10 +78,10 @@ describe("buildOptionRequestEmail", () => {
 
   it("se passe du bloc citation quand aucun message n'a été laissé", () => {
     const withoutMessage = buildOptionRequestEmail({
-      establishmentName: "ASSAD BENOIT",
+      establishmentName: "SAD Les Glycines (fictif)",
       optionLabel: "Audit",
       message: "   ",
-      requestedByName: "Tania",
+      requestedByName: "Camille",
       requestUrl: "https://x",
     });
     expect(withoutMessage.html).not.toContain("blockquote");
@@ -168,5 +171,132 @@ describe("buildDocumentReminderEmail", () => {
 
   it("n'affiche aucun bloc de citation sans message", () => {
     expect(buildDocumentReminderEmail(base).html).not.toContain("blockquote");
+  });
+});
+
+describe("buildCabinetInvitationEmail", () => {
+  const invitation = buildCabinetInvitationEmail({
+    recipientName: "Consultante <fictive>",
+    email: "consultante@example.org",
+    temporaryPassword: "Xk7-mots-de-passe",
+    loginUrl: "https://portail.example.org/login",
+    roleLabel: "Consultante",
+  });
+
+  it("nomme le rôle, donne l'identifiant, le mot de passe temporaire et le lien", () => {
+    expect(invitation.html).toContain("Consultante</strong>");
+    expect(invitation.html).toContain("consultante@example.org");
+    expect(invitation.html).toContain("Xk7-mots-de-passe");
+    expect(invitation.html).toContain("https://portail.example.org/login");
+    expect(invitation.html).toContain("Ouvrir le portail");
+  });
+
+  it("échappe le nom saisi", () => {
+    expect(invitation.html).toContain("Consultante &lt;fictive&gt;");
+  });
+});
+
+describe("buildDocumentAvailableEmail", () => {
+  const base = {
+    recipientName: "Camille Martin",
+    establishmentName: "Structure test",
+    documentLabel: "Livret d'accueil",
+    kind: "DELIVERABLE" as const,
+    portalUrl: "https://portail.test/dashboard/client/livrables",
+  };
+
+  it("nomme le document dans l'objet — la personne doit savoir LEQUEL a été déposé", () => {
+    expect(buildDocumentAvailableEmail(base).subject).toBe(
+      "Nouveau livrable disponible — Livret d'accueil"
+    );
+  });
+
+  it("renvoie vers « Mes livrables » pour un document produit par EODA", () => {
+    const email = buildDocumentAvailableEmail(base);
+    expect(email.html).toContain("Mes livrables");
+    expect(email.html).toContain("https://portail.test/dashboard/client/livrables");
+  });
+
+  it("n'annonce pas un livrable quand c'est la pièce du client qui a été validée", () => {
+    // EODA n'a rien remis : parler de « livrable » gonflerait la prestation.
+    const email = buildDocumentAvailableEmail({ ...base, kind: "VALIDATED_PIECE" });
+    expect(email.subject).toBe("Document validé — Livret d'accueil");
+    expect(email.html).not.toContain("Mes livrables");
+    expect(email.html).toContain("https://portail.test/dashboard/client/livrables");
+  });
+
+  it("échappe un intitulé et un nom de structure venus d'une saisie", () => {
+    const email = buildDocumentAvailableEmail({
+      ...base,
+      documentLabel: '<img src=x onerror="alert(1)">',
+      establishmentName: "<script>alert(2)</script>",
+    });
+    expect(email.html).not.toContain("<img src=x");
+    expect(email.html).not.toContain("<script>");
+  });
+});
+
+// Ce que la STRUCTURE fait → le cabinet (16/10/2026). Le pendant des trois messages
+// ci-dessus : jusqu'ici le cabinet informait le client, jamais l'inverse.
+describe("buildStructureActivityEmail", () => {
+  const base = {
+    establishmentName: "Structure test",
+    documentLabel: "Livret d'accueil",
+    structureUrl: "https://portail.test/dashboard/cabinet/etablissements/etab-1",
+  };
+
+  it("nomme le document dans l'objet des trois gestes — lequel, jamais un « un document »", () => {
+    expect(buildStructureActivityEmail({ ...base, kind: "DEPOSIT" }).subject).toBe(
+      "Dépôt de la structure — Livret d'accueil"
+    );
+    expect(buildStructureActivityEmail({ ...base, kind: "ACCEPTED" }).subject).toBe(
+      "Document accepté par la structure — Livret d'accueil"
+    );
+    expect(buildStructureActivityEmail({ ...base, kind: "DECLARED_MISSING" }).subject).toBe(
+      "Pièce absente — Livret d'accueil"
+    );
+  });
+
+  it("un dépôt annonce une pièce à RELIRE, pas une pièce validée", () => {
+    const email = buildStructureActivityEmail({ ...base, kind: "DEPOSIT" });
+    expect(email.html).toContain("a déposé une pièce");
+    expect(email.html).toContain("à relire");
+    expect(email.html).not.toContain("accepté");
+  });
+
+  it("une acceptation dit qui a accepté, sans jamais parler de validation EODA", () => {
+    // Deux gestes distincts (décision du 08/10, « c'est lui qui valide, ce n'est pas
+    // moi ») : écrire « validé » ici attribuerait au cabinet la parole de la structure.
+    const email = buildStructureActivityEmail({ ...base, kind: "ACCEPTED" });
+    expect(email.html).toContain("Structure test");
+    expect(email.html).toContain("a accepté le document");
+    expect(email.html).not.toContain("validé");
+    expect(email.html).not.toContain("relu");
+  });
+
+  it("« je ne l'ai pas » est écrit comme une pièce À PRODUIRE, pas comme une absence", () => {
+    // N3 : la structure déclare l'absence, le document reste à produire par EODA.
+    const email = buildStructureActivityEmail({ ...base, kind: "DECLARED_MISSING" });
+    expect(email.html).toContain("ne pas disposer");
+    expect(email.html).toContain("reste à produire");
+    expect(email.html).not.toContain("non concerné");
+  });
+
+  it("mène à la fiche de la structure, jamais à un fichier", () => {
+    for (const kind of ["DEPOSIT", "ACCEPTED", "DECLARED_MISSING"] as const) {
+      const email = buildStructureActivityEmail({ ...base, kind });
+      expect(email.html).toContain(base.structureUrl);
+    }
+  });
+
+  it("échappe un intitulé et un nom de structure venus d'une saisie", () => {
+    const email = buildStructureActivityEmail({
+      ...base,
+      kind: "DEPOSIT",
+      documentLabel: '<img src=x onerror="alert(1)">',
+      establishmentName: "<script>alert(2)</script>",
+    });
+    expect(email.html).not.toContain("<img src=x");
+    expect(email.html).not.toContain("<script>");
   });
 });

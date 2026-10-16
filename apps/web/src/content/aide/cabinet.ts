@@ -1,61 +1,77 @@
-import { AUDIENCE_CABINET, AUDIENCE_CABINET_ADMIN, type HelpArticle } from "./types";
+import { AUDIENCE_CABINET, AUDIENCE_COMMERCIAL, type HelpArticle } from "./types";
+import { CABINET_REVIEW_ARTICLES } from "./cabinet-relecture";
 
 // Articles réservés aux comptes du cabinet. Le pipeline commercial est en outre
-// restreint à CABINET_ADMIN : ni un CABINET_EVALUATOR ni a fortiori un
-// CLIENT_USER ne doit lire quoi que ce soit sur les prospects, les devis ou les
+// restreint à la capacité COMMERCIAL (admin et commercial, N9) : ni une consultante
+// ni a fortiori un CLIENT_USER ne doit lire quoi que ce soit sur les prospects, les devis ou les
 // prix (CLAUDE.md §7).
+//
+// Réécrits le 13/10/2026 sur les écrans v2 : il n'existe plus de création manuelle
+// de fiche (une fiche ne naît que de la signature d'un devis), la fiche structure
+// est organisée en onglets, et le menu « Commercial » remplace l'ancien onglet.
 
-export const CABINET_ARTICLES: readonly HelpArticle[] = [
+const ARTICLES: readonly HelpArticle[] = [
   {
+    // Slug conservé : il figure dans des liens partagés en formation.
     slug: "creer-un-etablissement-et-inviter-le-client",
-    title: "Créer un établissement et inviter un interlocuteur client",
+    title: "De la signature à la fiche client, puis inviter un interlocuteur",
     summary:
-      "Renseigner la fiche d'un ESSMS accompagné, puis ouvrir un accès à son interlocuteur.",
+      "La fiche d'une structure naît de la signature de son devis ; on y invite ensuite son interlocuteur.",
     category: "MISSION",
     audiences: AUDIENCE_CABINET,
-    where: "Tableau de bord Cabinet → « Nouvel établissement » · puis la fiche de l'établissement",
-    keywords: ["établissement", "FINESS", "SAD", "invitation", "compte client", "interlocuteur"],
+    where: "Commercial → Devis → un devis → « Enregistrer la signature » · puis fiche structure → onglet « Réglages »",
+    keywords: ["établissement", "structure", "fiche", "signature", "FINESS", "SAD", "invitation", "compte client", "interlocuteur"],
     body: [
+      {
+        kind: "paragraph",
+        text:
+          "Une fiche client ne se crée qu'à la signature d'un devis : prospect, puis devis, puis signature. C'est ce qui la fait apparaître dans les indicateurs commerciaux, avec son offre et son montant.",
+      },
       {
         kind: "steps",
         items: [
-          "Depuis le tableau de bord Cabinet, cliquez sur « Nouvel établissement ».",
-          "Renseignez le nom, le numéro FINESS, le type (SAD Aide ou SAD Mixte), l'adresse et la date cible d'évaluation HAS si elle est connue.",
-          "Enregistrez : la fiche s'ouvre avec sa checklist documentaire, encore vide.",
-          "En bas de la fiche, bloc « Inviter un interlocuteur client » : saisissez le nom, l'email et le rôle de la personne (direction, coordination, qualité, autre).",
-          "Un mot de passe temporaire est généré et affiché une seule fois. Copiez-le et transmettez-le à l'interlocuteur ; il devra le changer à sa première connexion.",
+          "Sur la fiche du prospect, renseignez dès que possible le FINESS, l'adresse, le type de SAD et l'échéance HAS visée. Ils sont facultatifs à ce stade et seront recopiés à la signature.",
+          "Ouvrez le devis signé par la structure, puis « Enregistrer la signature ».",
+          "Vérifiez l'identité pré-remplie : FINESS, adresse, échéance HAS et type de SAD sont exigés ici. Le type de SAD (aide ou mixte) est toujours demandé, jamais deviné.",
+          "Validez : la fiche structure, sa mission et le périmètre de l'offre sont créés en une seule fois.",
+          "Sur la fiche, onglet « Réglages », bloc « Inviter un interlocuteur » : saisissez le nom, l'adresse e-mail et la fonction de la personne.",
+          "Le mot de passe temporaire s'affiche une seule fois. Transmettez-le à l'interlocuteur : il devra le changer à sa première connexion.",
         ],
       },
       {
         kind: "paragraph",
         text:
-          "Le type de SAD n'est pas cosmétique : un SAD Mixte réalise aide et soins, ce qui ajoute le critère impératif du circuit du médicament par rapport à un SAD Aide.",
+          "Le type de SAD n'est pas cosmétique : un SAD mixte réalise aide et soins, ce qui ajoute des critères — dont l'impératif du circuit du médicament — par rapport à un SAD aide.",
       },
       {
         kind: "note",
         tone: "warning",
         text:
-          "Un compte client ne voit que l'établissement auquel il est rattaché, et rien du cabinet. Ne créez jamais un compte client « générique » partagé entre deux structures : le cloisonnement repose sur ce rattachement.",
+          "Un compte client ne voit que la structure à laquelle il est rattaché, et rien du cabinet. Ne créez jamais un compte « générique » partagé entre deux structures : le cloisonnement repose sur ce rattachement.",
       },
     ],
   },
   {
     slug: "suivre-une-mission",
     title: "Suivre une mission d'accompagnement",
-    summary:
-      "Démarrer le suivi, choisir la formule, cocher les 12 items du diagnostic et les 4 phases.",
+    summary: "Les quatre étapes de la mission, les items du diagnostic et le périmètre de l'offre.",
     category: "MISSION",
     audiences: AUDIENCE_CABINET,
-    where: "Fiche établissement → « Suivi de mission »",
-    keywords: ["mission", "formule", "diagnostic", "phases", "checklist", "offre", "PAC"],
+    where: "Fiche structure → onglet « Mission »",
+    keywords: ["mission", "formule", "diagnostic", "étapes", "phases", "offre", "PAC", "clôture"],
     body: [
+      {
+        kind: "paragraph",
+        text:
+          "La mission est créée à la signature, avec la formule du devis. L'onglet « Mission » la déroule en quatre étapes : Diagnostic, Mise en conformité, Suivi, Préparation finale.",
+      },
       {
         kind: "steps",
         items: [
-          "Ouvrez la fiche de l'établissement, puis « Suivi de mission ».",
-          "Si aucune mission n'existe, choisissez la formule contractée (Essentiel, Performance, Excellence) et validez. Une mission en bêta-test gratuit reçoit le périmètre le plus large.",
-          "La formule reste modifiable ensuite dans le bloc « Périmètre contractuel » — c'est elle, et elle seule, qui gouverne le périmètre de la mission.",
-          "Cochez les items au fur et à mesure : 12 items pour la phase de diagnostic, puis les items des 4 phases d'accompagnement, avec leurs dates de début et de fin.",
+          "Diagnostic : cochez les 12 items au fur et à mesure (liste ci-dessous).",
+          "Mise en conformité, Suivi, Préparation finale : posez les dates de début et de fin de chaque étape, puis cochez ses items.",
+          "Le bloc « Périmètre contractuel » rappelle la formule et les options souscrites. C'est la formule de la mission, et elle seule, qui gouverne le périmètre.",
+          "En fin d'accompagnement, la clôture fige la mission. Elle ne supprime rien et ne coupe pas l'accès : la structure garde ses documents en lecture.",
         ],
       },
       {
@@ -78,41 +94,37 @@ export const CABINET_ARTICLES: readonly HelpArticle[] = [
       {
         kind: "paragraph",
         text:
-          "Un item qui n'entre pas dans l'offre souscrite reste visible mais grisé, avec un cadenas, et sa case est inactive. Le refus est aussi appliqué côté serveur : le contourner depuis le navigateur ne change rien. En Essentiel, ce sont les trois items du protocole de visite longue (validation du planning, réunion d'ouverture, bilan de visite) que la demi-journée ne comporte pas.",
+          "Un item qui n'entre pas dans l'offre souscrite reste visible, avec un cadenas, et sa case est inactive. Le refus est aussi appliqué côté serveur. En Essentiel, ce sont les trois items du protocole de visite longue (validation du planning, réunion d'ouverture, bilan de visite).",
       },
       {
         kind: "paragraph",
         text:
-          "Le bloc « Documents du portail client » affiche quatre compteurs — déposés, analysés par l'IA, modifiés, conformes. Il est en lecture seule : c'est un reflet. Le dépôt se fait depuis la checklist de la fiche établissement, pas ici.",
+          "Le bloc « Documents du portail client » affiche des compteurs (déposés, analysés, modifiés, conformes). Il est en lecture seule : le travail sur les documents se fait dans l'onglet « Documents » de la fiche.",
       },
     ],
   },
   {
     slug: "coter-les-elements-d-evaluation",
     title: "Coter les éléments d'évaluation",
-    summary:
-      "Ouvrir une session par chapitre, coter les E.E., et lire les impératifs à risque.",
+    summary: "Démarrer une session par chapitre, coter les E.E., et lire les impératifs à risque.",
     category: "EVALUATION",
     audiences: AUDIENCE_CABINET,
-    where: "Fiche établissement → « Ouvrir l'auto-évaluation » → un chapitre",
+    where: "Fiche structure → onglet « Auto-évaluation » → un chapitre",
     keywords: ["cotation", "E.E.", "critère", "impératif", "chapitre", "session", "NC", "RI", "score"],
     body: [
       {
         kind: "paragraph",
         text:
-          "L'auto-évaluation exige une mission : c'est la formule qui détermine le périmètre de critères. Sans mission, l'écran propose d'en démarrer une.",
-      },
-      {
-        kind: "paragraph",
-        text:
-          "Trois chapitres, trois méthodes : chapitre 1 (la personne accompagnée, accompagné traceur), chapitre 2 (les professionnels, traceur ciblé), chapitre 3 (l'ESSMS, audit système). Ouvrir un chapitre démarre — ou reprend — une session de cotation, avec un chronomètre. « Terminer la session » enregistre sa durée.",
+          "Trois chapitres, trois méthodes : chapitre 1 (la personne accompagnée, accompagné traceur), chapitre 2 (les professionnels, traceur ciblé), chapitre 3 (l'ESSMS, audit système). Le périmètre de critères dépend de la formule de la mission.",
       },
       {
         kind: "steps",
         items: [
-          "Dépliez la thématique puis l'objectif pour atteindre le critère.",
-          "Cotez chaque élément d'évaluation (E.E.) en cliquant sur la pastille voulue. L'enregistrement est immédiat.",
-          "Utilisez le champ commentaire pour noter la preuve consultée — c'est ce qui rend la cotation défendable trois mois plus tard.",
+          "Ouvrez le chapitre, puis « Démarrer la session de cotation ». Rien ne démarre tout seul à l'ouverture de l'écran.",
+          "Cotez chaque élément d'évaluation (E.E.) en choisissant sa cote. L'enregistrement est immédiat.",
+          "Notez dans le commentaire la preuve consultée : c'est ce qui rend la cotation défendable trois mois plus tard.",
+          "« Terminer la session » la clôture. Une session clôturée est une photo : elle ne se cote plus.",
+          "Pour une seconde auto-évaluation, « Ouvrir une nouvelle session » : les deux se comparent critère par critère.",
         ],
       },
       {
@@ -128,34 +140,29 @@ export const CABINET_ARTICLES: readonly HelpArticle[] = [
         kind: "note",
         tone: "warning",
         text:
-          "NC est interdit sur un critère impératif. RI n'existe qu'au chapitre 1, et seulement sur les E.E. qui l'autorisent : ailleurs le bouton n'est pas proposé. Une cotation refusée renvoie un message et rien n'est enregistré.",
+          "NC est interdit sur un critère impératif. RI n'existe qu'au chapitre 1, et seulement sur les E.E. qui l'autorisent : ailleurs la cote n'est pas proposée. Une cotation refusée renvoie un message et rien n'est enregistré.",
       },
       {
         kind: "paragraph",
         text:
-          "Le score d'un critère est la moyenne de ses E.E. cotés ; celui d'un objectif, d'une thématique puis du chapitre s'en déduit par agrégation. Tout critère impératif coté en dessous de 4 remonte dans le bandeau « impératifs à risque » en haut du chapitre — ce sont ceux qui imposent un formulaire de critère impératif et un plan d'action.",
+          "Le score d'un critère est la moyenne de ses E.E. cotés ; ceux de l'objectif, de la thématique puis du chapitre s'en déduisent. Tout critère impératif coté sous 4 remonte dans les « impératifs à risque » en haut du chapitre — et dans l'onglet « Plan d'action », qui propose une action par critère coté sous 4.",
       },
       {
         kind: "note",
         tone: "info",
         text:
-          "Quand tous les documents rattachés à un critère sont conformes, la plateforme suggère une cotation. C'est une suggestion visuelle : rien n'est enregistré tant que vous n'avez pas cliqué vous-même.",
-      },
-      {
-        kind: "paragraph",
-        text:
-          "Le périmètre affiché dépend de l'offre : en Essentiel, seuls les critères impératifs sont listés et cotables. Un critère standard y est refusé même s'il est atteint par un autre chemin.",
+          "Quand tous les documents rattachés à un critère sont conformes, la plateforme suggère une cotation. Rien n'est enregistré tant que vous n'avez pas choisi la cote vous-même.",
       },
     ],
   },
   {
     slug: "pipeline-commercial",
     title: "Prospects, devis et catalogue",
-    summary: "Le module commercial interne : suivi des prospects, devis, catalogue et indicateurs.",
+    summary: "Le module commercial interne : prospects, grille de découverte, devis, catalogue et indicateurs.",
     category: "COMMERCIAL",
-    audiences: AUDIENCE_CABINET_ADMIN,
-    where: "Onglet « Pipeline commercial »",
-    keywords: ["prospect", "devis", "catalogue", "KPI", "prix", "acompte", "conversion"],
+    audiences: AUDIENCE_COMMERCIAL,
+    where: "Menu « Commercial » : Vue d'ensemble, Prospects, Devis, Catalogue",
+    keywords: ["prospect", "devis", "catalogue", "KPI", "prix", "acompte", "conversion", "découverte"],
     body: [
       {
         kind: "note",
@@ -166,17 +173,19 @@ export const CABINET_ARTICLES: readonly HelpArticle[] = [
       {
         kind: "list",
         items: [
-          "Prospects — un tableau par statut : nouveau contact, RDV programmé, devis envoyé, négociation, signé, perdu. Le statut se change depuis la fiche du prospect.",
-          "Devis — créés depuis la fiche d'un prospect, numérotés automatiquement, avec quatre états : brouillon, envoyé, signé, perdu. Un devis se prépare à l'impression depuis sa page.",
-          "Catalogue — les formules, les prestations à la carte avec leur unité de facturation (forfait, heure, jour, document, support, mois), et les réglages de facturation dont le taux d'acompte.",
-          "Indicateurs — devis émis, taux de conversion, pipeline pondéré, chiffre d'affaires signé cumulé.",
+          "Vue d'ensemble — devis émis, taux de conversion, pipeline pondéré, chiffre d'affaires signé, et l'entonnoir du premier contact à la fin d'accompagnement.",
+          "Prospects — un dossier par structure : identité, contact, historique (jamais réécrit), grille de découverte puis évaluation des besoins. Étapes : nouveau contact, rendez-vous découverte, devis envoyé, négociation, signé, perdu.",
+          "Devis — créés depuis la fiche d'un prospect (la formule envisagée est présélectionnée), envoyés par e-mail avec le PDF joint, puis signés par « Enregistrer la signature ».",
+          "Catalogue — les formules, les prestations à la carte avec leur unité de facturation, et les réglages de facturation dont le taux d'acompte.",
         ],
       },
       {
         kind: "paragraph",
         text:
-          "Les prix sont toujours présentés « à partir de » : le montant définitif se construit dans le devis, options comprises, pendant la réunion d'évaluation des besoins. Le client ne configure pas son offre lui-même.",
+          "Les prix du catalogue sont présentés « à partir de » : le montant définitif se construit dans le devis, options comprises, pendant la réunion d'évaluation des besoins. Le client ne configure pas son offre lui-même.",
       },
     ],
   },
 ];
+
+export const CABINET_ARTICLES: readonly HelpArticle[] = [...ARTICLES, ...CABINET_REVIEW_ARTICLES];

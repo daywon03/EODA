@@ -6,7 +6,9 @@ import {
   type CalendarAppointment,
 } from "@/lib/services/calendar-service";
 import { formatDayHeading, formatTimeRange } from "@/lib/services/date-format-service";
-import { AppointmentMode, AppointmentStatusBadge } from "./AppointmentStatusBadge";
+import { AppointmentMode } from "./AppointmentMode";
+import { StatusPill } from "@/components/ui/status-pill";
+import { pillForAppointmentStatus } from "@/lib/design/status-vocabulary";
 import { AppointmentStatusActions } from "./AppointmentStatusActions";
 
 type Props = {
@@ -22,7 +24,7 @@ type Props = {
 export function AppointmentList({ appointments, readOnly = false, emptyMessage }: Props) {
   if (appointments.length === 0) {
     return (
-      <div className="flex items-start gap-3 rounded-lg border border-dashed border-gris-light px-4 py-5 text-sm text-gris-mid">
+      <div className="flex items-start gap-3 rounded-lg border border-dashed border-gris-light px-4 py-5 text-sm text-ink2">
         <CalendarDays className="w-4 h-4 flex-shrink-0 mt-0.5" aria-hidden="true" />
         <p>{emptyMessage}</p>
       </div>
@@ -33,14 +35,14 @@ export function AppointmentList({ appointments, readOnly = false, emptyMessage }
     <div className="space-y-5">
       {groupByDay(appointments).map((group) => (
         <section key={group.date.toISOString()} className="space-y-2">
-          <h3 className="text-xs font-semibold uppercase tracking-wide text-gris-mid">
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-ink2">
             {formatDayHeading(group.date)}
           </h3>
           <ul className="divide-y divide-gris-light rounded-lg border border-gris-light bg-surface">
             {group.appointments.map((appointment) => (
               <li
                 key={appointment.id}
-                className="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-start sm:justify-between"
+                className="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between"
               >
                 <div className="min-w-0 space-y-1">
                   <p className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
@@ -51,13 +53,13 @@ export function AppointmentList({ appointments, readOnly = false, emptyMessage }
                     </span>
                     <span className="text-sm text-brun-ancre">{appointment.subject}</span>
                   </p>
-                  <p className="text-xs text-gris-mid">
+                  <p className="text-xs text-ink2">
                     {APPOINTMENT_KIND_LABELS[appointment.kind]}
                     {/* Rendez-vous tenu avant la signature : dit en toutes lettres,
                         sinon il se lit comme un point d'accompagnement — et personne
                         ne comprend pourquoi il n'apparaît pas côté client. */}
                     {appointment.beforeSignature && (
-                      <span className="ml-1.5 rounded bg-ivoire px-1.5 py-0.5 text-[10px] font-medium text-brun-moyen">
+                      <span className="ml-1.5 rounded bg-ivoire px-1.5 py-0.5 text-sm font-medium text-brun-moyen">
                         avant signature
                       </span>
                     )}
@@ -67,7 +69,7 @@ export function AppointmentList({ appointments, readOnly = false, emptyMessage }
                         {appointment.href ? (
                           <Link
                             href={appointment.href}
-                            className="text-terre underline underline-offset-2 hover:text-brun-moyen transition-colors"
+                            className="text-accent-text underline underline-offset-2 hover:text-brun-moyen transition-colors"
                           >
                             {appointment.structureName}
                           </Link>
@@ -80,8 +82,8 @@ export function AppointmentList({ appointments, readOnly = false, emptyMessage }
                   <AppointmentMode mode={appointment.mode} location={appointment.location} />
                 </div>
 
-                <div className="flex flex-shrink-0 flex-wrap items-center gap-2">
-                  <AppointmentStatusBadge status={appointment.status} />
+                <div className="flex min-w-0 flex-wrap items-center gap-2">
+                  <StatusPill pill={pillForAppointmentStatus(appointment.status)} />
                   {!readOnly && (
                     <AppointmentStatusActions
                       appointmentId={appointment.id}

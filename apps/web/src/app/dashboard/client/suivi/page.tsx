@@ -6,9 +6,9 @@ import { PageHeader } from "@/components/layout/PageHeader";
 import { ProgressBar } from "@/components/ui/progress-bar";
 import { Button } from "@/components/ui/button";
 import { MissionProgressSummary } from "@/components/mission/MissionProgressSummary";
-import { PHASE_LABELS, PHASE_ORDER } from "@/lib/services/mission-progress-service";
+import { MISSION_STEPS, stepPercent, stepTitle } from "@/lib/services/mission-progress-service";
 
-export const metadata = { title: "Mon suivi · EODA Conseil" };
+export const metadata = { title: "Mon suivi" };
 
 // « Mon suivi » — la progression du projet, séparée du cadre contractuel et
 // financier (« Mon contrat »). Demande du 07/09/2026 : la structure veut voir où
@@ -25,10 +25,10 @@ export default async function ClientSuiviPage() {
       <div className="space-y-6">
         <PageHeader title="Mon suivi" icon={TrendingUp} accent="ambre" />
         <div className="flex items-start gap-3 bg-ambre/10 border border-ambre/30 rounded-lg px-5 py-4">
-          <AlertTriangle className="w-5 h-5 text-ambre flex-shrink-0 mt-0.5" aria-hidden="true" />
+          <AlertTriangle className="w-5 h-5 text-amber-text flex-shrink-0 mt-0.5" aria-hidden="true" />
           <div className="text-sm">
             <p className="font-semibold text-brun-ancre">Aucun établissement rattaché</p>
-            <p className="text-gris-mid">
+            <p className="text-ink2">
               Votre consultant EODA doit d&apos;abord vous rattacher à votre établissement.
             </p>
           </div>
@@ -48,7 +48,7 @@ export default async function ClientSuiviPage() {
       label: "Commentés, en attente d'arbitrage",
       value: documents.justified,
       icon: MessageSquareWarning,
-      color: "text-ambre bg-ambre/10",
+      color: "text-amber-text bg-ambre/10",
     },
     {
       label: "Déposés, en cours de revue",
@@ -60,7 +60,7 @@ export default async function ClientSuiviPage() {
       label: "Conformes",
       value: documents.compliant,
       icon: CheckCircle2,
-      color: "text-vert-ok bg-vert-ok/10",
+      color: "text-ok-text bg-vert-ok/10",
     },
   ];
 
@@ -82,14 +82,14 @@ export default async function ClientSuiviPage() {
           />
 
           <div className="bg-surface border border-gris-light rounded-xl p-5 space-y-3">
-            <h2 className="text-base font-semibold text-brun-ancre">Détail des phases</h2>
+            <h2 className="text-base font-semibold text-brun-ancre">Détail des étapes</h2>
             <ul className="divide-y divide-gris-light">
-              {PHASE_ORDER.map((phase) => {
-                const pct = progressView.progress.phasePcts[phase];
+              {MISSION_STEPS.map((step) => {
+                const pct = stepPercent(step, progressView.progress);
                 return (
-                  <li key={phase} className="flex items-center justify-between gap-3 py-2.5 first:pt-0 last:pb-0">
-                    <span className="text-sm text-brun-ancre">{PHASE_LABELS[phase]}</span>
-                    <span className="text-sm text-gris-mid tabular-nums">
+                  <li key={step.id} className="flex items-center justify-between gap-3 py-2.5 first:pt-0 last:pb-0">
+                    <span className="text-sm text-brun-ancre">{stepTitle(step)}</span>
+                    <span className="text-sm text-ink2 tabular-nums">
                       {pct === undefined ? "—" : `${pct}%`}
                     </span>
                   </li>
@@ -100,7 +100,7 @@ export default async function ClientSuiviPage() {
         </section>
       ) : (
         <div className="bg-surface border border-gris-light rounded-xl p-5">
-          <p className="text-sm text-gris-mid">
+          <p className="text-sm text-ink2">
             Le suivi détaillé s&apos;ouvre dès que votre consultant EODA démarre le diagnostic.
           </p>
         </div>
@@ -110,18 +110,23 @@ export default async function ClientSuiviPage() {
           c'est un indicateur de progression, pas un chiffre financier. */}
       <section className="bg-surface border border-gris-light rounded-xl p-5 space-y-4">
         <h2 className="text-base font-semibold text-brun-ancre">Ce que vous devez fournir</h2>
-        <p className="text-xs text-gris-mid -mt-2">
+        <p className="text-xs text-ink2 -mt-2">
           La contrepartie documentaire de votre offre — seules les pièces couvertes par votre
           formule sont demandées.
         </p>
 
         <div className="flex items-center justify-between text-sm">
           <span className="font-medium text-brun-ancre">Progression documentaire</span>
-          <span className="text-gris-mid tabular-nums">
+          <span className="text-ink2 tabular-nums">
             {documents.compliant} / {documents.total} pièces conformes
           </span>
         </div>
-        <ProgressBar value={documentProgressPercent} colorClassName="bg-vert-ok" />
+        <ProgressBar
+          value={documentProgressPercent}
+          label="Progression documentaire"
+          valueText={`${documents.compliant} sur ${documents.total} pièces conformes`}
+          colorClassName="bg-vert-ok"
+        />
 
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 pt-1">
           {obligations.map(({ label, value, icon: Icon, color }) => (
@@ -131,14 +136,14 @@ export default async function ClientSuiviPage() {
               </span>
               <div className="min-w-0">
                 <p className="text-sm font-semibold text-brun-ancre tabular-nums leading-none">{value}</p>
-                <p className="text-xs text-gris-mid leading-tight mt-1">{label}</p>
+                <p className="text-xs text-ink2 leading-tight mt-1">{label}</p>
               </div>
             </div>
           ))}
         </div>
 
         {counters && (
-          <p className="text-xs text-gris-mid border-t border-gris-light pt-3">
+          <p className="text-xs text-ink2 border-t border-gris-light pt-3">
             Traitement EODA sur vos dépôts : {counters.deposited} document
             {counters.deposited > 1 ? "s" : ""} déposé{counters.deposited > 1 ? "s" : ""} ·{" "}
             {counters.analyzed} analysé{counters.analyzed > 1 ? "s" : ""} · {counters.modified} mis

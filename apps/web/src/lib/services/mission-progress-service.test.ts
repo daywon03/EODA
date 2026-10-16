@@ -2,8 +2,54 @@ import { describe, expect, it } from "vitest";
 import {
   computeMissionProgress,
   isChecklistItemApplicable,
+  MISSION_STEPS,
+  PHASE_LABELS,
+  stepPercent,
+  stepTitle,
+  PHASE_ORDER,
   type MissionItemProgress,
 } from "./mission-progress-service";
+
+describe("Étapes de mission — décision 3 corrigée le 10/10/2026", () => {
+  it("quatre étapes : Diagnostic (checklist) / Mise en conformité / Suivi / Préparation finale", () => {
+    expect(MISSION_STEPS.map(stepTitle)).toEqual([
+      "Étape 1 — Diagnostic",
+      "Étape 2 — Mise en conformité",
+      "Étape 3 — Suivi",
+      "Étape 4 — Préparation finale",
+    ]);
+    expect(MISSION_STEPS.map((s) => s.phases)).toEqual([
+      [],
+      ["FONDATIONS", "DEPLOIEMENT"],
+      ["CONSOLIDATION"],
+      ["PREPARATION_FINALE"],
+    ]);
+  });
+
+  it("chaque phase stockée appartient à exactement une étape", () => {
+    const grouped = MISSION_STEPS.flatMap((s) => s.phases);
+    expect([...grouped].sort()).toEqual([...PHASE_ORDER].sort());
+  });
+
+  it("FONDATIONS n'est plus libellée « Diagnostic » : elle reste éditable sous la mise en conformité", () => {
+    expect(PHASE_ORDER.map((phase) => PHASE_LABELS[phase])).toEqual([
+      "Mise en conformité — fondations",
+      "Mise en conformité — déploiement",
+      "Suivi",
+      "Préparation finale",
+    ]);
+    expect(PHASE_ORDER).toEqual(["FONDATIONS", "DEPLOIEMENT", "CONSOLIDATION", "PREPARATION_FINALE"]);
+  });
+
+  it("stepPercent : checklist pour le diagnostic, moyenne des phases applicables ailleurs", () => {
+    const progress = { diagnosticPct: 25, phasePcts: { FONDATIONS: 100, DEPLOIEMENT: 51 } };
+    const [diag, conformite, suivi] = MISSION_STEPS;
+    expect(diag && stepPercent(diag, progress)).toBe(25);
+    expect(conformite && stepPercent(conformite, progress)).toBe(76);
+    expect(conformite && stepPercent(conformite, { diagnosticPct: 0, phasePcts: { DEPLOIEMENT: 30 } })).toBe(30);
+    expect(suivi && stepPercent(suivi, progress)).toBeUndefined();
+  });
+});
 
 // Règles de référence : .claude/context/07-outil-pilotage-missions.md §7.3-§7.4 et §12.4.
 

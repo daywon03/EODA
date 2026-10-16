@@ -24,7 +24,7 @@ vérifie** — sinon elle n'existe pas.
 
 | Règle | Contrôle mécanique | Où |
 |---|---|---|
-| Pas d'opération asynchrone non attendue | `no-floating-promises`, `no-misused-promises`, `await-thenable` en **error** | `apps/web/.eslintrc.json` (type-aware, `parserOptions.project`) |
+| Pas d'opération asynchrone non attendue | `no-floating-promises`, `no-misused-promises`, `await-thenable` en **error** | `apps/web/eslint.config.mjs` (type-aware, `projectService`) |
 | Pas d'échappatoire au typage | `no-explicit-any` en **error** | idem |
 | Pas de journalisation sauvage | `no-console` en **error** (`error`/`warn` autorisés) | idem |
 | Aucun dialogue natif du navigateur | `no-restricted-syntax` sur `confirm`/`alert`/`prompt` en **error** | idem — remplacés par `<ConfirmActionButton>` |
@@ -35,12 +35,22 @@ vérifie** — sinon elle n'existe pas.
 | Hooks installés par le dépôt | `git config core.hooksPath .githooks` posé par le `postinstall` | `package.json` |
 | Manifeste de migrations à jour | test qui compare `EXPECTED_MIGRATIONS` au dossier `prisma/migrations` | `apps/web/src/lib/db/migration-manifest.test.ts` |
 | Clés étrangères indexées (convention `P6`) | test qui lit le schéma et **échoue** sur toute relation sans index, liste d'exceptions figée | `apps/web/src/lib/db/foreign-key-indexes.test.ts` |
+| Matrice des rôles cabinet appliquée par les gardes (N9) | matrice testée case par case, chaque garde × chaque rôle testée, commercial gardé export par export | `lib/auth/capabilities.test.ts`, `guards-roles.test.ts`, `commercial-pages-guard.test.ts` |
+| La lecture seule n'écrit rien | test qui **échoue** si une action gardée en lecture contient une écriture Prisma | `apps/web/src/lib/auth/read-guards-never-write.test.ts` |
 | CSP à nonce réellement applicable (aucune page pré-rendue) | `pnpm check:csp` après le build, **sort en code 1** si un `<script>` est écrit sans nonce | `apps/web/scripts/check-csp-nonce.mjs` + CI ; le réglage est `export const dynamic = "force-dynamic"` dans `apps/web/src/app/layout.tsx` |
 | Budget de JavaScript par route | `pnpm check:bundle` après le build, **sort en code 1** au-delà du budget | `apps/web/scripts/check-bundle-budget.mjs` + CI |
 | Configuration de production complète | contrôle au démarrage qui **sort en code 1** | `apps/web/src/instrumentation.ts` + `lib/config/production-profile.ts` |
 | Migrations appliquées au déploiement | `migrate deploy` dans `buildCommand` | `vercel.json` |
 | Dépendances vulnérables | `pnpm audit:deps` — **sort en code 1** sur toute vulnérabilité haute ou critique, **sans `\|\| true`** ; distingue « vulnérabilité trouvée » de « registre npm injoignable », qu'il réessaie avant d'échouer en le disant | `scripts/audit-dependencies.mjs` + CI |
 | CI qui dit la vérité | aucun `continue-on-error`, aucun masquage d'échec | CI |
+| Texte ≥ 14 px, focus jamais retiré | test qui parcourt `src/**/*.{ts,tsx}` et **échoue** sur une taille arbitraire < 14 px ou un `outline-none` ; vérifie que `text-xs` vaut 14 px | `apps/web/src/lib/design/ui-class-guard.test.ts` |
+| Verrou HDS : aucune donnée de personne accompagnée écrite hors hébergeur certifié (lot C) | (1) test qui lit tout `src/` et **échoue** sur un accès aux tables usager (délégué Prisma ou SQL brut) hors de l'adaptateur du port ; (2) avec la configuration par défaut, chaque écriture du port, du stockage HDS et de chaque action usager est refusée ; (3) le profil de production **refuse de démarrer** sur `HDS_BACKEND_ENABLED=true` sans `HDS_PROVIDER` ni stockage distinct | `lib/hds/beneficiary-tables-guard.test.ts`, `lib/hds/hds-lock.test.ts`, `lib/actions/beneficiary-actions-locked.test.ts`, `lib/config/production-profile.test.ts` — ADR `specs/adr/20261014_ADR_lot-C-verrou-HDS.md` |
+| Contraste des tokens ≥ 4.5:1 (clair et sombre) | test qui lit `globals.css`, résout les alias et **échoue** sous 4.5:1 ; vérifie que les deux voies du sombre sont identiques | `apps/web/src/lib/design/theme-contrast.test.ts` |
+| Ce que la structure fait prévient le cabinet, et personne d'autre | destinataires résolus par le périmètre (`resolveStructureScope` — commercial exclu, consultante non affectée exclue), compte désactivé exclu, dépôt du cabinet muet, « il arrive » muet, libellé du type jamais le nom de fichier | `lib/services/cabinet-recipients-service.test.ts`, `lib/email/templates.test.ts`, `lib/actions/document.test.ts`, `lib/actions/client-document-acceptance.test.ts` |
+| « Voir » montre le document, jamais le texte extrait | `.docx`/`.xlsx`/`.csv`/images passent par les pages rendues côté serveur (`document` AVANT `markdown` dans `buildFilePreview`), le PDF est servi en `inline`, son export et son aperçu sont le MÊME artefact, et seuls les formats convertibles proposent le bouton | `lib/services/printable-html-service.test.ts` (nettoyage : script, `on*`, styles, ressources distantes), `document-pdf-render-service.test.ts` (**la signature décide, pas l'extension**), `document-pdf-service.test.ts`, `document-pdf-response.test.ts`, `file-preview-service.test.ts` (ordre des branches), `file-type-service.test.ts` |
+| La matrice type de document ↔ critères ATTEINT le prompt | les rattachements sont lus en base pour LE type analysé (`documentTypeCriterion.findMany`) et remis à l'IA sous « Critères HAS rattachés à ce type de document » ; matrice vide → « aucun rattachement connu », jamais un catalogue de remplacement | `lib/services/document-ingestion-service.test.ts` (matrice lue → port d'analyse), `lib/llm/analysis-prompt.test.ts` (rendu de la ligne, repli vide) |
+| Un échec de lancement de Chromium est NOMMÉ, et n'invite pas à réessayer | le lancement enveloppe son erreur (`ChromiumLaunchError`, cause conservée, recours nommé : `PUPPETEER_EXECUTABLE_PATH` en développement) et le message d'aperçu **échoue** s'il dit « Réessayez » sur cet échec-là ; les drapeaux serverless ne sont jamais passés à un Chrome de bureau | `lib/services/headless-chromium-service.test.ts`, `lib/services/document-pdf-response.test.ts` |
+| Un envoi « non configuré » n'est jamais compté comme parti | décompte par `countDeliveries` dans toute la couche d'envoi — aucun comptage brut de promesses tenues (il annonçait « Client prévenu (2 personnes) » pour zéro e-mail) | `lib/email/notifications.test.ts` |
 
 **Dette acceptée, à réexaminer après le 22/09/2026** : `.npmrc` porte `node-linker=hoisted`,
 qui désactive l'arborescence isolée de pnpm et rend possibles les dépendances fantômes
@@ -49,12 +59,25 @@ qui désactive l'arborescence isolée de pnpm et rend possibles les dépendances
 vérification est un déploiement de **prévisualisation Vercel** sans cette ligne, pas une
 construction locale.
 
+**Ouvert au 13/10/2026 — `braces` (GHSA-vfj7-8cjw-p6xm)** : aucune version corrigée publiée
+(≤ 3.0.3 vulnérable, 3.0.3 est la dernière), atteint seulement par l'outillage de
+développement (`eslint-config-next` > `fast-glob` > `micromatch`, `tailwindcss`). `pnpm
+audit:deps` échoue sur lui seul. **Décision de Damon attendue** : exception écrite dans
+`ignoreGhsas` (comme `xlsx`) ou remplacement de l'outillage ; le seuil n'est pas abaissé.
+
 **Dette acceptée, avec justification écrite** : `xlsx` (GHSA-4r6h-8v6p-xvw6,
 GHSA-5pgg-2g8v-p4x9) n'a pas de version corrigée publiée sur npm. Utilisé uniquement par
 `packages/database/prisma/seed-has-referential.ts`, un script de seed exécuté à la main sur
 les grilles Synaé locales de Sandrine — jamais dans le chemin d'exécution de l'application,
 jamais sur un fichier provenant d'un tiers. Exception déclarée explicitement dans
 `pnpm.auditConfig.ignoreGhsas`, pas en abaissant le seuil global d'audit.
+
+**Dette acceptée, décision de Damon du 14/10/2026** : `braces` (GHSA-vfj7-8cjw-p6xm, haute)
+n'a **aucune version corrigée publiée**. Il n'arrive que par l'outillage de lint
+(`eslint-config-next > @next/eslint-plugin-next > fast-glob > micromatch > braces`) : exécuté
+sur le poste et en CI, **jamais** dans l'application livrée ni sur Vercel en réponse à une
+requête. Exception déclarée dans `pnpm.auditConfig.ignoreGhsas`, seuil global inchangé.
+**À retirer dès qu'un correctif sort** (vérifier à chaque `pnpm audit:deps`).
 
 ## 1. Contexte métier (à connaître avant tout)
 
@@ -66,7 +89,17 @@ internes et externes d'EODA — cf. `context/06-mode-operatoire-eoda.md` §Gouve
 
 **Quoi :** EODA accompagne les **SAD** (Services Autonomie à Domicile — un type d'ESSMS)
 dans leur préparation à l'**évaluation qualité HAS** (Haute Autorité de Santé), obligatoire
-pour tous les ESSMS, sur un cycle de 15 ans (3 évaluations).
+pour tous les ESSMS : **une évaluation tous les 5 ans** (soit 3 sur 15 ans).
+
+**Positionnement (décision Damon, 30/09/2026) — lire `context/09-vision-produit.md` :**
+EODA est **à la fois la SaaS et le cabinet**. Le portail est le produit (abonnement payé par
+la structure) ; le contenu des offres v10 (Essentiel, Performance, Excellence, prestations à
+la carte) **tient toujours** et devient un **supplément d'accompagnement** pour les
+structures qui n'ont personne de dédié à la mise en place des processus. **L'IA n'est pas un
+argument** : elle travaille en coulisse, l'interface ne parle que de « propositions à
+vérifier » et de validation humaine. Cible inchangée : les SAD du 93, 78, 28. Ordre de
+construction : **la conformité d'abord, les fonctionnalités métier ensuite.** Les nouveaux
+prix SaaS sont des **propositions**, pas des décisions.
 
 **Client pilote (beta-test gratuit) :** ASSAD BENOIT, association loi 1901, FINESS 930034459,
 Le Blanc-Mesnil (93). Échéance évaluation HAS visée : **janvier 2027**.
@@ -100,6 +133,25 @@ préparation interne, jamais présentée comme une évaluation HAS officielle.
 
 Le détail fonctionnel complet de chaque module est dans `specs/01-mvp-v1.md`.
 
+**Suite (arrêtée le 30/09/2026)** — ces trois modules existent ; la suite est découpée en
+lots dans `context/09-vision-produit.md` §7 :
+- **Lot A — refonte et socle conformité** : nouveau design (`DESIGN.md` à la racine,
+  écrit le 15/10/2026 — il décrit le système **implémenté** et remplace le brief
+  `.claude/design/20260930_DOC_EODA_Brief-Claude-Design-Refonte_v01_Interne.md`,
+  devenu la référence d'intention), critères
+  & preuves, plan d'action (PAC), échéancier des documents, file « À relire ».
+- **Lot B — équipe et sensibilisation** : quiz par QR code **dans la plateforme** (remplace
+  le renvoi vers Kahoot du doc 07 §12.5), fiches, preuve de sensibilisation par salarié.
+- **Lot C — terrain** (signature sur tablette, enquêtes) : **construit le 14/10/2026 et
+  verrouillé** derrière le port HDS (§6 ci-dessous) — démonstration sur données fictives.
+- **Lot D — offre SaaS** : paliers d'abonnement, **après** validation des prix par Sandrine.
+- Ensuite seulement : fonctionnalités métier (registres EI / plaintes, KPI, liens ERP).
+
+**Bilan au 08/10/2026** — `specs/05-bilan-2026-10.md` : relecture de tous les calls du 19/07
+au 07/10, audit du code, **douze décisions à trancher** (D1 HDS et D2 fournisseur d'IA en
+tête), correctifs rapides, reste à faire par module. À lire avant de choisir le prochain
+chantier.
+
 ## 3. Documents de référence (lire dans cet ordre)
 
 | Ordre | Fichier | Contenu |
@@ -110,10 +162,20 @@ Le détail fonctionnel complet de chaque module est dans `specs/01-mvp-v1.md`.
 | 4 | `context/04-charte-eoda.md` | Identité visuelle (couleurs, typo, logo, conventions de nommage fichiers) |
 | 5 | `context/05-prototype-existant.md` | Ce qui existe déjà (HTML statique auto-éval) et pourquoi on le réécrit proprement |
 | 6 | `context/06-mode-operatoire-eoda.md` | Mode opératoire humain : contrôle croisé documentaire (matrice, champs critiques, détection d'écarts) + déroulé complet de la mission ASSAD BENOIT (8 phases, gouvernance, vigilances juridiques) — process métier, complémentaire aux fichiers ci-dessus qui documentent les règles produit |
-| 7 | `context/07-outil-pilotage-missions.md` | Pipeline commercial (prospects, devis, catalogue, KPI — `/dashboard/cabinet/commercial`, CABINET_ADMIN uniquement) et suivi de mission (checklist diagnostic 12 items + 4 phases — `/dashboard/cabinet/etablissements/[id]/mission`, CABINET_ADMIN + CABINET_EVALUATOR) sont tous deux implémentés dans la plateforme. **§12 = refonte des offres décidée au call du 16/08/2026 (prix, périmètres, portails), pas encore implémentée — elle remplace le §4 : lire §12 avant de toucher au catalogue, aux offres ou aux portails.** |
-| 8 | `specs/01-mvp-v1.md` | Spécification fonctionnelle détaillée des 3 modules V1 |
-| 9 | `specs/02-architecture-technique.md` | Stack, schéma BDD, architecture, ADRs |
-| 10 | `specs/03-roadmap-developpement.md` | Ordre de build, jalons, definition of done |
+| 7 | `context/07-outil-pilotage-missions.md` | Pipeline commercial (prospects, devis, catalogue, KPI — `/dashboard/cabinet/commercial`, capacité COMMERCIAL : CABINET_ADMIN + CABINET_COMMERCIAL) et suivi de mission (checklist diagnostic 12 items + 4 phases — `/dashboard/cabinet/etablissements/[id]/mission`, lecture des structures : CABINET_ADMIN, CABINET_EVALUATOR, CABINET_READONLY ; montants : CABINET_ADMIN seul) sont tous deux implémentés dans la plateforme. **§12 = refonte des offres décidée au call du 16/08/2026 (prix, périmètres, portails), pas encore implémentée — elle remplace le §4 : lire §12 avant de toucher au catalogue, aux offres ou aux portails.** |
+| 8 | `context/08-offre-commerciale-v10.md` | Plaquette commerciale v10 (modules, méthode, formules, options). Contenu toujours valide ; sa **mise en marché** change (supplément d'un abonnement) — voir 09 §4 |
+| 9 | `context/09-vision-produit.md` | **Vision arrêtée le 30/09/2026** : SaaS + cabinet, marché et concurrence sourcés, proposition de prix, doctrine IA (vue CTO), exigence d'accessibilité, **décision HDS bloquante**, lots A→D |
+| 10 | `context/10-regles-mise-en-conformite.md` | **Cahier de style de la génération** : règles de rédaction dites par Sandrine en séance (01/09 → 07/10), règles de contenu par document (livret, DIPC, règlement…), « paquet » de preuves d'un critère, branchement des documents finaux validés — **à relire avant de toucher un prompt** |
+| 10 bis | `context/11-modes-operatoires-sandrine.md` | **Transcription intégrale** des deux modes opératoires écrits de Sandrine (« Vérification documentaire » : matrice, champs critiques, code couleur, revue en trois temps ; « Guide EODA » : déroulé de la mission pilote, phases, livrables). **Fait foi pour les prompts, à la lettre** ; l'emporte sur `context/10` en cas de contradiction. Notes ⚠️ = points à confirmer avec Sandrine |
+| 11 | `specs/01-mvp-v1.md` | Spécification fonctionnelle détaillée des 3 modules V1 (+ modules suivants en fin de fichier) |
+| 12 | `specs/02-architecture-technique.md` | Stack, schéma BDD, architecture, ADRs |
+| 13 | `specs/03-roadmap-developpement.md` | Ordre de build, jalons, definition of done |
+| 14 | `.claude/specs/04-liaison-document-type-critere.md` | Rattachement type de document ↔ critères HAS (`DocumentTypeCriterion`, **vide au 08/10** — levier n°1 de la qualité des analyses ; **vérifié le 16/10** : la matrice est bien lue et injectée dans le prompt, le maillon est désormais testé) |
+| 15 | `specs/05-bilan-2026-10.md` | **Bilan au 08/10/2026** : décisions bloquantes, correctifs, pipeline IA réel, reste à faire, lisibilité des documents de `context/Documents/` |
+| — | `PRODUCT.md` (racine) | Vérité produit lue par la skill impeccable (utilisateurs, positionnement, principes, accessibilité) |
+| — | `DESIGN.md` (racine) | **Système de design réellement implémenté** (jetons de rôle, typographie, coquilles, vocabulaire des statuts, seuils des gardes, écarts assumés par rapport aux maquettes) : **toute implémentation d'écran s'y conforme**. Il **remplace** le brief du 30/09 comme référence d'implémentation ; en cas de contradiction avec le code, c'est le code qui gagne et `DESIGN.md` qui se corrige |
+| — | `.claude/design/…Brief-Claude-Design-Refonte_v01_Interne.md` | Brief de refonte remis à Claude Design — **historique** : intention, maquettes, voix et anti-objectifs. Ne fait plus autorité sur l'implémentation, que `DESIGN.md` décrit |
+| — | `.claude/design/20261009_PLAN_EODA_Implementation-maquettes-v2_v01_Interne.md` | **Plan d'implémentation des maquettes v2** (Cabinet, Client, Espace structure accompagnée, Tablette) : ordre de construction (socle → refontes → schéma), écarts maquette → règles du dépôt, questions avec réponse par défaut. Les maquettes elles-mêmes restent hors dépôt (noms réels du pilote) |
 
 **Règle :** avant de générer du code touchant au métier HAS (cotation, critères, documents
 obligatoires), Claude Code doit relire `context/02-referentiel-has.md` et
@@ -138,7 +200,15 @@ Le référentiel HAS a des règles précises (NC interdit sur impératifs, RI un
 - **Auth :** Auth.js (NextAuth) — comptes Cabinet (Sandrine + futurs collaborateurs) et
   comptes Client (un par établissement)
 - **Analyse documentaire :** extraction texte (pdf-parse / mammoth pour docx) +
-  appel LLM (Anthropic Claude API) avec prompt structuré contre le référentiel HAS
+  appel LLM avec prompt structuré contre le référentiel HAS (`lib/llm/`). **État réel au
+  08/10/2026** : si `OPENROUTER_API_KEY` est posée, le modèle par défaut est
+  `minimax/minimax-m2.7` (et Gemini pour les images) via OpenRouter, sinon Anthropic
+  direct. **Décision Damon du 08/10/2026 : on reste sur OpenRouter** (remplace la cible
+  Haiku + Sonnet de `09-vision-produit.md` §6.3). Le choix du modèle reste réglable par
+  OpenRouter ; ce qui ne se règle pas, c'est la conservation des données par le
+  fournisseur final — à verrouiller par les options de routage d'OpenRouter (refus de la
+  collecte de données, fournisseurs sans conservation) au moment de la migration du
+  backend (§6, HDS).
 - **Hébergement app :** **Vercel**, région `cdg1` (Paris) — `vercel.json` à la racine ;
   remplace Prisma Compute depuis le 21/08/2026 (`prisma.compute.ts` et le paquet
   `@prisma/compute-sdk` ont été supprimés le 22/08/2026 : le SDK tirait un `tar` vulnérable
@@ -206,6 +276,54 @@ Détail complet et état d'avancement : `specs/02-architecture-technique.md` §4
 - 🧩 **Le référentiel HAS évolue** (dernière MAJ juillet 2025) — ne jamais hardcoder les
   règles de cotation dans la logique applicative sans passer par une couche de configuration
   versionnée (cf. `specs/02-architecture-technique.md` §moteur-regles-has)
+- ♿ **Accessibilité : « même un enfant de 12 ans doit pouvoir s'en servir »** (Damon,
+  30/09/2026). Objectif WCAG 2.2 AA + règles FALC sur le portail client et l'espace équipe.
+  Règles d'usage de la charte (contrastes mesurés, tailles minimales) :
+  `context/04-charte-eoda.md` §7. **Contrôle mécanique branché le 09/10/2026 (tranche S1)
+  pour trois règles** : texte ≥ 14 px (l'échelle Tailwind commence à 14 px — `text-xs`
+  compris — et toute taille arbitraire inférieure est refusée), focus visible (aucun
+  `outline-none` : le contour ambre de 3 px de `globals.css` ne peut pas être retiré),
+  contraste ≥ 4.5:1 des paires de tokens de rôle, clair ET sombre, recalculé depuis
+  `globals.css` (`lib/design/ui-class-guard.test.ts`, `lib/design/theme-contrast.test.ts`).
+  Le nouveau code écrit les tokens de rôle (`text-ink`, `bg-card`, `text-accent-text`…) ;
+  `--muted` / `gris-mid` est réservé au décor (3.7:1 sur le papier).
+  **Dette soldée le 13/10/2026** : `text-gris-mid` (→ `text-ink2`) et `text-terre`
+  (4.29:1 → `text-accent-text`) ne sont plus écrits en couleur de texte, et le garde
+  `findLowContrastTextColors` (`ui-class-guard.test.ts`) refuse désormais `text-gris-mid`,
+  `text-muted` et `text-terre`, avec variante (`hover:`, `placeholder:`) ou opacité ;
+  `theme-contrast.test.ts` prouve que ces teintes sont sous 4.5:1 en clair.
+  **Reste dette déclarée** : `eslint-plugin-jsx-a11y` en error, axe-core en CI sur les
+  pages client, hiérarchie de titres (h1 unique) non vérifiée mécaniquement.
+- 🏥 **Données de santé (HDS) — décision prise le 08/10/2026 : le backend migre.** Un DIPC
+  signé, un PAP, une évaluation des besoins, une enquête de satisfaction **nominative**
+  sont des données de santé (CSP L1111-8, référentiel CNIL médico-social) ; Supabase et
+  Vercel **ne sont pas certifiés HDS**. Damon a tranché : l'enquête reste **nominative**,
+  et **tout le backend change pour un hébergement conforme** (09 §8, option b). Le lot C
+  (tablette, enquête, dossier usager, signature) **peut se construire** ; ce qui reste
+  interdit, c'est d'**envoyer en production** une donnée nominative de personne
+  accompagnée **avant** que la migration soit faite et vérifiée. Les documents
+  institutionnels restent dans le périmètre actuel.
+  **Le verrou est mécanique depuis le 14/10/2026** (ADR
+  `specs/adr/20261014_ADR_lot-C-verrou-HDS.md`) : toute donnée de personne accompagnée
+  (dossier, représentant, feuille de réception signée, preuve de signature, remise,
+  journal, réponse d'enquête) passe par `BeneficiaryDataPort` (`lib/hds/`). L'adaptateur
+  par défaut, `LockedBeneficiaryDataAdapter`, **refuse toute écriture**
+  (`HdsNotAvailableError`) et rend des lectures vides ; les fichiers signés passent par
+  `getHdsFileStoragePort()`, jamais par le bucket `eoda-documents`, verrouillé de même.
+  L'adaptateur Prisma réel n'est sélectionnable que si `HDS_BACKEND_ENABLED="true"` **et**
+  `HDS_PROVIDER` + `HDS_S3_*` (bucket distinct) sont posés — sinon la production refuse
+  de démarrer. Ne **jamais** écrire `prisma.beneficiary…` / `prisma.survey…` ailleurs que
+  dans `lib/hds/prisma-beneficiary-data-adapter.ts` (test qui échoue), ne jamais poser
+  `HDS_BACKEND_ENABLED` sur l'infrastructure actuelle, et ne jamais « tester » avec une
+  vraie personne. **Le cabinet ne lit que des chiffres** (décision de Damon, 14/10/2026,
+  minimisation RGPD/HDS ; ADR 20261014 point 8) : la liste nominative est réservée à la
+  structure — `getPeopleBoard` répond `notFound()` à un compte cabinet, qui passe par
+  `getPeopleAggregates` / `getSurveyBoard` et `listBeneficiaryTimelines` (identifiant +
+  dates, aucun champ nominatif sélectionné). Ne jamais « rendre service » en rouvrant la
+  liste côté cabinet. Les écrans d'écriture affichent l'état verrouillé et se démontrent en
+  **mode démonstration** (en mémoire du navigateur, données fictives, port jamais appelé).
+  Les appareils enregistrés et codes des salariés (`DeviceEnrollment`, `StaffPin`) ne
+  sont pas des données usager et restent sur l'infrastructure actuelle.
 
 ## 7. Ce que Claude Code ne doit PAS faire
 
@@ -216,6 +334,37 @@ Détail complet et état d'avancement : `specs/02-architecture-technique.md` §4
   applicables à tous les types d'ESSMS) — toujours préciser le périmètre.
 - Ne pas présenter la plateforme comme un outil d'évaluation HAS officiel — c'est un outil
   de préparation/conseil.
+- **L'IA peut être nommée, mais jamais sans sa réserve** (décision Damon du 08/10/2026,
+  après accord de Sandrine — remplace l'interdiction du 30/09). Le libellé « Analysés par
+  l'IA » reste. Ce qui ne change pas : une sortie de modèle reste une **proposition** avec
+  les gestes Accepter / Corriger, soumise à `analysisVisibleTo`, et EODA vend la relecture
+  humaine. Ce qui devient obligatoire : pour une structure **en autonomie** (palier seul,
+  sans relecture EODA), tout document produit ou corrigé porte la mention qu'**il n'a pas été
+  revérifié par un humain, peut comporter des erreurs, et doit absolument être relu** avant
+  usage — à l'écran, dans l'export et dans l'e-mail qui l'annonce. Jamais « validé »,
+  jamais « conforme » sans relecture.
+- **Générer un document corrigé est payant, en deux niveaux** (décision Damon du
+  08/10/2026) : (1) la génération seule, en autonomie, avec la réserve ci-dessus ; (2) la
+  génération **vérifiée par un consultant EODA**, plus chère. Les montants ne sont **pas**
+  fixés — ne pas en inventer. Conséquence dans le code (**fait le 10/10/2026**) :
+  `generateDocumentDraft` vérifie le droit de la mission AVANT d'appeler le modèle
+  (`correctionRight` de `offer-scope-service.ts`, qui lit enfin `correctionScope`) :
+  Essentiel = rien ; Performance = `IMPERATIVES_AND_PROCESSES` (D11 — transposé en
+  catégories LOI_2002_2 + QUALITE_RISQUES, provisoire jusqu'à la liaison type ↔ critère
+  de N4) ; Excellence et bêta-test = tout ; sans mission = refus. Hors droit, le message
+  renvoie à la demande d'option existante (`ClientOptionRequest`), sans aucun prix.
+  Le geste de génération et le geste de vérification EODA restent deux faits distincts,
+  jamais fusionnés : seul le second permet d'afficher « relu par EODA ».
+- **Les modes opératoires de Sandrine font foi pour l'IA**
+  (`context/11-modes-operatoires-sandrine.md`, transcription de « Guide EODA Mode
+  Opératoire » et « Mode Opératoire Analyse Documentaire ») : les prompts d'analyse et de
+  mise en conformité les suivent **à la lettre**. En cas de contradiction avec
+  `context/10-regles-mise-en-conformite.md` (règles dites en séance), le mode opératoire
+  écrit l'emporte et la contradiction est signalée à Damon.
+- Ne pas utiliser de pictogrammes **ARASAAC** ni **SantéBD** : leurs licences interdisent
+  l'usage commercial (vérifié le 30/09/2026). Icônes Lucide, ou pictogrammes propres à EODA.
+- Ne pas apposer le **logo FALC européen** tant que les textes n'ont pas été relus par des
+  personnes concernées (condition d'usage d'Inclusion Europe).
 - **Ne jamais passer `DATABASE_URL` (ni `DIRECT_URL`) comme `--shadow-database-url`.** Prisma
   *détruit et rejoue* la base désignée comme shadow database. `prisma migrate diff
   --shadow-database-url "$DATABASE_URL"` a effacé la base de développement partagée le
@@ -226,8 +375,11 @@ Détail complet et état d'avancement : `specs/02-architecture-technique.md` §4
   des fixtures anonymisées génériques.
 - Le pipeline commercial (prospects/devis/catalogue/KPI, décrit dans
   `context/07-outil-pilotage-missions.md`) est intégré à la plateforme depuis le module
-  `/dashboard/cabinet/commercial`, réservé au rôle `CABINET_ADMIN` uniquement (jamais
-  `CABINET_EVALUATOR` ni `CLIENT_USER`). Ces données restent malgré tout strictement internes :
+  `/dashboard/cabinet/commercial`, réservé à la capacité `COMMERCIAL` — rôles
+  `CABINET_ADMIN` **et** `CABINET_COMMERCIAL` depuis N9 (13/10/2026), jamais
+  `CABINET_EVALUATOR`, `CABINET_READONLY` ni `CLIENT_USER`. Garde : `requireCommercialSession()`,
+  vérifiée page par page et export par export (`commercial-pages-guard.test.ts`). Ces données
+  restent malgré tout strictement internes :
   ne jamais les exposer sur une route accessible à un `CLIENT_USER`, ni les inclure dans un
   livrable/export destiné à un client.
   **Exception décidée le 20/08/2026 (Damon), à ne pas « corriger » :** un client voit, sur son
@@ -245,15 +397,89 @@ Détail complet et état d'avancement : `specs/02-architecture-technique.md` §4
   (`formatStartingPrice`). Il n'existe **pas** de lien direct `Establishment → Devis` : la
   résolution passe par `Prospect.establishmentId`, et sans devis `SIGNE` unique **aucun montant
   n'est affiché** — ne jamais « réparer » ça par un rapprochement de noms.
+- **Rôles cabinet et capacités (N9, 13/10/2026).** Quatre rôles : `CABINET_ADMIN` (tout),
+  `CABINET_EVALUATOR` (consultante : structures, documents, évaluation, mission **sans
+  montants**), `CABINET_COMMERCIAL` (pipeline commercial, **aucune** structure, ni équipe EODA
+  ni réglages), `CABINET_READONLY` (lit les structures, n'écrit rien, ne voit pas le
+  commercial). La matrice vit dans `lib/auth/capabilities.ts` (pur, testé case par case) et
+  n'est appliquée QUE par `lib/auth/guards.ts` : chaque garde reçoit la capacité ou le mode
+  (`"READ"` / `"WRITE"` / `"CONTRACT"`, `NEED.*`) en argument **obligatoire** — ne jamais
+  réécrire un `role === "CABINET_ADMIN"` dans une page ou une action. Une action gardée en
+  lecture n'écrit rien (`read-guards-never-write.test.ts`). Les montants d'une structure
+  (périmètre contractuel, contrat, avenant, prix proposés au démarrage d'une mission) exigent
+  `STRUCTURE_CONTRACT` : masqués ET refusés côté serveur pour une consultante.
+  **Affectation consultante ↔ structures** (`EstablishmentAssignment`) : une consultante
+  affectée ne voit QUE ses structures (listes filtrées par `structureScopeWhere`, objet d'une
+  autre structure → `notFound()`) ; **sans aucune affectation elle voit tout** — choix de
+  compatibilité des comptes existants, à ne pas « corriger » en fail-closed sans décision.
+  Équipe EODA : `/dashboard/cabinet/equipe` (administration seule) ; jamais retirer son propre
+  accès ni le dernier administrateur (`cabinet-team-service.ts`).
+- **Rôles d'accès CLIENT (N9).** `EstablishmentUser.accessRole` (`DIRECTION`,
+  `RESPONSABLE_QUALITE`, `ADMINISTRATIF`, `INTERVENANT`, défaut `DIRECTION` pour les liens
+  existants) est distinct de `roleInEstablishment` (le POSTE). Même matrice pure
+  (`capabilities.ts`, modules DOCUMENTS / DIAGNOSTIC / TASKS / TEAM / MESSAGES / CONTRACT /
+  ACCESS, niveaux Tout / Voir / Les siens / —), appliquée par `requireClientEstablishment(need)`
+  et `requireEstablishmentAccess(id, need)` — `need` obligatoire. Seule la DIRECTION gère les
+  accès de SA structure (`/dashboard/client/parametres`) ; un retrait **désactive** le lien
+  (`revokedAt`), jamais de suppression, et les gardes ignorent un lien retiré. EODA n'est
+  jamais un rôle client. Messages / rendez-vous ouverts aux trois rôles de bureau, fermés à
+  l'intervenant : choix de N9, à confirmer.
+- **Équipe et quiz de sensibilisation (lot B, N10).** « Sensibiliser », jamais « former ».
+  `StaffMember` existe sans compte (rotation), ne se supprime pas (`active`/`leftAt`). Les
+  questions sont du CONTENU versionné (`content/quiz/`, provisoires, à valider par Sandrine)
+  — corriger une question incrémente `version`. `QuizAttempt` est append-only ; « À jour /
+  À refaire / Pas fait » se DÉRIVE (`quiz-status-service.ts`, retest 6 mois). La seule route
+  publique nouvelle est `/quiz/[token]` (`classifyPath` dans `lib/auth/routes.ts`, testé) :
+  jeton 256 bits jamais stocké (empreinte SHA-256 comparée en temps constant), usage unique
+  posé atomiquement, 72 h, limitation de débit par IP, rien d'autre que le nom de la
+  structure et le quiz sans ses réponses. QR code rendu côté serveur (`qrcode-generator`
+  épinglé, aucune dépendance), pas de SMS. L'alerte d'échéance (D12) est une tâche
+  `ActionItem` source QUIZ créée **idempotemment au chargement** de l'onglet par un rôle qui
+  écrit — pas d'horloge ni de cron (aucun n'existe sur Vercel ici).
+- **Terrain (lot C, 14/10/2026) — construit, verrouillé HDS** (§6, ADR 20261014). Module
+  client `TERRAIN` (direction + responsable qualité ; administratif et intervenant : aucun ;
+  cabinet : `STRUCTURES_READ`, en lecture) : `/dashboard/client/personnes` (dossiers, tablettes
+  et codes), `/dashboard/client/enquetes` (statistiques AGRÉGÉES, jamais nominatives ; plan
+  d'action PROPOSÉ sous 75 %, `ActionItem` source `ENQUETE` recalculé côté serveur ; export
+  CSV agrégé `/api/export/enquete/[id]`), onglets `personnes` / `enquetes` de la fiche —
+  l'onglet cabinet `personnes` n'affiche **que des agrégats** (nombre de personnes,
+  feuilles de réception à jour / à remettre ou à renouveler, enquêtes faites, échéances ;
+  `beneficiary-aggregate-service.ts`), jamais de liste nominative (§6) ; l'onglet cabinet
+  `enquetes` n'affiche **aucun commentaire libre** (idées, propositions sur le règlement —
+  un texte libre peut contenir un nom ; décision de Damon du 14/10/2026) : retirés côté
+  serveur par `getSurveyBoard` (`withoutFreeTexts`), la structure les garde.
+  **Tablette** `/tablette` (route ANONYMOUS de `classifyPath`) : « jamais un code seul » —
+  appareil enregistré par la structure (`DeviceEnrollment`, jeton en cookie httpOnly,
+  empreinte seule en base) + fiche salarié + code de 6 chiffres (`StaffPin`, scrypt, blocage
+  au 5e échec, déblocage par la direction), session signée de 30 min ; gardes
+  `resolveTabletDevice` / `resolveTabletSession` dans `guards.ts`. Les écritures usager
+  (`lib/actions/terrain-write.ts`) vérifient la garde PUIS le verrou avant même de lire le
+  formulaire. Le parcours se montre sur `/tablette/demonstration` (en mémoire, données
+  fictives, aucun appel serveur) — ne jamais y brancher d'action. Questionnaires = contenu
+  versionné (`content/enquete/`, transcription du gabarit de Sandrine) ; points « à dire » de
+  la feuille de réception **provisoires**. Signature : PNG final seul, jamais le tracé.
 - Le suivi de mission (checklist diagnostic 12 items + 4 phases d'accompagnement, §7 du même
   fichier) est également intégré, sous `/dashboard/cabinet/etablissements/[id]/mission` —
-  accessible à `CABINET_ADMIN` **et** `CABINET_EVALUATOR` (contrairement au pipeline commercial
-  ci-dessus) car c'est du suivi opérationnel d'accompagnement, pas de la donnée financière. La
+  lisible par `CABINET_ADMIN`, `CABINET_EVALUATOR` et `CABINET_READONLY` (contrairement au
+  pipeline commercial ci-dessus) car c'est du suivi opérationnel d'accompagnement ; sa carte
+  « Périmètre contractuel » (montants) reste à l'administration. La
   formule contractuelle qui gouverne le périmètre d'une mission (§7.3 — verrouillage
-  Consolidation/Préparation finale hors Excellence ou bêta-test gratuit) vit sur `Mission.formule`,
+  Suivi/Préparation finale hors Excellence ou bêta-test gratuit) vit sur `Mission.formule`,
   pas sur `Establishment.commercialTier` (resté hardcodé `BETA`, affichage/historique
-  uniquement) — ne jamais dupliquer cette décision sur les deux modèles. **Corollaire depuis le
-  20/08/2026** : les options souscrites vivent elles aussi sur la mission (`MissionOption`,
+  uniquement) — ne jamais dupliquer cette décision sur les deux modèles.
+  **Quatre ÉTAPES affichées (décision 3 des maquettes v2, corrigée par Damon le
+  10/10/2026), affichage seulement** : Diagnostic / Mise en conformité / Suivi /
+  Préparation finale. Elles ne correspondent PAS une à une aux phases stockées (le
+  renommage du 09/10 appelait `FONDATIONS` « Diagnostic », en double avec la checklist) :
+  étape 1 Diagnostic = la checklist `DIAGNOSTIC` (12 items, sans dates) ; étape 2 Mise en
+  conformité = `FONDATIONS` + `DEPLOIEMENT` regroupées (début de la première, fin de la
+  seconde, état dérivé des deux) ; étape 3 Suivi = `CONSOLIDATION` ; étape 4 =
+  `PREPARATION_FINALE`. Chaque phase stockée reste éditable sous son étape (« Mise en
+  conformité — fondations » / « — déploiement »). Sources uniques : `MISSION_STEPS`,
+  `stepPercent` et `PHASE_LABELS` (`mission-progress-service.ts`) ; frise dans
+  `structure-sheet-service.ts`. Ne jamais renommer l'enum ni les colonnes
+  `fondationsStartDate`… : ce serait une migration destructive pour un mot.
+  **Corollaire depuis le 20/08/2026** : les options souscrites vivent elles aussi sur la mission (`MissionOption`,
   peuplée à la signature par `lib/actions/conversion.ts`). Les `DevisOption` restent le
   **document commercial** — ils font contrat et ne se réécrivent jamais — et servent de repli
   de lecture pour les missions antérieures à cette bascule.
@@ -285,7 +511,56 @@ Détail complet et état d'avancement : `specs/02-architecture-technique.md` §4
   commerciaux — et redemandait FINESS / adresse / échéance HAS **avant** qu'aucune
   relation commerciale n'existe. Un seul chemin : prospect → devis → signature. Si le
   besoin « client déjà signé hors plateforme » revient, il passe par un prospect et un
-  devis, jamais par une seconde porte.
+  devis, jamais par une seconde porte. **Libre-service (décision du 08/10/2026, implémenté
+  le 13/10/2026)** : une structure qui s'inscrit seule et fait le diagnostic devient un
+  **prospect** (`AcquisitionChannel.LIBRE_SERVICE`), visible du cabinet pour être
+  démarché — **pas** une fiche client. La fiche client naît toujours et seulement de la
+  signature. Concrètement :
+  - routes publiques `/` (landing) et `/inscription` (trois étapes) — liste EXACTE dans
+    `classifyPath` (`lib/auth/routes.ts`, testée), CSP à nonce comme partout ; un visiteur
+    connecté est renvoyé à son espace. `signUpSelfService` (`lib/actions/self-service.ts`) :
+    débit sur l'IP **et** l'adresse, validation serveur des trois étapes
+    (`self-service-service.ts`), **même réponse** que l'adresse ait un compte ou non (même
+    coût bcrypt, e-mail différent ; depuis le 14/10, création du compte et envois
+    **déférés par `after()`** des deux côtés — aucune fuite de durée, test), un seul cabinet en base sinon inscription fermée.
+    Crée `Prospect` + `User` au rôle **`PROSPECT_USER`** + lien `ProspectAccount` ;
+  - `PROSPECT_USER` n'a **aucune capacité** : toutes les gardes le refusent par
+    construction ; `requireProspectSession()` (`guards.ts`) résout le prospect depuis le
+    LIEN, jamais depuis un identifiant reçu ; `portalRedirectFor` (middleware) le
+    cantonne à `/espace` et en tient tout autre rôle à l'écart ;
+  - espace `/espace` : diagnostic **déclaratif** (questions `content/pratiques/` par
+    impératif du profil, table `ProspectPracticeAnswer` **distincte** de `PracticeAnswer`,
+    qui reste rattachée à un établissement), liste de travail estimée DÉRIVÉE
+    (`prospect-diagnostic-service.ts`), « Être accompagné » = `Appointment` R1 au statut
+    **`DEMANDE`** (préférence libre jour + moment, aucun agenda de disponibilités) + alerte
+    au cabinet par le port e-mail **sans** le message. **Aucun dépôt de document** avant
+    la signature — c'est dit à l'écran. Le cabinet confirme une demande ; il ne pose
+    jamais `DEMANDE` lui-même ;
+  - le cabinet voit l'AVANCEMENT et l'activité d'une structure inscrite, jamais le contenu
+    de ses réponses (tableau Prospects, fiche « en autonomie » `SelfServicePanel`).
+  - **adresse confirmée avant toute ouverture** (tranche 11, décision de Damon) : le
+    compte naît avec `User.emailVerifiedAt` à null ; l'e-mail porte un lien
+    `/confirmer-email/<jeton>` (route ANONYMOUS, empreinte SHA-256 seule en base dans
+    `EmailVerificationToken`, temps constant, usage unique, 24 h, débit limité — socle
+    `lib/security/one-time-token.ts` partagé avec le quiz). La page ne confirme
+    **qu'au clic** (un scanner de messagerie ne consomme pas le jeton). `authorize()`
+    refuse, APRÈS bcrypt, un compte qui a un `ProspectAccount` et pas d'adresse
+    confirmée (`isEmailVerificationPending`) ; l'écran le dit et propose « renvoyer le
+    lien » (`resendVerificationLink` : même réponse que l'adresse existe ou non, travail
+    réel dans `after()`). Un compte créé par le cabinet n'est **jamais** concerné.
+    Sans Resend, l'écran dit « e-mail non envoyé en local » et, **en développement
+    seulement** (`confirmationLinkDisclosure`, testé), montre le lien — jamais en
+    production ;
+  - **bascule à la signature** (tranche 11) : `convertDevisToClient` fait des comptes
+    encore `PROSPECT_USER` du prospect des `CLIENT_USER` rattachés à la fiche créée
+    (`accessRole = DIRECTION`, poste `AUTRE` — non deviné), **dans la transaction**
+    de signature (`lib/db/promote-prospect-accounts.ts`, règle pure
+    `selectAccountsToPromote`), une trace `PROSPECT_ACCOUNT_PROMOTED` par compte.
+    L'écran de signature l'annonce avant le clic et ne propose plus d'inviter la même
+    personne. Un prospect démarché sans compte n'est pas touché. La session encore
+    « prospect » est fermée par `requireProspectSession` avec un motif
+    (`prospectSpaceExitPath`) ; à la reconnexion, `/espace` renvoie au portail client.
+    La bascule ne lève pas l'exigence d'adresse confirmée.
 - **L'état d'une fiche est DÉRIVÉ, jamais stocké** — `lib/services/lifecycle-service.ts`
   (pur, testé). `SIGNE` / `EN_COURS` se calculent à partir des faits (items de
   diagnostic cochés, dates de phases posées) ; `TERMINE` vient de `Mission.closedAt`,
@@ -295,16 +570,28 @@ Détail complet et état d'avancement : `specs/02-architecture-technique.md` §4
   jamais mise à jour, elle annonçait « Bêta-test gratuit » à des clients payants.
   Le bêta-test (`Mission.gratuit`) est un **attribut orthogonal**, pas une étape : une
   mission gratuite peut être signée, en cours ou terminée.
-- **Les KPI de portefeuille se dérivent des mêmes faits que les badges d'étape** —
-  `lib/services/portfolio-kpi-service.ts` (pur, testé), conversion dans
-  `lib/db/to-portfolio-row.ts`. Un compteur qui recalculerait l'état à sa façon
-  finirait par contredire la fiche qu'il compte. Ne jamais compter une formule
-  depuis `Establishment.commercialTier` : c'est `Mission.formule`. Corollaire :
-  `getProspectKpiCounts` ne compte dans `byStatus` que les prospects **non
-  convertis** (`establishmentId: null`) — un prospect converti garde `SIGNE` à vie
-  et serait sinon compté deux fois dans l'entonnoir unifié, une fois en « Signé »
-  et une fois à l'étape réelle de sa mission. `byStructureType` reste sur tous les
-  prospects : c'est une lecture de marché, pas une photo du pipeline.
+- **Les indicateurs commerciaux se dérivent des faits, jamais d'un compteur stocké.**
+  Depuis le 13/10/2026 (maquette v2, demande de Damon : « le nouveau design est
+  meilleur »), la vue d'ensemble commerciale est l'entonnoir en **cinq cartes**
+  (Inscrites seules → Diagnostic terminé → Appel réservé → Devis en cours → Signés dans
+  l'année), le bloc **« À faire »** (appel à préparer, devis envoyé depuis > 7 jours —
+  dernier envoi tiré du journal `DEVIS_EMAIL_SENT`/`DEVIS_REMINDER_SENT` —, brouillon à
+  finir, structure inscrite inactive depuis 10 jours) et les **abonnements actifs** par
+  formule de MISSION — `commercial-overview-service.ts` (pur, testé). Les prospects
+  démarchés entrent dans l'entonnoir à « Devis en cours ». Seuls les prospects **non
+  convertis** sont lus (un prospect converti garde `SIGNE` à vie). **Le kanban par étape
+  est retiré** (et avec lui `FunnelChart`, `getProspectKpiCounts`) : le tableau
+  « Prospects » le remplace, avec le filtre **Origine** (libre-service / démarché — la
+  maquette ne montrait que le libre-service) ; l'étape commerciale se change sur la
+  fiche, la grille de découverte y reste. Côté **portefeuille**, un seul compteur
+  survit : « Évaluations HAS dans moins de 6 mois » de l'accueil cabinet
+  (`countUpcomingHasEvaluations`, `portfolio-kpi-service.ts`, nourri par
+  `to-portfolio-row.ts` depuis les fiches que `getStructuresOverview` charge déjà) ;
+  les agrégats que plus aucun écran n'affichait (clients actifs, accompagnements en
+  cours, bêta actives, missions par formule, entonnoir unifié) ont été **supprimés**
+  en tranche 11 — l'étape d'une fiche se dérive toujours de `lifecycle-service.ts`, et
+  un futur compteur s'y adosse plutôt que de recalculer l'état. Ne jamais compter une
+  formule depuis `Establishment.commercialTier` : c'est `Mission.formule`.
 - 🎨 **Le logo ne se redessine pas.** Assets officiels dans `apps/web/public/`
   (`logo-eoda.png` = bloc complet pour fonds clairs, `marque-eoda.png` = rond pour
   fonds sombres), servis par `components/layout/EodaLogo.tsx`. Source :
@@ -320,9 +607,16 @@ Détail complet et état d'avancement : `specs/02-architecture-technique.md` §4
   d'EODA sur ces documents ; sans logo, c'est le NOM de la structure qui est écrit —
   jamais un emplacement vide.
 - **Ce qu'on réclame au client n'est pas tout ce qu'on produit pour lui.**
-  `DocumentType.requestedFromClient` sépare les deux (cinq documents réclamés avant
-  la visite, ~24 produits par EODA). Le portail client n'affiche que les types
-  réclamés **plus** ceux dont un document existe déjà. Ne jamais « rétablir » la
+  `DocumentType.requestedFromClient` sépare les deux (les **sept** documents de la loi
+  2002-2 réclamés depuis la migration du 10/10/2026 — décision du 15/09 —, le reste
+  produit par EODA). Le portail client n'affiche que les types réclamés **plus** ceux
+  dont un document existe déjà **ou** que la structure a déclarés absents.
+  **« Je ne l'ai pas » n'est pas « non concerné »** (N3, `missing-answer-service.ts`) :
+  le document reste MANQUANT, à produire (fait « déclaré absent » =
+  `statusOverriddenByUser` sur un MISSING, aucun nouvel état), il quitte les relances et
+  entre dans la liste de travail dérivée ; « non concerné » est refusé côté serveur sur
+  les sept documents de la loi 2002-2, et un ancien « Non » sur ceux-ci se relit comme
+  « Je ne l'ai pas » sans réécrire la base. Ne jamais « rétablir » la
   liste complète côté client : demander les 29 à une structure qui fait appel à EODA
   parce qu'elle ne les a pas, c'est lui remettre le travail qu'elle a acheté. La
   liste exacte est modifiable par `CABINET_ADMIN` depuis la fiche client (elle
@@ -330,8 +624,54 @@ Détail complet et état d'avancement : `specs/02-architecture-technique.md` §4
 - **Le parcours d'un document se dérive, sauf sa validation.** Déposé → analysé → mis
   en conformité → restitué → validé (`lib/services/document-workflow-service.ts`).
   Seul `Document.validatedAt` est stocké : valider engage la parole de l'évaluatrice.
-  Le portail CLIENT garde les statuts simples (manquant / déposé / conforme) — « les
-  deux portails ne regardent pas la même chose » (call du 26/08).
+  **Décision du 08/10/2026 : deux gestes distincts, jamais fusionnés** — EODA marque
+  « relu » (`validatedAt`, parole du cabinet), puis le **client** marque « accepté »
+  (`Document.clientAcceptedAt` / `clientAcceptedByUserId`, action `acceptDocument` de
+  `lib/actions/client-document-acceptance.ts`, depuis le 10/10/2026 — elle ne touche
+  jamais `validatedAt`). Sandrine, 15/09 : « c'est lui qui valide, ce n'est pas moi ».
+  Le client n'accepte que ce qu'on lui a montré (`canClientAcceptDocument` : relu par EODA
+  en accompagné ; l'analyse affichée sous la réserve en autonomie) ; une version déposée
+  après l'acceptation la rend caduque, ce qui se DÉRIVE (`isAcceptanceCurrent`). Le
+  portail CLIENT a son propre vocabulaire, dérivé (`client-documents-view-service.ts`) :
+  « À déposer », « Reçu, en cours », accompagné « Relu par EODA » → « Accepté par vous »,
+  autonomie « À vérifier par vous » → « Accepté par vous · non revérifié par un humain »
+  — « les deux portails ne regardent pas la même chose » (call du 26/08). Côté cabinet,
+  « À rédiger · EODA » / « Chez la structure » sont dérivés (`deriveMissingOwner`).
+- **« Voir » montre le DOCUMENT, jamais ce que l'IA en a lu** (décision de Damon,
+  16/10/2026). L'aperçu d'un `.docx` affichait le texte extrait — un texte, pas une
+  pièce. Désormais tout document déposé est converti côté serveur en PAGES puis rendu
+  par le lecteur PDF du navigateur (vignettes, « n / N », zoom, rotation) : aucun
+  visualiseur écrit à la main, aucun kilo-octet de bundle, et le **même artefact** sert
+  l'aperçu et l'export PDF (deux artefacts auraient divergé — ce que Sandrine voit ne
+  serait plus ce qu'elle envoie). Chaîne : `lib/services/printable-html-service.ts`
+  (HTML autonome + nettoyage), `document-pdf-render-service.ts` (conversion puis
+  Chromium), `document-pdf-service.ts` (cache), routes
+  `/api/documents/[versionId]/pdf` et `/api/templates/versions/[versionId]/pdf`.
+  Quatre règles à ne pas casser :
+  - **le type se décide par SIGNATURE**, jamais par l'extension ni par `File.type`
+    (un `.docx` qui n'en est pas un rend `null`, donc « aperçu indisponible » — pas des
+    pages vides) ; le prédicat sur le nom (`canRenderDocumentPages`) ne sert qu'à
+    afficher ou non les boutons ;
+  - **le fichier est hostile** : `sanitizeExtractedHtml` retire script, `on*`, styles et
+    ressources distantes, et Chromium rend avec le réseau COUPÉ (seuls `data:` et
+    `about:` passent) — la requête partirait sinon du réseau de l'hébergeur, où
+    `169.254.169.254` répond ;
+  - **l'aperçu le DIT quand il n'est pas fidèle** (en-têtes, pieds de page, colonnes,
+    mise en forme Excel) : c'est la même doctrine que la réserve de l'IA ;
+  - **ce qui est dérivé disparaît avec sa source** : `deleteDocumentVersion` supprime le
+    rendu en cache (`deleteCachedDocumentPdf`), et un cache illisible ou de signature
+    invalide n'est jamais servi — il est refait.
+  Le PDF **du document** (`?download=1`, bouton « PDF ») existe là où la structure
+  remet une pièce (checklist, `/dashboard/client/livrables`) ; la bibliothèque de
+  modèles a l'aperçu paginé et laisse le téléchargement au lecteur natif.
+  **Chromium en développement** : le repli embarqué est `@sparticuz/chromium`, un
+  binaire **Linux** (AL2023) — sur un poste macOS il ne démarre pas (`spawn ENOEXEC`,
+  mesuré le 16/10/2026). Poser `PUPPETEER_EXECUTABLE_PATH` dans `.env.local` (chemin
+  d'un Chrome installé, cf. `.env.example`) pour tester l'aperçu et les PDF en local ;
+  en production la variable reste vide. Le lancement enveloppe son échec
+  (`ChromiumLaunchError`, cause conservée, recours nommé) et l'aperçu **ne propose
+  jamais de réessayer** sur cet échec-là : réessayer redonne le même — même règle que
+  `devis-pdf-failure.ts`. Jamais le détail technique à l'écran.
 - **Chacun ne supprime que son propre dernier dépôt** (`canDeleteVersion`). Le cabinet
   ne peut pas effacer une pièce déposée par le client — demande explicite de Sandrine,
   risque juridique autant que mauvaise manip — et aucune version antérieure n'est
@@ -346,6 +686,26 @@ Détail complet et état d'avancement : `specs/02-architecture-technique.md` §4
   refuse un appelant client. Une mention de réserve à l'écran NE remplace PAS cette
   revue : EODA engage sa parole professionnelle sur ce qu'elle restitue, sur des
   documents qui seront présentés à la HAS.
+  **Mode seul / accompagné — implémenté le 10/10/2026 (tranche N1)** (évolution de
+  `context/09-vision-produit.md` §4.2, décisions Damon du 30/09 et du 08/10). Le mode est
+  un FAIT de la mission, `Mission.supportMode` (`AUTONOMIE` | `ACCOMPAGNE`, migration
+  `20261010120000_support_mode_client_acceptance`, défaut `ACCOMPAGNE` pour toutes les
+  missions existantes). Posé à la signature par `convertDevisToClient` selon la formule
+  (`defaultSupportModeForOffer`, `lib/services/support-mode-service.ts` : Excellence et
+  bêta-test = accompagné, Essentiel / Performance = autonomie), modifiable ensuite par
+  `CABINET_ADMIN` seul depuis l'onglet Mission (`lib/actions/mission-support-mode.ts`).
+  **Jamais déduit de `commercialTier`.** Sans mission : règle stricte
+  (`STRICT_SUPPORT_MODE`). `analysisVisibleTo(audience, version, mode)` prend le mode en
+  paramètre **obligatoire** et reste appliqué une seule fois dans `lib/actions/checklist.ts` :
+  accompagné = règle stricte ci-dessus, inchangée ; autonomie = la structure voit l'analyse
+  non relue, **toujours** sous la réserve. Les mentions viennent d'**un seul** service,
+  `lib/services/review-mention-service.ts` (`AUTONOMY_RESERVE` : « Non revérifié par un
+  humain : peut comporter des erreurs. À relire absolument. » ; `describeReviewMention` :
+  « Relu par EODA, le JJ/MM ») — à l'écran (`ChecklistItem.currentVersion.clientMention`),
+  dans l'export Word du brouillon (`reviewMention` de `markdown-to-docx-service`) et dans
+  tout futur e-mail qui annonce un document (`documentAnnouncementMention` ; aucun n'existe
+  au 10/10). Jamais « Relu par Sandrine », jamais « validé » ni « conforme » côté client
+  sans relecture.
 - **La fin de mission ne supprime rien, et la clôture ne coupe rien.** Trois états
   d'accès dérivés de deux faits (`Mission.closedAt`, `Mission.clientAccessRevokedAt`)
   par `lib/services/mission-access-service.ts` : `ACTIVE` / `LIBRARY` (lecture seule)
@@ -365,11 +725,24 @@ Détail complet et état d'avancement : `specs/02-architecture-technique.md` §4
   est effacée si la valeur cesse d'être `AUTRE`. Même principe pour la civilité et la
   fonction : elles ne se recopient jamais dans `contactName`, un nom qui contient sa
   civilité ne se trie ni ne s'adresse.
-- **Le partage d'un devis ne passe par aucun envoi serveur** (décision Damon,
-  26/08/2026) : `mailto:` pré-rempli + téléchargement via la vue imprimable, nommé
-  selon la convention EODA (`devis-sharing-service.ts`). Ne pas « améliorer » en
-  ajoutant un jeton de partage public ou un moteur PDF sans que ce soit redemandé —
-  c'est une route publique et une dépendance lourde, pour un service déjà rendu.
+- **Le devis part par un vrai e-mail, PDF joint** (depuis le 22/09/2026, commit
+  `6ffeff6`, qui remplace la décision « `mailto:` seulement » du 26/08 après le retour
+  « préparer l'e-mail n'envoie pas l'e-mail »). Le PDF est produit en naviguant vers
+  `/imprimer/devis/[id]` — la même page que « Télécharger » — par Chromium headless
+  (`devis-pdf-service.ts`), envoyé via Resend (`email-port.ts`), Sandrine en copie ; le
+  corps du mail ne recopie pas les montants (le PDF fait foi) ; l'envoi passe le devis
+  BROUILLON → ENVOYE et se journalise (`DEVIS_EMAIL_SENT`). Toujours **pas de jeton de
+  partage public** : aucune route publique pour consulter un devis, aucune signature en
+  ligne (la maquette en montrait une : écart assumé). **Devis par abonnement (maquette
+  v2, 13/10/2026)** : engagement `Devis.commitmentMonths` (12, 24, 0 = sans engagement ;
+  null = devis antérieur), prix mensuel de l'offre `CatalogueFormule.monthlyPriceEuros`
+  (null = « à partir de xx € / mois », jamais un montant inventé) **snapshoté** sur le
+  devis, note pour la structure `Devis.clientNote` (e-mail + PDF). Le récapitulatif range
+  en « Par mois » / « Ponctuel » (`devis-recap-service.ts`) **sans toucher** aux totaux ni
+  à l'acompte (`devis-calculation-service`), ni à la dégressivité. La **relance** d'un
+  devis envoyé est un geste (`remindDevis`, `lib/actions/devis-email.ts`), journalisé
+  `DEVIS_REMINDER_SENT`, sans pièce jointe ni montant ; `NOT_CONFIGURED` n'est jamais
+  compté comme parti.
 - **`StructureType` (statut juridique) et `EstablishmentType` (type SAD) sont deux axes
   indépendants**, portés par `Prospect` *et* `Establishment` pour le premier. Le support
   commercial les aligne sur une même ligne (« SAD Aide · SAD Mixtes · Associations loi
@@ -406,10 +779,20 @@ Détail complet et état d'avancement : `specs/02-architecture-technique.md` §4
   Sandrine).
 - **La grille de découverte est un CONTENU, pas un schéma** (`content/decouverte/`,
   réponses en `Prospect.discoveryAnswersJson` lues défensivement). Ajouter une
-  question ne doit jamais demander une migration. Le gabarit officiel de Sandrine
-  n'est pas dans le dépôt : les questions livrées sont provisoires et annoncées comme
-  telles à l'écran. **L'ouverture de cette grille au client n'est pas tranchée** —
+  question ne doit jamais demander une migration. Les questions sont la
+  transposition de SA grille v03 (transmise le 01/09, provenance en tête de
+  `grille.ts`), et non plus un gabarit d'attente. **L'ouverture de cette grille au
+  client n'est pas tranchée** —
   `CABINET_ADMIN` uniquement jusqu'à décision explicite.
+- **« Contenus à valider » se LIT depuis `content/`, il ne se recopie pas**
+  (`/dashboard/cabinet/contenus`, décision de Damon du 14/10/2026 ; capacité
+  `CONTENT_REVIEW` = `CABINET_ADMIN` + consultante). Quiz, questions sur les
+  pratiques, questionnaires d'enquête, grille de découverte et points « à dire » de
+  la feuille de réception, versionnés, chacun marqué « provisoire, à valider par
+  Sandrine » ; export Word ou CSV (`/api/export/contenus?format=docx|csv`) pour
+  l'annotation hors ligne. Un seul catalogue (`content-review-service.ts`, pur) sert
+  l'écran et les deux exports. Lecture seule : une correction se fait dans
+  `content/`, en augmentant la version.
 - **La bibliothèque de modèles se range avec les mots de Sandrine, pas ceux du
   référentiel.** Le dossier est une ligne de `TemplateCategory` créée à la main,
   ordonnée à la main — jamais l'enum `DocumentCategory`, qui classe les pièces
@@ -419,9 +802,11 @@ Détail complet et état d'avancement : `specs/02-architecture-technique.md` §4
   03/09). Le tri est manuel parce que ses dossiers suivent le déroulé d'une
   mission — l'alphabet mettrait « Phase 10 » avant « Phase 2 ».
   Deux natures de fiches, et elles n'obéissent pas aux mêmes règles
-  (`TemplateDocumentKind`) : un **GABARIT** a les trois stades et des numéros de
-  version ; un **document de RÉFÉRENCE** — manuel HAS, texte réglementaire — n'en
-  a aucun (« lui n'aura pas forcément plusieurs versions »). D'où
+  (`TemplateDocumentKind`) : un **GABARIT** a des stades et des numéros de
+  version — **deux stades seulement**, `VIERGE` (le modèle) et `FINALE` (la version
+  produite par EODA) ; la version « initiale » n'existe plus côté cabinet, c'est le
+  document que le **client** dépose sur son portail (décision des 15 et 20/09) ; un
+  **document de RÉFÉRENCE** — manuel HAS, texte réglementaire — n'en a aucun (« lui n'aura pas forcément plusieurs versions »). D'où
   `TemplateVersion.stage` et `versionLabel` nullables : l'obligation dépend du
   parent, la base ne sait pas l'exprimer, elle vit dans `resolveVersionIdentity`
   avec ses tests. Ne jamais convertir une fiche d'une nature à l'autre : les
@@ -442,8 +827,12 @@ Détail complet et état d'avancement : `specs/02-architecture-technique.md` §4
   cotations. L'ouverture est un geste explicite. C'est ce qui rend la seconde
   auto-évaluation comparable à la première (`evaluation-comparison-service.ts`, où un
   critère coté d'un seul côté est `INCOMPARABLE` et jamais un écart de ±4).
-- **Les relances sont un geste, pas un automate.** Délais et cadence n'ont jamais été
-  spécifiés (§12.7) : ne pas en inventer. Une pièce déjà justifiée par le client n'est
+- **Les relances sont un geste, pas un automate — les alertes d'échéance, si.**
+  (Distinction actée par Damon le 08/10/2026.) La **relance d'une pièce manquante** reste
+  manuelle. L'**alerte d'échéance** d'un document récurrent (DIPC annuel, projet de
+  service à 5 ans, retest de quiz à 6 mois — `03-documents-obligatoires.md`, périodicités)
+  part **automatiquement** : ce n'est pas une relance, c'est un rappel de calendrier. Pour
+  les relances : délais et cadence n'ont jamais été spécifiés (§12.7) : ne pas en inventer. Une pièce déjà justifiée par le client n'est
   jamais relancée, ni un document que le cabinet doit produire
   (`reminder-service.ts`). Les destinataires viennent du lien `EstablishmentUser`,
   jamais d'une adresse saisie.
@@ -453,6 +842,109 @@ Détail complet et état d'avancement : `specs/02-architecture-technique.md` §4
   il peut évoquer des situations de personnes accompagnées, et le fil existe pour que
   les échanges restent dans la plateforme. Le client garde la parole en bibliothèque ;
   seul un accès révoqué ferme le fil.
+- **Les documents finaux validés sont la base d'exemples de l'IA — jamais du code.**
+  Les livrables validés de l'ASSAD BENOIT (et ensuite de chaque client) servent de
+  référence à la mise en conformité pour **tous** les clients : c'est voulu, et c'est
+  pour ça qu'ils obéissent à des règles plus dures qu'un dépôt ordinaire
+  (`context/10-regles-mise-en-conformite.md` §9). Ils n'entrent **jamais** dans le dépôt
+  de code (ni fixture, ni `content/`) — par la bibliothèque de modèles seulement, en
+  stade `FINALE` ; ils sont **anonymisés avant dépôt** (`anonymizeText` ne masque
+  qu'e-mails, téléphones et NIR : il ne suffit pas) ; aucune pièce nominative (DIPC
+  signé, PAP) n'en fait partie (HDS) ; ils sont injectés dans le prompt comme **donnée**
+  balisée, jamais comme instruction ; et on ne va jamais chercher d'exemple dans les
+  `Document` d'un autre établissement. Chaque paire « original → version validée »
+  rejoint le jeu d'évaluation rejoué à tout changement de prompt ou de modèle (09 §6.3).
+- **Un devis peut n'avoir AUCUNE offre** (prestations à la carte seules — décision du
+  01/09, livrée le 11/10/2026) : formule et snapshots du devis nullables, au moins une
+  prestation exigée (`devisContentError`). La mission qui en naît a `formule = null` →
+  palier `SANS_OFFRE` (`offer-scope-service`) : socle loi 2002-2 + impératifs, **mode
+  accompagné**, **aucun droit de génération**. Ne jamais lui inventer une formule.
+- **La matrice type de document → critère ne s'écrit que par l'écran**
+  `/dashboard/cabinet/criteres` (CABINET_ADMIN, spec 04) — jamais par seed ni migration.
+  La proposition du 08/10 y est embarquée et vérifiée contre sa source ; seuls les
+  critères **proposés et présents en base** sont décidables (`planMatrixDecision`).
+- **« Prouvé » est dérivé, jamais stocké, jamais « conforme »**
+  (`criteria-proof-service`) : tous les documents attendus d'un critère relus par EODA
+  (`validatedAt` postérieur à la version courante, structure accompagnée) ou acceptés
+  par la structure (autonomie). Un SAD aide ne voit jamais un critère `SAD_MIXTE`
+  (`criterion-applicability-service`, une seule règle pour l'auto-évaluation, la
+  comparaison et critères & preuves).
+- **Tâches = plan d'action : un seul modèle, `ActionItem`** (N5), quelle que soit la
+  source (saisie, PAC, document, diagnostic…). « En retard » se DÉRIVE
+  (`action-item-service`), jamais de colonne. Un client ne voit que les tâches confiées
+  à la structure, n'agit que sur celles de la structure ou les siennes, ne confie
+  jamais à EODA ; mission close = lecture seule ; accès révoqué = rien. Le journal porte
+  la source et le côté, **jamais le titre**. Le PAC « Générer depuis l'auto-évaluation »
+  **propose** (une action par critère coté sous 4, verbe + document, pilote = une
+  fonction) et n'écrit que ce que le cabinet coche, recalculé côté serveur.
+- **« Mon diagnostic » se DÉRIVE, ses deux gestes se stockent** (N6,
+  `diagnostic-service`, `diagnostic-validation-service`). Prouvé / En partie / Sans
+  preuve et les 3 actions prioritaires (impératifs sans preuve × documents attendus) se
+  lisent des critères & preuves. `DiagnosticValidation` porte la PHOTO relue
+  (`snapshotJson`) et deux faits jamais fusionnés : « relu par EODA » (cabinet,
+  accompagné seulement) puis « accepté » (structure) ; en autonomie, la structure
+  accepte seule sous la réserve. Une photo dont l'empreinte ne correspond plus au
+  diagnostic courant n'est plus « à jour » — dérivé, aucune remise à zéro.
+- **Les questions sur les pratiques sont un CONTENU** (`content/pratiques/`, N7), une
+  par impératif, versionnées question par question ; **provisoires tant que Sandrine
+  ne les a pas validées**. `PracticeAnswer` est append-only, la version relue côté
+  serveur, le journal ne recopie jamais le texte libre.
+- **Mettre en conformité = une PROPOSITION structurée, décidée ajout par ajout** (N8).
+  Le modèle rend des segments ORIGINAL / AJOUT (`lib/llm/correction-proposal.ts`,
+  validés par schéma ; code de critère inconnu et citation du manuel introuvable
+  retirés). Le cahier de style est injecté depuis `content/regles-redaction/` — ne
+  jamais le recopier dans un prompt. « Enregistrer la version N+1 » crée une NOUVELLE
+  `DocumentVersion` liée par `regeneratedFromVersionId` (l'originale est conservée) et
+  fige les décisions sur `CorrectionProposal` ; un ajout sans décision n'entre pas.
+  Structure : écran ouvert en autonomie ET avec `correctionRight` seulement
+  (`canUseComplianceWorkspace`, `correction-context.ts`) ; cabinet : toujours, la
+  génération restant soumise au droit. `generateDocumentDraft` délègue à
+  `generateCorrectionProposal` : une seule porte de génération.
+- **Les exemples validés ne se mélangent jamais au référentiel** (N8, context/10 §9) :
+  `KnowledgeChunk.nature` (`REFERENCE` / `EXEMPLE_VALIDE`), filtre de nature dans
+  chaque lecture, exemples filtrés par tenant ET type de document dans la requête.
+- **Le client est prévenu à la VALIDATION, jamais au dépôt** (27/09/2026). Un e-mail
+  part vers chaque compte actif de l'établissement quand Sandrine valide un document
+  (`setDocumentValidated` → `notifyDocumentAvailable`), ou quand EODA dépose une
+  nouvelle version sur un document DÉJÀ validé (elle devient le livrable
+  sur-le-champ). Un dépôt sur un document non validé ne prévient pas le CLIENT : c'est un
+  travail en cours, l'annoncer serait promettre à la place de la consultante (le cabinet,
+  lui, est prévenu de ce dépôt — règle suivante). Deux
+  libellés : « nouveau livrable » si EODA a produit une version, « document validé »
+  si seule la pièce du client a été jugée conforme. L'e-mail porte l'INTITULÉ du type,
+  jamais le nom de fichier ni le contenu. Dans l'application, la pastille « Mes
+  livrables » se DÉRIVE de `EstablishmentUser.deliverablesSeenAt` (seul fait stocké)
+  par `countNewDeliverables` — pas de table de notifications.
+- **Ce que la STRUCTURE fait, le cabinet l'apprend par e-mail** (16/10/2026, demande de
+  Damon : les deux parties doivent voir ce qui se met à jour). Jusqu'ici le cabinet
+  informait le client, jamais l'inverse. Trois gestes de la structure, et **trois
+  seulement**, partent vers les comptes du cabinet qui SUIVENT la structure : un dépôt de
+  pièce (`DEPOSIT`), une acceptation (`ACCEPTED`), et « je ne l'ai pas »
+  (`DECLARED_MISSING` — ce n'est pas une absence, c'est une commande : le document est à
+  produire, N3). Les autres réponses (« il arrive », « ne nous concerne pas ») ne
+  demandent aucun travail au cabinet : une alerte qui part à chaque clic cesse d'être lue.
+  Une seule fonction d'envoi, `notifyStructureActivity` (`lib/email/notifications.ts`),
+  appelée par `acceptDocument`, par la branche CLIENT de `uploadDocument` et par la
+  branche `DONT_HAVE` de `respondToMissingDocument` — **jamais** par un dépôt du cabinet,
+  qui ne s'annonce pas à lui-même. Les destinataires viennent du périmètre en vigueur
+  (`selectStructureRecipients`, `lib/services/cabinet-recipients-service.ts` :
+  `resolveStructureScope` par rôle et par affectation, compte désactivé exclu, adresses
+  dédupliquées), jamais d'une liste de rôles écrite pour l'occasion — **une commerciale ne
+  reçoit rien**, elle ne voit pas les documents d'une structure. Le tenant est lu depuis
+  l'ÉTABLISSEMENT, jamais reçu d'un appelant ; le message porte l'INTITULÉ du type et
+  renvoie à la fiche, jamais à un fichier. L'envoi ne peut pas faire échouer le geste :
+  l'acceptation est déjà enregistrée quand l'e-mail part. Vérifié par
+  `cabinet-recipients-service.test.ts`, `templates.test.ts`, `document.test.ts`,
+  `client-document-acceptance.test.ts`.
+- **Ce qu'un écran annonce d'un envoi est ce qui est réellement parti.** Le décompte des
+  envois groupés passe par `countDeliveries`, jamais par les promesses simplement tenues :
+  un envoi `NOT_CONFIGURED` (adaptateur console, sans `RESEND_API_KEY`) n'est **pas** un
+  destinataire prévenu. `notifyDocumentAvailable` comptait les promesses tenues et faisait
+  dire « Client prévenu par e-mail (2 personnes) » à l'écran de validation pour un message
+  jamais parti (corrigé le 16/10/2026, révélé par le premier test propre de
+  `lib/email/notifications.ts` — le module n'en avait aucun). Un module d'envoi sans
+  test n'est pas « couvert par les tests d'action » : ces derniers doublent le module,
+  donc ils ne voient rien de ce qu'il fait pour de vrai.
 - Ne pas faire passer un devis à `SIGNE` par `changeDevisStatus` : la signature est la seule
   transition qui produit des effets hors du module commercial (fiche établissement, mission,
   périmètre ouvert au client) et passe par `convertDevisToClient` (`lib/actions/conversion.ts`),

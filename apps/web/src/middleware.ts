@@ -3,7 +3,13 @@ import NextAuth from "next-auth";
 import { authConfig } from "./auth.config";
 import { NextResponse } from "next/server";
 import type { UserRole } from "@eoda/database";
-import { PASSWORD_ROTATION_PATH, ROTATION_EXEMPT_PATHS } from "@/lib/auth/routes";
+import { classifyPath, PASSWORD_ROTATION_PATH, ROTATION_EXEMPT_PATHS } from "@/lib/auth/routes";
+import {
+  capabilityRequiredForPath,
+  hasCabinetCapability,
+  portalRedirectFor,
+  roleHomePath,
+} from "@/lib/auth/capabilities";
 import {
   buildContentSecurityPolicy,
   generateCspNonce,
@@ -15,13 +21,7 @@ import { isProductionRuntime } from "@/lib/config/env";
 
 const { auth } = NextAuth(authConfig);
 
-const PUBLIC_PATHS = ["/login"];
 
-const ROLE_DASHBOARDS: Record<UserRole, string> = {
-  CABINET_ADMIN: "/dashboard/cabinet",
-  CABINET_EVALUATOR: "/dashboard/cabinet",
-  CLIENT_USER: "/dashboard/client",
-};
 
 // CSP à nonce : la politique ne peut plus être un en-tête statique de next.config,
 // puisqu'elle contient une valeur tirée à chaque requête. Elle est donc posée ici,
@@ -45,11 +45,18 @@ export default auth((req) => {
   const csp = buildContentSecurityPolicy({ nonce, isProduction: isProductionRuntime() });
   const session = req.auth;
   const isLoggedIn = !!session;
-  const isPublic = PUBLIC_PATHS.some((p) => nextUrl.pathname.startsWith(p));
+  const access = classifyPath(nextUrl.pathname);
+  const isPublic = access === "AUTH";
+
+  // Quiz par QR code (N10) : public, connecté ou non — aucune redirection, seulement
+  // la CSP à nonce (même chemin de sortie que toute autre page ci-dessous).
+  if (access === "ANONYMOUS") return passThroughWithCsp(req.headers, nonce, csp);
 
   if (!isLoggedIn && !isPublic) {
     const loginUrl = new URL("/login", nextUrl);
-    loginUrl.searchParams.set("callbackUrl", nextUrl.pathname);
+    // Chemin ET paramètres (onglet, filtre) : la connexion ramène exactement à la
+    // page demandée. Relu à l'arrivée par safeCallbackPath (chemin interne seul).
+    loginUrl.searchParams.set("callbackUrl", `${nextUrl.pathname}${nextUrl.search}`);
     return applyCsp(NextResponse.redirect(loginUrl), csp);
   }
 
@@ -67,9 +74,15 @@ export default auth((req) => {
   }
 
   if (isLoggedIn && isPublic) {
-    const role = session.user.role;
-    const dest = ROLE_DASHBOARDS[role] ?? "/dashboard/cabinet";
-    return applyCsp(NextResponse.redirect(new URL(dest, nextUrl)), csp);
+    const role: UserRole = session.user.role;
+    return applyCsp(NextResponse.redirect(new URL(roleHomePath(role), nextUrl)), csp);
+  }
+
+  // Structure inscrite seule (libre-service) : son espace, rien d'autre ; et personne
+  // d'autre n'entre dans /espace.
+  const portalRedirect = isLoggedIn ? portalRedirectFor(session.user.role, nextUrl.pathname) : null;
+  if (portalRedirect) {
+    return applyCsp(NextResponse.redirect(new URL(portalRedirect, nextUrl)), csp);
   }
 
   if (isLoggedIn && nextUrl.pathname.startsWith("/dashboard/cabinet")) {
@@ -83,23 +96,24 @@ export default auth((req) => {
     }
   }
 
-  // Pipeline commercial (prospects/devis/catalogue) — réservé à CABINET_ADMIN,
-  // même un CABINET_EVALUATOR légitimement connecté n'y a pas accès.
-  const ADMIN_ONLY_PREFIXES = ["/dashboard/cabinet/commercial", "/imprimer/devis"];
-  if (isLoggedIn && ADMIN_ONLY_PREFIXES.some((p) => nextUrl.pathname.startsWith(p))) {
-    if (session.user.role !== "CABINET_ADMIN") {
-      return applyCsp(NextResponse.redirect(new URL("/dashboard/cabinet", nextUrl)), csp);
-    }
+  // Modules réservés à une capacité (commercial, équipe EODA, montants d'une
+  // structure) — filet sur le rôle du jeton, la garde de chaque page relit la base.
+  const required = capabilityRequiredForPath(nextUrl.pathname);
+  if (isLoggedIn && required && !hasCabinetCapability(session.user.role, required)) {
+    return applyCsp(NextResponse.redirect(new URL(roleHomePath(session.user.role), nextUrl)), csp);
   }
 
-  // Le nonce voyage vers le rendu par les en-têtes de la requête : c'est ainsi que
-  // Next.js le retrouve pour ses propres scripts.
-  const requestHeaders = new Headers(req.headers);
+  return passThroughWithCsp(req.headers, nonce, csp);
+});
+
+// Le nonce voyage vers le rendu par les en-têtes de la requête : c'est ainsi que
+// Next.js le retrouve pour ses propres scripts.
+function passThroughWithCsp(incoming: Headers, nonce: string, csp: string): NextResponse {
+  const requestHeaders = new Headers(incoming);
   requestHeaders.set("x-nonce", nonce);
   requestHeaders.set("Content-Security-Policy", csp);
-
   return applyCsp(NextResponse.next({ request: { headers: requestHeaders } }), csp);
-});
+}
 
 export const config = {
   // Les assets de MARQUE sont publics : le logo doit se charger dans un e-mail, donc

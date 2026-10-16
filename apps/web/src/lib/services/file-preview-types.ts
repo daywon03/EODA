@@ -6,6 +6,13 @@
 export type FilePreviewData =
   | { kind: "pdf"; url: string; filename: string }
   | { kind: "image"; url: string; filename: string }
+  // Les PAGES du document, produites côté serveur puis affichées par le lecteur PDF du
+  // navigateur (16/10/2026) : c'est l'aperçu d'un `.docx`, d'un `.xlsx` ou d'un `.csv`,
+  // qui n'en ont aucun nativement. Distinct de "pdf" (le fichier déposé, servi tel
+  // quel) parce que l'adresse ne mène pas au même endroit — une route de la
+  // plateforme, pas une URL signée du stockage — et parce que la page y porte la
+  // mention que la mise en page n'est pas reproduite.
+  | { kind: "document"; url: string; filename: string }
   // Rendu formaté (titres, tableaux, images inline si le document en contenait) —
   // pas le texte brut. Distinct de "text" : celui-ci reste réservé au comparateur
   // texte-extrait du cabinet (getExtractedText), qui doit montrer l'extraction

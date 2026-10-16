@@ -1,52 +1,62 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Moon, Sun } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { STORAGE_KEY, applyTheme, resolveInitialTheme, type Theme } from "./theme-storage";
+import { Monitor, Moon, Sun } from "lucide-react";
+import { cn } from "@/lib/utils";
+import {
+  nextThemePreference,
+  themePreferenceLabel,
+  type ThemePreference,
+} from "@/lib/design/theme-preference";
+import { applyThemePreference, readThemePreference, storeThemePreference } from "./theme-storage";
 
-// Bascule clair/sombre manuelle (Damon, 22/09/2026) : jusqu'ici le mode sombre ne
-// suivait QUE la préférence système (globals.css), sans bouton nulle part. Rendu
-// dans AppHeader — le seul bandeau commun aux deux espaces (cabinet ET client),
-// donc un seul composant couvre les deux sans duplication.
+const ICONS: Record<ThemePreference, typeof Sun> = { system: Monitor, light: Sun, dark: Moon };
+
+// Choix du thème (Damon, 22/09/2026), à trois états depuis le 12/10/2026 : clair,
+// sombre, ou celui de l'appareil. Rendu dans l'en-tête des deux coquilles (cabinet
+// et client) : un seul composant pour les deux.
 //
-// `theme` reste `null` jusqu'au montage : le serveur ne connaît ni la préférence
-// système ni le choix stocké en localStorage, donc rien de fiable à rendre avant
-// l'hydratation. Un bouton qui changerait d'icône une frame après le premier rendu
-// serait plus visible qu'un bouton simplement absent le temps du montage.
-export function ThemeToggle() {
-  const [theme, setTheme] = useState<Theme | null>(null);
+// Un seul bouton qui fait le tour des trois états, pour ne pas élargir un en-tête
+// déjà plein. Il affiche l'état EN COURS (« Thème clair ») ; le nom accessible
+// commence par ce texte visible (WCAG 2.5.3) et dit ce que fait le clic. Sur petit
+// écran le texte passe en lecture d'écran seulement, l'icône reste.
+//
+// `preference` reste `null` jusqu'au montage : le serveur ne connaît pas le choix
+// stocké, donc rien de fiable à rendre avant l'hydratation.
+export function ThemeToggle({ className }: { className?: string }) {
+  const [preference, setPreference] = useState<ThemePreference | null>(null);
 
   useEffect(() => {
-    setTheme(resolveInitialTheme());
+    setPreference(readThemePreference());
   }, []);
 
-  function toggle() {
-    const next: Theme = theme === "dark" ? "light" : "dark";
-    setTheme(next);
-    window.localStorage.setItem(STORAGE_KEY, next);
-    applyTheme(next);
+  function cycle() {
+    if (preference === null) return;
+    const next = nextThemePreference(preference);
+    setPreference(next);
+    storeThemePreference(next);
+    applyThemePreference(next);
   }
 
-  if (theme === null) {
-    // Même emplacement, même taille : réserver la place évite un bandeau qui
-    // se redimensionne d'une frame à l'autre au montage.
-    return <span className="inline-block h-11 w-11" aria-hidden="true" />;
+  const base = cn(
+    "inline-flex h-11 min-w-11 items-center justify-center gap-2 rounded-lg border border-line bg-card px-3 text-base text-ink transition-colors hover:border-accent-text",
+    className
+  );
+
+  if (preference === null) {
+    // Même emplacement, même taille : pas de bandeau qui se redimensionne au montage.
+    return <span className={cn(base, "invisible")} aria-hidden="true" />;
   }
 
-  const isDark = theme === "dark";
-
+  const Icon = ICONS[preference];
+  const label = themePreferenceLabel(preference);
   return (
-    <Button
-      type="button"
-      variant="ghost"
-      size="icon"
-      onClick={toggle}
-      className="text-[#F0E8DC] hover:text-[#D69646] hover:bg-white/10"
-      title={isDark ? "Passer en mode clair" : "Passer en mode sombre"}
-      aria-label={isDark ? "Passer en mode clair" : "Passer en mode sombre"}
-    >
-      {isDark ? <Sun className="h-4 w-4" aria-hidden="true" /> : <Moon className="h-4 w-4" aria-hidden="true" />}
-    </Button>
+    // aria-label plutôt qu'un second texte masqué : le menu du compte (ClientShell)
+    // rend visibles les `.sr-only` de ce bouton, et la consigne s'y afficherait.
+    // Le nom commence par le texte visible (WCAG 2.5.3).
+    <button type="button" onClick={cycle} className={base} aria-label={`${label} — changer de thème`}>
+      <Icon className="h-5 w-5 flex-shrink-0" aria-hidden="true" />
+      <span className="sr-only sm:not-sr-only">{label}</span>
+    </button>
   );
 }

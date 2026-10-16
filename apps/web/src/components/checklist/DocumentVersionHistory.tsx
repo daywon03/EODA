@@ -9,7 +9,7 @@ import { DocumentDownloadLink } from "./DocumentDownloadLink";
 import { DeleteDocumentVersionButton } from "./DeleteDocumentVersionButton";
 import { AnalyzeDocumentButton } from "./AnalyzeDocumentButton";
 import { CorrectedDraftPanel } from "./CorrectedDraftPanel";
-import { isImageFile } from "@/lib/services/file-type-service";
+import { canRenderDocumentPages, isImageFile } from "@/lib/services/file-type-service";
 import { INLINE_ACTION_MUTED_CLASS } from "@/components/ui/inline-action";
 
 type Props = {
@@ -85,13 +85,13 @@ function VersionRow({
 }) {
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <p className="flex min-w-0 items-center gap-1.5 text-xs text-gris-mid">
+      <p className="flex min-w-0 items-center gap-1.5 text-xs text-ink2">
         <FileText className="w-3 h-3 flex-shrink-0" aria-hidden="true" />
         <span className="font-medium text-brun-ancre tabular-nums">v{version.versionNumber}</span>
         <span className="truncate">{version.originalFilename}</span>
       </p>
 
-      <p className="text-xs text-gris-mid">
+      <p className="text-xs text-ink2">
         {formatDate(version.uploadedAt)} ·{" "}
         {/* D'où vient la version : c'est ce qui distingue l'original du client du
             travail de mise en conformité. */}
@@ -103,7 +103,7 @@ function VersionRow({
           tourné dessus n'a rien à faire dans cet écran (Damon, 22/09/2026). */}
       {canManageVersions && version.hasAnalysis && (
         <span
-          className="inline-flex items-center gap-1 text-xs text-ambre"
+          className="inline-flex items-center gap-1 text-xs text-amber-text"
           title="Cette version a été analysée"
         >
           <Sparkles className="w-3 h-3" aria-hidden="true" />
@@ -113,7 +113,18 @@ function VersionRow({
 
       <span className="flex items-center gap-3">
         <DocumentPreviewLink documentVersionId={version.id} canViewExtractedText={canManageVersions} />
-        <DocumentDownloadLink documentVersionId={version.id} />
+        <DocumentDownloadLink
+          documentVersionId={version.id}
+          // Même prédicat que celui qui décide de l'aperçu paginé : ce dont on sait
+          // produire les pages s'exporte en PDF. Absent pour un `.doc`/`.xls`, qu'aucun
+          // convertisseur du dépôt ne prend en charge — mieux vaut pas de bouton qu'un
+          // bouton qui répond « aperçu indisponible ».
+          pdfUrl={
+            canRenderDocumentPages(version.originalFilename)
+              ? `/api/documents/${version.id}/pdf?download=1`
+              : null
+          }
+        />
         {/* Réservé au cabinet et à la version courante : réanalyser une version
             reléguée à l'historique écrirait un résultat qui n'appartient plus au
             document tel qu'il se présente aujourd'hui. Absent pour une image :

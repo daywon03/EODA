@@ -2,6 +2,7 @@ import type { PricingUnit } from "@eoda/database";
 import { formatDate } from "@/lib/services/date-format-service";
 import { formatEuros, formatStartingPrice } from "@/lib/services/price-format-service";
 import { optionCommittedAmountEuros } from "@/lib/services/devis-calculation-service";
+import { describeCommitment } from "@/lib/services/devis-recap-service";
 import { buildContractualMention } from "@/lib/services/document-ownership-service";
 import { DocumentBrandHeader } from "@/components/documents/DocumentBrandHeader";
 import { DocumentSignatureBlocks } from "@/components/documents/DocumentSignatureBlocks";
@@ -19,8 +20,8 @@ type Props = {
   createdAt: Date;
   validUntil: Date;
   prospectStructureName: string;
-  formuleLabelSnapshot: string;
-  formulePriceSnapshotEuros: number;
+  formuleLabelSnapshot: string | null;
+  formulePriceSnapshotEuros: number | null;
   options: DevisOptionLine[];
   totalAmountEuros: number;
   depositPercent: number;
@@ -28,6 +29,10 @@ type Props = {
   balanceAmountEuros: number;
   installmentCount: number;
   installmentAmountEuros: number;
+  // Abonnement (maquette v2, 13/10/2026) — absents sur un devis antérieur.
+  formuleMonthlyPriceSnapshotEuros?: number | null;
+  commitmentMonths?: number | null;
+  clientNote?: string | null;
 };
 
 // Devis imprimable — le premier document qu'un prospect reçoit d'EODA, donc celui qui
@@ -57,7 +62,11 @@ export function DevisSummaryPrintable({
   balanceAmountEuros,
   installmentCount,
   installmentAmountEuros,
+  formuleMonthlyPriceSnapshotEuros = null,
+  commitmentMonths = null,
+  clientNote = null,
 }: Props) {
+  const commitment = describeCommitment(commitmentMonths);
   return (
     <div className="space-y-6 text-brun-ancre">
       <div className="space-y-4">
@@ -69,10 +78,10 @@ export function DevisSummaryPrintable({
         {/* Bandeau de titre à la charte : fond brun foncé « ancrage, crédibilité »,
             liseré ambre. Les couleurs de la charte ne sont pas décoratives ici — un
             devis en noir sur blanc ne se distingue pas de celui d'un concurrent. */}
-        <div className="rounded-lg border-l-4 border-ambre bg-brun-ancre px-5 py-4 text-ivoire print:bg-brun-ancre">
+        <div className="rounded-lg border border-ambre bg-brun-ancre px-5 py-4 text-ivoire print:bg-brun-ancre">
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div>
-              <p className="text-[11px] uppercase tracking-[0.18em] text-ambre">
+              <p className="text-sm uppercase tracking-[0.18em] text-ivoire/80">
                 Proposition commerciale
               </p>
               <h2 className="text-lg font-bold leading-tight">Devis {number}</h2>
@@ -88,7 +97,7 @@ export function DevisSummaryPrintable({
       </div>
 
       <div>
-        <p className="text-xs uppercase tracking-wide text-gris-mid">Client</p>
+        <p className="text-xs uppercase tracking-wide text-ink2">Client</p>
         <p className="font-semibold">{prospectStructureName}</p>
       </div>
 
@@ -100,12 +109,14 @@ export function DevisSummaryPrintable({
           </tr>
         </thead>
         <tbody>
+          {formuleLabelSnapshot !== null && formulePriceSnapshotEuros !== null && (
           <tr className="border-b border-gris-light/60 bg-ivoire/40">
             <td className="py-2 pl-2 font-medium">Formule {formuleLabelSnapshot}</td>
             <td className="py-2 pr-2 text-right tabular-nums">
               {formatStartingPrice({ priceEuros: formulePriceSnapshotEuros })}
             </td>
           </tr>
+          )}
           {options.map((o, i) => {
             // Une option à l'unité (95 €/h, mini. 2 h) affiche son tarif unitaire, mais
             // n'entre au total que pour son engagement minimal. Sans ce montant, les
@@ -128,7 +139,7 @@ export function DevisSummaryPrintable({
                 <td className="py-2 pl-2">
                   {o.labelSnapshot}
                   {isMetered ? (
-                    <span className="block text-xs text-gris-mid">{unitLabel}</span>
+                    <span className="block text-xs text-ink2">{unitLabel}</span>
                   ) : null}
                 </td>
                 <td className="py-2 pr-2 text-right tabular-nums">
@@ -140,21 +151,40 @@ export function DevisSummaryPrintable({
         </tbody>
       </table>
 
+      {(formuleLabelSnapshot !== null || commitment) && (
+        <div className="space-y-1 text-sm">
+          {formuleLabelSnapshot !== null && (
+            <p>
+              <span className="font-medium">Abonnement {formuleLabelSnapshot} : </span>
+              {/* Prix mensuel non fixé au jour du devis : « xx », jamais un montant inventé. */}
+              {formuleMonthlyPriceSnapshotEuros === null
+                ? "à partir de xx € / mois"
+                : formatStartingPrice({ priceEuros: formuleMonthlyPriceSnapshotEuros, pricingUnit: "MOIS" })}
+            </p>
+          )}
+          {commitment && <p className="text-ink2">{commitment}</p>}
+        </div>
+      )}
+
+      {clientNote && (
+        <p className="whitespace-pre-line rounded-lg border border-gris-light p-3 text-sm">{clientNote}</p>
+      )}
+
       <div className="ml-auto max-w-xs space-y-1 rounded-lg border border-gris-light bg-ivoire/60 p-4 text-sm">
         <div className="flex justify-between border-b border-terre/30 pb-2 text-base font-bold">
           <span>Total</span>
           <span className="tabular-nums">{formatStartingPrice({ priceEuros: totalAmountEuros })}</span>
         </div>
         <div className="flex justify-between pt-1">
-          <span className="text-gris-mid">Acompte ({depositPercent}%)</span>
+          <span className="text-ink2">Acompte ({depositPercent}%)</span>
           <span className="tabular-nums">{formatEuros(depositAmountEuros)}</span>
         </div>
         <div className="flex justify-between">
-          <span className="text-gris-mid">Solde</span>
+          <span className="text-ink2">Solde</span>
           <span className="tabular-nums">{formatEuros(balanceAmountEuros)}</span>
         </div>
         <div className="flex justify-between">
-          <span className="text-gris-mid">
+          <span className="text-ink2">
             {installmentCount} échéance{installmentCount > 1 ? "s" : ""} de
           </span>
           <span className="tabular-nums">{formatEuros(installmentAmountEuros)}</span>
@@ -165,7 +195,7 @@ export function DevisSummaryPrintable({
           la main avant chaque envoi. Même bloc que l'avenant et le contrat. */}
       <DocumentSignatureBlocks counterpartyName={prospectStructureName} />
 
-      <p className="border-t border-gris-light pt-4 text-xs text-gris-mid">
+      <p className="border-t border-gris-light pt-4 text-xs text-ink2">
         Tarifs indicatifs HT « à partir de » · TVA non applicable, art. 293 B du CGI · acompte à la
         commande, solde à la livraison des livrables.{" "}
         {buildContractualMention(prospectStructureName)}

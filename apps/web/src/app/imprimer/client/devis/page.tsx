@@ -4,7 +4,7 @@ import { DevisSummaryPrintable } from "@/components/devis/DevisSummaryPrintable"
 import { PrintButton } from "@/components/devis/PrintButton";
 import { buildDevisFileName } from "@/lib/services/devis-sharing-service";
 
-export const metadata = { title: "Mon devis signé · EODA Conseil" };
+export const metadata = { title: "Mon devis signé" };
 
 // ─────────────────────────────────────────────────────────────────────────────
 // LE DEVIS SIGNÉ, VU PAR LA STRUCTURE QU'IL ENGAGE.

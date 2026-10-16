@@ -1,4 +1,4 @@
-import type { DevisStatus, DocumentStatus, PricingUnit } from "@eoda/database";
+import type { DevisStatus, DocumentStatus, PricingUnit, SupportMode } from "@eoda/database";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CONTRAT VU DU CLIENT — « ce que j'ai payé » / « ce que je dois fournir »
@@ -105,8 +105,8 @@ export type ClientDevis = {
   id: string;
   number: string;
   status: DevisStatus;
-  formuleLabelSnapshot: string;
-  formulePriceSnapshotEuros: number;
+  formuleLabelSnapshot: string | null;
+  formulePriceSnapshotEuros: number | null;
   depositPercent: number;
   installmentCount: number;
   totalAmountEuros: number;
@@ -177,6 +177,9 @@ export function isOptionSubscribed(
 export type DocumentObligation = {
   status: DocumentStatus;
   missingJustification: string | null;
+  // « Je ne l'ai pas » (N3, missing-answer-service) : la pièce reste due, mais elle
+  // est à PRODUIRE — ce n'est plus un dépôt attendu de la structure.
+  declaredMissing?: boolean;
 };
 
 export type DocumentObligationSummary = {
@@ -197,11 +200,13 @@ export function summariseDocumentObligations(
   items: readonly DocumentObligation[]
 ): DocumentObligationSummary {
   const missing = items.filter((item) => item.status === "MISSING");
+  const isAnswered = (item: DocumentObligation): boolean =>
+    item.missingJustification !== null || item.declaredMissing === true;
 
   return {
     total: items.length,
-    toDeposit: missing.filter((item) => item.missingJustification === null).length,
-    justified: missing.filter((item) => item.missingJustification !== null).length,
+    toDeposit: missing.filter((item) => !isAnswered(item)).length,
+    justified: missing.filter(isAnswered).length,
     inReview: items.filter(
       (item) =>
         item.status === "UPLOADED" ||
@@ -239,7 +244,9 @@ export type ClientNextStep = {
 
 export function describeClientNextStep(
   summary: DocumentObligationSummary,
-  depositOpen: boolean
+  depositOpen: boolean,
+  // Défaut STRICT (accompagné) : c'est le mode de toute mission antérieure à N1.
+  mode: SupportMode = "ACCOMPAGNE"
 ): ClientNextStep | null {
   if (!depositOpen) return null;
 
@@ -248,18 +255,29 @@ export function describeClientNextStep(
     return {
       tone: "ACTION",
       title: `${summary.toDeposit} pièce${plural ? "s" : ""} à déposer`,
+      // Phrases courtes (FALC, CLAUDE.md §6) ; « Je ne l'ai pas » est le libellé exact
+      // du geste dans « Mes documents » (N3).
       detail: plural
-        ? "Déposez-les dans la checklist ci-dessous. Si l'une d'elles ne concerne pas votre structure, répondez-le sur sa ligne — c'est aussi une réponse."
-        : "Déposez-la dans la checklist ci-dessous. Si elle ne concerne pas votre structure, répondez-le sur sa ligne — c'est aussi une réponse.",
+        ? "Déposez-les dans « Mes documents ». Vous n'avez pas un document ? Dites-le : « Je ne l'ai pas »."
+        : "Déposez-la dans « Mes documents ». Vous ne l'avez pas ? Dites-le : « Je ne l'ai pas ».",
     };
   }
 
   if (summary.inReview > 0) {
     const plural = summary.inReview > 1;
+    // En autonomie, personne chez EODA ne relit (N1) : la balle est chez la structure,
+    // qui lit l'analyse et l'accepte elle-même.
+    if (mode === "AUTONOMIE") {
+      return {
+        tone: "ACTION",
+        title: `${summary.inReview} document${plural ? "s" : ""} à vérifier`,
+        detail: "Lisez l'analyse dans « Mes documents ». Si elle est juste, acceptez le document.",
+      };
+    }
     return {
       tone: "ATTENTE",
       title: `Rien à faire de votre côté pour l'instant`,
-      detail: `${summary.inReview} document${plural ? "s sont" : " est"} en cours de relecture par EODA Conseil. Vous serez informé${plural ? "" : ""} dès qu'il y a du nouveau.`,
+      detail: `${summary.inReview} document${plural ? "s sont" : " est"} en cours de relecture par EODA. Vous serez informé dès qu'il y a du nouveau.`,
     };
   }
 
@@ -267,6 +285,8 @@ export function describeClientNextStep(
     tone: "TERMINE",
     title: "Tous les documents attendus sont fournis",
     detail:
-      "Votre consultante EODA reprendra contact pour la suite de l'accompagnement. Vous pouvez continuer à déposer de nouvelles versions à tout moment.",
+      mode === "AUTONOMIE"
+        ? "Vous pouvez déposer une nouvelle version à tout moment."
+        : "EODA reprendra contact pour la suite de l'accompagnement. Vous pouvez déposer une nouvelle version à tout moment.",
   };
 }

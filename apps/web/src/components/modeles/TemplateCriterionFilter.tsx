@@ -17,8 +17,8 @@ export function TemplateCriterionFilter({
   const router = useRouter();
 
   return (
-    <div className="flex items-center gap-2">
-      <label htmlFor="critere-filter" className="text-xs font-medium text-brun-ancre">
+    <div className="flex min-w-0 flex-col gap-1 sm:flex-row sm:items-center sm:gap-2">
+      <label htmlFor="critere-filter" className="text-sm font-medium text-brun-ancre">
         Filtrer par critère HAS
       </label>
       <select
@@ -32,7 +32,7 @@ export function TemplateCriterionFilter({
               : "/dashboard/cabinet/modeles"
           );
         }}
-        className="rounded-md border border-gris-light bg-surface px-2 py-1.5 text-xs text-brun-ancre"
+        className="h-11 w-full min-w-0 max-w-full rounded-md border border-gris-light bg-surface px-2 text-base text-brun-ancre sm:w-auto sm:max-w-md"
       >
         <option value="">Tous les modèles</option>
         {allCriteria.map((c) => (

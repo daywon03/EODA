@@ -13,6 +13,12 @@ export type EmailMessage = {
   attachments?: EmailAttachment[];
 };
 
+// Ce que l'envoi a RÉELLEMENT produit. `NOT_CONFIGURED` : l'adaptateur de
+// développement n'a rien envoyé (pas de RESEND_API_KEY). Sans cette distinction,
+// l'écran annonçait « Invitation envoyée » pour un e-mail jamais parti (test de bout
+// en bout du 12/10). Un refus du fournisseur, lui, LÈVE.
+export type EmailDelivery = "SENT" | "NOT_CONFIGURED";
+
 export interface EmailPort {
-  send(message: EmailMessage): Promise<void>;
+  send(message: EmailMessage): Promise<EmailDelivery>;
 }

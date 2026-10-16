@@ -2,12 +2,13 @@ import { Library } from "lucide-react";
 import { listLibrary, listTemplateCategories } from "@/lib/actions/template-library";
 import { listCriteriaForPicker } from "@/lib/actions/document";
 import { requireCabinetSession } from "@/lib/auth/guards";
+import { hasCabinetCapability } from "@/lib/auth/capabilities";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { TemplateCriterionFilter } from "@/components/modeles/TemplateCriterionFilter";
 import { LibraryToolbar } from "@/components/modeles/LibraryToolbar";
 import { LibraryBrowser } from "@/components/modeles/LibraryBrowser";
 
-export const metadata = { title: "Modèles EODA · EODA Conseil" };
+export const metadata = { title: "Modèles" };
 
 // ─────────────────────────────────────────────────────────────────────────────
 // BIBLIOTHÈQUE DE MODÈLES — les gabarits du cabinet, et sa base de connaissances.
@@ -28,13 +29,13 @@ export default async function ModelesPage({ searchParams }: Props) {
 
   // Quatre lectures indépendantes : elles partent ensemble. En série, l'écran
   // attend quatre allers-retours de base au lieu d'un.
-  const [{ session }, folders, categories, allCriteria] = await Promise.all([
-    requireCabinetSession(),
+  const [{ role }, folders, categories, allCriteria] = await Promise.all([
+    requireCabinetSession("LIBRARY_READ"),
     listLibrary(critere),
     listTemplateCategories(),
     listCriteriaForPicker(),
   ]);
-  const isAdmin = session.user.role === "CABINET_ADMIN";
+  const isAdmin = hasCabinetCapability(role, "CABINET_SETTINGS");
 
   return (
     <div className="max-w-5xl space-y-6">
@@ -43,7 +44,7 @@ export default async function ModelesPage({ searchParams }: Props) {
         icon={Library}
         subtitle="Les gabarits du cabinet et ses sources HAS. Rien n'appartient à une structure."
         action={
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <TemplateCriterionFilter allCriteria={allCriteria ?? []} selectedCriterionId={critere} />
             {isAdmin && <LibraryToolbar categories={categories} />}
           </div>

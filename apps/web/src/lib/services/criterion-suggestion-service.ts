@@ -1,4 +1,5 @@
 import type { LinkedCriterion, RawCriterionSuggestion } from "@/lib/llm";
+import { isCriterionApplicable } from "./criterion-applicability-service";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SUGGESTION DE CRITÈRE — logique PURE (aucun accès base ici, cf.
@@ -41,7 +42,7 @@ export function buildAdditionalCriteriaCatalog(
 ): LinkedCriterion[] {
   return allCriteria
     .filter((c) => !alreadyLinkedCriterionIds.has(c.id))
-    .filter((c) => c.applicableTo === "BOTH" || c.applicableTo === establishmentType)
+    .filter((c) => isCriterionApplicable(c.applicableTo, establishmentType))
     .map((c) => ({ code: c.code, label: c.label }));
 }
 

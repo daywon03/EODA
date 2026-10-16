@@ -5,6 +5,11 @@ import {
   isConversionTransition,
   isDevisSignable,
   planConversion,
+  PROMOTED_ACCESS_ROLE,
+  PROMOTED_POSITION,
+  selectAccountsToPromote,
+  signatureRecap,
+  signedNextStep,
   summariseConversionForAudit,
   toMissionOptionSnapshots,
   type ConversionInput,
@@ -183,5 +188,71 @@ describe("summariseConversionForAudit", () => {
       optionCount: 2,
     });
     expect(detail).toBe("DEVIS-2026-004 · EXCELLENCE · 2 option(s)");
+  });
+});
+
+// Bug du test de bout en bout (12/10) : juste après la signature, le récapitulatif
+// annonçait « Fiche client : déjà existante » — la fiche venait d'être créée.
+describe("signatureRecap", () => {
+  const name = "SAD Les Glycines (fictif)";
+
+  it("avant signature, sans fiche : annonce ce que la signature va créer", () => {
+    expect(signatureRecap({ status: "ENVOYE", hasEstablishment: false, structureName: name })).toEqual({
+      heading: "Ce que la signature va créer",
+      establishmentLabel: name,
+    });
+  });
+
+  it("avant signature, fiche déjà rattachée au prospect : conservée telle quelle", () => {
+    expect(signatureRecap({ status: "ENVOYE", hasEstablishment: true, structureName: name })).toEqual({
+      heading: "Ce que la signature va créer",
+      establishmentLabel: "déjà existante, conservée telle quelle",
+    });
+  });
+
+  it("après signature : jamais « déjà existante », le récapitulatif parle au passé", () => {
+    const recap = signatureRecap({ status: "SIGNE", hasEstablishment: true, structureName: name });
+    expect(recap).toEqual({ heading: "Ce que la signature a créé", establishmentLabel: name });
+    expect(recap.establishmentLabel).not.toMatch(/déjà existante/);
+  });
+});
+
+describe("selectAccountsToPromote — bascule à la signature (tranche 11)", () => {
+  it("ne retient que les comptes encore PROSPECT_USER", () => {
+    expect(
+      selectAccountsToPromote([
+        { userId: "a", role: "PROSPECT_USER" },
+        { userId: "b", role: "CLIENT_USER" },
+        { userId: "c", role: "PROSPECT_USER" },
+      ])
+    ).toEqual(["a", "c"]);
+  });
+
+  it("prospect démarché sans compte : rien", () => {
+    expect(selectAccountsToPromote([])).toEqual([]);
+  });
+
+  it("accès DIRECTION, poste non deviné", () => {
+    expect(PROMOTED_ACCESS_ROLE).toBe("DIRECTION");
+    expect(PROMOTED_POSITION).toBe("AUTRE");
+  });
+});
+
+// Recette du 13/10/2026 : juste après la signature d'une structure inscrite seule,
+// l'écran disait « inviter l'interlocuteur du client depuis sa fiche » — alors que
+// son compte venait de devenir son accès Direction. Inviter créerait un doublon.
+describe("signedNextStep", () => {
+  it("compte libre-service basculé : la structure se reconnecte, rien à inviter", () => {
+    const text = signedNextStep(1);
+    expect(text).toMatch(/inscription est devenu son accès « Direction »/);
+    expect(text).not.toMatch(/inviter/i);
+  });
+
+  it("plusieurs comptes basculés : le dit au pluriel", () => {
+    expect(signedNextStep(2)).toMatch(/Les 2 comptes/);
+  });
+
+  it("aucun compte en ligne : inviter l'interlocuteur depuis la fiche", () => {
+    expect(signedNextStep(0)).toMatch(/inviter l'interlocuteur du client depuis sa fiche/);
   });
 });

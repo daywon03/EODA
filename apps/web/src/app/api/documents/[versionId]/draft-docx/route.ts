@@ -1,8 +1,11 @@
 import { notFound } from "next/navigation";
 import { prisma } from "@eoda/database";
 import { tryEstablishmentAccess } from "@/lib/auth/guards";
+import { NEED } from "@/lib/auth/capabilities";
 import { recordAuditEvent } from "@/lib/services/audit-log-service";
 import { generateBrandedDocx } from "@/lib/services/markdown-to-docx-service";
+import { getEstablishmentSupportMode } from "@/lib/services/establishment-offer-service";
+import { documentMention } from "@/lib/services/review-mention-service";
 import { loadCorrectedDraftImages } from "@/lib/services/document-generation-service";
 import { buildEodaFileName } from "@/lib/services/document-naming-service";
 import { getFileStoragePort } from "@/lib/storage";
@@ -35,7 +38,7 @@ export async function GET(_request: Request, context: Context): Promise<Response
   });
   if (!version) notFound();
 
-  const access = await tryEstablishmentAccess(version.document.establishmentId);
+  const access = await tryEstablishmentAccess(version.document.establishmentId, NEED.DOCUMENTS_READ);
   if (!access || access.isClient) notFound();
   if (!version.correctedDraftMarkdown) notFound();
 
@@ -44,11 +47,17 @@ export async function GET(_request: Request, context: Context): Promise<Response
   // jamais bloquante pour le téléchargement du brouillon lui-même.
   const images = await loadCorrectedDraftImages(versionId, getFileStoragePort());
 
+  // Un brouillon généré n'est relu par personne tant qu'EODA ne l'a pas redéposé :
+  // en autonomie, il porte donc la réserve complète, dans le fichier lui-même
+  // (review-mention-service — la même phrase qu'à l'écran).
+  const supportMode = await getEstablishmentSupportMode(version.document.establishmentId);
+
   const docBuffer = await generateBrandedDocx({
     markdown: version.correctedDraftMarkdown,
     title: version.document.documentType?.label ?? "Document corrigé",
     establishmentName: version.document.establishment.name,
     images,
+    reviewMention: documentMention({ mode: supportMode, reviewedAt: null }),
   });
 
   const fileName = buildEodaFileName({

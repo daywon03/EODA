@@ -55,8 +55,11 @@ HAS/EODA (cf `EODA_offre_commerciale_SAD.pdf`).
    - l'ESSMS pourrait-il mobiliser des ressources externes pour répondre à l'attendu ?
    - le choix de la personne accompagnée explique-t-il l'absence d'élément ?
    - l'ESSMS a-t-il une action préventive en place malgré tout ?
-   → Dans l'UI, le bouton NC doit afficher un avertissement (pas un blocage strict — c'est
-   un garde-fou pédagogique, pas une contrainte technique dure) quand le critère est impératif.
+   → ~~Dans l'UI, le bouton NC doit afficher un avertissement (pas un blocage strict).~~
+   **Remplacé le 10/10/2026 (décision 4 des maquettes v2, « NC interdit sur impératif »)** :
+   NC est **refusé côté serveur** sur un critère impératif (`isRatingAllowed`,
+   `scoring-service.ts`), le bouton NC est désactivé à l'écran et les quatre questions
+   ci-dessus sont affichées à côté. Un NC forcé retirait l'impératif de la moyenne.
 3. **`★` compte comme `4`** dans toute moyenne — jamais comme une valeur "5" ou un bonus.
 4. **L'agrégation est une moyenne, calculée à plusieurs niveaux** : E.E. → Critère →
    Objectif → Thématique → Chapitre → Global. Le manuel HAS pondère en réalité l'objectif

@@ -27,4 +27,4 @@ export function getEmailPort(): EmailPort {
   return cached;
 }
 
-export type { EmailPort, EmailMessage, EmailAttachment } from "./email-port";
+export type { EmailPort, EmailMessage, EmailAttachment, EmailDelivery } from "./email-port";

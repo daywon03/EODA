@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { getProspect } from "@/lib/actions/prospect";
+import { getSelfServiceSummary } from "@/lib/actions/prospect-pipeline";
+import { SelfServicePanel } from "@/components/prospect/SelfServicePanel";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -35,15 +37,19 @@ import {
 } from "@/lib/services/prospect-next-action-service";
 import { ClipboardList, Pencil, Plus, Phone, Mail, ArrowRight, Building2 } from "lucide-react";
 
+export const metadata = { title: "Fiche prospect" };
+
 type Props = { params: Promise<{ id: string }> };
 
 export default async function ProspectDetailPage({ params }: Props) {
   const { id } = await params;
   // Lancées ensemble : la frise des rendez-vous ne dépend pas de la fiche, et chaque
   // aller-retour vers la base coûte ~290 ms. En série, on payait les deux.
-  const [prospect, appointments] = await Promise.all([
+  const [prospect, appointments, selfService] = await Promise.all([
     getProspect(id),
     listAppointmentsFor({ prospectId: id }),
+    // Structure inscrite seule : encart « en autonomie » (maquette v2) ; null sinon.
+    getSelfServiceSummary(id),
   ]);
 
 
@@ -110,6 +116,8 @@ export default async function ProspectDetailPage({ params }: Props) {
         }
       />
 
+      {selfService && <SelfServicePanel facts={selfService} />}
+
       {/* Ce qui a déjà eu lieu, avant tout le reste : c'est la première question qu'on
           se pose en ouvrant une fiche, et jusqu'ici il fallait la reconstituer en
           parcourant la page entière. */}
@@ -119,7 +127,7 @@ export default async function ProspectDetailPage({ params }: Props) {
         <Card>
           <CardContent className="pt-6 flex flex-wrap items-center justify-between gap-3">
             <div>
-              <p className="text-xs text-gris-mid uppercase tracking-wide mb-1">Étape suivante</p>
+              <p className="text-xs text-ink2 uppercase tracking-wide mb-1">Étape suivante</p>
               <p className="text-sm text-brun-ancre">{nextAction.hint}</p>
             </div>
             <Button asChild size="sm">
@@ -135,54 +143,54 @@ export default async function ProspectDetailPage({ params }: Props) {
       <Card>
         <CardContent className="pt-6 space-y-4">
           <div className="flex items-center gap-3">
-            <span className="text-sm text-gris-mid">Statut</span>
+            <span className="text-sm text-ink2">Statut</span>
             <ProspectStatusSelect prospectId={id} status={prospect.status} />
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
             {contactIdentity && (
-              <p><span className="text-gris-mid">Contact : </span>{contactIdentity}</p>
+              <p><span className="text-ink2">Contact : </span>{contactIdentity}</p>
             )}
             {prospect.contactPhone && (
               <p className="flex items-center gap-1.5">
-                <Phone className="w-3.5 h-3.5 text-gris-mid" aria-hidden="true" />
+                <Phone className="w-3.5 h-3.5 text-ink2" aria-hidden="true" />
                 {prospect.contactPhone}
               </p>
             )}
             {prospect.contactEmail && (
               <p className="flex items-center gap-1.5">
-                <Mail className="w-3.5 h-3.5 text-gris-mid" aria-hidden="true" />
+                <Mail className="w-3.5 h-3.5 text-ink2" aria-hidden="true" />
                 {prospect.contactEmail}
               </p>
             )}
             <p>
-              <span className="text-gris-mid">Canal : </span>
+              <span className="text-ink2">Canal : </span>
               {describeAcquisitionChannel(prospect)}
             </p>
             {prospect.envisagedFormule && (
               <p>
-                <span className="text-gris-mid">Formule envisagée : </span>
+                <span className="text-ink2">Formule envisagée : </span>
                 <Badge variant="secondary">{FORMULE_LABELS[prospect.envisagedFormule]}</Badge>
               </p>
             )}
             {prospect.estimatedAmountEuros != null && (
-              <p><span className="text-gris-mid">Montant estimé : </span>{formatEuros(prospect.estimatedAmountEuros)}</p>
+              <p><span className="text-ink2">Montant estimé : </span>{formatEuros(prospect.estimatedAmountEuros)}</p>
             )}
             {/* Identité de la structure, dès qu'on la connaît. Les champs absents ne
                 s'affichent pas : « FINESS : — » a l'air d'un formulaire mal rempli,
                 alors que c'est une information qu'on n'a pas encore. */}
             {structureIdentity && (
-              <p><span className="text-gris-mid">Structure : </span>{structureIdentity}</p>
+              <p><span className="text-ink2">Structure : </span>{structureIdentity}</p>
             )}
             {prospect.establishmentType && (
               <p>
-                <span className="text-gris-mid">Type de SAD : </span>
+                <span className="text-ink2">Type de SAD : </span>
                 {ESTABLISHMENT_TYPE_LABELS[prospect.establishmentType]}
               </p>
             )}
             {prospect.hasEvaluationTargetDate && (
               <p>
-                <span className="text-gris-mid">Échéance HAS visée : </span>
+                <span className="text-ink2">Échéance HAS visée : </span>
                 {formatDate(prospect.hasEvaluationTargetDate)}
               </p>
             )}
@@ -201,7 +209,7 @@ export default async function ProspectDetailPage({ params }: Props) {
 
           {prospect.notes && (
             <div className="border-t border-gris-light pt-3">
-              <p className="text-xs text-gris-mid uppercase tracking-wide mb-1">Notes</p>
+              <p className="text-xs text-ink2 uppercase tracking-wide mb-1">Notes</p>
               <p className="text-sm text-brun-ancre whitespace-pre-wrap">{prospect.notes}</p>
             </div>
           )}
@@ -238,11 +246,11 @@ export default async function ProspectDetailPage({ params }: Props) {
           <Card>
             <CardContent className="space-y-3 pt-6">
               <div className="flex flex-wrap items-baseline justify-between gap-2">
-                <p className="text-xs uppercase tracking-wide text-gris-mid">
+                <p className="text-xs uppercase tracking-wide text-ink2">
                   Évaluation des besoins
                 </p>
                 {prospect.discoveryUpdatedAt && (
-                  <p className="text-xs text-gris-mid">
+                  <p className="text-xs text-ink2">
                     Découverte du {formatDate(prospect.discoveryUpdatedAt)}
                   </p>
                 )}
@@ -252,7 +260,7 @@ export default async function ProspectDetailPage({ params }: Props) {
                 <dl className="grid grid-cols-1 gap-x-4 gap-y-1.5 text-sm sm:grid-cols-2">
                   {highlights.map((entry) => (
                     <div key={entry.label}>
-                      <dt className="text-xs text-gris-mid">{entry.label}</dt>
+                      <dt className="text-xs text-ink2">{entry.label}</dt>
                       <dd className="text-brun-ancre">{entry.value}</dd>
                     </div>
                   ))}
@@ -276,7 +284,7 @@ export default async function ProspectDetailPage({ params }: Props) {
         )}
 
         {prospect.devis.length === 0 ? (
-          <p className="text-sm text-gris-mid">Aucun devis pour ce prospect.</p>
+          <p className="text-sm text-ink2">Aucun devis pour ce prospect.</p>
         ) : (
           <div className="space-y-3">
             {prospect.devis.map((d) => (

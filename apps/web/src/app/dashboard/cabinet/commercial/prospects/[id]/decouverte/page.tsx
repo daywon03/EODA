@@ -5,7 +5,7 @@ import { StructureIdentityForm } from "@/components/prospect/StructureIdentityFo
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
-export const metadata = { title: "Réunion de découverte · EODA Conseil" };
+export const metadata = { title: "Réunion de découverte" };
 
 type Props = { params: Promise<{ id: string }> };
 
@@ -36,7 +36,7 @@ export default async function DecouvertePage({ params }: Props) {
       />
 
       <Card>
-        <CardContent className="pt-6 text-sm text-gris-mid">
+        <CardContent className="pt-6 text-sm text-ink2">
           <p>
             Grille d&apos;entretien à remplir pendant l&apos;appel : elle sert à écouter avant
             de chiffrer. Aucune réponse n&apos;est obligatoire, et l&apos;enregistrement peut
@@ -56,7 +56,7 @@ export default async function DecouvertePage({ params }: Props) {
           seule, sans quitter l'écran ni perdre les réponses de grille en cours. */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Identité de la structure</CardTitle>
+          <CardTitle as="h2" className="text-base">Identité de la structure</CardTitle>
         </CardHeader>
         <CardContent>
           <StructureIdentityForm

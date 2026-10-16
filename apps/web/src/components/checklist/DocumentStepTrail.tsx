@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { setDocumentValidated } from "@/lib/actions/document";
 import { Button } from "@/components/ui/button";
-import { AlertCircle, BadgeCheck, Check, Loader2, RotateCcw } from "lucide-react";
+import { AlertCircle, BadgeCheck, Check, Loader2, Mail, RotateCcw } from "lucide-react";
 import {
   DOCUMENT_STEPS,
   DOCUMENT_STEP_LABELS,
@@ -12,6 +12,17 @@ import {
   type DocumentStep,
 } from "@/lib/services/document-workflow-service";
 import { cn } from "@/lib/utils";
+
+// Ce qui est vraiment parti, en toutes lettres : un succès muet laisserait croire
+// que le client est prévenu quand aucun compte ne lui est rattaché.
+function describeNotification({ sent, total }: { sent: number; total: number }): string {
+  if (total === 0) return "Aucun compte client rattaché : personne n'a été prévenu par e-mail.";
+  if (sent === 0) return "L'e-mail au client n'est pas parti — prévenez-le par le fil d'échange.";
+  const people = `${sent} personne${sent > 1 ? "s" : ""}`;
+  return sent < total
+    ? `Client prévenu par e-mail : ${people} sur ${total}.`
+    : `Client prévenu par e-mail (${people}).`;
+}
 
 type Props = {
   establishmentId: string;
@@ -33,6 +44,7 @@ type Props = {
 // gens.
 export function DocumentStepTrail({ establishmentId, documentTypeId, step, isImage = false }: Props) {
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   // « Attendu » n'est pas une étape franchie : tant que rien n'est déposé, ce fil
@@ -44,9 +56,11 @@ export function DocumentStepTrail({ establishmentId, documentTypeId, step, isIma
 
   function toggleValidation() {
     setError(null);
+    setNotice(null);
     startTransition(async () => {
       const result = await setDocumentValidated(establishmentId, documentTypeId, !isValidated);
       if (result && "error" in result) setError(result.error);
+      if (result && "notified" in result) setNotice(describeNotification(result.notified));
     });
   }
 
@@ -74,11 +88,11 @@ export function DocumentStepTrail({ establishmentId, documentTypeId, step, isIma
                   // un fond seul — sinon la frise retombe dans le même défaut
                   // "pastel" déjà corrigé sur les badges.
                   reached
-                    ? "border border-vert-ok/40 bg-vert-ok/12 text-vert-ok"
-                    : "border border-transparent text-gris-mid"
+                    ? "border border-vert-ok/40 bg-vert-ok/12 text-ok-text"
+                    : "border border-transparent text-ink2"
                 )}
               >
-                {reached && <Check className="w-3 h-3 text-vert-ok" aria-hidden="true" />}
+                {reached && <Check className="w-3 h-3 text-ok-text" aria-hidden="true" />}
                 {DOCUMENT_STEP_LABELS[candidate]}
                 <span className="sr-only">{reached ? " — étape franchie" : " — à venir"}</span>
               </span>
@@ -90,7 +104,7 @@ export function DocumentStepTrail({ establishmentId, documentTypeId, step, isIma
       <div className="flex flex-wrap items-center justify-between gap-2">
         {/* Ce qu'il reste à faire, en toutes lettres : le fil dit où on en est, cette
             phrase dit quoi faire. */}
-        <p className="text-xs text-gris-mid">{describeNextStep(step, isImage)}</p>
+        <p className="text-xs text-ink2">{describeNextStep(step, isImage)}</p>
 
         <Button
           type="button"
@@ -109,6 +123,13 @@ export function DocumentStepTrail({ establishmentId, documentTypeId, step, isIma
           {isValidated ? "Retirer la validation" : "Valider le document"}
         </Button>
       </div>
+
+      {notice && (
+        <p role="status" className="flex items-center gap-1.5 text-xs text-ink2">
+          <Mail className="w-3.5 h-3.5 flex-shrink-0" aria-hidden="true" />
+          {notice}
+        </p>
+      )}
 
       {error && (
         <p role="alert" className="flex items-center gap-1.5 text-xs text-rouge-imp">

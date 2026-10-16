@@ -21,6 +21,20 @@ enum UserRole {
   CABINET_ADMIN
   CABINET_EVALUATOR
   CLIENT_USER
+  // Rôles cabinet ajoutés le 13/10/2026 (tranche N9, décision 5 du plan v2). Ce
+  // qu'ils peuvent faire ne se lit PAS ici : la matrice vit dans un service pur
+  // (apps/web/src/lib/auth/capabilities.ts), appliquée par lib/auth/guards.ts.
+  //   - CABINET_COMMERCIAL : pipeline commercial, jamais les documents des structures ;
+  //   - CABINET_READONLY   : consulte, ne modifie rien, ne voit pas le commercial.
+  CABINET_COMMERCIAL
+  CABINET_READONLY
+  // Structure inscrite SEULE en libre-service, avant toute signature (D5, décision 1
+  // du plan v2, 13/10/2026). Ce compte n'est ni cabinet ni client : il ne voit QUE
+  // l'espace /espace de SON prospect (lien ProspectAccount), jamais un établissement
+  // — une fiche ne naît que de la signature d'un devis. Rôle dédié plutôt que
+  // CLIENT_USER sans structure : toutes les gardes existantes le refusent par
+  // construction (fail-closed), sans dépendre d'un lien absent.
+  PROSPECT_USER
 }
 
 enum EstablishmentType {
@@ -110,6 +124,10 @@ enum AppointmentStatus {
   PROPOSE
   CONFIRME
   ANNULE
+  // « Être accompagné » (structure inscrite seule, 13/10/2026) : la STRUCTURE demande
+  // un appel à une date et un moment de son choix. Rien n'est réservé tant qu'EODA ne
+  // l'a pas confirmé — il n'existe pas d'agenda de disponibilités.
+  DEMANDE
 }
 
 enum AcquisitionChannel {
@@ -119,6 +137,9 @@ enum AcquisitionChannel {
   REFERENCEMENT_GOOGLE
   LINKEDIN
   AUTRE
+  // Inscription en ligne depuis la page publique (maquettes v2, 13/10/2026). Jamais
+  // choisi à la main : un prospect libre-service a un compte (ProspectAccount).
+  LIBRE_SERVICE
 }
 
 // Nature d'une entrée d'historique de prospect. Deux natures seulement, et elles ne
@@ -165,6 +186,16 @@ enum CommercialTier {
   EXCELLENCE
 }
 
+// MODE D'ACCOMPAGNEMENT d'une mission (tranche N1, maquettes v2 — décision 2 du
+// 09/10/2026). Orthogonal à la formule : Essentiel ou Performance se vendent seuls
+// (AUTONOMIE) ou avec l'accompagnement en option (ACCOMPAGNE) ; Excellence est
+// toujours accompagnée. Il gouverne une chose capitale : ce que le client voit
+// d'une analyse que personne chez EODA n'a relue (analysisVisibleTo).
+enum SupportMode {
+  AUTONOMIE
+  ACCOMPAGNE
+}
+
 // Unité de tarification d'une prestation à la carte — offre commerciale v10 §04.
 // Tous les prix du catalogue sont des prix « à partir de » (règle de gouvernance
 // produit, context/07-outil-pilotage-missions.md §12.3) : l'unité ne change pas ce
@@ -195,6 +226,18 @@ enum EstablishmentUserRole {
   // accompagnés, absent de la liste d'origine.
   RESPONSABLE_QUALITE
   AUTRE
+}
+
+// Rôle d'ACCÈS d'une personne dans l'espace de SA structure (N9, 13/10/2026) — ce
+// qu'elle peut faire dans le portail. Distinct de `EstablishmentUserRole`, qui est
+// son POSTE (directeur, coordinateur…) : une coordinatrice peut avoir l'accès
+// « Responsable qualité ». EODA n'est jamais un rôle client — le cabinet a ses
+// propres rôles. La matrice des capacités vit dans apps/web/src/lib/auth/capabilities.ts.
+enum ClientAccessRole {
+  DIRECTION
+  RESPONSABLE_QUALITE
+  ADMINISTRATIF
+  INTERVENANT
 }
 
 enum RequirementLevel {
@@ -253,21 +296,31 @@ model Tenant {
   users          User[]
   establishments Establishment[]
 
-  catalogueFormules  CatalogueFormule[]
-  catalogueOptions   CatalogueOption[]
-  billingSettings    BillingSettings?
-  devisCounters      DevisCounter[]
-  prospects          Prospect[]
-  devis              Devis[]
-  missions           Mission[]
-  optionRequests     ClientOptionRequest[]
-  prospectTimeline   ProspectTimelineEntry[]
-  appointments       Appointment[]
-  missionMessages    MissionMessage[]
-  templateDocuments  TemplateDocument[]
-  templateCategories TemplateCategory[]
-  knowledgeChunks    KnowledgeChunk[]
-  criterionGuidelines CriterionGuideline[]
+  catalogueFormules        CatalogueFormule[]
+  catalogueOptions         CatalogueOption[]
+  billingSettings          BillingSettings?
+  devisCounters            DevisCounter[]
+  prospects                Prospect[]
+  devis                    Devis[]
+  missions                 Mission[]
+  optionRequests           ClientOptionRequest[]
+  prospectTimeline         ProspectTimelineEntry[]
+  appointments             Appointment[]
+  missionMessages          MissionMessage[]
+  templateDocuments        TemplateDocument[]
+  templateCategories       TemplateCategory[]
+  knowledgeChunks          KnowledgeChunk[]
+  criterionGuidelines      CriterionGuideline[]
+  actionItems              ActionItem[]
+  establishmentAssignments EstablishmentAssignment[]
+  staffMembers             StaffMember[]
+  quizCampaigns            QuizCampaign[]
+  quizAttempts             QuizAttempt[]
+  beneficiaries            Beneficiary[]
+  beneficiaryDocuments     BeneficiaryDocument[]
+  beneficiaryJournal       BeneficiaryJournalEntry[]
+  surveyResponses          SurveyResponse[]
+  deviceEnrollments        DeviceEnrollment[]
 
   @@map("tenants")
 }
@@ -294,23 +347,51 @@ model User {
   // cliente, suspension d'accès). Un compte inactif est refusé À LA CONNEXION et à
   // chaque contrôle d'autorisation (lib/auth/guards.ts) — jamais seulement masqué
   // dans une liste. Réversible : la réactivation repose le drapeau.
-  isActive      Boolean   @default(true) @map("is_active")
-  deactivatedAt DateTime? @map("deactivated_at")
+  isActive        Boolean   @default(true) @map("is_active")
+  deactivatedAt   DateTime? @map("deactivated_at")
+  // Dernière connexion réussie — affichée sur « Équipe EODA » (N9). Un fait daté,
+  // posé à l'authentification ; jamais une durée de session ni une adresse IP.
+  lastLoginAt     DateTime? @map("last_login_at")
+  // Adresse CONFIRMÉE par le lien reçu (tranche 11, 13/10/2026). Exigée seulement des
+  // comptes créés en libre-service (ceux qui ont un ProspectAccount) : un compte créé
+  // par le cabinet n'a rien à prouver, son adresse vient d'une relation commerciale.
+  // Null = non confirmée ; la règle vit dans email-verification-service.ts.
+  emailVerifiedAt DateTime? @map("email_verified_at")
 
-  tenant              Tenant?                 @relation(fields: [tenantId], references: [id])
-  establishmentUsers  EstablishmentUser[]
-  uploadedVersions    DocumentVersion[]       @relation("UploadedBy")
-  evaluationSessions  EvaluationSession[]
-  optionRequests      ClientOptionRequest[]   @relation("RequestedBy")
-  prospectTimeline    ProspectTimelineEntry[] @relation("ProspectTimelineAuthor")
-  reviewedAnalyses    DocumentVersion[]       @relation("AnalysisReviewedBy")
-  createdAppointments Appointment[]           @relation("AppointmentCreatedBy")
-  validatedDocuments  Document[]              @relation("DocumentValidatedBy")
-  missionMessages     MissionMessage[]
-  uploadedTemplates   TemplateVersion[]       @relation("TemplateUploadedBy")
-  criterionGuidelines CriterionGuideline[]
-  suggestionsReviewed DocumentCriterionSuggestion[] @relation("CriterionSuggestionReviewedBy")
+  tenant                      Tenant?                       @relation(fields: [tenantId], references: [id])
+  establishmentUsers          EstablishmentUser[]
+  uploadedVersions            DocumentVersion[]             @relation("UploadedBy")
+  evaluationSessions          EvaluationSession[]
+  elementRatings              ElementRating[]               @relation("ElementRatedBy")
+  optionRequests              ClientOptionRequest[]         @relation("RequestedBy")
+  prospectTimeline            ProspectTimelineEntry[]       @relation("ProspectTimelineAuthor")
+  reviewedAnalyses            DocumentVersion[]             @relation("AnalysisReviewedBy")
+  createdAppointments         Appointment[]                 @relation("AppointmentCreatedBy")
+  validatedDocuments          Document[]                    @relation("DocumentValidatedBy")
+  clientAcceptedDocuments     Document[]                    @relation("DocumentClientAcceptedBy")
+  missionMessages             MissionMessage[]
+  uploadedTemplates           TemplateVersion[]             @relation("TemplateUploadedBy")
+  criterionGuidelines         CriterionGuideline[]
+  suggestionsReviewed         DocumentCriterionSuggestion[] @relation("CriterionSuggestionReviewedBy")
   templateSuggestionsReviewed TemplateCriterionSuggestion[] @relation("TemplateCriterionSuggestionReviewedBy")
+  ownedActionItems            ActionItem[]                  @relation("ActionItemOwner")
+  completedActionItems        ActionItem[]                  @relation("ActionItemDoneBy")
+  createdActionItems          ActionItem[]                  @relation("ActionItemCreatedBy")
+  diagnosticsReviewed         DiagnosticValidation[]        @relation("DiagnosticReviewedBy")
+  diagnosticsAccepted         DiagnosticValidation[]        @relation("DiagnosticAcceptedBy")
+  practiceAnswers             PracticeAnswer[]
+  proposalsGenerated          CorrectionProposal[]          @relation("ProposalGeneratedBy")
+  proposalsApplied            CorrectionProposal[]          @relation("ProposalAppliedBy")
+  establishmentAssignments    EstablishmentAssignment[]
+  staffMembers                StaffMember[]
+  quizCampaignsSent           QuizCampaign[]                @relation("QuizCampaignSentBy")
+  prospectAccount             ProspectAccount?
+  emailVerificationTokens     EmailVerificationToken[]
+  prospectPracticeAnswers     ProspectPracticeAnswer[]      @relation("ProspectPracticeAnsweredBy")
+  beneficiaryJournalEntries   BeneficiaryJournalEntry[]     @relation("BeneficiaryJournalAuthorUser")
+  devicesEnrolled             DeviceEnrollment[]            @relation("DeviceEnrolledBy")
+  devicesRevoked              DeviceEnrollment[]            @relation("DeviceRevokedBy")
+  staffPinsSet                StaffPin[]                    @relation("StaffPinSetBy")
 
   @@index([tenantId])
   @@map("users")
@@ -360,15 +441,26 @@ model Establishment {
   createdAt               DateTime       @default(now()) @map("created_at")
   updatedAt               DateTime       @updatedAt @map("updated_at")
 
-  tenant             Tenant                @relation(fields: [tenantId], references: [id])
-  establishmentUsers EstablishmentUser[]
-  documents          Document[]
-  evaluationSessions EvaluationSession[]
-  prospect           Prospect?
-  mission            Mission?
-  optionRequests     ClientOptionRequest[]
-  appointments       Appointment[]
-  messages           MissionMessage[]
+  tenant                Tenant                    @relation(fields: [tenantId], references: [id])
+  establishmentUsers    EstablishmentUser[]
+  documents             Document[]
+  evaluationSessions    EvaluationSession[]
+  prospect              Prospect?
+  mission               Mission?
+  optionRequests        ClientOptionRequest[]
+  appointments          Appointment[]
+  messages              MissionMessage[]
+  actionItems           ActionItem[]
+  diagnosticValidations DiagnosticValidation[]
+  practiceAnswers       PracticeAnswer[]
+  assignments           EstablishmentAssignment[]
+  staffMembers          StaffMember[]
+  quizCampaigns         QuizCampaign[]
+  quizAttempts          QuizAttempt[]
+  beneficiaries         Beneficiary[]
+  beneficiaryDocuments  BeneficiaryDocument[]
+  surveyResponses       SurveyResponse[]
+  deviceEnrollments     DeviceEnrollment[]
 
   @@index([tenantId])
   @@map("establishments")
@@ -378,6 +470,20 @@ model EstablishmentUser {
   userId              String                @map("user_id")
   establishmentId     String                @map("establishment_id")
   roleInEstablishment EstablishmentUserRole @map("role_in_establishment")
+  // Défaut DIRECTION : les liens existants (créés par le cabinet avant N9) gardent
+  // tout ce qu'ils voyaient — aucune régression pour les comptes en place.
+  accessRole          ClientAccessRole      @default(DIRECTION) @map("access_role")
+  // Retrait d'accès par la direction de la structure : le lien est DÉSACTIVÉ, jamais
+  // supprimé — l'historique reste (qui a eu accès, jusqu'à quand). Les gardes
+  // ignorent un lien retiré. (Le retrait par le cabinet garde son geste existant.)
+  revokedAt           DateTime?             @map("revoked_at")
+  createdAt           DateTime              @default(now()) @map("created_at")
+  // Dernière ouverture de « Mes livrables » par CETTE personne pour CET
+  // établissement. Seul fait stocké de la notification dans l'application : ce qui
+  // est « nouveau » se DÉRIVE (livrable remis après cette date,
+  // deliverables-service). Porté par le lien et non par User : une personne qui suit
+  // deux structures n'a pas vu les livrables de l'une en ouvrant ceux de l'autre.
+  deliverablesSeenAt  DateTime?             @map("deliverables_seen_at")
 
   user          User          @relation(fields: [userId], references: [id])
   establishment Establishment @relation(fields: [establishmentId], references: [id])
@@ -385,6 +491,37 @@ model EstablishmentUser {
   @@id([userId, establishmentId])
   @@index([establishmentId])
   @@map("establishment_users")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// AFFECTATION CONSULTANTE ↔ STRUCTURES — tranche N9 (13/10/2026).
+//
+// « Ses structures » (maquette Équipe EODA). Lue par lib/auth/guards.ts pour un
+// CABINET_EVALUATOR : il ne voit que les structures qui lui sont affectées — ou
+// TOUTES s'il n'en a aucune. Ce second cas est un choix de COMPATIBILITÉ, écrit ici
+// pour qu'on ne le prenne pas pour un oubli : les comptes consultante existants
+// n'ont aucune ligne, et leur retirer d'un coup l'accès à tout le portefeuille
+// serait une régression. Dès la première affectation, le périmètre se ferme.
+// L'administration voit toujours tout ; les autres rôles ne sont pas filtrés par
+// cette table (Commercial n'a aucun accès aux structures, Lecture seule voit tout
+// sans rien modifier).
+// ─────────────────────────────────────────────────────────────────────────────
+model EstablishmentAssignment {
+  id              String   @id @default(cuid())
+  tenantId        String   @map("tenant_id")
+  establishmentId String   @map("establishment_id")
+  userId          String   @map("user_id")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  tenant        Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  // Cascade : une affectation n'existe que par sa structure et par la personne.
+  establishment Establishment @relation(fields: [establishmentId], references: [id], onDelete: Cascade)
+  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, establishmentId])
+  @@index([tenantId])
+  @@index([establishmentId])
+  @@map("establishment_assignments")
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -449,13 +586,16 @@ model Criterion {
   requirementLevel RequirementLevel @map("requirement_level")
   applicableTo     ApplicableTo     @map("applicable_to")
 
-  objective          Objective               @relation(fields: [objectiveId], references: [id])
-  evaluationElements EvaluationElement[]
-  documentTypes      DocumentTypeCriterion[]
-  guidelines         CriterionGuideline[]
-  templateDocuments  TemplateDocumentCriterion[]
-  documentSuggestions DocumentCriterionSuggestion[]
-  templateSuggestions TemplateCriterionSuggestion[]
+  objective               Objective                     @relation(fields: [objectiveId], references: [id])
+  evaluationElements      EvaluationElement[]
+  documentTypes           DocumentTypeCriterion[]
+  guidelines              CriterionGuideline[]
+  templateDocuments       TemplateDocumentCriterion[]
+  documentSuggestions     DocumentCriterionSuggestion[]
+  templateSuggestions     TemplateCriterionSuggestion[]
+  actionItems             ActionItem[]
+  practiceAnswers         PracticeAnswer[]
+  prospectPracticeAnswers ProspectPracticeAnswer[]
 
   @@index([objectiveId])
   @@map("criteria")
@@ -561,8 +701,11 @@ model DocumentType {
   // sa bibliothèque.
   requestedFromClient Boolean @default(false) @map("requested_from_client")
 
-  documents DocumentTypeCriterion[]
-  Document  Document[]
+  documents         DocumentTypeCriterion[]
+  Document          Document[]
+  // Gabarits de la bibliothèque rattachés à ce type (N8) : leurs versions FINALE
+  // servent d'exemples validés à la génération et à l'analyse de ce type.
+  templateDocuments TemplateDocument[]
 
   @@map("document_types")
 }
@@ -600,9 +743,9 @@ model CriterionGuideline {
   createdByUserId String   @map("created_by_user_id")
   createdAt       DateTime @default(now()) @map("created_at")
 
-  tenant      Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  criterion   Criterion @relation(fields: [criterionId], references: [id], onDelete: Cascade)
-  createdBy   User      @relation(fields: [createdByUserId], references: [id])
+  tenant    Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  criterion Criterion @relation(fields: [criterionId], references: [id], onDelete: Cascade)
+  createdBy User      @relation(fields: [createdByUserId], references: [id])
 
   // Requête de réinjection : les N guidelines les plus récentes pour un tenant et
   // un critère donnés — cet index composite la sert directement. L'index simple
@@ -630,7 +773,7 @@ model DocumentTypeCriterion {
 // plutôt que pour les documents attendus du client (demande du 16/09/2026).
 model TemplateDocumentCriterion {
   templateDocumentId String @map("template_document_id")
-  criterionId         String @map("criterion_id")
+  criterionId        String @map("criterion_id")
 
   templateDocument TemplateDocument @relation(fields: [templateDocumentId], references: [id], onDelete: Cascade)
   criterion        Criterion        @relation(fields: [criterionId], references: [id], onDelete: Cascade)
@@ -662,19 +805,32 @@ model Document {
   validatedAt       DateTime? @map("validated_at")
   validatedByUserId String?   @map("validated_by_user_id")
 
+  // ACCEPTATION PAR LE CLIENT (D6, décision du 08/10/2026) — second geste, jamais
+  // fusionné avec `validatedAt` : EODA « relu », puis la structure « accepté »
+  // (« c'est lui qui valide, ce n'est pas moi », 15/09). Une décision, donc un fait
+  // stocké. Elle vaut pour la version courante au moment du geste : une version
+  // déposée APRÈS rend l'acceptation caduque, ce qui se DÉRIVE en comparant les
+  // dates (client-documents-view-service) — aucune remise à zéro à écrire.
+  clientAcceptedAt       DateTime? @map("client_accepted_at")
+  clientAcceptedByUserId String?   @map("client_accepted_by_user_id")
+
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  establishment  Establishment     @relation(fields: [establishmentId], references: [id])
-  documentType   DocumentType?     @relation(fields: [documentTypeId], references: [id])
-  currentVersion DocumentVersion?  @relation("CurrentVersion", fields: [currentVersionId], references: [id])
-  versions       DocumentVersion[] @relation("AllVersions")
+  establishment        Establishment                 @relation(fields: [establishmentId], references: [id])
+  documentType         DocumentType?                 @relation(fields: [documentTypeId], references: [id])
+  currentVersion       DocumentVersion?              @relation("CurrentVersion", fields: [currentVersionId], references: [id])
+  versions             DocumentVersion[]             @relation("AllVersions")
   // SetNull : la désactivation d'un compte ne dévalide pas un document déjà validé.
-  validatedBy    User?             @relation("DocumentValidatedBy", fields: [validatedByUserId], references: [id], onDelete: SetNull)
+  validatedBy          User?                         @relation("DocumentValidatedBy", fields: [validatedByUserId], references: [id], onDelete: SetNull)
+  // SetNull : la désactivation d'un compte client n'efface pas un geste déjà daté.
+  clientAcceptedBy     User?                         @relation("DocumentClientAcceptedBy", fields: [clientAcceptedByUserId], references: [id], onDelete: SetNull)
   criterionSuggestions DocumentCriterionSuggestion[]
+  actionItems          ActionItem[]
 
   @@unique([establishmentId, documentTypeId])
   @@index([documentTypeId])
+  @@index([clientAcceptedByUserId])
   @@map("documents")
 }
 
@@ -716,16 +872,18 @@ model DocumentVersion {
   correctedDraftMarkdown    String?   @map("corrected_draft_markdown")
   correctedDraftGeneratedAt DateTime? @map("corrected_draft_generated_at")
 
-  document               Document          @relation("AllVersions", fields: [documentId], references: [id])
-  uploadedBy             User              @relation("UploadedBy", fields: [uploadedByUserId], references: [id])
+  document               Document                      @relation("AllVersions", fields: [documentId], references: [id])
+  uploadedBy             User                          @relation("UploadedBy", fields: [uploadedByUserId], references: [id])
   // SetNull : la désactivation d'un compte ne doit pas dépublier une analyse déjà
   // restituée au client.
-  analysisReviewedBy     User?             @relation("AnalysisReviewedBy", fields: [analysisReviewedByUserId], references: [id], onDelete: SetNull)
-  regeneratedFromVersion DocumentVersion?  @relation("Regeneration", fields: [regeneratedFromVersionId], references: [id])
-  regeneratedVersions    DocumentVersion[] @relation("Regeneration")
-  currentForDocument     Document?         @relation("CurrentVersion")
+  analysisReviewedBy     User?                         @relation("AnalysisReviewedBy", fields: [analysisReviewedByUserId], references: [id], onDelete: SetNull)
+  regeneratedFromVersion DocumentVersion?              @relation("Regeneration", fields: [regeneratedFromVersionId], references: [id])
+  regeneratedVersions    DocumentVersion[]             @relation("Regeneration")
+  currentForDocument     Document?                     @relation("CurrentVersion")
   images                 DocumentVersionImage[]
   criterionSuggestions   DocumentCriterionSuggestion[]
+  correctionProposals    CorrectionProposal[]          @relation("ProposalSource")
+  proposalApplied        CorrectionProposal?           @relation("ProposalResult")
 
   @@index([documentId])
   @@map("document_versions")
@@ -784,12 +942,18 @@ model ElementRating {
   suggestedBySystem   Boolean  @default(false) @map("suggested_by_system")
   confirmedByUser     Boolean  @default(false) @map("confirmed_by_user")
   ratedAt             DateTime @default(now()) @map("rated_at")
+  // Auteur du dernier GESTE humain de cotation (« Coté par … · date »). Nullable :
+  // les cotations antérieures au 10/10/2026 n'en ont pas, et la personne qui a
+  // ouvert la session n'est pas forcément celle qui a coté — on ne devine pas.
+  ratedByUserId       String?  @map("rated_by_user_id")
 
   evaluationSession EvaluationSession @relation(fields: [evaluationSessionId], references: [id])
   evaluationElement EvaluationElement @relation(fields: [evaluationElementId], references: [id])
+  ratedBy           User?             @relation("ElementRatedBy", fields: [ratedByUserId], references: [id], onDelete: SetNull)
 
   @@unique([evaluationSessionId, evaluationElementId])
   @@index([evaluationElementId])
+  @@index([ratedByUserId])
   @@map("element_ratings")
 }
 
@@ -802,16 +966,22 @@ model ElementRating {
 // ─────────────────────────────────────────────────────────────────────────────
 
 model CatalogueFormule {
-  id           String         @id @default(cuid())
-  tenantId     String         @map("tenant_id")
-  formule      CommercialTier
-  label        String
-  priceEuros   Int            @map("price_euros")
-  modulesLabel String?        @map("modules_label")
-  description  String?
-  active       Boolean        @default(true)
-  createdAt    DateTime       @default(now()) @map("created_at")
-  updatedAt    DateTime       @updatedAt @map("updated_at")
+  id                String         @id @default(cuid())
+  tenantId          String         @map("tenant_id")
+  formule           CommercialTier
+  label             String
+  priceEuros        Int            @map("price_euros")
+  // PRIX MENSUEL de l'offre (abonnement au portail, maquettes v2 — 13/10/2026).
+  // Nullable : tant que les prix ne sont pas fixés (décision 11 du plan v2), l'écran
+  // affiche « à partir de xx € / mois » et n'invente aucun montant. Distinct de
+  // `priceEuros` (forfait d'accompagnement de l'offre v10), qui reste le montant
+  // ponctuel. Snapshoté sur le devis comme le reste (Devis.formuleMonthlyPriceSnapshotEuros).
+  monthlyPriceEuros Int?           @map("monthly_price_euros")
+  modulesLabel      String?        @map("modules_label")
+  description       String?
+  active            Boolean        @default(true)
+  createdAt         DateTime       @default(now()) @map("created_at")
+  updatedAt         DateTime       @updatedAt @map("updated_at")
 
   tenant Tenant  @relation(fields: [tenantId], references: [id])
   devis  Devis[]
@@ -833,6 +1003,10 @@ model CatalogueOption {
   // Quantité minimale facturable, dans l'unité ci-dessus : 2 pour « mini. 2 h »,
   // 12 pour un abonnement mensuel à engagement d'un an. null = pas de minimum.
   minQuantity   Int?        @map("min_quantity")
+  // « Pour qui » (maquette v2 « Catalogue ») : à quelles offres l'option se vend,
+  // en mots (« Essentiel », « Toutes les offres »). Texte libre et facultatif — rien
+  // n'est déduit de ce champ, il ne restreint aucune vente. Vide = non renseigné.
+  audienceLabel String?     @map("audience_label")
   active        Boolean     @default(true)
   createdAt     DateTime    @default(now()) @map("created_at")
   updatedAt     DateTime    @updatedAt @map("updated_at")
@@ -943,17 +1117,84 @@ model Prospect {
   createdAt               DateTime           @default(now()) @map("created_at")
   updatedAt               DateTime           @updatedAt @map("updated_at")
 
-  tenant        Tenant                  @relation(fields: [tenantId], references: [id])
+  tenant          Tenant                   @relation(fields: [tenantId], references: [id])
   // SetNull et non Cascade : supprimer une fiche client ne doit pas effacer
   // l'historique commercial (prospect, devis signés, chiffre d'affaires). Le
   // prospect survit, simplement détaché.
-  establishment Establishment?          @relation(fields: [establishmentId], references: [id], onDelete: SetNull)
-  devis         Devis[]
-  timeline      ProspectTimelineEntry[]
-  appointments  Appointment[]
+  establishment   Establishment?           @relation(fields: [establishmentId], references: [id], onDelete: SetNull)
+  devis           Devis[]
+  timeline        ProspectTimelineEntry[]
+  appointments    Appointment[]
+  // Libre-service : comptes de la structure inscrite seule, et son diagnostic
+  // déclaratif (questions sur les pratiques), avant toute signature.
+  accounts        ProspectAccount[]
+  practiceAnswers ProspectPracticeAnswer[]
 
   @@index([tenantId])
   @@map("prospects")
+}
+
+// LIEN Prospect ↔ User d'une structure inscrite SEULE (D5, 13/10/2026). Un compte
+// PROSPECT_USER n'ouvre que l'espace de CE prospect (requireProspectSession dans
+// lib/auth/guards.ts). `userId` unique : un compte = un prospect. Plusieurs comptes
+// par prospect possibles (« Compte · n utilisateurs » côté cabinet).
+// Cascade depuis le prospect : un prospect supprimé n'a plus d'espace. Le compte
+// User, lui, n'est pas supprimé par cette cascade — la garde le refuse faute de lien.
+model ProspectAccount {
+  id         String   @id @default(cuid())
+  prospectId String   @map("prospect_id")
+  userId     String   @unique @map("user_id")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  prospect Prospect @relation(fields: [prospectId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([prospectId])
+  @@map("prospect_accounts")
+}
+
+// Lien de confirmation d'adresse d'un compte libre-service (tranche 11). Même
+// discipline que QuizInvitation : le JETON n'est jamais en base, seule son empreinte
+// SHA-256, comparée en temps constant ; usage unique (`usedAt`), durée courte
+// (`expiresAt`). Un renvoi invalide les liens précédents encore ouverts.
+model EmailVerificationToken {
+  id        String    @id @default(cuid())
+  userId    String    @map("user_id")
+  tokenHash String    @unique @map("token_hash")
+  expiresAt DateTime  @map("expires_at")
+  usedAt    DateTime? @map("used_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("email_verification_tokens")
+}
+
+// Diagnostic DÉCLARATIF d'une structure inscrite seule : réponses aux questions sur
+// les pratiques (content/pratiques), une par critère impératif de son profil. Table
+// DISTINCTE de PracticeAnswer, rattachée à un établissement : la fiche ne naît que
+// de la signature, et cette table ne doit jamais en devenir une seconde porte.
+// Append-only, comme PracticeAnswer : la plus récente par critère fait foi. Le
+// cabinet n'en voit QUE l'avancement, jamais le contenu (maquette « Prospects »).
+model ProspectPracticeAnswer {
+  id              String              @id @default(cuid())
+  prospectId      String              @map("prospect_id")
+  criterionId     String              @map("criterion_id")
+  questionVersion Int                 @map("question_version")
+  answer          PracticeAnswerValue
+  text            String?
+  answeredById    String?             @map("answered_by_id")
+  answeredAt      DateTime            @default(now()) @map("answered_at")
+
+  prospect   Prospect  @relation(fields: [prospectId], references: [id], onDelete: Cascade)
+  criterion  Criterion @relation(fields: [criterionId], references: [id], onDelete: Cascade)
+  answeredBy User?     @relation("ProspectPracticeAnsweredBy", fields: [answeredById], references: [id], onDelete: SetNull)
+
+  @@index([prospectId, criterionId, answeredAt])
+  @@index([criterionId])
+  @@index([answeredById])
+  @@map("prospect_practice_answers")
 }
 
 // Rendez-vous — la même ligne sert l'avant-vente et l'accompagnement.
@@ -1051,11 +1292,28 @@ model Devis {
   number     String      @unique
   status     DevisStatus @default(BROUILLON)
 
-  catalogueFormuleId        String @map("catalogue_formule_id")
+  // Facultative depuis le 11/10/2026 (bilan §3.2, call du 01/09) : un devis peut ne porter
+  // que des prestations à la carte, sans offre. Dans ce cas les trois colonnes ci-dessous
+  // sont nulles ensemble, et au moins une option est exigée (devis-calculation-service).
+  catalogueFormuleId               String? @map("catalogue_formule_id")
   // Snapshots — figent le libellé/prix de la formule au moment de la création
   // pour qu'une évolution ultérieure du catalogue ne change jamais un devis existant.
-  formuleLabelSnapshot      String @map("formule_label_snapshot")
-  formulePriceSnapshotEuros Int    @map("formule_price_snapshot_euros")
+  formuleLabelSnapshot             String? @map("formule_label_snapshot")
+  formulePriceSnapshotEuros        Int?    @map("formule_price_snapshot_euros")
+  // Prix mensuel de l'offre au jour du devis (CatalogueFormule.monthlyPriceEuros),
+  // figé comme le forfait ci-dessus. Null = prix mensuel non fixé à cette date.
+  formuleMonthlyPriceSnapshotEuros Int?    @map("formule_monthly_price_snapshot_euros")
+
+  // ENGAGEMENT de l'abonnement, en mois (maquette v2 « Nouveau devis ») : 12, 24, ou
+  // 0 = sans engagement (résiliable chaque mois). Null = devis antérieur au
+  // 13/10/2026, qui ne disait rien de l'engagement. Valeurs admises :
+  // devis-recap-service.ts (COMMITMENT_CHOICES). N'entre dans AUCUN montant : les
+  // totaux restent ceux de devis-calculation-service.
+  commitmentMonths Int?    @map("commitment_months")
+  // « Note pour la structure » (facultative), saisie au devis et reprise dans
+  // l'e-mail d'envoi et sur le devis imprimé. Jamais de donnée sur une personne
+  // accompagnée : l'écran le rappelle.
+  clientNote       String? @map("client_note")
 
   depositPercent   Int      @map("deposit_percent")
   installmentCount Int      @map("installment_count")
@@ -1072,9 +1330,9 @@ model Devis {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  tenant           Tenant           @relation(fields: [tenantId], references: [id])
-  prospect         Prospect         @relation(fields: [prospectId], references: [id])
-  catalogueFormule CatalogueFormule @relation(fields: [catalogueFormuleId], references: [id])
+  tenant           Tenant            @relation(fields: [tenantId], references: [id])
+  prospect         Prospect          @relation(fields: [prospectId], references: [id])
+  catalogueFormule CatalogueFormule? @relation(fields: [catalogueFormuleId], references: [id], onDelete: Restrict)
   options          DevisOption[]
   missions         Mission[]
 
@@ -1179,13 +1437,21 @@ model MissionChecklistItem {
 // l'accompagnement. La formule ici fait autorité pour le calcul de scope
 // Excellence (§7.3) — Establishment.commercialTier reste inchangé.
 model Mission {
-  id              String         @id @default(cuid())
-  tenantId        String         @map("tenant_id")
-  establishmentId String         @unique @map("establishment_id")
-  formule         CommercialTier
+  id              String          @id @default(cuid())
+  tenantId        String          @map("tenant_id")
+  establishmentId String          @unique @map("establishment_id")
+  // Nulle pour une mission née d'un devis SANS offre (prestations à la carte seules,
+  // 11/10/2026) : aucun périmètre d'offre ouvert, mode accompagné, aucun droit de
+  // génération (offer-scope-service, support-mode-service).
+  formule         CommercialTier?
   // Bêta-test gratuit — cf. §7.5 : accorde le périmètre Excellence complet
   // indépendamment de `formule` (condition OR, jamais écrasée par formule).
-  gratuit         Boolean        @default(false)
+  gratuit         Boolean         @default(false)
+  // Seul ou accompagné. Défaut ACCOMPAGNE : toutes les missions existantes gardent la
+  // règle stricte (rien de non relu n'atteint le client). Posé à la signature d'un
+  // devis selon la formule (support-mode-service), modifiable ensuite par
+  // CABINET_ADMIN depuis l'onglet Mission. Jamais déduit de commercialTier.
+  supportMode     SupportMode     @default(ACCOMPAGNE) @map("support_mode")
 
   fondationsStartDate        DateTime? @map("fondations_start_date")
   fondationsEndDate          DateTime? @map("fondations_end_date")
@@ -1489,6 +1755,83 @@ enum AuditAction {
   // Même décision, côté bibliothèque de modèles (gabarits) — 20/09/2026.
   TEMPLATE_CRITERION_SUGGESTION_CONFIRMED
   TEMPLATE_CRITERION_SUGGESTION_REJECTED
+  // Acceptation d'un document par la structure (D6) — `targetId` = identifiant du
+  // document, `detail` = le code du type de document. Distinct de DOCUMENT_VALIDATED,
+  // qui est la parole d'EODA.
+  DOCUMENT_ACCEPTED_BY_CLIENT
+  // Passage d'une mission en autonomie ou en accompagnement (N1). `targetId` =
+  // identifiant de la mission, `detail` = le nouveau mode.
+  MISSION_SUPPORT_MODE_CHANGED
+  // Rattachement d'un compte client EXISTANT (même cabinet) à une autre structure, au
+  // lieu du refus « un compte existe déjà » (bilan §3.2). `targetId` = le compte.
+  CLIENT_USER_LINKED
+  // Matrice type de document → critère HAS validée par CABINET_ADMIN (N4). `targetId` =
+  // identifiant du type, `detail` = son code et le nombre de liens ajoutés / retirés.
+  DOCUMENT_TYPE_CRITERIA_UPDATED
+  // Suggestion de critère confirmée promue au type de document. `targetId` = la
+  // suggestion, `detail` = code du type et code du critère (référentiel, non nominatif).
+  DOCUMENT_TYPE_CRITERION_PROMOTED
+  // Tâches / plan d'action (N5). `targetId` = la tâche, `detail` = sa source et son
+  // côté responsable — jamais le titre (texte libre).
+  ACTION_ITEM_CREATED
+  ACTION_ITEM_COMPLETED
+  ACTION_ITEM_REOPENED
+  ACTION_ITEM_REASSIGNED
+  DIAGNOSTIC_REVIEWED_BY_EODA
+  DIAGNOSTIC_ACCEPTED_BY_CLIENT
+  DIAGNOSTIC_REPORT_PRINTED
+  PRACTICE_ANSWER_SAVED
+  CORRECTION_PROPOSAL_APPLIED
+  CORRECTION_PROPOSAL_EXPORTED
+  CHANGE_REPORT_DOWNLOADED
+  TEMPLATE_DOCUMENT_TYPE_LINKED
+  // Équipe EODA (N9). `targetId` = le compte visé, `detail` = le rôle ou le nombre
+  // de structures suivies — jamais un nom ni une adresse.
+  CABINET_USER_INVITED
+  CABINET_USER_ROLE_CHANGED
+  CABINET_USER_ACCESS_REMOVED
+  CABINET_USER_ASSIGNMENTS_UPDATED
+  // Accès à l'espace d'une structure gérés PAR SA DIRECTION (N9). `targetId` = le
+  // compte, `detail` = le rôle d'accès — jamais un nom ni une adresse.
+  CLIENT_ACCESS_GRANTED
+  CLIENT_ACCESS_ROLE_CHANGED
+  CLIENT_ACCESS_REVOKED
+  // Équipe et quiz de sensibilisation (N10). `targetId` = fiche salarié, campagne ou
+  // tentative ; `detail` = code du module, nombre de lignes — jamais un nom.
+  STAFF_MEMBER_CREATED
+  STAFF_MEMBER_UPDATED
+  STAFF_MEMBERS_IMPORTED
+  QUIZ_CAMPAIGN_SENT
+  QUIZ_ATTEMPT_COMPLETED
+  QUIZ_SIGNOFF_EXPORTED
+  QUIZ_LINK_RATE_LIMITED
+  // Relance manuelle d'un devis envoyé (maquettes v2, 13/10/2026) : un geste, jamais
+  // un automate. `detail` = numéro du devis.
+  DEVIS_REMINDER_SENT
+  // Libre-service (D5, 13/10/2026). `detail` ne porte jamais l'e-mail ni le nom.
+  SELF_SERVICE_SIGNUP
+  SELF_SERVICE_SIGNUP_RATE_LIMITED
+  ACCOMPANIMENT_REQUESTED
+  PROSPECT_REMINDER_SENT
+  PROSPECT_PRACTICE_ANSWERED
+  // Confirmation de l'adresse d'un compte libre-service et bascule en client à la
+  // signature (tranche 11). `targetId` = identifiant technique du compte, jamais
+  // l'adresse.
+  EMAIL_VERIFICATION_SENT
+  EMAIL_VERIFIED
+  EMAIL_VERIFICATION_RATE_LIMITED
+  LOGIN_REFUSED_UNVERIFIED
+  PROSPECT_ACCOUNT_PROMOTED
+  // Lot C (14/10/2026) — tablette et enquête. `targetId` = identifiant technique de
+  // l'appareil ou de la fiche salarié ; `detail` ne porte jamais un nom ni un code.
+  DEVICE_ENROLLED
+  DEVICE_REVOKED
+  STAFF_PIN_SET
+  STAFF_PIN_UNLOCKED
+  TABLET_SIGN_IN_FAILED
+  TABLET_PIN_LOCKED
+  TABLET_SIGNED_IN
+  SURVEY_RESULTS_EXPORTED
 }
 
 model AuditLogEntry {
@@ -1576,12 +1919,12 @@ enum TemplateStage {
 // règles. Le distinguo vient du call du 03/09 : « le manuel HAS y sera, et lui n'aura
 // pas forcément plusieurs versions ».
 //
-//  - GABARIT : un document qu'EODA produit. Il a les trois stades, il a des numéros de
-//    version, et c'est la comparaison entre l'état reçu et le résultat produit qui en
-//    fait la valeur.
+//  - GABARIT : un document qu'EODA produit. Il a DEUX stades (VIERGE, FINALE — voir
+//    `TemplateStage`), il a des numéros de version ; la version « initiale » est le
+//    document que le client dépose sur son portail, pas un stade du gabarit.
 //  - REFERENCE : un document qu'EODA ne produit pas et ne modifie pas — le manuel HAS,
 //    un texte réglementaire, une grille Synaé. Un seul fichier, pas de stade, pas de
-//    numéro de version imposé : lui coller « version vierge / initiale / finale »
+//    numéro de version imposé : lui coller « version vierge / finale »
 //    n'aurait aucun sens et découragerait de le déposer.
 //
 // Ces deux natures cohabitent dans la même table parce qu'elles servent la même
@@ -1628,22 +1971,28 @@ model TemplateCategory {
 }
 
 model TemplateDocument {
-  id          String               @id @default(cuid())
-  tenantId    String               @map("tenant_id")
-  title       String
+  id             String               @id @default(cuid())
+  tenantId       String               @map("tenant_id")
+  title          String
   // Le dossier où la fiche est rangée. Modifiable : c'est exactement ce que veut dire
   // « pouvoir les réarranger ensuite » — un import de dossier range au mieux, il ne
   // range pas juste à tous les coups.
-  categoryId  String               @map("category_id")
-  kind        TemplateDocumentKind @default(GABARIT)
-  description String?
-  createdAt   DateTime             @default(now()) @map("created_at")
-  updatedAt   DateTime             @updatedAt @map("updated_at")
+  categoryId     String               @map("category_id")
+  kind           TemplateDocumentKind @default(GABARIT)
+  description    String?
+  // Type de document que ce GABARIT illustre (N8, context/10 §9). Ses versions FINALE
+  // deviennent des EXEMPLES VALIDÉS injectés à la génération et à l'analyse de ce
+  // type, pour toutes les structures du tenant. SetNull : retirer un type du
+  // référentiel ne supprime pas le gabarit.
+  documentTypeId String?              @map("document_type_id")
+  createdAt      DateTime             @default(now()) @map("created_at")
+  updatedAt      DateTime             @updatedAt @map("updated_at")
 
-  tenant   Tenant            @relation(fields: [tenantId], references: [id])
-  category TemplateCategory  @relation(fields: [categoryId], references: [id])
-  versions TemplateVersion[]
-  criteria TemplateDocumentCriterion[]
+  tenant               Tenant                        @relation(fields: [tenantId], references: [id])
+  category             TemplateCategory              @relation(fields: [categoryId], references: [id])
+  documentType         DocumentType?                 @relation(fields: [documentTypeId], references: [id], onDelete: SetNull)
+  versions             TemplateVersion[]
+  criteria             TemplateDocumentCriterion[]
   criterionSuggestions TemplateCriterionSuggestion[]
 
   // Un même titre deux fois dans la bibliothèque, ce sont deux fiches qui divergent :
@@ -1652,6 +2001,7 @@ model TemplateDocument {
   // « Livret d'accueil » ne veut pas dire deux choses selon le dossier.
   @@unique([tenantId, title])
   @@index([categoryId])
+  @@index([documentTypeId])
   @@map("template_documents")
 }
 
@@ -1722,10 +2072,11 @@ model TemplateVersion {
   uploadedByUserId String   @map("uploaded_by_user_id")
   createdAt        DateTime @default(now()) @map("created_at")
 
-  templateDocument TemplateDocument @relation(fields: [templateDocumentId], references: [id], onDelete: Cascade)
-  uploadedBy       User             @relation("TemplateUploadedBy", fields: [uploadedByUserId], references: [id])
-  knowledgeChunks  KnowledgeChunk[]
+  templateDocument     TemplateDocument              @relation(fields: [templateDocumentId], references: [id], onDelete: Cascade)
+  uploadedBy           User                          @relation("TemplateUploadedBy", fields: [uploadedByUserId], references: [id])
+  knowledgeChunks      KnowledgeChunk[]
   criterionSuggestions TemplateCriterionSuggestion[]
+  beneficiaryDocuments BeneficiaryDocument[]
 
   // Le même libellé ne peut pas désigner deux fichiers différents au même stade.
   // PostgreSQL considère deux NULL comme distincts : un document de référence peut
@@ -1750,18 +2101,650 @@ model TemplateVersion {
 // sont les documents de référence, contrôlés par le cabinet, qui sont indexés.
 // ─────────────────────────────────────────────────────────────────────────────
 model KnowledgeChunk {
-  id                String   @id @default(cuid())
-  tenantId          String   @map("tenant_id")
-  templateVersionId String   @map("template_version_id")
-  chunkIndex        Int      @map("chunk_index")
+  id                String                      @id @default(cuid())
+  tenantId          String                      @map("tenant_id")
+  templateVersionId String                      @map("template_version_id")
+  chunkIndex        Int                         @map("chunk_index")
+  // RÉFÉRENCE (manuel HAS, textes) ou EXEMPLE VALIDÉ (gabarit FINALE, N8) : deux
+  // natures qui ne se mélangent jamais — la recherche du référentiel filtre
+  // REFERENCE, l'injection d'exemples filtre EXEMPLE_VALIDE et le type de document.
+  nature            KnowledgeNature             @default(REFERENCE)
   content           String
   embedding         Unsupported("vector(1024)")
-  createdAt         DateTime @default(now()) @map("created_at")
+  createdAt         DateTime                    @default(now()) @map("created_at")
 
   tenant          Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   templateVersion TemplateVersion @relation(fields: [templateVersionId], references: [id], onDelete: Cascade)
 
   @@index([tenantId])
+  @@index([tenantId, nature])
   @@index([templateVersionId])
   @@map("knowledge_chunks")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TÂCHES = PLAN D'ACTION (PAC) — tranche N5, maquettes v2.
+//
+// UN seul modèle pour toutes les tâches d'une structure, quelle que soit leur
+// origine (`source`) : saisie à la main, relance de document, diagnostic, PAC tiré de
+// l'auto-évaluation, plus tard enquête et quiz. Deux tables « tâches » et « actions
+// PAC » finiraient par diverger sur la même chose à faire.
+//
+// Ce qui est STOCKÉ : les décisions (créer, confier à quelqu'un, cocher). Ce qui est
+// DÉRIVÉ (action-item-service) : « en retard » (échéance passée, pas faite) —
+// jamais une colonne, qui ne se mettrait pas à jour toute seule (CLAUDE.md §7).
+//
+// Responsable : un CÔTÉ (`ownerKind` : EODA ou la structure), éventuellement une
+// personne (`ownerUserId`) et, pour le PAC, une FONCTION (`ownerFunction` — « le
+// pilote est une fonction, pas un nom », context/10 §6). Jamais de texte libre
+// nominatif sur une personne accompagnée : `title` décrit un geste sur un document.
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum ActionOwnerKind {
+  CABINET
+  STRUCTURE
+}
+
+enum ActionSource {
+  MANUEL
+  DOCUMENT
+  DIAGNOSTIC
+  PAC
+  ENQUETE
+  QUIZ
+}
+
+model ActionItem {
+  id                String                 @id @default(cuid())
+  tenantId          String                 @map("tenant_id")
+  establishmentId   String                 @map("establishment_id")
+  title             String
+  ownerKind         ActionOwnerKind        @map("owner_kind")
+  ownerUserId       String?                @map("owner_user_id")
+  ownerFunction     EstablishmentUserRole? @map("owner_function")
+  // Jour d'échéance (pas d'heure) : « en retard » se juge au jour.
+  dueOn             DateTime?              @map("due_on") @db.Date
+  doneAt            DateTime?              @map("done_at")
+  doneByUserId      String?                @map("done_by_user_id")
+  source            ActionSource           @default(MANUEL)
+  linkedDocumentId  String?                @map("linked_document_id")
+  linkedCriterionId String?                @map("linked_criterion_id")
+  // Nullable + SetNull : la suppression d'un compte client avec sa structure ne doit
+  // pas être bloquée par une tâche qu'il a créée.
+  createdByUserId   String?                @map("created_by_user_id")
+  createdAt         DateTime               @default(now()) @map("created_at")
+  updatedAt         DateTime               @updatedAt @map("updated_at")
+
+  tenant          Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  // Cascade : une tâche n'existe que par sa structure (même règle que Mission).
+  establishment   Establishment @relation(fields: [establishmentId], references: [id], onDelete: Cascade)
+  // SetNull : le départ d'une personne ne supprime pas la tâche, elle redevient
+  // celle de son côté (EODA ou la structure).
+  ownerUser       User?         @relation("ActionItemOwner", fields: [ownerUserId], references: [id], onDelete: SetNull)
+  doneBy          User?         @relation("ActionItemDoneBy", fields: [doneByUserId], references: [id], onDelete: SetNull)
+  createdBy       User?         @relation("ActionItemCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  linkedDocument  Document?     @relation(fields: [linkedDocumentId], references: [id], onDelete: SetNull)
+  linkedCriterion Criterion?    @relation(fields: [linkedCriterionId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId])
+  @@index([establishmentId, doneAt])
+  @@index([ownerUserId])
+  @@index([doneByUserId])
+  @@index([createdByUserId])
+  @@index([linkedDocumentId])
+  @@index([linkedCriterionId])
+  @@map("action_items")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// VALIDATION DU DIAGNOSTIC — tranche N6 (« Mon diagnostic », maquettes v2).
+//
+// Le diagnostic lui-même est DÉRIVÉ (critères & preuves, N4) : il change à chaque
+// document relu ou accepté. Ce qui se stocke, ce sont les DEUX GESTES (D6), jamais
+// fusionnés :
+//   - EODA « relu » (`reviewedByEoda*`) — cabinet seulement, structure accompagnée ;
+//   - la structure « accepté » (`acceptedByClient*`) — client seulement.
+// En autonomie il n'y a pas de relecture EODA : la structure accepte seule, sous la
+// réserve « non revérifié par un humain » (review-mention-service).
+//
+// `snapshotJson` fige l'état du diagnostic AU MOMENT du premier geste de la ligne :
+// c'est ce qui a été relu (ou accepté), pas ce que le diagnostic est devenu depuis.
+// Une ligne dont la photo ne correspond plus au diagnostic courant n'est plus
+// « à jour » — cela se DÉRIVE (diagnostic-validation-service), aucune remise à zéro.
+// Append-only : un nouveau geste sur un diagnostic qui a changé crée une ligne.
+// ─────────────────────────────────────────────────────────────────────────────
+model DiagnosticValidation {
+  id                   String    @id @default(cuid())
+  establishmentId      String    @map("establishment_id")
+  snapshotJson         Json      @map("snapshot_json")
+  reviewedByEodaAt     DateTime? @map("reviewed_by_eoda_at")
+  reviewedByEodaById   String?   @map("reviewed_by_eoda_by_id")
+  acceptedByClientAt   DateTime? @map("accepted_by_client_at")
+  acceptedByClientById String?   @map("accepted_by_client_by_id")
+  createdAt            DateTime  @default(now()) @map("created_at")
+
+  // Cascade : une validation n'existe que par sa structure (même règle que Mission).
+  establishment    Establishment @relation(fields: [establishmentId], references: [id], onDelete: Cascade)
+  // SetNull : la désactivation d'un compte n'efface pas un geste déjà daté.
+  reviewedByEoda   User?         @relation("DiagnosticReviewedBy", fields: [reviewedByEodaById], references: [id], onDelete: SetNull)
+  acceptedByClient User?         @relation("DiagnosticAcceptedBy", fields: [acceptedByClientById], references: [id], onDelete: SetNull)
+
+  @@index([establishmentId, createdAt])
+  @@index([reviewedByEodaById])
+  @@index([acceptedByClientById])
+  @@map("diagnostic_validations")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// QUESTIONS SUR LES PRATIQUES — tranche N7 (« Vos pratiques », maquettes v2).
+//
+// « Un document ne suffit pas » : une question par critère impératif, dont le TEXTE
+// est un contenu versionné (`content/pratiques/`), jamais une colonne. Ajouter ou
+// reformuler une question ne demande aucune migration ; `questionVersion` dit sous
+// quelle formulation la structure a répondu.
+//
+// Append-only : chaque enregistrement est une ligne, la plus récente par critère fait
+// foi. Une réponse ne se réécrit pas — c'est la trace de ce que la structure a dit, à
+// une date donnée. `text` est libre : l'écran rappelle de ne citer AUCUN nom de
+// personne accompagnée (HDS, CLAUDE.md §6) et le journal ne le recopie jamais.
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum PracticeAnswerValue {
+  OUI
+  EN_PARTIE
+  PAS_ENCORE
+  NE_SAIS_PAS
+}
+
+model PracticeAnswer {
+  id              String              @id @default(cuid())
+  establishmentId String              @map("establishment_id")
+  criterionId     String              @map("criterion_id")
+  questionVersion Int                 @map("question_version")
+  answer          PracticeAnswerValue
+  text            String?
+  // Nullable + SetNull : le départ d'un salarié n'efface pas ce que la structure a dit.
+  answeredById    String?             @map("answered_by_id")
+  answeredAt      DateTime            @default(now()) @map("answered_at")
+
+  establishment Establishment @relation(fields: [establishmentId], references: [id], onDelete: Cascade)
+  criterion     Criterion     @relation(fields: [criterionId], references: [id], onDelete: Cascade)
+  answeredBy    User?         @relation(fields: [answeredById], references: [id], onDelete: SetNull)
+
+  @@index([establishmentId, criterionId, answeredAt])
+  @@index([criterionId])
+  @@index([answeredById])
+  @@map("practice_answers")
+}
+
+enum KnowledgeNature {
+  REFERENCE
+  EXEMPLE_VALIDE
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PROPOSITION DE MISE EN CONFORMITÉ — tranche N8 (« côte à côte »).
+//
+// Une ligne par génération, sur la version ANALYSÉE (`sourceVersionId`) : le document
+// en segments ORIGINAL / AJOUT (`proposalJson`, validé par lib/llm/correction-proposal).
+// Tant qu'elle n'est pas appliquée, c'est une proposition — jamais montrée comme un
+// document. « Enregistrer la version N+1 » crée une NOUVELLE DocumentVersion (l'origine
+// est conservée, liée par `regeneratedFromVersionId`) et fige ici les décisions par
+// ajout (`decisionsJson`), qui et quand : la trace du « ce qui était demandé / ce qui a
+// été fait ». Table à part plutôt que colonnes sur DocumentVersion : une proposition
+// régénérée ne réécrit pas la précédente.
+// ─────────────────────────────────────────────────────────────────────────────
+model CorrectionProposal {
+  id              String    @id @default(cuid())
+  sourceVersionId String    @map("source_version_id")
+  proposalJson    Json      @map("proposal_json")
+  generatedAt     DateTime  @default(now()) @map("generated_at")
+  generatedById   String?   @map("generated_by_id")
+  resultVersionId String?   @unique @map("result_version_id")
+  decisionsJson   Json?     @map("decisions_json")
+  appliedAt       DateTime? @map("applied_at")
+  appliedById     String?   @map("applied_by_id")
+
+  sourceVersion DocumentVersion  @relation("ProposalSource", fields: [sourceVersionId], references: [id], onDelete: Cascade)
+  resultVersion DocumentVersion? @relation("ProposalResult", fields: [resultVersionId], references: [id], onDelete: SetNull)
+  generatedBy   User?            @relation("ProposalGeneratedBy", fields: [generatedById], references: [id], onDelete: SetNull)
+  appliedBy     User?            @relation("ProposalAppliedBy", fields: [appliedById], references: [id], onDelete: SetNull)
+
+  @@index([sourceVersionId, generatedAt])
+  @@index([generatedById])
+  @@index([appliedById])
+  @@map("correction_proposals")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ÉQUIPE DE LA STRUCTURE ET QUIZ DE SENSIBILISATION — lot B, tranche N10 (13/10/2026).
+//
+// « Sensibiliser », jamais « former » (context/11). Les QUESTIONS ne sont pas en
+// base : elles vivent dans le contenu versionné apps/web/src/content/quiz/ ; la base
+// ne garde que les FAITS — qui a été invité, qui a répondu quoi, quand, sur quelle
+// version. « À jour / À refaire / Pas fait » se DÉRIVE de la dernière tentative et
+// de `retestMonths` (quiz-status-service), jamais stocké.
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Un salarié de la structure. La fiche existe SANS compte (forte rotation des
+// intervenants à domicile) ; `userId` la relie à un compte quand il y en a un.
+// Jamais supprimée : un départ pose `active = false` et `leftAt`, l'émargement de
+// ses quiz reste une preuve.
+model StaffMember {
+  id              String    @id @default(cuid())
+  tenantId        String    @map("tenant_id")
+  establishmentId String    @map("establishment_id")
+  displayName     String    @map("display_name")
+  jobTitle        String    @map("job_title")
+  email           String?
+  phone           String?
+  userId          String?   @map("user_id")
+  active          Boolean   @default(true)
+  leftAt          DateTime? @map("left_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  tenant                Tenant                    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  establishment         Establishment             @relation(fields: [establishmentId], references: [id], onDelete: Cascade)
+  // SetNull : le compte peut disparaître, la fiche et ses preuves restent.
+  user                  User?                     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  invitations           QuizInvitation[]
+  attempts              QuizAttempt[]
+  // Lot C (terrain) — voir le bloc « PERSONNES ACCOMPAGNÉES » en fin de schéma.
+  referredBeneficiaries Beneficiary[]             @relation("BeneficiaryReferent")
+  witnessedSignatures   SignatureEvidence[]
+  deliveries            DeliveryRecord[]
+  journalEntries        BeneficiaryJournalEntry[] @relation("BeneficiaryJournalAuthorStaff")
+  surveysCollected      SurveyResponse[]
+  pin                   StaffPin?
+
+  @@index([tenantId])
+  @@index([establishmentId, active])
+  @@index([userId])
+  @@map("staff_members")
+}
+
+// Un envoi de quiz : un module, une version, à une liste de salariés.
+model QuizCampaign {
+  id              String   @id @default(cuid())
+  tenantId        String   @map("tenant_id")
+  establishmentId String   @map("establishment_id")
+  moduleCode      String   @map("module_code")
+  moduleVersion   Int      @map("module_version")
+  sentByUserId    String?  @map("sent_by_user_id")
+  sentAt          DateTime @default(now()) @map("sent_at")
+
+  tenant        Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  establishment Establishment    @relation(fields: [establishmentId], references: [id], onDelete: Cascade)
+  sentBy        User?            @relation("QuizCampaignSentBy", fields: [sentByUserId], references: [id], onDelete: SetNull)
+  invitations   QuizInvitation[]
+
+  @@index([tenantId])
+  @@index([establishmentId, sentAt])
+  @@index([sentByUserId])
+  @@map("quiz_campaigns")
+}
+
+// Une invitation personnelle (lien / QR code). Le JETON n'est jamais en base : seule
+// son empreinte SHA-256 (`tokenHash`), comparée en temps constant. Usage unique
+// (`usedAt`) et durée courte (`expiresAt`).
+model QuizInvitation {
+  id            String    @id @default(cuid())
+  campaignId    String    @map("campaign_id")
+  staffMemberId String    @map("staff_member_id")
+  tokenHash     String    @unique @map("token_hash")
+  expiresAt     DateTime  @map("expires_at")
+  usedAt        DateTime? @map("used_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+
+  campaign    QuizCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  staffMember StaffMember  @relation(fields: [staffMemberId], references: [id], onDelete: Cascade)
+  attempt     QuizAttempt?
+
+  @@index([campaignId])
+  @@index([staffMemberId])
+  @@map("quiz_invitations")
+}
+
+// Une tentative — APPEND-ONLY : aucune action ne la modifie ni ne la supprime.
+// `answersJson` : identifiants de questions et de réponses, jamais de texte libre.
+model QuizAttempt {
+  id              String   @id @default(cuid())
+  tenantId        String   @map("tenant_id")
+  establishmentId String   @map("establishment_id")
+  staffMemberId   String   @map("staff_member_id")
+  invitationId    String?  @unique @map("invitation_id")
+  moduleCode      String   @map("module_code")
+  moduleVersion   Int      @map("module_version")
+  score           Int
+  total           Int
+  passed          Boolean
+  answersJson     Json     @map("answers_json")
+  completedAt     DateTime @default(now()) @map("completed_at")
+
+  tenant        Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  establishment Establishment   @relation(fields: [establishmentId], references: [id], onDelete: Cascade)
+  staffMember   StaffMember     @relation(fields: [staffMemberId], references: [id], onDelete: Cascade)
+  invitation    QuizInvitation? @relation(fields: [invitationId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId])
+  @@index([establishmentId, completedAt])
+  @@index([staffMemberId, moduleCode, completedAt])
+  @@map("quiz_attempts")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PERSONNES ACCOMPAGNÉES, SIGNATURE, ENQUÊTE — lot C (terrain), 14/10/2026.
+//
+// ⚠️ DONNÉES DE SANTÉ (CSP L1111-8). Ces tables existent pour que le schéma décrive
+// le lot C ; elles restent VIDES sur l'infrastructure actuelle (Supabase + Vercel,
+// non certifiés HDS). Toute lecture/écriture passe par `BeneficiaryDataPort`
+// (apps/web/src/lib/hds/), verrouillé par défaut ; un test échoue si une ligne de
+// code les touche ailleurs que dans l'adaptateur Prisma. ADR
+// .claude/specs/adr/20261014_ADR_lot-C-verrou-HDS.md.
+//
+// `onDelete: Restrict` vers la structure : une fiche qui porte des dossiers de
+// personnes accompagnées ne disparaît pas par effet de bord d'une suppression — leur
+// conservation a ses propres obligations.
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum RepresentativeKind {
+  PROCHE
+  TUTEUR
+  CURATEUR
+}
+
+enum BeneficiaryDocumentKind {
+  // Feuille de réception UNIQUE (décision 6 des maquettes v2) : livret d'accueil,
+  // règlement de fonctionnement et DIPC présentés, une signature.
+  FEUILLE_RECEPTION
+  // DIPC signé — en option, quand la structure le fait signer à part.
+  DIPC
+  PAP
+  LIVRET_REMIS
+  REGLEMENT_REMIS
+}
+
+enum SignerRole {
+  PERSONNE
+  // Représentant légal (tuteur, curateur) ou proche mandaté.
+  REPRESENTANT
+  SERVICE
+}
+
+enum DeliveryChannel {
+  MAIN_PROPRE
+  EMAIL
+}
+
+enum SurveyTemplateCode {
+  PERSONNE
+  FAMILLE
+}
+
+enum SurveyRespondentKind {
+  PERSONNE
+  PROCHE
+}
+
+enum SurveyMode {
+  // Un intervenant lit les questions et note la réponse de la personne.
+  ASSISTEE
+  SEULE
+}
+
+// Valeurs STOCKÉES. Le libellé et le poids dépendent de l'échelle de la question
+// (content/enquete/) : « Un peu » (FALC 3 niveaux) et « Peu satisfait(e) » (échelle
+// famille) sont tous deux PEU, avec des poids différents. NSP et NON_CONCERNE sont
+// exclus du calcul.
+enum SurveyChoice {
+  TRES
+  PLUTOT
+  PEU
+  PAS
+  NSP
+  NON_CONCERNE
+}
+
+model Beneficiary {
+  id                    String    @id @default(cuid())
+  tenantId              String    @map("tenant_id")
+  establishmentId       String    @map("establishment_id")
+  civility              Civility?
+  firstName             String    @map("first_name")
+  lastName              String    @map("last_name")
+  birthDate             DateTime? @map("birth_date") @db.Date
+  address               String
+  phone                 String?
+  email                 String?
+  girLevel              Int?      @map("gir_level")
+  monthlyHours          Int?      @map("monthly_hours")
+  startedOn             DateTime  @map("started_on") @db.Date
+  referentStaffMemberId String?   @map("referent_staff_member_id")
+  // Identifiant dans l'ERP de la structure (Ximi…) : rapprochement futur, jamais une clé.
+  externalErpId         String?   @map("external_erp_id")
+  endedOn               DateTime? @map("ended_on") @db.Date
+  createdAt             DateTime  @default(now()) @map("created_at")
+  updatedAt             DateTime  @updatedAt @map("updated_at")
+
+  tenant          Tenant                      @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  establishment   Establishment               @relation(fields: [establishmentId], references: [id], onDelete: Restrict)
+  referentStaff   StaffMember?                @relation("BeneficiaryReferent", fields: [referentStaffMemberId], references: [id], onDelete: SetNull)
+  representatives BeneficiaryRepresentative[]
+  documents       BeneficiaryDocument[]
+  journalEntries  BeneficiaryJournalEntry[]
+  surveyResponses SurveyResponse[]
+
+  @@index([tenantId])
+  @@index([establishmentId, endedOn])
+  @@index([referentStaffMemberId])
+  @@map("beneficiaries")
+}
+
+model BeneficiaryRepresentative {
+  id            String             @id @default(cuid())
+  beneficiaryId String             @map("beneficiary_id")
+  kind          RepresentativeKind
+  fullName      String             @map("full_name")
+  // Lien avec la personne (« sa fille », « tuteur ») — texte, jamais déduit.
+  relationship  String
+  createdAt     DateTime           @default(now()) @map("created_at")
+
+  beneficiary Beneficiary @relation(fields: [beneficiaryId], references: [id], onDelete: Cascade)
+
+  @@index([beneficiaryId])
+  @@map("beneficiary_representatives")
+}
+
+// Un document remis ou signé. Le fichier rendu vit dans le stockage HDS
+// (`renderedFileKey`), jamais dans `eoda-documents` ; `sha256` est l'empreinte de ce
+// fichier, celle que la preuve de signature recopie.
+model BeneficiaryDocument {
+  id                      String                  @id @default(cuid())
+  tenantId                String                  @map("tenant_id")
+  establishmentId         String                  @map("establishment_id")
+  beneficiaryId           String                  @map("beneficiary_id")
+  kind                    BeneficiaryDocumentKind
+  // Gabarit FINALE de la bibliothèque dont le document est issu.
+  sourceTemplateVersionId String?                 @map("source_template_version_id")
+  renderedFileKey         String                  @map("rendered_file_key")
+  sha256                  String
+  issuedAt                DateTime                @map("issued_at")
+  // Échéance de renouvellement (DIPC / documents de suivi annuels) → alerte D12.
+  renewDueOn              DateTime?               @map("renew_due_on") @db.Date
+  createdAt               DateTime                @default(now()) @map("created_at")
+
+  tenant                Tenant              @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  establishment         Establishment       @relation(fields: [establishmentId], references: [id], onDelete: Restrict)
+  beneficiary           Beneficiary         @relation(fields: [beneficiaryId], references: [id], onDelete: Restrict)
+  sourceTemplateVersion TemplateVersion?    @relation(fields: [sourceTemplateVersionId], references: [id], onDelete: SetNull)
+  signatures            SignatureEvidence[]
+  deliveries            DeliveryRecord[]
+
+  @@index([tenantId])
+  @@index([establishmentId, renewDueOn])
+  @@index([beneficiaryId])
+  @@index([sourceTemplateVersionId])
+  @@map("beneficiary_documents")
+}
+
+// DOSSIER DE PREUVE — APPEND-ONLY. Aucune action ne le modifie ni ne le supprime.
+// `signatureImageKey` : l'image PNG FINALE seule — jamais le tracé ni sa dynamique
+// (vitesse, pression : donnée biométrique, 09 §8). `checklistJson` : les points « à
+// dire » cochés, chacun horodaté.
+model SignatureEvidence {
+  id                   String     @id @default(cuid())
+  documentId           String     @map("document_id")
+  signerRole           SignerRole @map("signer_role")
+  signerName           String     @map("signer_name")
+  witnessStaffMemberId String     @map("witness_staff_member_id")
+  deviceEnrollmentId   String     @map("device_enrollment_id")
+  signedAt             DateTime   @map("signed_at")
+  signatureImageKey    String     @map("signature_image_key")
+  documentSha256       String     @map("document_sha256")
+  checklistJson        Json       @map("checklist_json")
+  createdAt            DateTime   @default(now()) @map("created_at")
+
+  document         BeneficiaryDocument @relation(fields: [documentId], references: [id], onDelete: Restrict)
+  witness          StaffMember         @relation(fields: [witnessStaffMemberId], references: [id], onDelete: Restrict)
+  deviceEnrollment DeviceEnrollment    @relation(fields: [deviceEnrollmentId], references: [id], onDelete: Restrict)
+
+  @@index([documentId])
+  @@index([witnessStaffMemberId])
+  @@index([deviceEnrollmentId])
+  @@map("signature_evidences")
+}
+
+model DeliveryRecord {
+  id                      String          @id @default(cuid())
+  documentId              String          @map("document_id")
+  channel                 DeliveryChannel
+  deliveredAt             DateTime        @map("delivered_at")
+  recordedByStaffMemberId String?         @map("recorded_by_staff_member_id")
+  createdAt               DateTime        @default(now()) @map("created_at")
+
+  document   BeneficiaryDocument @relation(fields: [documentId], references: [id], onDelete: Restrict)
+  recordedBy StaffMember?        @relation(fields: [recordedByStaffMemberId], references: [id], onDelete: SetNull)
+
+  @@index([documentId])
+  @@index([recordedByStaffMemberId])
+  @@map("delivery_records")
+}
+
+// JOURNAL DU DOSSIER — APPEND-ONLY. `possibleAdverseEvent` est la passerelle future
+// vers le registre des événements indésirables (lot E) : cocher ne déclare rien.
+model BeneficiaryJournalEntry {
+  id                   String   @id @default(cuid())
+  tenantId             String   @map("tenant_id")
+  beneficiaryId        String   @map("beneficiary_id")
+  authorStaffMemberId  String?  @map("author_staff_member_id")
+  authorUserId         String?  @map("author_user_id")
+  text                 String
+  possibleAdverseEvent Boolean  @default(false) @map("possible_adverse_event")
+  occurredAt           DateTime @map("occurred_at")
+  createdAt            DateTime @default(now()) @map("created_at")
+
+  tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  beneficiary Beneficiary  @relation(fields: [beneficiaryId], references: [id], onDelete: Restrict)
+  authorStaff StaffMember? @relation("BeneficiaryJournalAuthorStaff", fields: [authorStaffMemberId], references: [id], onDelete: SetNull)
+  authorUser  User?        @relation("BeneficiaryJournalAuthorUser", fields: [authorUserId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId])
+  @@index([beneficiaryId, occurredAt])
+  @@index([authorStaffMemberId])
+  @@index([authorUserId])
+  @@map("beneficiary_journal_entries")
+}
+
+// Une réponse d'enquête. Nominative quand `beneficiaryId` est posé (décision du
+// 08/10 : l'enquête est nominative) ; les statistiques ne lisent jamais l'identité.
+// `templateVersion` fige la version du questionnaire (content/enquete/).
+model SurveyResponse {
+  id                       String               @id @default(cuid())
+  tenantId                 String               @map("tenant_id")
+  establishmentId          String               @map("establishment_id")
+  beneficiaryId            String?              @map("beneficiary_id")
+  templateCode             SurveyTemplateCode   @map("template_code")
+  templateVersion          Int                  @map("template_version")
+  respondentKind           SurveyRespondentKind @map("respondent_kind")
+  mode                     SurveyMode
+  collectedByStaffMemberId String?              @map("collected_by_staff_member_id")
+  completedAt              DateTime             @map("completed_at")
+  createdAt                DateTime             @default(now()) @map("created_at")
+
+  tenant        Tenant         @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  establishment Establishment  @relation(fields: [establishmentId], references: [id], onDelete: Restrict)
+  beneficiary   Beneficiary?   @relation(fields: [beneficiaryId], references: [id], onDelete: SetNull)
+  collectedBy   StaffMember?   @relation(fields: [collectedByStaffMemberId], references: [id], onDelete: SetNull)
+  answers       SurveyAnswer[]
+
+  @@index([tenantId])
+  @@index([establishmentId, completedAt])
+  @@index([beneficiaryId])
+  @@index([collectedByStaffMemberId])
+  @@map("survey_responses")
+}
+
+model SurveyAnswer {
+  id         String        @id @default(cuid())
+  responseId String        @map("response_id")
+  questionId String        @map("question_id")
+  choice     SurveyChoice?
+  freeText   String?       @map("free_text")
+
+  response SurveyResponse @relation(fields: [responseId], references: [id], onDelete: Cascade)
+
+  @@unique([responseId, questionId])
+  @@map("survey_answers")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TABLETTE — appareil enregistré + code du salarié (décision 7 des maquettes v2 :
+// « jamais un code seul »). Données de SALARIÉS, pas de santé : hors verrou HDS.
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Un appareil enregistré par la direction. Le jeton (cookie httpOnly de l'appareil)
+// n'est jamais en base : seule son empreinte SHA-256.
+model DeviceEnrollment {
+  id               String    @id @default(cuid())
+  tenantId         String    @map("tenant_id")
+  establishmentId  String    @map("establishment_id")
+  label            String
+  tokenHash        String    @unique @map("token_hash")
+  enrolledByUserId String?   @map("enrolled_by_user_id")
+  enrolledAt       DateTime  @default(now()) @map("enrolled_at")
+  lastSeenAt       DateTime? @map("last_seen_at")
+  revokedAt        DateTime? @map("revoked_at")
+  revokedByUserId  String?   @map("revoked_by_user_id")
+
+  tenant        Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  establishment Establishment       @relation(fields: [establishmentId], references: [id], onDelete: Cascade)
+  enrolledBy    User?               @relation("DeviceEnrolledBy", fields: [enrolledByUserId], references: [id], onDelete: SetNull)
+  revokedBy     User?               @relation("DeviceRevokedBy", fields: [revokedByUserId], references: [id], onDelete: SetNull)
+  signatures    SignatureEvidence[]
+
+  @@index([tenantId])
+  @@index([establishmentId, revokedAt])
+  @@index([enrolledByUserId])
+  @@index([revokedByUserId])
+  @@map("device_enrollments")
+}
+
+// Code personnel d'un salarié sur la tablette : empreinte seule, compteur d'échecs,
+// blocage à 5 (`lockedAt`), déblocage par la direction (remise à zéro du compteur).
+model StaffPin {
+  id             String    @id @default(cuid())
+  staffMemberId  String    @unique @map("staff_member_id")
+  pinHash        String    @map("pin_hash")
+  failedAttempts Int       @default(0) @map("failed_attempts")
+  lockedAt       DateTime? @map("locked_at")
+  setByUserId    String?   @map("set_by_user_id")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  staffMember StaffMember @relation(fields: [staffMemberId], references: [id], onDelete: Cascade)
+  setBy       User?       @relation("StaffPinSetBy", fields: [setByUserId], references: [id], onDelete: SetNull)
+
+  @@index([setByUserId])
+  @@map("staff_pins")
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import { submitWithoutReset } from "@/lib/forms/submit-without-reset";
 import { useActionState } from "react";
 import { updateOwnProfile } from "@/lib/actions/profile";
 import { Button } from "@/components/ui/button";
@@ -18,7 +19,7 @@ export function ProfileIdentityForm({ name, email }: Props) {
   const [state, formAction, isPending] = useActionState(updateOwnProfile, null);
 
   return (
-    <form action={formAction} className="space-y-4">
+    <form method="post" onSubmit={submitWithoutReset(formAction)} className="space-y-4">
       <div className="space-y-1.5">
         <Label htmlFor="profile-name">Nom affiché</Label>
         <Input
@@ -30,7 +31,7 @@ export function ProfileIdentityForm({ name, email }: Props) {
           disabled={isPending}
           autoComplete="name"
         />
-        <p className="text-xs text-gris-mid">
+        <p className="text-xs text-ink2">
           C&apos;est ce nom qui signe vos messages et vos dépôts de documents.
         </p>
       </div>
@@ -38,7 +39,7 @@ export function ProfileIdentityForm({ name, email }: Props) {
       <div className="space-y-1.5">
         <Label htmlFor="profile-email">Adresse e-mail</Label>
         <Input id="profile-email" value={email} readOnly disabled className="bg-ivoire" />
-        <p className="text-xs text-gris-mid">
+        <p className="text-xs text-ink2">
           C&apos;est votre identifiant de connexion. Pour le changer, écrivez à votre
           consultante EODA — elle seule peut le faire.
         </p>
@@ -50,7 +51,7 @@ export function ProfileIdentityForm({ name, email }: Props) {
           Enregistrer
         </Button>
         {state && "ok" in state && !isPending && (
-          <p role="status" className="flex items-center gap-1.5 text-xs text-vert-ok">
+          <p role="status" className="flex items-center gap-1.5 text-xs text-ok-text">
             <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
             Profil enregistré.
           </p>

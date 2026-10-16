@@ -25,14 +25,25 @@ export type ReminderCandidate = {
   // Relancer une structure sur un document que le cabinet doit produire serait lui
   // réclamer le travail qu'elle a acheté.
   requestedFromClient: boolean;
+  // « Je ne l'ai pas » (N3) : la structure a répondu, le document est à produire —
+  // le lui réclamer à nouveau serait ignorer sa réponse.
+  declaredMissing?: boolean;
 };
 
+// Une pièce à réclamer : demandée à la structure, manquante, non justifiée. Exportée
+// pour que « Les prochaines actions » de la fiche disent exactement ce qu'une relance
+// enverrait (D1).
+export function isReminderCandidate(item: ReminderCandidate): boolean {
+  return (
+    item.requestedFromClient &&
+    item.status === "MISSING" &&
+    item.missingJustification === null &&
+    item.declaredMissing !== true
+  );
+}
+
 export function selectReminderLabels(items: readonly ReminderCandidate[]): string[] {
-  return items
-    .filter((item) => item.requestedFromClient)
-    .filter((item) => item.status === "MISSING")
-    .filter((item) => item.missingJustification === null)
-    .map((item) => item.label);
+  return items.filter(isReminderCandidate).map((item) => item.label);
 }
 
 export type ReminderEligibility = { ok: true; labels: string[] } | { ok: false; error: string };
@@ -62,9 +73,17 @@ export function checkReminderEligibility(input: {
 // Phrase de retour, après envoi. Elle DIT le nombre de destinataires : une relance
 // « envoyée » sans plus de précision laisse croire que le client l'a reçue alors que
 // personne n'était rattaché à l'établissement.
-export function describeReminderOutcome(input: { sent: number; total: number }): string {
+export function describeReminderOutcome(input: {
+  sent: number;
+  total: number;
+  // Vrai quand l'adaptateur de développement n'a rien envoyé (pas de RESEND_API_KEY).
+  notConfigured?: boolean;
+}): string {
   if (input.total === 0) {
     return "Aucun interlocuteur n'est rattaché à cette structure : personne n'a pu être relancé.";
+  }
+  if (input.sent === 0 && input.notConfigured) {
+    return "Relance non envoyée en local : l'envoi d'e-mails n'est pas configuré sur cet environnement.";
   }
   if (input.sent === 0) {
     return "Envoi impossible pour l'instant : la relance n'est partie chez personne.";

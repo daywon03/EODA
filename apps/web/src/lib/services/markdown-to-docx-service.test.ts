@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { generateBrandedDocx } from "./markdown-to-docx-service";
+import { generateBrandedDocx, reviewMentionParagraphs } from "./markdown-to-docx-service";
+import { AUTONOMY_RESERVE } from "./review-mention-service";
 
 // PNG 1×1 transparent — le plus petit fichier PNG valide, suffisant pour vérifier
 // que la génération avec images ne lève pas.
@@ -11,7 +12,7 @@ describe("generateBrandedDocx", () => {
     const buffer = await generateBrandedDocx({
       markdown: "# Titre\n\nUn paragraphe **important** avec du texte.\n\n- Premier point\n- Second point",
       title: "Règlement de fonctionnement",
-      establishmentName: "ASSAD BENOIT",
+      establishmentName: "SAD Les Glycines (fictif)",
     });
 
     // Un .docx est une archive ZIP : signature binaire "PK".
@@ -23,7 +24,7 @@ describe("generateBrandedDocx", () => {
     const buffer = await generateBrandedDocx({
       markdown: "# Titre\n\nUn paragraphe.",
       title: "Règlement de fonctionnement",
-      establishmentName: "ASSAD BENOIT",
+      establishmentName: "SAD Les Glycines (fictif)",
       images: [
         {
           buffer: Buffer.from(PNG_1X1_BASE64, "base64"),
@@ -42,9 +43,26 @@ describe("generateBrandedDocx", () => {
     const buffer = await generateBrandedDocx({
       markdown: "# Titre\n\nUn paragraphe.",
       title: "Règlement de fonctionnement",
-      establishmentName: "ASSAD BENOIT",
+      establishmentName: "SAD Les Glycines (fictif)",
       images: [{ buffer: Buffer.from("x"), contentType: "image/webp", description: null, position: 1 }],
     });
     expect(buffer.length).toBeGreaterThan(0);
+  });
+
+  it("porte la mention de relecture (réserve d'autonomie) quand elle est fournie", async () => {
+    const buffer = await generateBrandedDocx({
+      markdown: "# Titre",
+      title: "Livret d'accueil",
+      establishmentName: "SAD Les Glycines (fictif)",
+      reviewMention: AUTONOMY_RESERVE,
+    });
+    expect(buffer.subarray(0, 2).toString("latin1")).toBe("PK");
+  });
+});
+
+describe("reviewMentionParagraphs", () => {
+  it("un paragraphe pour une mention, aucun sans mention", () => {
+    expect(reviewMentionParagraphs(AUTONOMY_RESERVE)).toHaveLength(1);
+    expect(reviewMentionParagraphs(null)).toEqual([]);
   });
 });

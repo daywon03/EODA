@@ -5,7 +5,6 @@ import {
   listFormulesForMissionSetup,
   listOptionsForMissionSetup,
 } from "@/lib/actions/mission";
-import { PageHeader } from "@/components/layout/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CreateMissionForm } from "@/components/mission/CreateMissionForm";
 import { MissionScopeEditor } from "@/components/mission/MissionScopeEditor";
@@ -14,34 +13,38 @@ import { DiagnosticChecklistSection } from "@/components/mission/DiagnosticCheck
 import { PhaseChecklistSection } from "@/components/mission/PhaseChecklistSection";
 import { MissionDocumentCounters } from "@/components/mission/MissionDocumentCounters";
 import { MissionClosureSection } from "@/components/mission/MissionClosureSection";
+import { SupportModeSection } from "@/components/mission/SupportModeSection";
 import { Button } from "@/components/ui/button";
 import { FileSignature, FileText } from "lucide-react";
 import { needsAvenant } from "@/lib/services/avenant-service";
-import { PHASE_LABELS, PHASE_ORDER } from "@/lib/services/mission-progress-service";
+import {
+  MISSION_STEPS,
+  PHASE_DATE_FIELDS,
+  PHASE_LABELS,
+  stepTitle,
+} from "@/lib/services/mission-progress-service";
 import { AvenantSignatureToggle } from "@/components/mission/AvenantSignatureToggle";
-import { auth } from "@/auth";
-import type { MissionChecklistScope } from "@eoda/database";
+import { requireEstablishmentInTenant } from "@/lib/auth/guards";
+import { hasCabinetCapability } from "@/lib/auth/capabilities";
+
+export const metadata = { title: "Mission" };
 
 type Props = { params: Promise<{ id: string }> };
 
-const PHASE_DATE_FIELDS: Record<
-  Exclude<MissionChecklistScope, "DIAGNOSTIC">,
-  { start: "fondationsStartDate" | "deploiementStartDate" | "consolidationStartDate" | "preparationFinaleStartDate"; end: "fondationsEndDate" | "deploiementEndDate" | "consolidationEndDate" | "preparationFinaleEndDate" }
-> = {
-  FONDATIONS: { start: "fondationsStartDate", end: "fondationsEndDate" },
-  DEPLOIEMENT: { start: "deploiementStartDate", end: "deploiementEndDate" },
-  CONSOLIDATION: { start: "consolidationStartDate", end: "consolidationEndDate" },
-  PREPARATION_FINALE: { start: "preparationFinaleStartDate", end: "preparationFinaleEndDate" },
-};
-
 export default async function MissionPage({ params }: Props) {
   const { id } = await params;
-  const [session, establishment, mission, formules, options, documentCounters] = await Promise.all([
-    auth(),
+  // La garde d'abord : elle rend le rôle RELU EN BASE, qui décide de ce qui se lit.
+  // Les montants (périmètre contractuel, formules et options du catalogue) ne sont
+  // même pas DEMANDÉS pour un rôle sans STRUCTURE_CONTRACT : leurs lectures les
+  // refusent de toute façon (N9 — « une consultante ne voit pas les montants »).
+  const { role } = await requireEstablishmentInTenant(id, "READ");
+  const canSeeContract = hasCabinetCapability(role, "STRUCTURE_CONTRACT");
+  const canManage = hasCabinetCapability(role, "CABINET_SETTINGS");
+  const [, mission, formules, options, documentCounters] = await Promise.all([
     getEstablishment(id),
     getMission(id),
-    listFormulesForMissionSetup(),
-    listOptionsForMissionSetup(),
+    canSeeContract ? listFormulesForMissionSetup() : Promise.resolve([]),
+    canSeeContract ? listOptionsForMissionSetup() : Promise.resolve([]),
     getMissionDocumentCounters(id),
   ]);
 
@@ -51,11 +54,7 @@ export default async function MissionPage({ params }: Props) {
 
   return (
     <div className="space-y-6 max-w-3xl">
-      <PageHeader
-        title="Suivi de mission"
-        subtitle={establishment.name}
-        backHref={`/dashboard/cabinet/etablissements/${id}`}
-      />
+      <h2 className="text-xl font-bold text-ink">Suivi de mission</h2>
 
       {!mission ? (
         <Card>
@@ -63,7 +62,13 @@ export default async function MissionPage({ params }: Props) {
             <CardTitle className="text-base">Démarrer le suivi</CardTitle>
           </CardHeader>
           <CardContent>
-            <CreateMissionForm establishmentId={id} formules={formules} options={options} />
+            {canSeeContract ? (
+              <CreateMissionForm establishmentId={id} formules={formules} options={options} />
+            ) : (
+              <p className="text-ink">
+                Le suivi démarre quand l&apos;administration enregistre le périmètre de la mission.
+              </p>
+            )}
           </CardContent>
         </Card>
       ) : (
@@ -76,6 +81,17 @@ export default async function MissionPage({ params }: Props) {
 
           {documentCounters && <MissionDocumentCounters counters={documentCounters} />}
 
+          <Card>
+            <CardContent className="pt-6">
+              <SupportModeSection
+                missionId={mission.id}
+                supportMode={mission.supportMode}
+                canManage={canManage}
+              />
+            </CardContent>
+          </Card>
+
+          {canSeeContract && (
           <Card>
             <CardHeader>
               <CardTitle className="text-base">Périmètre contractuel</CardTitle>
@@ -120,7 +136,7 @@ export default async function MissionPage({ params }: Props) {
                   décochant une case. */}
               {avenantTracked.length > 0 && (
                 <div className="mb-4 space-y-2 rounded-lg border border-gris-light bg-ivoire/40 px-4 py-3">
-                  <p className="text-xs uppercase tracking-wide text-gris-mid">
+                  <p className="text-xs uppercase tracking-wide text-ink2">
                     Suivi des avenants
                   </p>
                   {avenantTracked.map((option) => (
@@ -144,35 +160,49 @@ export default async function MissionPage({ params }: Props) {
               />
             </CardContent>
           </Card>
+          )}
 
-          <Card>
-            <CardContent className="pt-6">
-              <DiagnosticChecklistSection
-                missionId={mission.id}
-                items={mission.items.filter((i) => i.scope === "DIAGNOSTIC")}
-                pct={mission.progress.diagnosticPct}
-              />
-            </CardContent>
-          </Card>
+          {/* Quatre ÉTAPES affichées (MISSION_STEPS) : la checklist de diagnostic,
+              puis les phases datées stockées regroupées. Chaque phase reste éditable
+              (dates, items) sous l'étape qui la contient. */}
+          {MISSION_STEPS.map((step) => (
+            <section key={step.id} aria-labelledby={`etape-${step.id}`} className="space-y-3">
+              <h3 id={`etape-${step.id}`} className="text-lg font-bold text-ink">
+                {stepTitle(step)}
+              </h3>
+              {step.phases.length === 0 ? (
+                <Card>
+                  <CardContent className="pt-6">
+                    <DiagnosticChecklistSection
+                      missionId={mission.id}
+                      items={mission.items.filter((i) => i.scope === "DIAGNOSTIC")}
+                      pct={mission.progress.diagnosticPct}
+                    />
+                  </CardContent>
+                </Card>
+              ) : (
+                step.phases.map((phase) => (
+                  <Card key={phase}>
+                    <CardContent className="pt-6">
+                      <PhaseChecklistSection
+                        missionId={mission.id}
+                        phase={phase}
+                        label={PHASE_LABELS[phase]}
+                        items={mission.items.filter((i) => i.scope === phase)}
+                        pct={mission.progress.phasePcts[phase] ?? 0}
+                        startDate={mission[PHASE_DATE_FIELDS[phase].start]}
+                        endDate={mission[PHASE_DATE_FIELDS[phase].end]}
+                      />
+                    </CardContent>
+                  </Card>
+                ))
+              )}
+            </section>
+          ))}
 
           {/* Fin de mission (§12.5) : trois états d'accès, tous réversibles, aucune
-              suppression. Placé après les phases dans la lecture, mais avant elles
-              dans le rendu serait faux — on ne clôt pas ce qu'on n'a pas parcouru. */}
-          {PHASE_ORDER.map((phase) => (
-            <Card key={phase}>
-              <CardContent className="pt-6">
-                <PhaseChecklistSection
-                  missionId={mission.id}
-                  phase={phase}
-                  label={PHASE_LABELS[phase]}
-                  items={mission.items.filter((i) => i.scope === phase)}
-                  pct={mission.progress.phasePcts[phase] ?? 0}
-                  startDate={mission[PHASE_DATE_FIELDS[phase].start]}
-                  endDate={mission[PHASE_DATE_FIELDS[phase].end]}
-                />
-              </CardContent>
-            </Card>
-          ))}
+              suppression. Placée après les étapes — on ne clôt pas ce qu'on n'a pas
+              parcouru. */}
 
           <Card>
             <CardContent className="pt-6">
@@ -180,7 +210,7 @@ export default async function MissionPage({ params }: Props) {
                 missionId={mission.id}
                 closedAt={mission.closedAt}
                 clientAccessRevokedAt={mission.clientAccessRevokedAt}
-                canManageClosure={session?.user.role === "CABINET_ADMIN"}
+                canManageClosure={canManage}
               />
             </CardContent>
           </Card>

@@ -2,6 +2,7 @@ import { Library } from "lucide-react";
 import { getTemplate, listTemplateCategories } from "@/lib/actions/template-library";
 import { listCriteriaForPicker } from "@/lib/actions/document";
 import { requireCabinetSession } from "@/lib/auth/guards";
+import { hasCabinetCapability } from "@/lib/auth/capabilities";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -14,6 +15,8 @@ import { DeleteTemplateButton } from "@/components/modeles/DeleteTemplateButton"
 import { MoveTemplateForm } from "@/components/modeles/MoveTemplateForm";
 import { TemplateCriteriaPicker } from "@/components/modeles/TemplateCriteriaPicker";
 import { TemplateCriterionSuggestionsList } from "@/components/modeles/TemplateCriterionSuggestionsList";
+import { TemplateExampleLinkForm } from "@/components/modeles/TemplateExampleLinkForm";
+import { listDocumentTypesForExampleLink } from "@/lib/actions/template-example";
 import {
   TEMPLATE_KIND_HINTS,
   TEMPLATE_KIND_LABELS,
@@ -28,7 +31,7 @@ type Props = { params: Promise<{ id: string }> };
 export async function generateMetadata({ params }: Props) {
   const { id } = await params;
   const template = await getTemplate(id);
-  return { title: `${template.title} · Modèles EODA` };
+  return { title: `${template.title} · Modèles` };
 }
 
 // Un modèle et ses fichiers.
@@ -42,13 +45,14 @@ export async function generateMetadata({ params }: Props) {
 //    à faire qui n'existe pas.
 export default async function ModelePage({ params }: Props) {
   const { id } = await params;
-  const [{ session }, template, categories, allCriteria] = await Promise.all([
-    requireCabinetSession(),
+  const [{ role }, template, categories, allCriteria, documentTypes] = await Promise.all([
+    requireCabinetSession("LIBRARY_READ"),
     getTemplate(id),
     listTemplateCategories(),
     listCriteriaForPicker(),
+    listDocumentTypesForExampleLink(),
   ]);
-  const isAdmin = session.user.role === "CABINET_ADMIN";
+  const isAdmin = hasCabinetCapability(role, "CABINET_SETTINGS");
   const isReference = template.kind === "REFERENCE";
 
   return (
@@ -93,6 +97,22 @@ export default async function ModelePage({ params }: Props) {
             />
           </CollapsibleSection>
 
+          {/* Exemples validés (N8, context/10 §9) : gabarits seulement. */}
+          {!isReference && (
+            <CollapsibleSection
+              title="Exemple validé pour la mise en conformité"
+              summary={
+                documentTypes.find((t) => t.id === template.documentTypeId)?.label ?? "Non rattaché"
+              }
+            >
+              <TemplateExampleLinkForm
+                templateId={template.id}
+                documentTypeId={template.documentTypeId}
+                documentTypes={documentTypes}
+              />
+            </CollapsibleSection>
+          )}
+
           {/* « Savoir quel document est lié à quel critère » (Damon, 16/09/2026) —
               pour retrouver ce modèle en cherchant par critère, et pour que
               l'analyse documentaire s'appuie dessus. */}
@@ -130,7 +150,7 @@ export default async function ModelePage({ params }: Props) {
         <section className="space-y-2">
           <div className="flex flex-wrap items-baseline gap-2">
             <h2 className="text-base font-semibold text-brun-ancre">Fichiers</h2>
-            <span className="text-xs text-gris-mid">{TEMPLATE_KIND_HINTS.REFERENCE}</span>
+            <span className="text-xs text-ink2">{TEMPLATE_KIND_HINTS.REFERENCE}</span>
           </div>
           <Card>
             <CardContent className="pt-6">
@@ -152,7 +172,7 @@ export default async function ModelePage({ params }: Props) {
                 <h2 className="text-base font-semibold text-brun-ancre">
                   {TEMPLATE_STAGE_LABELS[stage]}
                 </h2>
-                <span className="text-xs text-gris-mid">{TEMPLATE_STAGE_HINTS[stage]}</span>
+                <span className="text-xs text-ink2">{TEMPLATE_STAGE_HINTS[stage]}</span>
               </div>
 
               <Card>
@@ -192,7 +212,7 @@ function VersionList({
   markCurrent: boolean;
 }) {
   if (versions.length === 0) {
-    return <p className="text-sm text-gris-mid">{emptyLabel}</p>;
+    return <p className="text-sm text-ink2">{emptyLabel}</p>;
   }
 
   return (
@@ -218,7 +238,7 @@ function VersionList({
               {version.changeNote && (
                 <p className="text-xs text-brun-ancre">{version.changeNote}</p>
               )}
-              <p className="text-xs text-gris-mid">
+              <p className="text-xs text-ink2">
                 {version.originalFilename} · {formatFileSize(version.sizeBytes)} · déposé le{" "}
                 {formatDate(version.createdAt)} par {version.uploadedByName}
               </p>
@@ -230,7 +250,7 @@ function VersionList({
                   {version.clientFieldTokens.map((token) => (
                     <span
                       key={token}
-                      className="rounded-md border border-terre/35 bg-terre/10 px-1.5 py-0.5 font-mono text-[10.5px] font-semibold text-terre"
+                      className="rounded-md border border-terre/35 bg-terre/10 px-1.5 py-0.5 font-mono text-sm font-semibold text-accent-text"
                     >
                       {`{{${token}}}`}
                     </span>

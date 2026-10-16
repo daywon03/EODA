@@ -1,8 +1,10 @@
 import { LoginForm } from "./LoginForm";
-import { ShieldCheck, FileCheck2, ClipboardCheck } from "lucide-react";
+import { CheckCircle2, ShieldCheck, FileCheck2, ClipboardCheck } from "lucide-react";
 import { EodaLockup, EodaMark } from "@/components/layout/EodaLogo";
+import { LOGIN_NOTICE_PARAM, loginNoticeFor } from "@/lib/services/login-notice-service";
+import { safeCallbackPath } from "@/lib/auth/routes";
 
-export const metadata = { title: "Connexion · EODA Conseil" };
+export const metadata = { title: "Connexion" };
 
 const HIGHLIGHTS = [
   { icon: FileCheck2, text: "Checklist documentaire loi 2002-2 et HAS" },
@@ -10,7 +12,14 @@ const HIGHLIGHTS = [
   { icon: ShieldCheck, text: "Données hébergées en Europe, accès cloisonné" },
 ];
 
-export default function LoginPage() {
+type Props = { searchParams: Promise<Record<string, string | string[] | undefined>> };
+
+export default async function LoginPage({ searchParams }: Props) {
+  const params = await searchParams;
+  const notice = loginNoticeFor(params[LOGIN_NOTICE_PARAM]);
+  // Page demandée avant la connexion (posée par le middleware) — chemin interne
+  // uniquement, sinon rien : la connexion retombe sur la page d'arrivée du rôle.
+  const callbackUrl = safeCallbackPath(params.callbackUrl);
   return (
     <div className="min-h-dvh grid lg:grid-cols-2">
       {/* Panneau de marque — masqué sur mobile pour prioriser le formulaire */}
@@ -32,21 +41,23 @@ export default function LoginPage() {
               tiendrait pas sur ce fond. */}
           <EodaMark size={44} />
           <div>
-            {/* Couleurs LITTÉRALES, jamais `text-ivoire`/`text-ambre` : ce panneau a
+            {/* Couleurs LITTÉRALES, jamais les classes ivoire / ambre de la charte : ce panneau a
                 un fond dégradé fixe en hex (ci-dessus), qui ne suit pas le thème.
                 Les classes de la charte, elles, s'inversent en mode sombre — les y
                 laisser rendait ce texte sombre sur un fond qui reste sombre. */}
             <span className="text-[#F0E8DC] font-bold text-lg tracking-wide block">EODA conseil</span>
-            <span className="text-[#D69646] text-[11px] uppercase tracking-widest block">
+            <span className="text-[#D69646] text-sm uppercase tracking-widest block">
               Expliquer · Observer · Démontrer · Accompagner
             </span>
           </div>
         </div>
 
         <div className="relative max-w-md">
-          <h2 className="text-[#F0E8DC] text-3xl font-bold leading-snug mb-4">
+          {/* Accroche, pas un titre : le seul titre de la page est « Connexion »
+              (h1), et ce panneau est masqué sur mobile. */}
+          <p className="text-[#F0E8DC] text-3xl font-bold leading-snug mb-4">
             Préparez votre évaluation qualité HAS en toute sérénité
-          </h2>
+          </p>
           <ul className="space-y-4">
             {HIGHLIGHTS.map(({ icon: Icon, text }) => (
               <li key={text} className="flex items-center gap-3">
@@ -74,14 +85,23 @@ export default function LoginPage() {
           </div>
 
           <div className="bg-surface rounded-xl shadow-eoda-lg p-8">
-            <h2 className="text-brun-ancre text-lg font-semibold mb-1">Connexion</h2>
-            <p className="text-gris-mid text-sm mb-6">
+            <h1 className="text-brun-ancre text-lg font-semibold mb-1">Connexion</h1>
+            <p className="text-ink2 text-sm mb-6">
               Outil de préparation à l&apos;évaluation qualité HAS
             </p>
-            <LoginForm />
+            {notice && (
+              <p
+                role="status"
+                className="mb-5 flex items-start gap-2 rounded-md border border-vert-ok/30 bg-vert-ok/10 px-3 py-2.5 text-sm text-brun-ancre"
+              >
+                <CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0 text-ok-text" aria-hidden="true" />
+                <span>{notice}</span>
+              </p>
+            )}
+            <LoginForm callbackUrl={callbackUrl} />
           </div>
 
-          <p className="text-center text-gris-mid text-xs mt-6 lg:hidden">
+          <p className="text-center text-ink2 text-xs mt-6 lg:hidden">
             © 2026 EODA Conseil · Outil de préparation interne · Non officiel HAS
           </p>
         </div>

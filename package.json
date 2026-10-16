@@ -14,19 +14,21 @@
       "prisma"
     ],
     "overrides": {
-      "brace-expansion": ">=5.0.9",
+      "brace-expansion": ">=5.0.11",
       "browserslist": ">=4.28.7",
       "js-yaml": ">=4.3.0",
       "nanoid": ">=3.3.16",
       "postcss": ">=8.5.12",
-      "sharp": ">=0.35.4",
+      "sharp": ">=0.35.5",
       "uuid": ">=11.1.1",
-      "@xmldom/xmldom": "0.8.15"
+      "@xmldom/xmldom": "0.8.15",
+      "source-map-js": ">=1.2.2"
     },
     "auditConfig": {
       "ignoreGhsas": [
         "GHSA-4r6h-8v6p-xvw6",
-        "GHSA-5pgg-2g8v-p4x9"
+        "GHSA-5pgg-2g8v-p4x9",
+        "GHSA-vfj7-8cjw-p6xm"
       ]
     }
   },

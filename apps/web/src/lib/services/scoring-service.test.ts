@@ -3,6 +3,7 @@ import {
   computeCriterionScore,
   computeWeightedAverage,
   isRatingAllowed,
+  NC_ON_IMPERATIF_REFUSAL,
   ratingValue,
   scoreLabel,
 } from "./scoring-service";
@@ -97,10 +98,14 @@ describe("isRatingAllowed — §3.2 règles 1 et 2", () => {
     expect(isRatingAllowed("RI", 3, "STANDARD").allowed).toBe(false);
   });
 
-  it("autorise NC sur un critère impératif mais avec avertissement — garde-fou pédagogique, pas blocage", () => {
-    const result = isRatingAllowed("NC", 3, "IMPERATIF");
-    expect(result.allowed).toBe(true);
-    expect(result.warning).toBeTruthy();
+  it("refuse NC sur un critère impératif, en disant les quatre questions (décision 4, 10/10/2026)", () => {
+    for (const chapter of [1, 2, 3]) {
+      expect(isRatingAllowed("NC", chapter, "IMPERATIF")).toEqual({
+        allowed: false,
+        warning: NC_ON_IMPERATIF_REFUSAL,
+      });
+    }
+    expect(NC_ON_IMPERATIF_REFUSAL).toMatch(/ressource externe/);
   });
 
   it("n'avertit pas sur NC pour un critère standard", () => {

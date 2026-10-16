@@ -23,7 +23,7 @@ import {
   SUBSCRIPTION_COMMITMENT_NOTICE,
 } from "@/lib/services/subscription-service";
 
-export const metadata = { title: "Mon contrat · EODA Conseil" };
+export const metadata = { title: "Mon contrat" };
 
 // « Ce que j'ai payé / ce que je dois donner en face. »
 // Périmètre visible par un CLIENT_USER : exception du 20/08/2026, .claude/CLAUDE.md §7.
@@ -43,10 +43,10 @@ function SectionTitle({
 }) {
   return (
     <div className="flex items-start gap-2.5">
-      <Icon className="w-5 h-5 text-terre flex-shrink-0 mt-0.5" aria-hidden="true" />
+      <Icon className="w-5 h-5 text-accent-text flex-shrink-0 mt-0.5" aria-hidden="true" />
       <div>
         <h2 className="text-base font-semibold text-brun-ancre leading-tight">{title}</h2>
-        {hint && <p className="text-xs text-gris-mid mt-0.5">{hint}</p>}
+        {hint && <p className="text-xs text-ink2 mt-0.5">{hint}</p>}
       </div>
     </div>
   );
@@ -55,9 +55,9 @@ function SectionTitle({
 function AmountTile({ label, value, hint }: { label: string; value: string; hint?: string }) {
   return (
     <div className="bg-ivoire border border-gris-light rounded-lg px-4 py-3">
-      <p className="text-xs text-gris-mid">{label}</p>
+      <p className="text-xs text-ink2">{label}</p>
       <p className="text-lg font-bold text-brun-ancre tabular-nums leading-tight mt-1">{value}</p>
-      {hint && <p className="text-[11px] text-gris-mid mt-0.5">{hint}</p>}
+      {hint && <p className="text-sm text-ink2 mt-0.5">{hint}</p>}
     </div>
   );
 }
@@ -74,13 +74,13 @@ export default async function ClientContratPage() {
       <div className="space-y-6">
         <PageHeader title="Mon contrat" icon={ReceiptText} accent="ambre" />
         <div className="flex items-start gap-3 bg-ambre/10 border border-ambre/30 rounded-lg px-5 py-4">
-          <AlertTriangle className="w-5 h-5 text-ambre flex-shrink-0 mt-0.5" aria-hidden="true" />
+          <AlertTriangle className="w-5 h-5 text-amber-text flex-shrink-0 mt-0.5" aria-hidden="true" />
           <div className="text-sm">
             <p className="font-semibold text-brun-ancre">Aucun établissement rattaché</p>
-            <p className="text-gris-mid">
+            <p className="text-ink2">
               Votre consultant EODA doit d&apos;abord vous rattacher à votre établissement.
               Contactez-le à{" "}
-              <a href="mailto:EODAconseil@outlook.com" className="text-terre underline">
+              <a href="mailto:EODAconseil@outlook.com" className="text-accent-text underline">
                 EODAconseil@outlook.com
               </a>
             </p>
@@ -115,7 +115,7 @@ export default async function ClientContratPage() {
               </Badge>
               {offer.gratuit && <Badge variant="secondary">Bêta-test gratuit</Badge>}
               {offer.modulesLabel && (
-                <span className="text-xs text-gris-mid">Modules : {offer.modulesLabel}</span>
+                <span className="text-xs text-ink2">Modules : {offer.modulesLabel}</span>
               )}
             </div>
             {offer.description && (
@@ -123,7 +123,7 @@ export default async function ClientContratPage() {
             )}
           </div>
         ) : (
-          <p className="text-sm text-gris-mid">
+          <p className="text-sm text-ink2">
             Votre accompagnement n&apos;est pas encore ouvert : votre consultant EODA n&apos;a pas
             encore enregistré la formule retenue. La checklist documentaire reste consultable
             entre-temps.
@@ -143,7 +143,7 @@ export default async function ClientContratPage() {
           <div className="space-y-4">
             <p className="text-sm text-brun-ancre">
               Devis <span className="font-semibold">{contract.devis.number}</span> ·{" "}
-              {contract.devis.formuleLabelSnapshot}
+              {contract.devis.formuleLabelSnapshot ?? "Prestations à la carte"}
               <Badge variant="signe" className="ml-2 align-middle">
                 Signé
               </Badge>
@@ -153,7 +153,11 @@ export default async function ClientContratPage() {
               <AmountTile
                 label="Total signé"
                 value={formatEuros(contract.devis.totalAmountEuros)}
-                hint={`dont formule ${formatEuros(contract.devis.formulePriceSnapshotEuros)}`}
+                hint={
+                  contract.devis.formulePriceSnapshotEuros === null
+                    ? "prestations à la carte"
+                    : `dont formule ${formatEuros(contract.devis.formulePriceSnapshotEuros)}`
+                }
               />
               <AmountTile
                 label="Acompte à la commande"
@@ -189,7 +193,7 @@ export default async function ClientContratPage() {
                 </Link>
               </Button>
             </div>
-            <p className="text-xs text-gris-mid">
+            <p className="text-xs text-ink2">
               Les deux s&apos;ouvrent dans un nouvel onglet, prêts à imprimer ou à
               enregistrer en PDF.
             </p>
@@ -198,8 +202,8 @@ export default async function ClientContratPage() {
 
         {contract.kind === "NO_DEVIS" && (
           <div className="flex items-start gap-3 bg-ivoire border border-gris-light rounded-lg px-4 py-3">
-            <Info className="w-4 h-4 text-gris-mid flex-shrink-0 mt-0.5" aria-hidden="true" />
-            <p className="text-sm text-gris-mid">
+            <Info className="w-4 h-4 text-ink2 flex-shrink-0 mt-0.5" aria-hidden="true" />
+            <p className="text-sm text-ink2">
               Aucun devis signé n&apos;est rattaché à votre établissement. Les montants de votre
               contrat ne peuvent donc pas être affichés ici — votre exemplaire signé fait foi.
               Votre périmètre d&apos;accompagnement, lui, reste celui de la formule ci-dessus.
@@ -209,7 +213,7 @@ export default async function ClientContratPage() {
 
         {contract.kind === "AMBIGUOUS" && (
           <div className="flex items-start gap-3 bg-ambre/10 border border-ambre/30 rounded-lg px-4 py-3">
-            <AlertTriangle className="w-4 h-4 text-ambre flex-shrink-0 mt-0.5" aria-hidden="true" />
+            <AlertTriangle className="w-4 h-4 text-amber-text flex-shrink-0 mt-0.5" aria-hidden="true" />
             <p className="text-sm text-brun-ancre">
               {contract.signedCount} devis signés sont rattachés à votre établissement. Aucun
               montant n&apos;est affiché tant que le devis contractuel n&apos;est pas identifié —
@@ -250,7 +254,7 @@ export default async function ClientContratPage() {
                   className={
                     option.priceIsFirm
                       ? "text-sm font-semibold text-brun-ancre tabular-nums whitespace-nowrap"
-                      : "text-sm text-gris-mid tabular-nums whitespace-nowrap"
+                      : "text-sm text-ink2 tabular-nums whitespace-nowrap"
                   }
                 >
                   {(option.priceIsFirm ? formatPriceWithUnit : formatStartingPrice)({
@@ -264,7 +268,7 @@ export default async function ClientContratPage() {
             ))}
           </ul>
         ) : (
-          <p className="text-sm text-gris-mid">
+          <p className="text-sm text-ink2">
             Aucune prestation à la carte n&apos;est rattachée à votre contrat.
           </p>
         )}
@@ -292,7 +296,7 @@ export default async function ClientContratPage() {
               >
                 <div className="min-w-0 flex-1">
                   <p className="text-sm text-brun-ancre">{option.label}</p>
-                  <p className="text-sm text-terre font-semibold tabular-nums mt-0.5">
+                  <p className="text-sm text-accent-text font-semibold tabular-nums mt-0.5">
                     {/* L'abonnement portail est dégressif selon l'offre souscrite
                         (§12.2) : le client doit voir SON prix, pas le tarif d'entrée.
                         Même fonction que le devis — un prix annoncé ici puis
@@ -304,7 +308,7 @@ export default async function ClientContratPage() {
                     })}
                   </p>
                   {isSubscriptionOption(option.code) && (
-                    <p className="mt-0.5 text-xs text-gris-mid">
+                    <p className="mt-0.5 text-xs text-ink2">
                       {SUBSCRIPTION_COMMITMENT_NOTICE}
                       {subscriptionNotice ? ` ${subscriptionNotice}` : ""}
                     </p>
@@ -319,12 +323,12 @@ export default async function ClientContratPage() {
             ))}
           </ul>
         ) : (
-          <p className="text-sm text-gris-mid">
+          <p className="text-sm text-ink2">
             Aucune prestation complémentaire n&apos;est proposée pour le moment.
           </p>
         )}
 
-        <p className="flex items-start gap-2 text-xs text-gris-mid bg-ivoire border border-gris-light rounded-lg px-4 py-3">
+        <p className="flex items-start gap-2 text-xs text-ink2 bg-ivoire border border-gris-light rounded-lg px-4 py-3">
           <Info className="w-4 h-4 flex-shrink-0 mt-0.5" aria-hidden="true" />
           Une demande n&apos;engage rien et ne déclenche aucun paiement : votre consultante EODA
           vous rappelle, établit un devis puis un avenant à votre contrat. Toute prestation
@@ -333,7 +337,7 @@ export default async function ClientContratPage() {
       </section>
 
       {/* Avertissement déontologique — identique au reste du portail */}
-      <p className="flex items-start gap-2 text-xs text-gris-mid bg-ivoire border border-gris-light rounded-lg px-4 py-3">
+      <p className="flex items-start gap-2 text-xs text-ink2 bg-ivoire border border-gris-light rounded-lg px-4 py-3">
         <ShieldAlert className="w-4 h-4 flex-shrink-0 mt-0.5" aria-hidden="true" />
         Outil de préparation interne EODA Conseil · Auto-évaluation préparatoire uniquement · Non
         officiel HAS · Les montants affichés reprennent votre devis signé ; en cas d&apos;écart,

@@ -1,17 +1,23 @@
 import { getClientChecklist } from "@/lib/actions/checklist";
+import { getClientDeliverablesSeenAt } from "@/lib/actions/deliverables";
+import { MarkDeliverablesSeen } from "@/components/checklist/MarkDeliverablesSeen";
 import { PageHeader } from "@/components/layout/PageHeader";
+import { canRenderDocumentPages } from "@/lib/services/file-type-service";
 import { DocumentDownloadLink } from "@/components/checklist/DocumentDownloadLink";
 import { DocumentPreviewLink } from "@/components/checklist/DocumentPreviewLink";
 import { formatDate } from "@/lib/services/date-format-service";
+import { StatusPill } from "@/components/ui/status-pill";
+import { DELIVERABLE_PILLS } from "@/lib/design/status-vocabulary";
 import {
   countDeliverablesInProgress,
   groupDeliverablesByCategory,
+  isNewDeliverable,
   selectDeliverables,
 } from "@/lib/services/deliverables-service";
 import type { DocumentCategory } from "@eoda/database";
 import { AlertTriangle, Clock, PackageOpen } from "lucide-react";
 
-export const metadata = { title: "Mes livrables · EODA Conseil" };
+export const metadata = { title: "Mes livrables" };
 
 const CATEGORY_LABELS: Record<DocumentCategory, string> = {
   LOI_2002_2: "Documents loi 2002-2 (droits des personnes accompagnées)",
@@ -29,15 +35,21 @@ const CATEGORY_LABELS: Record<DocumentCategory, string> = {
 // dans `deliverables-service`, pur et testé — un document non VALIDÉ n'apparaît pas.
 // ─────────────────────────────────────────────────────────────────────────────
 export default async function ClientDeliverablesPage() {
-  const { establishment, checklist } = await getClientChecklist();
+  // La date de la précédente visite est lue AVANT d'être remplacée
+  // (MarkDeliverablesSeen, une fois la page affichée) : c'est elle qui dit ce qui
+  // est nouveau pour cette personne.
+  const [{ establishment, checklist }, seenAt] = await Promise.all([
+    getClientChecklist(),
+    getClientDeliverablesSeenAt(),
+  ]);
 
   if (!establishment) {
     return (
       <div className="space-y-6">
         <PageHeader title="Mes livrables" icon={PackageOpen} accent="ambre" />
         <div className="flex items-start gap-3 rounded-lg border border-ambre/30 bg-ambre/10 px-5 py-4">
-          <AlertTriangle className="mt-0.5 h-5 w-5 flex-shrink-0 text-ambre" aria-hidden="true" />
-          <p className="text-sm text-gris-mid">
+          <AlertTriangle className="mt-0.5 h-5 w-5 flex-shrink-0 text-amber-text" aria-hidden="true" />
+          <p className="text-sm text-ink2">
             Votre consultant EODA doit d&apos;abord vous rattacher à votre établissement.
           </p>
         </div>
@@ -57,6 +69,7 @@ export default async function ClientDeliverablesPage() {
 
   return (
     <div className="space-y-6">
+      <MarkDeliverablesSeen />
       <PageHeader
         title="Mes livrables"
         subtitle="Documents produits et validés par EODA Conseil"
@@ -68,8 +81,8 @@ export default async function ClientDeliverablesPage() {
           que la consultante l'ait validé, c'est promettre à sa place. */}
       {inProgress > 0 && (
         <div className="flex items-start gap-3 rounded-lg border border-gris-light bg-ivoire px-5 py-4">
-          <Clock className="mt-0.5 h-5 w-5 flex-shrink-0 text-ambre" aria-hidden="true" />
-          <p className="text-sm text-gris-mid">
+          <Clock className="mt-0.5 h-5 w-5 flex-shrink-0 text-amber-text" aria-hidden="true" />
+          <p className="text-sm text-ink2">
             {inProgress} document{inProgress > 1 ? "s" : ""} en cours de finalisation par EODA
             Conseil. Il{inProgress > 1 ? "s" : ""} apparaîtra
             {inProgress > 1 ? "ont" : ""} ici après validation.
@@ -80,7 +93,7 @@ export default async function ClientDeliverablesPage() {
       {deliverables.length === 0 ? (
         <div className="rounded-xl border border-gris-light bg-surface px-5 py-8 text-center">
           <p className="text-sm font-semibold text-brun-ancre">Aucun livrable disponible</p>
-          <p className="mt-1 text-sm text-gris-mid">
+          <p className="mt-1 text-sm text-ink2">
             Les documents produits par EODA Conseil dans le cadre de votre accompagnement
             apparaîtront ici dès qu&apos;ils seront validés.
           </p>
@@ -99,14 +112,32 @@ export default async function ClientDeliverablesPage() {
                     className="flex flex-col gap-2 px-5 py-3.5 sm:flex-row sm:items-center sm:justify-between"
                   >
                     <div className="min-w-0">
-                      <p className="text-sm text-brun-ancre">{deliverable.label}</p>
-                      <p className="text-xs text-gris-mid">
+                      <p className="flex flex-wrap items-center gap-2 text-sm text-brun-ancre">
+                        {deliverable.label}
+                        {/* Pastille du vocabulaire unique (mot + glyphe + ton) :
+                            une couleur seule ne dirait rien à qui ne la distingue
+                            pas (WCAG 1.4.1). */}
+                        {isNewDeliverable(deliverable, seenAt) && (
+                          <StatusPill pill={DELIVERABLE_PILLS.nouveau} />
+                        )}
+                      </p>
+                      <p className="text-xs text-ink2">
                         {deliverable.filename} · remis le {formatDate(deliverable.remittedOn)}
                       </p>
                     </div>
                     <div className="flex flex-shrink-0 items-center gap-4">
                       <DocumentPreviewLink documentVersionId={deliverable.documentVersionId} />
-                      <DocumentDownloadLink documentVersionId={deliverable.documentVersionId} />
+                      <DocumentDownloadLink
+                        documentVersionId={deliverable.documentVersionId}
+                        // Ce dont on sait produire les pages s'exporte aussi en PDF :
+                        // un livrable que la structure doit transmettre (à sa
+                        // fédération, à un financeur) part souvent en PDF.
+                        pdfUrl={
+                          canRenderDocumentPages(deliverable.filename)
+                            ? `/api/documents/${deliverable.documentVersionId}/pdf?download=1`
+                            : null
+                        }
+                      />
                     </div>
                   </li>
                 ))}
@@ -116,7 +147,7 @@ export default async function ClientDeliverablesPage() {
         </div>
       )}
 
-      <p className="text-xs text-gris-mid">
+      <p className="text-xs text-ink2">
         Ces documents sont produits par EODA Conseil dans le cadre de votre accompagnement et
         restent consultables après la fin de la mission.
       </p>

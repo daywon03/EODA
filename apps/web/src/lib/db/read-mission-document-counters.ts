@@ -21,7 +21,7 @@ import {
 // Ne jamais l'appeler depuis un chemin non gardé.
 export async function readMissionDocumentCounters(
   establishmentId: string,
-  formule: CommercialTier,
+  formule: CommercialTier | null,
   gratuit: boolean
 ): Promise<MissionDocumentCounters> {
   const documents = await prisma.document.findMany({

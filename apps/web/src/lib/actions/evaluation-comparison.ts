@@ -3,6 +3,7 @@
 import { prisma, type Rating } from "@eoda/database";
 import { requireEstablishmentInTenant } from "@/lib/auth/guards";
 import { getOfferScope } from "@/lib/services/offer-scope-service";
+import { applicableToValuesFor } from "@/lib/services/criterion-applicability-service";
 import {
   compareCriteria,
   sortForReview,
@@ -44,7 +45,9 @@ export async function getEvaluationComparison(
   establishmentId: string
 ): Promise<EvaluationComparisonResult> {
   // Garde unique : identité + appartenance au tenant.
-  await requireEstablishmentInTenant(establishmentId);
+  const { establishmentType } = await requireEstablishmentInTenant(establishmentId, "READ");
+  // Profil SAD aide / mixte : jamais les critères de l'autre profil (N4).
+  const applicableTo = { in: applicableToValuesFor(establishmentType) };
 
   const mission = await prisma.mission.findUnique({
     where: { establishmentId },
@@ -70,7 +73,10 @@ export async function getEvaluationComparison(
   // Critères du périmètre, avec leurs éléments : c'est ce qui permet de regrouper des
   // cotations d'éléments en score de critère.
   const criteria = await prisma.criterion.findMany({
-    where: offerScope.criteriaScope === "IMPERATIFS_ONLY" ? { requirementLevel: "IMPERATIF" } : {},
+    where:
+      offerScope.criteriaScope === "IMPERATIFS_ONLY"
+        ? { requirementLevel: "IMPERATIF", applicableTo }
+        : { applicableTo },
     select: {
       code: true,
       label: true,

@@ -2,11 +2,13 @@ import { getProspect } from "@/lib/actions/prospect";
 import { listCatalogue } from "@/lib/actions/catalogue";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { DevisForm } from "@/components/devis/DevisForm";
+import { toDevisCatalogueChoices } from "@/lib/services/devis-catalogue-choices";
 import { formatContactIdentity } from "@/lib/services/prospect-contact-service";
+import { computeDefaultValidityDays } from "@/lib/services/devis-validity-service";
 import { Card, CardContent } from "@/components/ui/card";
 import { Mail, Phone } from "lucide-react";
 
-export const metadata = { title: "Évaluation des besoins · EODA Conseil" };
+export const metadata = { title: "Évaluation des besoins" };
 
 // Repli si aucun réglage de facturation n'a encore été enregistré — acompte de 40 %
 // à la commande, CGP de l'offre commerciale v10 §06.
@@ -33,29 +35,17 @@ export default async function EvaluationBesoinsPage({ params }: Props) {
   // un identifiant hors périmètre donne notFound(), jamais une redirection.
   const [prospect, catalogue] = await Promise.all([getProspect(id), listCatalogue()]);
 
-  const formules = catalogue.formules
-    .filter((f) => f.active)
-    .map((f) => ({
-      formule: f.formule,
-      label: f.label,
-      priceEuros: f.priceEuros,
-      modulesLabel: f.modulesLabel,
-      description: f.description,
-    }));
-  const options = catalogue.options
-    .filter((o) => o.active)
-    .map((o) => ({
-      id: o.id,
-      code: o.code,
-      label: o.label,
-      priceEuros: o.priceEuros,
-      pricingUnit: o.pricingUnit,
-      priceMaxEuros: o.priceMaxEuros,
-      minQuantity: o.minQuantity,
-    }));
+  const { formules, options } = toDevisCatalogueChoices(catalogue);
+
+  // Validité proposée selon l'échéance HAS du prospect (décision Q10 bis).
+  const validity = computeDefaultValidityDays({
+    evaluationTargetDate: prospect.hasEvaluationTargetDate,
+    now: new Date(),
+    fallbackDays: catalogue.billingSettings?.defaultValidityDays ?? 30,
+  });
 
   return (
-    <div className="space-y-6 max-w-3xl">
+    <div className="space-y-6 max-w-6xl">
       <PageHeader
         title="Évaluation des besoins"
         subtitle={prospect.structureName}
@@ -70,18 +60,18 @@ export default async function EvaluationBesoinsPage({ params }: Props) {
             {formatContactIdentity(prospect) && <span>{formatContactIdentity(prospect)}</span>}
             {prospect.contactPhone && (
               <span className="flex items-center gap-1.5">
-                <Phone className="w-3.5 h-3.5 text-gris-mid" aria-hidden="true" />
+                <Phone className="w-3.5 h-3.5 text-ink2" aria-hidden="true" />
                 {prospect.contactPhone}
               </span>
             )}
             {prospect.contactEmail && (
               <span className="flex items-center gap-1.5">
-                <Mail className="w-3.5 h-3.5 text-gris-mid" aria-hidden="true" />
+                <Mail className="w-3.5 h-3.5 text-ink2" aria-hidden="true" />
                 {prospect.contactEmail}
               </span>
             )}
           </div>
-          <p className="text-xs text-gris-mid mt-3">
+          <p className="text-xs text-ink2 mt-3">
             Cochez l&apos;offre et les prestations retenues pendant l&apos;appel : l&apos;envoi
             crée le devis. La fiche client et son profil, eux, ne sont créés qu&apos;à la
             signature.
@@ -89,21 +79,19 @@ export default async function EvaluationBesoinsPage({ params }: Props) {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardContent className="pt-6">
-          <DevisForm
-            prospectId={id}
-            variant="assessment"
-            formules={formules}
-            options={options}
-            defaultNeedsAssessmentNotes={prospect.needsAssessmentNotes}
-            defaultDepositPercent={
-              catalogue.billingSettings?.defaultDepositPercent ?? DEFAULT_DEPOSIT_PERCENT
-            }
-            defaultValidityDays={catalogue.billingSettings?.defaultValidityDays ?? 30}
-          />
-        </CardContent>
-      </Card>
+      <DevisForm
+        prospectId={id}
+        variant="assessment"
+        structureName={prospect.structureName}
+        formules={formules}
+        options={options}
+        defaultNeedsAssessmentNotes={prospect.needsAssessmentNotes}
+        defaultDepositPercent={catalogue.billingSettings?.defaultDepositPercent ?? DEFAULT_DEPOSIT_PERCENT}
+        defaultValidityDays={validity.days}
+        validityHint={validity.reason}
+        envisagedFormule={prospect.envisagedFormule}
+        canSendByEmail={Boolean(prospect.contactEmail)}
+      />
     </div>
   );
 }

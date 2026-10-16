@@ -1,5 +1,6 @@
 import { prisma } from "@eoda/database";
 import type { ContractFacts } from "@/lib/services/contract-service";
+import { NO_FORMULE_LABEL } from "@/components/mission/formule-labels";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // LECTURE DU CONTRAT — la requête, sans la garde.
@@ -72,10 +73,13 @@ export async function readContractData(
   // le périmètre, et c'est le catalogue qui en porte la description à jour. Les
   // MONTANTS, eux, viennent du devis signé — jamais du catalogue, dont les prix sont
   // des « à partir de » (CLAUDE.md §7).
-  const formule = await prisma.catalogueFormule.findFirst({
-    where: { tenantId, formule: mission.formule },
-    select: { label: true, modulesLabel: true },
-  });
+  const formule =
+    mission.formule === null
+      ? null
+      : await prisma.catalogueFormule.findFirst({
+          where: { tenantId, formule: mission.formule },
+          select: { label: true, modulesLabel: true },
+        });
 
   const devis = mission.sourceDevis;
 
@@ -87,7 +91,7 @@ export async function readContractData(
       siretNumber: mission.establishment.siretNumber,
       address: mission.establishment.address,
       formule: mission.formule,
-      formuleLabel: formule?.label ?? mission.formule,
+      formuleLabel: formule?.label ?? mission.formule ?? NO_FORMULE_LABEL,
       modulesLabel: formule?.modulesLabel ?? null,
       gratuit: mission.gratuit,
       options: mission.options,

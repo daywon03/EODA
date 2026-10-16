@@ -3,7 +3,7 @@
 import { prisma, OptionRequestStatus, type PricingUnit } from "@eoda/database";
 import { revalidatePath } from "next/cache";
 import { notFound } from "next/navigation";
-import { requireCabinetAdminSession } from "@/lib/auth/guards";
+import { requireCommercialSession } from "@/lib/auth/guards";
 import { recordAuditEvent } from "@/lib/services/audit-log-service";
 import { firstError, requiredEnum, requiredString } from "@/lib/validation/form-parsers";
 
@@ -38,7 +38,7 @@ export type PendingOptionRequest = {
 // la liste : la barre de navigation est rendue à chaque page, elle n'a pas à charger
 // des libellés et des prix pour afficher un chiffre.
 export async function countPendingOptionRequests(): Promise<number> {
-  const { tenantId } = await requireCabinetAdminSession();
+  const { tenantId } = await requireCommercialSession();
   return prisma.clientOptionRequest.count({ where: { tenantId, status: "DEMANDEE" } });
 }
 
@@ -46,7 +46,7 @@ export async function countPendingOptionRequests(): Promise<number> {
 // récente. Le filtre par tenant n'est pas conditionnel : sans tenant, la garde a
 // déjà refusé (fail-closed).
 export async function listPendingOptionRequests(): Promise<PendingOptionRequest[]> {
-  const { tenantId } = await requireCabinetAdminSession();
+  const { tenantId } = await requireCommercialSession();
 
   const requests = await prisma.clientOptionRequest.findMany({
     where: { tenantId, status: "DEMANDEE" },
@@ -86,7 +86,7 @@ export type HandleOptionRequestResult = { ok: true } | { ok: false; error: strin
 export async function handleOptionRequest(
   formData: FormData
 ): Promise<HandleOptionRequestResult> {
-  const { tenantId, userId } = await requireCabinetAdminSession();
+  const { tenantId, userId, role } = await requireCommercialSession();
 
   const requestId = requiredString(formData, "requestId", "La demande", 64);
   const status = requiredEnum(formData, "status", "Le statut", OptionRequestStatus);
@@ -116,7 +116,7 @@ export async function handleOptionRequest(
   await recordAuditEvent({
     action: "OPTION_REQUEST_HANDLED",
     actorUserId: userId,
-    actorRole: "CABINET_ADMIN",
+    actorRole: role,
     establishmentId: existing.establishmentId,
     targetId: existing.catalogueOptionId,
     detail: status.value,

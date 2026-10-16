@@ -19,7 +19,9 @@ export const APPOINTMENT_KIND_LABELS: Record<AppointmentKind, string> = {
   R0_PRISE_CONTACT: "R0 — Prise de contact",
   R1_DECOUVERTE: "R1 — Réunion de découverte",
   R2_ACCORD: "R2 — Accord de principe",
-  REUNION_CADRAGE: "Réunion de cadrage",
+  // « Réunion de lancement » : le mot que Sandrine cherchait (01/09, 15/09) ; le
+  // cadrage reste nommé pour qu'on retrouve l'ancien libellé.
+  REUNION_CADRAGE: "Réunion de lancement (cadrage)",
   VISITE: "Visite sur site",
   ATELIER: "Atelier",
   REUNION_SUIVI: "Réunion de suivi",
@@ -37,6 +39,7 @@ export const APPOINTMENT_STATUS_LABELS: Record<AppointmentStatus, string> = {
   PROPOSE: "Créneau proposé",
   CONFIRME: "Confirmé",
   ANNULE: "Annulé",
+  DEMANDE: "Demandé par la structure",
 };
 
 // Les trois étapes de vente. Séparées des rendez-vous d'accompagnement parce qu'elles

@@ -231,7 +231,7 @@ et de la validation de l'offre EODA. Suivi comme KPI interne distinct (§8), à 
 confondre avec une mission commerciale standard dans le calcul de CA.
 
 **Mission pré-chargée dans l'état par défaut de l'outil** (`defaultState()`) : ASSAD
-BENOIT — association, FINESS 930034459, contact Tania Leborgne (Directrice), formule
+BENOIT — association, FINESS 930034459, contact : la Directrice, formule
 Excellence, `gratuit: true`, échéance évaluation HAS au 15/01/2027, diagnostic initial
 quasi entièrement coché (seule la restitution du PAC — `froid_restitution` — reste à
 faire dans les données de départ), phase Fondations en cours (01/06 au 31/08/2026),
@@ -433,6 +433,13 @@ déjà conforme.
 > « 10 supports + banque de quiz 3 niveaux à partir de 3 500 € » et la dégressivité de
 > l'abonnement portail selon l'offre souscrite (-10 % / -30 %, cf. §12.2).
 
+> **30/09/2026 — repositionnement.** Le §12 reste la référence du **contenu** des offres et
+> de ce qui est en base. Sa **mise en marché** change : le portail devient le produit
+> (abonnement), les trois offres deviennent un supplément d'accompagnement, et
+> l'abonnement `VEILLE_PORTAIL_EODA` à 400 €/mois avec -10 % / -30 % sera remplacé par des
+> paliers — **proposition non validée** dans `09-vision-produit.md` §4. Ne rien changer au
+> catalogue ni à `subscription-service.ts` avant la validation de Sandrine.
+
 ### 12.1 Les trois offres, redéfinies
 
 | | Essentiel | Performance | Excellence |
@@ -545,6 +552,10 @@ La **hotline** est retirée de l'offre pour l'instant (idée conservée, non chi
 - **Module sensibilisation** : la plateforme génère le **PDF de questions** ciblé sur les
   critères faibles, renvoie vers **Kahoot** (pas de moteur de quiz maison), et réimporte les
   statistiques comme élément de preuve.
+  **⚠️ Remplacé le 22/09/2026 puis le 30/09/2026** : la démo du 22/09 demande des quiz par
+  QR code, accessibles sur mobile, **avec suivi par salarié et retest tous les 6 mois**
+  comme preuve d'audit — ce que Kahoot ne fournit pas. Les quiz sont désormais construits
+  **dans la plateforme** (lot B de `09-vision-produit.md` §7).
 - **Guide / centre d'aide dans l'application**, utilisable comme support de formation le
   22 septembre et pour l'autonomie sur les nouveaux arrivants du client. ✅ *Fait le 20/08/2026*
   (`/dashboard/aide`, contenu dans `apps/web/src/content/aide/`).

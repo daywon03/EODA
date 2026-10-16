@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { ChevronRight, FileText } from "lucide-react";
 import { Card } from "@/components/ui/card";
-import { DevisStatusBadge } from "./DevisStatusBadge";
+import { StatusPill } from "@/components/ui/status-pill";
+import { pillForDevisStatus } from "@/lib/design/status-vocabulary";
 import type { DevisStatus } from "@eoda/database";
 import { formatStartingPrice } from "@/lib/services/price-format-service";
 import { DeleteDevisButton } from "./DeleteDevisButton";
@@ -10,7 +11,7 @@ type Props = {
   id: string;
   number: string;
   status: DevisStatus;
-  formuleLabelSnapshot: string;
+  formuleLabelSnapshot: string | null;
   totalAmountEuros: number;
   prospectStructureName?: string;
 };
@@ -20,10 +21,10 @@ export function DevisCard({ id, number, status, formuleLabelSnapshot, totalAmoun
     // Lien en superposition plutôt que carte enveloppée dans un <a> : la carte porte
     // désormais une action, et un bouton dans un lien est invalide autant
     // qu'inutilisable — le clic partirait sur le devis.
-    <Card className="relative border-l-4 border-l-ambre transition-all duration-150 hover:-translate-y-0.5 hover:shadow-eoda-md focus-within:ring-2 focus-within:ring-terre focus-within:ring-offset-2">
+    <Card className="relative transition-all duration-150 hover:-translate-y-0.5 hover:shadow-eoda-md">
       <Link
         href={`/dashboard/cabinet/commercial/devis/${id}`}
-        className="absolute inset-0 z-0 rounded-xl focus:outline-none"
+        className="absolute inset-0 z-0 rounded-xl"
       >
         <span className="sr-only">Ouvrir le devis {number}</span>
       </Link>
@@ -31,21 +32,21 @@ export function DevisCard({ id, number, status, formuleLabelSnapshot, totalAmoun
       <div className="pointer-events-none flex items-center justify-between gap-3 p-4">
         <div className="flex min-w-0 items-center gap-2.5">
           <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-ambre/15">
-            <FileText className="h-4 w-4 text-ambre" aria-hidden="true" />
+            <FileText className="h-4 w-4 text-amber-text" aria-hidden="true" />
           </span>
           <div className="min-w-0">
-            <p className="truncate text-sm font-semibold text-brun-ancre">{number}</p>
-            <p className="truncate text-xs text-gris-mid">
-              {formuleLabelSnapshot}
+            <p className="truncate text-sm font-semibold text-ink">{number}</p>
+            <p className="truncate text-xs text-ink2">
+              {formuleLabelSnapshot ?? "Prestations à la carte"}
               {prospectStructureName ? ` · ${prospectStructureName}` : ""}
             </p>
           </div>
         </div>
         <div className="flex flex-shrink-0 items-center gap-3">
-          <span className="text-sm font-semibold tabular-nums text-brun-ancre">
+          <span className="text-sm font-semibold tabular-nums text-ink">
             {formatStartingPrice({ priceEuros: totalAmountEuros })}
           </span>
-          <DevisStatusBadge status={status} />
+          <StatusPill pill={pillForDevisStatus(status)} />
           {/* Poubelle réservée aux BROUILLONS, comme sur la fiche du devis : un devis
               émis porte un numéro de la série annuelle, il ne se supprime pas, il
               s'annule. L'action serveur le revérifie — cette condition n'est qu'un
@@ -55,7 +56,7 @@ export function DevisCard({ id, number, status, formuleLabelSnapshot, totalAmoun
               <DeleteDevisButton devisId={id} number={number} compact />
             </span>
           )}
-          <ChevronRight className="h-4 w-4 text-gris-mid" aria-hidden="true" />
+          <ChevronRight className="h-4 w-4 text-ink2" aria-hidden="true" />
         </div>
       </div>
     </Card>

@@ -83,16 +83,16 @@ describe("cloisonnement du guide par rôle", () => {
 });
 
 describe("catalogue réellement livré", () => {
-  it("n'expose aucun article du pipeline commercial hors CABINET_ADMIN", () => {
+  it("n'expose aucun article du pipeline commercial hors capacité COMMERCIAL (admin, commercial)", () => {
     for (const article of HELP_ARTICLES) {
       if (article.category !== "COMMERCIAL") continue;
-      expect(article.audiences).toEqual(["CABINET_ADMIN"]);
+      expect(article.audiences).toEqual(["CABINET_ADMIN", "CABINET_COMMERCIAL"]);
     }
-    const clientSlugs = listHelpArticles("CLIENT_USER").map((a) => a.slug);
-    const evaluatorSlugs = listHelpArticles("CABINET_EVALUATOR").map((a) => a.slug);
-    expect(clientSlugs).not.toContain("pipeline-commercial");
-    expect(evaluatorSlugs).not.toContain("pipeline-commercial");
+    for (const role of ["CLIENT_USER", "CABINET_EVALUATOR", "CABINET_READONLY"] as const) {
+      expect(listHelpArticles(role).map((a) => a.slug)).not.toContain("pipeline-commercial");
+    }
     expect(listHelpArticles("CABINET_ADMIN").map((a) => a.slug)).toContain("pipeline-commercial");
+    expect(listHelpArticles("CABINET_COMMERCIAL").map((a) => a.slug)).toContain("pipeline-commercial");
   });
 
   it("donne à chaque rôle au moins la prise en main", () => {
@@ -100,6 +100,33 @@ describe("catalogue réellement livré", () => {
       const slugs = listHelpArticles(role).map((a) => a.slug);
       expect(slugs).toContain("a-quoi-sert-la-plateforme");
       expect(slugs).toContain("se-connecter-et-changer-son-mot-de-passe");
+    }
+  });
+
+  it("ne décrit aucun écran ni geste supprimé (test de bout en bout du 12/10/2026)", () => {
+    // Une fiche client ne naît QUE de la signature d'un devis (CLAUDE.md §7) : il
+    // n'existe plus de « Nouvel établissement ». Les autres libellés sont ceux de la
+    // v1, remplacés par les écrans v2 (onglets « Documents », « Mission », section
+    // « Commercial »). Un guide qui envoie vers un bouton absent est un bouton mort.
+    const STALE = [
+      "nouvel etablissement",
+      "creer un etablissement",
+      "tableau de bord cabinet",
+      "checklist documentaire",
+      "suivi de mission",
+      "pipeline commercial",
+      "ouvrir un chapitre demarre",
+    ];
+    for (const article of HELP_ARTICLES) {
+      const text = normalizeSearchText(
+        [
+          article.title,
+          article.summary,
+          article.where,
+          ...article.body.flatMap((b) => ("text" in b ? [b.text] : b.items)),
+        ].join(" ")
+      );
+      for (const phrase of STALE) expect(text, `${article.slug} : « ${phrase} »`).not.toContain(phrase);
     }
   });
 

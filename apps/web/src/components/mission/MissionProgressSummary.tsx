@@ -14,10 +14,10 @@ export function MissionProgressSummary({ diagnosticPct, phasesPct, globalPct }: 
       {rows.map(({ label, value, color }) => (
         <div key={label} className="bg-surface border border-gris-light rounded-xl p-4 space-y-2">
           <div className="flex items-center justify-between">
-            <p className="text-xs text-gris-mid">{label}</p>
+            <p className="text-xs text-ink2">{label}</p>
             <p className="text-lg font-bold text-brun-ancre tabular-nums">{value}%</p>
           </div>
-          <ProgressBar value={value} colorClassName={color} />
+          <ProgressBar value={value} label={label} colorClassName={color} />
         </div>
       ))}
     </div>

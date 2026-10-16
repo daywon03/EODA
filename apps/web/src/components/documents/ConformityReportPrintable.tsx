@@ -54,7 +54,7 @@ export function ConformityReportPrintable({
         />
         <div>
           <h2 className="text-lg font-bold">Rapport de mise en conformité documentaire</h2>
-          <p className="text-sm text-gris-mid">
+          <p className="text-sm text-ink2">
             {establishmentName} · établi le {formatDate(issuedOn)}
           </p>
         </div>
@@ -82,7 +82,7 @@ export function ConformityReportPrintable({
 
                 {line.criteriaCoverage.length > 0 ? (
                   <div className="mt-1 space-y-1">
-                    <p className="text-xs font-medium uppercase tracking-wide text-gris-mid">
+                    <p className="text-xs font-medium uppercase tracking-wide text-ink2">
                       Couverture par critère HAS
                     </p>
                     <ul className="space-y-0.5">
@@ -93,23 +93,23 @@ export function ConformityReportPrintable({
                           <span
                             className={
                               c.status === "couvert"
-                                ? "text-vert-ok"
+                                ? "text-ok-text"
                                 : c.status === "partiel"
-                                  ? "text-ambre"
+                                  ? "text-amber-text"
                                   : "text-rouge-imp"
                             }
                           >
                             {c.status}
                           </span>
                           {" : "}
-                          <span className="text-gris-mid">{c.note}</span>
+                          <span className="text-ink2">{c.note}</span>
                         </li>
                       ))}
                     </ul>
                   </div>
                 ) : (
                   line.criteria.length > 0 && (
-                    <p className="text-xs text-gris-mid">
+                    <p className="text-xs text-ink2">
                       Critères HAS rattachés :{" "}
                       {line.criteria.map((criterion) => criterion.code).join(", ")}
                     </p>
@@ -126,7 +126,7 @@ export function ConformityReportPrintable({
                   // Le contenu de l'analyse n'est PAS publié tant qu'il n'est pas
                   // relu : c'est la même barrière que dans le portail, appliquée au
                   // document imprimé.
-                  <p className="mt-1 text-sm text-gris-mid">
+                  <p className="mt-1 text-sm text-ink2">
                     Analyse en cours de relecture par le consultant — les conclusions
                     figureront dans la prochaine édition de ce rapport.
                   </p>
@@ -136,7 +136,7 @@ export function ConformityReportPrintable({
                   <div className="mt-1 space-y-2 text-sm">
                     {line.missing.length > 0 ? (
                       <div>
-                        <p className="text-xs font-medium uppercase tracking-wide text-gris-mid">
+                        <p className="text-xs font-medium uppercase tracking-wide text-ink2">
                           Éléments attendus non retrouvés
                         </p>
                         <ul className="ml-5 list-disc">
@@ -146,14 +146,14 @@ export function ConformityReportPrintable({
                         </ul>
                       </div>
                     ) : (
-                      <p className="text-gris-mid">
+                      <p className="text-ink2">
                         Aucun élément manquant relevé — conformité à confirmer en séance.
                       </p>
                     )}
 
                     {line.suggestions.length > 0 && (
                       <div>
-                        <p className="text-xs font-medium uppercase tracking-wide text-gris-mid">
+                        <p className="text-xs font-medium uppercase tracking-wide text-ink2">
                           Corrections proposées
                         </p>
                         <ul className="ml-5 list-disc">
@@ -173,7 +173,7 @@ export function ConformityReportPrintable({
 
       {/* Paternité : ce document est PRODUIT par EODA pour la structure — c'est le cas
           où la mention de propriété et de droit d'exploitation s'applique. */}
-      <p className="border-t border-gris-light pt-4 text-xs text-gris-mid">
+      <p className="border-t border-gris-light pt-4 text-xs text-ink2">
         {buildOwnershipMention(establishmentName)} Analyse documentaire produite à
         l&apos;appui de la préparation à l&apos;évaluation qualité HAS et revue par le
         consultant ; elle ne constitue pas une évaluation HAS officielle.
@@ -186,7 +186,7 @@ function Counter({ label, value }: { label: string; value: number }) {
   return (
     <div className="rounded-lg border border-gris-light px-3 py-2">
       <p className="text-xl font-bold tabular-nums">{value}</p>
-      <p className="text-xs text-gris-mid">{label}</p>
+      <p className="text-xs text-ink2">{label}</p>
     </div>
   );
 }

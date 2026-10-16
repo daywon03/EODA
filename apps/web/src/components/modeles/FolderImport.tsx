@@ -136,7 +136,7 @@ export function FolderImport({ onImported }: { onImported?: () => void }) {
           disabled={isRunning}
           onChange={(event) => handlePick(event.target.files)}
         />
-        <p className="text-xs text-gris-mid">
+        <p className="text-xs text-ink2">
           Le dossier choisi devient un dossier de la bibliothèque, chaque sous-dossier
           une fiche. Rien n&apos;est enregistré tant que vous n&apos;avez pas relu la
           proposition ci-dessous.
@@ -154,13 +154,13 @@ export function FolderImport({ onImported }: { onImported?: () => void }) {
 
       {rows.length > 0 && (
         <>
-          <div className="overflow-x-auto">
+          <div className="relative overflow-x-auto">
             <table className="w-full min-w-[46rem] text-left text-xs">
               <caption className="sr-only">
                 Rangement proposé pour les fichiers du dossier choisi
               </caption>
               <thead>
-                <tr className="border-b border-gris-light text-gris-mid">
+                <tr className="border-b border-gris-light text-ink2">
                   <th scope="col" className="py-2 pr-3 font-medium">Fichier</th>
                   <th scope="col" className="py-2 pr-3 font-medium">Dossier</th>
                   <th scope="col" className="py-2 pr-3 font-medium">Fiche</th>
@@ -176,7 +176,7 @@ export function FolderImport({ onImported }: { onImported?: () => void }) {
                         {row.file.name}
                       </span>
                       {row.duplicate && (
-                        <span className="text-gris-mid">
+                        <span className="text-ink2">
                           Doublon dans ce dossier — ignoré.
                         </span>
                       )}
@@ -185,7 +185,7 @@ export function FolderImport({ onImported }: { onImported?: () => void }) {
                           corriger, la première presque jamais. Les confondre ferait
                           relire les cinquante lignes ou aucune. */}
                       {!row.duplicate && !row.stageDetected && (
-                        <span className="flex items-center gap-1 text-gris-mid">
+                        <span className="flex items-center gap-1 text-ink2">
                           <Sparkles className="h-3 w-3 flex-shrink-0" aria-hidden="true" />
                           stade à confirmer
                         </span>
@@ -275,7 +275,7 @@ export function FolderImport({ onImported }: { onImported?: () => void }) {
       {outcome && (
         <div role="status" className="space-y-1 text-xs">
           {outcome.done > 0 && (
-            <p className="flex items-center gap-1.5 text-vert-ok">
+            <p className="flex items-center gap-1.5 text-ok-text">
               <CheckCircle2 className="h-3.5 w-3.5 flex-shrink-0" aria-hidden="true" />
               {outcome.done} fichier{outcome.done > 1 ? "s" : ""} rangé
               {outcome.done > 1 ? "s" : ""} dans la bibliothèque.

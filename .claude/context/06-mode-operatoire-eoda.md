@@ -96,7 +96,7 @@ systématique avant validation finale. »*
 - Référentiel HAS (manuel juillet 2025) : **157 critères**, dont **18 impératifs** au
   niveau national tous-ESSMS confondus (16 pour un SAD Aide, 17 pour un SAD Mixte — voir
   note de cohérence ci-dessous).
-- ASSAD BENOIT (loi 1901, SAD Aide, Le Blanc-Mesnil 93, Directrice Tania Leborgne) : mission
+- ASSAD BENOIT (loi 1901, SAD Aide, Le Blanc-Mesnil 93) : mission
   pilote/bêta-test, gratuite, échéance d'évaluation officielle fixée au **15 janvier 2027**.
 - Chronologie reconstituée jusqu'au 13/07/2026 ; phases postérieures (sept.-déc. 2026) =
   projections à ajuster.
@@ -119,9 +119,8 @@ ASSAD BENOIT (livrables remis ou coproduits).
 
 - **EODA :** Sandrine Regina (consultante unique, pilote de bout en bout), Damon BA
   (programmeur, outils internes/externes).
-- **ASSAD BENOIT :** Tania Leborgne (Directrice), Julien Chevallier (Coordinateur),
-  Sandrine Mcirdi (Assistante), Marie-Hélène *(nom de famille à préciser)* (Assistante),
-  AVS, personnes accompagnées (échantillon), CVS.
+- **ASSAD BENOIT :** la Directrice, le Coordinateur de secteur, deux Assistantes
+  (dont l'assistante de direction), AVS, personnes accompagnées (échantillon), CVS.
 - **Rythme :** points hebdomadaires (~2h, mardi/mercredi), CR normalisés sous 48h, points
   d'étape majeurs (cadrage 31/03, visite 08/04, diagnostic mai, synthèse mi-parcours juin,
   semaine d'atelier 22-30/09, bilan 30/09, consolidation décembre).
@@ -174,6 +173,56 @@ conservé comme cas d'école (référence croisée directe avec la Partie 1, poi
 - **Systématiser et sécuriser le contrôle croisé documentaire** pour chaque mission (reprise
   synthétique de toute la Partie 1 de ce fichier)
 - Maintenir la discipline de double périmètre interne/externe
+
+---
+
+## Partie 3 — Apprentissages terrain de septembre 2026 (ateliers ASSAD BENOIT)
+
+> Séances du 20, 22 et 25/09/2026 (transcriptions Granola de Damon). Ce qui suit est du
+> process métier observé ; ce qui en découle pour le produit est dans
+> `09-vision-produit.md` et dans le brief de refonte.
+
+- **Semaine d'atelier centrée sur les 16 impératifs** (décision du 20/09) : démo du portail,
+  entretien avec une personne accompagnée à domicile (chapitre 1), entretien avec un
+  professionnel (chapitre 2), puis un document socle par demi-journée. Objectif : savoir
+  combien de preuves existent par critère.
+- **Visite d'entrée d'un nouveau bénéficiaire trop longue** : signer 6 documents un par un
+  prend ~40 minutes (1 à 2 visites par après-midi au lieu de 4 à 5). Piste retenue :
+  synthétiser à l'oral, laisser les documents à lire, faire signer **une seule feuille de
+  réception**. Le DIPC est remis au plus tard sous 15 jours ; la structure peut choisir la
+  remise immédiate.
+- **Signature sur tablette** (25/09) : récupérer le gabarit DIPC dans EODA, le personnaliser
+  pour la personne, le faire signer chez elle, le verser dans son dossier (aujourd'hui dans
+  Ximi). Deux intervenants terrain, trois tablettes commandées. ⚠️ Une pièce nominative
+  signée est une **donnée de santé** : module conditionné à la décision HDS
+  (`09-vision-produit.md` §8).
+- **Questions sensibles** de l'évaluation des besoins (harcèlement, radicalisation, abus
+  financier) : à poser, sans interrogatoire ; un « non » couvre la structure ; à reposer
+  chaque année. L'abus le plus fréquent observé : **financier** (procurations, accès
+  administratifs).
+- **Signalement** : toujours d'abord en interne (le SAD ouvre, analyse, oriente) ; la FAMO
+  pour les situations graves, remplie sur le portail ; signalements au DAC (~5 par an).
+  Le dispositif départemental de médiation est retiré des documents (lent, inutilisé).
+- **Chaque droit annoncé à la personne doit correspondre à un processus interne**, une note
+  ou une formation. Une clause bien écrite peut couvrir 5 à 6 critères à la fois.
+- **CVS** : critère impératif ; format court et convivial (1 à 2 fois par an, ~10 minutes),
+  délégable ; tout bénéficiaire peut demander à y participer.
+- **Enquête de satisfaction** : version en ligne et version papier ; les AVS aident à la
+  remplir en visite ; les réponses papier pourront être photographiées et lues par la
+  plateforme.
+- **Sensibilisation des AVS** : fiches (douleur, questionnement éthique, risque infectieux,
+  isolement…) rangées dans les casiers et à mettre en e-learning ; formation obligatoire
+  avant la prise de poste ; vocabulaire aligné par cartes mémoire ; quiz retestés tous les
+  6 mois — la rotation des équipes impose de pouvoir recommencer proprement.
+- **Face à l'évaluateur** : présenter honnêtement les manques d'avant, puis montrer que les
+  nouvelles procédures les couvrent.
+- **Démo du 22/09** : l'assistante de direction et le coordinateur de secteur (côté client) ont reçu des profils de test. Retours :
+  mode sombre, agenda commentable, récapitulatif « ce qui a changé » par document, trace des
+  modifications (qui, quoi, quand), e-learning, rappel annuel « vos processus sont-ils
+  toujours valides ? », version mobile par QR code plutôt qu'une application.
+- ⚠️ Le résumé automatique de la démo mentionne une « grille de cotation ABCD » visible en
+  interne : c'est la lettre **Qualiscope** (estimation indicative), jamais une unité de
+  saisie — la cotation reste 1/2/3/4/★/NC/RI (CLAUDE.md §7).
 
 ---
 

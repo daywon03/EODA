@@ -79,7 +79,7 @@ function signedDevisRow() {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  prismaMock.user.findUnique.mockResolvedValue({ name: "Tania Leborgne" });
+  prismaMock.user.findUnique.mockResolvedValue({ name: "Camille Durand" });
   notifyOptionRequest.mockResolvedValue(true);
   requireClientEstablishment.mockResolvedValue({
     session: { user: { id: "user-1" } },

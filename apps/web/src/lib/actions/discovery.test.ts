@@ -17,7 +17,7 @@ const requireCabinetAdminSession = vi.fn();
 vi.mock("@eoda/database", () => ({ prisma: prismaMock }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("@/lib/auth/guards", () => ({
-  requireCabinetAdminSession: () => requireCabinetAdminSession(),
+  requireCommercialSession: () => requireCabinetAdminSession(),
 }));
 
 const { saveDiscoveryAnswers } = await import("./discovery");
@@ -90,5 +90,31 @@ describe("saveDiscoveryAnswers — avancement automatique du statut", () => {
       })
     );
     expect(prismaMock.prospectTimelineEntry.create).not.toHaveBeenCalled();
+  });
+});
+
+describe("saveDiscoveryAnswers — une réponse de liste non modifiée est conservée", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    requireCabinetAdminSession.mockResolvedValue({ tenantId: "tenant-1", userId: "user-1" });
+    prismaMock.$transaction.mockImplementation((ops: unknown[]) => Promise.resolve(ops));
+  });
+
+  it("réenregistre la réponse à choix renvoyée telle quelle par le formulaire", async () => {
+    prismaMock.prospect.findFirst.mockResolvedValue({ id: "p1", status: "RDV" });
+
+    await saveDiscoveryAnswers(
+      "p1",
+      null,
+      formData({ pilotage_qualite: "Direction", taille: "40 salariés" })
+    );
+
+    const call = prismaMock.prospect.update.mock.calls[0]?.[0] as {
+      data: { discoveryAnswersJson: Record<string, string> };
+    };
+    expect(call.data.discoveryAnswersJson).toEqual({
+      pilotage_qualite: "Direction",
+      taille: "40 salariés",
+    });
   });
 });

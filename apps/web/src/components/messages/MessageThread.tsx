@@ -1,5 +1,6 @@
 "use client";
 
+import { submitWithoutReset } from "@/lib/forms/submit-without-reset";
 import { useActionState, useEffect, useRef, useState } from "react";
 import type { MessageAuthorSide } from "@eoda/database";
 import type { MessageResult, ThreadMessage } from "@/lib/actions/message";
@@ -66,9 +67,9 @@ export function MessageThread({
     <div className="space-y-4">
       {messages.length === 0 ? (
         <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-gris-light bg-surface px-6 py-10 text-center">
-          <MessagesSquare className="h-6 w-6 text-terre/60" aria-hidden="true" />
+          <MessagesSquare className="h-6 w-6 text-accent-text" aria-hidden="true" />
           <p className="text-sm font-medium text-brun-ancre">La conversation est vide.</p>
-          <p className="max-w-sm text-sm text-gris-mid">
+          <p className="max-w-sm text-sm text-ink2">
             Ce fil sert aux questions courtes et au suivi. Les documents, eux, se déposent
             dans l&apos;espace documentaire.
           </p>
@@ -84,7 +85,7 @@ export function MessageThread({
                   cherche dans un fil — l'heure, et qui parle. */}
               <div className="flex items-center gap-3" role="separator" aria-label={group.heading}>
                 <span className="h-px flex-1 bg-gris-light" />
-                <span className="text-xs font-medium uppercase tracking-wide text-gris-mid">
+                <span className="text-xs font-medium uppercase tracking-wide text-ink2">
                   {group.heading}
                 </span>
                 <span className="h-px flex-1 bg-gris-light" />
@@ -126,7 +127,7 @@ export function MessageThread({
                           <p className="whitespace-pre-line text-sm leading-relaxed text-brun-ancre">
                             {message.body}
                           </p>
-                          <p className="mt-1 text-[11px] tabular-nums text-gris-mid">
+                          <p className="mt-1 text-sm tabular-nums text-ink2">
                             <span className="sr-only">{displayAuthor(message)}, </span>
                             <time
                               dateTime={message.createdAt.toISOString()}
@@ -147,7 +148,7 @@ export function MessageThread({
       )}
 
       {canPost ? (
-        <form ref={formRef} action={formAction} className="space-y-2">
+        <form ref={formRef} method="post" onSubmit={submitWithoutReset(formAction)} className="space-y-2">
           <Label htmlFor="message-body">Écrire un message</Label>
           <Textarea
             ref={fieldRef}
@@ -177,7 +178,7 @@ export function MessageThread({
           )}
 
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="text-xs text-gris-mid">
+            <div className="text-xs text-ink2">
               {length >= COUNTER_FROM ? (
                 <span className="tabular-nums">
                   {length} / {MAX_MESSAGE_LENGTH} caractères
@@ -185,7 +186,7 @@ export function MessageThread({
               ) : sent && !isPending ? (
                 // Confirmation explicite : le message apparaît bien dans le fil, mais
                 // rien ne distingue « envoyé » de « la page n'a pas bougé ».
-                <span className="flex items-center gap-1.5 text-vert-ok">
+                <span className="flex items-center gap-1.5 text-ok-text">
                   <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
                   Message envoyé.
                 </span>
@@ -208,7 +209,7 @@ export function MessageThread({
         </form>
       ) : (
         readOnlyNotice && (
-          <p className="rounded-lg border border-gris-light bg-ivoire px-4 py-3 text-sm text-gris-mid">
+          <p className="rounded-lg border border-gris-light bg-ivoire px-4 py-3 text-sm text-ink2">
             {readOnlyNotice}
           </p>
         )

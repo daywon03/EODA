@@ -42,7 +42,24 @@ export const ACQUISITION_CHANNEL_LABELS: Record<AcquisitionChannel, string> = {
   REFERENCEMENT_GOOGLE: "Référencement Google",
   LINKEDIN: "LinkedIn",
   AUTRE: "Autre",
+  LIBRE_SERVICE: "Inscription en ligne (libre-service)",
 };
+
+// Canaux qu'on SAISIT à la main. LIBRE_SERVICE n'en fait pas partie : il est posé
+// par l'inscription en ligne, qui crée aussi le compte de la structure — un prospect
+// « libre-service » saisi à la main n'aurait pas d'espace.
+export const MANUAL_ACQUISITION_CHANNELS = [
+  "BOUCHE_A_OREILLE",
+  "REFERENCEMENT_UNA",
+  "EMAILING",
+  "REFERENCEMENT_GOOGLE",
+  "LINKEDIN",
+  "AUTRE",
+] as const satisfies readonly AcquisitionChannel[];
+
+export function isSelfServiceChannel(channel: AcquisitionChannel): boolean {
+  return channel === "LIBRE_SERVICE";
+}
 
 // « Autre » sans précision n'enregistre pas une information : il enregistre qu'on ne
 // sait pas. La règle vaut pour le canal comme pour la fonction — une seule fonction

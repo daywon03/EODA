@@ -107,12 +107,22 @@ async function resolveGhsaId(moduleName, findingId) {
   const entry = (body[moduleName] ?? []).find((advisory) => advisory.id === findingId);
   if (!entry?.url) return null;
 
-  return entry.url.split("/").pop() ?? null;
+  const ghsa = entry.url.split("/").pop();
+  if (!ghsa) return null;
+  return { ghsa, severity: String(entry.severity ?? "").toLowerCase() };
 }
 
-// Rend `true` seulement si TOUTES les trouvailles remontées par `pnpm audit`
-// (via `actions[].resolves[]`) se résolvent en un GHSA explicitement accepté.
-// Une seule trouvaille non résolue ou non couverte suffit à refuser.
+// Sévérités qui franchissent le seuil AUDIT_LEVEL (« high ») : seules celles-ci
+// exigent une exception écrite. Une trouvaille modérée ou faible ne fait pas
+// échouer l'audit — c'est précisément ce que dit le seuil. Avant le 14/10/2026,
+// le script exigeait une exception pour CHAQUE trouvaille, modérées comprises :
+// une seule faille modérée (js-yaml, next…) faisait échouer la CI à tort.
+const BLOCKING_SEVERITIES = new Set(["high", "critical"]);
+
+// Rend `true` seulement si TOUTES les trouvailles de niveau `high` ou plus
+// remontées par `pnpm audit` (via `actions[].resolves[]`) se résolvent en un GHSA
+// explicitement accepté. Une seule trouvaille NON RÉSOLUE (sévérité inconnue)
+// suffit à refuser : fail-closed.
 async function allFindingsAreIgnored(report) {
   const findings = (report?.actions ?? []).flatMap((action) =>
     (action.resolves ?? []).map((resolve) => ({ module: action.module, id: resolve.id }))
@@ -120,8 +130,10 @@ async function allFindingsAreIgnored(report) {
   if (findings.length === 0) return false;
 
   for (const finding of findings) {
-    const ghsa = await resolveGhsaId(finding.module, finding.id);
-    if (!ghsa || !IGNORE_GHSAS.has(ghsa)) return false;
+    const resolved = await resolveGhsaId(finding.module, finding.id);
+    if (!resolved) return false;
+    if (!BLOCKING_SEVERITIES.has(resolved.severity)) continue;
+    if (!IGNORE_GHSAS.has(resolved.ghsa)) return false;
   }
   return true;
 }

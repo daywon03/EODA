@@ -1,5 +1,6 @@
 "use client";
 
+import { submitWithoutReset } from "@/lib/forms/submit-without-reset";
 import { useActionState } from "react";
 import type { EstablishmentType, StructureType } from "@eoda/database";
 import { updateProspectIdentity } from "@/lib/actions/prospect";
@@ -55,7 +56,7 @@ export function StructureIdentityForm({
   );
 
   return (
-    <form action={formAction} className="space-y-4">
+    <form method="post" onSubmit={submitWithoutReset(formAction)} className="space-y-4">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="space-y-1.5">
           <Label htmlFor="identity-structureType">
@@ -91,7 +92,7 @@ export function StructureIdentityForm({
             id="identity-finessNumber"
             name="finessNumber"
             inputMode="numeric"
-            placeholder="9 chiffres — ex : 930034459"
+            placeholder="9 chiffres — ex : 990000017"
             defaultValue={finessNumber ?? undefined}
             maxLength={20}
             disabled={isPending}
@@ -125,7 +126,7 @@ export function StructureIdentityForm({
           </Select>
           {/* Le périmètre de critères en dépend : un SAD mixte porte un impératif de
               plus (circuit du médicament). D'où sa place dès la découverte. */}
-          <p className="text-xs text-gris-mid">
+          <p className="text-xs text-ink2">
             Détermine le périmètre de critères évalués.
           </p>
         </div>
@@ -143,9 +144,9 @@ export function StructureIdentityForm({
             }
             disabled={isPending}
           />
-          <p className="text-xs text-gris-mid">
+          <p className="text-xs text-ink2">
             Au jour près quand elle est connue : une évaluation au 27 janvier ne laisse
-            pas le même temps qu&apos;une évaluation au 1<sup>er</sup>.
+            pas le même temps qu&apos;une évaluation au 1er.
           </p>
         </div>
       </div>
@@ -158,7 +159,7 @@ export function StructureIdentityForm({
         {/* Confirmation explicite : sans elle, un enregistrement réussi en plein appel
             ne se distingue pas d'un clic qui n'a rien fait. */}
         {state && "ok" in state && !isPending && (
-          <p className="flex items-center gap-1.5 text-xs text-vert-ok">
+          <p className="flex items-center gap-1.5 text-xs text-ok-text">
             <CheckCircle2 className="h-3.5 w-3.5 flex-shrink-0" aria-hidden="true" />
             Identité enregistrée.
           </p>

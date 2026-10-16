@@ -1,88 +1,100 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { rateElement } from "@/lib/actions/evaluation";
-import { RatingButtons } from "./RatingButtons";
-import { Sparkles } from "lucide-react";
-import type { EvaluationElementView } from "@/lib/actions/evaluation";
-import { RATING_LABELS } from "@/lib/services/scoring-service";
 import type { Rating } from "@eoda/database";
+import { rateElement } from "@/lib/actions/evaluation";
+import type { EvaluationElementView } from "@/lib/actions/evaluation-chapter";
+import { RatingButtons } from "./RatingButtons";
+import { RATING_LABELS, RATING_TITLES } from "@/lib/services/scoring-service";
+import { describeRatingAuthor } from "@/lib/services/self-assessment-service";
+import { RATING_PALETTE } from "@/lib/design/rating-palette";
 import { Textarea } from "@/components/ui/textarea";
+import { cn } from "@/lib/utils";
 
-type Props = { sessionId: string | null; element: EvaluationElementView };
+type Props = {
+  sessionId: string | null;
+  element: EvaluationElementView;
+  isImperatif: boolean;
+  ncNoteId: string;
+};
 
-export function ElementRow({ sessionId, element }: Props) {
+const AUTHOR_CLASS = { platform: "font-bold text-accent-text", human: "text-ink2", none: "text-ink2" } as const;
+
+export function ElementRow({ sessionId, element, isImperatif, ncNoteId }: Props) {
   const [comment, setComment] = useState(element.comment ?? "");
   const [, startTransition] = useTransition();
-
-  const readOnly = sessionId === null;
+  const text = element.reformulatedText ?? element.originalText;
+  const author = describeRatingAuthor(element);
+  const rating = element.rating;
 
   function saveComment() {
-    if (readOnly || !element.rating) return;
+    if (sessionId === null || rating === null) return;
     startTransition(async () => {
-      await rateElement(sessionId, element.id, element.rating!, comment || null);
+      await rateElement(sessionId, element.id, rating, comment || null);
     });
   }
 
   return (
-    <div className="py-3 border-b border-gris-light last:border-0 space-y-2">
-      <div className="flex items-start justify-between gap-3">
-        <p className="text-sm text-brun-ancre flex-1">
-          {element.reformulatedText ?? element.originalText}
-        </p>
-        {element.suggestedBySystem && !element.rating && (
-          <span
-            className="flex items-center gap-1 text-xs text-terre flex-shrink-0"
-            title="Documents rattachés conformes — suggestion à confirmer, non appliquée automatiquement"
-          >
-            <Sparkles className="w-3 h-3" aria-hidden="true" />
-            Suggestion : conforme
-          </span>
-        )}
-      </div>
-      {readOnly ? (
-        <ReadOnlyRating rating={element.rating} />
+    <li className="space-y-3 py-4 last:pb-0">
+      <p className="text-ink">{text}</p>
+      <p className={cn("text-sm", AUTHOR_CLASS[author.kind])}>
+        {author.text}
+        {/* Une suggestion n'est jamais appliquée sans le clic de l'évaluatrice. */}
+        {author.kind === "platform" &&
+          rating === null &&
+          " : 4 — les documents rattachés sont conformes. À confirmer en cotant."}
+      </p>
+      {sessionId === null ? (
+        <ReadOnlyRating rating={rating} />
       ) : (
         <RatingButtons
           sessionId={sessionId}
           elementId={element.id}
-          currentRating={element.rating}
+          currentRating={rating}
           allowsRi={element.allowsRi}
+          isImperatif={isImperatif}
+          ncNoteId={ncNoteId}
+          groupLabel={`Cotation — ${text.slice(0, 80)}`}
         />
       )}
-      {/* Le texte en filigrane disparaît dès qu'on écrit : sur une grille de 137
-          critères, on ne sait plus à quoi ce champ répond. Libellé masqué à l'œil,
-          présent pour les lecteurs d'écran — l'ajouter en clair au-dessus de chaque
-          élément ferait 137 fois la même phrase. */}
+      {/* Libellé masqué à l'œil, présent pour les lecteurs d'écran : l'écrire en clair
+          au-dessus de chaque élément ferait des centaines de fois la même phrase. */}
       <Textarea
-        aria-label={`Commentaire et preuve consultée — ${element.originalText.slice(0, 80)}`}
+        aria-label={`Commentaire et preuve consultée — ${text.slice(0, 80)}`}
         value={comment}
         onChange={(e) => setComment(e.target.value)}
         onBlur={saveComment}
-        disabled={readOnly || !element.rating}
+        disabled={sessionId === null || rating === null}
         rows={2}
         placeholder={
-          readOnly
+          sessionId === null
             ? "Session clôturée — commentaire en lecture"
-            : element.rating
+            : rating
               ? "Commentaire / preuve consultée"
-              : "Sélectionnez une cotation pour ajouter un commentaire"
+              : "Cotez d'abord pour ajouter un commentaire"
         }
       />
-    </div>
+    </li>
   );
 }
 
 // Cotation d'une session clôturée : la valeur, sans le moyen de la changer. Un
 // bouton désactivé se lit comme une panne ; une valeur affichée se lit comme un fait.
 function ReadOnlyRating({ rating }: { rating: Rating | null }) {
-  if (rating === null) {
-    return <p className="text-xs text-gris-mid">Non coté lors de cette session</p>;
-  }
+  if (rating === null) return <p className="text-sm text-ink2">Non coté lors de cette session</p>;
   return (
-    <p className="text-xs text-brun-ancre">
-      Cotation retenue :{" "}
-      <span className="font-semibold">{RATING_LABELS[rating]}</span>
+    <p className="flex items-center gap-2 text-sm text-ink">
+      Cotation retenue :
+      <span
+        className={cn(
+          "inline-flex h-8 min-w-8 items-center justify-center gap-1 rounded-lg border-2 px-2 font-bold",
+          RATING_PALETTE[rating].selectedClass
+        )}
+      >
+        <span aria-hidden="true">✓</span>
+        {RATING_LABELS[rating]}
+      </span>
+      {RATING_TITLES[rating]}
     </p>
   );
 }

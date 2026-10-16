@@ -3,6 +3,7 @@
 import { useActionState, useState } from "react";
 import Link from "next/link";
 import { convertDevisToClient } from "@/lib/actions/conversion";
+import { submitWithoutReset } from "@/lib/forms/submit-without-reset";
 import {
   impliesSeventeenthImperatif,
   SEVENTEENTH_IMPERATIF_WARNING,
@@ -67,7 +68,7 @@ export function SignatureConversionForm({
       <div className="space-y-5 animate-fade-in">
         <div className="flex items-start gap-3 bg-vert-ok/10 border border-vert-ok/30 rounded-lg p-4">
           <CheckCircle2
-            className="w-5 h-5 text-vert-ok flex-shrink-0 mt-0.5"
+            className="w-5 h-5 text-ok-text flex-shrink-0 mt-0.5"
             aria-hidden="true"
           />
           <div className="text-sm space-y-1">
@@ -76,7 +77,7 @@ export function SignatureConversionForm({
                 ? `Fiche client créée : ${state.establishmentName}`
                 : `Profil complété : ${state.establishmentName}`}
             </p>
-            <p className="text-gris-mid">
+            <p className="text-ink2">
               Devis signé, mission créée avec l&apos;offre du devis
               {state.optionCount > 0
                 ? ` et ${state.optionCount} option(s) souscrite(s).`
@@ -87,13 +88,27 @@ export function SignatureConversionForm({
           </div>
         </div>
 
-        {!inviteSkipped && (
+        {/* Structure inscrite seule (tranche 11) : son compte en ligne EST désormais
+            son accès au portail — l'inviter une seconde fois créerait un doublon. */}
+        {state.promotedAccountCount > 0 && (
+          <div className="space-y-1 rounded-lg border border-gris-light p-4 text-sm">
+            <h2 className="text-base font-semibold text-brun-ancre">Accès au portail client ouvert</h2>
+            <p className="text-ink2">
+              {state.promotedAccountCount > 1
+                ? `Les ${state.promotedAccountCount} comptes créés par la structure à son inscription deviennent ses accès « Direction ».`
+                : "Le compte créé par la structure à son inscription devient son accès « Direction »."}{" "}
+              La personne se reconnecte avec son mot de passe habituel et arrive dans le portail client.
+            </p>
+          </div>
+        )}
+
+        {!inviteSkipped && state.promotedAccountCount === 0 && (
           <div className="space-y-3">
             <div>
               <h2 className="text-base font-semibold text-brun-ancre">
                 Ouvrir l&apos;accès au portail client
               </h2>
-              <p className="text-sm text-gris-mid">
+              <p className="text-sm text-ink2">
                 Facultatif — l&apos;accès peut être créé plus tard depuis la fiche
                 établissement.
               </p>
@@ -116,7 +131,7 @@ export function SignatureConversionForm({
             <h2 className="text-base font-semibold text-brun-ancre">
               Éditer le contrat d&apos;accompagnement
             </h2>
-            <p className="text-sm text-gris-mid">
+            <p className="text-sm text-ink2">
               Récapitule le devis signé : parties, périmètre, montants fermes et
               engagements réciproques. À faire signer avec le devis en annexe.
             </p>
@@ -140,7 +155,7 @@ export function SignatureConversionForm({
               <ArrowRight className="w-4 h-4" aria-hidden="true" />
             </Link>
           </Button>
-          {!inviteSkipped && (
+          {!inviteSkipped && state.promotedAccountCount === 0 && (
             <Button type="button" variant="outline" onClick={() => setInviteSkipped(true)}>
               Créer l&apos;accès plus tard
             </Button>
@@ -152,7 +167,9 @@ export function SignatureConversionForm({
 
   // ── Avant la conversion ────────────────────────────────────────────────────
   return (
-    <form action={formAction} className="space-y-5">
+    // Pas de `<form action>` : après un refus (FINESS déjà rattaché…), React viderait
+    // FINESS, adresse et échéance saisis (recette du 13/10/2026).
+    <form method="post" onSubmit={submitWithoutReset(formAction)} className="space-y-5">
       {existingEstablishmentId === null ? (
         <fieldset className="space-y-2">
           <legend className="text-sm font-medium text-brun-ancre mb-2">
@@ -175,13 +192,13 @@ export function SignatureConversionForm({
                   onChange={() => setType(choice.value)}
                   disabled={isPending}
                   required
-                  className="accent-terre mt-1"
+                  className="mt-0.5 h-5 w-5 flex-shrink-0 accent-terre"
                 />
                 <span>
                   <span className="block font-semibold text-brun-ancre text-sm">
                     {choice.label}
                   </span>
-                  <span className="block text-xs text-gris-mid mt-0.5">{choice.hint}</span>
+                  <span className="block text-xs text-ink2 mt-0.5">{choice.hint}</span>
                 </span>
               </label>
             ))}
@@ -193,7 +210,7 @@ export function SignatureConversionForm({
               className="flex items-start gap-2 text-sm text-brun-moyen bg-ambre/15 border border-ambre/30 rounded-md px-3 py-2.5"
             >
               <AlertCircle
-                className="w-4 h-4 flex-shrink-0 mt-0.5 text-ambre"
+                className="w-4 h-4 flex-shrink-0 mt-0.5 text-amber-text"
                 aria-hidden="true"
               />
               <span>{SEVENTEENTH_IMPERATIF_WARNING}</span>
@@ -201,7 +218,7 @@ export function SignatureConversionForm({
           )}
         </fieldset>
       ) : (
-        <p className="text-sm text-gris-mid border-l-4 border-gris-light pl-3">
+        <p className="rounded-md border border-gris-light bg-soft px-3 py-2 text-sm text-ink2">
           Ce prospect a déjà une fiche établissement : la signature ne la recrée pas, elle
           y ajoute la mission portant l&apos;offre signée.
         </p>
@@ -265,7 +282,7 @@ export function SignatureConversionForm({
               disabled={isPending}
             />
           </div>
-          <p className="text-xs text-gris-mid">
+          <p className="text-xs text-ink2">
             C&apos;est le moment où ces informations sont connues : la fiche client part
             ensuite dans les livrables HAS, elle ne se crée plus à vide ailleurs. Le nom
             reprend celui du prospect ({structureName}) et le statut juridique est repris

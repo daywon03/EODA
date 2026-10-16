@@ -9,6 +9,7 @@ import { MAX_GUIDELINES_INJECTED } from "@/lib/services/criterion-guideline-serv
 import { extractMarkdown, type ExtractedImage } from "@/lib/services/text-extraction-service";
 import { validateUploadedFile } from "@/lib/security/upload-validation-service";
 import { describeImage } from "@/lib/services/image-vision-service";
+import { readValidatedExamples } from "@/lib/db/read-validated-examples";
 import {
   buildAdditionalCriteriaCatalog,
   validateSuggestedCriteria,
@@ -64,6 +65,9 @@ export type IngestDocumentInput = {
   // Modèle demandé pour l'analyse (cf. lib/llm/openrouter-models.ts) — comparaison
   // IA à l'upload. `null`/absent : l'adaptateur actif applique son propre défaut.
   modelId?: string | null;
+  // Version N+1 issue d'une mise en conformité (N8) : la version d'origine, conservée,
+  // à laquelle elle est liée. Absent pour un dépôt ordinaire.
+  regeneratedFromVersionId?: string;
 };
 
 export type IngestDocumentOutput = {
@@ -116,6 +120,7 @@ export async function ingestDocumentVersion(
       originalFilename: input.originalFilename,
       uploadedByUserId: input.uploadedByUserId,
       extractedText: input.extractedText,
+      ...(input.regeneratedFromVersionId && { regeneratedFromVersionId: input.regeneratedFromVersionId }),
     },
   });
 
@@ -350,10 +355,12 @@ async function analyzeVersion(
       ? buildAdditionalCriteriaCatalog(allCriteria, establishment.type, new Set(criterionIds))
       : [];
 
-    const [knowledgeExcerpts, criterionGuidelines, imageDescriptions] = await Promise.all([
+    const [knowledgeExcerpts, criterionGuidelines, imageDescriptions, validatedExamples] = await Promise.all([
       fetchKnowledgeExcerpts(tenantId, params.documentTypeLabel, criteriaLabels),
       fetchCriterionGuidelines(tenantId, criterionIds),
       fetchImageDescriptions(params.documentVersionId),
+      // Exemples validés du même type, du même tenant (N8, context/10 §9).
+      readValidatedExamples(tenantId, params.documentTypeId),
     ]);
 
     const analysis = await llm.analyze({
@@ -368,6 +375,7 @@ async function analyzeVersion(
       ...(params.documentOrigin && { documentOrigin: params.documentOrigin }),
       ...(params.modelId && { modelId: params.modelId }),
       ...(additionalCriteriaCatalog.length > 0 && { additionalCriteriaCatalog }),
+      ...(validatedExamples.length > 0 && { validatedExamples }),
     });
 
     // Best-effort, comme les autres enrichissements de cette fonction : une
@@ -489,10 +497,17 @@ export async function fetchKnowledgeExcerpts(
   criteriaLabels: string[]
 ): Promise<string[]> {
   if (!tenantId) return [];
-  const knowledge = getKnowledgeRetrievalPort();
-  if (!knowledge) return [];
 
   try {
+    // La résolution du port est DANS le `try`, et ce n'est pas cosmétique : elle finit
+    // dans `getEnv()`, qui LÈVE quand la configuration est incomplète. Hors du `try`,
+    // une variable d'environnement absente faisait échouer l'analyse entière — alors
+    // que cette fonction est un enrichissement, jamais une condition. Constaté par le
+    // test de la matrice, qui n'a pas d'environnement chargé. En production ce cas ne
+    // se présente pas : la configuration est validée au démarrage (instrumentation.ts).
+    const knowledge = getKnowledgeRetrievalPort();
+    if (!knowledge) return [];
+
     const query = [documentTypeLabel, ...criteriaLabels].join(" ; ");
     const excerpts = await knowledge.search(tenantId, query, KNOWLEDGE_EXCERPTS_LIMIT);
     return excerpts.map((excerpt) => excerpt.content);

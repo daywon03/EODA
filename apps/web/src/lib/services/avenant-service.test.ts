@@ -68,16 +68,16 @@ describe("buildAvenantFileName", () => {
   it("suit la convention EODA et référence le devis initial", () => {
     expect(
       buildAvenantFileName({
-        structureName: "ASSAD Benoit",
+        structureName: "SAD Les Glycines",
         issuedOn,
         contractReference: "DEV-2026-014",
       })
-    ).toBe("20260826_AVENANT_ASSAD-Benoit_DEV-2026-014_v01_Externe.pdf");
+    ).toBe("20260826_AVENANT_SAD-Les-Glycines_DEV-2026-014_v01_Externe.pdf");
   });
 
   it("n'invente pas de référence contractuelle quand il n'y a pas de devis", () => {
     expect(
-      buildAvenantFileName({ structureName: "ASSAD Benoit", issuedOn, contractReference: null })
+      buildAvenantFileName({ structureName: "SAD Les Glycines", issuedOn, contractReference: null })
     ).toContain("_Perimetre-mission_");
   });
 });

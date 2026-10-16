@@ -9,7 +9,7 @@ import { Select } from "@/components/ui/select";
 import { formatDateTime } from "@/lib/services/date-format-service";
 import { ScrollText } from "lucide-react";
 
-export const metadata = { title: "Journal d'audit · EODA Conseil" };
+export const metadata = { title: "Journal d'audit" };
 
 // Libellés exhaustifs : le Record<AuditAction, string> cesse de compiler dès qu'une
 // valeur est ajoutée à l'enum sans être traduite ici. C'est le contrôle mécanique
@@ -38,6 +38,25 @@ const ACTION_LABELS: Record<AuditAction, string> = {
   DEVIS_DELETED: "Devis supprimé",
   DEVIS_CANCELLED: "Devis annulé",
   DEVIS_EMAIL_SENT: "Devis envoyé par e-mail",
+  DEVIS_REMINDER_SENT: "Devis relancé par e-mail",
+  SELF_SERVICE_SIGNUP: "Inscription en libre-service",
+  SELF_SERVICE_SIGNUP_RATE_LIMITED: "Inscription : trop de tentatives",
+  ACCOMPANIMENT_REQUESTED: "Demande « Être accompagné »",
+  PROSPECT_REMINDER_SENT: "Structure inscrite relancée",
+  PROSPECT_PRACTICE_ANSWERED: "Réponse au diagnostic en ligne",
+  EMAIL_VERIFICATION_SENT: "Lien de confirmation d'adresse envoyé",
+  EMAIL_VERIFIED: "Adresse e-mail confirmée",
+  EMAIL_VERIFICATION_RATE_LIMITED: "Confirmation d'adresse : trop de tentatives",
+  LOGIN_REFUSED_UNVERIFIED: "Connexion refusée (adresse non confirmée)",
+  PROSPECT_ACCOUNT_PROMOTED: "Compte en ligne ouvert au portail client",
+  DEVICE_ENROLLED: "Tablette enregistrée",
+  DEVICE_REVOKED: "Tablette retirée",
+  STAFF_PIN_SET: "Code tablette d'un salarié posé",
+  STAFF_PIN_UNLOCKED: "Code tablette débloqué",
+  TABLET_SIGN_IN_FAILED: "Code tablette refusé",
+  TABLET_PIN_LOCKED: "Code tablette bloqué après 5 échecs",
+  TABLET_SIGNED_IN: "Connexion sur la tablette",
+  SURVEY_RESULTS_EXPORTED: "Résultats d'enquête exportés",
   CATALOGUE_ITEM_RETIRED: "Ligne de catalogue retirée",
   CATALOGUE_ITEM_RESTORED: "Ligne de catalogue restaurée",
   OPTION_QUOTE_REQUESTED: "Demande de devis d'option (client)",
@@ -73,11 +92,44 @@ const ACTION_LABELS: Record<AuditAction, string> = {
   CRITERION_SUGGESTION_REJECTED: "Critère HAS supplémentaire rejeté",
   TEMPLATE_CRITERION_SUGGESTION_CONFIRMED: "Critère HAS supplémentaire confirmé sur un gabarit",
   TEMPLATE_CRITERION_SUGGESTION_REJECTED: "Critère HAS supplémentaire rejeté sur un gabarit",
+  DOCUMENT_ACCEPTED_BY_CLIENT: "Document accepté par la structure",
+  MISSION_SUPPORT_MODE_CHANGED: "Mode d'accompagnement modifié (autonomie / accompagné)",
+  CLIENT_USER_LINKED: "Interlocuteur rattaché à une autre structure",
+  CABINET_USER_INVITED: "Membre de l’équipe EODA invité",
+  CABINET_USER_ROLE_CHANGED: "Rôle d’un membre de l’équipe EODA changé",
+  CABINET_USER_ACCESS_REMOVED: "Accès d’un membre de l’équipe EODA retiré",
+  CABINET_USER_ASSIGNMENTS_UPDATED: "Structures suivies modifiées",
+  CLIENT_ACCESS_GRANTED: "Accès donné par la direction de la structure",
+  CLIENT_ACCESS_ROLE_CHANGED: "Rôle d’accès changé par la direction de la structure",
+  CLIENT_ACCESS_REVOKED: "Accès retiré par la direction de la structure",
+  STAFF_MEMBER_CREATED: "Personne ajoutée à l’équipe de la structure",
+  STAFF_MEMBER_UPDATED: "Fiche d’une personne de l’équipe modifiée",
+  STAFF_MEMBERS_IMPORTED: "Liste de l’équipe importée",
+  QUIZ_CAMPAIGN_SENT: "Quiz de sensibilisation envoyé",
+  QUIZ_ATTEMPT_COMPLETED: "Quiz de sensibilisation passé",
+  QUIZ_SIGNOFF_EXPORTED: "Émargement des quiz exporté",
+  QUIZ_LINK_RATE_LIMITED: "Lien de quiz : trop de tentatives",
+  DOCUMENT_TYPE_CRITERIA_UPDATED: "Matrice documents → critères validée",
+  DOCUMENT_TYPE_CRITERION_PROMOTED: "Critère confirmé ajouté à la matrice",
+  ACTION_ITEM_CREATED: "Tâche créée",
+  ACTION_ITEM_COMPLETED: "Tâche faite",
+  ACTION_ITEM_REOPENED: "Tâche rouverte",
+  ACTION_ITEM_REASSIGNED: "Tâche confiée à quelqu'un d'autre",
+  DIAGNOSTIC_REVIEWED_BY_EODA: "Diagnostic relu par EODA",
+  DIAGNOSTIC_ACCEPTED_BY_CLIENT: "Diagnostic accepté par la structure",
+  DIAGNOSTIC_REPORT_PRINTED: "Rapport de diagnostic ouvert",
+  PRACTICE_ANSWER_SAVED: "Réponse sur une pratique enregistrée",
+  CORRECTION_PROPOSAL_APPLIED: "Mise en conformité enregistrée (nouvelle version)",
+  CORRECTION_PROPOSAL_EXPORTED: "Document annoté téléchargé",
+  CHANGE_REPORT_DOWNLOADED: "Rapport des changements téléchargé",
+  TEMPLATE_DOCUMENT_TYPE_LINKED: "Gabarit rattaché à un type de document",
 };
 
 const ROLE_LABELS: Record<string, string> = {
   CABINET_ADMIN: "Cabinet — admin",
-  CABINET_EVALUATOR: "Cabinet — évaluateur",
+  CABINET_EVALUATOR: "Cabinet — consultante",
+  CABINET_COMMERCIAL: "Cabinet — commercial",
+  CABINET_READONLY: "Cabinet — lecture seule",
   CLIENT_USER: "Client",
 };
 
@@ -181,22 +233,22 @@ export default async function AuditLogPage({
 
       <div className="bg-surface border border-gris-light rounded-xl overflow-hidden">
         <div className="px-5 py-3 border-b border-gris-light flex flex-wrap items-center justify-between gap-2">
-          <p className="text-sm text-gris-mid">
+          <p className="text-sm text-ink2">
             {result.total === 0
               ? "Aucun événement"
               : `Événements ${firstIndex} à ${lastIndex} sur ${result.total}`}
           </p>
-          <p className="text-xs text-gris-mid">Du plus récent au plus ancien</p>
+          <p className="text-xs text-ink2">Du plus récent au plus ancien</p>
         </div>
 
         {result.rows.length === 0 ? (
-          <p className="px-5 py-12 text-center text-sm text-gris-mid">
+          <p className="px-5 py-12 text-center text-sm text-ink2">
             Aucun événement ne correspond à ces filtres.
           </p>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="relative overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="bg-ivoire text-left text-xs uppercase tracking-wide text-gris-mid">
+              <thead className="bg-ivoire text-left text-xs uppercase tracking-wide text-ink2">
                 <tr>
                   <th scope="col" className="px-5 py-2.5 font-semibold">Date</th>
                   <th scope="col" className="px-5 py-2.5 font-semibold">Événement</th>
@@ -208,20 +260,20 @@ export default async function AuditLogPage({
               <tbody className="divide-y divide-gris-light">
                 {result.rows.map((row) => (
                   <tr key={row.id} className="hover:bg-ivoire/50 transition-colors">
-                    <td className="px-5 py-2.5 whitespace-nowrap tabular-nums text-gris-mid">
+                    <td className="px-5 py-2.5 whitespace-nowrap tabular-nums text-ink2">
                       {formatDateTime(row.occurredAt)}
                     </td>
                     <td className="px-5 py-2.5 text-brun-ancre">{ACTION_LABELS[row.action]}</td>
                     <td className="px-5 py-2.5 text-brun-ancre">
                       {row.actorLabel}
                       {row.actorRole && (
-                        <span className="block text-xs text-gris-mid">
+                        <span className="block text-xs text-ink2">
                           {ROLE_LABELS[row.actorRole] ?? row.actorRole}
                         </span>
                       )}
                     </td>
-                    <td className="px-5 py-2.5 text-gris-mid">{row.establishmentName ?? "—"}</td>
-                    <td className="px-5 py-2.5 text-gris-mid">{row.detail ?? "—"}</td>
+                    <td className="px-5 py-2.5 text-ink2">{row.establishmentName ?? "—"}</td>
+                    <td className="px-5 py-2.5 text-ink2">{row.detail ?? "—"}</td>
                   </tr>
                 ))}
               </tbody>
@@ -239,7 +291,7 @@ export default async function AuditLogPage({
                 Précédent
               </Link>
             </Button>
-            <span className="text-xs text-gris-mid tabular-nums">
+            <span className="text-xs text-ink2 tabular-nums">
               Page {result.page} / {result.pageCount}
             </span>
             <Button variant="outline" size="sm" asChild disabled={result.page >= result.pageCount}>

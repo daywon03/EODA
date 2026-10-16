@@ -1,5 +1,6 @@
 "use client";
 
+import { submitWithoutReset } from "@/lib/forms/submit-without-reset";
 import { useActionState, useState } from "react";
 import { createProspect, updateProspect } from "@/lib/actions/prospect";
 import { Button } from "@/components/ui/button";
@@ -22,6 +23,7 @@ import {
 } from "@/lib/services/structure-identity-service";
 import {
   ACQUISITION_CHANNEL_LABELS,
+  MANUAL_ACQUISITION_CHANNELS,
   CIVILITY_LABELS,
   CONTACT_ROLE_LABELS,
 } from "@/lib/services/prospect-contact-service";
@@ -72,7 +74,7 @@ export function ProspectForm({ prospect }: Props) {
     : "/dashboard/cabinet/commercial/prospects";
 
   return (
-    <form action={formAction} className="space-y-5">
+    <form method="post" onSubmit={submitWithoutReset(formAction)} className="space-y-5">
       <div className="space-y-1.5">
         <Label htmlFor="structureName">
           Nom de la structure <span className="text-rouge-imp">*</span>
@@ -80,7 +82,7 @@ export function ProspectForm({ prospect }: Props) {
         <Input
           id="structureName"
           name="structureName"
-          placeholder="ex : Association d'aide à domicile du Blanc-Mesnil"
+          placeholder="ex : Association d'aide à domicile des Glycines (fictif)"
           defaultValue={prospect?.structureName}
           required
           autoFocus
@@ -96,7 +98,7 @@ export function ProspectForm({ prospect }: Props) {
         <legend className="px-1 text-sm font-semibold text-brun-ancre">
           La structure
         </legend>
-        <p className="-mt-2 text-xs text-gris-mid">
+        <p className="-mt-2 text-xs text-ink2">
           Facultatif au premier contact. Ce qui est renseigné ici est repris
           automatiquement à la signature du devis — jamais ressaisi.
         </p>
@@ -108,7 +110,7 @@ export function ProspectForm({ prospect }: Props) {
               id="finessNumber"
               name="finessNumber"
               inputMode="numeric"
-              placeholder="9 chiffres — ex : 930034459"
+              placeholder="9 chiffres — ex : 990000017"
               defaultValue={prospect?.finessNumber ?? undefined}
               disabled={isPending}
             />
@@ -144,7 +146,7 @@ export function ProspectForm({ prospect }: Props) {
           <Input
             id="address"
             name="address"
-            placeholder="ex : 12 rue des Lilas, 93150 Le Blanc-Mesnil"
+            placeholder="ex : 12 rue des Lilas, 99000 Ville-Fictive"
             defaultValue={prospect?.address ?? undefined}
             disabled={isPending}
           />
@@ -191,9 +193,10 @@ export function ProspectForm({ prospect }: Props) {
             onChange={(e) => setChannel(e.target.value)}
           >
             <option value="">— Sélectionner —</option>
-            {Object.entries(ACQUISITION_CHANNEL_LABELS).map(([value, label]) => (
+            {/* Un prospect inscrit en ligne garde son canal (non saisissable à la main). */}
+            {(channel === "LIBRE_SERVICE" ? [...MANUAL_ACQUISITION_CHANNELS, "LIBRE_SERVICE" as const] : MANUAL_ACQUISITION_CHANNELS).map((value) => (
               <option key={value} value={value}>
-                {label}
+                {ACQUISITION_CHANNEL_LABELS[value]}
               </option>
             ))}
           </Select>

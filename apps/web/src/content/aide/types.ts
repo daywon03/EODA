@@ -64,9 +64,16 @@ export type HelpArticle = {
 export const AUDIENCE_ALL: readonly UserRole[] = [
   "CABINET_ADMIN",
   "CABINET_EVALUATOR",
+  "CABINET_COMMERCIAL",
+  "CABINET_READONLY",
   "CLIENT_USER",
 ];
 
-export const AUDIENCE_CABINET: readonly UserRole[] = ["CABINET_ADMIN", "CABINET_EVALUATOR"];
+// Articles sur le suivi des structures : les rôles qui les LISENT (N9). Le commercial
+// n'y est pas — il ne voit pas les documents des structures.
+export const AUDIENCE_CABINET: readonly UserRole[] = ["CABINET_ADMIN", "CABINET_EVALUATOR", "CABINET_READONLY"];
 
 export const AUDIENCE_CABINET_ADMIN: readonly UserRole[] = ["CABINET_ADMIN"];
+
+// Pipeline commercial : administration et commercial (capacité COMMERCIAL).
+export const AUDIENCE_COMMERCIAL: readonly UserRole[] = ["CABINET_ADMIN", "CABINET_COMMERCIAL"];

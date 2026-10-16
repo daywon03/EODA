@@ -9,6 +9,12 @@ export default defineConfig({
   resolve: {
     alias: { "@": path.resolve(__dirname, "./src") },
   },
+  // tsconfig.json garde `jsx: "preserve"` (Next compile lui-même) ; les tests de
+  // rendu des primitives (components/ui/primitives.test.ts) ont besoin que Vite
+  // transforme le JSX.
+  oxc: {
+    jsx: { runtime: "automatic" },
+  },
   test: {
     environment: "node",
     include: ["src/**/*.test.ts"],
@@ -85,6 +91,26 @@ export default defineConfig({
         // Modèles d'e-mail : ils sortent de la plateforme vers des gens, et
         // interpolent des saisies dans du HTML.
         "src/lib/email/templates.ts",
+        "src/lib/email/commercial-templates.ts",
+        // Devis par abonnement (maquettes v2, 13/10) : « Par mois » / « Ponctuel »,
+        // engagement, relance due. Un défaut ici affiche un montant inventé à la place
+        // de « xx € », ou propose de relancer un devis signé.
+        "src/lib/services/devis-recap-service.ts",
+        "src/lib/services/devis-catalogue-choices.ts",
+        "src/lib/services/devis-list-service.ts",
+        "src/lib/services/catalogue-view-service.ts",
+        // Libre-service (D5) : validation d'une inscription publique, avancement et
+        // liste de travail dérivés, signal d'activité, tableau Prospects. Un défaut ici
+        // ouvre une inscription mal formée, ou relance une structure qui avance.
+        "src/lib/services/self-service-service.ts",
+        "src/lib/services/prospect-diagnostic-service.ts",
+        "src/lib/services/prospect-pipeline-service.ts",
+        "src/lib/services/commercial-overview-service.ts",
+        // Confirmation d'adresse du libre-service (tranche 11) : qui doit confirmer,
+        // quand un lien part, et que le lien ne s'affiche JAMAIS en production. Le
+        // jeton à usage unique est le socle partagé avec le quiz par QR code.
+        "src/lib/services/email-verification-service.ts",
+        "src/lib/security/one-time-token.ts",
         // Mentions de paternité : un texte juridique apposé sur des documents remis
         // au client. Le test verrouille la formulation dictée en séance, et empêche
         // qu'une revendication de propriété atterrisse sur un devis.
@@ -93,12 +119,62 @@ export default defineConfig({
         // client. Une analyse non relue qui s'y glisserait contournerait la revue
         // humaine par la porte de l'imprimante.
         "src/lib/services/conformity-report-service.ts",
+        // File « À relire » : elle décide quelles analyses attendent la revue
+        // humaine. Une version oubliée ici reste invisible au client sans que
+        // personne ne sache qu'elle attend.
+        "src/lib/services/review-queue-service.ts",
+        // Fiche structure v2 : onglets-compteurs des documents, action principale,
+        // prochaines actions, frise de mission. Tout y est DÉRIVÉ — une erreur ne
+        // fait rien échouer, elle affiche un compteur ou un appel à l'action faux.
+        "src/lib/services/structure-documents-service.ts",
+        "src/lib/services/structure-sheet-service.ts",
+        "src/lib/services/structures-overview-service.ts",
+        // Critères & preuves (N4) : la matrice proposée ne doit écrire que ce que
+        // l'admin a coché parmi les propositions ; « prouvé » ne doit jamais
+        // s'afficher sans relecture EODA ou acceptation de la structure ; un SAD aide
+        // ne doit jamais voir un critère de soins.
+        "src/lib/services/criterion-matrix-service.ts",
+        "src/lib/services/criteria-proof-service.ts",
+        "src/lib/services/criterion-applicability-service.ts",
+        // « Un compte existe déjà » : un défaut ici révèle un compte d'un autre cabinet.
+        "src/lib/services/existing-account-service.ts",
+        // Tâches = PAC (N5) : « en retard » dérivé, droits client / cabinet, et
+        // propositions d'action (jamais d'action sur un critère coté 4).
+        "src/lib/services/action-item-service.ts",
+        "src/lib/services/pac-proposal-service.ts",
+        // Mon diagnostic (N6) : ce que la structure lit de ses impératifs, et les deux
+        // gestes. Un défaut ici annonce « relu par EODA » sur un état jamais relu, ou
+        // laisse la structure accepter ce qu'EODA n'a pas encore vu.
+        "src/lib/services/diagnostic-service.ts",
+        "src/lib/services/diagnostic-validation-service.ts",
+        // Pratiques (N7) : une réponse invalide acceptée, ou une réponse à une ancienne
+        // formulation comptée comme à jour, fausse ce que la structure dit d'elle-même.
+        "src/lib/services/practice-service.ts",
+        // Mise en conformité côte à côte (N8) : la sortie du modèle est une entrée non
+        // fiable (schéma, purge des codes et citations non prouvés) ; un ajout refusé qui
+        // entrerait dans la version N+1, ou un export sans sa mention, part chez le client.
+        "src/lib/llm/correction-proposal.ts",
+        "src/lib/services/correction-proposal-service.ts",
+        "src/lib/services/annotated-docx-service.ts",
+        "src/lib/services/validated-example-service.ts",
         // Péremption documentaire : elle décide qu'un document « conforme » ne l'est
         // plus. Dérivée de l'horloge, donc jamais vérifiable par un statut en base.
         "src/lib/services/document-expiry-service.ts",
         "src/lib/services/prospect-contact-service.ts",
         "src/lib/services/prospect-next-action-service.ts",
         "src/lib/services/devis-sharing-service.ts",
+        // Ce que l'écran dit d'un envoi et d'un PDF raté : un « envoyé » pour un e-mail
+        // jamais parti, ou un « réessayez » qui ne peut pas aboutir (test du 12/10).
+        "src/lib/services/email-delivery-service.ts",
+        "src/lib/services/devis-pdf-failure.ts",
+        // Correctifs du test de bout en bout (12/10) : chacun décide d'un texte que
+        // la structure ou le cabinet lit — un défaut ici ne fait rien échouer, il
+        // affiche « en cours » à la place d'« indisponible », ou une mauvaise formule.
+        "src/lib/services/login-notice-service.ts",
+        "src/lib/services/client-document-waiting-service.ts",
+        "src/lib/services/devis-initial-formule-service.ts",
+        "src/lib/services/chapter-label-service.ts",
+        "src/lib/services/discovery-grid-service.ts",
         "src/lib/config/production-profile.ts",
         "src/lib/db/migration-status.ts",
         // CSP à nonce : le test EST le garde-fou qui empêche `'unsafe-inline'` de
@@ -121,6 +197,25 @@ export default defineConfig({
         "src/lib/security/postgres-rate-limiter.ts",
         "src/lib/security/login-throttle.ts",
         "src/lib/validation/form-parsers.ts",
+        // Système de design (maquettes v2) : contraste WCAG des tokens, garde-fous
+        // de taille de texte et de focus, vocabulaire des pastilles de statut, et
+        // logique clavier des primitives. Un défaut ici ne fait échouer aucun test
+        // métier : il rend un écran illisible ou inutilisable au clavier.
+        "src/lib/design/**/*.ts",
+        // Lot C (terrain, 14/10/2026) : le verrou HDS et les services purs de
+        // l'enquête et de la signature. Un défaut ici écrit une donnée de santé sur
+        // une infrastructure non certifiée, affiche un taux de satisfaction faux dans
+        // un dossier d'évaluation, ou accepte une signature sans son dossier de preuve.
+        "src/lib/hds/index.ts",
+        "src/lib/hds/locked-beneficiary-data-adapter.ts",
+        "src/lib/services/survey-stats-service.ts",
+        "src/lib/services/survey-report-service.ts",
+        "src/lib/services/signature-evidence-service.ts",
+        "src/lib/services/reception-sheet-service.ts",
+        "src/lib/services/beneficiary-deadline-service.ts",
+        "src/lib/security/tablet-pin.ts",
+        "src/lib/security/tablet-session.ts",
+        "src/lib/services/survey-answer-parser.ts",
       ],
       // Le seuil FAIT ÉCHOUER la commande (`vitest run --coverage`). Un seuil qui
       // n'échoue pas n'est pas un garde-fou. À relever au fur et à mesure, jamais à

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { setDocumentTypeRequested } from "@/lib/actions/document";
 import { AlertCircle, Loader2, Inbox, PenLine } from "lucide-react";
 
@@ -20,18 +21,24 @@ type Props = {
 export function DocumentScopeToggle({ documentTypeId, requestedFromClient, canEdit }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const router = useRouter();
 
   const Icon = requestedFromClient ? Inbox : PenLine;
   const label = requestedFromClient ? "Réclamé au client" : "Produit par EODA";
+  // « pour toutes les structures » : la bascule porte sur le TYPE de document, pas
+  // sur la fiche où elle est affichée (test de bout en bout du 12/10/2026).
   const switchHint = requestedFromClient
-    ? "Basculer : ce document sera produit par EODA et cessera d'être réclamé au client"
-    : "Basculer : ce document sera réclamé au client";
+    ? "Basculer pour toutes les structures : ce document sera produit par EODA et cessera d'être réclamé"
+    : "Basculer pour toutes les structures : ce document sera réclamé à chaque structure";
 
   function toggle() {
     setError(null);
     startTransition(async () => {
       const result = await setDocumentTypeRequested(documentTypeId, !requestedFromClient);
       if (result && "error" in result) setError(result.error);
+      // L'action revalide les portails ; la page de cabinet « Documents réclamés »
+      // se relit ici pour afficher le nouvel état sans rechargement.
+      else router.refresh();
     });
   }
 
@@ -48,7 +55,7 @@ export function DocumentScopeToggle({ documentTypeId, requestedFromClient, canEd
 
   if (!canEdit) {
     return (
-      <span className="inline-flex items-center gap-1 text-xs text-gris-mid">{content}</span>
+      <span className="inline-flex items-center gap-1 text-xs text-ink2">{content}</span>
     );
   }
 
@@ -63,7 +70,7 @@ export function DocumentScopeToggle({ documentTypeId, requestedFromClient, canEd
         disabled={isPending}
         aria-label={`${label}. ${switchHint}`}
         title={switchHint}
-        className="inline-flex min-h-9 items-center gap-1.5 rounded-full border border-gris-light px-3 py-2 text-xs text-gris-mid transition-colors hover:border-terre/40 hover:text-brun-ancre cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terre focus-visible:ring-offset-1 disabled:opacity-50 disabled:cursor-not-allowed"
+        className="inline-flex min-h-11 items-center gap-1.5 rounded-full border border-gris-light px-3 py-2 text-xs text-ink2 transition-colors hover:border-terre/40 hover:text-brun-ancre cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
       >
         {content}
       </button>

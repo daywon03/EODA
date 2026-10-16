@@ -1,14 +1,17 @@
-import { HeaderSkeleton, PageSkeleton, RowsSkeleton, Skeleton } from "@/components/ui/skeleton";
+import { RowsSkeleton, Skeleton } from "@/components/ui/skeleton";
 
+// Rendu SOUS l'en-tête et les onglets de la fiche (layout.tsx) : seul le contenu de
+// l'onglet attend.
 export default function Loading() {
   return (
-    <PageSkeleton>
-      <HeaderSkeleton />
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <Skeleton className="h-56 rounded-xl" />
-        <Skeleton className="h-56 rounded-xl" />
+    <div className="space-y-6" aria-busy="true">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <Skeleton className="h-36 rounded-xl" />
+        <Skeleton className="h-36 rounded-xl" />
+        <Skeleton className="h-36 rounded-xl" />
+        <Skeleton className="h-36 rounded-xl" />
       </div>
       <RowsSkeleton count={4} />
-    </PageSkeleton>
+    </div>
   );
 }

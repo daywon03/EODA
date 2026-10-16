@@ -30,8 +30,8 @@ export type OwnDevis = {
   createdAt: Date;
   validUntil: Date;
   prospectStructureName: string;
-  formuleLabelSnapshot: string;
-  formulePriceSnapshotEuros: number;
+  formuleLabelSnapshot: string | null;
+  formulePriceSnapshotEuros: number | null;
   options: {
     labelSnapshot: string;
     priceSnapshotEuros: number;
@@ -48,7 +48,7 @@ export type OwnDevis = {
 };
 
 export async function getOwnSignedDevis(): Promise<OwnDevis | null> {
-  const { establishment, userId, session } = await requireClientEstablishment();
+  const { establishment, userId, session } = await requireClientEstablishment({ module: "CONTRACT", mode: "READ" });
   if (!establishment) return null;
 
   // Le lien Establishment → Devis n'est pas direct : un devis pend d'un Prospect, et
@@ -119,7 +119,7 @@ export async function getOwnSignedDevis(): Promise<OwnDevis | null> {
 // pris dans la session mais relu depuis l'établissement du lien — un compte client
 // n'en porte pas.
 export async function getOwnContract(): Promise<ContractReadResult | null> {
-  const { establishment, userId, session } = await requireClientEstablishment();
+  const { establishment, userId, session } = await requireClientEstablishment({ module: "CONTRACT", mode: "READ" });
   if (!establishment) return null;
 
   const record = await prisma.establishment.findUnique({

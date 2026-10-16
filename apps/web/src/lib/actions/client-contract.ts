@@ -8,6 +8,7 @@ import { getClientChecklist } from "@/lib/actions/checklist";
 import { recordAuditEvent } from "@/lib/services/audit-log-service";
 import { readMissionDocumentCounters } from "@/lib/db/read-mission-document-counters";
 import { firstError, optionalString, requiredString } from "@/lib/validation/form-parsers";
+import { NO_FORMULE_LABEL } from "@/components/mission/formule-labels";
 import type { MissionDocumentCounters } from "@/lib/services/mission-document-counters-service";
 import {
   documentProgressPercent,
@@ -43,7 +44,7 @@ import {
 // autorité sur le périmètre — jamais de Establishment.commercialTier, resté à
 // l'affichage/historique (CLAUDE.md §7).
 export type ClientOffer = {
-  formule: CommercialTier;
+  formule: CommercialTier | null;
   gratuit: boolean;
   // Libellé et modules issus de la ligne de catalogue de CETTE formule seulement.
   // Le reste du catalogue de formules n'est pas lu.
@@ -89,14 +90,14 @@ function emptyView(): ClientContractView {
 // l'appelant, son tenant, et les options déjà à son contrat. Résolu une seule fois
 // — la lecture et l'action doivent voir exactement le même contrat, sinon l'action
 // pourrait accepter une demande sur une option que la page affiche comme souscrite.
-async function resolveClientContractContext(): Promise<{
+async function resolveClientContractContext(mode: "READ" | "WRITE"): Promise<{
   establishment: { id: string; name: string };
   userId: string;
   tenantId: string;
   contract: ContractResolution;
   subscribedOptions: SubscribedOption[];
 } | null> {
-  const { establishment, userId } = await requireClientEstablishment();
+  const { establishment, userId } = await requireClientEstablishment({ module: "CONTRACT", mode });
   if (!establishment) return null;
 
   // Le lien Establishment → Devis n'est pas direct : un devis pend d'un Prospect,
@@ -185,7 +186,7 @@ async function resolveClientContractContext(): Promise<{
 }
 
 export async function getClientContract(): Promise<ClientContractView> {
-  const context = await resolveClientContractContext();
+  const context = await resolveClientContractContext("READ");
   if (!context) return emptyView();
 
   const { establishment, tenantId, contract, subscribedOptions } = context;
@@ -249,18 +250,22 @@ export async function getClientContract(): Promise<ClientContractView> {
 // il n'est pas vendu, il est libellé en clair.
 async function resolveOfferLabel(
   tenantId: string,
-  formule: CommercialTier,
+  formule: CommercialTier | null,
   gratuit: boolean
 ): Promise<ClientOffer> {
-  const row = await prisma.catalogueFormule.findUnique({
-    where: { tenantId_formule: { tenantId, formule } },
-    select: { label: true, modulesLabel: true, description: true },
-  });
+  // Sans offre (prestations à la carte seules) : aucune ligne de catalogue à lire.
+  const row =
+    formule === null
+      ? null
+      : await prisma.catalogueFormule.findUnique({
+          where: { tenantId_formule: { tenantId, formule } },
+          select: { label: true, modulesLabel: true, description: true },
+        });
 
   return {
     formule,
     gratuit,
-    label: row?.label ?? (formule === "BETA" ? "Bêta-test" : formule),
+    label: row?.label ?? (formule === null ? NO_FORMULE_LABEL : formule === "BETA" ? "Bêta-test" : formule),
     modulesLabel: row?.modulesLabel ?? null,
     description: row?.description ?? null,
   };
@@ -276,7 +281,7 @@ export type RequestOptionQuoteResult = { ok: true } | { ok: false; error: string
 export async function requestOptionQuote(
   formData: FormData
 ): Promise<RequestOptionQuoteResult> {
-  const context = await resolveClientContractContext();
+  const context = await resolveClientContractContext("WRITE");
   if (!context) {
     return { ok: false, error: "Aucun établissement n'est rattaché à votre compte." };
   }

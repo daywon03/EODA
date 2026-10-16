@@ -1,0 +1,222 @@
+import { describe, expect, it } from "vitest";
+import {
+  buildCabinetBreadcrumb,
+  buildCabinetNav,
+  canSeeCommercial,
+  REQUESTED_DOCUMENTS_PATH,
+  REVIEW_QUEUE_PATH,
+} from "./cabinet-navigation";
+import { resolveActiveItem } from "./navigation";
+
+const NO_COUNTS = { documentsAwaitingReview: 0, pendingOptionRequests: 0 };
+const ids = (role: Parameters<typeof buildCabinetNav>[0]) =>
+  buildCabinetNav(role, NO_COUNTS).flatMap((s) => s.items.map((i) => i.id));
+
+describe("visibilité par rôle", () => {
+  it("l'admin voit la section Commercial", () => {
+    expect(canSeeCommercial("CABINET_ADMIN")).toBe(true);
+    const sections = buildCabinetNav("CABINET_ADMIN", NO_COUNTS);
+    expect(sections.map((s) => s.label)).toEqual([null, "Réglages", "Commercial"]);
+    expect(ids("CABINET_ADMIN")).toEqual(
+      expect.arrayContaining(["commercial-overview", "prospects", "devis", "catalogue"])
+    );
+  });
+
+  it("une évaluatrice ne voit aucune entrée commerciale", () => {
+    expect(canSeeCommercial("CABINET_EVALUATOR")).toBe(false);
+    expect(ids("CABINET_EVALUATOR")).toEqual([
+      "home",
+      "structures",
+      "review",
+      "agenda",
+      "library",
+      "journal",
+      "content-review",
+    ]);
+  });
+
+  it("« Documents réclamés » (réglage de cabinet, toutes structures) : admin seulement", () => {
+    // Test de bout en bout du 12/10 : la bascule vivait dans les Réglages d'UNE fiche
+    // alors qu'elle s'applique à toutes les structures.
+    const item = buildCabinetNav("CABINET_ADMIN", NO_COUNTS)
+      .flatMap((s) => s.items)
+      .find((i) => i.id === "requested-documents");
+    expect(REQUESTED_DOCUMENTS_PATH).toBe("/dashboard/cabinet/documents-reclames");
+    expect(item?.href).toBe(REQUESTED_DOCUMENTS_PATH);
+    expect(ids("CABINET_EVALUATOR")).not.toContain("requested-documents");
+  });
+
+  it("un client ne voit rien de commercial non plus (refus par défaut)", () => {
+    expect(canSeeCommercial("CLIENT_USER")).toBe(false);
+    expect(ids("CLIENT_USER")).not.toContain("devis");
+  });
+
+  it("annonce l'accueil ; « Équipe EODA » existe (N9) et n'est qu'à l'administration", () => {
+    expect(ids("CABINET_ADMIN")[0]).toBe("home");
+    expect(ids("CABINET_ADMIN")).toContain("team");
+    for (const role of ["CABINET_EVALUATOR", "CABINET_COMMERCIAL", "CABINET_READONLY"] as const) {
+      expect(ids(role)).not.toContain("team");
+    }
+  });
+
+  it("« Contenus à valider » : administration et consultante seulement", () => {
+    expect(ids("CABINET_ADMIN")).toContain("content-review");
+    expect(ids("CABINET_EVALUATOR")).toContain("content-review");
+    expect(ids("CABINET_COMMERCIAL")).not.toContain("content-review");
+    expect(ids("CABINET_READONLY")).not.toContain("content-review");
+    expect(ids("CLIENT_USER")).not.toContain("content-review");
+  });
+
+  it("un commercial : le pipeline et l'agenda, aucune structure ni bibliothèque (N9)", () => {
+    expect(canSeeCommercial("CABINET_COMMERCIAL")).toBe(true);
+    expect(ids("CABINET_COMMERCIAL")).toEqual(["agenda", "commercial-overview", "prospects", "devis", "catalogue"]);
+  });
+
+  it("une lecture seule : les structures, pas le commercial ni les réglages (N9)", () => {
+    expect(canSeeCommercial("CABINET_READONLY")).toBe(false);
+    expect(ids("CABINET_READONLY")).toEqual(["home", "structures", "review", "agenda", "library", "journal"]);
+  });
+});
+
+describe("section Réglages", () => {
+  const reglages = (role: Parameters<typeof buildCabinetNav>[0]) =>
+    buildCabinetNav(role, NO_COUNTS).find((s) => s.id === "reglages");
+
+  it("regroupe les entrées d'administration, repliable, après le groupe principal", () => {
+    // Les trois entrées sans emplacement dans la maquette (« Matrice des critères »,
+    // « Documents réclamés », « Contenus à valider ») plus « Équipe EODA » y sont
+    // rangées : la barre retrouve les six entrées principales de la maquette.
+    expect(buildCabinetNav("CABINET_ADMIN", NO_COUNTS).map((s) => s.id)).toEqual(["main", "reglages", "commercial"]);
+    expect(reglages("CABINET_ADMIN")).toMatchObject({ label: "Réglages", collapsible: true });
+    expect(reglages("CABINET_ADMIN")?.items.map((i) => i.id)).toEqual([
+      "criteria",
+      "requested-documents",
+      "content-review",
+      "team",
+    ]);
+  });
+
+  it("ne retient que ce que le rôle a le droit d'y régler", () => {
+    // La consultante ne règle rien du cabinet ; elle relit le contenu provisoire.
+    expect(reglages("CABINET_EVALUATOR")?.items.map((i) => i.id)).toEqual(["content-review"]);
+  });
+
+  it("absente quand il n'y a rien à y mettre", () => {
+    expect(reglages("CABINET_COMMERCIAL")).toBeUndefined();
+    expect(reglages("CABINET_READONLY")).toBeUndefined();
+    expect(reglages("CLIENT_USER")).toBeUndefined();
+  });
+
+  it("le groupe principal garde les six entrées de la maquette, dans l'ordre", () => {
+    // Ce que voit l'administration : les cinq entrées de terrain, plus « Journal »,
+    // seules visibles sans déplier quoi que ce soit.
+    expect(buildCabinetNav("CABINET_ADMIN", NO_COUNTS)[0]?.items.map((i) => i.label)).toEqual([
+      "Accueil",
+      "Structures",
+      "À relire",
+      "Agenda",
+      "Bibliothèque",
+      "Journal",
+    ]);
+  });
+});
+
+describe("compteurs", () => {
+  it("porte le nombre de documents à relire et son libellé accordé", () => {
+    const review = buildCabinetNav("CABINET_EVALUATOR", { documentsAwaitingReview: 3, pendingOptionRequests: 9 })[0]
+      ?.items.find((i) => i.id === "review");
+    expect(review).toMatchObject({ href: REVIEW_QUEUE_PATH, count: 3, countLabel: "3 documents à relire" });
+  });
+
+  it("singulier pour un seul document", () => {
+    const review = buildCabinetNav("CABINET_ADMIN", { documentsAwaitingReview: 1, pendingOptionRequests: 1 })[0]
+      ?.items.find((i) => i.id === "review");
+    expect(review?.countLabel).toBe("1 document à relire");
+  });
+
+  it("place les demandes de prestation sur la vue d'ensemble commerciale", () => {
+    // Par identifiant de section, jamais par position : « Réglages » s'insère entre
+    // le groupe principal et le commercial, et un test écrit en indices casserait
+    // à chaque nouvelle section sans rien dire de faux.
+    const commercial = buildCabinetNav("CABINET_ADMIN", { documentsAwaitingReview: 0, pendingOptionRequests: 2 }).find(
+      (s) => s.id === "commercial"
+    );
+    const overview = commercial?.items.find((i) => i.id === "commercial-overview");
+    expect(overview).toMatchObject({ count: 2, countLabel: "2 demandes de prestation en attente" });
+  });
+});
+
+describe("entrée active", () => {
+  const sections = buildCabinetNav("CABINET_ADMIN", NO_COUNTS);
+  const active = (pathname: string) => resolveActiveItem(sections, pathname)?.id ?? null;
+
+  it.each([
+    ["/dashboard/cabinet", "home"],
+    ["/dashboard/cabinet/structures", "structures"],
+    ["/dashboard/cabinet/etablissements/abc", "structures"],
+    ["/dashboard/cabinet/etablissements/abc/mission", "structures"],
+    ["/dashboard/cabinet/a-relire", "review"],
+    ["/dashboard/cabinet/agenda", "agenda"],
+    ["/dashboard/cabinet/modeles/x", "library"],
+    ["/dashboard/cabinet/journal", "journal"],
+    ["/dashboard/cabinet/commercial", "commercial-overview"],
+    ["/dashboard/cabinet/commercial/prospects/p1/modifier", "prospects"],
+    ["/dashboard/cabinet/commercial/devis/nouveau", "devis"],
+    ["/dashboard/cabinet/commercial/catalogue", "catalogue"],
+    ["/dashboard/profil", null],
+    ["/dashboard/cabinet/agendas", null],
+  ])("%s → %s", (pathname, expected) => {
+    expect(active(pathname)).toBe(expected);
+  });
+});
+
+describe("fil d'Ariane", () => {
+  const sections = buildCabinetNav("CABINET_ADMIN", NO_COUNTS);
+  const crumbs = (pathname: string) => buildCabinetBreadcrumb(sections, pathname);
+
+  it("page de section : une seule miette, sans lien vers elle-même", () => {
+    expect(crumbs("/dashboard/cabinet/agenda")).toEqual([{ label: "Agenda", href: null }]);
+  });
+
+  it("fiche structure et sous-page", () => {
+    expect(crumbs("/dashboard/cabinet/etablissements/abc/mission")).toEqual([
+      { label: "Structures", href: "/dashboard/cabinet/structures" },
+      { label: "Fiche structure", href: "/dashboard/cabinet/etablissements/abc" },
+      { label: "Mission", href: null },
+    ]);
+  });
+
+  it("chapitre d'auto-évaluation : le numéro est le libellé, le segment « chapitre » est sauté", () => {
+    expect(crumbs("/dashboard/cabinet/etablissements/abc/evaluation/chapitre/2").map((c) => c.label)).toEqual([
+      "Structures",
+      "Fiche structure",
+      "Auto-évaluation",
+      "Chapitre 2",
+    ]);
+  });
+
+  it("section commerciale : intertitre non cliquable, puis l'entrée", () => {
+    expect(crumbs("/dashboard/cabinet/commercial/devis/d1/signature")).toEqual([
+      { label: "Commercial", href: null },
+      { label: "Devis", href: "/dashboard/cabinet/commercial/devis" },
+      { label: "Devis", href: "/dashboard/cabinet/commercial/devis/d1" },
+      { label: "Signature", href: null },
+    ]);
+  });
+
+  it("segment inconnu : ignoré plutôt qu'affiché sous son nom technique", () => {
+    expect(crumbs("/dashboard/cabinet/journal/xyz")).toEqual([{ label: "Journal", href: null }]);
+  });
+
+  it("pages partagées (profil, aide)", () => {
+    expect(crumbs("/dashboard/profil")).toEqual([{ label: "Mon profil", href: null }]);
+    expect(crumbs("/dashboard/aide/demarrer")).toEqual([
+      { label: "Aide", href: "/dashboard/aide" },
+      { label: "Article", href: null },
+    ]);
+  });
+
+  it("adresse hors cabinet : aucun fil", () => {
+    expect(crumbs("/ailleurs")).toEqual([]);
+  });
+});

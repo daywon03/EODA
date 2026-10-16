@@ -45,19 +45,19 @@ export function AvenantPrintable({
         />
         <div>
           <h2 className="text-lg font-bold">Avenant au contrat d&apos;accompagnement</h2>
-          <p className="text-sm text-gris-mid">Établi le {formatDate(issuedOn)}</p>
+          <p className="text-sm text-ink2">Établi le {formatDate(issuedOn)}</p>
         </div>
       </div>
 
       <div>
-        <p className="text-xs text-gris-mid uppercase tracking-wide">Client</p>
+        <p className="text-xs text-ink2 uppercase tracking-wide">Client</p>
         <p className="text-sm font-semibold">{establishmentName}</p>
       </div>
 
       <p className="text-sm">{describeContractReference({ contractReference, signedOn })}</p>
 
       <div>
-        <p className="text-xs text-gris-mid uppercase tracking-wide mb-2">
+        <p className="text-xs text-ink2 uppercase tracking-wide mb-2">
           Prestations ajoutées au périmètre
         </p>
         <table className="w-full text-sm">
@@ -95,7 +95,7 @@ export function AvenantPrintable({
           bloc que le devis et le contrat (D1). */}
       <DocumentSignatureBlocks counterpartyName={establishmentName} />
 
-      <p className="text-xs text-gris-mid border-t border-gris-light pt-4">
+      <p className="text-xs text-ink2 border-t border-gris-light pt-4">
         Tarifs indicatifs « à partir de » · TVA non applicable, art. 293 B du CGI · les
         conditions du contrat initial demeurent applicables pour tout ce que le présent
         avenant ne modifie pas.

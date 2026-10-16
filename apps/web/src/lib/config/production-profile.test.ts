@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { AppEnv } from "./env";
-import { productionConfigProblems, productionConfigWarnings } from "./production-profile";
+import { hdsConfigProblems, productionConfigProblems, productionConfigWarnings } from "./production-profile";
 
 // Cas de REFUS de la configuration de production (D7). Le défaut corrigé ici est un
 // déploiement qui démarre vert sans stockage S3 et n'explose qu'au premier dépôt de
@@ -25,6 +25,7 @@ const COMPLETE: AppEnv = {
   resend: { apiKey: "cle-resend", from: "contact@exemple.fr" },
   voyage: { apiKey: "cle-voyage" },
   puppeteerExecutablePath: null,
+  hds: { enabled: false, provider: null, storage: null },
 };
 
 describe("productionConfigProblems", () => {
@@ -125,5 +126,34 @@ describe("productionConfigWarnings", () => {
       voyage: null,
     });
     expect(warnings).toHaveLength(3);
+  });
+});
+
+// Verrou HDS (lot C, ADR 20261014) — la troisième garde mécanique du verrou : le profil
+// de production refuse une ouverture qui ne nomme pas son hébergeur certifié.
+describe("hdsConfigProblems — verrou des données des personnes accompagnées", () => {
+  const HDS_STORAGE = { ...COMPLETE.s3!, endpoint: "https://s3.hds.exemple", bucket: "eoda-hds" };
+
+  it("ne dit rien quand le verrou est fermé (défaut)", () => {
+    expect(productionConfigProblems(COMPLETE)).toEqual([]);
+    expect(hdsConfigProblems(COMPLETE)).toEqual([]);
+  });
+
+  it("refuse HDS_BACKEND_ENABLED=true sans HDS_PROVIDER", () => {
+    const problems = productionConfigProblems({ ...COMPLETE, hds: { enabled: true, provider: null, storage: HDS_STORAGE } });
+    expect(problems).toHaveLength(1);
+    expect(problems[0]).toContain("HDS_PROVIDER");
+  });
+
+  it("refuse l'ouverture sans stockage HDS distinct", () => {
+    expect(hdsConfigProblems({ ...COMPLETE, hds: { enabled: true, provider: "Hébergeur certifié", storage: null } })[0]).toContain(
+      "HDS_S3_ENDPOINT"
+    );
+    const sameBucket = hdsConfigProblems({ ...COMPLETE, hds: { enabled: true, provider: "Hébergeur certifié", storage: COMPLETE.s3 } });
+    expect(sameBucket[0]).toContain("même bucket");
+  });
+
+  it("accepte une ouverture complète", () => {
+    expect(hdsConfigProblems({ ...COMPLETE, hds: { enabled: true, provider: "Hébergeur certifié", storage: HDS_STORAGE } })).toEqual([]);
   });
 });

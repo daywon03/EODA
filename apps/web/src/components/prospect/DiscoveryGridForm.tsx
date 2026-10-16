@@ -1,10 +1,12 @@
 "use client";
 
+import { submitWithoutReset } from "@/lib/forms/submit-without-reset";
 import { useActionState } from "react";
 import Link from "next/link";
 import { saveDiscoveryAnswers } from "@/lib/actions/discovery";
 import {
   discoveryCompletionPercent,
+  discoveryFormRevision,
   type DiscoveryAnswers,
 } from "@/lib/services/discovery-grid-service";
 import type { DiscoveryGrid } from "@/content/decouverte/types";
@@ -24,7 +26,7 @@ type Props = {
 };
 
 const TEXTAREA_CLASS =
-  "w-full rounded-md border border-gris-light bg-surface px-3 py-2 text-sm text-brun-ancre placeholder:text-gris-mid focus:outline-none focus:ring-2 focus:ring-terre/40 focus:border-terre disabled:opacity-60";
+  "w-full rounded-md border border-gris-light bg-surface px-3 py-2 text-sm text-brun-ancre placeholder:text-ink2 focus:border-terre disabled:opacity-60";
 
 // Grille de découverte, saisie EN SÉANCE — mêmes partis pris que l'évaluation des
 // besoins : une seule page, aucun assistant multi-étapes (on parle en même temps),
@@ -39,14 +41,14 @@ export function DiscoveryGridForm({ prospectId, grid, answers, updatedAt }: Prop
   const percent = discoveryCompletionPercent(answers, grid);
 
   return (
-    <form action={formAction} className="space-y-6">
+    <form key={discoveryFormRevision(updatedAt)} method="post" onSubmit={submitWithoutReset(formAction)} className="space-y-6">
       <div className="space-y-2 rounded-lg border border-gris-light bg-surface p-4">
         <div className="flex items-center justify-between text-sm">
           <span className="font-medium text-brun-ancre">Grille renseignée</span>
-          <span className="tabular-nums text-gris-mid">{percent}%</span>
+          <span className="tabular-nums text-ink2">{percent}%</span>
         </div>
-        <ProgressBar value={percent} colorClassName="bg-ambre" />
-        <p className="text-xs text-gris-mid">
+        <ProgressBar value={percent} label="Grille renseignée" colorClassName="bg-ambre" />
+        <p className="text-xs text-ink2">
           {updatedAt
             ? `Dernière saisie le ${updatedAt.toLocaleDateString("fr-FR")}`
             : "Aucune réponse enregistrée pour l'instant."}{" "}
@@ -59,7 +61,7 @@ export function DiscoveryGridForm({ prospectId, grid, answers, updatedAt }: Prop
           <legend className="px-1">
             <span className="text-sm font-semibold text-brun-ancre">{section.title}</span>
           </legend>
-          <p className="-mt-2 text-xs text-gris-mid">{section.purpose}</p>
+          <p className="-mt-2 text-xs text-ink2">{section.purpose}</p>
 
           {section.fields.map((field) => {
             const value = answers[field.id] ?? "";
@@ -96,7 +98,7 @@ export function DiscoveryGridForm({ prospectId, grid, answers, updatedAt }: Prop
                   />
                 )}
 
-                {field.hint && <p className="text-xs text-gris-mid">{field.hint}</p>}
+                {field.hint && <p className="text-xs text-ink2">{field.hint}</p>}
               </div>
             );
           })}
@@ -111,7 +113,7 @@ export function DiscoveryGridForm({ prospectId, grid, answers, updatedAt }: Prop
       )}
 
       {state && "ok" in state && (
-        <p className="flex items-center gap-2 text-sm text-vert-ok">
+        <p className="flex items-center gap-2 text-sm text-ok-text">
           <CheckCircle2 className="h-4 w-4 flex-shrink-0" aria-hidden="true" />
           Réponses enregistrées.
         </p>

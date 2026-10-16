@@ -3,7 +3,7 @@
 import { requireEstablishmentInTenant } from "@/lib/auth/guards";
 import { prisma } from "@eoda/database";
 import { notFound } from "next/navigation";
-import { getEvaluationChapter, listChapters } from "./evaluation";
+import { getEvaluationChapter, listChapters } from "./evaluation-chapter";
 import { recordAuditEvent } from "@/lib/services/audit-log-service";
 import {
   buildEvaluationCsv,
@@ -33,7 +33,7 @@ export async function buildEvaluationExport(
 ): Promise<EvaluationExportResult> {
   // Garde unique : identité + appartenance au tenant. Un identifiant reçu ici vient
   // d'une route HTTP publique (CLAUDE.md §5 bis).
-  const { tenantId } = await requireEstablishmentInTenant(establishmentId);
+  const { tenantId } = await requireEstablishmentInTenant(establishmentId, "READ");
 
   const establishment = await prisma.establishment.findFirst({
     where: { id: establishmentId, tenantId },
@@ -93,7 +93,7 @@ export async function buildEvaluationExport(
 // que ça constitue un export, seul le TÉLÉCHARGEMENT en est un. Confondre les deux
 // remplirait le journal d'exports qui n'ont jamais quitté l'écran.
 export async function recordEvaluationExport(establishmentId: string): Promise<void> {
-  const { userId, session } = await requireEstablishmentInTenant(establishmentId);
+  const { userId, session } = await requireEstablishmentInTenant(establishmentId, "READ");
 
   await recordAuditEvent({
     action: "EVALUATION_EXPORTED",

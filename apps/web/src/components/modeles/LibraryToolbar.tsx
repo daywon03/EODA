@@ -114,10 +114,10 @@ function MenuItem({
       onClick={onClick}
       className="flex w-full cursor-pointer items-start gap-2.5 rounded-md px-2.5 py-2 text-left hover:bg-ivoire"
     >
-      <Icon className="mt-0.5 h-4 w-4 flex-shrink-0 text-terre" aria-hidden="true" />
+      <Icon className="mt-0.5 h-4 w-4 flex-shrink-0 text-accent-text" aria-hidden="true" />
       <span className="min-w-0">
         <span className="block text-sm font-medium text-brun-ancre">{label}</span>
-        <span className="block text-xs text-gris-mid">{hint}</span>
+        <span className="block text-xs text-ink2">{hint}</span>
       </span>
     </button>
   );

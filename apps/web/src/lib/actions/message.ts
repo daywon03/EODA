@@ -7,6 +7,7 @@ import {
   requireCabinetSession,
   requireClientEstablishment,
   requireEstablishmentInTenant,
+  structureScopeWhere,
 } from "@/lib/auth/guards";
 import {
   canClientPostMessage,
@@ -78,7 +79,7 @@ async function readThread(establishmentId: string): Promise<ThreadMessage[]> {
 // ── Côté cabinet ─────────────────────────────────────────────────────────────
 
 export async function getCabinetThread(establishmentId: string): Promise<ThreadMessage[]> {
-  await requireEstablishmentInTenant(establishmentId);
+  await requireEstablishmentInTenant(establishmentId, "READ");
   return readThread(establishmentId);
 }
 
@@ -87,7 +88,7 @@ export async function postCabinetMessage(
   _prevState: MessageResult | null,
   formData: FormData
 ): Promise<MessageResult> {
-  const { tenantId, userId } = await requireEstablishmentInTenant(establishmentId);
+  const { tenantId, userId } = await requireEstablishmentInTenant(establishmentId, "WRITE");
 
   const raw = formData.get("body");
   const validation = validateMessageBody(typeof raw === "string" ? raw : null);
@@ -130,7 +131,7 @@ export async function getClientThread(): Promise<{
   messages: ThreadMessage[];
   canPost: boolean;
 }> {
-  const { establishment, missionAccess } = await requireClientEstablishment();
+  const { establishment, missionAccess } = await requireClientEstablishment({ module: "MESSAGES", mode: "READ" });
   if (!establishment) {
     return { establishmentName: null, messages: [], canPost: false };
   }
@@ -146,7 +147,7 @@ export async function getClientThread(): Promise<{
 // vient-il du cabinet ? Une seule ligne lue, pas tout le fil — ce n'est pas la
 // page du fil, juste un indicateur affiché sur chaque écran du portail.
 export async function getClientHasUnansweredMessage(): Promise<boolean> {
-  const { establishment } = await requireClientEstablishment();
+  const { establishment } = await requireClientEstablishment({ module: "MESSAGES", mode: "READ" });
   if (!establishment) return false;
 
   const last = await prisma.missionMessage.findFirst({
@@ -174,10 +175,10 @@ export async function getClientHasUnansweredMessage(): Promise<boolean> {
 // par message : borné au nombre d'établissements du tenant, pas à l'historique
 // des conversations (P5/P7).
 export async function getEstablishmentIdsWithUnansweredMessage(): Promise<Set<string>> {
-  const { tenantId } = await requireCabinetSession();
+  const context = await requireCabinetSession("STRUCTURES_READ");
 
   const latestPerEstablishment = await prisma.missionMessage.findMany({
-    where: { tenantId },
+    where: { tenantId: context.tenantId, establishment: structureScopeWhere(context) },
     distinct: ["establishmentId"],
     orderBy: [{ establishmentId: "asc" }, { createdAt: "desc" }],
     select: { establishmentId: true, authorSide: true },
@@ -195,7 +196,7 @@ export async function postClientMessage(
   formData: FormData
 ): Promise<MessageResult> {
   // Aucun identifiant reçu : l'établissement vient du lien de la session.
-  const { establishment, missionAccess, userId } = await requireClientEstablishment();
+  const { establishment, missionAccess, userId } = await requireClientEstablishment({ module: "MESSAGES", mode: "WRITE" });
   if (!establishment) return { error: "Aucun établissement n'est rattaché à votre compte." };
 
   // Refus porté par l'action, et pas seulement par l'absence de champ à l'écran.

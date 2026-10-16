@@ -1,5 +1,6 @@
 "use client";
 
+import { submitWithoutReset } from "@/lib/forms/submit-without-reset";
 import { useActionState } from "react";
 import { updateBillingSettings } from "@/lib/actions/catalogue";
 import { Button } from "@/components/ui/button";
@@ -12,7 +13,7 @@ export function BillingSettingsForm({ settings }: { settings: BillingSettings | 
   const [state, formAction, isPending] = useActionState(updateBillingSettings, null);
 
   return (
-    <form action={formAction} className="flex flex-wrap items-end gap-4">
+    <form method="post" onSubmit={submitWithoutReset(formAction)} className="flex flex-wrap items-end gap-4">
       <div className="space-y-1">
         <Label htmlFor="defaultDepositPercent">Acompte par défaut (%)</Label>
         <Input
@@ -36,7 +37,14 @@ export function BillingSettingsForm({ settings }: { settings: BillingSettings | 
           defaultValue={settings?.defaultValidityDays ?? 30}
           disabled={isPending}
           className="w-32"
+          aria-describedby="defaultValidityDays-hint"
         />
+        {/* devis-validity-service : 15 j si l'évaluation HAS est à moins de 6 mois,
+            30 j sinon ; ce réglage ne sert que si l'échéance n'est pas connue. */}
+        <p id="defaultValidityDays-hint" className="max-w-xs text-sm text-ink2">
+          Utilisée quand l&apos;échéance HAS du prospect est inconnue. Sinon : 15 jours si
+          l&apos;évaluation est à moins de 6 mois, 30 jours au-delà.
+        </p>
       </div>
       <Button type="submit" size="sm" disabled={isPending}>
         {isPending && <Loader2 className="w-3.5 h-3.5 animate-spin" aria-hidden="true" />}

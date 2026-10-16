@@ -71,7 +71,7 @@ export function TemplateCriterionSuggestionsList({
     <div className="rounded-lg border border-terre/30 bg-terre/5 p-3">
       <div className="flex items-center justify-between gap-3">
         <p className="flex items-center gap-1.5 text-xs font-semibold text-brun-ancre">
-          <Sparkles className="h-3.5 w-3.5 text-terre" aria-hidden="true" />
+          <Sparkles className="h-3.5 w-3.5 text-accent-text" aria-hidden="true" />
           Critères HAS supplémentaires détectés — à confirmer
         </p>
         <Button
@@ -85,7 +85,7 @@ export function TemplateCriterionSuggestionsList({
           {isConfirmingAll ? (
             <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
           ) : (
-            <Check className="h-3.5 w-3.5 text-vert-ok" aria-hidden="true" />
+            <Check className="h-3.5 w-3.5 text-ok-text" aria-hidden="true" />
           )}
           Tout accepter ({visible.length})
         </Button>
@@ -97,7 +97,7 @@ export function TemplateCriterionSuggestionsList({
               <p className="font-medium text-brun-ancre">
                 {s.criterionRequirementLevel === "IMPERATIF" && (
                   <span
-                    className="mr-1 rounded bg-terre px-1 py-0.5 text-[10px] font-semibold uppercase text-white"
+                    className="mr-1 rounded bg-terre px-1 py-0.5 text-sm font-semibold uppercase text-white"
                     title="Critère impératif HAS — obligatoire pour l'évaluation"
                   >
                     Impératif
@@ -105,7 +105,7 @@ export function TemplateCriterionSuggestionsList({
                 )}
                 {s.criterionCode} — {s.criterionLabel}
               </p>
-              <p className="mt-0.5 text-gris-mid">{s.justification}</p>
+              <p className="mt-0.5 text-ink2">{s.justification}</p>
             </div>
             <div className="flex flex-shrink-0 items-center gap-1.5">
               <Button
@@ -119,7 +119,7 @@ export function TemplateCriterionSuggestionsList({
                 {pendingId === s.id ? (
                   <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
                 ) : (
-                  <Check className="h-3.5 w-3.5 text-vert-ok" aria-hidden="true" />
+                  <Check className="h-3.5 w-3.5 text-ok-text" aria-hidden="true" />
                 )}
               </Button>
               <Button

@@ -3,8 +3,9 @@
 import { useState, useTransition } from "react";
 import { changePasswordAction } from "@/lib/actions/password";
 import { MIN_PASSWORD_LENGTH } from "@/lib/security/password-policy";
+import { LOGIN_NOTICE_PARAM } from "@/lib/services/login-notice-service";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { AlertCircle, Loader2 } from "lucide-react";
 
@@ -25,7 +26,9 @@ export function ChangePasswordForm() {
       // Toutes les sessions ouvertes avant le changement sont désormais refusées,
       // celle-ci comprise : on passe par la route de déconnexion, seule habilitée à
       // supprimer le cookie, plutôt que de laisser l'utilisateur sur une page morte.
-      window.location.assign("/deconnexion");
+      // Le motif fait afficher « mot de passe modifié » sur la connexion : sans lui,
+      // l'utilisateur renvoyé à l'écran de connexion croit que le changement a échoué.
+      window.location.assign(`/deconnexion?${LOGIN_NOTICE_PARAM}=mot-de-passe-modifie`);
     });
   }
 
@@ -33,10 +36,9 @@ export function ChangePasswordForm() {
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="space-y-1.5">
         <Label htmlFor="currentPassword">Mot de passe actuel</Label>
-        <Input
+        <PasswordInput
           id="currentPassword"
           name="currentPassword"
-          type="password"
           autoComplete="current-password"
           required
           disabled={isPending}
@@ -45,10 +47,9 @@ export function ChangePasswordForm() {
 
       <div className="space-y-1.5">
         <Label htmlFor="newPassword">Nouveau mot de passe</Label>
-        <Input
+        <PasswordInput
           id="newPassword"
           name="newPassword"
-          type="password"
           autoComplete="new-password"
           minLength={MIN_PASSWORD_LENGTH}
           required
@@ -58,10 +59,9 @@ export function ChangePasswordForm() {
 
       <div className="space-y-1.5">
         <Label htmlFor="confirmation">Confirmer le nouveau mot de passe</Label>
-        <Input
+        <PasswordInput
           id="confirmation"
           name="confirmation"
-          type="password"
           autoComplete="new-password"
           minLength={MIN_PASSWORD_LENGTH}
           required

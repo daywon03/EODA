@@ -1,4 +1,4 @@
-// Layout volontairement nu (pas d'AppHeader/nav) — sert uniquement les pages
+// Layout volontairement nu (pas de coquille de portail) — sert uniquement les pages
 // de récapitulatif imprimable, ouvertes dans un onglet isolé depuis le détail
 // d'un devis. cf. context/07-outil-pilotage-missions.md §6.4.
 export default function ImprimerLayout({ children }: { children: React.ReactNode }) {

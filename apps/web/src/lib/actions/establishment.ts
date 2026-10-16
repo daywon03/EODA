@@ -4,16 +4,17 @@ import { prisma, type Prisma, EstablishmentType, StructureType } from "@eoda/dat
 import { redirect, notFound } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import {
+  requireAdminEstablishmentInTenant,
   requireCabinetSession,
+  structureScopeWhere,
   requireEstablishmentInTenant,
   requireEstablishmentAccess,
 } from "@/lib/auth/guards";
+import { NEED } from "@/lib/auth/capabilities";
 import { canDepositDocuments } from "@/lib/services/mission-access-service";
 import { recordAuditEvent } from "@/lib/services/audit-log-service";
 import { validateLogoUpload } from "@/lib/security/upload-validation-service";
 import { getFileStoragePort } from "@/lib/storage";
-import type { PortfolioRow } from "@/lib/services/portfolio-kpi-service";
-import { toPortfolioRow } from "@/lib/db/to-portfolio-row";
 import {
   firstError,
   optionalString,
@@ -22,6 +23,7 @@ import {
   requiredString,
 } from "@/lib/validation/form-parsers";
 import {
+  finessConflictError,
   finessFormatError,
   normaliseFiness,
   normaliseSiret,
@@ -100,7 +102,7 @@ function parseEstablishmentInput(formData: FormData): { error: string } | {
   }
 
   // Normalisation puis contrôle de forme par la règle PARTAGÉE. Il y avait ici un
-  // second contrôle écrit à la main (`/^\d{9}$/` sans normalisation) : « 93 00 34 459 »
+  // second contrôle écrit à la main (`/^\d{9}$/` sans normalisation) : « 99 00 00 017 »
   // était accepté au stade prospect et refusé sur la fiche, pour le même numéro. Deux
   // contrôles du même fait finissent toujours par diverger (D1).
   const finess = normaliseFiness(finessNumber.value);
@@ -143,10 +145,20 @@ export async function updateEstablishment(
   _prevState: { error: string } | null,
   formData: FormData
 ): Promise<{ error: string } | null> {
-  await requireEstablishmentInTenant(id);
+  await requireEstablishmentInTenant(id, "WRITE");
 
   const parsed = parseEstablishmentInput(formData);
   if ("error" in parsed) return parsed;
+
+  // FINESS déjà porté par une AUTRE fiche : refus explicite, même règle qu'à la
+  // signature (finessConflictError). Sans lui, la contrainte unique levait une erreur
+  // serveur brute au lieu de dire ce qui se passe (bilan du 08/10, retour du 15/09).
+  const holder = await prisma.establishment.findFirst({
+    where: { finessNumber: parsed.finessNumber, NOT: { id } },
+    select: { id: true },
+  });
+  const conflict = finessConflictError(holder !== null);
+  if (conflict) return { error: conflict };
 
   await prisma.establishment.update({
     where: { id },
@@ -154,6 +166,7 @@ export async function updateEstablishment(
   });
 
   revalidatePath("/dashboard/cabinet");
+  revalidatePath("/dashboard/cabinet/structures");
   revalidatePath(`/dashboard/cabinet/etablissements/${id}`);
   redirect(`/dashboard/cabinet/etablissements/${id}`);
 }
@@ -213,14 +226,14 @@ export async function uploadEstablishmentLogo(
     return { error: "Établissement manquant." };
   }
 
-  const { establishmentId } = await requireEstablishmentInTenant(establishmentIdRaw);
+  const { establishmentId } = await requireEstablishmentInTenant(establishmentIdRaw, "WRITE");
   return applyLogoUpload(establishmentId, formData.get("logo"));
 }
 
 export async function removeEstablishmentLogo(
   establishmentId: string
 ): Promise<{ error: string } | null> {
-  const { establishmentId: id } = await requireEstablishmentInTenant(establishmentId);
+  const { establishmentId: id } = await requireEstablishmentInTenant(establishmentId, "WRITE");
   return applyLogoRemoval(id);
 }
 
@@ -240,7 +253,7 @@ export async function uploadEstablishmentLogoAsClient(
     return { error: "Établissement manquant." };
   }
 
-  const access = await requireEstablishmentAccess(establishmentIdRaw);
+  const access = await requireEstablishmentAccess(establishmentIdRaw, NEED.ACCESS_WRITE);
   if (!access.isClient) return { error: "Réservé à l'espace client." };
   if (!canDepositDocuments(access.missionAccess)) {
     return { error: "Votre accompagnement est clos : le logo ne peut plus être modifié." };
@@ -252,7 +265,7 @@ export async function uploadEstablishmentLogoAsClient(
 export async function removeEstablishmentLogoAsClient(
   establishmentId: string
 ): Promise<{ error: string } | null> {
-  const access = await requireEstablishmentAccess(establishmentId);
+  const access = await requireEstablishmentAccess(establishmentId, NEED.ACCESS_WRITE);
   if (!access.isClient) return { error: "Réservé à l'espace client." };
   if (!canDepositDocuments(access.missionAccess)) {
     return { error: "Votre accompagnement est clos : le logo ne peut plus être modifié." };
@@ -261,8 +274,12 @@ export async function removeEstablishmentLogoAsClient(
   return applyLogoRemoval(access.establishmentId);
 }
 
+// Réservé à CABINET_ADMIN (fiche structure v2, 09/10/2026) : supprimer une fiche
+// désactive des comptes clients et efface des documents — une décision de gérance,
+// comme la clôture d'une mission. Le bouton n'est plus proposé qu'à l'admin, et la
+// garde le refuse aux autres : masquer un bouton n'a jamais fermé une route.
 export async function deleteEstablishment(id: string): Promise<{ error: string } | void> {
-  const { session, userId } = await requireEstablishmentInTenant(id);
+  const { session, userId } = await requireAdminEstablishmentInTenant(id);
 
   // Comptes clients devenus orphelins — désactivés (jamais supprimés, la piste
   // d'audit doit survivre), calculés DANS la transaction, journalisés après elle.
@@ -385,7 +402,8 @@ export async function deleteEstablishment(id: string): Promise<{ error: string }
   }
 
   revalidatePath("/dashboard/cabinet");
-  redirect("/dashboard/cabinet");
+  revalidatePath("/dashboard/cabinet/structures");
+  redirect("/dashboard/cabinet/structures");
 }
 
 // Même sélection de faits de cycle de vie que `listEstablishments` — l'étape affichée
@@ -405,10 +423,9 @@ const LIFECYCLE_INCLUDE = {
       consolidationEndDate: true,
       preparationFinaleStartDate: true,
       preparationFinaleEndDate: true,
-      // Formule contractée — lue avec les faits de cycle de vie parce que les
-      // agrégats de portefeuille en ont besoin en même temps qu'eux, et parce que
-      // c'est la mission qui en porte la vérité, jamais `Establishment.commercialTier`
-      // (CLAUDE.md §7).
+      // Formule contractée — lue avec les faits de cycle de vie (l'en-tête de la fiche
+      // structure l'affiche), parce que c'est la mission qui en porte la vérité,
+      // jamais `Establishment.commercialTier` (CLAUDE.md §7).
       formule: true,
       _count: { select: { itemStatuses: { where: { completed: true } } } },
     },
@@ -423,32 +440,15 @@ const LIFECYCLE_INCLUDE = {
 // `_count` sur les items cochés plutôt que la liste : on n'a besoin que de savoir si
 // le diagnostic a commencé, pas de quoi il est fait.
 export async function listEstablishments() {
-  const { tenantId } = await requireCabinetSession();
+  const context = await requireCabinetSession("STRUCTURES_READ");
 
   return prisma.establishment.findMany({
-    where: { tenantId },
+    where: structureScopeWhere(context),
     orderBy: { createdAt: "desc" },
     include: { _count: { select: { documents: true } }, ...LIFECYCLE_INCLUDE },
   });
 }
 
-// Portefeuille client agrégé (cf. lib/services/portfolio-kpi-service.ts) — la
-// moitié des indicateurs qui vit APRÈS la signature. Même sélection que la liste
-// des fiches : deux requêtes jumelles finiraient par diverger, et deux écrans
-// compteraient alors des choses différentes sous le même nom.
-//
-// Converti en `PortfolioRow` ici et pas dans la page : la couche de présentation
-// n'a pas à connaître la forme Prisma (huit colonnes de dates, items filtrés).
-export async function listPortfolioRowsForKpi(): Promise<PortfolioRow[]> {
-  const { tenantId } = await requireCabinetSession();
-
-  const rows = await prisma.establishment.findMany({
-    where: { tenantId },
-    include: LIFECYCLE_INCLUDE,
-  });
-
-  return rows.map(toPortfolioRow);
-}
 
 export type EstablishmentWithUsers = Prisma.EstablishmentGetPayload<{
   include: {
@@ -470,6 +470,7 @@ export type EstablishmentWithUsers = Prisma.EstablishmentGetPayload<{
         consolidationEndDate: true;
         preparationFinaleStartDate: true;
         preparationFinaleEndDate: true;
+        formule: true;
         _count: { select: { itemStatuses: true } };
       };
     };
@@ -477,7 +478,7 @@ export type EstablishmentWithUsers = Prisma.EstablishmentGetPayload<{
 }>;
 
 export async function getEstablishment(id: string): Promise<EstablishmentWithUsers> {
-  const { tenantId } = await requireCabinetSession();
+  const { tenantId } = await requireEstablishmentInTenant(id, "READ");
 
   const establishment = await prisma.establishment.findFirst({
     where: { id, tenantId },

@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  CORRECTION_NOT_INCLUDED_MESSAGE,
+  correctionRight,
   coversMinFormule,
   getCoveredDocumentCategories,
   getEffectiveTier,
@@ -37,7 +39,7 @@ describe("getOfferScope — périmètre des offres", () => {
   it("ouvre Performance à tous les critères, avec correction limitée à la loi 2002-2", () => {
     expect(getOfferScope("PERFORMANCE")).toMatchObject({
       criteriaScope: "ALL",
-      correctionScope: "LOI_2002_2_ONLY",
+      correctionScope: "IMPERATIVES_AND_PROCESSES",
     });
   });
 
@@ -117,5 +119,47 @@ describe("périmètre de critères cotables — §12.1", () => {
       expect(isCriterionLevelCovered(formule, false, "STANDARD")).toBe(true);
     }
     expect(isCriterionLevelCovered("ESSENTIEL", true, "STANDARD")).toBe(true);
+  });
+});
+
+describe("correctionRight — droit de générer un document corrigé (D11, D13)", () => {
+  it("refuse sans mission : rien n'a été acheté (fail-closed)", () => {
+    expect(correctionRight(null, "LOI_2002_2")).toEqual({ included: false, reason: "NO_MISSION" });
+  });
+
+  it("refuse tout en Essentiel, même la loi 2002-2", () => {
+    for (const category of ["LOI_2002_2", "QUALITE_RISQUES", "FONCTIONNEMENT", "RH"] as const) {
+      expect(correctionRight({ formule: "ESSENTIEL", gratuit: false }, category)).toEqual({
+        included: false,
+        reason: "OUT_OF_OFFER",
+      });
+    }
+  });
+
+  it("ouvre en Performance les documents des impératifs et les procédures", () => {
+    const performance = { formule: "PERFORMANCE" as const, gratuit: false };
+    expect(correctionRight(performance, "LOI_2002_2")).toEqual({ included: true });
+    expect(correctionRight(performance, "QUALITE_RISQUES")).toEqual({ included: true });
+  });
+
+  it("refuse en Performance ce qui sort de ce périmètre", () => {
+    const performance = { formule: "PERFORMANCE" as const, gratuit: false };
+    expect(correctionRight(performance, "FONCTIONNEMENT")).toEqual({ included: false, reason: "OUT_OF_OFFER" });
+    expect(correctionRight(performance, "RH")).toEqual({ included: false, reason: "OUT_OF_OFFER" });
+  });
+
+  it("ouvre tout en Excellence et en bêta-test gratuit", () => {
+    for (const mission of [
+      { formule: "EXCELLENCE" as const, gratuit: false },
+      { formule: "BETA" as const, gratuit: false },
+      { formule: "ESSENTIEL" as const, gratuit: true },
+    ]) {
+      expect(correctionRight(mission, "RH")).toEqual({ included: true });
+    }
+  });
+
+  it("annonce une option à demander, sans aucun montant", () => {
+    expect(CORRECTION_NOT_INCLUDED_MESSAGE).toContain("option");
+    expect(CORRECTION_NOT_INCLUDED_MESSAGE).not.toMatch(/€|\d/);
   });
 });

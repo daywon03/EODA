@@ -81,7 +81,7 @@ export function TemplateCriteriaPicker({
               <span>
                 {c.requirementLevel === "IMPERATIF" && (
                   <span
-                    className="mr-1 rounded bg-terre px-1 py-0.5 text-[10px] font-semibold uppercase text-white"
+                    className="mr-1 rounded bg-terre px-1 py-0.5 text-sm font-semibold uppercase text-white"
                     title="Critère impératif HAS — obligatoire pour l'évaluation"
                   >
                     Impératif
@@ -93,7 +93,7 @@ export function TemplateCriteriaPicker({
           </li>
         ))}
         {filtered.length === 0 && (
-          <li className="text-xs text-gris-mid">Aucun critère ne correspond au filtre.</li>
+          <li className="text-xs text-ink2">Aucun critère ne correspond au filtre.</li>
         )}
       </ul>
       <div className="flex items-center gap-2">
@@ -105,10 +105,10 @@ export function TemplateCriteriaPicker({
           )}
           Enregistrer les critères rattachés
         </Button>
-        <span className="text-xs text-gris-mid">{selected.size} sélectionné(s)</span>
+        <span className="text-xs text-ink2">{selected.size} sélectionné(s)</span>
       </div>
       {saved && (
-        <p role="status" className="flex items-center gap-1.5 text-xs text-vert-ok">
+        <p role="status" className="flex items-center gap-1.5 text-xs text-ok-text">
           <CheckCircle2 className="w-3.5 h-3.5" aria-hidden="true" />
           Critères enregistrés.
         </p>

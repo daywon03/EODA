@@ -5,31 +5,38 @@ import type { BrandedDocxImageInput } from "@/lib/services/markdown-to-docx-serv
 import { anonymizeText } from "@/lib/services/anonymization-service";
 import { parseAnalysisResult } from "@/lib/services/analysis-view-service";
 import { fetchKnowledgeExcerpts, fetchCriterionGuidelines } from "@/lib/services/document-ingestion-service";
+import { readValidatedExamples } from "@/lib/db/read-validated-examples";
+import { sanitizeProposal, type CorrectionProposal } from "@/lib/llm/correction-proposal";
+import { proposalToMarkdown } from "@/lib/services/correction-proposal-service";
+import { applicableToValuesFor } from "@/lib/services/criterion-applicability-service";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // GÉNÉRATION D'UN BROUILLON DE DOCUMENT CORRIGÉ PAR L'IA
 //
 // « Quand l'analyse est faite, ensuite le document est généré par l'IA […]
 // brandé EODA, qu'ils pourront réutiliser ensuite » (Damon, 15/09/2026). Document
-// ENTIER régénéré (pas seulement les paragraphes correctifs) — le gabarit EODA
-// lié au critère, prévu à terme, est explicitement différé.
+// ENTIER régénéré (pas seulement les paragraphes correctifs). Depuis N8 (12/10/2026)
+// la sortie est STRUCTURÉE (segments ORIGINAL / AJOUT, correction-proposal.ts) et
+// stockée comme CorrectionProposal ; les exemples validés du même type (gabarits
+// FINALE, context/10 §9) sont injectés comme donnée.
 //
 // Même structure que analyzeVersion() dans document-ingestion-service.ts :
 // l'enrichissement (base de connaissances, guidelines du cabinet) est
 // exactement le même, réutilisé tel quel (D1) — seul l'appel LLM change de
-// forme (texte libre, pas un JSON structuré).
+// forme (une proposition structurée).
 //
 // Une analyse préalable est un PRÉALABLE, pas une option : sans
 // elementsManquants/suggestionsCorrection, l'IA n'aurait rien à corriger et
 // recopierait le document tel quel en prétendant l'avoir amélioré.
 // ─────────────────────────────────────────────────────────────────────────────
 
-export type GenerateDraftResult = { ok: true; markdown: string } | { error: string };
+export type GenerateDraftResult = { ok: true; proposalId: string; proposal: CorrectionProposal } | { error: string };
 
 export async function generateCorrectedDraft(
   documentVersionId: string,
   llm: LLMAnalysisPort,
-  modelId?: string | null
+  modelId: string | null | undefined,
+  generatedById: string
 ): Promise<GenerateDraftResult> {
   const version = await prisma.documentVersion.findUnique({
     where: { id: documentVersionId },
@@ -43,7 +50,7 @@ export async function generateCorrectedDraft(
           establishmentId: true,
           documentTypeId: true,
           documentType: { select: { label: true } },
-          establishment: { select: { name: true, tenantId: true } },
+          establishment: { select: { name: true, tenantId: true, type: true } },
         },
       },
     },
@@ -65,27 +72,33 @@ export async function generateCorrectedDraft(
     };
   }
 
-  const [linkedCriteria] = await Promise.all([
+  const documentTypeId = version.document.documentTypeId;
+  const [linkedCriteria, allCriteria] = await Promise.all([
     prisma.documentTypeCriterion.findMany({
-      where: { documentTypeId: version.document.documentTypeId },
+      where: { documentTypeId },
       include: { criterion: { select: { label: true, id: true, code: true } } },
+    }),
+    // Les codes que le modèle peut citer pour justifier un ajout : le référentiel du
+    // profil de la structure (un SAD aide ne voit jamais un critère SAD mixte).
+    prisma.criterion.findMany({
+      where: { applicableTo: { in: applicableToValuesFor(version.document.establishment.type) } },
+      select: { code: true },
     }),
   ]);
   const criteriaLabels = linkedCriteria.map((c) => c.criterion.label);
   const criterionIds = linkedCriteria.map((c) => c.criterion.id);
-  const linkedCriteriaOption = linkedCriteria.map((c) => ({
-    code: c.criterion.code,
-    label: c.criterion.label,
-  }));
+  const linkedCriteriaOption = linkedCriteria.map((c) => ({ code: c.criterion.code, label: c.criterion.label }));
   const tenantId = version.document.establishment.tenantId;
 
-  const [knowledgeExcerpts, criterionGuidelines] = await Promise.all([
+  const [knowledgeExcerpts, criterionGuidelines, validatedExamples] = await Promise.all([
     fetchKnowledgeExcerpts(tenantId, version.document.documentType.label, criteriaLabels),
     fetchCriterionGuidelines(tenantId, criterionIds),
+    // Exemples validés du même type, du même tenant — jamais d'un autre établissement.
+    readValidatedExamples(tenantId, documentTypeId),
   ]);
 
   try {
-    const markdown = await llm.generateCorrectedDocument({
+    const raw = await llm.generateCorrectedDocument({
       documentTypeLabel: version.document.documentType.label,
       extractedText: anonymizeText(version.extractedText),
       linkedCriteria: linkedCriteriaOption,
@@ -93,15 +106,30 @@ export async function generateCorrectedDraft(
       criterionGuidelines,
       elementsManquants: analysis.elementsManquants,
       suggestionsCorrection: analysis.suggestionsCorrection,
+      ...(validatedExamples.length > 0 && { validatedExamples }),
       ...(modelId && { modelId }),
     });
-
-    await prisma.documentVersion.update({
-      where: { id: version.id },
-      data: { correctedDraftMarkdown: markdown, correctedDraftGeneratedAt: new Date() },
+    // Ce que le modèle ne peut pas prouver est retiré (code hors référentiel,
+    // citation du manuel absente des extraits fournis).
+    const proposal = sanitizeProposal(raw, {
+      knownCriterionCodes: new Set(allCriteria.map((c) => c.code)),
+      knowledgeExcerpts,
     });
 
-    return { ok: true, markdown };
+    const [created] = await prisma.$transaction([
+      prisma.correctionProposal.create({
+        data: { sourceVersionId: version.id, proposalJson: proposal, generatedById },
+        select: { id: true },
+      }),
+      // Le brouillon Markdown (panneau cabinet existant, export « brouillon ») reste
+      // alimenté : c'est la proposition entière, ajouts compris.
+      prisma.documentVersion.update({
+        where: { id: version.id },
+        data: { correctedDraftMarkdown: proposalToMarkdown(proposal), correctedDraftGeneratedAt: new Date() },
+      }),
+    ]);
+
+    return { ok: true, proposalId: created.id, proposal };
   } catch (error) {
     console.error("Génération du brouillon corrigé échouée :", error);
     return { error: "La génération a échoué. Réessayez dans un instant." };

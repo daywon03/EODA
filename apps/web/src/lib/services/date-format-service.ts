@@ -31,6 +31,13 @@ const DAY_HEADING = new Intl.DateTimeFormat("fr-FR", {
 
 const TIME = new Intl.DateTimeFormat("fr-FR", { hour: "2-digit", minute: "2-digit" });
 
+const SHORT_MONTH = new Intl.DateTimeFormat("fr-FR", { month: "short" });
+
+// Pavé de date d'une liste de rendez-vous : « 02 » au-dessus de « oct. ».
+export function formatCalendarTile(date: Date): { day: string; month: string } {
+  return { day: String(date.getDate()).padStart(2, "0"), month: SHORT_MONTH.format(date) };
+}
+
 // JJ/MM/AAAA — le format par défaut, celui de tous les écrans.
 export function formatDate(date: Date): string {
   return NUMERIC.format(date);

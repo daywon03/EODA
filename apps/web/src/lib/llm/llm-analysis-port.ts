@@ -1,6 +1,14 @@
+import type { CorrectionProposal } from "./correction-proposal";
+
 // Port d'analyse documentaire par LLM (Dependency Inversion) — le métier ne dépend
 // jamais directement d'un SDK LLM externe. cf. specs/02-architecture-technique.md §1,
 // même principe que FileStoragePort/EmailPort.
+
+// Un exemple VALIDÉ (context/10 §9, N8) : un document final relu par EODA, déposé
+// au stade FINALE de la bibliothèque et rattaché au même type de document. Injecté
+// comme DONNÉE (<exemple_valide>), jamais comme instruction ; toujours du tenant de
+// la structure, jamais tiré des documents d'un autre établissement.
+export type ValidatedExample = { title: string; content: string };
 
 export type LinkedCriterion = { code: string; label: string };
 
@@ -51,6 +59,9 @@ export type DocumentAnalysisInput = {
   // jamais sur la seule confiance dans le prompt. Optionnel : sans catalogue,
   // aucune suggestion supplémentaire n'est demandée.
   additionalCriteriaCatalog?: LinkedCriterion[];
+  // Exemples validés du même type de document (N8). Optionnel : sans exemple,
+  // l'analyse fonctionne comme avant.
+  validatedExamples?: ValidatedExample[];
 };
 
 // Un élément retrouvé, avec la citation qui le justifie (demande de Damon,
@@ -116,14 +127,15 @@ export type DocumentGenerationInput = {
   modelId?: string;
   elementsManquants: string[];
   suggestionsCorrection: string[];
+  validatedExamples?: ValidatedExample[];
 };
 
 export interface LLMAnalysisPort {
   analyze(input: DocumentAnalysisInput): Promise<DocumentAnalysisResult>;
-  // Rend le document ENTIER corrigé, en Markdown — cf. buildGenerationSystemPrompt
-  // pour la consigne complète. Aucun schéma structuré ici : c'est un texte libre,
-  // converti en .docx ensuite (markdown-to-docx-service.ts), jamais du JSON.
-  generateCorrectedDocument(input: DocumentGenerationInput): Promise<string>;
+  // Rend le document ENTIER sous forme STRUCTURÉE (N8) : les passages repris de
+  // l'original et les ajouts proposés, chacun justifié par un critère — cf.
+  // correction-proposal.ts (schéma, validation) et generation-prompt.ts (consigne).
+  generateCorrectedDocument(input: DocumentGenerationInput): Promise<CorrectionProposal>;
 }
 
 // Défensif, partagé par tous les adaptateurs (D1) : un modèle qui ignore le schéma

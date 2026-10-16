@@ -1,5 +1,6 @@
 "use client";
 
+import { submitWithoutReset } from "@/lib/forms/submit-without-reset";
 import { useActionState } from "react";
 import { createMission } from "@/lib/actions/mission";
 import { FormuleOfferPicker } from "./FormuleOfferPicker";
@@ -19,7 +20,7 @@ export function CreateMissionForm({ establishmentId, formules, options }: Props)
   const [state, formAction, isPending] = useActionState(action, null);
 
   return (
-    <form action={formAction} className="space-y-5">
+    <form method="post" onSubmit={submitWithoutReset(formAction)} className="space-y-5">
       <FormuleOfferPicker formules={formules} />
       <MissionOptionsPicker options={options} />
 

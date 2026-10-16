@@ -5,12 +5,16 @@ import { respondToMissingDocument, updateMissingJustification } from "@/lib/acti
 import { MAX_JUSTIFICATION_LENGTH } from "@/lib/services/document-workflow-service";
 import { Textarea } from "@/components/ui/textarea";
 import { AlertCircle, Check, CheckCircle2, Loader2, X } from "lucide-react";
-import type { DocumentStatus } from "@eoda/database";
+import type { DocumentCategory, DocumentStatus } from "@eoda/database";
+import { canAnswerNotConcerned, type MissingAnswer } from "@/lib/services/missing-answer-service";
 
 type Props = {
   establishmentId: string;
   documentTypeId: string;
   status: DocumentStatus;
+  category: DocumentCategory;
+  // « Je ne l'ai pas » déjà répondu (missing-answer-service).
+  declaredMissing: boolean;
   missingJustification: string | null;
   // Une version existe déjà : le commentaire reste corrigeable, mais la question
   // « ce document vous concerne-t-il ? » n'a plus de sens et ne doit surtout plus
@@ -41,6 +45,8 @@ export function MissingDocumentJustification({
   establishmentId,
   documentTypeId,
   status,
+  category,
+  declaredMissing,
   missingJustification,
   hasVersion = false,
 }: Props) {
@@ -50,10 +56,10 @@ export function MissingDocumentJustification({
   const [isPending, startTransition] = useTransition();
   const fieldId = useId();
 
-  function handleAnswer(applies: boolean) {
+  function handleAnswer(answer: MissingAnswer) {
     setError(null);
     startTransition(async () => {
-      const result = await respondToMissingDocument(establishmentId, documentTypeId, applies, comment);
+      const result = await respondToMissingDocument(establishmentId, documentTypeId, answer, comment);
       if (result && "error" in result) setError(result.error);
       else setSaved(true);
     });
@@ -71,37 +77,49 @@ export function MissingDocumentJustification({
     });
   }
 
-  const applies = status === "MISSING";
+  const willProvide = status === "MISSING" && !declaredMissing;
   const notApplicable = status === "NOT_APPLICABLE";
 
   return (
     <div className="mt-2 space-y-2 rounded-md bg-ivoire p-3">
       {!hasVersion && (
-        // `radiogroup` et non deux boutons : c'est un choix exclusif, et c'est ce que
-        // les lecteurs d'écran annoncent — « Oui, sélectionné, 1 sur 2 ».
-        <div role="radiogroup" aria-label="Ce document concerne-t-il votre structure ?">
-          <p className="mb-1.5 text-xs font-medium text-brun-ancre">
-            Ce document vous concerne-t-il ?
-          </p>
+        // `radiogroup` et non des boutons : c'est un choix exclusif, et c'est ce que
+        // les lecteurs d'écran annoncent — « Il arrive, sélectionné, 1 sur 3 ».
+        <div role="radiogroup" aria-label="Où en est ce document ?">
+          <p className="mb-1.5 text-xs font-medium text-brun-ancre">Où en est ce document ?</p>
           <div className="flex flex-wrap items-center gap-2">
             <ChoiceButton
-              selected={applies}
+              selected={willProvide}
               disabled={isPending}
-              onClick={() => handleAnswer(true)}
+              onClick={() => handleAnswer("WILL_PROVIDE")}
               icon={Check}
-              label="Oui"
-              hint="Il nous concerne, il n'est pas encore fourni"
+              label="Il arrive"
+              hint="La structure l'a, il n'est pas encore déposé"
             />
+            {/* « Je ne l'ai pas » : il reste visible, À PRODUIRE (N3) — ce n'est
+                plus « non concerné ». */}
             <ChoiceButton
-              selected={notApplicable}
+              selected={declaredMissing}
               disabled={isPending}
-              onClick={() => handleAnswer(false)}
-              icon={X}
-              label="Non"
-              hint="Il ne s'applique pas à notre structure"
+              onClick={() => handleAnswer("DONT_HAVE")}
+              icon={Check}
+              label="Je ne l'ai pas"
+              hint="Il est à produire"
             />
+            {/* Jamais proposé sur les sept documents de la loi 2002-2 — le serveur
+                le refuse de toute façon (missing-answer-service). */}
+            {canAnswerNotConcerned(category) && (
+              <ChoiceButton
+                selected={notApplicable}
+                disabled={isPending}
+                onClick={() => handleAnswer("NOT_CONCERNED")}
+                icon={X}
+                label="Non concerné"
+                hint="Il ne s'applique pas à cette structure"
+              />
+            )}
             {isPending && (
-              <Loader2 className="h-4 w-4 animate-spin text-gris-mid" aria-hidden="true" />
+              <Loader2 className="h-4 w-4 animate-spin text-ink2" aria-hidden="true" />
             )}
           </div>
         </div>
@@ -131,7 +149,7 @@ export function MissingDocumentJustification({
               : "Pourquoi il ne s'applique pas, ou bien où il en est de son côté…"
           }
         />
-        <p className="flex min-h-4 items-center gap-1.5 text-[11px] text-gris-mid">
+        <p className="flex min-h-4 items-center gap-1.5 text-sm text-ink2">
           {isPending ? (
             <>
               <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />
@@ -139,7 +157,7 @@ export function MissingDocumentJustification({
             </>
           ) : saved ? (
             // L'accusé qui manquait. `role="status"` : annoncé sans interrompre.
-            <span role="status" className="flex items-center gap-1.5 text-vert-ok">
+            <span role="status" className="flex items-center gap-1.5 text-ok-text">
               <CheckCircle2 className="h-3 w-3" aria-hidden="true" />
               Enregistré.
             </span>
@@ -186,10 +204,10 @@ function ChoiceButton({
       onClick={onClick}
       disabled={disabled}
       title={hint}
-      className={`inline-flex min-h-11 items-center gap-1.5 rounded-lg border px-3 py-2 text-xs transition-colors disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terre focus-visible:ring-offset-1 ${
+      className={`inline-flex min-h-11 items-center gap-1.5 rounded-lg border px-3 py-2 text-xs transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
         selected
-          ? "border-terre bg-terre/10 font-medium text-terre"
-          : "border-gris-light bg-surface text-gris-mid hover:border-terre/40 hover:text-brun-ancre"
+          ? "border-terre bg-terre/10 font-medium text-accent-text"
+          : "border-gris-light bg-surface text-ink2 hover:border-terre/40 hover:text-brun-ancre"
       }`}
     >
       <Icon
@@ -197,7 +215,7 @@ function ChoiceButton({
         aria-hidden="true"
       />
       <span>{label}</span>
-      <span className="hidden text-gris-mid sm:inline">— {hint}</span>
+      <span className="hidden text-ink2 sm:inline">— {hint}</span>
     </button>
   );
 }

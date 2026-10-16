@@ -1,251 +1,185 @@
+import Link from "next/link";
+import { requireClientEstablishment } from "@/lib/auth/guards";
+import { clientAllows, NEED } from "@/lib/auth/capabilities";
+import { LimitedClientHome } from "@/components/client/home/LimitedClientHome";
+import { getClientGreetingName } from "@/lib/actions/client-greeting";
 import { getClientChecklist } from "@/lib/actions/checklist";
 import { listClientAppointments } from "@/lib/actions/appointment";
-import { AppointmentList } from "@/components/agenda/AppointmentList";
-import { ChecklistCategory } from "@/components/checklist/ChecklistCategory";
-import { EstablishmentLogoForm } from "@/components/etablissement/EstablishmentLogoForm";
+import { getClientContract } from "@/lib/actions/client-contract";
 import {
   uploadEstablishmentLogoAsClient,
   removeEstablishmentLogoAsClient,
 } from "@/lib/actions/establishment";
-import { ProgressBar } from "@/components/ui/progress-bar";
-import { PageHeader } from "@/components/layout/PageHeader";
-import {
-  Building2,
-  AlertTriangle,
-  ShieldAlert,
-  ArrowDown,
-  CheckCircle2,
-  Clock,
-  Archive,
-  BellRing,
-  CalendarDays,
-  Image as ImageIcon,
-} from "lucide-react";
-import {
-  describeClientNextStep,
-  documentProgressPercent,
-  summariseDocumentObligations,
-} from "@/lib/services/client-contract-service";
-import type { DocumentCategory } from "@eoda/database";
+import { describeClientNextStep, summariseDocumentObligations } from "@/lib/services/client-contract-service";
 import { canDepositDocuments } from "@/lib/services/mission-access-service";
+import { flattenChecklist } from "@/lib/services/structure-documents-service";
+import {
+  buildClientWorkList,
+  countClientFilters,
+  depositNoticeFor,
+  describeWorkList,
+  documentsToDeposit,
+  greetingFor,
+  toClientDocumentRow,
+} from "@/lib/services/client-documents-view-service";
+import { SUPPORT_OPTION_CODE } from "@/lib/services/support-mode-service";
+import { CLIENT_DOCUMENTS_PATH } from "@/lib/design/client-navigation";
+import { EstablishmentLogoForm } from "@/components/etablissement/EstablishmentLogoForm";
+import { DepositButton } from "@/components/client/documents/DepositButton";
+import { AccompaniedHomeCard, AutonomyHomeCard } from "@/components/client/home/HomeSupportCards";
 
-export const metadata = { title: "Espace Client · EODA Conseil" };
+export const metadata = { title: "Accueil" };
 
-const CATEGORY_LABELS: Record<DocumentCategory, string> = {
-  LOI_2002_2: "Documents loi 2002-2 (droits des personnes accompagnées)",
-  FONCTIONNEMENT: "Fonctionnement de la structure",
-  QUALITE_RISQUES: "Démarche qualité et gestion des risques",
-  RH: "Ressources humaines",
-};
-
-// Loi 2002-2 ouverte par défaut — c'est la catégorie la plus structurante
-const DEFAULT_OPEN: DocumentCategory[] = ["LOI_2002_2"];
-
-export default async function ClientDashboardPage() {
-  // « Savoir quand sont ses prochains points, que ce soit en visio ou en présentiel. »
-  // Lecture seule : le client lit son agenda, il ne le pilote pas. Les deux lectures
-  // partent ensemble — l'agenda ne dépend pas de la checklist.
-  const [{ establishment, checklist, missionAccess, libraryUpdateAlert }, appointments] =
-    await Promise.all([getClientChecklist(), listClientAppointments(4)]);
+// ACCUEIL DU PORTAIL CLIENT (maquette « Portail Client v2 », R6).
+//
+// Une question d'abord : « et moi, qu'est-ce que j'ai à faire ? » (la prochaine
+// chose à faire), puis les pièces à déposer, puis l'encart propre au mode — liste de
+// travail et « Être accompagné » en autonomie, équipe EODA et rendez-vous en
+// accompagnement. L'anneau « critères impératifs prouvés » attend la tranche N4
+// (liaison type ↔ critère) : il n'est pas affiché tant qu'il ne peut pas être vrai.
+export default async function ClientHomePage() {
+  // Rôle d'accès d'abord (N9) : l'accueil complet lit les documents, les rendez-vous
+  // et le contrat ; un rôle qui n'a pas les documents (intervenant) reçoit un accueil
+  // réduit à ce qu'il peut faire — ses lectures gardées le renverraient ici en boucle.
+  const { accessRole } = await requireClientEstablishment("HOME");
+  if (accessRole && !clientAllows(accessRole, NEED.DOCUMENTS_READ)) {
+    return <LimitedClientHome accessRole={accessRole} firstName={await getClientGreetingName()} />;
+  }
+  const canSeeAppointments = !accessRole || clientAllows(accessRole, { module: "MESSAGES", mode: "READ" });
+  const canSeeContract = !accessRole || clientAllows(accessRole, { module: "CONTRACT", mode: "READ" });
+  const [data, appointments] = await Promise.all([
+    getClientChecklist(),
+    canSeeAppointments ? listClientAppointments(3) : Promise.resolve([]),
+  ]);
+  const { establishment, checklist, missionAccess, libraryUpdateAlert, supportMode, userName } = data;
 
   if (!establishment) {
     return (
-      <div className="space-y-6">
-        <PageHeader title="Espace Client" icon={Building2} accent="ambre" />
-        <div className="flex items-start gap-3 bg-ambre/10 border border-ambre/30 rounded-lg px-5 py-4">
-          <AlertTriangle className="w-5 h-5 text-ambre flex-shrink-0 mt-0.5" aria-hidden="true" />
-          <div className="text-sm">
-            <p className="font-semibold text-brun-ancre">Aucun établissement rattaché</p>
-            <p className="text-gris-mid">
-              Votre consultant EODA doit d&apos;abord vous rattacher à votre établissement.
-              Contactez-le à{" "}
-              <a href="mailto:EODAconseil@outlook.com" className="text-terre underline">
-                EODAconseil@outlook.com
-              </a>
-            </p>
-          </div>
-        </div>
+      <div className="space-y-3">
+        <h1 className="text-[36px] font-bold leading-tight">{greetingFor(userName)}</h1>
+        <p>Votre espace n&apos;est pas encore rattaché à une structure. Écrivez à EODA : EODAconseil@outlook.com.</p>
       </div>
     );
   }
 
-  const categories = Object.keys(CATEGORY_LABELS) as DocumentCategory[];
-  // Comptage délégué au service partagé avec « Mon suivi » : les deux
-  // pages du portail affichent les mêmes nombres, elles ne peuvent pas les
-  // recalculer chacune de son côté sans finir par diverger (D1).
-  const summary = summariseDocumentObligations(Object.values(checklist).flat());
-  const totalItems = summary.total;
-  const progressPct = documentProgressPercent(summary);
-
-  // Bibliothèque : la checklist reste lisible, les dépôts s'arrêtent.
+  const items = flattenChecklist(checklist);
+  const rows = items.map((item) => toClientDocumentRow(item, supportMode));
   const depositOpen = canDepositDocuments(missionAccess);
-  const nextStep = describeClientNextStep(summary, depositOpen);
+  const nextStep = describeClientNextStep(summariseDocumentObligations(items), depositOpen, supportMode);
+  const toDeposit = documentsToDeposit(rows, 4);
+  const counts = countClientFilters(rows);
+  const workList = buildClientWorkList(rows);
+  const first = toDeposit[0];
 
-  // Les quatre états RÉELS, plus deux regroupements qui mentaient.
-  //
-  // « Manquants » additionnait les pièces à fournir ET celles que le client avait déjà
-  // justifiées : il voyait « 5 manquants » après avoir répondu sur trois d'entre elles,
-  // et son travail ne se voyait nulle part. « En cours » mélangeait ce qu'EODA relit et
-  // ce qui ne s'applique pas à la structure — deux choses qui n'appellent pas du tout
-  // la même réaction.
-  //
-  // Le service produisait déjà ces quatre nombres séparément ; c'est l'écran qui les
-  // recollait.
-  // Même recette que les badges de statut (border/40 + bg/12, palette EODA) : les
-  // pastilles d'icône du tableau de bord étaient les mêmes teintes délavées à 10 %
-  // sans bordure que les badges — le même défaut, au même endroit où Sandrine l'a vu
-  // en premier (l'écran qui ouvre le portail client).
-  const stats = [
-    {
-      label: "À déposer",
-      value: summary.toDeposit,
-      icon: AlertTriangle,
-      color: "text-rouge-imp bg-rouge-imp/12 border border-rouge-imp/40",
-    },
-    {
-      label: "En cours de relecture",
-      value: summary.inReview,
-      icon: Clock,
-      color: "text-terre bg-terre/12 border border-terre/40",
-    },
-    {
-      label: "Conformes",
-      value: summary.compliant,
-      icon: CheckCircle2,
-      color: "text-vert-ok bg-vert-ok/12 border border-vert-ok/40",
-    },
-    {
-      label: "Non concernés",
-      value: summary.justified + summary.notApplicable,
-      icon: Archive,
-      color: "text-gris-mid bg-gris-light/60 border border-gris-mid/20",
-    },
-  ];
+  // « Être accompagné » : la ligne de catalogue, si Sandrine l'a créée.
+  const supportOption =
+    supportMode === "AUTONOMIE" && canSeeContract
+      ? ((await getClientContract()).availableOptions.find((option) => option.code === SUPPORT_OPTION_CODE) ?? null)
+      : null;
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title={establishment.name}
-        subtitle="Checklist documentaire — Préparation évaluation HAS"
-        icon={Building2}
-        accent="ambre"
-      />
-
-      {/* CE QU'IL RESTE À FAIRE, avant tout le reste.
-          Le portail disait où en était le dossier — quatre nombres et une barre — sans
-          jamais répondre à la question qui amène le client ici : « et moi, qu'est-ce
-          que j'ai à faire ? ». Il fallait la reconstituer en comparant des compteurs,
-          ce qui est exactement le travail qu'un portail existe pour éviter. */}
-      {nextStep && (
-        <div
-          className={`flex items-start gap-3 rounded-lg border px-5 py-4 ${
-            nextStep.tone === "ACTION"
-              ? "border-terre/40 bg-terre/[0.07]"
-              : "border-gris-light bg-surface"
-          }`}
-        >
-          {nextStep.tone === "ACTION" ? (
-            <ArrowDown className="mt-0.5 h-5 w-5 flex-shrink-0 text-terre" aria-hidden="true" />
-          ) : (
-            <CheckCircle2 className="mt-0.5 h-5 w-5 flex-shrink-0 text-vert-ok" aria-hidden="true" />
-          )}
-          <div className="text-sm">
-            <p className="font-semibold text-brun-ancre">{nextStep.title}</p>
-            <p className="text-gris-mid">{nextStep.detail}</p>
-          </div>
-        </div>
-      )}
-
-      {/* Fin d'accompagnement — dit ce qui change ET ce qui ne change pas. Un
-          portail qui se ferme sans explication ressemble à une panne. */}
-      {!depositOpen && (
-        <div className="flex items-start gap-3 bg-ivoire border border-gris-light rounded-lg px-5 py-4">
-          <Archive className="w-5 h-5 text-ambre flex-shrink-0 mt-0.5" aria-hidden="true" />
-          <div className="text-sm">
-            <p className="font-semibold text-brun-ancre">Accompagnement terminé</p>
-            <p className="text-gris-mid">
-              Vos documents restent consultables et téléchargeables. Aucun nouveau dépôt
-              n&apos;est possible : contactez votre consultant EODA pour reprendre un
-              accompagnement.
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* Alerte du 5ᵉ mois (§12.5) : rien ne se ferme, mais des documents figés
-          depuis cinq mois commencent à dater — le référentiel HAS évolue. */}
-      {libraryUpdateAlert && (
-        <div className="flex items-start gap-3 bg-ambre/10 border border-ambre/30 rounded-lg px-5 py-4">
-          <BellRing className="w-5 h-5 text-ambre flex-shrink-0 mt-0.5" aria-hidden="true" />
-          <div className="text-sm">
-            <p className="font-semibold text-brun-ancre">Vos documents datent de plus de cinq mois</p>
-            <p className="text-gris-mid">
-              Le référentiel HAS et les obligations documentaires évoluent. Un point de
-              mise à jour avec EODA Conseil permet de vérifier que votre bibliothèque
-              est toujours à jour.
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* Prochains rendez-vous, avant la checklist : c'est la question qu'on se pose
-          en ouvrant son espace, et la seule à laquelle une date répond. */}
-      <section className="bg-surface border border-gris-light rounded-xl p-5 space-y-4">
-        <div className="flex items-center gap-2">
-          <CalendarDays className="w-4 h-4 text-terre" aria-hidden="true" />
-          <h2 className="text-sm font-semibold text-brun-ancre">Vos prochains rendez-vous</h2>
-        </div>
-        <AppointmentList
-          appointments={appointments}
-          readOnly
-          emptyMessage="Aucun rendez-vous programmé pour l'instant. Votre consultant EODA vous proposera les prochaines dates."
-        />
-      </section>
-
-      {/* Progression globale */}
-      <div className="bg-surface border border-gris-light rounded-xl p-5 space-y-4">
-        <div className="flex items-center justify-between text-sm">
-          <span className="font-medium text-brun-ancre">Progression globale</span>
-          <span className="text-gris-mid tabular-nums">
-            {summary.compliant} / {totalItems} documents conformes
-          </span>
-        </div>
-        <ProgressBar value={progressPct} colorClassName="bg-vert-ok" />
-        <div className="grid grid-cols-2 gap-3 pt-1 sm:grid-cols-4">
-          {stats.map(({ label, value, icon: Icon, color }) => (
-            <div key={label} className="flex items-center gap-2.5">
-              <span className={`flex items-center justify-center w-8 h-8 rounded-lg flex-shrink-0 ${color}`}>
-                <Icon className="w-4 h-4" aria-hidden="true" />
-              </span>
-              <div className="min-w-0">
-                <p className="text-sm font-semibold text-brun-ancre tabular-nums leading-none">{value}</p>
-                <p className="text-xs text-gris-mid leading-none mt-1">{label}</p>
-              </div>
-            </div>
-          ))}
-        </div>
+    <div className="flex flex-col gap-7">
+      <div>
+        <h1 className="text-[36px] font-bold leading-tight">{greetingFor(userName)}</h1>
+        <p className="mt-2 max-w-[60ch] text-[21px]">
+          {counts.accepte} document{counts.accepte > 1 ? "s" : ""} accepté{counts.accepte > 1 ? "s" : ""}.{" "}
+          {counts["a-deposer"]} à déposer.
+        </p>
       </div>
 
-      {/* Avertissement déontologique */}
-      <p className="flex items-start gap-2 text-xs text-gris-mid bg-ivoire border border-gris-light rounded-lg px-4 py-3">
-        <ShieldAlert className="w-4 h-4 flex-shrink-0 mt-0.5" aria-hidden="true" />
-        Outil de préparation interne EODA Conseil · Auto-évaluation préparatoire uniquement ·
-        Non officiel HAS · Les statuts affichés sont indicatifs et n&apos;engagent pas EODA Conseil.
-      </p>
+      {!depositOpen && (
+        <p className="rounded-xl border border-line bg-soft px-5 py-4">
+          L&apos;accompagnement est terminé. Vos documents restent consultables. Aucun nouveau dépôt n&apos;est
+          possible. Écrivez à EODA pour reprendre.
+        </p>
+      )}
 
-      {/* Logo de la structure — jusqu'ici, seul le cabinet pouvait le déposer, alors
-          que c'est VOTRE identité visuelle. Masqué en bibliothèque (lecture seule) :
-          l'action serveur le refuserait de toute façon (canDepositDocuments). */}
-      {depositOpen && (
-        <div className="bg-surface border border-gris-light rounded-xl p-5 space-y-4">
-          <div className="flex items-center gap-2">
-            <ImageIcon className="w-4 h-4 text-terre" aria-hidden="true" />
-            <h2 className="text-sm font-semibold text-brun-ancre">Logo de votre structure</h2>
+      {libraryUpdateAlert && (
+        <p className="rounded-xl border border-ambre bg-amber-fill px-5 py-4">
+          <strong>Vos documents datent de plus de cinq mois.</strong> Le référentiel HAS évolue. Un point avec EODA
+          permet de vérifier qu&apos;ils sont à jour.
+        </p>
+      )}
+
+      {nextStep && (
+        <section
+          aria-labelledby="prochaine-etape"
+          className={`flex flex-col gap-3.5 rounded-2xl bg-card p-7 ${
+            nextStep.tone === "ACTION" ? "border-2 border-accent-fill" : "border border-line"
+          }`}
+        >
+          <p className="text-[17px] font-bold text-accent-text">La prochaine chose à faire</p>
+          <h2 id="prochaine-etape" className="text-[28px] font-bold leading-tight">
+            {first && nextStep.tone === "ACTION" ? `Déposer : ${first.label}` : nextStep.title}
+          </h2>
+          <p>{nextStep.detail}</p>
+          {first && depositOpen && (
+            <div className="mt-1.5">
+              <DepositButton
+                establishmentId={establishment.id}
+                documentTypeId={first.documentTypeId}
+                documentLabel={first.label}
+                notice={depositNoticeFor(first.code)}
+                label="Déposer ce document"
+                large
+              />
+            </div>
+          )}
+        </section>
+      )}
+
+      <section aria-labelledby="a-deposer" className="flex flex-col gap-3">
+        <div className="flex flex-wrap items-baseline justify-between gap-3">
+          <h2 id="a-deposer" className="text-2xl font-bold">
+            Documents à déposer
+          </h2>
+          <Link href={CLIENT_DOCUMENTS_PATH} className="py-2.5 text-lg font-bold text-accent-text">
+            Tous mes documents →
+          </Link>
+        </div>
+        {toDeposit.length === 0 ? (
+          <div className="rounded-xl border border-line bg-card p-6 text-center">
+            <p className="font-bold">Tous les documents sont déposés.</p>
+            <p className="text-ink2">Vérifiez les analyses dans « Mes documents ».</p>
           </div>
-          <p className="text-xs text-gris-mid">
-            Il figure sur les documents qu&apos;EODA Conseil produit pour votre
-            structure, à côté du logo EODA. Déposez-en un meilleur à tout moment.
-          </p>
+        ) : (
+          toDeposit.map((row) => (
+            <div key={row.documentTypeId} className="flex flex-wrap items-center gap-4 rounded-xl border border-line bg-card px-5 py-4">
+              <div className="flex min-w-[240px] flex-1 flex-col">
+                <span className="font-bold">{row.label}</span>
+                {depositNoticeFor(row.code) && <span className="text-base text-ink2">{depositNoticeFor(row.code)}</span>}
+              </div>
+              {depositOpen && (
+                <DepositButton
+                  establishmentId={establishment.id}
+                  documentTypeId={row.documentTypeId}
+                  documentLabel={row.label}
+                  notice={depositNoticeFor(row.code)}
+                />
+              )}
+            </div>
+          ))
+        )}
+      </section>
+
+      {supportMode === "AUTONOMIE" ? (
+        <AutonomyHomeCard
+          workTitle={describeWorkList(workList.length)}
+          hasWork={workList.length > 0}
+          supportOption={supportOption}
+        />
+      ) : (
+        <AccompaniedHomeCard appointments={appointments} />
+      )}
+
+      {/* Le logo de la structure : son identité, déposée par elle. Masqué en
+          bibliothèque — l'action serveur le refuserait de toute façon. */}
+      {depositOpen && (!accessRole || clientAllows(accessRole, NEED.ACCESS_WRITE)) && (
+        <section aria-labelledby="logo" className="flex flex-col gap-3 rounded-xl border border-line bg-card p-5">
+          <h2 id="logo" className="text-xl font-bold">
+            Logo de votre structure
+          </h2>
+          <p className="text-base text-ink2">Il figure sur les documents produits pour vous, à côté du logo EODA.</p>
           <EstablishmentLogoForm
             establishmentId={establishment.id}
             establishmentName={establishment.name}
@@ -253,26 +187,12 @@ export default async function ClientDashboardPage() {
             uploadAction={uploadEstablishmentLogoAsClient}
             removeAction={removeEstablishmentLogoAsClient}
           />
-        </div>
+        </section>
       )}
 
-      {/* Checklist par catégorie */}
-      <div className="space-y-3">
-        {categories.map((cat) => {
-          const items = checklist[cat] ?? [];
-          if (items.length === 0) return null;
-          return (
-            <ChecklistCategory
-              key={cat}
-              title={CATEGORY_LABELS[cat]}
-              items={items}
-              defaultOpen={DEFAULT_OPEN.includes(cat)}
-              establishmentId={establishment.id}
-              canDeposit={depositOpen}
-            />
-          );
-        })}
-      </div>
+      <p className="text-base text-ink2">
+        Outil de préparation EODA Conseil. Ce n&apos;est pas une évaluation officielle de la HAS.
+      </p>
     </div>
   );
 }

@@ -51,5 +51,7 @@ export type {
   RawCriterionSuggestion,
   DocumentGenerationInput,
 } from "./llm-analysis-port";
+export type { ValidatedExample } from "./llm-analysis-port";
+export type { CorrectionProposal, ProposalSegment, AdditionSegment } from "./correction-proposal";
 export { LLM_MODEL_OPTIONS, DEFAULT_LLM_MODEL_ID, isKnownLlmModelId } from "./openrouter-models";
 export type { LlmModelOption } from "./openrouter-models";

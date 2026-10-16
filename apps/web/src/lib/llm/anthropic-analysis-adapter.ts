@@ -10,12 +10,13 @@ import {
   normalizeCriteriaCoverage,
   normalizeCriterionSuggestions,
 } from "./llm-analysis-port";
+import { buildSystemPrompt, buildUserMessage } from "./analysis-prompt";
+import { buildGenerationSystemPrompt, buildGenerationUserMessage } from "./generation-prompt";
 import {
-  buildSystemPrompt,
-  buildUserMessage,
-  buildGenerationSystemPrompt,
-  buildGenerationUserMessage,
-} from "./analysis-prompt";
+  CORRECTION_PROPOSAL_JSON_SCHEMA,
+  parseCorrectionProposalJson,
+  type CorrectionProposal,
+} from "./correction-proposal";
 
 // Modèle par défaut : Claude Opus 5. Surchargeable par ANTHROPIC_MODEL (cf. .env.example)
 // si un arbitrage coût/qualité est décidé — l'appelant métier n'en sait rien.
@@ -149,14 +150,14 @@ export class AnthropicAnalysisAdapter implements LLMAnalysisPort {
     };
   }
 
-  async generateCorrectedDocument(input: DocumentGenerationInput): Promise<string> {
+  async generateCorrectedDocument(input: DocumentGenerationInput): Promise<CorrectionProposal> {
     const response = await this.client.messages.create({
       model: this.model,
       max_tokens: GENERATION_MAX_TOKENS,
       system: buildGenerationSystemPrompt(),
       messages: [{ role: "user", content: buildGenerationUserMessage(input) }],
-      // Pas de `output_config` ici : un document est du texte libre, pas du JSON —
-      // contrairement à `analyze()` ci-dessus.
+      // Sortie STRUCTURÉE (N8) : le document en segments ORIGINAL / AJOUT.
+      output_config: { format: { type: "json_schema", schema: CORRECTION_PROPOSAL_JSON_SCHEMA } },
     });
 
     if (response.stop_reason === "refusal") {
@@ -171,6 +172,6 @@ export class AnthropicAnalysisAdapter implements LLMAnalysisPort {
       throw new Error("Réponse de génération sans contenu texte exploitable.");
     }
 
-    return textBlock.text.trim();
+    return parseCorrectionProposalJson(textBlock.text);
   }
 }

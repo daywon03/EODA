@@ -1,5 +1,6 @@
 "use client";
 
+import { submitWithoutReset } from "@/lib/forms/submit-without-reset";
 import { useActionState, useState } from "react";
 import { upsertCatalogueFormule } from "@/lib/actions/catalogue";
 import { formatStartingPrice } from "@/lib/services/price-format-service";
@@ -16,15 +17,15 @@ export function CatalogueFormuleForm({ formule }: { formule: CatalogueFormule })
   const [priceEuros, setPriceEuros] = useState(formule.priceEuros);
 
   return (
-    <form action={formAction} className="border border-gris-light rounded-xl p-4 space-y-3">
+    <form method="post" onSubmit={submitWithoutReset(formAction)} className="space-y-3">
       <input type="hidden" name="formule" value={formule.formule} />
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 gap-3">
         <div className="space-y-1">
           <Label htmlFor={`label-${formule.id}`}>Libellé</Label>
           <Input id={`label-${formule.id}`} name="label" defaultValue={formule.label} disabled={isPending} />
         </div>
         <div className="space-y-1">
-          <Label htmlFor={`price-${formule.id}`}>Prix (€)</Label>
+          <Label htmlFor={`price-${formule.id}`}>Forfait d&apos;accompagnement (€)</Label>
           <Input
             id={`price-${formule.id}`}
             name="priceEuros"
@@ -34,8 +35,8 @@ export function CatalogueFormuleForm({ formule }: { formule: CatalogueFormule })
             onChange={(e) => setPriceEuros(Number(e.target.value))}
             disabled={isPending}
           />
-          <p className="text-xs text-gris-mid">
-            Affiché au client : <span className="text-brun-ancre">{formatStartingPrice({ priceEuros })}</span>
+          <p className="text-sm text-ink2">
+            Affiché au client : <span className="text-ink">{formatStartingPrice({ priceEuros })}</span>
           </p>
         </div>
         <div className="space-y-1">
@@ -48,7 +49,7 @@ export function CatalogueFormuleForm({ formule }: { formule: CatalogueFormule })
         <Input id={`description-${formule.id}`} name="description" defaultValue={formule.description ?? undefined} disabled={isPending} />
       </div>
       {state?.error && (
-        <p role="alert" className="flex items-center gap-1 text-xs text-rouge-imp">
+        <p role="alert" className="flex items-center gap-1 text-sm text-danger-text">
           <AlertCircle className="w-3 h-3 flex-shrink-0" aria-hidden="true" />
           {state.error}
         </p>

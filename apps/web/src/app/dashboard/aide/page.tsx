@@ -4,7 +4,7 @@ import { HelpArticleList } from "@/components/help/HelpArticleList";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { LifeBuoy } from "lucide-react";
 
-export const metadata = { title: "Aide et guide · EODA Conseil" };
+export const metadata = { title: "Aide et guide" };
 
 export default async function HelpCenterPage() {
   // Le rôle vient de la couche d'autorisation (relu en base), jamais du client :
@@ -23,7 +23,7 @@ export default async function HelpCenterPage() {
 
       <HelpArticleList articles={articles} />
 
-      <p className="text-xs text-gris-mid bg-ivoire border border-gris-light rounded-lg px-4 py-3">
+      <p className="text-xs text-ink2 bg-ivoire border border-gris-light rounded-lg px-4 py-3">
         Outil de préparation interne EODA Conseil · Auto-évaluation préparatoire uniquement ·
         Non officiel HAS.
       </p>

@@ -1,5 +1,6 @@
 "use client";
 
+import { submitWithoutReset } from "@/lib/forms/submit-without-reset";
 import { useActionState, useState } from "react";
 import { createTemplate, type CategorySummary } from "@/lib/actions/template-library";
 import {
@@ -28,14 +29,14 @@ export function TemplateForm({ categories }: { categories: CategorySummary[] }) 
 
   if (categories.length === 0) {
     return (
-      <p className="text-sm text-gris-mid">
+      <p className="text-sm text-ink2">
         Créez d&apos;abord un dossier : une fiche se range forcément quelque part.
       </p>
     );
   }
 
   return (
-    <form action={formAction} className="space-y-4">
+    <form method="post" onSubmit={submitWithoutReset(formAction)} className="space-y-4">
       <div className="space-y-1.5">
         <Label htmlFor="titles">
           Titre(s) du modèle <span className="text-rouge-imp">*</span>
@@ -49,7 +50,7 @@ export function TemplateForm({ categories }: { categories: CategorySummary[] }) 
           required
           disabled={isPending}
         />
-        <p className="text-xs text-gris-mid">
+        <p className="text-xs text-ink2">
           Un titre par ligne pour créer plusieurs fiches d&apos;un coup — toutes dans le
           même dossier, de la même nature. Chaque fiche reste à remplir de fichiers
           ensuite.
@@ -94,7 +95,7 @@ export function TemplateForm({ categories }: { categories: CategorySummary[] }) 
         </Select>
         {/* La conséquence du choix, affichée au moment du choix : « document de
             référence » ne dit pas de lui-même qu'il n'aura ni stade ni version. */}
-        <p className="text-xs text-gris-mid">
+        <p className="text-xs text-ink2">
           {kind === "REFERENCE" ? TEMPLATE_KIND_HINTS.REFERENCE : TEMPLATE_KIND_HINTS.GABARIT}
         </p>
       </div>

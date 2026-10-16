@@ -9,8 +9,8 @@ import { suggestDocumentType } from "./document-categorization-service";
 
 describe("anonymizeText — masquage avant appel LLM externe", () => {
   it("masque une adresse email", () => {
-    const result = anonymizeText("Contact : julien.chevalier@exemple.fr pour toute question.");
-    expect(result).not.toContain("julien.chevalier@exemple.fr");
+    const result = anonymizeText("Contact : alex.martin@exemple.fr pour toute question.");
+    expect(result).not.toContain("alex.martin@exemple.fr");
     expect(result).toContain("[email masqué]");
   });
 

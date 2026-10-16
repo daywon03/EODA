@@ -19,9 +19,14 @@ const CardHeader = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDiv
 );
 CardHeader.displayName = "CardHeader";
 
-const CardTitle = React.forwardRef<HTMLParagraphElement, React.HTMLAttributes<HTMLHeadingElement>>(
-  ({ className, ...props }, ref) => (
-    <h3
+// Le niveau de titre suit la PAGE, pas le composant : une carte posée juste sous
+// le h1 d'un écran titre en h2 (`as="h2"`), sinon les lecteurs d'écran annoncent
+// un saut de niveau. h3 reste le défaut pour ne déplacer aucun écran existant.
+type CardTitleProps = React.HTMLAttributes<HTMLHeadingElement> & { as?: "h2" | "h3" };
+
+const CardTitle = React.forwardRef<HTMLHeadingElement, CardTitleProps>(
+  ({ className, as: Heading = "h3", ...props }, ref) => (
+    <Heading
       ref={ref}
       className={cn("text-lg font-semibold leading-none tracking-tight text-brun-ancre", className)}
       {...props}
@@ -34,7 +39,7 @@ const CardDescription = React.forwardRef<
   HTMLParagraphElement,
   React.HTMLAttributes<HTMLParagraphElement>
 >(({ className, ...props }, ref) => (
-  <p ref={ref} className={cn("text-sm text-gris-mid", className)} {...props} />
+  <p ref={ref} className={cn("text-sm text-ink2", className)} {...props} />
 ));
 CardDescription.displayName = "CardDescription";
 

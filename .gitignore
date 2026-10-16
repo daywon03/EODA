@@ -40,8 +40,20 @@ apps/web/.local-storage/
 # cf. CLAUDE.md §7. Utilisés en local uniquement pour extraire le contenu générique du
 # référentiel HAS vers les scripts de seed.
 .claude/context/Documents/
+# Même règle pour le second dossier de documents de travail (modes opératoires, PAP,
+# enquêtes ASSAD — potentiellement nominatifs, donc données de santé) : ils partent en
+# base par la bibliothèque, jamais dans le dépôt.
+context2/
+# Paquets de remise Claude Design (brief interne, captures d'écran) : sources de travail,
+# pas du code. Les maquettes retenues se versionnent sous .claude/design/, une fois relues.
+*-handoff.zip
 # Ajouté par `vercel link` : identifiants du projet Vercel, propres à cette machine.
 .vercel
+
+# Rapports Lighthouse de l'audit d'accessibilité (outil impeccable) : mesures locales,
+# 3,8 Mo de HTML et de JSON, régénérables. Le résultat de l'audit se versionne dans les
+# correctifs qu'il a produits, pas dans ses relevés.
+.impeccable/
 
 # Le motif `.env.local` ne couvre PAS `.env.local.bak` ni `.env.local.old`. Une copie
 # de sauvegarde du fichier de secrets serait donc committable. Fermé explicitement.

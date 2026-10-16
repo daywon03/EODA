@@ -27,7 +27,7 @@ vi.mock("next/navigation", () => ({
   },
 }));
 vi.mock("@/lib/auth/guards", () => ({
-  requireCabinetAdminSession: () => requireCabinetAdminSession(),
+  requireCommercialSession: () => requireCabinetAdminSession(),
 }));
 vi.mock("@/lib/services/audit-log-service", () => ({
   recordAuditEvent: (...args: unknown[]) => recordAuditEvent(...args),

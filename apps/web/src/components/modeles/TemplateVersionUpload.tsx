@@ -1,5 +1,6 @@
 "use client";
 
+import { submitWithoutReset } from "@/lib/forms/submit-without-reset";
 import { useActionState, useRef, useState, useTransition } from "react";
 import { uploadTemplateVersion } from "@/lib/actions/template-library";
 import type { TemplateDocumentKind } from "@eoda/database";
@@ -115,7 +116,7 @@ function ReferenceUpload({ templateId }: { templateId: string }) {
           maxLength={40}
           disabled={isPending}
         />
-        <p className="text-xs text-gris-mid">
+        <p className="text-xs text-ink2">
           Facultatif — de quoi distinguer deux éditions du même document. EODA ne
           numérote pas les versions d&apos;un document qu&apos;elle ne produit pas.
           Partagée par tous les fichiers déposés ensemble ici.
@@ -179,7 +180,7 @@ function ReferenceUpload({ templateId }: { templateId: string }) {
             Choisir un dossier
           </Button>
         </div>
-        <p className="text-xs text-gris-mid">
+        <p className="text-xs text-ink2">
           Word, Excel, PDF — 20 Mo au plus par fichier. Chaque fichier devient son
           propre fichier de ce modèle.
         </p>
@@ -211,7 +212,7 @@ function ReferenceUpload({ templateId }: { templateId: string }) {
       {outcome && (
         <div role="status" className="space-y-1 text-xs">
           {outcome.done > 0 && (
-            <p className="flex items-center gap-1.5 text-vert-ok">
+            <p className="flex items-center gap-1.5 text-ok-text">
               <CheckCircle2 className="h-3.5 w-3.5 flex-shrink-0" aria-hidden="true" />
               {outcome.done} fichier{outcome.done > 1 ? "s" : ""} déposé
               {outcome.done > 1 ? "s" : ""}.
@@ -248,7 +249,7 @@ function GabaritUpload({ templateId }: { templateId: string }) {
   );
 
   return (
-    <form ref={formRef} action={formAction} className="space-y-4">
+    <form ref={formRef} method="post" onSubmit={submitWithoutReset(formAction)} className="space-y-4">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="space-y-1.5">
           <Label htmlFor="stage">
@@ -263,7 +264,7 @@ function GabaritUpload({ templateId }: { templateId: string }) {
           </Select>
           {/* Les trois stades se ressemblent et leur ordre n'est pas évident : sans
               explication, la bibliothèque se remplit de fichiers rangés au hasard. */}
-          <ul className="space-y-0.5 text-xs text-gris-mid">
+          <ul className="space-y-0.5 text-xs text-ink2">
             {TEMPLATE_STAGES.map((stage) => (
               <li key={stage}>
                 <span className="font-medium">{TEMPLATE_STAGE_LABELS[stage]}</span> —{" "}
@@ -285,7 +286,7 @@ function GabaritUpload({ templateId }: { templateId: string }) {
             required
             disabled={isPending}
           />
-          <p className="text-xs text-gris-mid">
+          <p className="text-xs text-ink2">
             C&apos;est vous qui décidez de la portée du changement : une correction de
             forme n&apos;est pas une refonte.
           </p>
@@ -318,7 +319,7 @@ function GabaritUpload({ templateId }: { templateId: string }) {
           required
           disabled={isPending}
         />
-        <p className="text-xs text-gris-mid">
+        <p className="text-xs text-ink2">
           Word, Excel, PDF — 20 Mo au plus. Vous continuez à travailler dans vos outils
           habituels.
         </p>

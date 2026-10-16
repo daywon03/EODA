@@ -126,7 +126,7 @@ describe("toSafeFilenameSegment", () => {
   });
 
   it("remplace les caractères non ASCII sans produire de nom vide", () => {
-    expect(toSafeFilenameSegment("Livret d'accueil — ASSAD.pdf")).toMatch(/^[a-zA-Z0-9._-]+$/);
+    expect(toSafeFilenameSegment("Livret d'accueil — Glycines.pdf")).toMatch(/^[a-zA-Z0-9._-]+$/);
     expect(toSafeFilenameSegment("日本語")).toBe("document");
   });
 

@@ -57,3 +57,70 @@ elle-même (juste sans le contexte des critères), les guidelines du cabinet (cr
 et listables dès aujourd'hui, cf. `criterion-guideline-service.ts`). Rien ne bloque
 tant que cette spec n'est pas traitée — c'est un manque de qualité de l'analyse, pas
 un manque de fonctionnement.
+
+## Proposition de contenu (08/10/2026)
+
+La matrice promise par Sandrine **existe** : c'est le tableau de suivi de la mission pilote
+(`context/Documents/20260915_SUIVI_ASSAD-BENOIT_Criteres-HAS_v01_Interne.xlsx`, colonne I
+de l'onglet « Index référentiel complet », colonne J de « Critères Impératifs »). Elle a
+été convertie en proposition générique, **sans aucune donnée du client** :
+
+- `specs/data/20261008_proposition-document-type-criterion.csv` — **207 rattachements**
+  (110 HAUTE, 87 MOYENNE, 10 BASSE) ; 36 des 47 `DocumentType` couverts ; les 16 impératifs
+  du SAD aide couverts. Les lignes MOYENNE/BASSE (blocs recopiés sur tout un objectif,
+  type utilisé hors de son objectif) sont à valider une à une par Sandrine.
+- `specs/data/20261008_candidats-types-de-document.csv` — 46 documents cités comme preuves
+  sans `DocumentType` (grille d'évaluation des besoins, fiche de tâches, note de service,
+  fiche de sensibilisation, règlement intérieur, PAP…).
+- `specs/data/20261008_criteres-manuel-has-niveau-champ.csv` — les **157 critères du
+  manuel HAS** avec niveau et champ d'application lus dans la mise en forme du PDF
+  (option retenue = bleu foncé + gras). Filtre SAD aide = exactement 137 critères (les
+  grilles Synaé) ; SAD mixte = 150.
+
+Chargement : par l'écran d'administration prévu ci-dessus (import de cette proposition,
+puis validation ligne à ligne), **jamais** par un seed sur la base partagée.
+
+## Chargeable par écran — fait le 11/10/2026 (tranche N4)
+
+- **Écran** `/dashboard/cabinet/criteres` (« Matrice des critères », CABINET_ADMIN seul —
+  garde `requireCabinetAdminSession` dans la page ET dans chaque action). La proposition
+  est **embarquée** (`apps/web/src/content/criteres/matrice-proposition.ts`, copie exacte
+  du CSV, fins de ligne en LF — `criterion-matrix-service.test.ts` échoue si elle
+  diverge de la source). Pas de `xlsx`, pas d'accès disque à l'exécution.
+- Une carte par type de document ; cases de confiance HAUTE ou déjà rattachées cochées
+  d'office ; **« Valider ce type »** écrit dans `DocumentTypeCriterion` par action serveur
+  (`validateMatrixForDocumentType`) : seuls les critères **proposés pour ce type et
+  présents en base** sont décidables (`planMatrixDecision`) ; un proposé décoché est
+  retiré ; un rattachement non proposé (promu) n'est jamais touché. Audit
+  `DOCUMENT_TYPE_CRITERIA_UPDATED` (`code · +n −m`).
+- Codes absents du référentiel en base → liste « non applicables à ce référentiel »,
+  jamais écrits ; types inconnus → signalés, jamais créés. Les remarques qui citent le
+  sigle erroné du fichier source sont nettoyées à la lecture (`sanitizeRemark`).
+- **Promotion** : une suggestion de critère **confirmée** sur un document d'une structure
+  du cabinet peut être « ajoutée à la matrice » (`promoteCriterionSuggestion`, audit
+  `DOCUMENT_TYPE_CRITERION_PROMOTED`).
+- **Rien n'est encore validé en base** : l'écran existe, la décision reste à Sandrine.
+
+## La matrice atteint bien le prompt — vérifié le 16/10/2026
+
+Reste ouvert : *la* question de cette spec — une matrice saisie mais jamais lue serait un
+levier mort. Vérification faite, la chaîne complète fonctionne :
+
+- lecture à chaque analyse, pour LE type du document
+  (`prisma.documentTypeCriterion.findMany({ where: { documentTypeId } })`,
+  `document-ingestion-service.ts` § `analyzeVersion`) ;
+- injection dans le message utilisateur sous « Critères HAS rattachés à ce type de
+  document : », par les DEUX adaptateurs d'analyse (Anthropic direct et OpenRouter) ;
+- matrice vide → « aucun rattachement connu », une phrase et non une valeur absente : le
+  cas réel d'aujourd'hui, pour presque tous les types ;
+- aucun écriture par seed ni migration : seuls `validateMatrixForDocumentType` et
+  `promoteCriterionSuggestion` alimentent la table (cf. N4 ci-dessus).
+
+**Ce qui manquait n'était pas le code, c'était le verrou** : aucun test ne couvrait le
+maillon « matrice lue → injectée ». Supprimer le `findMany` ou la ligne du prompt passait
+au vert. Deux tests l'empêchent désormais — `document-ingestion-service.test.ts` (la
+matrice lue en base arrive dans le port d'analyse, filtrée sur le type, et rien n'est
+inventé quand elle est vide) et `analysis-prompt.test.ts` (le rendu de la ligne). Corrigé
+au passage : `fetchKnowledgeExcerpts` résolvait son port **hors** de son `try`, si bien
+qu'une configuration incomplète faisait échouer l'analyse entière au lieu de la priver
+d'enrichissement — contraire à sa propre doctrine.

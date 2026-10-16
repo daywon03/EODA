@@ -3,7 +3,7 @@
 import { prisma, type EstablishmentType, type StructureType } from "@eoda/database";
 import { notFound } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { requireCabinetAdminSession } from "@/lib/auth/guards";
+import { requireCommercialSession } from "@/lib/auth/guards";
 import {
   isDiscoveryStarted,
   normaliseDiscoveryAnswers,
@@ -40,7 +40,7 @@ export type DiscoveryReadResult = {
 };
 
 export async function getDiscoveryAnswers(prospectId: string): Promise<DiscoveryReadResult> {
-  const { tenantId } = await requireCabinetAdminSession();
+  const { tenantId } = await requireCommercialSession();
 
   const prospect = await prisma.prospect.findFirst({
     where: { id: prospectId, tenantId },
@@ -79,7 +79,7 @@ export async function saveDiscoveryAnswers(
   _prevState: { error: string } | { ok: true } | null,
   formData: FormData
 ): Promise<{ error: string } | { ok: true }> {
-  const { tenantId, userId } = await requireCabinetAdminSession();
+  const { tenantId, userId } = await requireCommercialSession();
 
   // `prospectId` vient d'une route HTTP publique : l'appartenance au tenant se
   // vérifie en base, elle ne se déduit pas du fait que l'écran l'a affiché.

@@ -1,15 +1,37 @@
 import { cache } from "react";
-import { prisma, type EstablishmentType, type UserRole } from "@eoda/database";
+import { prisma, type CommercialTier, type EstablishmentType, type UserRole } from "@eoda/database";
 import type { Session } from "next-auth";
 import { auth } from "@/auth";
 import { redirect, notFound } from "next/navigation";
+import { cookies } from "next/headers";
 import { PASSWORD_ROTATION_PATH, SIGN_OUT_PATH } from "./routes";
+import { getEnv } from "@/lib/config/env";
+import { hashOneTimeToken, isOneTimeTokenWellFormed } from "@/lib/security/one-time-token";
+import { DEVICE_COOKIE, readTabletSessionToken, TABLET_SESSION_COOKIE } from "@/lib/security/tablet-session";
 import {
   canClientRead,
   deriveMissionAccessState,
   type MissionAccessFacts,
   type MissionAccessState,
 } from "@/lib/services/mission-access-service";
+import {
+  clientAllows,
+  clientOwnOnly,
+  type ClientAccessRole,
+  cabinetCapabilityFor,
+  cabinetLandingPath,
+  hasCabinetCapability,
+  isCabinetRole,
+  prospectSpaceExitPath,
+  roleHomePath,
+  isInStructureScope,
+  resolveStructureScope,
+  structureAccessFor,
+  type CabinetCapability,
+  type EstablishmentNeed,
+  type StructureAccess,
+  type StructureScope,
+} from "./capabilities";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // COUCHE D'AUTORISATION UNIQUE — fail-closed par construction
@@ -20,8 +42,9 @@ import {
 // tenant, une autre qui l'oublie) et donc des IDOR.
 //
 // Deux axes de cloisonnement, cumulatifs :
-//   1. Rôle          — CLIENT_USER / CABINET_EVALUATOR / CABINET_ADMIN
-//   2. Appartenance  — tenant (côté Cabinet) ou lien EstablishmentUser (côté Client)
+//   1. Rôle          — capacités du rôle (capabilities.ts, matrice pure et testée)
+//   2. Appartenance  — tenant + affectation (côté Cabinet) ou lien EstablishmentUser
+//                      (côté Client)
 //
 // Règle fail-closed : un utilisateur Cabinet SANS tenant n'a accès à RIEN. Ne
 // jamais retomber sur un filtre absent (`where.tenantId` conditionnel) — un
@@ -34,6 +57,12 @@ export type CabinetContext = {
   session: Session;
   userId: string;
   tenantId: string;
+  // Rôle RELU EN BASE par la garde, pas celui du jeton : c'est lui qui décide de
+  // ce que la coquille affiche (section Commercial), à la même source que le refus.
+  role: UserRole;
+  // Structures que l'appelant peut voir (affectation consultante, N9). Résolu ICI :
+  // une liste filtrée par une action qui le recalculerait finirait par l'oublier.
+  structureScope: StructureScope;
 };
 
 // Contexte d'accès à un établissement, quel que soit le côté (Cabinet ou Client).
@@ -49,6 +78,10 @@ export type EstablishmentAccessContext = {
   // l'oublier, et c'est exactement le mode de défaillance que cette couche unique
   // existe pour empêcher.
   missionAccess: MissionAccessState;
+  // Côté client : rôle d'accès dans la structure (N9) et limitation à « ce qui est à
+  // soi » (ses tâches, ses quiz). Côté cabinet : null / false.
+  clientAccessRole: ClientAccessRole | null;
+  ownOnly: boolean;
 };
 
 // Deux faits, une décision : la clôture de la mission et la révocation de l'accès
@@ -84,6 +117,7 @@ type ResolvedUser = {
   isActive: boolean;
   mustChangePassword: boolean;
   passwordChangedAt: Date | null;
+  emailVerifiedAt: Date | null;
 };
 
 // MÉMOÏSÉ PAR RENDU (`react.cache`) — pas un cache applicatif : la mémoïsation ne
@@ -104,6 +138,7 @@ const resolveUser = cache(async (userId: string): Promise<ResolvedUser | null> =
       isActive: true,
       mustChangePassword: true,
       passwordChangedAt: true,
+      emailVerifiedAt: true,
     },
   });
   return user ?? null;
@@ -154,69 +189,176 @@ function enforceAccountState(
   if (user.mustChangePassword && !options.allowRotationPending) redirect(PASSWORD_ROTATION_PATH);
 }
 
-// Garde commun à tout l'espace Cabinet (établissements, suivi de mission, évaluation) —
-// exclut CLIENT_USER. CABINET_ADMIN et CABINET_EVALUATOR passent tous les deux : la
-// distinction plus stricte est portée par requireCabinetAdminSession() ci-dessous,
-// réservée aux données commerciales.
+// Côté client d'une garde partagée : lien EstablishmentUser (le cloisonnement client
+// ne vient pas du tenant), puis état d'accès de fin de mission. Rend null sur tout
+// refus.
+//
+// Le lien doit être ACTIF (un accès retiré par la direction garde sa ligne, pour
+// l'historique, mais n'ouvre plus rien) et le rôle d'accès doit permettre le module
+// demandé (matrice client de capabilities.ts).
+async function resolveClientEstablishmentAccess(
+  session: Session,
+  establishmentId: string,
+  need: EstablishmentNeed
+): Promise<EstablishmentAccessContext | null> {
+  const userId = session.user.id;
+  const link = await prisma.establishmentUser.findUnique({
+    where: { userId_establishmentId: { userId, establishmentId } },
+    select: { establishmentId: true, accessRole: true, revokedAt: true },
+  });
+  if (!link || link.revokedAt) return null;
+  if (!clientAllows(link.accessRole, need)) return null;
+
+  const missionAccess = await resolveMissionAccess(establishmentId);
+  if (!canClientRead(missionAccess)) return null;
+
+  return {
+    session,
+    userId,
+    establishmentId,
+    isClient: true,
+    missionAccess,
+    clientAccessRole: link.accessRole,
+    ownOnly: clientOwnOnly(link.accessRole, need.module),
+  };
+}
+
+// ── Gardes Cabinet ───────────────────────────────────────────────────────────
+// Depuis N9 (13/10/2026), le rôle seul ne dit plus ce qu'un compte cabinet peut
+// faire : quatre rôles, une matrice de capacités (capabilities.ts, pur, testé). Toute
+// garde cabinet reçoit donc la CAPACITÉ demandée, en argument OBLIGATOIRE — c'est ce
+// qui a forcé, à la bascule, la relecture de chaque appel (le compilateur refusait
+// les anciens). `ANY_CABINET_ROLE` est réservé à la coquille (barre latérale, menu
+// du compte), qui doit s'afficher pour tout compte cabinet.
 //
 // Résout systématiquement le tenant : un compte Cabinet orphelin (tenantId null)
 // est refusé plutôt que de se voir accorder un accès non filtré.
-export async function requireCabinetSession(): Promise<CabinetContext> {
+export type CabinetNeed = CabinetCapability | "ANY_CABINET_ROLE";
+
+function grants(role: UserRole, need: CabinetNeed): boolean {
+  return need === "ANY_CABINET_ROLE" ? isCabinetRole(role) : hasCabinetCapability(role, need);
+}
+
+// Affectations d'un compte (consultante ↔ structures). Lues seulement pour un
+// CABINET_EVALUATOR : c'est le seul rôle qu'elles restreignent. Mémoïsées par rendu,
+// comme resolveUser — une désaffectation prend effet à la navigation suivante.
+const resolveAssignedEstablishmentIds = cache(async (userId: string): Promise<string[]> => {
+  const rows = await prisma.establishmentAssignment.findMany({
+    where: { userId },
+    select: { establishmentId: true },
+  });
+  return rows.map((row) => row.establishmentId);
+});
+
+async function resolveStructureScopeFor(userId: string, role: UserRole): Promise<StructureScope> {
+  const assigned = role === "CABINET_EVALUATOR" ? await resolveAssignedEstablishmentIds(userId) : [];
+  return resolveStructureScope(role, assigned);
+}
+
+async function buildCabinetContext(session: Session, role: UserRole, tenantId: string): Promise<CabinetContext> {
+  return {
+    session,
+    userId: session.user.id,
+    tenantId,
+    role,
+    structureScope: await resolveStructureScopeFor(session.user.id, role),
+  };
+}
+
+export async function requireCabinetSession(need: CabinetNeed): Promise<CabinetContext> {
   const session = await requireSession();
 
   const user = await resolveUser(session.user.id);
   if (!user) redirect("/login");
   enforceAccountState(session, user, { allowRotationPending: false });
-  if (user.role === "CLIENT_USER") redirect("/dashboard/client");
+  // Client ou structure inscrite seule : renvoyé à SON portail, jamais servi.
+  if (!isCabinetRole(user.role)) redirect(roleHomePath(user.role));
   if (!user.tenantId) redirect("/login");
+  // Compte légitimement connecté, mais pas habilité sur ce module : renvoyé à SA page
+  // d'arrivée (un commercial vers le commercial), jamais vers /login.
+  if (!grants(user.role, need)) redirect(cabinetLandingPath(user.role));
 
-  return { session, userId: session.user.id, tenantId: user.tenantId };
+  return buildCabinetContext(session, user.role, user.tenantId);
 }
 
 // Variante non-redirigeante de requireCabinetSession() — mêmes contrôles, mais pour
 // les actions appelées depuis un composant client qui doivent répondre `null` plutôt
 // que déclencher une navigation (même raison d'être que tryEstablishmentAccess
 // ci-dessous).
-export async function tryCabinetSession(): Promise<CabinetContext | null> {
+export async function tryCabinetSession(need: CabinetNeed): Promise<CabinetContext | null> {
   const session = await auth();
   if (!session) return null;
 
   const user = await resolveUser(session.user.id);
   if (!user) return null;
   if (isAccountRevoked(user) || user.mustChangePassword || isSessionStale(session, user)) return null;
-  if (user.role === "CLIENT_USER") return null;
+  if (!isCabinetRole(user.role)) return null;
   if (!user.tenantId) return null;
+  if (!grants(user.role, need)) return null;
 
-  return { session, userId: session.user.id, tenantId: user.tenantId };
+  return buildCabinetContext(session, user.role, user.tenantId);
 }
 
-// Garde strict pour le pipeline commercial (prospects/devis/catalogue) — réservé à
-// CABINET_ADMIN. Redirige vers /dashboard/cabinet (pas /login) car un
-// CABINET_EVALUATOR est légitimement connecté, juste non autorisé sur ce module.
+// Réglages de cabinet (matrice des critères, documents réclamés, écriture de la
+// bibliothèque, mode d'accompagnement, clôture, suppression d'une fiche) —
+// CABINET_ADMIN seul, par la capacité CABINET_SETTINGS.
 export async function requireCabinetAdminSession(): Promise<CabinetContext> {
-  const session = await requireSession();
-
-  const user = await resolveUser(session.user.id);
-  if (!user) redirect("/login");
-  enforceAccountState(session, user, { allowRotationPending: false });
-  if (user.role !== "CABINET_ADMIN") redirect("/dashboard/cabinet");
-  if (!user.tenantId) redirect("/dashboard/cabinet");
-
-  return { session, userId: session.user.id, tenantId: user.tenantId };
+  return requireCabinetSession("CABINET_SETTINGS");
 }
 
-// Garde Cabinet + appartenance de l'établissement au tenant de l'appelant.
-// À utiliser dès qu'un `establishmentId` vient de la requête (paramètre de route,
-// champ de formulaire, argument d'action) : sans ce contrôle, un utilisateur
-// Cabinet d'un tenant peut agir sur l'établissement d'un autre tenant (IDOR).
-//
-// notFound() plutôt que redirect() — ne jamais révéler qu'un identifiant existe
-// dans un autre tenant.
-export async function requireEstablishmentInTenant(
-  establishmentId: string
-): Promise<CabinetContext & { establishmentId: string; establishmentType: EstablishmentType }> {
-  const context = await requireCabinetSession();
+// Pipeline commercial (prospects, devis, catalogue, signature, demandes d'option) —
+// CABINET_ADMIN et CABINET_COMMERCIAL. Vérifié page par page et export par export
+// par commercial-pages-guard.test.ts.
+export async function requireCommercialSession(): Promise<CabinetContext> {
+  return requireCabinetSession("COMMERCIAL");
+}
 
+// « Contenus à valider » (lecture et export) — CABINET_ADMIN et CABINET_EVALUATOR.
+export async function requireContentReviewSession(): Promise<CabinetContext> {
+  return requireCabinetSession("CONTENT_REVIEW");
+}
+
+// Équipe EODA : inviter, changer un rôle, affecter, retirer l'accès.
+export async function requireTeamManagerSession(): Promise<CabinetContext> {
+  return requireCabinetSession("TEAM_MANAGE");
+}
+
+// ── Périmètre des structures ─────────────────────────────────────────────────
+// Filtre Prisma d'une LISTE de structures pour l'appelant : le tenant, toujours, et
+// la liste des structures affectées quand le périmètre est restreint. Toute lecture
+// de liste de structures (ou de leurs documents, tâches, messages) passe par lui :
+// un `findMany` filtré sur le seul tenant montrerait à une consultante tout le
+// portefeuille.
+export function structureScopeWhere(context: CabinetContext): { tenantId: string; id?: { in: string[] } } {
+  const scope = context.structureScope;
+  if (scope.kind === "ALL") return { tenantId: context.tenantId };
+  return { tenantId: context.tenantId, id: { in: [...scope.establishmentIds] } };
+}
+
+// Pour une action qui reçoit l'identifiant d'un AUTRE objet (mission, session
+// d'évaluation, rendez-vous) et vient d'en résoudre la structure dans le tenant :
+// la structure doit aussi être dans le périmètre de l'appelant. notFound() sinon,
+// comme pour un autre tenant.
+export function requireStructureInScope(context: CabinetContext, establishmentId: string): void {
+  if (!isInStructureScope(context.structureScope, establishmentId)) notFound();
+}
+
+// Garde Cabinet + appartenance de l'établissement au tenant de l'appelant + périmètre
+// d'affectation. À utiliser dès qu'un `establishmentId` vient de la requête
+// (paramètre de route, champ de formulaire, argument d'action) : sans ce contrôle,
+// un utilisateur Cabinet d'un tenant peut agir sur l'établissement d'un autre
+// tenant (IDOR).
+//
+// `access` est OBLIGATOIRE : READ (lecture seule acceptée), WRITE (toute écriture),
+// CONTRACT (montants de la structure). notFound() plutôt que redirect() sur un
+// identifiant hors périmètre — ne jamais révéler qu'il existe ailleurs.
+type EstablishmentInTenantContext = CabinetContext & { establishmentId: string; establishmentType: EstablishmentType };
+
+async function resolveEstablishmentInTenant(
+  context: CabinetContext,
+  establishmentId: string
+): Promise<EstablishmentInTenantContext> {
+  requireStructureInScope(context, establishmentId);
   const establishment = await prisma.establishment.findFirst({
     where: { id: establishmentId, tenantId: context.tenantId },
     select: { id: true, type: true },
@@ -226,13 +368,64 @@ export async function requireEstablishmentInTenant(
   return { ...context, establishmentId: establishment.id, establishmentType: establishment.type };
 }
 
+export async function requireEstablishmentInTenant(
+  establishmentId: string,
+  access: StructureAccess
+): Promise<EstablishmentInTenantContext> {
+  return resolveEstablishmentInTenant(await requireCabinetSession(cabinetCapabilityFor(access)), establishmentId);
+}
+
+// Même contrôle d'appartenance, réservé à CABINET_ADMIN : les gestes de gérance sur
+// une fiche (la supprimer) ne sont pas du suivi opérationnel. Le rôle d'abord — un
+// évaluateur est renvoyé à l'accueil sans qu'on lui dise si la fiche existe.
+export async function requireAdminEstablishmentInTenant(
+  establishmentId: string
+): Promise<EstablishmentInTenantContext> {
+  return resolveEstablishmentInTenant(await requireCabinetAdminSession(), establishmentId);
+}
+
+// Côté cabinet d'une garde partagée : capacité, tenant, périmètre. Rend null sur
+// tout refus — l'appelant décide s'il redirige ou s'il répond sec.
+async function resolveCabinetEstablishmentAccess(
+  session: Session,
+  user: ResolvedUser,
+  establishmentId: string,
+  need: EstablishmentNeed
+): Promise<EstablishmentAccessContext | "NO_TENANT" | null> {
+  if (!user.tenantId) return "NO_TENANT";
+  if (!hasCabinetCapability(user.role, cabinetCapabilityFor(structureAccessFor(need)))) return null;
+  const scope = await resolveStructureScopeFor(session.user.id, user.role);
+  if (!isInStructureScope(scope, establishmentId)) return null;
+
+  const establishment = await prisma.establishment.findFirst({
+    where: { id: establishmentId, tenantId: user.tenantId },
+    select: { id: true },
+  });
+  if (!establishment) return null;
+
+  // Le cabinet garde l'accès dans TOUS les états — « rétention côté cabinet, zéro
+  // accès client ». L'état est tout de même résolu : le dépôt, lui, se ferme pour
+  // tout le monde à la clôture (canDepositDocuments).
+  return {
+    session,
+    userId: session.user.id,
+    establishmentId,
+    isClient: false,
+    missionAccess: await resolveMissionAccess(establishmentId),
+    clientAccessRole: null,
+    ownOnly: false,
+  };
+}
+
 // Accès à un établissement depuis les deux côtés :
 //   - CLIENT_USER : uniquement si un lien EstablishmentUser existe (cloisonnement
 //     client — un client ne voit jamais les données d'un autre client, CLAUDE.md §6).
-//   - Cabinet     : uniquement si l'établissement appartient à son tenant.
+//   - Cabinet     : capacité du module, tenant, périmètre d'affectation.
 // C'est la garde des actions partagées (dépôt de document, aperçu, checklist).
+// `need` (module + mode) est OBLIGATOIRE : il dit ce que l'action touche.
 export async function requireEstablishmentAccess(
-  establishmentId: string
+  establishmentId: string,
+  need: EstablishmentNeed
 ): Promise<EstablishmentAccessContext> {
   const session = await requireSession();
   const userId = session.user.id;
@@ -242,39 +435,21 @@ export async function requireEstablishmentAccess(
   enforceAccountState(session, user, { allowRotationPending: false });
 
   if (user.role === "CLIENT_USER") {
-    const link = await prisma.establishmentUser.findUnique({
-      where: { userId_establishmentId: { userId, establishmentId } },
-      select: { establishmentId: true },
-    });
-    if (!link) notFound();
-
-    const missionAccess = await resolveMissionAccess(establishmentId);
-    // Accès révoqué : `notFound()` et pas un message d'explication — la règle du
-    // fichier vaut aussi ici, on ne renseigne personne sur ce qui existe derrière.
+    const access = await resolveClientEstablishmentAccess(session, establishmentId, need);
+    // Lien absent, accès révoqué ou module hors du rôle : `notFound()` et pas un
+    // message d'explication — on ne renseigne personne sur ce qui existe derrière.
     // Les données, elles, ne sont pas supprimées : la rétention reste côté cabinet.
-    if (!canClientRead(missionAccess)) notFound();
-
-    return { session, userId, establishmentId, isClient: true, missionAccess };
+    if (!access) notFound();
+    return access;
   }
+  // Ni client ni cabinet (structure inscrite seule) : aucun établissement n'existe
+  // pour elle — introuvable, sans rien révéler.
+  if (!isCabinetRole(user.role)) notFound();
 
-  if (!user.tenantId) redirect("/login");
-
-  const establishment = await prisma.establishment.findFirst({
-    where: { id: establishmentId, tenantId: user.tenantId },
-    select: { id: true },
-  });
-  if (!establishment) notFound();
-
-  // Le cabinet garde l'accès dans TOUS les états — « rétention côté cabinet, zéro
-  // accès client ». L'état est tout de même résolu : le dépôt, lui, se ferme pour
-  // tout le monde à la clôture (canDepositDocuments).
-  return {
-    session,
-    userId,
-    establishmentId,
-    isClient: false,
-    missionAccess: await resolveMissionAccess(establishmentId),
-  };
+  const access = await resolveCabinetEstablishmentAccess(session, user, establishmentId, need);
+  if (access === "NO_TENANT") redirect("/login");
+  if (!access) notFound();
+  return access;
 }
 
 // Variante non-redirigeante de requireEstablishmentAccess() — pour les actions qui
@@ -282,13 +457,13 @@ export async function requireEstablishmentAccess(
 // plutôt que déclencher une navigation. Retourne null en cas de refus, jamais une
 // exception : l'appelant traite ça comme "introuvable".
 export async function tryEstablishmentAccess(
-  establishmentId: string
+  establishmentId: string,
+  need: EstablishmentNeed
 ): Promise<EstablishmentAccessContext | null> {
   const session = await auth();
   if (!session) return null;
-  const userId = session.user.id;
 
-  const user = await resolveUser(userId);
+  const user = await resolveUser(session.user.id);
   if (!user) return null;
   // Variante non redirigeante : un compte désactivé, une rotation due ou une session
   // périmée se traduisent par un refus sec, jamais par une navigation (l'appelant est
@@ -297,43 +472,30 @@ export async function tryEstablishmentAccess(
     return null;
   }
 
-  if (user.role === "CLIENT_USER") {
-    const link = await prisma.establishmentUser.findUnique({
-      where: { userId_establishmentId: { userId, establishmentId } },
-      select: { establishmentId: true },
-    });
-    if (!link) return null;
+  if (user.role === "CLIENT_USER") return resolveClientEstablishmentAccess(session, establishmentId, need);
+  if (!isCabinetRole(user.role)) return null;
 
-    const missionAccess = await resolveMissionAccess(establishmentId);
-    if (!canClientRead(missionAccess)) return null;
-
-    return { session, userId, establishmentId, isClient: true, missionAccess };
-  }
-
-  if (!user.tenantId) return null;
-
-  const establishment = await prisma.establishment.findFirst({
-    where: { id: establishmentId, tenantId: user.tenantId },
-    select: { id: true },
-  });
-  if (!establishment) return null;
-
-  return {
-    session,
-    userId,
-    establishmentId,
-    isClient: false,
-    missionAccess: await resolveMissionAccess(establishmentId),
-  };
+  const access = await resolveCabinetEstablishmentAccess(session, user, establishmentId, need);
+  return access === "NO_TENANT" ? null : access;
 }
 
 // Garde côté espace Client uniquement (dashboard client) — retourne l'établissement
 // rattaché à l'utilisateur, résolu depuis le lien EstablishmentUser plutôt que depuis
 // un identifiant fourni par la requête (donc non falsifiable).
-export async function requireClientEstablishment(): Promise<{
+//
+// `need` est OBLIGATOIRE (N9) : "HOME" pour la coquille et l'accueil, ouverts à tout
+// rôle d'accès ; sinon le module touché. Un rôle qui n'a pas le module est renvoyé à
+// l'accueil de son portail — jamais une page vide qui laisserait croire à un bug.
+export type ClientNeed = EstablishmentNeed | "HOME";
+
+export async function requireClientEstablishment(need: ClientNeed): Promise<{
   session: Session;
   userId: string;
   establishment: { id: string; name: string; type: string; logoDataUri: string | null } | null;
+  // Rôle d'accès dans la structure (null sans structure rattachée), et limitation de
+  // l'action à ce qui appartient à la personne (niveau OWN de la matrice).
+  accessRole: ClientAccessRole | null;
+  ownOnly: boolean;
   // Gouverne ce que le portail client propose : dépôt ouvert, bibliothèque en
   // lecture seule, ou rien du tout.
   missionAccess: MissionAccessState;
@@ -347,10 +509,11 @@ export async function requireClientEstablishment(): Promise<{
   const user = await resolveUser(session.user.id);
   if (!user) redirect("/login");
   enforceAccountState(session, user, { allowRotationPending: false });
-  if (user.role !== "CLIENT_USER") redirect("/dashboard/cabinet");
+  if (user.role !== "CLIENT_USER") redirect(roleHomePath(user.role));
 
+  // Lien ACTIF seulement : un accès retiré par la direction ne rattache plus rien.
   const link = await prisma.establishmentUser.findFirst({
-    where: { userId: session.user.id },
+    where: { userId: session.user.id, revokedAt: null },
     include: {
       establishment: { select: { id: true, name: true, type: true, logoDataUri: true } },
     },
@@ -361,10 +524,15 @@ export async function requireClientEstablishment(): Promise<{
       session,
       userId: session.user.id,
       establishment: null,
+      accessRole: null,
+      ownOnly: false,
       missionAccess: "ACTIVE",
       missionClosure: null,
     };
   }
+
+  if (need !== "HOME" && !clientAllows(link.accessRole, need)) redirect("/dashboard/client");
+  const ownOnly = need !== "HOME" && clientOwnOnly(link.accessRole, need.module);
 
   const missionClosure = await readMissionClosure(link.establishment.id);
   const missionAccess = deriveMissionAccessState(missionClosure);
@@ -375,6 +543,8 @@ export async function requireClientEstablishment(): Promise<{
       session,
       userId: session.user.id,
       establishment: null,
+      accessRole: link.accessRole,
+      ownOnly,
       missionAccess,
       missionClosure,
     };
@@ -384,6 +554,8 @@ export async function requireClientEstablishment(): Promise<{
     session,
     userId: session.user.id,
     establishment: link.establishment,
+    accessRole: link.accessRole,
+    ownOnly,
     missionAccess,
     missionClosure,
   };
@@ -431,4 +603,102 @@ export async function requireHelpAudience(): Promise<{
   enforceAccountState(session, user, { allowRotationPending: false });
 
   return { session, userId: session.user.id, role: user.role };
+}
+
+// ── Structure inscrite seule (libre-service, D5 — 13/10/2026) ─────────────────
+// Garde de l'espace /espace et de ses actions. Le prospect se résout depuis le lien
+// ProspectAccount de l'appelant — JAMAIS depuis un identifiant reçu : un prospect ne
+// peut désigner que le sien. Tout autre rôle est renvoyé à son portail ; un compte
+// sans lien (prospect supprimé) est déconnecté. Fail-closed.
+export type ProspectContext = {
+  session: Session;
+  userId: string;
+  prospect: {
+    id: string;
+    tenantId: string;
+    structureName: string;
+    establishmentType: EstablishmentType | null;
+    envisagedFormule: CommercialTier | null;
+    establishmentId: string | null;
+  };
+};
+
+export async function requireProspectSession(): Promise<ProspectContext> {
+  const session = await requireSession();
+  const user = await resolveUser(session.user.id);
+  if (!user) redirect("/login");
+  enforceAccountState(session, user, { allowRotationPending: false });
+  // Compte devenu client à la signature (tranche 11) : sa session porte encore l'ancien
+  // rôle — elle est fermée avec un motif, sinon middleware et garde se renverraient la
+  // balle. Tout autre rôle va chez lui (prospectSpaceExitPath, testé).
+  const exit = prospectSpaceExitPath(user.role, session.user.role);
+  if (exit) redirect(exit);
+  // Filet : authorize() refuse déjà la connexion d'une adresse non confirmée. Une
+  // session qui existerait malgré tout (jeton émis avant la tranche 11) est fermée.
+  if (user.emailVerifiedAt === null) redirect(SIGN_OUT_PATH);
+
+  const link = await prisma.prospectAccount.findUnique({
+    where: { userId: session.user.id },
+    select: {
+      prospect: {
+        select: {
+          id: true,
+          tenantId: true,
+          structureName: true,
+          establishmentType: true,
+          envisagedFormule: true,
+          establishmentId: true,
+        },
+      },
+    },
+  });
+  if (!link) redirect(SIGN_OUT_PATH);
+  return { session, userId: session.user.id, prospect: link.prospect };
+}
+
+// ── Tablette terrain (lot C, décision 7) ─────────────────────────────────────
+// « Appareil enregistré + fiche salarié + code, jamais un code seul. » Deux cookies
+// httpOnly, relus À CHAQUE requête, comme le rôle d'un compte :
+//   1. l'appareil : jeton aléatoire dont seule l'empreinte est en base
+//      (`DeviceEnrollment.tokenHash`) ; un appareil révoqué n'ouvre plus rien ;
+//   2. la session : jeton signé court (salarié + appareil + expiration).
+// Le salarié doit être actif, rattaché à la structure de l'appareil, avec un code
+// posé et non bloqué. Tout refus rend null : la page affiche l'écran de connexion,
+// sans dire ce qui a manqué.
+export type TabletDeviceContext = {
+  deviceEnrollmentId: string;
+  tenantId: string;
+  establishmentId: string;
+  establishmentName: string;
+};
+
+export type TabletSessionContext = TabletDeviceContext & { staffMemberId: string; staffDisplayName: string };
+
+export async function resolveTabletDevice(): Promise<TabletDeviceContext | null> {
+  const token = (await cookies()).get(DEVICE_COOKIE)?.value;
+  if (!isOneTimeTokenWellFormed(token)) return null;
+  const device = await prisma.deviceEnrollment.findUnique({
+    where: { tokenHash: hashOneTimeToken(token) },
+    select: { id: true, tenantId: true, establishmentId: true, revokedAt: true, establishment: { select: { name: true } } },
+  });
+  if (!device || device.revokedAt) return null;
+  return {
+    deviceEnrollmentId: device.id,
+    tenantId: device.tenantId,
+    establishmentId: device.establishmentId,
+    establishmentName: device.establishment.name,
+  };
+}
+
+export async function resolveTabletSession(now: Date = new Date()): Promise<TabletSessionContext | null> {
+  const device = await resolveTabletDevice();
+  if (!device) return null;
+  const claims = readTabletSessionToken((await cookies()).get(TABLET_SESSION_COOKIE)?.value, getEnv().authSecret, now);
+  if (!claims || claims.deviceEnrollmentId !== device.deviceEnrollmentId) return null;
+  const staff = await prisma.staffMember.findFirst({
+    where: { id: claims.staffMemberId, establishmentId: device.establishmentId, active: true },
+    select: { id: true, displayName: true, pin: { select: { lockedAt: true } } },
+  });
+  if (!staff?.pin || staff.pin.lockedAt) return null;
+  return { ...device, staffMemberId: staff.id, staffDisplayName: staff.displayName };
 }

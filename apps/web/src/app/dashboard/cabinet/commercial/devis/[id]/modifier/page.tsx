@@ -1,12 +1,12 @@
 import { notFound } from "next/navigation";
-import { getDevis } from "@/lib/actions/devis";
+import { getDevis } from "@/lib/actions/devis-read";
 import { listCatalogue } from "@/lib/actions/catalogue";
 import { isDevisEditable } from "@/lib/services/devis-transition-service";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { DevisForm } from "@/components/devis/DevisForm";
-import { Card, CardContent } from "@/components/ui/card";
+import { toDevisCatalogueChoices } from "@/lib/services/devis-catalogue-choices";
 
-export const metadata = { title: "Corriger un devis · EODA Conseil" };
+export const metadata = { title: "Corriger un devis" };
 
 // Repli si aucun réglage de facturation n'est enregistré — CGP v10 §06.
 const DEFAULT_DEPOSIT_PERCENT = 40;
@@ -24,48 +24,41 @@ export default async function ModifierDevisPage({ params }: Props) {
 
   const activeFormules = catalogue.formules.filter((f) => f.active);
   const activeOptions = catalogue.options.filter((o) => o.active);
+  const choices = toDevisCatalogueChoices(catalogue);
 
   const retiredLines = [
-    ...(activeFormules.some((f) => f.id === devis.catalogueFormuleId)
+    ...(devis.catalogueFormuleId === null || activeFormules.some((f) => f.id === devis.catalogueFormuleId)
       ? []
-      : [devis.formuleLabelSnapshot]),
+      : devis.formuleLabelSnapshot === null
+        ? []
+        : [devis.formuleLabelSnapshot]),
     ...devis.options
       .filter((o) => !activeOptions.some((a) => a.id === o.catalogueOptionId))
       .map((o) => o.labelSnapshot),
   ];
 
   return (
-    <div className="space-y-6 max-w-2xl">
+    <div className="space-y-6 max-w-6xl">
       <PageHeader
         title={`Corriger ${devis.number}`}
         subtitle={`${devis.prospect.structureName} · brouillon`}
         backHref={`/dashboard/cabinet/commercial/devis/${id}`}
       />
-      <Card>
-        <CardContent className="pt-6">
           <DevisForm
             prospectId={devis.prospectId}
-            formules={activeFormules.map((f) => ({
-              formule: f.formule,
-              label: f.label,
-              priceEuros: f.priceEuros,
-            }))}
-            options={activeOptions.map((o) => ({
-              id: o.id,
-              code: o.code,
-              label: o.label,
-              priceEuros: o.priceEuros,
-              pricingUnit: o.pricingUnit,
-              priceMaxEuros: o.priceMaxEuros,
-              minQuantity: o.minQuantity,
-            }))}
+            structureName={devis.prospect.structureName}
+            formules={choices.formules}
+            options={choices.options}
             defaultDepositPercent={
               catalogue.billingSettings?.defaultDepositPercent ?? DEFAULT_DEPOSIT_PERCENT
             }
             defaultValidityDays={catalogue.billingSettings?.defaultValidityDays ?? 30}
             draft={{
               id: devis.id,
-              formule: devis.catalogueFormule.formule,
+              number: devis.number,
+              commitmentMonths: devis.commitmentMonths,
+              clientNote: devis.clientNote,
+              formule: devis.catalogueFormule?.formule ?? null,
               optionIds: devis.options.map((o) => o.catalogueOptionId),
               depositPercent: devis.depositPercent,
               installmentCount: devis.installmentCount,
@@ -73,8 +66,6 @@ export default async function ModifierDevisPage({ params }: Props) {
             }}
             retiredLines={retiredLines}
           />
-        </CardContent>
-      </Card>
     </div>
   );
 }

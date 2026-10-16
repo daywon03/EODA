@@ -1,20 +1,8 @@
-import { ClientNav } from "@/components/layout/ClientNav";
-import { getClientHasUnansweredMessage } from "@/lib/actions/message";
+import { ClientShell } from "@/components/layout/client/ClientShell";
 
-// Layout purement présentationnel : la barre d'onglets du portail client.
-// AUCUN contrôle d'accès ici — il vit dans lib/auth/guards.ts, appelé par chaque
-// page (requireClientEstablishment) ET par getClientHasUnansweredMessage
-// elle-même. Recopier une vérification ici donnerait une deuxième couche
-// d'autorisation, donc deux règles qui divergeront (CLAUDE.md §5 bis).
-export default async function ClientLayout({ children }: { children: React.ReactNode }) {
-  const hasUnansweredMessage = await getClientHasUnansweredMessage();
-
-  return (
-    <div>
-      <div className="-mt-6 sm:-mt-8 mb-6 sm:mb-8">
-        <ClientNav hasUnansweredMessage={hasUnansweredMessage} />
-      </div>
-      {children}
-    </div>
-  );
+// Coquille du portail client (en-tête, barre du bas sur mobile, menu du compte).
+// Elle lit la structure par requireClientEstablishment() — la couche
+// d'autorisation unique — et chaque page continue d'appeler la sienne.
+export default function ClientLayout({ children }: { children: React.ReactNode }) {
+  return <ClientShell>{children}</ClientShell>;
 }

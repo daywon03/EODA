@@ -279,4 +279,34 @@ describe("describeClientNextStep", () => {
     const step = describeClientNextStep({ ...empty, justified: 4 }, true);
     expect(step?.tone).toBe("TERMINE");
   });
+
+  it("renvoie vers « Mes documents » et le geste « Je ne l'ai pas »", () => {
+    const step = describeClientNextStep({ ...empty, toDeposit: 2 }, true);
+    expect(step?.detail).toContain("« Mes documents »");
+    expect(step?.detail).toContain("« Je ne l'ai pas »");
+  });
+
+  it("en autonomie, un document lu attend la vérification de la STRUCTURE, pas d'EODA", () => {
+    const step = describeClientNextStep({ ...empty, inReview: 2 }, true, "AUTONOMIE");
+    expect(step?.tone).toBe("ACTION");
+    expect(step?.title).toBe("2 documents à vérifier");
+    expect(step?.detail).not.toContain("EODA");
+  });
+
+  it("en autonomie, ne promet aucun contact d'EODA une fois tout fourni", () => {
+    const step = describeClientNextStep(empty, true, "AUTONOMIE");
+    expect(step?.tone).toBe("TERMINE");
+    expect(step?.detail).not.toContain("EODA");
+  });
+});
+
+describe("summariseDocumentObligations — « Je ne l'ai pas » (N3)", () => {
+  it("ne compte pas un document déclaré absent comme une pièce à déposer", () => {
+    const summary = summariseDocumentObligations([
+      { status: "MISSING", missingJustification: null, declaredMissing: true },
+      { status: "MISSING", missingJustification: null },
+    ]);
+    expect(summary.toDeposit).toBe(1);
+    expect(summary.justified).toBe(1);
+  });
 });

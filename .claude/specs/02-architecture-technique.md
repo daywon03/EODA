@@ -591,6 +591,14 @@ prospect et **recopié** à la signature, jamais ressaisi.
 
 ### 4.14 KPI de portefeuille — l'aval de l'entonnoir ✅ *(26/08/2026)*
 
+> **Mise à jour du 13/10/2026 (tranche 11).** La vue d'ensemble commerciale v2
+> (`commercial-overview-service.ts`) a remplacé l'entonnoir unifié et les cartes de
+> portefeuille. Seul `countUpcomingHasEvaluations` reste affiché (accueil cabinet) ;
+> `countActiveClients`, `countOngoingAccompaniments`, `countActiveBetaMissions`,
+> `groupActiveMissionsByFormule` et `computeFunnelBreakdown` ont été supprimés, et
+> `PortfolioRow` réduit à `{ mission, hasEvaluationTargetDate }`. Le texte ci-dessous
+> est l'historique de la décision d'origine.
+
 `commercial-kpi-service.ts` agrège des **devis** : émis, taux de conversion, pipeline
 pondéré, CA signé. Il s'arrête à la signature. Après elle, l'outil ne savait plus
 compter : « combien de clients accompagnons-nous en ce moment ? » n'avait aucune

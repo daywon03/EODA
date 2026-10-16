@@ -1,4 +1,12 @@
-import type { CommercialTier, DevisStatus, EstablishmentType, PricingUnit } from "@eoda/database";
+import type {
+  ClientAccessRole,
+  CommercialTier,
+  DevisStatus,
+  EstablishmentType,
+  EstablishmentUserRole,
+  PricingUnit,
+  UserRole,
+} from "@eoda/database";
 import { canTransitionDevis } from "@/lib/services/devis-transition-service";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -65,6 +73,40 @@ export type ConversionInput = {
 // signature bute donc ici, avant toute écriture : SIGNE → SIGNE n'est pas autorisé.
 export function isDevisSignable(status: DevisStatus): boolean {
   return canTransitionDevis(status, "SIGNE");
+}
+
+// Récapitulatif de l'écran de signature. Une fois le devis SIGNE, la fiche existe
+// PARCE QUE la signature l'a créée (ou complétée) : la décrire comme « déjà
+// existante » racontait l'inverse de ce qui venait de se passer (test de bout en
+// bout du 12/10). Avant la signature, une fiche déjà rattachée au prospect est en
+// revanche conservée telle quelle.
+export function signatureRecap(input: {
+  status: DevisStatus;
+  hasEstablishment: boolean;
+  structureName: string;
+}): { heading: string; establishmentLabel: string } {
+  if (input.status === "SIGNE") {
+    return { heading: "Ce que la signature a créé", establishmentLabel: input.structureName };
+  }
+  return {
+    heading: "Ce que la signature va créer",
+    establishmentLabel: input.hasEstablishment
+      ? "déjà existante, conservée telle quelle"
+      : input.structureName,
+  };
+}
+
+// Suite à donner une fois le devis signé (écran de signature revisité). Une structure
+// inscrite seule a déjà un compte, devenu son accès « Direction » à la signature :
+// lui en inviter un second créerait un doublon (recette du 13/10/2026).
+export function signedNextStep(promotedAccountCount: number): string {
+  if (promotedAccountCount > 1) {
+    return `Les ${promotedAccountCount} comptes créés par la structure à son inscription sont devenus ses accès « Direction ». Elle se reconnecte avec son mot de passe habituel et arrive dans le portail client.`;
+  }
+  if (promotedAccountCount === 1) {
+    return "Le compte créé par la structure à son inscription est devenu son accès « Direction ». Elle se reconnecte avec son mot de passe habituel et arrive dans le portail client.";
+  }
+  return "Prochaine étape : inviter l'interlocuteur du client depuis sa fiche. Il recevra un mot de passe temporaire qu'il devra changer à sa première connexion.";
 }
 
 // La signature est la SEULE transition qui produit des effets hors du module
@@ -159,8 +201,30 @@ export function toMissionOptionSnapshots(
 // (CLAUDE.md §5 bis).
 export function summariseConversionForAudit(input: {
   devisNumber: string;
-  formule: CommercialTier;
+  formule: CommercialTier | null;
   optionCount: number;
 }): string {
-  return `${input.devisNumber} · ${input.formule} · ${input.optionCount} option(s)`;
+  return `${input.devisNumber} · ${input.formule ?? "SANS_OFFRE"} · ${input.optionCount} option(s)`;
+}
+
+// ── Bascule du compte libre-service à la signature (tranche 11) ───────────────
+//
+// Décision de Damon : quand le devis d'une structure inscrite SEULE est signé, son
+// ou ses comptes PROSPECT_USER deviennent des accès CLIENT_USER à la fiche créée,
+// avec le rôle d'accès DIRECTION, dans la MÊME transaction que la fiche — jamais un
+// second compte à inviter pour la même personne. Seuls les comptes encore
+// PROSPECT_USER basculent : un compte qui aurait changé de rôle entre-temps n'est
+// pas touché. Un prospect démarché, sans compte, ne produit aucune bascule.
+//
+// Le POSTE (EstablishmentUserRole) n'est pas connu : l'inscription ne demande qu'un
+// prénom. « AUTRE » plutôt qu'un « DIRECTEUR » deviné ; le cabinet le corrige depuis
+// la fiche. Les droits, eux, sont ceux de la direction (accessRole), comme décidé.
+//
+// La bascule ne lève PAS l'exigence d'adresse confirmée : un compte jamais confirmé
+// reste refusé à la connexion (isEmailVerificationPending ne dépend pas du rôle).
+export const PROMOTED_ACCESS_ROLE: ClientAccessRole = "DIRECTION";
+export const PROMOTED_POSITION: EstablishmentUserRole = "AUTRE";
+
+export function selectAccountsToPromote(accounts: readonly { userId: string; role: UserRole }[]): string[] {
+  return accounts.filter((account) => account.role === "PROSPECT_USER").map((account) => account.userId);
 }

@@ -74,6 +74,15 @@ export function parseDiscoverySubmission(
   return normaliseDiscoveryAnswers(submitted, grid);
 }
 
+// Révision du formulaire, utilisée comme `key` : après un enregistrement, React
+// réinitialise les champs non contrôlés d'un `<form action>` — une liste déroulante
+// revenait alors à « Sans réponse », et l'enregistrement suivant effaçait la réponse
+// (test de bout en bout du 12/10). Une nouvelle révision remonte le formulaire avec
+// les réponses relues en base, au lieu de le laisser se vider.
+export function discoveryFormRevision(updatedAt: Date | null): string {
+  return updatedAt ? String(updatedAt.getTime()) : "jamais-enregistree";
+}
+
 // Avancement de la grille, en pourcentage de questions renseignées. Sert à dire
 // « découverte à 40 % » sur la fiche prospect : sans repère, on ne sait pas si la
 // réunion a eu lieu ou si personne n'a rien saisi.

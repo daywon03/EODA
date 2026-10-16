@@ -7,6 +7,7 @@ import { recordAuditEvent } from "@/lib/services/audit-log-service";
 import { generateTemporaryPassword, hashPassword } from "@/lib/security/password-hashing";
 import {
   firstError,
+  requiredEmail,
   requiredEnum,
   requiredString,
 } from "@/lib/validation/form-parsers";
@@ -41,6 +42,7 @@ export type ResetClientPasswordResult =
 // Message unique pour tout ce qui n'est pas résolu : compte inexistant, compte d'un
 // autre établissement, compte Cabinet. Ne jamais distinguer les trois — ce serait un
 // oracle d'existence sur les comptes des autres tenants.
+const EMAIL_ALREADY_USED = "Cette adresse e-mail est déjà utilisée par un autre compte.";
 const NOT_A_CLIENT_OF_THIS_ESTABLISHMENT = "Cet interlocuteur n'existe pas pour cet établissement.";
 
 type ResolvedTarget = {
@@ -68,7 +70,7 @@ async function resolveTargetClientUser(
   }
 
   const { establishmentId, session, userId: actorUserId } =
-    await requireEstablishmentInTenant(establishmentIdRaw);
+    await requireEstablishmentInTenant(establishmentIdRaw, "WRITE");
 
   const link = await prisma.establishmentUser.findUnique({
     where: { userId_establishmentId: { userId: userIdRaw, establishmentId } },
@@ -96,9 +98,11 @@ function revalidateEstablishment(establishmentId: string): void {
 }
 
 // ── Correction d'une fiche interlocuteur ─────────────────────────────────────
-// Nom et fonction dans la structure. L'email n'est PAS modifiable ici : c'est
-// l'identifiant de connexion, le changer silencieusement depuis la fiche d'un
-// établissement transférerait un accès existant vers une autre boîte mail.
+// Nom, fonction dans la structure, et — depuis le 11/10/2026 (retour de démo du
+// 15/09 : une faute de frappe dans l'adresse rendait le compte inutilisable) —
+// l'ADRESSE E-MAIL. C'est l'identifiant de connexion : la changer est un geste du
+// cabinet, explicite (champ présent), contrôlé (unicité sur toute la plateforme,
+// comme à la création) et journalisé. Le mot de passe n'est pas touché.
 export async function updateClientUser(formData: FormData): Promise<ClientUserActionResult> {
   const target = await resolveTargetClientUser(formData);
   if ("error" in target) return target;
@@ -110,12 +114,25 @@ export async function updateClientUser(formData: FormData): Promise<ClientUserAc
     "Le rôle dans l'établissement",
     EstablishmentUserRole
   );
-  const error = firstError(name, roleInEstablishment);
+  // Champ absent = adresse inchangée (formulaires plus anciens) ; présent = exigé valide.
+  const email = formData.has("email") ? requiredEmail(formData, "email", "L'adresse email") : null;
+  const error = firstError(name, roleInEstablishment, ...(email ? [email] : []));
   if (error) return { error };
-  if (!name.ok || !roleInEstablishment.ok) return { error: "Formulaire invalide." };
+  if (!name.ok || !roleInEstablishment.ok || (email && !email.ok)) {
+    return { error: "Formulaire invalide." };
+  }
+
+  const newEmail = email?.ok && email.value !== target.user.email ? email.value : null;
+  if (newEmail) {
+    const taken = await prisma.user.findUnique({ where: { email: newEmail }, select: { id: true } });
+    if (taken) return { error: EMAIL_ALREADY_USED };
+  }
 
   await prisma.$transaction([
-    prisma.user.update({ where: { id: target.user.id }, data: { name: name.value } }),
+    prisma.user.update({
+      where: { id: target.user.id },
+      data: newEmail ? { name: name.value, email: newEmail } : { name: name.value },
+    }),
     prisma.establishmentUser.update({
       where: { userId_establishmentId: { userId: target.user.id, establishmentId: target.establishmentId } },
       data: { roleInEstablishment: roleInEstablishment.value },
@@ -128,7 +145,8 @@ export async function updateClientUser(formData: FormData): Promise<ClientUserAc
     actorRole: target.actorRole,
     establishmentId: target.establishmentId,
     targetId: target.user.id,
-    detail: roleInEstablishment.value,
+    // Jamais l'adresse elle-même dans le journal : seulement le fait qu'elle a changé.
+    detail: newEmail ? `${roleInEstablishment.value} · adresse e-mail modifiée` : roleInEstablishment.value,
   });
 
   revalidateEstablishment(target.establishmentId);
@@ -152,7 +170,7 @@ export async function removeClientUserFromEstablishment(
       },
     });
 
-    const remaining = await tx.establishmentUser.count({ where: { userId: target.user.id } });
+    const remaining = await tx.establishmentUser.count({ where: { userId: target.user.id, revokedAt: null } });
     if (remaining > 0) return false;
 
     await tx.user.update({

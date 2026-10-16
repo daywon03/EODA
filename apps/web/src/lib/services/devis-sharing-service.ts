@@ -3,7 +3,7 @@
 //
 // Décision initiale de Damon (26/08) : pas d'envoi serveur, un `mailto:` qui
 // prépare un brouillon dans la vraie boîte de Sandrine, PDF téléchargé à part.
-// SUPERSEDÉE le 22/09/2026 (retour du call Sandrine/Assad Benoît : « Préparer
+// SUPERSEDÉE le 22/09/2026 (retour du call Sandrine et le client pilote : « Préparer
 // l'e-mail n'envoie pas l'e-mail ») — l'envoi réel passe désormais par
 // sendDevisEmail (lib/actions/devis.ts), Resend + pièce jointe PDF générée par
 // devis-pdf-service.ts, Sandrine en copie plutôt qu'expéditrice.

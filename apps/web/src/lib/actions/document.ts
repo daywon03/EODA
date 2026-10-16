@@ -10,20 +10,35 @@ import {
   tryCabinetSession,
   tryEstablishmentAccess,
 } from "@/lib/auth/guards";
-import { canDepositDocuments } from "@/lib/services/mission-access-service";
+import { NEED } from "@/lib/auth/capabilities";
+import { notifyDocumentAvailable, notifyStructureActivity } from "@/lib/email/notifications";
+import {
+  canClientRead,
+  canDepositDocuments,
+  type MissionAccessState,
+} from "@/lib/services/mission-access-service";
 import { canDeleteVersion,
   MAX_JUSTIFICATION_LENGTH,
 } from "@/lib/services/document-workflow-service";
 import { extractMarkdown } from "@/lib/services/text-extraction-service";
+import { canRenderDocumentPages } from "@/lib/services/file-type-service";
+import { deleteCachedDocumentPdf } from "@/lib/services/document-pdf-service";
 import { suggestDocumentType } from "@/lib/services/document-categorization-service";
 import { ingestDocumentVersion, reanalyzeDocumentVersion } from "@/lib/services/document-ingestion-service";
-import { generateCorrectedDraft, saveCorrectedDraft } from "@/lib/services/document-generation-service";
+import { saveCorrectedDraft } from "@/lib/services/document-generation-service";
+import { generateCorrectionProposal } from "./correction-proposal";
 import { recordAuditEvent } from "@/lib/services/audit-log-service";
+import { parseAnalysisResult } from "@/lib/services/analysis-view-service";
 import { validateUploadedFile } from "@/lib/security/upload-validation-service";
 import {
   getEstablishmentCoveredCategories,
   isCategoryCoveredForEstablishment,
 } from "@/lib/services/establishment-offer-service";
+import {
+  missingAnswerError,
+  missingAnswerWrite,
+  parseMissingAnswer,
+} from "@/lib/services/missing-answer-service";
 import { getFileStoragePort } from "@/lib/storage";
 import { getLLMAnalysisPort, isKnownLlmModelId } from "@/lib/llm";
 import { validateGuidelineNote } from "@/lib/services/criterion-guideline-service";
@@ -55,6 +70,7 @@ export type UploadDocumentResult =
 
 function revalidateDocumentViews(establishmentId: string): void {
   revalidatePath("/dashboard/client");
+  revalidatePath("/dashboard/client/documents");
   revalidatePath(`/dashboard/cabinet/etablissements/${establishmentId}`);
 }
 
@@ -66,7 +82,7 @@ export async function uploadDocument(formData: FormData): Promise<UploadDocument
 
   // Autorisation avant toute lecture du fichier : ne jamais dépenser de l'I/O ni de
   // l'extraction de texte pour un appelant non habilité sur cet établissement.
-  const access = await requireEstablishmentAccess(establishmentId);
+  const access = await requireEstablishmentAccess(establishmentId, NEED.DOCUMENTS_WRITE);
 
   // Fin de mission : la bibliothèque est en LECTURE SEULE (§12.5). Le refus est
   // ici, côté serveur, et pas seulement dans l'UI qui masque le bouton — une action
@@ -167,46 +183,81 @@ export async function uploadDocument(formData: FormData): Promise<UploadDocument
 
   revalidateDocumentViews(establishmentId);
 
+  // Dépôt du cabinet sur un document DÉJÀ validé : la nouvelle version devient le
+  // livrable sur-le-champ (deliverables-service prend la dernière version d'EODA),
+  // donc le client est prévenu comme à la validation. Un dépôt sur un document non
+  // validé ne prévient personne : c'est un travail en cours, et l'annoncer serait
+  // promettre à la place de la consultante — l'annonce part quand elle valide.
+  if (!access.isClient) {
+    const document = await prisma.document.findUnique({
+      where: { establishmentId_documentTypeId: { establishmentId, documentTypeId: documentType.id } },
+      select: { validatedAt: true },
+    });
+    if (document?.validatedAt) {
+      await announceValidatedDocument(establishmentId, documentType.id, access.missionAccess);
+    }
+  }
+
+  // Dépôt du CLIENT : le cabinet est prévenu (16/10/2026). Sans cet envoi, une pièce
+  // arrivée ne se découvre qu'en rouvrant la fiche — donc jamais le jour même. Le
+  // dépôt du cabinet, lui, ne s'annonce pas à lui-même (branche ci-dessus).
+  if (access.isClient) {
+    await notifyStructureActivity({
+      establishmentId,
+      documentLabel: documentType.label,
+      kind: "DEPOSIT",
+    });
+  }
+
   return { success: true, documentTypeId: documentType.id };
 }
 
-// Réponse Oui/Non + commentaire libre pour un document pas encore déposé —
-// "Non" (ne concerne pas l'établissement) bascule le statut en NOT_APPLICABLE ;
-// "Oui" (concerne l'établissement mais pas encore fourni) garde MISSING. Le
-// commentaire est conservé dans les deux cas comme élément de preuve exploitable
-// en cotation (Module 3).
+// Réponse sur un document pas encore déposé (missing-answer-service, N3) :
+//   - WILL_PROVIDE  « il existe, pas encore déposé »   → MISSING ;
+//   - DONT_HAVE     « Je ne l'ai pas »                → MISSING, à produire — il reste
+//                   visible, il ne bascule JAMAIS en NOT_APPLICABLE ;
+//   - NOT_CONCERNED « ne nous concerne pas »          → NOT_APPLICABLE, refusé sur les
+//                   sept documents de la loi 2002-2.
+// Le commentaire est conservé comme élément de preuve exploitable en cotation.
 export async function respondToMissingDocument(
   establishmentId: string,
   documentTypeId: string,
-  applies: boolean,
+  rawAnswer: unknown,
   comment: string | null
 ): Promise<{ error: string } | null> {
-  const access = await requireEstablishmentAccess(establishmentId);
+  const access = await requireEstablishmentAccess(establishmentId, NEED.DOCUMENTS_WRITE);
 
-  // Une réponse Oui/Non est une écriture : elle s'arrête avec le dépôt.
+  // Une réponse est une écriture : elle s'arrête avec le dépôt.
   if (!canDepositDocuments(access.missionAccess)) return { error: DEPOSIT_CLOSED_MESSAGE };
+
+  // Entrée non fiable : jamais castée (CLAUDE.md §5 bis).
+  const answer = parseMissingAnswer(rawAnswer);
+  if (!answer) return { error: "Réponse invalide." };
 
   const documentType = await prisma.documentType.findUnique({ where: { id: documentTypeId } });
   if (!documentType) return { error: "Type de document invalide." };
 
   // Même arbitrage que pour le dépôt : un document hors offre n'a pas à recevoir de
-  // réponse Oui/Non, il n'est pas attendu. Sans mission, on ne bloque pas (avant-vente).
+  // réponse, il n'est pas attendu. Sans mission, on ne bloque pas (avant-vente).
   if (!(await isCategoryCoveredForEstablishment(establishmentId, documentType.category))) {
     return { error: OUT_OF_OFFER_ERROR };
   }
 
+  const refusal = missingAnswerError(answer, documentType.category);
+  if (refusal) return { error: refusal };
+
   const trimmedComment = comment?.trim().slice(0, MAX_JUSTIFICATION_LENGTH) || null;
-  const status = applies ? "MISSING" : "NOT_APPLICABLE";
+  const { status, statusOverriddenByUser } = missingAnswerWrite(answer);
 
   await prisma.document.upsert({
     where: { establishmentId_documentTypeId: { establishmentId, documentTypeId } },
-    update: { status, missingJustification: trimmedComment, statusOverriddenByUser: !applies },
+    update: { status, missingJustification: trimmedComment, statusOverriddenByUser },
     create: {
       establishmentId,
       documentTypeId,
       status,
       missingJustification: trimmedComment,
-      statusOverriddenByUser: !applies,
+      statusOverriddenByUser,
     },
   });
 
@@ -216,10 +267,25 @@ export async function respondToMissingDocument(
     actorRole: access.session.user.role,
     establishmentId,
     targetId: documentType.id,
-    detail: `${documentType.code} → ${status}`,
+    // La RÉPONSE et non le seul statut : « Je ne l'ai pas » et « il arrive » donnent
+    // tous deux MISSING. Clés techniques, jamais le commentaire libre.
+    detail: `${documentType.code} → ${answer}`,
   });
 
   revalidateDocumentViews(establishmentId);
+
+  // « Je ne l'ai pas » n'est pas une absence, c'est une COMMANDE : le document est à
+  // produire par EODA (N3), et le cabinet l'apprend par e-mail (16/10/2026). Les deux
+  // autres réponses ne demandent aucun travail — « il arrive » et « ne nous concerne
+  // pas » ne préviennent personne : une alerte par clic cesse d'être lue.
+  if (answer === "DONT_HAVE") {
+    await notifyStructureActivity({
+      establishmentId,
+      documentLabel: documentType.label,
+      kind: "DECLARED_MISSING",
+    });
+  }
+
   return null;
 }
 
@@ -235,7 +301,7 @@ export async function updateMissingJustification(
   documentTypeId: string,
   comment: string | null
 ): Promise<{ error: string } | null> {
-  const access = await requireEstablishmentAccess(establishmentId);
+  const access = await requireEstablishmentAccess(establishmentId, NEED.DOCUMENTS_WRITE);
 
   if (!canDepositDocuments(access.missionAccess)) return { error: DEPOSIT_CLOSED_MESSAGE };
 
@@ -281,7 +347,7 @@ async function getAuthorizedDocumentVersion(documentVersionId: string) {
   });
   if (!version) return null;
 
-  const access = await tryEstablishmentAccess(version.document.establishmentId);
+  const access = await tryEstablishmentAccess(version.document.establishmentId, NEED.DOCUMENTS_READ);
   if (!access) return null;
 
   return { version, access };
@@ -308,10 +374,11 @@ export async function getDocumentDownloadUrl(documentVersionId: string): Promise
   });
 }
 
-// Un navigateur ne sait afficher nativement qu'un PDF — un .docx est toujours
-// proposé au téléchargement par le système, quel que soit le Content-Disposition.
-// Pour les .docx, l'aperçu affiche donc le texte déjà extrait à l'upload
-// (mammoth, cf. text-extraction-service) plutôt que le fichier brut.
+// Un navigateur ne sait afficher nativement qu'un PDF et une image. Pour tout le
+// reste — et l'essentiel de ce que déposent les structures est en `.docx` — les pages
+// sont PRODUITES côté serveur (document-pdf-service) puis affichées par le lecteur PDF
+// du navigateur (16/10/2026). Le Markdown extrait reste le repli des formats qu'aucun
+// convertisseur ne prend en charge.
 export type { FilePreviewData as DocumentPreviewData } from "@/lib/services/file-preview-types";
 
 export async function getDocumentPreviewData(
@@ -322,19 +389,32 @@ export async function getDocumentPreviewData(
 
   const { version, access } = authorized;
 
-  await recordAuditEvent({
-    action: "DOCUMENT_PREVIEWED",
-    actorUserId: access.userId,
-    actorRole: access.session.user.role,
-    establishmentId: version.document.establishmentId,
-    targetId: version.id,
-    detail: version.document.documentType?.code ?? null,
-  });
+  const documentPagesUrl = canRenderDocumentPages(version.originalFilename)
+    ? `/api/documents/${version.id}/pdf`
+    : null;
+
+  // L'audit suit ce qui sert les OCTETS, une fois par accès. Ici on ne remet qu'une
+  // adresse : quand elle mène à notre route, c'est la route qui journalise, à
+  // l'instant où elle rend les pages — journaliser aussi l'affichage de la modale
+  // compterait deux fois un seul clic. Pour un PDF ou une image, l'adresse signée
+  // mène au stockage, hors de notre portée : la révélation de cette adresse est le
+  // seul point de journalisation que nous ayons, et c'est celui-ci.
+  if (!documentPagesUrl) {
+    await recordAuditEvent({
+      action: "DOCUMENT_PREVIEWED",
+      actorUserId: access.userId,
+      actorRole: access.session.user.role,
+      establishmentId: version.document.establishmentId,
+      targetId: version.id,
+      detail: version.document.documentType?.code ?? null,
+    });
+  }
 
   return buildFilePreview({
     originalFilename: version.originalFilename,
     fileStorageKey: version.fileStorageKey,
     extractedText: version.extractedText,
+    documentPagesUrl,
   });
 }
 
@@ -410,7 +490,7 @@ export async function deleteDocumentVersion(
   // l'établissement PROPRIÉTAIRE de la version, jamais sur un identifiant fourni.
   // `requireEstablishmentAccess` ouvre aux deux côtés — le client doit pouvoir
   // corriger son propre dépôt — et notFound() tombe si la version est hors périmètre.
-  const access = await requireEstablishmentAccess(version.document.establishmentId);
+  const access = await requireEstablishmentAccess(version.document.establishmentId, NEED.DOCUMENTS_WRITE);
   const { session, userId } = access;
 
   // Chacun ne supprime que ce qu'il a déposé, et seulement la dernière version.
@@ -463,6 +543,13 @@ export async function deleteDocumentVersion(
       console.error("Suppression d'une image de document échouée — objet orphelin dans le stockage :", error);
     }
   }
+
+  // Les pages rendues pour l'aperçu sont DÉRIVÉES de la pièce qui vient d'être
+  // supprimée : elles partent avec elle, pour la même raison que les images
+  // ci-dessus (droit à l'effacement — un PDF garde le texte du document). Best-effort
+  // lui aussi, et il le faut : la plupart des versions n'ont jamais été ouvertes en
+  // aperçu, donc n'ont aucun rendu à supprimer.
+  await deleteCachedDocumentPdf(version.id);
 
   await prisma.$transaction(async (tx) => {
     // Versions régénérées à partir de celle-ci : le lien de filiation est coupé
@@ -544,13 +631,22 @@ export async function setAnalysisReviewed(
   });
   if (!version) notFound();
 
-  const access = await requireEstablishmentAccess(version.document.establishmentId);
+  const access = await requireEstablishmentAccess(version.document.establishmentId, NEED.DOCUMENTS_WRITE);
   if (access.isClient) notFound();
 
   // Rien à publier : refuser plutôt que de poser une date de revue sur une analyse
   // inexistante, qui ferait croire à une relecture qui n'a pas eu lieu.
   if (reviewed && version.analysisResultJson === null) {
     return { error: "Aucune analyse à restituer pour cette version." };
+  }
+  // Une analyse ILLISIBLE (appel interrompu, adaptateur de repli, JSON vide) ne se
+  // marque pas relue : la structure lirait « Relu par EODA » sur une analyse qui ne
+  // dit rien (test de bout en bout du 12/10). Même lecture que l'écran.
+  if (reviewed && parseAnalysisResult(version.analysisResultJson) === null) {
+    return {
+      error:
+        "Cette analyse est illisible : il faut relancer l'analyse d'abord, depuis la fiche de la structure, avant de la marquer relue.",
+    };
   }
 
   if (reviewed === (version.analysisReviewedAt !== null)) return null;
@@ -592,7 +688,7 @@ export async function reanalyzeDocument(
   });
   if (!version) notFound();
 
-  const access = await requireEstablishmentAccess(version.document.establishmentId);
+  const access = await requireEstablishmentAccess(version.document.establishmentId, NEED.DOCUMENTS_WRITE);
   if (access.isClient) notFound();
 
   const validatedModelId = modelId && isKnownLlmModelId(modelId) ? modelId : null;
@@ -650,7 +746,7 @@ export type CriterionGuidelineItem = {
 };
 
 export async function listCriteriaForPicker(): Promise<CriterionOption[] | null> {
-  const cabinet = await tryCabinetSession();
+  const cabinet = await tryCabinetSession("STRUCTURES_READ");
   if (!cabinet) return null;
 
   const criteria = await prisma.criterion.findMany({
@@ -667,7 +763,7 @@ export async function addCriterionGuideline(
   const validated = validateGuidelineNote(note);
   if (!validated.ok) return { error: validated.error };
 
-  const { tenantId, userId, session } = await requireCabinetSession();
+  const { tenantId, userId, session } = await requireCabinetSession("STRUCTURES_WRITE");
 
   const criterion = await prisma.criterion.findUnique({ where: { id: criterionId }, select: { id: true } });
   if (!criterion) return { error: "Critère invalide." };
@@ -689,7 +785,7 @@ export async function addCriterionGuideline(
 export async function listCriterionGuidelines(
   criterionId: string
 ): Promise<CriterionGuidelineItem[] | null> {
-  const cabinet = await tryCabinetSession();
+  const cabinet = await tryCabinetSession("STRUCTURES_READ");
   if (!cabinet) return null;
 
   const guidelines = await prisma.criterionGuideline.findMany({
@@ -712,14 +808,21 @@ export async function listCriterionGuidelines(
 // c'est uploadé, analysé, modifié, relu et validé ». Réservée au CABINET : valider,
 // c'est engager la parole de l'évaluatrice sur un document qui partira à la HAS.
 // Réversible — une validation posée trop tôt doit pouvoir être retirée.
+export type SetDocumentValidatedResult =
+  | { error: string }
+  // Validation posée : combien d'interlocuteurs du client ont été prévenus par
+  // e-mail, pour que l'écran le dise au lieu de laisser croire que c'est parti.
+  | { notified: { sent: number; total: number } }
+  | null;
+
 export async function setDocumentValidated(
   establishmentId: string,
   documentTypeId: string,
   validated: boolean
-): Promise<{ error: string } | null> {
+): Promise<SetDocumentValidatedResult> {
   if (typeof validated !== "boolean") return { error: "Valeur invalide." };
 
-  const access = await requireEstablishmentAccess(establishmentId);
+  const access = await requireEstablishmentAccess(establishmentId, NEED.DOCUMENTS_WRITE);
   if (access.isClient) notFound();
 
   const document = await prisma.document.findUnique({
@@ -751,7 +854,59 @@ export async function setDocumentValidated(
   });
 
   revalidateDocumentViews(establishmentId);
-  return null;
+
+  // Retirer une validation ne prévient personne : le document disparaît des
+  // livrables, on n'écrit pas au client pour lui annoncer un retour en arrière.
+  if (!validated) return null;
+  const notified = await announceValidatedDocument(
+    establishmentId,
+    documentTypeId,
+    access.missionAccess
+  );
+  return { notified };
+}
+
+// Prévenir le client qu'un document validé l'attend — par e-mail ; dans
+// l'application, la pastille « Mes livrables » se dérive seule
+// (deliverables-service).
+//
+// NON exporté, et c'est une règle de sécurité : tout export d'un fichier
+// "use server" est une route HTTP publique. Les appelants ont déjà passé la garde.
+//
+// Un accès RÉVOQUÉ ne reçoit rien : on n'invite pas à ouvrir un portail qui est
+// fermé. La bibliothèque (mission clôturée) reste lisible, elle, donc prévenue.
+async function announceValidatedDocument(
+  establishmentId: string,
+  documentTypeId: string,
+  missionAccess: MissionAccessState
+): Promise<{ sent: number; total: number }> {
+  if (!canClientRead(missionAccess)) return { sent: 0, total: 0 };
+
+  const [establishment, document] = await Promise.all([
+    prisma.establishment.findUnique({ where: { id: establishmentId }, select: { name: true } }),
+    prisma.document.findUnique({
+      where: { establishmentId_documentTypeId: { establishmentId, documentTypeId } },
+      select: {
+        documentType: { select: { label: true } },
+        // Existe-t-il une version produite par EODA ? C'est ce qui sépare un
+        // livrable d'une pièce du client simplement jugée conforme — même critère
+        // que deliverables-service (auteur non CLIENT_USER).
+        versions: {
+          where: { uploadedBy: { role: { not: "CLIENT_USER" } } },
+          select: { id: true },
+          take: 1,
+        },
+      },
+    }),
+  ]);
+  if (!establishment || !document?.documentType) return { sent: 0, total: 0 };
+
+  return notifyDocumentAvailable({
+    establishmentId,
+    establishmentName: establishment.name,
+    documentLabel: document.documentType.label,
+    kind: document.versions.length > 0 ? "DELIVERABLE" : "VALIDATED_PIECE",
+  });
 }
 
 // ── Réclamé au client, ou produit par EODA ───────────────────────────────────
@@ -819,42 +974,22 @@ export async function getCorrectedDraft(documentVersionId: string): Promise<Corr
   });
   if (!version) return undefined;
 
-  const access = await tryEstablishmentAccess(version.document.establishmentId);
+  const access = await tryEstablishmentAccess(version.document.establishmentId, NEED.DOCUMENTS_READ);
   if (!access || access.isClient) return undefined;
 
   if (!version.correctedDraftMarkdown || !version.correctedDraftGeneratedAt) return null;
   return { markdown: version.correctedDraftMarkdown, generatedAt: version.correctedDraftGeneratedAt };
 }
 
+// Délègue à la mise en conformité structurée (N8, lib/actions/correction-proposal.ts) :
+// même garde (correction-context), même droit (correctionRight), même trace — une
+// seule porte de génération, que l'appel vienne du panneau cabinet ou de l'écran
+// côte à côte.
 export async function generateDocumentDraft(
   documentVersionId: string,
   modelId?: string | null
 ): Promise<{ error: string } | null> {
-  const version = await prisma.documentVersion.findUnique({
-    where: { id: documentVersionId },
-    select: { document: { select: { establishmentId: true, documentType: { select: { code: true } } } } },
-  });
-  if (!version) notFound();
-
-  const access = await requireEstablishmentAccess(version.document.establishmentId);
-  if (access.isClient) notFound();
-
-  const validatedModelId = modelId && isKnownLlmModelId(modelId) ? modelId : null;
-
-  const result = await generateCorrectedDraft(documentVersionId, getLLMAnalysisPort(), validatedModelId);
-  if ("error" in result) return { error: result.error };
-
-  await recordAuditEvent({
-    action: "CORRECTED_DRAFT_GENERATED",
-    actorUserId: access.userId,
-    actorRole: access.session.user.role,
-    establishmentId: version.document.establishmentId,
-    targetId: documentVersionId,
-    detail: version.document.documentType?.code ?? null,
-  });
-
-  revalidateDocumentViews(version.document.establishmentId);
-  return null;
+  return generateCorrectionProposal(documentVersionId, modelId);
 }
 
 export async function saveDocumentDraft(
@@ -874,7 +1009,7 @@ export async function saveDocumentDraft(
   });
   if (!version) notFound();
 
-  const access = await requireEstablishmentAccess(version.document.establishmentId);
+  const access = await requireEstablishmentAccess(version.document.establishmentId, NEED.DOCUMENTS_WRITE);
   if (access.isClient) notFound();
 
   await saveCorrectedDraft(documentVersionId, markdown.trim());

@@ -84,11 +84,11 @@ describe("buildContractFileName", () => {
   it("suit la convention EODA et cite le devis d'origine", () => {
     expect(
       buildContractFileName({
-        structureName: "ASSAD Générique",
+        structureName: "SAD Générique",
         issuedOn: new Date("2026-09-01T08:00:00Z"),
         devisNumber: "D-2026-004",
       })
-    ).toBe("20260901_CONTRAT_ASSAD-Generique_Accompagnement-D-2026-004_v01_Externe.pdf");
+    ).toBe("20260901_CONTRAT_SAD-Generique_Accompagnement-D-2026-004_v01_Externe.pdf");
   });
 
   it("nomme l'objet sans inventer de référence quand aucun devis n'existe", () => {

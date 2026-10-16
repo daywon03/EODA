@@ -1,3 +1,4 @@
+import type { SupportMode } from "@eoda/database";
 import type { DocumentAnalysisResult } from "@/lib/llm";
 import {
   normalizeFindings,
@@ -93,12 +94,20 @@ export type ReviewableAnalysis = {
   reviewedAt: Date | null;
 };
 
+// Le MODE de la mission (N1, évolution de 09-vision-produit §4.2 décidée le 30/09
+// puis le 08/10/2026) est un paramètre OBLIGATOIRE : un appelant qui l'oublierait ne
+// compile pas, au lieu de publier par défaut.
+//   - ACCOMPAGNE : règle stricte du cahier des charges, inchangée — rien de non relu.
+//   - AUTONOMIE  : la structure a acheté l'outil sans relecture ; elle voit l'analyse
+//     non relue, TOUJOURS sous la réserve de review-mention-service.
 export function analysisVisibleTo(
   audience: AnalysisAudience,
-  version: ReviewableAnalysis
+  version: ReviewableAnalysis,
+  mode: SupportMode
 ): DocumentAnalysisResult | null {
   // Le cabinet voit tout : c'est précisément son travail de relire avant de publier.
   if (audience === "CABINET") return version.analysis;
+  if (mode === "AUTONOMIE") return version.analysis;
   return version.reviewedAt !== null ? version.analysis : null;
 }
 
@@ -143,3 +152,7 @@ export function describeAnalysis(summary: AnalysisSummary): string {
     ? `${summary.missingCount} éléments attendus n'ont pas été retrouvés dans ce document.`
     : "1 élément attendu n'a pas été retrouvé dans ce document.";
 }
+
+// Mention de relecture : déplacée dans review-mention-service, service UNIQUE des
+// mentions (N1). Réexportée pour les appelants existants (file « À relire »).
+export { describeReviewMention } from "./review-mention-service";

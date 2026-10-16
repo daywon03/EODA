@@ -8,6 +8,9 @@ import {
   Header,
   Footer,
   ImageRun,
+  HighlightColor,
+  PageNumber,
+  UnderlineType,
 } from "docx";
 import { imageSize } from "image-size";
 import { buildOwnershipMention } from "./document-ownership-service";
@@ -33,18 +36,37 @@ import { buildOwnershipMention } from "./document-ownership-service";
 const EODA_BRUN_ANCRE = "3E2C26";
 const EODA_GRIS_MID = "8A7B72";
 
+// Style des passages d'un document ANNOTÉ (N8, context/10 §4) : un ajout proposé est
+// surligné en vert ; un champ `[À compléter : …]` est souligné en pointillé et surligné
+// en jaune, « pour qu'on sache que c'est là qu'il faut remplir ».
+export type RunStyle = { addition?: boolean };
+
+const FIELD_SPLIT = /(\[À compléter[^\]]*\])/g;
+
 // `**gras**` au milieu d'une ligne — le seul style inline que le prompt de
-// génération utilise. Découpe la ligne en segments alternant texte normal et gras,
-// jamais imbriqué (pas de gras dans du gras : hors du sous-ensemble demandé).
-function parseInlineRuns(line: string): TextRun[] {
+// génération utilise — et les champs à compléter. Jamais imbriqué.
+export function parseInlineRuns(line: string, style: RunStyle = {}): TextRun[] {
   const segments = line.split(/(\*\*[^*]+\*\*)/g).filter((segment) => segment.length > 0);
   if (segments.length === 0) return [new TextRun("")];
 
-  return segments.map((segment) => {
-    if (segment.startsWith("**") && segment.endsWith("**") && segment.length > 4) {
-      return new TextRun({ text: segment.slice(2, -2), bold: true });
-    }
-    return new TextRun(segment);
+  return segments.flatMap((segment) => {
+    const bold = segment.startsWith("**") && segment.endsWith("**") && segment.length > 4;
+    const text = bold ? segment.slice(2, -2) : segment;
+    return text
+      .split(FIELD_SPLIT)
+      .filter((part) => part.length > 0)
+      .map((part) => {
+        const isField = /^\[À compléter/.test(part);
+        return new TextRun({
+          text: part,
+          ...(bold && { bold: true }),
+          ...(isField
+            ? { highlight: HighlightColor.YELLOW, underline: { type: UnderlineType.DOTTED } }
+            : style.addition
+              ? { highlight: HighlightColor.GREEN }
+              : {}),
+        });
+      });
   });
 }
 
@@ -61,7 +83,7 @@ function headingProps(level: number): { heading: (typeof HeadingLevel)[keyof typ
   return heading ? { heading } : {};
 }
 
-function markdownToParagraphs(markdown: string): Paragraph[] {
+export function markdownToParagraphs(markdown: string, style: RunStyle = {}): Paragraph[] {
   const paragraphs: Paragraph[] = [];
 
   for (const rawLine of markdown.split("\n")) {
@@ -75,7 +97,7 @@ function markdownToParagraphs(markdown: string): Paragraph[] {
         new Paragraph({
           ...headingProps(level),
           spacing: { before: 240, after: 120 },
-          children: parseInlineRuns(heading[2]!),
+          children: parseInlineRuns(heading[2]!, style),
         })
       );
       continue;
@@ -87,7 +109,7 @@ function markdownToParagraphs(markdown: string): Paragraph[] {
         new Paragraph({
           bullet: { level: 0 },
           spacing: { after: 80 },
-          children: parseInlineRuns(bullet[1]!),
+          children: parseInlineRuns(bullet[1]!, style),
         })
       );
       continue;
@@ -96,7 +118,7 @@ function markdownToParagraphs(markdown: string): Paragraph[] {
     paragraphs.push(
       new Paragraph({
         spacing: { after: 160 },
-        children: parseInlineRuns(line),
+        children: parseInlineRuns(line, style),
       })
     );
   }
@@ -121,6 +143,10 @@ export type BrandedDocxInput = {
   title: string;
   establishmentName: string;
   images?: BrandedDocxImageInput[];
+  // Mention de relecture produite par review-mention-service (« Relu par EODA… » ou,
+  // en autonomie, la réserve complète). Jamais rédigée ici : une réserve recopiée
+  // finit tronquée. Absente ou null : aucune mention ajoutée.
+  reviewMention?: string | null;
 };
 
 const MAX_IMAGE_WIDTH = 500;
@@ -181,42 +207,52 @@ function buildImageAnnexParagraphs(images: BrandedDocxImageInput[]): Paragraph[]
   return paragraphs;
 }
 
+// La mention de relecture, en tête du document et en gras : c'est la première chose
+// à lire avant d'utiliser un document qu'aucun humain n'a revérifié (CLAUDE.md §7).
+// Exportée pour être testée sans dézipper le .docx.
+// Pied de page commun : la mention de paternité, puis le numéro de page en bas à
+// droite (context/10 §4 : « numéros de page en bas à droite »).
+export function brandedFooter(establishmentName: string): Footer {
+  return new Footer({
+    children: [
+      new Paragraph({
+        alignment: AlignmentType.CENTER,
+        children: [new TextRun({ text: buildOwnershipMention(establishmentName), size: 16, color: EODA_GRIS_MID })],
+      }),
+      new Paragraph({
+        alignment: AlignmentType.RIGHT,
+        children: [new TextRun({ children: ["Page ", PageNumber.CURRENT, " / ", PageNumber.TOTAL_PAGES], size: 16 })],
+      }),
+    ],
+  });
+}
+
+export function brandedHeader(): Header {
+  return new Header({
+    children: [new Paragraph({ children: [new TextRun({ text: "EODA conseil", bold: true, color: EODA_BRUN_ANCRE, size: 20 })] })],
+  });
+}
+
+export function reviewMentionParagraphs(mention: string | null): Paragraph[] {
+  if (!mention) return [];
+  return [
+    new Paragraph({
+      spacing: { after: 240 },
+      children: [new TextRun({ text: mention, bold: true, color: EODA_BRUN_ANCRE })],
+    }),
+  ];
+}
+
 // Rend un Buffer .docx prêt à être servi (Content-Type
 // application/vnd.openxmlformats-officedocument.wordprocessingml.document).
 export async function generateBrandedDocx(input: BrandedDocxInput): Promise<Buffer> {
   const document = new Document({
     sections: [
       {
-        headers: {
-          default: new Header({
-            children: [
-              new Paragraph({
-                children: [
-                  new TextRun({ text: "EODA conseil", bold: true, color: EODA_BRUN_ANCRE, size: 20 }),
-                ],
-              }),
-            ],
-          }),
-        },
-        footers: {
-          // Mention de paternité — texte fixe, dicté et jamais reformulé au cas par
-          // cas (cf. document-ownership-service.ts). Ce document est PRODUIT par
-          // EODA pour la structure, exactement le cas que cette mention couvre.
-          default: new Footer({
-            children: [
-              new Paragraph({
-                alignment: AlignmentType.CENTER,
-                children: [
-                  new TextRun({
-                    text: buildOwnershipMention(input.establishmentName),
-                    size: 16,
-                    color: EODA_GRIS_MID,
-                  }),
-                ],
-              }),
-            ],
-          }),
-        },
+        headers: { default: brandedHeader() },
+        // Mention de paternité — texte fixe, dicté et jamais reformulé au cas par
+        // cas (cf. document-ownership-service.ts) — et numéro de page.
+        footers: { default: brandedFooter(input.establishmentName) },
         children: [
           new Paragraph({
             heading: HeadingLevel.TITLE,
@@ -239,6 +275,7 @@ export async function generateBrandedDocx(input: BrandedDocxInput): Promise<Buff
               }),
             ],
           }),
+          ...reviewMentionParagraphs(input.reviewMention ?? null),
           ...markdownToParagraphs(input.markdown),
           ...buildImageAnnexParagraphs(input.images ?? []),
         ],

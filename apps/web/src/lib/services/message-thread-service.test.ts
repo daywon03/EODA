@@ -136,7 +136,7 @@ describe("groupMessagesByDay", () => {
 });
 
 describe("startsNewBlock", () => {
-  const base = { authorSide: "CLIENT" as const, authorName: "Julien", createdAt: new Date(2026, 8, 3, 9, 0) };
+  const base = { authorSide: "CLIENT" as const, authorName: "Alex", createdAt: new Date(2026, 8, 3, 9, 0) };
 
   it("ouvre toujours un bloc sur le premier message", () => {
     expect(startsNewBlock(base, undefined)).toBe(true);
@@ -160,7 +160,7 @@ describe("startsNewBlock", () => {
     // Masquer le second nom laisserait croire que la directrice a écrit ce que sa
     // secrétaire a écrit.
     expect(
-      startsNewBlock({ ...base, authorName: "Tania", createdAt: new Date(2026, 8, 3, 9, 1) }, base)
+      startsNewBlock({ ...base, authorName: "Camille", createdAt: new Date(2026, 8, 3, 9, 1) }, base)
     ).toBe(true);
   });
 });

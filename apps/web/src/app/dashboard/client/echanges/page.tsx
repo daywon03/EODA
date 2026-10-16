@@ -3,7 +3,7 @@ import { MessageThread } from "@/components/messages/MessageThread";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { MessagesSquare, ShieldAlert } from "lucide-react";
 
-export const metadata = { title: "Mes échanges · EODA Conseil" };
+export const metadata = { title: "Mes échanges" };
 
 // Fil d'échange, côté client (CDC §5). Aucun identifiant d'établissement n'entre ici :
 // `getClientThread` le résout depuis le lien EstablishmentUser de la session.
@@ -25,10 +25,10 @@ export default async function ClientMessagesPage() {
           Il devient un encart identifié — icône, contraste, texte de corps — sans
           devenir alarmant : le fil doit rester utilisé, c'est sa raison d'être. */}
       <div className="flex items-start gap-3 rounded-lg border border-ambre/40 bg-ambre/10 px-4 py-3">
-        <ShieldAlert className="mt-0.5 h-4 w-4 flex-shrink-0 text-ambre" aria-hidden="true" />
+        <ShieldAlert className="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-text" aria-hidden="true" />
         <div className="space-y-1 text-sm text-brun-ancre">
           <p className="font-medium">Aucune donnée personnelle dans ce fil.</p>
-          <p className="text-gris-mid">
+          <p className="text-ink2">
             Il sert aux questions courtes et au suivi de votre accompagnement. N&apos;y
             mentionnez pas d&apos;informations concernant les personnes accompagnées —
             les documents, eux, se déposent dans votre espace documentaire.

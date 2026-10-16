@@ -11,10 +11,17 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const prismaMock = {
   mission: { findUnique: vi.fn() },
   documentType: { findMany: vi.fn(), findUnique: vi.fn() },
-  document: { upsert: vi.fn() },
+  document: { upsert: vi.fn(), findUnique: vi.fn(), update: vi.fn() },
+  documentVersion: { findUnique: vi.fn() },
+  establishment: { findUnique: vi.fn() },
 };
 
+const notifyDocumentAvailable = vi.fn();
+const notifyStructureActivity = vi.fn();
+
 const ingestDocumentVersion = vi.fn();
+const generateCorrectedDraft = vi.fn();
+const generateCorrectionProposal = vi.fn();
 const recordAuditEvent = vi.fn();
 const extractMarkdown = vi.fn();
 const suggestDocumentType = vi.fn();
@@ -35,6 +42,10 @@ vi.mock("@/lib/services/document-categorization-service", () => ({
 vi.mock("@/lib/services/document-ingestion-service", () => ({
   ingestDocumentVersion: (...args: unknown[]) => ingestDocumentVersion(...args),
 }));
+vi.mock("@/lib/services/document-generation-service", () => ({
+  generateCorrectedDraft: (...args: unknown[]) => generateCorrectedDraft(...args),
+  saveCorrectedDraft: vi.fn(),
+}));
 vi.mock("@/lib/services/audit-log-service", () => ({
   recordAuditEvent: (...args: unknown[]) => recordAuditEvent(...args),
 }));
@@ -42,9 +53,17 @@ vi.mock("@/lib/security/upload-validation-service", () => ({
   validateUploadedFile: () => ({ ok: true, contentType: "application/pdf" }),
 }));
 vi.mock("@/lib/storage", () => ({ getFileStoragePort: () => ({}) }));
+vi.mock("./correction-proposal", () => ({
+  generateCorrectionProposal: (...args: unknown[]) => generateCorrectionProposal(...args),
+}));
 vi.mock("@/lib/llm", () => ({ getLLMAnalysisPort: () => ({}) }));
+vi.mock("@/lib/email/notifications", () => ({
+  notifyDocumentAvailable: (...args: unknown[]) => notifyDocumentAvailable(...args),
+  notifyStructureActivity: (...args: unknown[]) => notifyStructureActivity(...args),
+}));
 
-const { uploadDocument, respondToMissingDocument } = await import("./document");
+const { uploadDocument, respondToMissingDocument, generateDocumentDraft, setDocumentValidated } =
+  await import("./document");
 
 const ESTABLISHMENT_ID = "etab-1";
 
@@ -80,9 +99,13 @@ beforeEach(() => {
   requireEstablishmentAccess.mockResolvedValue({
     userId: "user-1",
     session: { user: { role: "CLIENT_USER" } },
+    isClient: true,
     // Mission en cours par défaut : le dépôt s'arrête à la clôture (§12.5).
     missionAccess: "ACTIVE",
   });
+  notifyDocumentAvailable.mockResolvedValue({ sent: 2, total: 2 });
+  notifyStructureActivity.mockResolvedValue({ sent: 1, total: 1 });
+  prismaMock.establishment.findUnique.mockResolvedValue({ name: "Structure test" });
   extractMarkdown.mockResolvedValue({ markdown: "texte extrait", images: [] });
   ingestDocumentVersion.mockResolvedValue({ documentVersionId: "dv-1" });
   recordAuditEvent.mockResolvedValue(undefined);
@@ -168,7 +191,7 @@ describe("respondToMissingDocument — périmètre de l'offre", () => {
     givenMission("ESSENTIEL");
     prismaMock.documentType.findUnique.mockResolvedValue(RH_TYPE);
 
-    const result = await respondToMissingDocument(ESTABLISHMENT_ID, RH_TYPE.id, false, "n/a");
+    const result = await respondToMissingDocument(ESTABLISHMENT_ID, RH_TYPE.id, "NOT_CONCERNED", "n/a");
 
     expect(result).toEqual({
       error: "Ce document n'entre pas dans le périmètre de l'offre souscrite pour cet établissement.",
@@ -181,7 +204,7 @@ describe("respondToMissingDocument — périmètre de l'offre", () => {
     givenMission("ESSENTIEL");
     prismaMock.documentType.findUnique.mockResolvedValue(LOI_TYPE);
 
-    const result = await respondToMissingDocument(ESTABLISHMENT_ID, LOI_TYPE.id, true, "en cours");
+    const result = await respondToMissingDocument(ESTABLISHMENT_ID, LOI_TYPE.id, "WILL_PROVIDE", "en cours");
 
     expect(result).toBeNull();
     expect(prismaMock.document.upsert).toHaveBeenCalledTimes(1);
@@ -191,10 +214,82 @@ describe("respondToMissingDocument — périmètre de l'offre", () => {
     givenMission(null);
     prismaMock.documentType.findUnique.mockResolvedValue(RH_TYPE);
 
-    const result = await respondToMissingDocument(ESTABLISHMENT_ID, RH_TYPE.id, true, null);
+    const result = await respondToMissingDocument(ESTABLISHMENT_ID, RH_TYPE.id, "WILL_PROVIDE", null);
 
     expect(result).toBeNull();
     expect(prismaMock.document.upsert).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("respondToMissingDocument — « Je ne l'ai pas » (N3)", () => {
+  it("garde le document MANQUANT, à produire — jamais NOT_APPLICABLE", async () => {
+    givenMission("EXCELLENCE");
+    prismaMock.documentType.findUnique.mockResolvedValue(LOI_TYPE);
+
+    const result = await respondToMissingDocument(ESTABLISHMENT_ID, LOI_TYPE.id, "DONT_HAVE", null);
+
+    expect(result).toBeNull();
+    const call = prismaMock.document.upsert.mock.calls[0]?.[0] as {
+      update: { status: string; statusOverriddenByUser: boolean };
+      create: { status: string; statusOverriddenByUser: boolean };
+    };
+    expect(call.update).toMatchObject({ status: "MISSING", statusOverriddenByUser: true });
+    expect(call.create).toMatchObject({ status: "MISSING", statusOverriddenByUser: true });
+    expect(recordAuditEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ action: "DOCUMENT_STATUS_ANSWERED", detail: `${LOI_TYPE.code} → DONT_HAVE` })
+    );
+  });
+
+  it("refuse « non concerné » sur un document de la loi 2002-2, sans rien écrire", async () => {
+    givenMission("EXCELLENCE");
+    prismaMock.documentType.findUnique.mockResolvedValue(LOI_TYPE);
+
+    const result = await respondToMissingDocument(ESTABLISHMENT_ID, LOI_TYPE.id, "NOT_CONCERNED", null);
+
+    expect(result).toMatchObject({ error: expect.stringContaining("loi 2002-2") });
+    expect(prismaMock.document.upsert).not.toHaveBeenCalled();
+  });
+
+  it("accepte « non concerné » hors loi 2002-2", async () => {
+    givenMission("EXCELLENCE");
+    prismaMock.documentType.findUnique.mockResolvedValue(RH_TYPE);
+
+    const result = await respondToMissingDocument(ESTABLISHMENT_ID, RH_TYPE.id, "NOT_CONCERNED", null);
+
+    expect(result).toBeNull();
+    expect(prismaMock.document.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({ update: expect.objectContaining({ status: "NOT_APPLICABLE" }) })
+    );
+  });
+
+  it("refuse une réponse inconnue (entrée non fiable), sans lire ni écrire", async () => {
+    // L'ancien booléen ne passe plus : il n'est pas une réponse.
+    for (const raw of ["MAYBE", true, null]) {
+      expect(await respondToMissingDocument(ESTABLISHMENT_ID, LOI_TYPE.id, raw, null)).toEqual({
+        error: "Réponse invalide.",
+      });
+    }
+    expect(prismaMock.documentType.findUnique).not.toHaveBeenCalled();
+    expect(prismaMock.document.upsert).not.toHaveBeenCalled();
+  });
+
+  it("propage le refus de la garde (autre établissement, non authentifié)", async () => {
+    requireEstablishmentAccess.mockRejectedValue(new Error("NEXT_NOT_FOUND"));
+    await expect(
+      respondToMissingDocument("etab-autre", LOI_TYPE.id, "DONT_HAVE", null)
+    ).rejects.toThrow("NEXT_NOT_FOUND");
+    expect(prismaMock.document.upsert).not.toHaveBeenCalled();
+  });
+});
+
+// La génération est désormais une seule porte (N8) : generateDocumentDraft délègue à
+// generateCorrectionProposal, dont le droit (correctionScope, D11, D13), la garde et
+// le journal sont testés dans correction-proposal.test.ts.
+describe("generateDocumentDraft — délégation", () => {
+  it("passe la main à la mise en conformité structurée", async () => {
+    generateCorrectionProposal.mockResolvedValue(null);
+    expect(await generateDocumentDraft("dv-1", "modele")).toBeNull();
+    expect(generateCorrectionProposal).toHaveBeenCalledWith("dv-1", "modele");
   });
 });
 
@@ -214,5 +309,200 @@ describe("uploadDocument — fin de mission", () => {
     expect(result).toMatchObject({ error: expect.stringContaining("terminé") });
     expect(ingestDocumentVersion).not.toHaveBeenCalled();
     expect(extractMarkdown).not.toHaveBeenCalled();
+  });
+});
+
+// ── Annonce au client d'un document validé (27/09/2026) ─────────────────────
+
+function asCabinet(missionAccess = "ACTIVE"): void {
+  requireEstablishmentAccess.mockResolvedValue({
+    userId: "sandrine",
+    session: { user: { role: "CABINET_ADMIN" } },
+    isClient: false,
+    missionAccess,
+  });
+}
+
+// Lecture faite par l'annonce : intitulé du type et versions produites par EODA.
+function givenAnnouncedDocument(hasCabinetVersion: boolean): void {
+  prismaMock.document.findUnique.mockResolvedValue({
+    id: "doc-1",
+    validatedAt: null,
+    currentVersionId: "dv-1",
+    documentType: { label: LOI_TYPE.label },
+    versions: hasCabinetVersion ? [{ id: "dv-2" }] : [],
+  });
+}
+
+describe("setDocumentValidated — le client est prévenu", () => {
+  it("annonce un LIVRABLE quand EODA a produit une version, et rend le nombre de personnes prévenues", async () => {
+    asCabinet();
+    givenAnnouncedDocument(true);
+
+    const result = await setDocumentValidated(ESTABLISHMENT_ID, LOI_TYPE.id, true);
+
+    expect(result).toEqual({ notified: { sent: 2, total: 2 } });
+    expect(notifyDocumentAvailable).toHaveBeenCalledWith({
+      establishmentId: ESTABLISHMENT_ID,
+      establishmentName: "Structure test",
+      documentLabel: LOI_TYPE.label,
+      kind: "DELIVERABLE",
+    });
+  });
+
+  it("annonce une PIÈCE VALIDÉE quand seul le client a déposé — EODA n'a rien remis", async () => {
+    asCabinet();
+    givenAnnouncedDocument(false);
+
+    await setDocumentValidated(ESTABLISHMENT_ID, LOI_TYPE.id, true);
+
+    expect(notifyDocumentAvailable).toHaveBeenCalledWith(
+      expect.objectContaining({ kind: "VALIDATED_PIECE" })
+    );
+  });
+
+  it("ne prévient personne quand la validation est RETIRÉE", async () => {
+    asCabinet();
+    prismaMock.document.findUnique.mockResolvedValue({
+      id: "doc-1",
+      validatedAt: new Date("2026-09-20T09:00:00Z"),
+      currentVersionId: "dv-1",
+    });
+
+    const result = await setDocumentValidated(ESTABLISHMENT_ID, LOI_TYPE.id, false);
+
+    expect(result).toBeNull();
+    expect(notifyDocumentAvailable).not.toHaveBeenCalled();
+  });
+
+  it("ne prévient pas un client dont l'accès est révoqué", async () => {
+    asCabinet("REVOKED");
+    givenAnnouncedDocument(true);
+
+    const result = await setDocumentValidated(ESTABLISHMENT_ID, LOI_TYPE.id, true);
+
+    expect(result).toEqual({ notified: { sent: 0, total: 0 } });
+    expect(notifyDocumentAvailable).not.toHaveBeenCalled();
+  });
+});
+
+describe("uploadDocument — annonce d'une nouvelle version", () => {
+  it("prévient le client quand EODA dépose sur un document DÉJÀ validé", async () => {
+    // La nouvelle version devient le livrable sur-le-champ.
+    asCabinet();
+    givenMission("ESSENTIEL");
+    prismaMock.documentType.findUnique.mockResolvedValue(LOI_TYPE);
+    prismaMock.document.findUnique.mockResolvedValue({
+      validatedAt: new Date("2026-09-20T09:00:00Z"),
+      documentType: { label: LOI_TYPE.label },
+      versions: [{ id: "dv-2" }],
+    });
+
+    await uploadDocument(uploadForm(LOI_TYPE.id));
+
+    expect(notifyDocumentAvailable).toHaveBeenCalledWith(
+      expect.objectContaining({ kind: "DELIVERABLE" })
+    );
+  });
+
+  it("ne prévient personne quand EODA dépose sur un document non validé — travail en cours", async () => {
+    asCabinet();
+    givenMission("ESSENTIEL");
+    prismaMock.documentType.findUnique.mockResolvedValue(LOI_TYPE);
+    prismaMock.document.findUnique.mockResolvedValue({ validatedAt: null });
+
+    await uploadDocument(uploadForm(LOI_TYPE.id));
+
+    expect(notifyDocumentAvailable).not.toHaveBeenCalled();
+  });
+
+  it("ne s'annonce pas à lui-même un dépôt du client", async () => {
+    givenMission("ESSENTIEL");
+    prismaMock.documentType.findUnique.mockResolvedValue(LOI_TYPE);
+
+    await uploadDocument(uploadForm(LOI_TYPE.id));
+
+    expect(prismaMock.document.findUnique).not.toHaveBeenCalled();
+    expect(notifyDocumentAvailable).not.toHaveBeenCalled();
+  });
+});
+
+// Ce que la STRUCTURE fait → le CABINET (16/10/2026). Le chaînon qui manquait : un
+// dépôt, une acceptation et un « je ne l'ai pas » ne se voyaient qu'en rouvrant la
+// fiche, donc jamais le jour même. Ce qui est protégé ici : le bon événement au bon
+// moment, le libellé du TYPE et jamais le nom du fichier, et le silence partout où
+// rien ne demande de travail au cabinet.
+describe("uploadDocument — le cabinet est prévenu du dépôt de la structure", () => {
+  it("annonce un DÉPÔT, avec le libellé du type de document", async () => {
+    givenMission("ESSENTIEL");
+    prismaMock.documentType.findUnique.mockResolvedValue(LOI_TYPE);
+
+    await uploadDocument(uploadForm(LOI_TYPE.id));
+
+    expect(notifyStructureActivity).toHaveBeenCalledWith({
+      establishmentId: ESTABLISHMENT_ID,
+      documentLabel: LOI_TYPE.label,
+      kind: "DEPOSIT",
+    });
+    // Preuve par l'absurde du libellé : le formulaire porte « doc.pdf », et ce nom
+    // saisi librement peut nommer une personne. Il ne sort jamais d'ici.
+    const call = notifyStructureActivity.mock.calls[0]?.[0] as { documentLabel: string };
+    expect(call.documentLabel).not.toContain("doc.pdf");
+    // Ni l'annonce client (aucune validation n'a été posée), ni un second événement.
+    expect(notifyDocumentAvailable).not.toHaveBeenCalled();
+  });
+
+  it("un dépôt du CABINET ne s'annonce pas au cabinet", async () => {
+    asCabinet();
+    givenMission("ESSENTIEL");
+    prismaMock.documentType.findUnique.mockResolvedValue(LOI_TYPE);
+    prismaMock.document.findUnique.mockResolvedValue({ validatedAt: null });
+
+    await uploadDocument(uploadForm(LOI_TYPE.id));
+
+    expect(notifyStructureActivity).not.toHaveBeenCalled();
+  });
+});
+
+describe("respondToMissingDocument — ce qui demande du travail au cabinet", () => {
+  it("« Je ne l'ai pas » prévient le cabinet : le document est à PRODUIRE", async () => {
+    givenMission("EXCELLENCE");
+    prismaMock.documentType.findUnique.mockResolvedValue(LOI_TYPE);
+
+    await respondToMissingDocument(ESTABLISHMENT_ID, LOI_TYPE.id, "DONT_HAVE", null);
+
+    expect(notifyStructureActivity).toHaveBeenCalledWith({
+      establishmentId: ESTABLISHMENT_ID,
+      documentLabel: LOI_TYPE.label,
+      kind: "DECLARED_MISSING",
+    });
+  });
+
+  it("« il arrive » ne prévient personne : la structure s'en occupe", async () => {
+    givenMission("EXCELLENCE");
+    prismaMock.documentType.findUnique.mockResolvedValue(LOI_TYPE);
+
+    expect(await respondToMissingDocument(ESTABLISHMENT_ID, LOI_TYPE.id, "WILL_PROVIDE", null)).toBeNull();
+
+    expect(notifyStructureActivity).not.toHaveBeenCalled();
+  });
+
+  it("« non concerné » ne prévient personne : le document quitte la liste, sans commande", async () => {
+    givenMission("EXCELLENCE");
+    prismaMock.documentType.findUnique.mockResolvedValue(RH_TYPE);
+
+    expect(await respondToMissingDocument(ESTABLISHMENT_ID, RH_TYPE.id, "NOT_CONCERNED", null)).toBeNull();
+
+    expect(notifyStructureActivity).not.toHaveBeenCalled();
+  });
+
+  it("une réponse refusée (hors périmètre, garde) ne prévient personne", async () => {
+    givenMission("ESSENTIEL");
+    prismaMock.documentType.findUnique.mockResolvedValue(RH_TYPE);
+
+    expect(await respondToMissingDocument(ESTABLISHMENT_ID, RH_TYPE.id, "DONT_HAVE", null)).toEqual({
+      error: "Ce document n'entre pas dans le périmètre de l'offre souscrite pour cet établissement.",
+    });
+    expect(notifyStructureActivity).not.toHaveBeenCalled();
   });
 });

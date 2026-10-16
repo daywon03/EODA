@@ -3,6 +3,7 @@ import path from "node:path";
 import { NextResponse } from "next/server";
 import { prisma } from "@eoda/database";
 import { tryEstablishmentAccess } from "@/lib/auth/guards";
+import { NEED } from "@/lib/auth/capabilities";
 import { STORAGE_ROOT } from "@/lib/storage/local-fs-storage-adapter";
 import { isProductionRuntime } from "@/lib/config/env";
 
@@ -43,7 +44,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ key:
   });
   if (!version) return NextResponse.json({ error: "Fichier introuvable" }, { status: 404 });
 
-  const access = await tryEstablishmentAccess(version.document.establishmentId);
+  const access = await tryEstablishmentAccess(version.document.establishmentId, NEED.DOCUMENTS_READ);
   if (!access) return NextResponse.json({ error: "Fichier introuvable" }, { status: 404 });
 
   // 3. Confinement du chemin. `path.resolve` normalise les `..` ; la comparaison

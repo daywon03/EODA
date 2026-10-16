@@ -17,10 +17,12 @@ import { getFileStoragePort } from "@/lib/storage";
 import { recordAuditEvent } from "@/lib/services/audit-log-service";
 import { extractMarkdown } from "@/lib/services/text-extraction-service";
 import { indexReferenceDocumentVersion } from "@/lib/services/knowledge-indexing-service";
+import { reindexValidatedExample } from "@/lib/services/validated-example-indexing";
 import { getEmbeddingPort } from "@/lib/embeddings";
 import { getLLMAnalysisPort } from "@/lib/llm";
 import { detectTemplateCriteria } from "@/lib/services/template-criterion-detection-service";
 import { buildFilePreview } from "@/lib/services/file-preview-service";
+import { canRenderDocumentPages } from "@/lib/services/file-type-service";
 import type { FilePreviewData } from "@/lib/services/file-preview-types";
 import {
   buildTemplateStorageKey,
@@ -59,7 +61,7 @@ type ActionResult = { error: string } | null;
 export type CategorySummary = { id: string; name: string; position: number; templateCount: number };
 
 export async function listTemplateCategories(): Promise<CategorySummary[]> {
-  const { tenantId } = await requireCabinetSession();
+  const { tenantId } = await requireCabinetSession("LIBRARY_READ");
 
   const categories = await prisma.templateCategory.findMany({
     where: { tenantId },
@@ -247,7 +249,7 @@ export type LibraryFolder = { id: string; name: string; templates: TemplateSumma
 // la main, les fiches dedans. Une seule requête — un `findMany` par dossier ferait
 // autant d'allers-retours que de dossiers, pour la même donnée.
 export async function listLibrary(criterionId?: string): Promise<LibraryFolder[]> {
-  const { tenantId } = await requireCabinetSession();
+  const { tenantId } = await requireCabinetSession("LIBRARY_READ");
 
   const categories = await prisma.templateCategory.findMany({
     where: { tenantId },
@@ -303,6 +305,9 @@ export type TemplateDetail = {
     clientFieldTokens: string[];
   }[];
   criteria: { id: string; code: string; label: string }[];
+  // Type de document que ce gabarit illustre (N8) : ses versions FINALE servent
+  // d'exemples validés à la mise en conformité de ce type.
+  documentTypeId: string | null;
   // Critères HAS supplémentaires détectés par l'IA sur ce gabarit, pas encore
   // tranchés par le cabinet (cf. detectTemplateCriteria) — jamais présents sur un
   // document de référence, qui ne passe pas par cette détection.
@@ -316,7 +321,7 @@ export type TemplateDetail = {
 };
 
 export async function getTemplate(templateId: string): Promise<TemplateDetail> {
-  const { tenantId } = await requireCabinetSession();
+  const { tenantId } = await requireCabinetSession("LIBRARY_READ");
 
   // `templateId` arrive par une route HTTP publique : l'appartenance au tenant se
   // vérifie en base. `notFound()` et non `redirect()` — ne pas révéler qu'un
@@ -343,6 +348,7 @@ export async function getTemplate(templateId: string): Promise<TemplateDetail> {
     categoryId: template.category.id,
     categoryName: template.category.name,
     description: template.description,
+    documentTypeId: template.documentTypeId,
     criteria: template.criteria
       .map((c) => c.criterion)
       .sort((a, b) => a.code.localeCompare(b.code)),
@@ -704,6 +710,13 @@ async function storeVersion(params: {
     }
   }
 
+  // Exemple validé (N8, context/10 §9) : la version FINALE d'un gabarit rattaché à un
+  // type de document entre dans la base d'exemples, nature EXEMPLE_VALIDE — jamais
+  // mêlée aux références. Best-effort, comme l'indexation ci-dessus.
+  if (kind === "GABARIT" && identity.stage === "FINALE") {
+    await reindexValidatedExample(tenantId, templateId);
+  }
+
   // Détection IA de critères HAS supplémentaires — GABARITS uniquement, à l'inverse
   // de l'indexation ci-dessus qui ne concerne que les RÉFÉRENCES : c'est l'étape
   // « Détection IA » de la pipeline (dépôt → extraction → détection → cohérence →
@@ -858,7 +871,7 @@ export async function createCategoryAndMoveTemplate(
 }
 
 export async function getTemplateVersionDownloadUrl(versionId: string): Promise<string | null> {
-  const { tenantId } = await requireCabinetSession();
+  const { tenantId } = await requireCabinetSession("LIBRARY_READ");
 
   const version = await prisma.templateVersion.findFirst({
     // Le filtre remonte jusqu'au tenant par la fiche parente : un identifiant de
@@ -889,7 +902,7 @@ export async function getTemplateVersionDownloadUrl(versionId: string): Promise<
 // (cf. storeVersion ci-dessus). Même forme que getDocumentPreviewData côté
 // documents clients — même modale à l'affichage (FilePreviewModal, D1).
 export async function getTemplateVersionPreviewData(versionId: string): Promise<FilePreviewData | null> {
-  const { tenantId } = await requireCabinetSession();
+  const { tenantId } = await requireCabinetSession("LIBRARY_READ");
 
   const version = await prisma.templateVersion.findFirst({
     where: { id: versionId, templateDocument: { tenantId } },
@@ -901,6 +914,12 @@ export async function getTemplateVersionPreviewData(versionId: string): Promise<
     originalFilename: version.originalFilename,
     fileStorageKey: version.fileStorageKey,
     extractedText: version.extractedText,
+    // Un `.docx` de la bibliothèque s'aperçoit comme un document client : ses pages
+    // sont produites par la route (16/10/2026). Le chemin est absolu, et non relatif
+    // au segment courant, parce que la modale est montée sur plusieurs écrans.
+    documentPagesUrl: canRenderDocumentPages(version.originalFilename)
+      ? `/api/templates/versions/${versionId}/pdf`
+      : null,
   });
 }
 
@@ -921,7 +940,7 @@ export type TemplateExtractedTextData =
 export async function getTemplateVersionExtractedText(
   versionId: string
 ): Promise<TemplateExtractedTextData | null> {
-  const { tenantId } = await requireCabinetSession();
+  const { tenantId } = await requireCabinetSession("LIBRARY_READ");
 
   const version = await prisma.templateVersion.findFirst({
     where: { id: versionId, templateDocument: { tenantId } },

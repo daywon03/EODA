@@ -29,11 +29,11 @@ export type BrandAssets = { logoUrl: string };
 
 // Charte EODA (context/04-charte-eoda.md) — en dur ici, et pas via Tailwind : un
 // client de messagerie n'exécute aucune feuille de style externe, tout est en ligne.
-const BRUN_ANCRE = "#3E2C26";
-const TERRE = "#B45A32";
-const IVOIRE = "#F0E8DC";
+export const BRUN_ANCRE = "#3E2C26";
+export const TERRE = "#B45A32";
+export const IVOIRE = "#F0E8DC";
 
-function layout(title: string, body: string, brand?: BrandAssets): string {
+export function layout(title: string, body: string, brand?: BrandAssets): string {
   // Le logo n'est affiché que si une URL absolue est fournie. Sans elle, on retombe
   // sur le nom en toutes lettres : une image cassée en tête d'e-mail fait plus de
   // dégâts qu'une ligne de texte.
@@ -79,7 +79,46 @@ export function buildClientInvitationEmail(input: {
       Votre espace en ligne pour l'accompagnement de ${escapeHtml(input.establishmentName)}
       est ouvert. Vous y déposez les documents attendus et suivez leur avancement.
     </p>
-    <div style="background:${IVOIRE};border-radius:8px;padding:16px;margin:20px 0">
+    ${credentialsBlock(input, "Ouvrir mon espace")}`;
+
+  return {
+    subject: `Votre accès à l'espace EODA — ${input.establishmentName}`,
+    html: layout("Votre espace client est ouvert", body, input.brand),
+  };
+}
+
+// Invitation d'une personne dans l'équipe EODA (N9). Même compromis que
+// l'invitation client (mot de passe temporaire + rotation forcée), et le RÔLE est
+// nommé : la personne doit savoir ce qu'elle pourra faire avant d'entrer.
+export function buildCabinetInvitationEmail(input: {
+  recipientName: string;
+  email: string;
+  temporaryPassword: string;
+  loginUrl: string;
+  roleLabel: string;
+  brand?: BrandAssets;
+}): EmailContent {
+  const body = `
+    <p style="color:${BRUN_ANCRE};font-size:15px;line-height:1.6">
+      Bonjour ${escapeHtml(input.recipientName)},
+    </p>
+    <p style="color:${BRUN_ANCRE};font-size:15px;line-height:1.6">
+      Vous avez désormais un accès au portail du cabinet EODA, avec le rôle
+      <strong>${escapeHtml(input.roleLabel)}</strong>.
+    </p>
+    ${credentialsBlock(input, "Ouvrir le portail")}`;
+
+  return {
+    subject: "Votre accès au portail du cabinet EODA",
+    html: layout("Votre accès est ouvert", body, input.brand),
+  };
+}
+
+function credentialsBlock(
+  input: { email: string; temporaryPassword: string; loginUrl: string },
+  buttonLabel: string
+): string {
+  return `<div style="background:${IVOIRE};border-radius:8px;padding:16px;margin:20px 0">
       <p style="margin:0 0 8px;color:#6B5648;font-size:13px">Identifiant</p>
       <p style="margin:0 0 14px;color:${BRUN_ANCRE};font-size:15px;font-weight:bold">${escapeHtml(input.email)}</p>
       <p style="margin:0 0 8px;color:#6B5648;font-size:13px">Mot de passe temporaire</p>
@@ -92,14 +131,9 @@ export function buildClientInvitationEmail(input: {
     <p style="margin:24px 0">
       <a href="${escapeHtml(input.loginUrl)}"
          style="background:${TERRE};color:#ffffff;text-decoration:none;padding:12px 20px;border-radius:8px;display:inline-block;font-weight:bold">
-        Ouvrir mon espace
+        ${escapeHtml(buttonLabel)}
       </a>
     </p>`;
-
-  return {
-    subject: `Votre accès à l'espace EODA — ${input.establishmentName}`,
-    html: layout("Votre espace client est ouvert", body, input.brand),
-  };
 }
 
 // Alerte interne : un client demande un devis pour une prestation complémentaire.
@@ -241,6 +275,128 @@ export function buildNewMessageEmail(input: {
   };
 }
 
+// Document validé par la consultante (27/09/2026) — deux cas, deux phrases :
+//   - LIVRABLE : EODA a produit le document, il est désormais dans « Mes
+//     livrables » ;
+//   - PIÈCE VALIDÉE : la pièce déposée par la structure a été jugée conforme telle
+//     quelle, EODA n'a rien remis — annoncer « un nouveau livrable » serait faux.
+//
+// Seul l'INTITULÉ du type de document voyage (« Livret d'accueil »), comme dans la
+// relance : ni nom de fichier (saisi librement, il peut nommer une personne), ni
+// contenu, ni analyse. Le fichier se télécharge dans la plateforme, pas depuis une
+// boîte mail.
+export type DocumentAvailableKind = "DELIVERABLE" | "VALIDATED_PIECE";
+
+export function buildDocumentAvailableEmail(input: {
+  recipientName: string;
+  establishmentName: string;
+  documentLabel: string;
+  kind: DocumentAvailableKind;
+  portalUrl: string;
+  brand?: BrandAssets;
+}): EmailContent {
+  const isDeliverable = input.kind === "DELIVERABLE";
+  const label = escapeHtml(input.documentLabel);
+
+  const announcement = isDeliverable
+    ? `EODA Conseil a finalisé et validé le document <strong>${label}</strong> pour
+       ${escapeHtml(input.establishmentName)}. Il est disponible dans votre espace,
+       rubrique « Mes livrables ».`
+    : `La pièce <strong>${label}</strong> déposée pour ${escapeHtml(input.establishmentName)}
+       a été relue et validée par EODA Conseil.`;
+
+  const body = `
+    <p style="color:${BRUN_ANCRE};font-size:15px;line-height:1.6">
+      Bonjour ${escapeHtml(input.recipientName)},
+    </p>
+    <p style="color:${BRUN_ANCRE};font-size:15px;line-height:1.6">${announcement}</p>
+    <p style="margin:24px 0">
+      <a href="${escapeHtml(input.portalUrl)}"
+         style="background:${TERRE};color:#ffffff;text-decoration:none;padding:12px 20px;border-radius:8px;display:inline-block;font-weight:bold">
+        ${isDeliverable ? "Voir mes livrables" : "Voir mes documents"}
+      </a>
+    </p>`;
+
+  return {
+    subject: isDeliverable
+      ? `Nouveau livrable disponible — ${input.documentLabel}`
+      : `Document validé — ${input.documentLabel}`,
+    html: layout(
+      isDeliverable ? "Un nouveau document vous attend" : "Votre document a été validé",
+      body,
+      input.brand
+    ),
+  };
+}
+
+// ── Ce que la STRUCTURE vient de faire (16/10/2026) — le pendant cabinet ───────
+//
+// Le symétrique de `buildDocumentAvailableEmail` : jusqu'ici le cabinet informait le
+// client, jamais l'inverse. Trois gestes de la structure, et trois SEULEMENT :
+//   - DEPOSIT          : une pièce est arrivée, elle est à relire ;
+//   - ACCEPTED         : la structure a accepté un document (« c'est lui qui valide,
+//                        ce n'est pas moi », 15/09) — fin d'un cycle que le cabinet
+//                        n'apprendrait sinon qu'en rouvrant la fiche ;
+//   - DECLARED_MISSING : « je ne l'ai pas » — ce n'est pas une absence, c'est une
+//                        COMMANDE : le document est à produire par EODA (N3).
+//
+// Les deux autres réponses possibles (« il arrive », « ne nous concerne pas ») ne
+// préviennent personne : elles ne demandent aucun travail au cabinet. Une alerte qui
+// part à chaque clic cesse d'être lue ; c'est le volume qui tue la notification.
+//
+// Seul l'INTITULÉ du type de document voyage, comme partout : ni nom de fichier (il
+// peut nommer une personne), ni contenu, ni analyse. Le document s'ouvre dans la
+// plateforme, jamais depuis une boîte mail.
+export type StructureActivityKind = "DEPOSIT" | "ACCEPTED" | "DECLARED_MISSING";
+
+export function buildStructureActivityEmail(input: {
+  kind: StructureActivityKind;
+  establishmentName: string;
+  documentLabel: string;
+  structureUrl: string;
+  brand?: BrandAssets;
+}): EmailContent {
+  const label = escapeHtml(input.documentLabel);
+  const name = escapeHtml(input.establishmentName);
+
+  // Un objet et une phrase par geste, dans un seul objet : le `Record` force à écrire
+  // les trois, un type ajouté sans texte ne compile pas.
+  const copy: Record<
+    StructureActivityKind,
+    { subject: string; title: string; announcement: string }
+  > = {
+    DEPOSIT: {
+      subject: `Dépôt de la structure — ${input.documentLabel}`,
+      title: "Un document a été déposé",
+      announcement: `${name} a déposé une pièce pour le document
+        <strong>${label}</strong>. Elle est à relire.`,
+    },
+    ACCEPTED: {
+      subject: `Document accepté par la structure — ${input.documentLabel}`,
+      title: "La structure a accepté un document",
+      announcement: `${name} a accepté le document <strong>${label}</strong>.`,
+    },
+    DECLARED_MISSING: {
+      subject: `Pièce absente — ${input.documentLabel}`,
+      title: "Une pièce est à produire",
+      announcement: `${name} a répondu ne pas disposer du document
+        <strong>${label}</strong>. Il reste à produire.`,
+    },
+  };
+  const { subject, title, announcement } = copy[input.kind];
+
+  const body = `
+    <p style="color:${BRUN_ANCRE};font-size:15px;line-height:1.6">${announcement}</p>
+    <p style="margin:24px 0">
+      <a href="${escapeHtml(input.structureUrl)}"
+         style="background:${TERRE};color:#ffffff;text-decoration:none;padding:12px 20px;border-radius:8px;display:inline-block;font-weight:bold">
+        Ouvrir la fiche de la structure
+      </a>
+    </p>`;
+
+  return { subject, html: layout(title, body, input.brand) };
+}
+
 // Envoi réel du devis (22/09/2026) — remplace le brouillon `mailto:` qui ne
 // pouvait pas attacher de fichier. Le PDF (devis-pdf-service.ts) voyage en
 // pièce jointe ; ce message ne fait qu'annoncer ce qu'il contient, jamais
@@ -250,6 +406,9 @@ export function buildDevisEmail(input: {
   devisNumber: string;
   senderName: string;
   validUntil: Date;
+  // « Note pour la structure » saisie au devis (maquette v2). Facultative ; jamais
+  // un montant (le PDF fait foi).
+  clientNote?: string | null;
   brand?: BrandAssets;
 }): EmailContent {
   const validUntilLabel = input.validUntil.toLocaleDateString("fr-FR", {
@@ -257,6 +416,7 @@ export function buildDevisEmail(input: {
     month: "long",
     year: "numeric",
   });
+  const note = input.clientNote?.trim();
 
   const body = `
     <p style="color:${BRUN_ANCRE};font-size:15px;line-height:1.6">
@@ -266,6 +426,7 @@ export function buildDevisEmail(input: {
       Vous trouverez ci-joint notre proposition ${escapeHtml(input.devisNumber)} pour
       ${escapeHtml(input.structureName)}, valable jusqu'au ${escapeHtml(validUntilLabel)}.
     </p>
+    ${note ? `<p style="margin:16px 0;padding:12px 16px;background:${IVOIRE};border-radius:8px;color:${BRUN_ANCRE};font-size:14px;line-height:1.6">${escapeHtml(note)}</p>` : ""}
     <p style="color:#6B5648;font-size:14px;line-height:1.6">
       N'hésitez pas à revenir vers nous pour toute question.
     </p>

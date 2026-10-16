@@ -1,5 +1,7 @@
 "use client";
 
+import { submitWithoutReset } from "@/lib/forms/submit-without-reset";
+import { useResetAfterSuccess } from "@/lib/forms/use-reset-after-success";
 import { useActionState, useState } from "react";
 import { createAppointment } from "@/lib/actions/appointment";
 import { Button } from "@/components/ui/button";
@@ -39,9 +41,12 @@ export function AppointmentForm(props: Props) {
   const isProspect = "prospectId" in props && !!props.prospectId;
   const [state, formAction, isPending] = useActionState(createAppointment, null);
   const [mode, setMode] = useState<string>("VISIO");
+  // Un rendez-vous programmé apparaît dans la liste : le formulaire se vide pour le
+  // suivant, comme avant le passage à onSubmit — et seulement après un succès.
+  const formRef = useResetAfterSuccess(isPending, state === null);
 
   return (
-    <form action={formAction} className="space-y-4">
+    <form ref={formRef} method="post" onSubmit={submitWithoutReset(formAction)} className="space-y-4">
       {isProspect ? (
         <input type="hidden" name="prospectId" value={props.prospectId} />
       ) : (
@@ -94,7 +99,7 @@ export function AppointmentForm(props: Props) {
           disabled={isPending}
           placeholder="ex : Atelier documentaire — jour 1"
         />
-        <p className="text-xs text-gris-mid">Cet intitulé est lu par le client.</p>
+        <p className="text-xs text-ink2">Cet intitulé est lu par le client.</p>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -124,11 +129,11 @@ export function AppointmentForm(props: Props) {
           id="location"
           name="location"
           disabled={isPending}
-          placeholder={mode === "VISIO" ? "https://meet.google.com/..." : "12 rue des Lilas, 93150 Le Blanc-Mesnil"}
+          placeholder={mode === "VISIO" ? "https://meet.google.com/..." : "12 rue des Lilas, 99000 Ville-Fictive"}
         />
         {/* Aide persistante sous le champ, et non un placeholder qui disparaît à la
             première frappe. */}
-        <p className="text-xs text-gris-mid">{HELP_BY_MODE[mode]}</p>
+        <p className="text-xs text-ink2">{HELP_BY_MODE[mode]}</p>
       </div>
 
       <div className="space-y-1.5">
@@ -140,7 +145,7 @@ export function AppointmentForm(props: Props) {
           disabled={isPending}
           placeholder="Points à aborder, documents à emporter..."
         />
-        <p className="text-xs text-gris-mid">
+        <p className="text-xs text-ink2">
           Ces notes restent internes au cabinet — le client ne les voit jamais.
         </p>
       </div>
@@ -164,7 +169,7 @@ export function AppointmentForm(props: Props) {
           )}
           Programmer le rendez-vous
         </Button>
-        <span className="text-xs text-gris-mid">
+        <span className="text-xs text-ink2">
           Le créneau est enregistré comme <b>proposé</b> : confirmez-le une fois que la
           structure a validé.
         </span>
