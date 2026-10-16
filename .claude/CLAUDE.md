@@ -47,6 +47,7 @@ vérifie** — sinon elle n'existe pas.
 | Verrou HDS : aucune donnée de personne accompagnée écrite hors hébergeur certifié (lot C) | (1) test qui lit tout `src/` et **échoue** sur un accès aux tables usager (délégué Prisma ou SQL brut) hors de l'adaptateur du port ; (2) avec la configuration par défaut, chaque écriture du port, du stockage HDS et de chaque action usager est refusée ; (3) le profil de production **refuse de démarrer** sur `HDS_BACKEND_ENABLED=true` sans `HDS_PROVIDER` ni stockage distinct | `lib/hds/beneficiary-tables-guard.test.ts`, `lib/hds/hds-lock.test.ts`, `lib/actions/beneficiary-actions-locked.test.ts`, `lib/config/production-profile.test.ts` — ADR `specs/adr/20261014_ADR_lot-C-verrou-HDS.md` |
 | Contraste des tokens ≥ 4.5:1 (clair et sombre) | test qui lit `globals.css`, résout les alias et **échoue** sous 4.5:1 ; vérifie que les deux voies du sombre sont identiques | `apps/web/src/lib/design/theme-contrast.test.ts` |
 | Ce que la structure fait prévient le cabinet, et personne d'autre | destinataires résolus par le périmètre (`resolveStructureScope` — commercial exclu, consultante non affectée exclue), compte désactivé exclu, dépôt du cabinet muet, « il arrive » muet, libellé du type jamais le nom de fichier | `lib/services/cabinet-recipients-service.test.ts`, `lib/email/templates.test.ts`, `lib/actions/document.test.ts`, `lib/actions/client-document-acceptance.test.ts` |
+| Un envoi « non configuré » n'est jamais compté comme parti | décompte par `countDeliveries` dans toute la couche d'envoi — aucun comptage brut de promesses tenues (il annonçait « Client prévenu (2 personnes) » pour zéro e-mail) | `lib/email/notifications.test.ts` |
 
 **Dette acceptée, à réexaminer après le 22/09/2026** : `.npmrc` porte `node-linker=hoisted`,
 qui désactive l'arborescence isolée de pnpm et rend possibles les dépendances fantômes
@@ -897,6 +898,15 @@ Détail complet et état d'avancement : `specs/02-architecture-technique.md` §4
   l'acceptation est déjà enregistrée quand l'e-mail part. Vérifié par
   `cabinet-recipients-service.test.ts`, `templates.test.ts`, `document.test.ts`,
   `client-document-acceptance.test.ts`.
+- **Ce qu'un écran annonce d'un envoi est ce qui est réellement parti.** Le décompte des
+  envois groupés passe par `countDeliveries`, jamais par les promesses simplement tenues :
+  un envoi `NOT_CONFIGURED` (adaptateur console, sans `RESEND_API_KEY`) n'est **pas** un
+  destinataire prévenu. `notifyDocumentAvailable` comptait les promesses tenues et faisait
+  dire « Client prévenu par e-mail (2 personnes) » à l'écran de validation pour un message
+  jamais parti (corrigé le 16/10/2026, révélé par le premier test propre de
+  `lib/email/notifications.ts` — le module n'en avait aucun). Un module d'envoi sans
+  test n'est pas « couvert par les tests d'action » : ces derniers doublent le module,
+  donc ils ne voient rien de ce qu'il fait pour de vrai.
 - Ne pas faire passer un devis à `SIGNE` par `changeDevisStatus` : la signature est la seule
   transition qui produit des effets hors du module commercial (fiche établissement, mission,
   périmètre ouvert au client) et passe par `convertDevisToClient` (`lib/actions/conversion.ts`),

@@ -305,10 +305,15 @@ export async function notifyDocumentAvailable(input: {
     })
   );
 
-  const sent = results.filter((result) => result.status === "fulfilled").length;
-  if (sent < recipients.length) {
+  // Décompte par `countDeliveries`, comme partout ailleurs dans ce fichier — et pas par
+  // les promesses simplement tenues : un envoi « non configuré » (adaptateur console,
+  // sans RESEND_API_KEY) n'est PAS un client prévenu. Le comptage brut qui vivait ici
+  // faisait annoncer « Client prévenu par e-mail (2 personnes) » à l'écran de validation
+  // pour un message jamais parti.
+  const { sent, failed } = countDeliveries(results);
+  if (failed > 0) {
     console.error(
-      `Annonce de document validé — ${recipients.length - sent}/${recipients.length} envoi(s) échoué(s).`
+      `Annonce de document validé — ${failed}/${recipients.length} envoi(s) échoué(s).`
     );
   }
   return { sent, total: recipients.length };
