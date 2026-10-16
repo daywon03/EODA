@@ -8,6 +8,7 @@ import { requireEstablishmentAccess } from "@/lib/auth/guards";
 import { recordAuditEvent } from "@/lib/services/audit-log-service";
 import { canDepositDocuments } from "@/lib/services/mission-access-service";
 import { getEstablishmentSupportMode } from "@/lib/services/establishment-offer-service";
+import { notifyStructureActivity } from "@/lib/email/notifications";
 import { analysisVisibleTo, parseAnalysisResult } from "@/lib/services/analysis-view-service";
 import {
   canClientAcceptDocument,
@@ -51,7 +52,7 @@ export async function acceptDocument(
       id: true,
       validatedAt: true,
       clientAcceptedAt: true,
-      documentType: { select: { code: true } },
+      documentType: { select: { code: true, label: true } },
       currentVersion: {
         select: { uploadedAt: true, analysisResultJson: true, analysisReviewedAt: true },
       },
@@ -99,5 +100,18 @@ export async function acceptDocument(
   revalidatePath("/dashboard/client");
   revalidatePath("/dashboard/client/documents");
   revalidatePath(`/dashboard/cabinet/etablissements/${establishmentId}`);
+
+  // Le cabinet est prévenu (16/10/2026) : c'est une fin de cycle — « c'est lui qui
+  // valide, ce n'est pas moi » (15/09) — et il ne l'apprenait qu'en rouvrant la fiche.
+  // L'acceptation est DÉJÀ enregistrée, et l'annonce ne peut pas la faire échouer
+  // (`notifyStructureActivity` rend un état d'envoi, jamais une exception) : refuser
+  // une acceptation parce qu'un e-mail n'est pas parti serait absurde, et c'est le
+  // geste de la structure, pas le nôtre.
+  await notifyStructureActivity({
+    establishmentId,
+    documentLabel: document.documentType?.label ?? "Document",
+    kind: "ACCEPTED",
+  });
+
   return null;
 }

@@ -11,7 +11,7 @@ import {
   tryEstablishmentAccess,
 } from "@/lib/auth/guards";
 import { NEED } from "@/lib/auth/capabilities";
-import { notifyDocumentAvailable } from "@/lib/email/notifications";
+import { notifyDocumentAvailable, notifyStructureActivity } from "@/lib/email/notifications";
 import {
   canClientRead,
   canDepositDocuments,
@@ -196,6 +196,17 @@ export async function uploadDocument(formData: FormData): Promise<UploadDocument
     }
   }
 
+  // Dépôt du CLIENT : le cabinet est prévenu (16/10/2026). Sans cet envoi, une pièce
+  // arrivée ne se découvre qu'en rouvrant la fiche — donc jamais le jour même. Le
+  // dépôt du cabinet, lui, ne s'annonce pas à lui-même (branche ci-dessus).
+  if (access.isClient) {
+    await notifyStructureActivity({
+      establishmentId,
+      documentLabel: documentType.label,
+      kind: "DEPOSIT",
+    });
+  }
+
   return { success: true, documentTypeId: documentType.id };
 }
 
@@ -260,6 +271,19 @@ export async function respondToMissingDocument(
   });
 
   revalidateDocumentViews(establishmentId);
+
+  // « Je ne l'ai pas » n'est pas une absence, c'est une COMMANDE : le document est à
+  // produire par EODA (N3), et le cabinet l'apprend par e-mail (16/10/2026). Les deux
+  // autres réponses ne demandent aucun travail — « il arrive » et « ne nous concerne
+  // pas » ne préviennent personne : une alerte par clic cesse d'être lue.
+  if (answer === "DONT_HAVE") {
+    await notifyStructureActivity({
+      establishmentId,
+      documentLabel: documentType.label,
+      kind: "DECLARED_MISSING",
+    });
+  }
+
   return null;
 }
 

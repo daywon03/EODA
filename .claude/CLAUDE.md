@@ -46,6 +46,7 @@ vérifie** — sinon elle n'existe pas.
 | Texte ≥ 14 px, focus jamais retiré | test qui parcourt `src/**/*.{ts,tsx}` et **échoue** sur une taille arbitraire < 14 px ou un `outline-none` ; vérifie que `text-xs` vaut 14 px | `apps/web/src/lib/design/ui-class-guard.test.ts` |
 | Verrou HDS : aucune donnée de personne accompagnée écrite hors hébergeur certifié (lot C) | (1) test qui lit tout `src/` et **échoue** sur un accès aux tables usager (délégué Prisma ou SQL brut) hors de l'adaptateur du port ; (2) avec la configuration par défaut, chaque écriture du port, du stockage HDS et de chaque action usager est refusée ; (3) le profil de production **refuse de démarrer** sur `HDS_BACKEND_ENABLED=true` sans `HDS_PROVIDER` ni stockage distinct | `lib/hds/beneficiary-tables-guard.test.ts`, `lib/hds/hds-lock.test.ts`, `lib/actions/beneficiary-actions-locked.test.ts`, `lib/config/production-profile.test.ts` — ADR `specs/adr/20261014_ADR_lot-C-verrou-HDS.md` |
 | Contraste des tokens ≥ 4.5:1 (clair et sombre) | test qui lit `globals.css`, résout les alias et **échoue** sous 4.5:1 ; vérifie que les deux voies du sombre sont identiques | `apps/web/src/lib/design/theme-contrast.test.ts` |
+| Ce que la structure fait prévient le cabinet, et personne d'autre | destinataires résolus par le périmètre (`resolveStructureScope` — commercial exclu, consultante non affectée exclue), compte désactivé exclu, dépôt du cabinet muet, « il arrive » muet, libellé du type jamais le nom de fichier | `lib/services/cabinet-recipients-service.test.ts`, `lib/email/templates.test.ts`, `lib/actions/document.test.ts`, `lib/actions/client-document-acceptance.test.ts` |
 
 **Dette acceptée, à réexaminer après le 22/09/2026** : `.npmrc` porte `node-linker=hoisted`,
 qui désactive l'arborescence isolée de pnpm et rend possibles les dépendances fantômes
@@ -867,13 +868,35 @@ Détail complet et état d'avancement : `specs/02-architecture-technique.md` §4
   part vers chaque compte actif de l'établissement quand Sandrine valide un document
   (`setDocumentValidated` → `notifyDocumentAvailable`), ou quand EODA dépose une
   nouvelle version sur un document DÉJÀ validé (elle devient le livrable
-  sur-le-champ). Un dépôt sur un document non validé ne prévient personne : c'est un
-  travail en cours, l'annoncer serait promettre à la place de la consultante. Deux
+  sur-le-champ). Un dépôt sur un document non validé ne prévient pas le CLIENT : c'est un
+  travail en cours, l'annoncer serait promettre à la place de la consultante (le cabinet,
+  lui, est prévenu de ce dépôt — règle suivante). Deux
   libellés : « nouveau livrable » si EODA a produit une version, « document validé »
   si seule la pièce du client a été jugée conforme. L'e-mail porte l'INTITULÉ du type,
   jamais le nom de fichier ni le contenu. Dans l'application, la pastille « Mes
   livrables » se DÉRIVE de `EstablishmentUser.deliverablesSeenAt` (seul fait stocké)
   par `countNewDeliverables` — pas de table de notifications.
+- **Ce que la STRUCTURE fait, le cabinet l'apprend par e-mail** (16/10/2026, demande de
+  Damon : les deux parties doivent voir ce qui se met à jour). Jusqu'ici le cabinet
+  informait le client, jamais l'inverse. Trois gestes de la structure, et **trois
+  seulement**, partent vers les comptes du cabinet qui SUIVENT la structure : un dépôt de
+  pièce (`DEPOSIT`), une acceptation (`ACCEPTED`), et « je ne l'ai pas »
+  (`DECLARED_MISSING` — ce n'est pas une absence, c'est une commande : le document est à
+  produire, N3). Les autres réponses (« il arrive », « ne nous concerne pas ») ne
+  demandent aucun travail au cabinet : une alerte qui part à chaque clic cesse d'être lue.
+  Une seule fonction d'envoi, `notifyStructureActivity` (`lib/email/notifications.ts`),
+  appelée par `acceptDocument`, par la branche CLIENT de `uploadDocument` et par la
+  branche `DONT_HAVE` de `respondToMissingDocument` — **jamais** par un dépôt du cabinet,
+  qui ne s'annonce pas à lui-même. Les destinataires viennent du périmètre en vigueur
+  (`selectStructureRecipients`, `lib/services/cabinet-recipients-service.ts` :
+  `resolveStructureScope` par rôle et par affectation, compte désactivé exclu, adresses
+  dédupliquées), jamais d'une liste de rôles écrite pour l'occasion — **une commerciale ne
+  reçoit rien**, elle ne voit pas les documents d'une structure. Le tenant est lu depuis
+  l'ÉTABLISSEMENT, jamais reçu d'un appelant ; le message porte l'INTITULÉ du type et
+  renvoie à la fiche, jamais à un fichier. L'envoi ne peut pas faire échouer le geste :
+  l'acceptation est déjà enregistrée quand l'e-mail part. Vérifié par
+  `cabinet-recipients-service.test.ts`, `templates.test.ts`, `document.test.ts`,
+  `client-document-acceptance.test.ts`.
 - Ne pas faire passer un devis à `SIGNE` par `changeDevisStatus` : la signature est la seule
   transition qui produit des effets hors du module commercial (fiche établissement, mission,
   périmètre ouvert au client) et passe par `convertDevisToClient` (`lib/actions/conversion.ts`),

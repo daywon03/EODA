@@ -11,6 +11,7 @@ const prismaMock = {
 const requireEstablishmentAccess = vi.fn();
 const recordAuditEvent = vi.fn();
 const getEstablishmentSupportMode = vi.fn();
+const notifyStructureActivity = vi.fn();
 
 vi.mock("@eoda/database", () => ({ prisma: prismaMock }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
@@ -22,6 +23,9 @@ vi.mock("@/lib/services/audit-log-service", () => ({
 }));
 vi.mock("@/lib/services/establishment-offer-service", () => ({
   getEstablishmentSupportMode: (...args: [string]) => getEstablishmentSupportMode(...args),
+}));
+vi.mock("@/lib/email/notifications", () => ({
+  notifyStructureActivity: (...args: unknown[]) => notifyStructureActivity(...args),
 }));
 
 const { acceptDocument } = await import("./client-document-acceptance");
@@ -43,7 +47,7 @@ function givenDocument(overrides: { analysisReviewedAt?: Date | null; validatedA
     id: "doc-1",
     validatedAt: overrides.validatedAt ?? null,
     clientAcceptedAt: overrides.clientAcceptedAt ?? null,
-    documentType: { code: "L2002_LIVRET_ACCUEIL" },
+    documentType: { code: "L2002_LIVRET_ACCUEIL", label: "Livret d'accueil" },
     currentVersion:
       overrides.hasVersion === false
         ? null
@@ -56,6 +60,7 @@ beforeEach(() => {
   requireEstablishmentAccess.mockResolvedValue(CLIENT_ACCESS);
   getEstablishmentSupportMode.mockResolvedValue("ACCOMPAGNE");
   prismaMock.document.update.mockResolvedValue({});
+  notifyStructureActivity.mockResolvedValue({ sent: 1, total: 1 });
 });
 
 describe("acceptDocument — cas nominal", () => {
@@ -124,5 +129,43 @@ describe("acceptDocument — refus", () => {
   it("refuse des identifiants qui ne sont pas des chaînes", async () => {
     await expect(acceptDocument(42 as unknown as string, TYPE)).rejects.toThrow();
     expect(requireEstablishmentAccess).not.toHaveBeenCalled();
+  });
+});
+
+// Le cabinet est prévenu de l'acceptation (16/10/2026). C'est une fin de cycle — le
+// geste par lequel la structure engage sa parole — et le cabinet ne l'apprenait qu'en
+// rouvrant la fiche. Ce qui est protégé ici : l'événement part APRÈS l'écriture (une
+// acceptation qui n'a pas été enregistrée ne s'annonce pas) et ne part pas quand il n'y
+// a rien à annoncer.
+describe("acceptDocument — le cabinet est prévenu", () => {
+  it("annonce l'ACCEPTATION, avec le libellé du type de document", async () => {
+    givenDocument({ analysisReviewedAt: new Date("2026-10-02") });
+
+    expect(await acceptDocument(ETAB, TYPE)).toBeNull();
+
+    expect(notifyStructureActivity).toHaveBeenCalledWith({
+      establishmentId: ETAB,
+      documentLabel: "Livret d'accueil",
+      kind: "ACCEPTED",
+    });
+    // Le code technique du type ne voyage pas : ce sont des mots pour une personne.
+    const call = notifyStructureActivity.mock.calls[0]?.[0] as { documentLabel: string };
+    expect(call.documentLabel).not.toContain("L2002_LIVRET_ACCUEIL");
+  });
+
+  it("un second clic (acceptation déjà valable) ne renvoie pas d'e-mail", async () => {
+    givenDocument({ analysisReviewedAt: new Date("2026-10-02"), clientAcceptedAt: new Date("2026-10-03") });
+
+    expect(await acceptDocument(ETAB, TYPE)).toBeNull();
+
+    expect(notifyStructureActivity).not.toHaveBeenCalled();
+  });
+
+  it("un refus (document non relu) ne prévient personne", async () => {
+    givenDocument();
+
+    expect(await acceptDocument(ETAB, TYPE)).toMatchObject({ error: expect.any(String) });
+
+    expect(notifyStructureActivity).not.toHaveBeenCalled();
   });
 });

@@ -12,10 +12,14 @@ import {
   buildDocumentReminderEmail,
   buildNewMessageEmail,
   buildOptionRequestEmail,
+  buildStructureActivityEmail,
   type DocumentAvailableKind,
+  type StructureActivityKind,
 } from "./templates";
 import { buildEmailConfirmationEmail } from "./commercial-templates";
 import { EMAIL_VERIFICATION_TTL_HOURS } from "@/lib/services/email-verification-service";
+import { CABINET_ROLES } from "@/lib/auth/capabilities";
+import { selectStructureRecipients } from "@/lib/services/cabinet-recipients-service";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ENVOI DES NOTIFICATIONS — la couche qui a le droit de parler au monde extérieur.
@@ -308,4 +312,104 @@ export async function notifyDocumentAvailable(input: {
     );
   }
   return { sent, total: recipients.length };
+}
+
+// Ce que la STRUCTURE vient de faire → le cabinet (16/10/2026).
+//
+// Le pendant cabinet de `notifyDocumentAvailable`, et le chaînon manquant : un dépôt
+// de la structure, une acceptation, un « je ne l'ai pas » ne se voyaient que dans la
+// plateforme, en rouvrant la fiche — donc jamais le jour même. Les deux parties
+// suivent désormais la même conversation, chacune de son côté.
+//
+// Destinataires : les comptes du cabinet qui SUIVENT cette structure, résolus par le
+// périmètre déjà en vigueur (`selectStructureRecipients` — consultante affectée,
+// lecture seule, administrateur ; jamais un commercial, qui ne voit pas les
+// documents d'une structure) et lus en base par le tenant de l'ÉTABLISSEMENT — jamais
+// un tenant reçu en argument, jamais une adresse saisie.
+//
+// Ce qui décide de l'envoi n'est pas ici : l'appelant n'appelle cette fonction que du
+// côté CLIENT. Un dépôt du cabinet ne s'annonce pas à lui-même, et « il arrive » ne
+// commande rien à personne.
+//
+// Elle ne fait jamais échouer le geste (règle en tête de fichier) : le dépôt est
+// enregistré, l'acceptation est posée, et si la messagerie est indisponible
+// l'appelant reçoit {sent:0,total:0}. Cela compte d'autant plus ici que le geste vient
+// d'un CLIENT : lui rendre une erreur parce qu'un e-mail n'est pas parti serait
+// absurde.
+export async function notifyStructureActivity(input: {
+  establishmentId: string;
+  documentLabel: string;
+  kind: StructureActivityKind;
+}): Promise<{ sent: number; total: number }> {
+  try {
+    // Le tenant vient de la STRUCTURE, pas d'un argument : un tenant reçu d'un
+    // appelant serait une seconde source pour la même vérité.
+    const establishment = await prisma.establishment.findUnique({
+      where: { id: input.establishmentId },
+      select: { name: true, tenantId: true },
+    });
+    if (!establishment) return { sent: 0, total: 0 };
+
+    const candidates = await prisma.user.findMany({
+      where: {
+        tenantId: establishment.tenantId,
+        isActive: true,
+        // Les rôles cabinet seulement : un compte client du même tenant (il n'en
+        // existe pas aujourd'hui, il en existera) ne reçoit pas l'activité des autres.
+        role: { in: [...CABINET_ROLES] },
+      },
+      select: {
+        name: true,
+        email: true,
+        role: true,
+        isActive: true,
+        establishmentAssignments: { select: { establishmentId: true } },
+      },
+    });
+
+    const recipients = selectStructureRecipients(
+      candidates.map((candidate) => ({
+        name: candidate.name,
+        email: candidate.email,
+        role: candidate.role,
+        isActive: candidate.isActive,
+        assignedEstablishmentIds: candidate.establishmentAssignments.map(
+          (assignment) => assignment.establishmentId
+        ),
+      })),
+      input.establishmentId
+    );
+    if (recipients.length === 0) return { sent: 0, total: 0 };
+
+    const structureUrl = appUrl(`/dashboard/cabinet/etablissements/${input.establishmentId}`);
+    const port = getEmailPort();
+    const results = await Promise.allSettled(
+      recipients.map((recipient) => {
+        const content = buildStructureActivityEmail({
+          kind: input.kind,
+          establishmentName: establishment.name,
+          documentLabel: input.documentLabel,
+          structureUrl,
+          brand: { logoUrl: appUrl("/logo-eoda.png") },
+        });
+        return port.send({ to: recipient.email, subject: content.subject, html: content.html });
+      })
+    );
+
+    const { sent, failed } = countDeliveries(results);
+    if (failed > 0) {
+      // Ni adresse ni nom dans le journal technique, comme partout : un envoi échoué
+      // se diagnostique par son nombre.
+      console.error(
+        `Activité de la structure — ${failed}/${recipients.length} envoi(s) échoué(s).`
+      );
+    }
+    return { sent, total: recipients.length };
+  } catch (error) {
+    console.error(
+      "Activité de la structure — envoi impossible :",
+      error instanceof Error ? error.message : "erreur inconnue"
+    );
+    return { sent: 0, total: 0 };
+  }
 }

@@ -329,6 +329,74 @@ export function buildDocumentAvailableEmail(input: {
   };
 }
 
+// ── Ce que la STRUCTURE vient de faire (16/10/2026) — le pendant cabinet ───────
+//
+// Le symétrique de `buildDocumentAvailableEmail` : jusqu'ici le cabinet informait le
+// client, jamais l'inverse. Trois gestes de la structure, et trois SEULEMENT :
+//   - DEPOSIT          : une pièce est arrivée, elle est à relire ;
+//   - ACCEPTED         : la structure a accepté un document (« c'est lui qui valide,
+//                        ce n'est pas moi », 15/09) — fin d'un cycle que le cabinet
+//                        n'apprendrait sinon qu'en rouvrant la fiche ;
+//   - DECLARED_MISSING : « je ne l'ai pas » — ce n'est pas une absence, c'est une
+//                        COMMANDE : le document est à produire par EODA (N3).
+//
+// Les deux autres réponses possibles (« il arrive », « ne nous concerne pas ») ne
+// préviennent personne : elles ne demandent aucun travail au cabinet. Une alerte qui
+// part à chaque clic cesse d'être lue ; c'est le volume qui tue la notification.
+//
+// Seul l'INTITULÉ du type de document voyage, comme partout : ni nom de fichier (il
+// peut nommer une personne), ni contenu, ni analyse. Le document s'ouvre dans la
+// plateforme, jamais depuis une boîte mail.
+export type StructureActivityKind = "DEPOSIT" | "ACCEPTED" | "DECLARED_MISSING";
+
+export function buildStructureActivityEmail(input: {
+  kind: StructureActivityKind;
+  establishmentName: string;
+  documentLabel: string;
+  structureUrl: string;
+  brand?: BrandAssets;
+}): EmailContent {
+  const label = escapeHtml(input.documentLabel);
+  const name = escapeHtml(input.establishmentName);
+
+  // Un objet et une phrase par geste, dans un seul objet : le `Record` force à écrire
+  // les trois, un type ajouté sans texte ne compile pas.
+  const copy: Record<
+    StructureActivityKind,
+    { subject: string; title: string; announcement: string }
+  > = {
+    DEPOSIT: {
+      subject: `Dépôt de la structure — ${input.documentLabel}`,
+      title: "Un document a été déposé",
+      announcement: `${name} a déposé une pièce pour le document
+        <strong>${label}</strong>. Elle est à relire.`,
+    },
+    ACCEPTED: {
+      subject: `Document accepté par la structure — ${input.documentLabel}`,
+      title: "La structure a accepté un document",
+      announcement: `${name} a accepté le document <strong>${label}</strong>.`,
+    },
+    DECLARED_MISSING: {
+      subject: `Pièce absente — ${input.documentLabel}`,
+      title: "Une pièce est à produire",
+      announcement: `${name} a répondu ne pas disposer du document
+        <strong>${label}</strong>. Il reste à produire.`,
+    },
+  };
+  const { subject, title, announcement } = copy[input.kind];
+
+  const body = `
+    <p style="color:${BRUN_ANCRE};font-size:15px;line-height:1.6">${announcement}</p>
+    <p style="margin:24px 0">
+      <a href="${escapeHtml(input.structureUrl)}"
+         style="background:${TERRE};color:#ffffff;text-decoration:none;padding:12px 20px;border-radius:8px;display:inline-block;font-weight:bold">
+        Ouvrir la fiche de la structure
+      </a>
+    </p>`;
+
+  return { subject, html: layout(title, body, input.brand) };
+}
+
 // Envoi réel du devis (22/09/2026) — remplace le brouillon `mailto:` qui ne
 // pouvait pas attacher de fichier. Le PDF (devis-pdf-service.ts) voyage en
 // pièce jointe ; ce message ne fait qu'annoncer ce qu'il contient, jamais

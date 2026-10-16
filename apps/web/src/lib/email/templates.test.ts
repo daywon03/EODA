@@ -5,6 +5,7 @@ import {
   buildDocumentAvailableEmail,
   buildDocumentReminderEmail,
   buildOptionRequestEmail,
+  buildStructureActivityEmail,
   escapeHtml,
 } from "./templates";
 
@@ -227,6 +228,71 @@ describe("buildDocumentAvailableEmail", () => {
   it("échappe un intitulé et un nom de structure venus d'une saisie", () => {
     const email = buildDocumentAvailableEmail({
       ...base,
+      documentLabel: '<img src=x onerror="alert(1)">',
+      establishmentName: "<script>alert(2)</script>",
+    });
+    expect(email.html).not.toContain("<img src=x");
+    expect(email.html).not.toContain("<script>");
+  });
+});
+
+// Ce que la STRUCTURE fait → le cabinet (16/10/2026). Le pendant des trois messages
+// ci-dessus : jusqu'ici le cabinet informait le client, jamais l'inverse.
+describe("buildStructureActivityEmail", () => {
+  const base = {
+    establishmentName: "Structure test",
+    documentLabel: "Livret d'accueil",
+    structureUrl: "https://portail.test/dashboard/cabinet/etablissements/etab-1",
+  };
+
+  it("nomme le document dans l'objet des trois gestes — lequel, jamais un « un document »", () => {
+    expect(buildStructureActivityEmail({ ...base, kind: "DEPOSIT" }).subject).toBe(
+      "Dépôt de la structure — Livret d'accueil"
+    );
+    expect(buildStructureActivityEmail({ ...base, kind: "ACCEPTED" }).subject).toBe(
+      "Document accepté par la structure — Livret d'accueil"
+    );
+    expect(buildStructureActivityEmail({ ...base, kind: "DECLARED_MISSING" }).subject).toBe(
+      "Pièce absente — Livret d'accueil"
+    );
+  });
+
+  it("un dépôt annonce une pièce à RELIRE, pas une pièce validée", () => {
+    const email = buildStructureActivityEmail({ ...base, kind: "DEPOSIT" });
+    expect(email.html).toContain("a déposé une pièce");
+    expect(email.html).toContain("à relire");
+    expect(email.html).not.toContain("accepté");
+  });
+
+  it("une acceptation dit qui a accepté, sans jamais parler de validation EODA", () => {
+    // Deux gestes distincts (décision du 08/10, « c'est lui qui valide, ce n'est pas
+    // moi ») : écrire « validé » ici attribuerait au cabinet la parole de la structure.
+    const email = buildStructureActivityEmail({ ...base, kind: "ACCEPTED" });
+    expect(email.html).toContain("Structure test");
+    expect(email.html).toContain("a accepté le document");
+    expect(email.html).not.toContain("validé");
+    expect(email.html).not.toContain("relu");
+  });
+
+  it("« je ne l'ai pas » est écrit comme une pièce À PRODUIRE, pas comme une absence", () => {
+    // N3 : la structure déclare l'absence, le document reste à produire par EODA.
+    const email = buildStructureActivityEmail({ ...base, kind: "DECLARED_MISSING" });
+    expect(email.html).toContain("ne pas disposer");
+    expect(email.html).toContain("reste à produire");
+    expect(email.html).not.toContain("non concerné");
+  });
+
+  it("mène à la fiche de la structure, jamais à un fichier", () => {
+    for (const kind of ["DEPOSIT", "ACCEPTED", "DECLARED_MISSING"] as const) {
+      const email = buildStructureActivityEmail({ ...base, kind });
+      expect(email.html).toContain(base.structureUrl);
+    }
+  });
+
+  it("échappe un intitulé et un nom de structure venus d'une saisie", () => {
+    const email = buildStructureActivityEmail({
+      ...base,
+      kind: "DEPOSIT",
       documentLabel: '<img src=x onerror="alert(1)">',
       establishmentName: "<script>alert(2)</script>",
     });
