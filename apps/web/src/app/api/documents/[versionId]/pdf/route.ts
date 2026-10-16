@@ -7,6 +7,7 @@ import { getOrRenderDocumentPdf } from "@/lib/services/document-pdf-service";
 import {
   documentPdfErrorResponse,
   documentPdfFilename,
+  documentPdfPreviewFailureMessage,
 } from "@/lib/services/document-pdf-response";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -90,10 +91,7 @@ export async function GET(request: Request, context: Context): Promise<Response>
       "Aperçu de document — rendu échoué :",
       error instanceof Error ? error.message : "erreur inconnue"
     );
-    return documentPdfErrorResponse(
-      503,
-      "La préparation de l'aperçu a échoué. Réessayez, ou téléchargez le document dans son format d'origine."
-    );
+    return documentPdfErrorResponse(503, documentPdfPreviewFailureMessage(error));
   }
 
   // Le format ne se convertit pas (`.doc`/`.xls`, ou un fichier dont la signature ne

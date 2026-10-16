@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { documentPdfErrorResponse, documentPdfFilename } from "./document-pdf-response";
+import { ChromiumLaunchError } from "./chromium-launch-error";
+import {
+  documentPdfErrorResponse,
+  documentPdfFilename,
+  documentPdfPreviewFailureMessage,
+} from "./document-pdf-response";
 
 // Ces deux fonctions sont partagées par les routes qui servent des pages en PDF. Ce
 // qu'elles protègent tient en deux lignes d'en-tête HTTP, et c'est pourtant là que se
@@ -53,5 +58,35 @@ describe("documentPdfErrorResponse", () => {
 
     expect(body).not.toContain("<script>");
     expect(body).toContain("&lt;script&gt;");
+  });
+});
+
+describe("documentPdfPreviewFailureMessage", () => {
+  it("ne propose pas de réessayer quand Chromium n'a pas démarré", () => {
+    // Réessayer redonnerait exactement le même échec : proposer un geste qui ne peut
+    // pas aboutir est ce que ce message existe pour éviter.
+    const message = documentPdfPreviewFailureMessage(
+      new ChromiumLaunchError(new Error("spawn ENOEXEC"), true)
+    );
+
+    expect(message).not.toContain("Réessayez");
+    expect(message).toContain("format d'origine");
+  });
+
+  it("laisse réessayer sur un échec passager", () => {
+    const message = documentPdfPreviewFailureMessage(new Error("Timeout 30000ms exceeded"));
+
+    expect(message).toContain("Réessayez");
+    expect(message).toContain("format d'origine");
+  });
+
+  it("ne montre jamais le détail technique, quel qu'il soit", () => {
+    const message = documentPdfPreviewFailureMessage(
+      new ChromiumLaunchError(new Error("spawn ENOEXEC"), true)
+    );
+
+    expect(message).not.toContain("ENOEXEC");
+    expect(message).not.toContain("PUPPETEER_EXECUTABLE_PATH");
+    expect(message).not.toContain("Chromium");
   });
 });

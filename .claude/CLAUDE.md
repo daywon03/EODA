@@ -49,6 +49,7 @@ vérifie** — sinon elle n'existe pas.
 | Ce que la structure fait prévient le cabinet, et personne d'autre | destinataires résolus par le périmètre (`resolveStructureScope` — commercial exclu, consultante non affectée exclue), compte désactivé exclu, dépôt du cabinet muet, « il arrive » muet, libellé du type jamais le nom de fichier | `lib/services/cabinet-recipients-service.test.ts`, `lib/email/templates.test.ts`, `lib/actions/document.test.ts`, `lib/actions/client-document-acceptance.test.ts` |
 | « Voir » montre le document, jamais le texte extrait | `.docx`/`.xlsx`/`.csv`/images passent par les pages rendues côté serveur (`document` AVANT `markdown` dans `buildFilePreview`), le PDF est servi en `inline`, son export et son aperçu sont le MÊME artefact, et seuls les formats convertibles proposent le bouton | `lib/services/printable-html-service.test.ts` (nettoyage : script, `on*`, styles, ressources distantes), `document-pdf-render-service.test.ts` (**la signature décide, pas l'extension**), `document-pdf-service.test.ts`, `document-pdf-response.test.ts`, `file-preview-service.test.ts` (ordre des branches), `file-type-service.test.ts` |
 | La matrice type de document ↔ critères ATTEINT le prompt | les rattachements sont lus en base pour LE type analysé (`documentTypeCriterion.findMany`) et remis à l'IA sous « Critères HAS rattachés à ce type de document » ; matrice vide → « aucun rattachement connu », jamais un catalogue de remplacement | `lib/services/document-ingestion-service.test.ts` (matrice lue → port d'analyse), `lib/llm/analysis-prompt.test.ts` (rendu de la ligne, repli vide) |
+| Un échec de lancement de Chromium est NOMMÉ, et n'invite pas à réessayer | le lancement enveloppe son erreur (`ChromiumLaunchError`, cause conservée, recours nommé : `PUPPETEER_EXECUTABLE_PATH` en développement) et le message d'aperçu **échoue** s'il dit « Réessayez » sur cet échec-là ; les drapeaux serverless ne sont jamais passés à un Chrome de bureau | `lib/services/headless-chromium-service.test.ts`, `lib/services/document-pdf-response.test.ts` |
 | Un envoi « non configuré » n'est jamais compté comme parti | décompte par `countDeliveries` dans toute la couche d'envoi — aucun comptage brut de promesses tenues (il annonçait « Client prévenu (2 personnes) » pour zéro e-mail) | `lib/email/notifications.test.ts` |
 
 **Dette acceptée, à réexaminer après le 22/09/2026** : `.npmrc` porte `node-linker=hoisted`,
@@ -663,6 +664,14 @@ Détail complet et état d'avancement : `specs/02-architecture-technique.md` §4
   Le PDF **du document** (`?download=1`, bouton « PDF ») existe là où la structure
   remet une pièce (checklist, `/dashboard/client/livrables`) ; la bibliothèque de
   modèles a l'aperçu paginé et laisse le téléchargement au lecteur natif.
+  **Chromium en développement** : le repli embarqué est `@sparticuz/chromium`, un
+  binaire **Linux** (AL2023) — sur un poste macOS il ne démarre pas (`spawn ENOEXEC`,
+  mesuré le 16/10/2026). Poser `PUPPETEER_EXECUTABLE_PATH` dans `.env.local` (chemin
+  d'un Chrome installé, cf. `.env.example`) pour tester l'aperçu et les PDF en local ;
+  en production la variable reste vide. Le lancement enveloppe son échec
+  (`ChromiumLaunchError`, cause conservée, recours nommé) et l'aperçu **ne propose
+  jamais de réessayer** sur cet échec-là : réessayer redonne le même — même règle que
+  `devis-pdf-failure.ts`. Jamais le détail technique à l'écran.
 - **Chacun ne supprime que son propre dernier dépôt** (`canDeleteVersion`). Le cabinet
   ne peut pas effacer une pièce déposée par le client — demande explicite de Sandrine,
   risque juridique autant que mauvaise manip — et aucune version antérieure n'est

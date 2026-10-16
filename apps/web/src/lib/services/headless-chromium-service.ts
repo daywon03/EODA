@@ -2,6 +2,7 @@ import chromium from "@sparticuz/chromium";
 import puppeteer from "puppeteer-core";
 import type { Browser } from "puppeteer-core";
 import { getEnv } from "@/lib/config/env";
+import { ChromiumLaunchError } from "@/lib/services/chromium-launch-error";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // LANCEMENT DE CHROMIUM SANS INTERFACE — recette unique du dépôt.
@@ -23,9 +24,22 @@ import { getEnv } from "@/lib/config/env";
 export async function launchHeadlessChromium(): Promise<Browser> {
   const localExecutablePath = getEnv().puppeteerExecutablePath;
 
-  return puppeteer.launch({
-    args: localExecutablePath ? [] : chromium.args,
-    executablePath: localExecutablePath ?? (await chromium.executablePath()),
-    headless: true,
-  });
+  try {
+    // L'extraction du binaire embarqué est DANS le `try` : elle écrit et décompresse
+    // dans le dossier temporaire, donc elle peut échouer (disque plein, image
+    // incomplète) — et un échec de lancement doit se lire comme UNE cause à l'écran,
+    // pas comme deux erreurs différentes.
+    const executablePath = localExecutablePath ?? (await chromium.executablePath());
+    return await puppeteer.launch({
+      args: localExecutablePath ? [] : chromium.args,
+      executablePath,
+      headless: true,
+    });
+  } catch (error) {
+    // Enveloppé, jamais relayé tel quel : « spawn ENOEXEC » ne dit à personne qu'il
+    // faut poser PUPPETEER_EXECUTABLE_PATH pour tester en local (constaté le
+    // 16/10/2026, en vérifiant l'aperçu de document sur un poste macOS). L'appelant
+    // peut alors reconnaître CET échec-là et ne pas proposer de réessayer.
+    throw new ChromiumLaunchError(error, localExecutablePath === undefined);
+  }
 }

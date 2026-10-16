@@ -1,4 +1,5 @@
 import { toSafeFilenameSegment } from "@/lib/security/upload-validation-service";
+import { ChromiumLaunchError } from "@/lib/services/chromium-launch-error";
 import { escapeHtml } from "@/lib/services/printable-html-service";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -22,6 +23,22 @@ import { escapeHtml } from "@/lib/services/printable-html-service";
 export function documentPdfFilename(originalFilename: string): string {
   const base = toSafeFilenameSegment(originalFilename).replace(/\.[a-zA-Z0-9]+$/, "");
   return `${base}.pdf`;
+}
+
+// Ce qu'on dit à l'écran quand le rendu n'a pas abouti. Une seule distinction, mais
+// elle est décisive : Chromium qui ne DÉMARRE pas échouera au clic suivant comme au
+// précédent, donc on ne propose pas de réessayer — on oriente vers le téléchargement du
+// format d'origine, qui marche, lui. Recomposer à la main cette distinction dans chaque
+// route, c'est la route qu'on oubliera de corriger (D1) : elle se décide ici, à partir
+// du type d'erreur, et `devis-pdf-failure.ts` tient la même règle côté devis.
+//
+// Le détail technique (binaire Linux, variable d'environnement à poser) reste dans le
+// journal serveur — jamais à l'écran d'une structure, encore moins d'un client.
+export function documentPdfPreviewFailureMessage(error: unknown): string {
+  if (error instanceof ChromiumLaunchError) {
+    return "Aperçu paginé indisponible sur ce serveur. Téléchargez le document dans son format d'origine pour le consulter.";
+  }
+  return "La préparation de l'aperçu a échoué. Réessayez, ou téléchargez le document dans son format d'origine.";
 }
 
 // Message d'échec rendu en HTML et non en JSON : il s'affiche dans un `<iframe>`, où
