@@ -497,10 +497,17 @@ export async function fetchKnowledgeExcerpts(
   criteriaLabels: string[]
 ): Promise<string[]> {
   if (!tenantId) return [];
-  const knowledge = getKnowledgeRetrievalPort();
-  if (!knowledge) return [];
 
   try {
+    // La résolution du port est DANS le `try`, et ce n'est pas cosmétique : elle finit
+    // dans `getEnv()`, qui LÈVE quand la configuration est incomplète. Hors du `try`,
+    // une variable d'environnement absente faisait échouer l'analyse entière — alors
+    // que cette fonction est un enrichissement, jamais une condition. Constaté par le
+    // test de la matrice, qui n'a pas d'environnement chargé. En production ce cas ne
+    // se présente pas : la configuration est validée au démarrage (instrumentation.ts).
+    const knowledge = getKnowledgeRetrievalPort();
+    if (!knowledge) return [];
+
     const query = [documentTypeLabel, ...criteriaLabels].join(" ; ");
     const excerpts = await knowledge.search(tenantId, query, KNOWLEDGE_EXCERPTS_LIMIT);
     return excerpts.map((excerpt) => excerpt.content);

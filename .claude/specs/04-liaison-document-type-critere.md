@@ -100,3 +100,27 @@ puis validation ligne à ligne), **jamais** par un seed sur la base partagée.
   du cabinet peut être « ajoutée à la matrice » (`promoteCriterionSuggestion`, audit
   `DOCUMENT_TYPE_CRITERION_PROMOTED`).
 - **Rien n'est encore validé en base** : l'écran existe, la décision reste à Sandrine.
+
+## La matrice atteint bien le prompt — vérifié le 16/10/2026
+
+Reste ouvert : *la* question de cette spec — une matrice saisie mais jamais lue serait un
+levier mort. Vérification faite, la chaîne complète fonctionne :
+
+- lecture à chaque analyse, pour LE type du document
+  (`prisma.documentTypeCriterion.findMany({ where: { documentTypeId } })`,
+  `document-ingestion-service.ts` § `analyzeVersion`) ;
+- injection dans le message utilisateur sous « Critères HAS rattachés à ce type de
+  document : », par les DEUX adaptateurs d'analyse (Anthropic direct et OpenRouter) ;
+- matrice vide → « aucun rattachement connu », une phrase et non une valeur absente : le
+  cas réel d'aujourd'hui, pour presque tous les types ;
+- aucun écriture par seed ni migration : seuls `validateMatrixForDocumentType` et
+  `promoteCriterionSuggestion` alimentent la table (cf. N4 ci-dessus).
+
+**Ce qui manquait n'était pas le code, c'était le verrou** : aucun test ne couvrait le
+maillon « matrice lue → injectée ». Supprimer le `findMany` ou la ligne du prompt passait
+au vert. Deux tests l'empêchent désormais — `document-ingestion-service.test.ts` (la
+matrice lue en base arrive dans le port d'analyse, filtrée sur le type, et rien n'est
+inventé quand elle est vide) et `analysis-prompt.test.ts` (le rendu de la ligne). Corrigé
+au passage : `fetchKnowledgeExcerpts` résolvait son port **hors** de son `try`, si bien
+qu'une configuration incomplète faisait échouer l'analyse entière au lieu de la priver
+d'enrichissement — contraire à sa propre doctrine.

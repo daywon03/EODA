@@ -11,8 +11,16 @@ import type { LLMAnalysisPort } from "@/lib/llm";
 
 const prismaMock = {
   document: { upsert: vi.fn(), update: vi.fn() },
-  documentVersion: { create: vi.fn() },
-  documentVersionImage: { create: vi.fn() },
+  documentVersion: { create: vi.fn(), update: vi.fn() },
+  documentVersionImage: { create: vi.fn(), findMany: vi.fn() },
+  // Lues par l'analyse (analyzeVersion) — cf. le second describe, qui porte sur la
+  // matrice type de document ↔ critères.
+  documentTypeCriterion: { findMany: vi.fn() },
+  documentCriterionSuggestion: { findMany: vi.fn(), upsert: vi.fn() },
+  criterion: { findMany: vi.fn() },
+  criterionGuideline: { findMany: vi.fn() },
+  establishment: { findUnique: vi.fn() },
+  $transaction: vi.fn(),
 };
 
 const describeImage = vi.fn();
@@ -205,5 +213,85 @@ describe("ingestDocumentVersion — stockage best-effort des images extraites", 
     expect(prismaMock.documentVersionImage.create).toHaveBeenCalledWith({
       data: expect.objectContaining({ position: 2 }),
     });
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// LA MATRICE TYPE DE DOCUMENT ↔ CRITÈRES ATTEINT L'ANALYSE (16/10/2026).
+//
+// `DocumentTypeCriterion` est le levier n°1 de la qualité des analyses (spec 04) :
+// tout le reste du pipeline — jugement du document, critères suggérés en plus,
+// guidelines rappelées — s'ordonne autour de ces rattachements. La chaîne complète
+// fonctionnait, mais RIEN ne la verrouillait : les tests ci-dessus n'inspectent jamais
+// les arguments reçus par `analyze` (leur `noopLlm` n'est qu'un `vi.fn()`), et le test
+// du prompt ne voyait que son propre rendu. Supprimer le `findMany` de la matrice, ou
+// remplacer le filtre par un `documentTypeId` quelconque, passait donc au vert.
+//
+// Ce qui est prouvé ici est le SEUL maillon qu'aucun autre test ne couvre : la matrice
+// LUE EN BASE arrive dans le port d'analyse, filtrée sur le type du document.
+describe("ingestDocumentVersion — matrice type de document ↔ critères", () => {
+  const MATRIX_ROWS = [
+    { criterion: { id: "crit-1", code: "3.12.1", label: "Traitement des plaintes" } },
+    { criterion: { id: "crit-2", code: "1.2.1", label: "Exercice des droits" } },
+  ];
+
+  function armAnalysis(rowCount = 0) {
+    prismaMock.documentTypeCriterion.findMany.mockResolvedValue(rowCount === 0 ? [] : MATRIX_ROWS);
+    prismaMock.establishment.findUnique.mockResolvedValue({ tenantId: "tenant-1", type: "SAD_AIDE" });
+    prismaMock.criterion.findMany.mockResolvedValue([]);
+    prismaMock.criterionGuideline.findMany.mockResolvedValue([]);
+    prismaMock.documentVersionImage.findMany.mockResolvedValue([]);
+    prismaMock.documentCriterionSuggestion.findMany.mockResolvedValue([]);
+    prismaMock.$transaction.mockResolvedValue([]);
+    prismaMock.documentVersion.update.mockResolvedValue({});
+
+    const analyze = vi.fn().mockResolvedValue({ criteresSupplementaires: [] });
+    return { analyze, llm: { analyze } as unknown as LLMAnalysisPort };
+  }
+
+  it("lit la matrice du type de document analysé, et d'aucun autre", async () => {
+    const { llm } = armAnalysis(2);
+
+    await ingestDocumentVersion(baseInput({ extractedText: "Contenu." }), {
+      storage: fakeStorage(),
+      llm,
+    });
+
+    expect(prismaMock.documentTypeCriterion.findMany).toHaveBeenCalledWith({
+      where: { documentTypeId: DOCUMENT_TYPE_ID },
+      include: { criterion: { select: { id: true, code: true, label: true } } },
+    });
+  });
+
+  it("remet à l'IA les critères rattachés, sous forme de code et d'intitulé", async () => {
+    const { llm, analyze } = armAnalysis(2);
+
+    await ingestDocumentVersion(baseInput({ extractedText: "Contenu." }), {
+      storage: fakeStorage(),
+      llm,
+    });
+
+    expect(analyze).toHaveBeenCalledWith(
+      expect.objectContaining({
+        linkedCriteria: [
+          { code: "3.12.1", label: "Traitement des plaintes" },
+          { code: "1.2.1", label: "Exercice des droits" },
+        ],
+      })
+    );
+  });
+
+  it("n'invente aucun critère quand la matrice est vide", async () => {
+    // Le cas réel d'aujourd'hui, pour presque tous les types. La tentation serait de
+    // combler par le catalogue : l'analyse jugerait alors un livret contre des
+    // critères que personne n'a rattachés à un livret.
+    const { llm, analyze } = armAnalysis(0);
+
+    await ingestDocumentVersion(baseInput({ extractedText: "Contenu." }), {
+      storage: fakeStorage(),
+      llm,
+    });
+
+    expect(analyze).toHaveBeenCalledWith(expect.objectContaining({ linkedCriteria: [] }));
   });
 });
