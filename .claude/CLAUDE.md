@@ -51,6 +51,8 @@ vérifie** — sinon elle n'existe pas.
 | La matrice type de document ↔ critères ATTEINT le prompt | les rattachements sont lus en base pour LE type analysé (`documentTypeCriterion.findMany`) et remis à l'IA sous « Critères HAS rattachés à ce type de document » ; matrice vide → « aucun rattachement connu », jamais un catalogue de remplacement | `lib/services/document-ingestion-service.test.ts` (matrice lue → port d'analyse), `lib/llm/analysis-prompt.test.ts` (rendu de la ligne, repli vide) |
 | Un échec de lancement de Chromium est NOMMÉ, et n'invite pas à réessayer | le lancement enveloppe son erreur (`ChromiumLaunchError`, cause conservée, recours nommé : `PUPPETEER_EXECUTABLE_PATH` en développement) et le message d'aperçu **échoue** s'il dit « Réessayez » sur cet échec-là ; les drapeaux serverless ne sont jamais passés à un Chrome de bureau | `lib/services/headless-chromium-service.test.ts`, `lib/services/document-pdf-response.test.ts` |
 | Un envoi « non configuré » n'est jamais compté comme parti | décompte par `countDeliveries` dans toute la couche d'envoi — aucun comptage brut de promesses tenues (il annonçait « Client prévenu (2 personnes) » pour zéro e-mail) | `lib/email/notifications.test.ts` |
+| L'attribut `hidden` masque réellement, même sous une classe d'affichage | `globals.css` porte `[hidden]:where(:not([hidden="until-found"])){display:none !important}` — le préflight de Tailwind, sans `!important`, a la même spécificité que `.flex` (0,1,0) et vient plus tôt : `.flex` gagnait, et le repli du groupe « Réglages » de la barre latérale cabinet restait décoratif (16/10/2026) | `lib/design/hidden-attribute.test.ts` — **échoue** si le `!important` (ou l'exception `until-found`) disparaît de `globals.css` |
+| Le pool de connexions est borné, et le mode session du pooler est NOMMÉ | `resolveRuntimeDatabaseUrl` (paquet `@eoda/database`) pose `connection_limit=1` sur l'URL runtime **avant** la construction du client ; sans lui, Prisma ouvre `nb_cpu_physiques × 2 + 1` connexions par processus (21 sur le poste à 10 cœurs) contre **15 créneaux** en mode session, sur une base que le poste partage avec la production — incident du 16/10/2026 (`EMAXCONNSESSION`) ; `connectionPoolWarning` nomme le remède au démarrage au lieu de refuser de servir | `lib/db/database-url.test.ts` — dont le garde qui **échoue** si `packages/database/src/index.ts` cesse de passer l'URL résolue au client |
 
 **Dette acceptée, à réexaminer après le 22/09/2026** : `.npmrc` porte `node-linker=hoisted`,
 qui désactive l'arborescence isolée de pnpm et rend possibles les dépendances fantômes
@@ -371,6 +373,24 @@ Détail complet et état d'avancement : `specs/02-architecture-technique.md` §4
   19/08/2026 (tenant, comptes, catalogue, tout). Utiliser `SHADOW_DATABASE_URL`, qui doit
   pointer une base jetable — cf. `.env.example`. Pour vérifier une migration sans base
   jetable : `prisma validate` + relecture du SQL, jamais `migrate diff` sur la vraie base.
+- **Le pool de connexions se borne à la construction du client, jamais par une variable
+  d'environnement discrétionnaire.** Le 16/10/2026, la page d'accueil cabinet est tombée sur
+  `FATAL: (EMAXCONNSESSION) max clients reached in session mode — max clients are limited to
+  pool_size: 15`. Deux faits mesurés se cumulaient : `DATABASE_URL` vise le pooler Supabase en
+  **mode session** (port 5432 — chaque client occupe une connexion serveur, plafond dur de 15,
+  partagé entre le poste, les prévisualisations et la production puisque c'est **une seule
+  base**), et sans paramètre Prisma ouvre `nb_cpu_physiques × 2 + 1` connexions **par
+  processus** — 21 sur un poste à 10 cœurs. `resolveRuntimeDatabaseUrl`
+  (`packages/database/src/database-url.ts`, pur, testé) pose donc `connection_limit=1` sur
+  l'URL runtime avant que le client existe, et complète `pgbouncer=true` si l'URL vise le port
+  6543 (mode transaction : les requêtes préparées n'y tiennent pas). Il **ne réécrit pas le
+  port** : passer en 6543 est un choix d'infrastructure, qui doit se lire dans `DATABASE_URL`
+  et s'entendre au démarrage (`connectionPoolWarning`, via `reportConnectionPoolState` de
+  `lib/config/startup-check.ts`), jamais se deviner d'un code qui transforme une URL en
+  silence. Ne jamais « simplifier » en déplaçant ce réglage dans `DATABASE_URL` : le poste, les
+  prévisualisations et la production doivent obéir à la même règle, et une variable oubliée
+  reproduit exactement l'incident. Le mode session produit un **avertissement**, pas un refus
+  de servir : refuser éteindrait l'application au moment précis où elle rame.
 - Ne pas committer de vraies données clients (ASSAD BENOIT) dans des fixtures de test — créer
   des fixtures anonymisées génériques.
 - Le pipeline commercial (prospects/devis/catalogue/KPI, décrit dans

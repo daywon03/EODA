@@ -346,6 +346,7 @@ vérifie.**
 | Une seule source de navigation côté client, et la barre latérale rend la liste **entière** | `lib/design/client-sidebar.test.ts` | `buildClientNav` appelé une fois ; pas de `splitClientNav` ni de `slice(` dans `ClientNavList` ; barre du bas `lg:hidden` seul rendu sous `lg` |
 | La densité du client survit à la copie de la barre latérale | idem | entrée client `h-12` **et** `text-lg`, entrée cabinet `h-11` — l'une ne se recopie jamais dans l'autre |
 | Le repli d'une barre latérale ne replie pas l'autre | `lib/design/navigation.test.ts` | `CLIENT_SIDEBAR_KEY ≠ CABINET_SIDEBAR_KEY`, et clés passées en argument obligatoire |
+| L'attribut `hidden` masque réellement, même sous une classe d'affichage | `lib/design/hidden-attribute.test.ts` | `globals.css` doit porter `[hidden]:where(:not([hidden="until-found"])){display:none !important}` — sans le `!important`, `.flex` (même spécificité, plus loin dans la feuille) gagne et le repli d'une section reste décoratif (16/10/2026) |
 
 **Dette déclarée — non vérifié à ce jour** : `eslint-plugin-jsx-a11y` en `error`, un passage
 axe-core en CI sur les pages client, la hiérarchie de titres (un seul `h1` par page), et la
