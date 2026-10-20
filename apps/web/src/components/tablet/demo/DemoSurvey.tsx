@@ -40,9 +40,18 @@ export function DemoSurvey({ people, initialPersonId, onDone, onHome }: Props) {
   // tous les écrans annonçait 14 et 17, soit deux questionnaires qui ne ressemblaient
   // plus à ceux qu'on fait remplir (constat de Damon, 20/10/2026).
   const scaleTotal = template.questions.filter((q) => q.kind === "SCALE").length;
+  const textTotal = template.questions.filter((q) => q.kind === "TEXT").length;
   const scalePosition = template.questions.slice(0, index + 1).filter((q) => q.kind === "SCALE").length;
   const whoLabel = who === "PERSONNE" ? "questionnaire personne" : "questionnaire famille";
   const answer = answers[question.id];
+  // Question « votre lien avec la personne » : une option fermée, plus la précision
+  // libre du gabarit (« autre : .... »). Tout est calculé ici pour ne pas dépendre du
+  // rétrécissement de type à l'intérieur des gestionnaires d'événements.
+  const choiceText = question.kind === "CHOICE" ? (answer?.text ?? "") : "";
+  const otherOption = question.kind === "CHOICE" ? question.otherOption : undefined;
+  const otherPrecision =
+    otherOption && choiceText.startsWith(`${otherOption} : `) ? choiceText.slice(otherOption.length + 3) : "";
+  const otherSelected = otherOption !== undefined && (choiceText === otherOption || otherPrecision !== "");
 
   function next() {
     if (question.kind === "SCALE" && !answer?.choice) {
@@ -107,9 +116,10 @@ export function DemoSurvey({ people, initialPersonId, onDone, onHome }: Props) {
           <p className="text-[21px] font-bold text-ink">{template.title}</p>
           <p className="mt-1.5 text-[17px] leading-relaxed text-ink2">{template.intro}</p>
           <p className="mt-2 text-[17px] font-bold text-ink">
-            {scaleTotal} questions · {template.questions.length - scaleTotal} zone
-            {template.questions.length - scaleTotal > 1 ? "s" : ""} de texte libre, facultative
-            {template.questions.length - scaleTotal > 1 ? "s" : ""}
+            {scaleTotal} questions · {textTotal} zone
+            {textTotal > 1 ? "s" : ""} de texte libre, facultative
+            {textTotal > 1 ? "s" : ""}
+            {template.questions.some((q) => q.kind === "CHOICE") && " · et une question sur votre lien avec la personne, facultative"}
           </p>
         </div>
         <p className="rounded-xl bg-soft px-4 py-3 text-[17px]">{template.privacyNotice}</p>
@@ -143,7 +153,9 @@ export function DemoSurvey({ people, initialPersonId, onDone, onHome }: Props) {
         <p className="font-bold tabular-nums text-ink2" aria-live="polite">
           {question.kind === "SCALE"
             ? `Question ${scalePosition} sur ${scaleTotal} · ${whoLabel}`
-            : `Question libre · ${whoLabel}`}
+            : question.kind === "CHOICE"
+              ? `Question facultative · ${whoLabel}`
+              : `Question libre · ${whoLabel}`}
         </p>
         <ProgressBar value={scalePosition} max={scaleTotal} label="Avancement de l'enquête" colorClassName="bg-accent-fill" className="min-w-[140px] max-w-[280px] flex-1" />
       </div>
@@ -157,6 +169,44 @@ export function DemoSurvey({ people, initialPersonId, onDone, onHome }: Props) {
               {option.label}
             </button>
           ))}
+        </div>
+      ) : question.kind === "CHOICE" ? (
+        <div className="flex flex-col gap-3" role="group" aria-labelledby="enquete-question">
+          {question.options.map((option) => {
+            const selected = choiceText === option || choiceText.startsWith(`${option} : `);
+            return (
+              <button
+                key={option}
+                type="button"
+                aria-pressed={selected}
+                onClick={() => setAnswers({ ...answers, [question.id]: { text: option } })}
+                className={cn(TABLET_CHOICE, selected ? TABLET_CHOICE_ON : TABLET_CHOICE_OFF)}
+              >
+                {option}
+              </button>
+            );
+          })}
+          {otherSelected && (
+            <label className="flex flex-col gap-2">
+              <span className="text-[19px] text-ink2">Précisez (facultatif)</span>
+              <input
+                type="text"
+                maxLength={200}
+                value={otherPrecision}
+                onChange={(event) =>
+                  setAnswers({
+                    ...answers,
+                    [question.id]: {
+                      text: event.target.value.trim() ? `${otherOption ?? ""} : ${event.target.value}` : (otherOption ?? ""),
+                    },
+                  })
+                }
+                className="w-full rounded-2xl border-2 border-muted bg-card p-4 text-[20px] text-ink"
+              />
+            </label>
+          )}
+          {/* Facultative sur le papier : elle ne bloque donc jamais le passage. */}
+          <p className="text-[19px] text-ink2">Facultatif : vous pouvez passer cette question.</p>
         </div>
       ) : (
         <label className="flex flex-col gap-2">

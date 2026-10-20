@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { surveyTemplateFor } from "@/content/enquete";
-import { MAX_FREE_TEXT_LENGTH, parseSurveyAnswers } from "./survey-answer-parser";
+import { MAX_CHOICE_PRECISION_LENGTH, MAX_FREE_TEXT_LENGTH, parseSurveyAnswers } from "./survey-answer-parser";
 
 const PERSONNE = surveyTemplateFor("PERSONNE");
 const json = (value: unknown) => JSON.stringify(value);
@@ -56,5 +56,43 @@ describe("parseSurveyAnswers — entrée hostile", () => {
       ok: false,
       error: "L'enquête ne contient aucune réponse.",
     });
+  });
+});
+
+describe("parseSurveyAnswers — question à choix (lien avec la personne)", () => {
+  const FAMILLE = surveyTemplateFor("FAMILLE");
+  const withLien = (freeText: unknown) =>
+    parseSurveyAnswers(FAMILLE, json([{ questionId: "f14-global", choice: "TRES" }, { questionId: "f17-lien", freeText }]));
+
+  it("accepte une option du gabarit, et la précision de l'option « Autre »", () => {
+    expect(withLien("Enfant")).toEqual({
+      ok: true,
+      value: [
+        { questionId: "f14-global", choice: "TRES", freeText: null },
+        { questionId: "f17-lien", choice: null, freeText: "Enfant" },
+      ],
+    });
+    expect(withLien("  Autre :  mon frère  ")).toEqual({
+      ok: true,
+      value: [
+        { questionId: "f14-global", choice: "TRES", freeText: null },
+        { questionId: "f17-lien", choice: null, freeText: "Autre : mon frère" },
+      ],
+    });
+  });
+
+  it("laisse passer une question facultative vide", () => {
+    expect(withLien("    ")).toEqual({
+      ok: true,
+      value: [{ questionId: "f14-global", choice: "TRES", freeText: null }],
+    });
+  });
+
+  it("refuse une option inventée, une précision hors « Autre », et une précision trop longue", () => {
+    const unknown = { ok: false, error: "Une réponse n'existe pas pour cette question." };
+    expect(withLien("Voisin")).toEqual(unknown);
+    expect(withLien("Enfant : mon fils")).toEqual(unknown);
+    expect(withLien(`Autre : ${"a".repeat(MAX_CHOICE_PRECISION_LENGTH + 1)}`)).toEqual(unknown);
+    expect(withLien(42)).toEqual(unknown);
   });
 });

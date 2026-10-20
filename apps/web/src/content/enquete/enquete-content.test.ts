@@ -8,6 +8,8 @@ import {
   SURVEY_TEMPLATES,
   surveyTemplateFor,
 } from "./index";
+import { SURVEY_FAMILLE } from "./famille";
+import { SURVEY_PERSONNE } from "./personne";
 import { RECEPTION_DOCUMENTS, RECEPTION_POINTS_PROVISIONAL } from "./reception";
 
 // Contenu de l'enquête — tenu à la transcription du gabarit de Sandrine (v1.0 du
@@ -42,6 +44,21 @@ describe("questionnaires", () => {
       const control = template.questions.filter((q) => q.kind === "SCALE" && SURVEY_SCALES[q.scale].isControl);
       expect(control).toHaveLength(1);
     }
+  });
+
+  // Le gabarit famille demande, après les avis libres, « Votre lien avec la personne
+  // accompagnée (facultatif) : ☐ conjoint(e) ☐ enfant ☐ autre : .... ». Il ne compte
+  // ni dans les 14 questions cotées, ni dans les taux.
+  it("demande le lien avec la personne accompagnée, facultatif et hors taux (gabarit famille)", () => {
+    const choices = SURVEY_FAMILLE.questions.filter((q) => q.kind === "CHOICE");
+    expect(choices).toHaveLength(1);
+    expect(choices[0]).toMatchObject({
+      id: "f17-lien",
+      options: ["Conjoint(e)", "Enfant", "Autre"],
+      otherOption: "Autre",
+    });
+    expect(SURVEY_PERSONNE.questions.filter((q) => q.kind === "CHOICE")).toHaveLength(0);
+    expect(scaleCount("FAMILLE")).toBe(14);
   });
 
   it("propose « Non concerné » sur l'échelle famille et l'exclut du calcul", () => {

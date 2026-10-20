@@ -104,6 +104,18 @@ function surveyQuestionItem(question: SurveyQuestion, index: number): ReviewItem
       ]),
     };
   }
+  if (question.kind === "CHOICE") {
+    return {
+      id: question.id,
+      title: `${index + 1}. ${question.prompt}`,
+      fields: fields([
+        ["Type", "Choix parmi des propositions, facultatif"],
+        ["Réponses possibles", question.options.join("\n")],
+        ["Précision libre", question.otherOption ? `Ouverte si « ${question.otherOption} » est choisi` : undefined],
+        ["Libellé court", question.shortLabel],
+      ]),
+    };
+  }
   const scale = SURVEY_SCALES[question.scale];
   return {
     id: question.id,
