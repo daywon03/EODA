@@ -101,6 +101,29 @@ export function DocumentAnalysisPanel({
         <p className="px-3 pb-2 text-sm font-bold text-ink">{clientMention}</p>
       )}
 
+      {/* « Le modèle doit savoir que ce n'est pas un compte-rendu du CVS mais une
+          enquête de satisfaction » (Damon, 20/10/2026). Quand il le dit, on le montre
+          TOUJOURS, panneau replié compris : c'est peut-être la raison pour laquelle
+          l'analyse parle à côté, et le geste qui la corrige (reclasser le document, ou
+          écrire une consigne) est juste en dessous. `correspondAuType === false` est une
+          observation du modèle, jamais un verdict : la décision reste humaine. */}
+      {analysis.natureObservee?.correspondAuType === false && (
+        <div className="mx-3 mb-2 rounded-md border border-amber-fill/40 bg-amber-fill/10 px-2.5 py-2">
+          <p className="flex items-start gap-1.5 text-sm font-bold text-ink">
+            <AlertCircle className="mt-0.5 w-3.5 h-3.5 flex-shrink-0 text-amber-text" aria-hidden="true" />
+            Ce document ne semble pas être celui annoncé
+          </p>
+          {analysis.natureObservee.commentaire && (
+            <p className="mt-0.5 pl-5 text-sm text-ink2">{analysis.natureObservee.commentaire}</p>
+          )}
+          <p className="mt-1 pl-5 text-sm text-ink2">
+            L&apos;analyse porte donc sur ce qu&apos;il est vraiment. Si le classement est faux, corrigez-le
+            dans « Classement et consigne d&apos;analyse », plus bas : l&apos;analyse sera à relancer sur les
+            critères du bon type.
+          </p>
+        </div>
+      )}
+
       {open && (
         <div className="px-3 pb-3 pt-1 space-y-3 animate-fade-in">
           {analysis.criteriaCoverage.length > 0 && (

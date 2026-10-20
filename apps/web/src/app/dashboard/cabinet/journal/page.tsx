@@ -21,6 +21,8 @@ const ACTION_LABELS: Record<AuditAction, string> = {
   DOCUMENT_STATUS_ANSWERED: "Statut de document renseigné",
   DOCUMENT_JUSTIFICATION_UPDATED: "Justification corrigée",
   DOCUMENT_VERSION_DELETED: "Version de document supprimée",
+  DOCUMENT_TYPE_CHANGED: "Type de document corrigé",
+  DOCUMENT_DIRECTIVE_UPDATED: "Consigne d'analyse mise à jour",
   CLIENT_USER_INVITED: "Interlocuteur client invité",
   CLIENT_USER_UPDATED: "Fiche interlocuteur corrigée",
   CLIENT_USER_UNLINKED: "Accès à l'établissement retiré",

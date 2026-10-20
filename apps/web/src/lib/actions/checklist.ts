@@ -53,6 +53,11 @@ export type ChecklistItem = {
   status: DocumentStatus;
   documentId: string | null;
   missingJustification: string | null;
+  // Consigne libre de la consultante sur CE document, et le bouton qui décide si
+  // elle entre dans la prochaine analyse (20/10/2026). Le texte n'est jamais
+  // recopié dans le journal d'audit.
+  analysisDirective: string | null;
+  directiveInAnalysis: boolean;
   // « Je ne l'ai pas » (N3, missing-answer-service) : à produire, pas à déposer.
   declaredMissing: boolean;
   // Qui doit produire ce document encore manquant — pastilles cabinet « À rédiger ·
@@ -165,6 +170,10 @@ async function buildChecklist(
       status: true,
       statusOverriddenByUser: true,
       missingJustification: true,
+      // Consigne de la consultante pour la prochaine analyse (20/10/2026) : elle
+      // s'édite dans le panneau du document, elle est donc lue avec lui.
+      analysisDirective: true,
+      directiveInAnalysis: true,
       validatedAt: true,
       clientAcceptedAt: true,
       currentVersion: {
@@ -262,6 +271,8 @@ async function buildChecklist(
       status,
       documentId: doc?.id ?? null,
       missingJustification: doc?.missingJustification ?? null,
+      analysisDirective: doc?.analysisDirective ?? null,
+      directiveInAnalysis: doc?.directiveInAnalysis ?? false,
       declaredMissing,
       missingOwner: deriveMissingOwner({
         status,

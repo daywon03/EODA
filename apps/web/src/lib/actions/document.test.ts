@@ -26,12 +26,15 @@ const recordAuditEvent = vi.fn();
 const extractMarkdown = vi.fn();
 const suggestDocumentType = vi.fn();
 const requireEstablishmentAccess = vi.fn();
+// `tryEstablishmentAccess` — la garde qui a servi jusqu'ici sans être doublée : elle
+// répond, dans ces tests, ce que la session serait (cabinet ou structure).
+const tryEstablishmentAccess = vi.fn();
 
 vi.mock("@eoda/database", () => ({ prisma: prismaMock }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("@/lib/auth/guards", () => ({
   requireEstablishmentAccess: (...args: [string]) => requireEstablishmentAccess(...args),
-  tryEstablishmentAccess: vi.fn(),
+  tryEstablishmentAccess: (...args: unknown[]) => tryEstablishmentAccess(...args),
 }));
 vi.mock("@/lib/services/text-extraction-service", () => ({
   extractMarkdown: (...args: unknown[]) => extractMarkdown(...args),
@@ -62,8 +65,13 @@ vi.mock("@/lib/email/notifications", () => ({
   notifyStructureActivity: (...args: unknown[]) => notifyStructureActivity(...args),
 }));
 
-const { uploadDocument, respondToMissingDocument, generateDocumentDraft, setDocumentValidated } =
-  await import("./document");
+const {
+  uploadDocument,
+  respondToMissingDocument,
+  generateDocumentDraft,
+  setDocumentValidated,
+  getDocumentPreviewData,
+} = await import("./document");
 
 const ESTABLISHMENT_ID = "etab-1";
 
@@ -504,5 +512,50 @@ describe("respondToMissingDocument — ce qui demande du travail au cabinet", ()
       error: "Ce document n'entre pas dans le périmètre de l'offre souscrite pour cet établissement.",
     });
     expect(notifyStructureActivity).not.toHaveBeenCalled();
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// L'APERÇU N'EST PAS QU'UN BOUTON (20/10/2026).
+//
+// « Mes documents » propose désormais « Voir », et la structure reçoit dans sa page
+// l'historique complet des versions — donc leurs identifiants. Un brouillon produit
+// par EODA et pas encore validé ne doit donc pas être servi, même si quelqu'un
+// construit l'identifiant à la main : la règle vit dans `isVersionVisibleToClient`
+// (deliverables-service) et les DEUX portes qui servent les octets l'appliquent.
+describe("getDocumentPreviewData — ce que la structure a le droit d'ouvrir", () => {
+  function versionRow(role: string, validatedAt: Date | null) {
+    return {
+      id: "v-1",
+      originalFilename: "document.docx",
+      fileStorageKey: "storage-key",
+      extractedText: null,
+      uploadedBy: { role },
+      document: {
+        establishmentId: ESTABLISHMENT_ID,
+        validatedAt,
+        documentType: { code: "L2002_LIVRET_ACCUEIL" },
+      },
+    };
+  }
+
+  beforeEach(() => {
+    prismaMock.documentVersion.findUnique.mockReset();
+    tryEstablishmentAccess.mockReset();
+    tryEstablishmentAccess.mockResolvedValue({ isClient: true, userId: "u-1", session: { user: {} } });
+  });
+
+  it("refuse le brouillon du cabinet tant que le document n'est pas validé", async () => {
+    prismaMock.documentVersion.findUnique.mockResolvedValue(versionRow("CABINET_ADMIN", null));
+
+    await expect(getDocumentPreviewData("v-1")).resolves.toBeNull();
+  });
+
+  it("sert la pièce déposée par la structure, et celle du cabinet une fois validée", async () => {
+    prismaMock.documentVersion.findUnique.mockResolvedValue(versionRow("CLIENT_USER", null));
+    await expect(getDocumentPreviewData("v-1")).resolves.toMatchObject({ kind: "document" });
+
+    prismaMock.documentVersion.findUnique.mockResolvedValue(versionRow("CABINET_ADMIN", new Date()));
+    await expect(getDocumentPreviewData("v-1")).resolves.toMatchObject({ kind: "document" });
   });
 });

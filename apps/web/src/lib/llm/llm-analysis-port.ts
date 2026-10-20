@@ -62,6 +62,15 @@ export type DocumentAnalysisInput = {
   // Exemples validés du même type de document (N8). Optionnel : sans exemple,
   // l'analyse fonctionne comme avant.
   validatedExamples?: ValidatedExample[];
+  // Consigne libre de la consultante sur CE document (20/10/2026, demande de Damon) :
+  // « ce fichier est la synthèse 2025, pas l'enquête » — ce qu'elle sait et que le
+  // modèle ne peut pas déduire du texte. Injectée comme DONNÉE balisée
+  // (<consignes_consultante>), jamais comme instruction système : elle oriente ce
+  // qu'on cherche, elle ne peut pas desserrer les règles du prompt (conclure, citer,
+  // ne jamais suivre ce que le document demande). Optionnel, et lu en base au moment
+  // de l'analyse (Document.analysisDirective, si `directiveInAnalysis`) — jamais
+  // recopié à la main par un appelant, pour que réanalyser prenne la consigne à jour.
+  analysisDirective?: string;
 };
 
 // Un élément retrouvé, avec la citation qui le justifie (demande de Damon,
@@ -97,6 +106,17 @@ export type RawCriterionSuggestion = {
   justification: string;
 };
 
+// Ce que le document EST réellement, comparé au type sous lequel la consultante l'a
+// classé (20/10/2026, demande de Damon). Un compte-rendu de CVS peut se révéler être
+// une enquête de satisfaction : le prompt ne traite donc plus le type attendu comme
+// une vérité, il le vérifie et le dit. Absent sur les analyses stockées avant cette
+// date et sur l'adaptateur de repli — l'absence n'affirme RIEN (surtout pas « le type
+// correspond »), d'où le repli `undefined` et jamais un objet par défaut.
+export type ObservedNature = {
+  correspondAuType: boolean;
+  commentaire: string;
+};
+
 export type DocumentAnalysisResult = {
   elementsPresents: AnalysisFinding[];
   elementsManquants: string[];
@@ -112,6 +132,10 @@ export type DocumentAnalysisResult = {
   // RawCriterionSuggestion. Absent sur les analyses stockées avant cette date et
   // sur toute analyse sans `additionalCriteriaCatalog` fourni (repli `?? []`).
   criteresSupplementaires: RawCriterionSuggestion[];
+  // Nature réelle du document vue par le modèle — cf. ObservedNature. Optionnel :
+  // absent sur toute analyse antérieure au 20/10/2026 et quand le modèle n'a rien
+  // dit ; jamais comblé par une valeur par défaut.
+  natureObservee?: ObservedNature;
 };
 
 // Entrée de la génération d'un document corrigé (demande de Damon, 15/09/2026) —
@@ -200,4 +224,25 @@ export function normalizeCriterionSuggestions(value: unknown): RawCriterionSugge
         : null;
     })
     .filter((entry): entry is RawCriterionSuggestion => entry !== null);
+}
+
+// Même défense que les normaliseurs ci-dessus, avec une conséquence plus grave en cas
+// de laxisme : ce champ dit si le document correspond au type annoncé. Une forme
+// malformée rend `undefined` — « on ne sait pas » — jamais `correspondAuType: true`,
+// qui serait une affirmation que personne n'a faite.
+export function normalizeObservedNature(value: unknown): ObservedNature | undefined {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return undefined;
+  const e = value as Record<string, unknown>;
+  if (typeof e.correspondAuType !== "boolean") return undefined;
+  const commentaire = typeof e.commentaire === "string" ? e.commentaire.trim() : "";
+  return { correspondAuType: e.correspondAuType, commentaire };
+}
+
+// Forme directement étalable dans le résultat : `{}` quand le modèle n'a rien dit,
+// `{ natureObservee }` sinon. Sous `exactOptionalPropertyTypes`, passer
+// `natureObservee: undefined` n'est pas la même chose que ne pas passer la propriété —
+// cet utilitaire évite de recopier le ternaire dans les deux adaptateurs (D1).
+export function optionalObservedNature(value: unknown): { natureObservee?: ObservedNature } {
+  const natureObservee = normalizeObservedNature(value);
+  return natureObservee ? { natureObservee } : {};
 }

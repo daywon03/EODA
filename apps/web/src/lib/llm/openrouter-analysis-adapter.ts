@@ -8,6 +8,7 @@ import {
   normalizeFindings,
   normalizeCriteriaCoverage,
   normalizeCriterionSuggestions,
+  optionalObservedNature,
 } from "./llm-analysis-port";
 import { buildSystemPrompt, buildUserMessage } from "./analysis-prompt";
 import { buildGenerationSystemPrompt, buildGenerationUserMessage } from "./generation-prompt";
@@ -51,7 +52,11 @@ const JSON_SCHEMA_INSTRUCTION = `Réponds UNIQUEMENT avec un objet JSON, sans te
   ],
   "criteresSupplementaires": [
     { "criterionCode": "2.2.6", "justification": "Le document décrit la procédure de recueil des plaintes, qui répond aussi à ce critère." }
-  ]
+  ],
+  "natureObservee": {
+    "correspondAuType": false,
+    "commentaire": "Le document est une synthèse d'enquête de satisfaction, pas un compte-rendu de réunion du CVS."
+  }
 }
 Chaque élément de "elementsPresents" est TOUJOURS un objet avec exactement ces deux
 champs — jamais une simple chaîne. "source" est une citation copiée mot pour mot
@@ -63,7 +68,11 @@ moins — jamais un critère qui n'a pas été transmis, jamais un critère abse
 "criteresSupplementaires" est TOUJOURS présent, même vide ([]) : n'y mets QUE des
 critères pris dans le catalogue supplémentaire fourni plus bas (jamais un code que tu
 inventes), et seulement s'ils sont réellement évoqués par CE document — un document
-peut en concerner plusieurs, parfois jusqu'à dix, ne t'arrête jamais au premier trouvé.`;
+peut en concerner plusieurs, parfois jusqu'à dix, ne t'arrête jamais au premier trouvé.
+"natureObservee" est TOUJOURS présent : {"correspondAuType", "commentaire"}. Mets
+correspondAuType à false dès que le document est visiblement d'une autre nature que le
+type annoncé, et dis dans "commentaire" ce qu'il est réellement — le type annoncé est
+l'indice de classement de la consultante, pas une vérité.`;
 
 // Constaté à l'usage (15/09/2026, MiniMax M2.7) : malgré `response_format:
 // json_object` ET une consigne "sans texte ni balise autour", un modèle peut quand
@@ -140,6 +149,7 @@ export class OpenRouterAnalysisAdapter implements LLMAnalysisPort {
       sembleConforme: parsed.sembleConforme ?? false,
       criteriaCoverage: normalizeCriteriaCoverage(parsed.criteriaCoverage),
       criteresSupplementaires: normalizeCriterionSuggestions(parsed.criteresSupplementaires),
+      ...optionalObservedNature(parsed.natureObservee),
     };
   }
 

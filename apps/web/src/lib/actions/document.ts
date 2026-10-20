@@ -1,6 +1,6 @@
 "use server";
 
-import { prisma } from "@eoda/database";
+import { prisma, Prisma, type DocumentCategory } from "@eoda/database";
 import { revalidatePath } from "next/cache";
 import { notFound } from "next/navigation";
 import {
@@ -17,9 +17,12 @@ import {
   canDepositDocuments,
   type MissionAccessState,
 } from "@/lib/services/mission-access-service";
-import { canDeleteVersion,
+import {
+  canDeleteVersion,
   MAX_JUSTIFICATION_LENGTH,
 } from "@/lib/services/document-workflow-service";
+import { isVersionVisibleToClient } from "@/lib/services/deliverables-service";
+import { decideAnalysisDirective } from "@/lib/services/analysis-directive-service";
 import { extractMarkdown } from "@/lib/services/text-extraction-service";
 import { canRenderDocumentPages } from "@/lib/services/file-type-service";
 import { deleteCachedDocumentPdf } from "@/lib/services/document-pdf-service";
@@ -336,6 +339,198 @@ export async function updateMissingJustification(
   return null;
 }
 
+// ── Reclasser un document sous un autre type ─────────────────────────────────
+//
+// « Quand ce n'est pas un compte-rendu de CVS et que c'est une enquête de
+// satisfaction, il faut pouvoir le changer, et l'analyse doit le savoir » (Damon,
+// 20/10/2026). Le classement initial vient d'une devinette (suggestDocumentType) ou
+// d'un choix fatigué au dépôt ; il ne pouvait plus être corrigé, et tout le reste en
+// dépendait : la checklist qui l'affiche, les critères rattachés à son type, donc
+// l'analyse.
+//
+// Ce que l'action change : le TYPE sous lequel le document est rangé. Ce qu'elle
+// DÉTRUIT, volontairement : l'analyse et ses traces, qui portaient sur un autre type
+// et deviendraient un mensonge (« couvert au regard des critères X » alors que le
+// document est maintenant rangé sous Y). Les fichiers, les versions et l'historique
+// restent intacts : on re-classe un document, on ne le redépose pas.
+//
+// Elle ne relance pas l'analyse elle-même : c'est un appel payant, et le geste de la
+// consultante est de relire le nouveau classement avant qu'on redemande au modèle.
+// L'écran le dit (« analyse effacée — relancer »), le bouton Analyser existant suffit.
+export async function changeDocumentType(
+  establishmentId: string,
+  fromDocumentTypeId: string,
+  toDocumentTypeId: string
+): Promise<{ error: string } | null> {
+  const access = await requireEstablishmentAccess(establishmentId, NEED.DOCUMENTS_WRITE);
+  if (!canDepositDocuments(access.missionAccess)) return { error: DEPOSIT_CLOSED_MESSAGE };
+
+  if (fromDocumentTypeId === toDocumentTypeId) return null;
+
+  const [from, to] = await Promise.all([
+    prisma.documentType.findUnique({ where: { id: fromDocumentTypeId }, select: { id: true, code: true, category: true } }),
+    prisma.documentType.findUnique({ where: { id: toDocumentTypeId }, select: { id: true, code: true, category: true } }),
+  ]);
+  if (!from || !to) return { error: "Type de document invalide." };
+
+  // Même arbitrage que le dépôt : on ne re-classe pas sous un type que l'offre de la
+  // structure ne couvre pas — le document disparaîtrait de sa checklist.
+  if (!(await isCategoryCoveredForEstablishment(establishmentId, to.category))) {
+    return { error: OUT_OF_OFFER_ERROR };
+  }
+
+  const document = await prisma.document.findUnique({
+    where: { establishmentId_documentTypeId: { establishmentId, documentTypeId: from.id } },
+    select: { id: true },
+  });
+  if (!document) return { error: "Ce document n'est pas encore déposé : il n'y a rien à reclasser." };
+
+  // `@@unique([establishmentId, documentTypeId])` : sans ce contrôle, la contrainte
+  // tomberait dans le `catch` et l'écran annoncerait une panne technique là où le
+  // problème est un simple conflit de rangement.
+  const target = await prisma.document.findUnique({
+    where: { establishmentId_documentTypeId: { establishmentId, documentTypeId: to.id } },
+    select: { id: true },
+  });
+  if (target) {
+    return {
+      error: `Un document existe déjà sous « ${to.code} » pour cette structure : supprimez-le ou fusionnez-les avant de reclasser.`,
+    };
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await tx.document.update({
+      where: { id: document.id },
+      data: {
+        documentTypeId: to.id,
+        // Le document redevient « déposé, non analysé » : sa validation et
+        // l'acceptation du client portaient sur un autre classement.
+        status: "UPLOADED",
+        statusOverriddenByUser: false,
+        missingJustification: null,
+        validatedAt: null,
+        validatedByUserId: null,
+        clientAcceptedAt: null,
+        clientAcceptedByUserId: null,
+      },
+    });
+
+    // L'analyse portait sur les critères de l'ANCIEN type : elle est effacée, pas
+    // conservée « au cas où » — une analyse affichée sous le mauvais type est pire
+    // qu'une absence d'analyse.
+    await tx.documentVersion.updateMany({
+      where: { documentId: document.id },
+      data: {
+        analysisResultJson: Prisma.DbNull,
+        analysisReviewedAt: null,
+        analysisReviewedByUserId: null,
+        analysisDirectiveUsed: null,
+      },
+    });
+
+    // Suggestions de critères calculées pour l'ancien type : elles n'ont plus de sens.
+    await tx.documentCriterionSuggestion.deleteMany({ where: { documentId: document.id } });
+  });
+
+  await recordAuditEvent({
+    action: "DOCUMENT_TYPE_CHANGED",
+    actorUserId: access.userId,
+    actorRole: access.session.user.role,
+    establishmentId,
+    targetId: document.id,
+    // Codes, jamais les libellés libres ni un nom de fichier.
+    detail: `${from.code} -> ${to.code}`,
+  });
+
+  revalidateDocumentViews(establishmentId);
+  return null;
+}
+
+// ── Consigne de la consultante sur l'analyse d'un document ───────────────────
+//
+// Même demande (20/10/2026) : « dans la partie commentaire du document, ce serait
+// bien de pouvoir lui donner des précisions pour l'analyse, et de pouvoir les prendre
+// en compte ou non avec un bouton ». La consigne est CONSERVÉE quand le bouton est
+// éteint — c'est une note de travail, pas un champ qu'on efface pour la désactiver.
+//
+// Ce n'est pas un guide de cotation : le prompt (analysis-prompt.ts) la traite comme
+// un contexte à consulter, qui ne peut ni changer le rôle du modèle ni le faire
+// conclure. Le texte libre n'est JAMAIS recopié dans le journal d'audit : il peut
+// citer une situation de personne accompagnée.
+// La règle (longueur, refus d'une consigne vide activée) et la constante vivent dans
+// `lib/services/analysis-directive-service.ts` : ce fichier porte `"use server"`, donc
+// il ne peut exporter que des fonctions asynchrones — et une règle recopiée dans un
+// composant finirait par diverger de celle du serveur.
+export async function updateAnalysisDirective(
+  establishmentId: string,
+  documentTypeId: string,
+  directive: string,
+  includeInAnalysis: boolean
+): Promise<{ error: string } | null> {
+  const access = await requireEstablishmentAccess(establishmentId, NEED.DOCUMENTS_WRITE);
+  if (!canDepositDocuments(access.missionAccess)) return { error: DEPOSIT_CLOSED_MESSAGE };
+
+  const decision = decideAnalysisDirective(directive, includeInAnalysis);
+  if ("error" in decision) return { error: decision.error };
+
+  const documentType = await prisma.documentType.findUnique({
+    where: { id: documentTypeId },
+    select: { id: true, code: true, category: true },
+  });
+  if (!documentType) return { error: "Type de document invalide." };
+
+  if (!(await isCategoryCoveredForEstablishment(establishmentId, documentType.category))) {
+    return { error: OUT_OF_OFFER_ERROR };
+  }
+
+  await prisma.document.upsert({
+    where: { establishmentId_documentTypeId: { establishmentId, documentTypeId } },
+    update: {
+      analysisDirective: decision.directive,
+      directiveInAnalysis: decision.includeInAnalysis,
+    },
+    // Aucune ligne encore (document pas déposé) : la consigne attend le dépôt, et le
+    // document reste manquant — jamais un statut fabriqué à partir d'une note.
+    create: {
+      establishmentId,
+      documentTypeId,
+      status: "MISSING",
+      analysisDirective: decision.directive,
+      directiveInAnalysis: decision.includeInAnalysis,
+    },
+  });
+
+  await recordAuditEvent({
+    action: "DOCUMENT_DIRECTIVE_UPDATED",
+    actorUserId: access.userId,
+    actorRole: access.session.user.role,
+    establishmentId,
+    targetId: documentType.id,
+    // Le drapeau et le code, jamais le texte de la consigne.
+    detail: `${documentType.code} → ${decision.includeInAnalysis ? "prise en compte" : "ignorée"}`,
+  });
+
+  revalidateDocumentViews(establishmentId);
+  return null;
+}
+
+// Types proposés au reclassement : ceux des catégories couvertes par l'offre de CETTE
+// structure. Rendus depuis le serveur plutôt que recopiés dans un composant (D1) — la
+// liste change avec le catalogue et avec l'offre souscrite.
+export async function listDocumentTypeOptions(
+  establishmentId: string
+): Promise<{ id: string; label: string; category: DocumentCategory }[] | null> {
+  const access = await tryEstablishmentAccess(establishmentId, NEED.DOCUMENTS_WRITE);
+  if (!access) return null;
+
+  const categories = await getEstablishmentCoveredCategories(establishmentId);
+  return prisma.documentType.findMany({
+    where: categories ? { category: { in: [...categories] } } : {},
+    select: { id: true, label: true, category: true },
+    orderBy: [{ category: "asc" }, { label: "asc" }],
+  });
+}
+
 // Résout une version de document en vérifiant l'habilitation sur SON établissement
 // (et non sur un identifiant fourni par l'appelant) — c'est ce qui empêche de
 // deviner un `documentVersionId` appartenant à un autre établissement.
@@ -344,12 +539,38 @@ async function getAuthorizedDocumentVersion(documentVersionId: string) {
 
   const version = await prisma.documentVersion.findUnique({
     where: { id: documentVersionId },
-    include: { document: { select: { establishmentId: true, documentType: { select: { code: true } } } } },
+    include: {
+      // `validatedAt` et l'auteur de la version : la règle de restitution ci-dessous
+      // a besoin des deux, et les relire ailleurs ferait diverger les portes.
+      uploadedBy: { select: { role: true } },
+      document: {
+        select: {
+          establishmentId: true,
+          validatedAt: true,
+          documentType: { select: { code: true } },
+        },
+      },
+    },
   });
   if (!version) return null;
 
   const access = await tryEstablishmentAccess(version.document.establishmentId, NEED.DOCUMENTS_READ);
   if (!access) return null;
+
+  // Un brouillon produit par le cabinet n'est pas lisible par la structure avant
+  // validation du document (deliverables-service — même règle que la carte de
+  // « Mes documents » et que la route PDF). La structure reçoit l'historique des
+  // versions dans sa page : leurs identifiants ne sont donc pas un secret, et
+  // masquer un bouton ne protégerait rien.
+  if (
+    access.isClient &&
+    !isVersionVisibleToClient({
+      producedByCabinet: version.uploadedBy.role !== "CLIENT_USER",
+      validatedAt: version.document.validatedAt,
+    })
+  ) {
+    return null;
+  }
 
   return { version, access };
 }

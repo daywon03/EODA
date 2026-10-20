@@ -9,6 +9,7 @@ import {
   normalizeFindings,
   normalizeCriteriaCoverage,
   normalizeCriterionSuggestions,
+  optionalObservedNature,
 } from "./llm-analysis-port";
 import { buildSystemPrompt, buildUserMessage } from "./analysis-prompt";
 import { buildGenerationSystemPrompt, buildGenerationUserMessage } from "./generation-prompt";
@@ -85,6 +86,17 @@ const ANALYSIS_SCHEMA = {
         additionalProperties: false,
       },
     },
+    // Nature RÉELLE du document (20/10/2026) — cf. buildSystemPrompt : le type annoncé
+    // par la consultante est un indice de classement, pas une vérité.
+    natureObservee: {
+      type: "object",
+      properties: {
+        correspondAuType: { type: "boolean" },
+        commentaire: { type: "string" },
+      },
+      required: ["correspondAuType", "commentaire"],
+      additionalProperties: false,
+    },
   },
   required: [
     "elementsPresents",
@@ -93,6 +105,7 @@ const ANALYSIS_SCHEMA = {
     "sembleConforme",
     "criteriaCoverage",
     "criteresSupplementaires",
+    "natureObservee",
   ],
   additionalProperties: false,
 } as const;
@@ -147,6 +160,7 @@ export class AnthropicAnalysisAdapter implements LLMAnalysisPort {
       sembleConforme: parsed.sembleConforme ?? false,
       criteriaCoverage: normalizeCriteriaCoverage(parsed.criteriaCoverage),
       criteresSupplementaires: normalizeCriterionSuggestions(parsed.criteresSupplementaires),
+      ...optionalObservedNature(parsed.natureObservee),
     };
   }
 
