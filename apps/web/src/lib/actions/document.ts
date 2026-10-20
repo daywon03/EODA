@@ -42,6 +42,7 @@ import {
 import { getFileStoragePort } from "@/lib/storage";
 import { getLLMAnalysisPort, isKnownLlmModelId } from "@/lib/llm";
 import { validateGuidelineNote } from "@/lib/services/criterion-guideline-service";
+import type { PickerCriterion } from "@/lib/services/criterion-picker-service";
 import { buildFilePreview } from "@/lib/services/file-preview-service";
 import type { FilePreviewData } from "@/lib/services/file-preview-types";
 
@@ -731,12 +732,11 @@ export async function reanalyzeDocument(
 //
 // Append-only : aucune action de modification ni de suppression n'est exposée. Une
 // guideline est une leçon retenue à une date donnée, pas un champ à corriger.
-export type CriterionOption = {
-  id: string;
-  code: string;
-  label: string;
-  requirementLevel: "IMPERATIF" | "STANDARD";
-};
+// Forme unique, partagée avec le rangement par chapitre et thématique : l'écran de
+// sélection a besoin du numéro de chapitre et du code de thématique pour grouper, et
+// deux formes parallèles finiraient par diverger (call du 20/09 : « les 157 critères…
+// j'ai mal à la tête »).
+export type CriterionOption = PickerCriterion;
 
 export type CriterionGuidelineItem = {
   id: string;
@@ -749,11 +749,39 @@ export async function listCriteriaForPicker(): Promise<CriterionOption[] | null>
   const cabinet = await tryCabinetSession("STRUCTURES_READ");
   if (!cabinet) return null;
 
+  // Chapitre et thématique sont lus avec le critère, pas recopiés côté client : le
+  // rangement doit suivre le référentiel en base le jour où le manuel HAS évolue.
   const criteria = await prisma.criterion.findMany({
     orderBy: { code: "asc" },
-    select: { id: true, code: true, label: true, requirementLevel: true },
+    select: {
+      id: true,
+      code: true,
+      label: true,
+      requirementLevel: true,
+      objective: {
+        select: {
+          theme: {
+            select: {
+              code: true,
+              name: true,
+              chapter: { select: { number: true, name: true } },
+            },
+          },
+        },
+      },
+    },
   });
-  return criteria;
+
+  return criteria.map((criterion) => ({
+    id: criterion.id,
+    code: criterion.code,
+    label: criterion.label,
+    requirementLevel: criterion.requirementLevel,
+    chapterNumber: criterion.objective.theme.chapter.number,
+    chapterName: criterion.objective.theme.chapter.name,
+    themeCode: criterion.objective.theme.code,
+    themeName: criterion.objective.theme.name,
+  }));
 }
 
 export async function addCriterionGuideline(

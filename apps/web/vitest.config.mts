@@ -136,6 +136,10 @@ export default defineConfig({
         "src/lib/services/criterion-matrix-service.ts",
         "src/lib/services/criteria-proof-service.ts",
         "src/lib/services/criterion-applicability-service.ts",
+        // Choix des critères d'un gabarit (call du 20/09) : le rangement par chapitre
+        // et thématique n'échoue jamais, il rend seulement un critère introuvable —
+        // donc jamais rattaché au document qui devait le prouver.
+        "src/lib/services/criterion-picker-service.ts",
         // « Un compte existe déjà » : un défaut ici révèle un compte d'un autre cabinet.
         "src/lib/services/existing-account-service.ts",
         // Tâches = PAC (N5) : « en retard » dérivé, droits client / cabinet, et
