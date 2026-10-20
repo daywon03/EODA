@@ -62,7 +62,7 @@ export function DemoReception({ onCreated, onCancel }: Props) {
     const name = `${first.trim()} ${last.trim()}`;
     const now = new Date();
     onCreated(
-      { id: `n${now.getTime()}`, name, gir: 3, address: "Adresse à compléter", hours: "Heures selon le DIPC", since: "aujourd'hui", surveyDone: false, pap: [], contacts: [], journal: [], receptionSignedOn: "aujourd'hui" },
+      { id: `n${now.getTime()}`, name, gir: 3, address: "Adresse à compléter", hours: "Heures selon le DIPC", since: "aujourd'hui", surveys: { PERSONNE: false, FAMILLE: false }, pap: [], contacts: [], journal: [], receptionSignedOn: "aujourd'hui" },
       { signer: signer === "PERSONNE" ? name : representative.trim(), signedAt: now.toLocaleString("fr-FR"), ticked: Object.keys(ticks).length, total: allPoints, copyByEmail: copy }
     );
   }

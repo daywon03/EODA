@@ -14,11 +14,16 @@ const sat = (id: string, prompt: string, shortLabel: string, tag?: "REGLEMENT" |
 
 export const SURVEY_FAMILLE: SurveyTemplate = {
   code: "FAMILLE",
-  version: 1,
+  // v2 (20/10/2026) : chapeau restauré du gabarit (anonymat possible, ce qui
+  // fonctionne bien / ce qui peut être amélioré). Les questions sont inchangées.
+  version: 2,
   title: "Enquête de satisfaction — famille et proches",
   respondentLabel: "Un proche",
+  // Le chapeau du gabarit dit trois choses, pas deux : l'anonymat possible, et les
+  // deux questions auxquelles le questionnaire répond (ce qui fonctionne bien, ce
+  // qui peut être amélioré). Restaurés le 20/10/2026.
   intro:
-    "Votre avis compte pour améliorer l'accompagnement de votre proche. Ce questionnaire prend environ 5 minutes.",
+    "Votre avis compte pour améliorer l'accompagnement de votre proche. Le service réalise cette enquête pour mieux comprendre votre expérience et celle de votre proche, identifier ce qui fonctionne bien et ce qui peut être amélioré. Ce questionnaire prend environ 5 minutes. Vos réponses peuvent rester anonymes si vous le souhaitez (voir « Protection de vos données personnelles »).",
   questions: [
     sat("f01-relation", "La qualité de la relation entre les intervenants et votre proche", "Qualité de la relation intervenants / proche"),
     sat(

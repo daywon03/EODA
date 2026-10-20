@@ -12,7 +12,11 @@ import type { DemoPerson } from "./demo-data";
 // Enquête sur la tablette (maquette T2-T4) : choisir la personne et qui répond, une
 // question par écran avec passage automatique, texte libre facultatif, merci. Les
 // questions sont CELLES du questionnaire versionné (content/enquete/).
-type Props = { people: readonly DemoPerson[]; initialPersonId: string; onDone: (personId: string) => void; onHome: () => void };
+// DEUX questionnaires par personne (gabarit « Enquête de satisfaction » v1.0) : celui de
+// la personne accompagnée (FALC, 12 questions) et celui d'un proche ou de la famille
+// (14 questions). « Qui répond ? » choisit le questionnaire, et l'état affiché dans la
+// liste suit ce choix : la personne a pu répondre sans que la famille l'ait fait.
+type Props = { people: readonly DemoPerson[]; initialPersonId: string; onDone: (personId: string, who: SurveyTemplateCode) => void; onHome: () => void };
 type Answer = { choice?: SurveyChoice; text?: string };
 
 export function DemoSurvey({ people, initialPersonId, onDone, onHome }: Props) {
@@ -30,6 +34,14 @@ export function DemoSurvey({ people, initialPersonId, onDone, onHome }: Props) {
   const question = template.questions[index]!;
   const total = template.questions.length;
   const isLast = index === total - 1;
+  // « 12 questions » et « 14 questions » sont les nombres ANNONCÉS par le gabarit de
+  // Sandrine, et ce sont les questions cotées : les zones de texte libre (proposition
+  // sur le règlement, message final) n'ont pas de numéro, comme sur le papier. Compter
+  // tous les écrans annonçait 14 et 17, soit deux questionnaires qui ne ressemblaient
+  // plus à ceux qu'on fait remplir (constat de Damon, 20/10/2026).
+  const scaleTotal = template.questions.filter((q) => q.kind === "SCALE").length;
+  const scalePosition = template.questions.slice(0, index + 1).filter((q) => q.kind === "SCALE").length;
+  const whoLabel = who === "PERSONNE" ? "questionnaire personne" : "questionnaire famille";
   const answer = answers[question.id];
 
   function next() {
@@ -39,7 +51,7 @@ export function DemoSurvey({ people, initialPersonId, onDone, onHome }: Props) {
     }
     setHint(null);
     if (isLast) {
-      onDone(person.id);
+      onDone(person.id, who);
       setStep("done");
       window.scrollTo(0, 0);
     } else setIndex(index + 1);
@@ -59,27 +71,47 @@ export function DemoSurvey({ people, initialPersonId, onDone, onHome }: Props) {
           <p className="font-bold text-ink2">Enquête de satisfaction · étape 1 sur 2</p>
           <h1 id="enquete-qui" className="text-[34px] font-bold leading-tight">Avec qui faites-vous l&apos;enquête ?</h1>
         </div>
-        <ul className="flex flex-col gap-2.5">
-          {people.map((p) => (
-            <li key={p.id}>
-              <button type="button" aria-pressed={p.id === personId} onClick={() => setPersonId(p.id)} className={cn(TABLET_CHOICE, "justify-between", p.id === personId ? "border-accent-fill bg-paper text-ink" : TABLET_CHOICE_OFF)}>
-                <span>{p.name}</span>
-                <span className="text-[17px] font-normal text-ink2">GIR {p.gir} · {p.surveyDone ? "enquête faite" : "enquête à faire"}</span>
-              </button>
-            </li>
-          ))}
-        </ul>
+        {/* « Qui répond ? » vient AVANT la liste : c'est lui qui choisit le
+            questionnaire, donc l'état affiché à côté de chaque nom. */}
         <fieldset className="flex flex-col gap-2.5">
           <legend className="mb-2 text-[21px] font-bold">Qui répond ?</legend>
           <div className="grid gap-3 sm:grid-cols-2">
             {(["PERSONNE", "FAMILLE"] as const).map((code) => (
               <button key={code} type="button" aria-pressed={who === code} onClick={() => setWho(code)} className={cn(TABLET_CHOICE, "min-h-24 flex-col items-start justify-center gap-1", who === code ? TABLET_CHOICE_ON : TABLET_CHOICE_OFF)}>
                 <span>{code === "PERSONNE" ? "La personne" : "Un proche"}</span>
-                <span className="text-[17px] font-normal">{code === "PERSONNE" ? "Elle répond elle-même" : "La famille répond pour elle"}</span>
+                <span className="text-[17px] font-normal">{code === "PERSONNE" ? "Elle répond elle-même · 12 questions" : "La famille répond pour elle · 14 questions"}</span>
               </button>
             ))}
           </div>
         </fieldset>
+        <ul className="flex flex-col gap-2.5">
+          {people.map((p) => {
+            const alreadyDone = p.surveys[who];
+            return (
+              <li key={p.id}>
+                <button type="button" aria-pressed={p.id === personId} onClick={() => setPersonId(p.id)} className={cn(TABLET_CHOICE, "justify-between", p.id === personId ? "border-accent-fill bg-paper text-ink" : TABLET_CHOICE_OFF)}>
+                  <span>{p.name}</span>
+                  <span className={cn("text-[17px] font-normal", alreadyDone ? "text-ok-text" : "text-ink2")}>
+                    GIR {p.gir} · {alreadyDone ? "questionnaire déjà fait" : "questionnaire à faire"}
+                  </span>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+        {/* Le chapeau du questionnaire choisi. Il change avec « Qui répond ? » — c'est
+            ce qui montre qu'il y a DEUX questionnaires et non un seul adapté : la
+            famille a le sien, avec son introduction, ses 14 questions cotées et ses
+            trois zones libres. */}
+        <div className="rounded-xl border-2 border-muted bg-card px-5 py-4">
+          <p className="text-[21px] font-bold text-ink">{template.title}</p>
+          <p className="mt-1.5 text-[17px] leading-relaxed text-ink2">{template.intro}</p>
+          <p className="mt-2 text-[17px] font-bold text-ink">
+            {scaleTotal} questions · {template.questions.length - scaleTotal} zone
+            {template.questions.length - scaleTotal > 1 ? "s" : ""} de texte libre, facultative
+            {template.questions.length - scaleTotal > 1 ? "s" : ""}
+          </p>
+        </div>
         <p className="rounded-xl bg-soft px-4 py-3 text-[17px]">{template.privacyNotice}</p>
         <button type="button" className={TABLET_PRIMARY} onClick={() => { setIndex(0); setAnswers({}); setStep("q"); window.scrollTo(0, 0); }}>
           Commencer les questions
@@ -109,9 +141,11 @@ export function DemoSurvey({ people, initialPersonId, onDone, onHome }: Props) {
     <section aria-labelledby="enquete-question" className="mx-auto flex max-w-[860px] flex-col gap-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="font-bold tabular-nums text-ink2" aria-live="polite">
-          Question {index + 1} sur {total} · {who === "PERSONNE" ? "questionnaire personne" : "questionnaire famille"}
+          {question.kind === "SCALE"
+            ? `Question ${scalePosition} sur ${scaleTotal} · ${whoLabel}`
+            : `Question libre · ${whoLabel}`}
         </p>
-        <ProgressBar value={index + 1} max={total} label="Avancement de l'enquête" colorClassName="bg-accent-fill" className="min-w-[140px] max-w-[280px] flex-1" />
+        <ProgressBar value={scalePosition} max={scaleTotal} label="Avancement de l'enquête" colorClassName="bg-accent-fill" className="min-w-[140px] max-w-[280px] flex-1" />
       </div>
       <p className="rounded-xl bg-soft px-4 py-3 text-[17px]">Lisez la question à voix haute. Notez la réponse de la personne, pas la vôtre.</p>
       <h1 id="enquete-question" className="text-balance text-[32px] font-bold leading-tight sm:text-[36px]">{question.prompt}</h1>
