@@ -111,7 +111,10 @@ function VersionRow({
         </span>
       )}
 
-      <span className="flex items-center gap-3">
+      {/* `flex-wrap` : cinq gestes au bout d'une ligne de 480 px débordaient à droite
+          — il fallait faire glisser le panneau pour voir « Réanalyser » (20/10/2026).
+          Ils passent à la ligne suivante, dans le panneau, jamais hors de lui. */}
+      <span className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
         <DocumentPreviewLink documentVersionId={version.id} canViewExtractedText={canManageVersions} />
         <DocumentDownloadLink
           documentVersionId={version.id}

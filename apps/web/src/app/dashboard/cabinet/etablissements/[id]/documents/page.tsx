@@ -1,34 +1,27 @@
-import { notFound } from "next/navigation";
 import { requireEstablishmentInTenant } from "@/lib/auth/guards";
 import { hasCabinetCapability } from "@/lib/auth/capabilities";
-import { getEstablishmentChecklist, type ChecklistItem } from "@/lib/actions/checklist";
+import { getEstablishmentChecklist } from "@/lib/actions/checklist";
 import { selectReminderLabels } from "@/lib/services/reminder-service";
-import { formatDate } from "@/lib/services/date-format-service";
+import { signPreviewUrlsForVersions } from "@/lib/services/document-preview-urls-service";
 import {
   countDocumentBuckets,
   DOCUMENT_BUCKET_LABELS,
   DOCUMENT_BUCKETS,
   DOCUMENT_CATEGORY_LABELS,
-  documentRowPill,
   documentsHref,
   filterDocumentRows,
-  findDocumentRow,
   flattenChecklist,
   parseDocumentFilters,
   rowsInBucket,
-  type DocumentRow,
 } from "@/lib/services/structure-documents-service";
 import { structureHref } from "@/lib/design/structure-tabs";
 import type { DocumentCategory } from "@eoda/database";
-import { DataTable, type DataTableColumn } from "@/components/ui/data-table";
 import { TabsNav } from "@/components/ui/tabs-nav";
-import { StatusPill } from "@/components/ui/status-pill";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { DocumentReminderForm } from "@/components/etablissement/DocumentReminderForm";
-import { UrlSheet } from "@/components/structure/UrlSheet";
-import { DocumentSheetBody } from "@/components/structure/DocumentSheetBody";
+import { DocumentsExplorer } from "@/components/structure/DocumentsExplorer";
 
 export const metadata = { title: "Documents" };
 
@@ -36,43 +29,6 @@ type Props = {
   params: Promise<{ id: string }>;
   searchParams: Promise<{ tab?: string | string[]; q?: string | string[]; cat?: string | string[]; doc?: string | string[] }>;
 };
-
-type Row = DocumentRow<ChecklistItem>;
-
-function columns(): DataTableColumn<Row>[] {
-  return [
-    {
-      id: "name",
-      header: "Document",
-      isRowHeader: true,
-      cell: (row) => (
-        <span className="flex flex-col">
-          <span>{row.label}</span>
-          <span className="text-sm font-normal text-ink2">{DOCUMENT_CATEGORY_LABELS[row.category]}</span>
-        </span>
-      ),
-    },
-    { id: "status", header: "Statut", cell: (row) => <StatusPill pill={documentRowPill(row)} /> },
-    {
-      id: "version",
-      header: "Version",
-      cell: (row) => <span className="tabular-nums">{row.currentVersion ? `v${row.currentVersion.versionNumber}` : "—"}</span>,
-    },
-    {
-      id: "date",
-      header: "Date",
-      cell: (row) => (
-        <span className="whitespace-nowrap tabular-nums">
-          {row.currentVersion ? formatDate(row.currentVersion.uploadedAt) : "—"}
-        </span>
-      ),
-    },
-    // « Critères couverts » et « Responsable » de la maquette arrivent avec leurs
-    // tranches (N4 rattachements, N9 rôles). Ce qui se sait aujourd'hui : qui doit
-    // fournir le document.
-    { id: "source", header: "Fourni par", cell: (row) => (row.requestedFromClient ? "La structure" : "EODA") },
-  ];
-}
 
 // Onglet Documents de la fiche structure. Compteurs, recherche et filtre sont
 // DÉRIVÉS de la checklist (structure-documents-service) ; l'adresse porte l'état
@@ -90,10 +46,15 @@ export default async function StructureDocumentsPage({ params, searchParams }: P
   const counts = countDocumentBuckets(searched);
   const rows = rowsInBucket(searched, filters.bucket);
 
-  // Le panneau : cherché dans la checklist de CETTE structure, déjà bornée au tenant.
+  // Document ouvert au premier rendu (lien partagé, rechargement). Ensuite la
+  // sélection vit dans le navigateur : ouvrir et fermer ne coûte plus un rendu
+  // serveur (cf. l'en-tête de DocumentsExplorer). Un identifiant inconnu ne trouve
+  // rien dans cette checklist, déjà bornée au tenant — le panneau ne s'ouvre pas.
   const docParam = Array.isArray(raw.doc) ? raw.doc[0] : raw.doc;
-  const opened = docParam === undefined ? null : findDocumentRow(allRows, docParam);
-  if (docParam !== undefined && !opened) notFound();
+  const signedPreviewUrls = await signPreviewUrlsForVersions({
+    establishmentId: id,
+    versionIds: rows.flatMap((row) => (row.currentVersion ? [row.currentVersion.id] : [])),
+  });
 
   const reminderCount = selectReminderLabels(allRows).length;
   const categories = Object.keys(DOCUMENT_CATEGORY_LABELS) as DocumentCategory[];
@@ -142,20 +103,17 @@ export default async function StructureDocumentsPage({ params, searchParams }: P
         </div>
       </div>
 
-      <DataTable
-        caption={`Documents — ${DOCUMENT_BUCKET_LABELS[filters.bucket]}`}
-        columns={columns()}
+      <DocumentsExplorer
         rows={rows}
-        getRowKey={(row) => row.documentTypeId}
-        rowHref={(row) => documentsHref(basePath, { ...filters, doc: row.documentTypeId })}
-        emptyMessage="Rien dans cette liste. Les documents apparaissent ici dès que leur état change."
+        allRows={allRows}
+        filters={filters}
+        basePath={basePath}
+        bucketLabel={DOCUMENT_BUCKET_LABELS[filters.bucket]}
+        establishmentId={id}
+        canEditScope={hasCabinetCapability(role, "CABINET_SETTINGS")}
+        initialDocId={docParam ?? null}
+        signedPreviewUrls={signedPreviewUrls}
       />
-
-      {opened && (
-        <UrlSheet title={opened.label} closeHref={documentsHref(basePath, filters)}>
-          <DocumentSheetBody item={opened} categoryLabel={DOCUMENT_CATEGORY_LABELS[opened.category]} establishmentId={id} canEditScope={hasCabinetCapability(role, "CABINET_SETTINGS")} />
-        </UrlSheet>
-      )}
     </div>
   );
 }

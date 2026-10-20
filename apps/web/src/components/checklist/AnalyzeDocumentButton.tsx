@@ -31,13 +31,14 @@ export function AnalyzeDocumentButton({
 
   return (
     <div className="flex flex-col items-start gap-1">
-      <div className="flex items-center gap-2">
+      <div className="flex min-w-0 flex-wrap items-center gap-2">
         <select
           value={modelId}
           onChange={(e) => setModelId(e.target.value)}
           disabled={isPending}
           aria-label="Modèle IA pour l'analyse"
-          className="rounded-md border border-gris-light bg-surface px-1.5 py-0.5 text-xs text-brun-ancre"
+          // Un nom de modèle est long ; sans borne il pousse le bouton hors du panneau.
+          className="min-w-0 max-w-[11rem] truncate rounded-md border border-gris-light bg-surface px-1.5 py-0.5 text-xs text-brun-ancre"
         >
           {LLM_MODEL_OPTIONS.map((option) => (
             <option key={option.id} value={option.id}>

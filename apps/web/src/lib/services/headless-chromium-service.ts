@@ -1,8 +1,10 @@
+import { existsSync } from "node:fs";
 import chromium from "@sparticuz/chromium";
 import puppeteer from "puppeteer-core";
 import type { Browser } from "puppeteer-core";
 import { getEnv } from "@/lib/config/env";
 import { ChromiumLaunchError } from "@/lib/services/chromium-launch-error";
+import { findLocalBrowser } from "@/lib/services/local-browser-paths";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // LANCEMENT DE CHROMIUM SANS INTERFACE — recette unique du dépôt.
@@ -21,18 +23,41 @@ import { ChromiumLaunchError } from "@/lib/services/chromium-launch-error";
 // (TargetCloseError). Ils ne s'appliquent donc qu'au binaire serverless ; un
 // override local se lance sans eux, comme n'importe quel Chrome.
 // ─────────────────────────────────────────────────────────────────────────────
-export async function launchHeadlessChromium(): Promise<Browser> {
-  const localExecutablePath = getEnv().puppeteerExecutablePath;
+// Le binaire à lancer, et s'il s'agit d'un navigateur de BUREAU (auquel cas les
+// drapeaux serverless ne s'appliquent pas).
+async function resolveBrowser(): Promise<{ executablePath: string; isDesktop: boolean }> {
+  const env = getEnv();
+  if (env.puppeteerExecutablePath) {
+    return { executablePath: env.puppeteerExecutablePath, isDesktop: true };
+  }
+  // En développement seulement : le binaire embarqué est Linux et ne démarre pas sur
+  // macOS/Windows. On cherche le navigateur de la machine au lieu de renvoyer 503 à
+  // chaque aperçu de document (constaté le 20/10/2026). En production la question ne
+  // se pose pas — l'embarqué est le bon binaire, et un repli silencieux vers un Chrome
+  // de bureau serait une surprise, pas une solution.
+  if (env.isDevelopment) {
+    const found = findLocalBrowser({ platform: process.platform, exists: existsSync });
+    if (found) return { executablePath: found, isDesktop: true };
+  }
+  // Extraction DANS le `try` de l'appelant : elle écrit et décompresse dans le
+  // dossier temporaire, donc elle peut échouer (disque plein, image incomplète).
+  const embedded = await chromium.executablePath();
+  if (!embedded) {
+    throw new Error(
+      "le paquet embarqué n'a rendu aucun chemin exécutable sur cette machine (binaire Linux sur macOS/Windows)"
+    );
+  }
+  return { executablePath: embedded, isDesktop: false };
+}
 
+export async function launchHeadlessChromium(): Promise<Browser> {
+  let isDesktop = false;
   try {
-    // L'extraction du binaire embarqué est DANS le `try` : elle écrit et décompresse
-    // dans le dossier temporaire, donc elle peut échouer (disque plein, image
-    // incomplète) — et un échec de lancement doit se lire comme UNE cause à l'écran,
-    // pas comme deux erreurs différentes.
-    const executablePath = localExecutablePath ?? (await chromium.executablePath());
+    const resolved = await resolveBrowser();
+    isDesktop = resolved.isDesktop;
     return await puppeteer.launch({
-      args: localExecutablePath ? [] : chromium.args,
-      executablePath,
+      args: isDesktop ? [] : chromium.args,
+      executablePath: resolved.executablePath,
       headless: true,
     });
   } catch (error) {
@@ -40,6 +65,6 @@ export async function launchHeadlessChromium(): Promise<Browser> {
     // faut poser PUPPETEER_EXECUTABLE_PATH pour tester en local (constaté le
     // 16/10/2026, en vérifiant l'aperçu de document sur un poste macOS). L'appelant
     // peut alors reconnaître CET échec-là et ne pas proposer de réessayer.
-    throw new ChromiumLaunchError(error, localExecutablePath === undefined);
+    throw new ChromiumLaunchError(error, !isDesktop);
   }
 }

@@ -14,7 +14,7 @@
 // tailles d'icône et deux anneaux de focus différents (D1). Le focus est désormais le
 // contour global de globals.css.
 const BASE =
-  "inline-flex min-h-11 items-center gap-1 rounded px-1.5 py-2 -my-2 text-xs " +
+  "inline-flex min-h-11 items-center gap-1 whitespace-nowrap rounded px-1.5 py-2 -my-2 text-xs " +
   "transition-colors cursor-pointer hover:underline " +
   "disabled:cursor-not-allowed disabled:opacity-50 disabled:no-underline";
 

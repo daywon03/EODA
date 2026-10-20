@@ -102,7 +102,10 @@ export function DialogFrame({ title, onClose, children, variant, panelClassName 
             <X className="h-5 w-5" aria-hidden="true" />
           </button>
         </div>
-        <div className="min-h-0 flex-1 overflow-auto px-5 py-4">{children}</div>
+        {/* Défilement VERTICAL seulement : un enfant trop large glissait tout le
+            panneau et poussait la croix hors de l'écran. Ce qui déborde se règle
+            dans le contenu (retour du 20/10/2026 sur l'onglet Documents). */}
+        <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-5 py-4">{children}</div>
       </div>
     </div>,
     document.body
