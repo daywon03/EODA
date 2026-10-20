@@ -4,6 +4,7 @@ import {
   countNewDeliverables,
   groupDeliverablesByCategory,
   isNewDeliverable,
+  isVersionVisibleToClient,
   selectDeliverables,
   type DeliverableSourceItem,
   type DeliverableSourceVersion,
@@ -35,6 +36,18 @@ function item(overrides: Partial<DeliverableSourceItem> = {}): DeliverableSource
 function cabinetVersion(uploadedAt: string): DeliverableSourceVersion {
   return version({ id: "v2", versionNumber: 2, producedByCabinet: true, uploadedAt: new Date(uploadedAt) });
 }
+
+describe("isVersionVisibleToClient — la règle que la carte ET les routes appliquent", () => {
+  it("le dépôt de la structure est toujours visible", () => {
+    expect(isVersionVisibleToClient({ producedByCabinet: false, validatedAt: null })).toBe(true);
+    expect(isVersionVisibleToClient({ producedByCabinet: false, validatedAt: new Date() })).toBe(true);
+  });
+
+  it("une pièce du cabinet ne l'est qu'une fois le document validé", () => {
+    expect(isVersionVisibleToClient({ producedByCabinet: true, validatedAt: null })).toBe(false);
+    expect(isVersionVisibleToClient({ producedByCabinet: true, validatedAt: new Date("2026-10-10") })).toBe(true);
+  });
+});
 
 describe("selectDeliverables", () => {
   it("ne remet qu'un document VALIDÉ — valider engage la parole de l'évaluatrice", () => {

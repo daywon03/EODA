@@ -73,6 +73,25 @@ function remittanceDate(uploadedAt: Date, validatedAt: Date | null): Date {
   return validatedAt.getTime() > uploadedAt.getTime() ? validatedAt : uploadedAt;
 }
 
+// ── Ce qu'une version déposée peut montrer à la structure ────────────────────
+//
+// UNE règle, deux usages (20/10/2026) : la carte de « Mes documents » décide quoi
+// proposer à l'ouverture, et les routes qui servent les octets (aperçu PDF, adresse
+// de téléchargement, données d'aperçu) refusent elles-mêmes ce qui n'est pas encore
+// restituable. Masquer un bouton n'a jamais protégé une route : la structure
+// reçoit dans sa page l'historique complet des versions, donc leurs identifiants.
+//
+//   - une pièce déposée par la structure est toujours à elle ;
+//   - une pièce produite par le cabinet ne se montre qu'une fois le document
+//     VALIDÉ — c'est le même verrou que `selectDeliverables`, et la même raison :
+//     un brouillon de travail n'a pas été remis.
+export function isVersionVisibleToClient(facts: {
+  producedByCabinet: boolean;
+  validatedAt: Date | null;
+}): boolean {
+  return !facts.producedByCabinet || facts.validatedAt !== null;
+}
+
 export function selectDeliverables(items: readonly DeliverableSourceItem[]): Deliverable[] {
   const deliverables: Deliverable[] = [];
 

@@ -48,6 +48,7 @@ vérifie** — sinon elle n'existe pas.
 | Contraste des tokens ≥ 4.5:1 (clair et sombre) | test qui lit `globals.css`, résout les alias et **échoue** sous 4.5:1 ; vérifie que les deux voies du sombre sont identiques | `apps/web/src/lib/design/theme-contrast.test.ts` |
 | Ce que la structure fait prévient le cabinet, et personne d'autre | destinataires résolus par le périmètre (`resolveStructureScope` — commercial exclu, consultante non affectée exclue), compte désactivé exclu, dépôt du cabinet muet, « il arrive » muet, libellé du type jamais le nom de fichier | `lib/services/cabinet-recipients-service.test.ts`, `lib/email/templates.test.ts`, `lib/actions/document.test.ts`, `lib/actions/client-document-acceptance.test.ts` |
 | « Voir » montre le document, jamais le texte extrait | `.docx`/`.xlsx`/`.csv`/images passent par les pages rendues côté serveur (`document` AVANT `markdown` dans `buildFilePreview`), le PDF est servi en `inline`, son export et son aperçu sont le MÊME artefact, et seuls les formats convertibles proposent le bouton | `lib/services/printable-html-service.test.ts` (nettoyage : script, `on*`, styles, ressources distantes), `document-pdf-render-service.test.ts` (**la signature décide, pas l'extension**), `document-pdf-service.test.ts`, `document-pdf-response.test.ts`, `file-preview-service.test.ts` (ordre des branches), `file-type-service.test.ts` |
+| « Voir » depuis « Mes documents » n'ouvre jamais un brouillon | la carte, `getAuthorizedDocumentVersion` et la route `/api/documents/[versionId]/pdf` appliquent la MÊME règle `isVersionVisibleToClient` : le dépôt de la structure est toujours visible, une pièce du cabinet seulement une fois `Document.validatedAt` posé ; un brouillon du cabinet retombe sur le dernier dépôt du client (`viewableVersionFor`) | `lib/services/deliverables-service.test.ts`, `lib/services/client-documents-view-service.test.ts`, `lib/actions/document.test.ts` |
 | La matrice type de document ↔ critères ATTEINT le prompt | les rattachements sont lus en base pour LE type analysé (`documentTypeCriterion.findMany`) et remis à l'IA sous « Critères HAS rattachés à ce type de document » ; matrice vide → « aucun rattachement connu », jamais un catalogue de remplacement | `lib/services/document-ingestion-service.test.ts` (matrice lue → port d'analyse), `lib/llm/analysis-prompt.test.ts` (rendu de la ligne, repli vide) |
 | Un échec de lancement de Chromium est NOMMÉ, et n'invite pas à réessayer | le lancement enveloppe son erreur (`ChromiumLaunchError`, cause conservée, recours nommé : `PUPPETEER_EXECUTABLE_PATH` en développement) et le message d'aperçu **échoue** s'il dit « Réessayez » sur cet échec-là ; les drapeaux serverless ne sont jamais passés à un Chrome de bureau | `lib/services/headless-chromium-service.test.ts`, `lib/services/document-pdf-response.test.ts` |
 | Un envoi « non configuré » n'est jamais compté comme parti | décompte par `countDeliveries` dans toute la couche d'envoi — aucun comptage brut de promesses tenues (il annonçait « Client prévenu (2 personnes) » pour zéro e-mail) | `lib/email/notifications.test.ts` |
@@ -935,6 +936,22 @@ Détail complet et état d'avancement : `specs/02-architecture-technique.md` §4
   jamais le nom de fichier ni le contenu. Dans l'application, la pastille « Mes
   livrables » se DÉRIVE de `EstablishmentUser.deliverablesSeenAt` (seul fait stocké)
   par `countNewDeliverables` — pas de table de notifications.
+- **« Voir » depuis « Mes documents » montre la pièce — et la même règle vaut pour
+  la route** (20/10/2026, demande de Damon : la structure ne pouvait ouvrir ses
+  documents que depuis « Mes livrables »). La carte `ClientDocumentCard` porte
+  l'aperçu, le téléchargement et, pour les formats convertibles, le PDF ; le choix
+  de la version est UNE règle, `viewableVersionFor` / `isVersionVisibleToClient`
+  (`lib/services/deliverables-service.ts`) : le dépôt de la structure est toujours
+  visible, une pièce produite par le cabinet seulement une fois
+  `Document.validatedAt` posé. Un brouillon du cabinet posé au-dessus d'un dépôt du
+  client fait retomber la carte sur ce dépôt, jamais sur le vide. Cette règle est
+  appliquée à la carte **et** aux deux portes qui servent les octets
+  (`getAuthorizedDocumentVersion`, route `/api/documents/[versionId]/pdf`) : la
+  structure reçoit les identifiants de TOUTES ses versions dans sa page, donc
+  masquer un bouton n'a jamais fermé une route. Un identifiant de version y est une
+  entrée non fiable — l'habilitation porte sur l'établissement propriétaire, puis
+  sur la visibilité, sinon `notFound()`. La lecture reste possible en bibliothèque
+  (mission close) : lire n'est pas déposer.
 - **Ce que la STRUCTURE fait, le cabinet l'apprend par e-mail** (16/10/2026, demande de
   Damon : les deux parties doivent voir ce qui se met à jour). Jusqu'ici le cabinet
   informait le client, jamais l'inverse. Trois gestes de la structure, et **trois
