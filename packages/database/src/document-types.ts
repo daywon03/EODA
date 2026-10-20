@@ -132,7 +132,10 @@ export const BASE_DOCUMENT_TYPES: readonly DocTypeSeed[] = [
   {
     code: "QUALITE_PROCEDURE_EI_PLAINTES",
     category: "QUALITE_RISQUES",
-    label: "Procédure traitement EI / réclamations / signalements maltraitance",
+    // « … et/ou violence » : le mode opératoire de Sandrine nomme les deux
+    // (`context/11` §2.1, « signalements de faits de maltraitance et/ou violence »).
+    // Le libellé, lui, s'arrêtait à la maltraitance.
+    label: "Procédure traitement EI / réclamations / signalements maltraitance et violence",
   },
 
   // Objectif 3.12 — Plaintes & réclamations (critère impératif)
