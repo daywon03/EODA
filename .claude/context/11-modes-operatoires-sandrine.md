@@ -621,6 +621,13 @@ selon la charte graphique EODA Conseil et remis à l'ASSAD BENOIT (sauf mention 
 > ⚠️ à confirmer avec Sandrine : le Guide nomme le plan d'action **PLAC** (Plan
 > d'Amélioration Continue) ; `10-regles-mise-en-conformite.md` §6 et le produit
 > (CLAUDE.md §2, Lot A) parlent de **PAC**. Un seul sigle doit apparaître dans les sorties.
+>
+> **Tranché le 20/10/2026, en application de la règle « le mode opératoire écrit fait foi »** :
+> les SORTIES disent **PLAC** — le cahier de style de la génération (`regles-redaction v02`),
+> les libellés des items DIAG_11/12 de la checklist de mission, et le type de document
+> `QUALITE_PLAC` du catalogue. Les identifiants internes restent `PAC`
+> (`ActionItem.source`, `pac-proposal-service`) : ce sont des données stockées, pas un sigle
+> lu. À reconfirmer avec Sandrine — elle seule peut trancher le mot.
 
 ### 6.3 Livrables de suivi et de gouvernance
 

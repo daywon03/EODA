@@ -119,6 +119,27 @@ export const BASE_DOCUMENT_TYPES: readonly DocTypeSeed[] = [
     category: "QUALITE_RISQUES",
     label: "Synthèse des 3 dernières enquêtes de satisfaction",
   },
+  // ── Le plan d'action, dit PLAC ──────────────────────────────────────────
+  // [GUIDE] §6.2 « PLAC (Plan d'Amélioration Continue) …, avec jalons et responsables »,
+  // phases 4 (« Co-construction du PLAC ») et 6 (« PLAC archivé ») · [REF] context/02
+  // (« une entrée prioritaire dans le plan d'action (PLAC) ») · context/04, code de TYPE
+  // `PLAC` de la convention de nommage des exports. Trois sources, règle d'entrée tenue.
+  //
+  // PRODUIT par EODA (`requestedFromClient` false) et, comme tous les types de base,
+  // présent en catalogue depuis l'init : il ne se voyait pas parce qu'aucune ligne ne le
+  // nommait. Le libellé est le seul endroit où le sigle apparaît — les codes internes de
+  // la plateforme (`ActionItem.source = "PAC"`, `pac-proposal-service`) sont des
+  // identifiants STOCKÉS, jamais affichés : un sigle se corrige dans les sorties, pas par
+  // une migration destructive d'enum.
+  //
+  // Aucune proposition dans la matrice (`matrice-proposition.ts`) : la feuille de suivi du
+  // pilote ne porte pas de ligne « PLAC », et une proposition sans source se fabrique.
+  // Le rattachement se décide à la main, par l'écran `/dashboard/cabinet/criteres`.
+  {
+    code: "QUALITE_PLAC",
+    category: "QUALITE_RISQUES",
+    label: "Plan d'amélioration continue — PLAC",
+  },
   {
     code: "QUALITE_PCA_PLAN_BLEU",
     category: "QUALITE_RISQUES",
@@ -370,5 +391,5 @@ export const PILOT_DOCUMENT_TYPES: readonly DocTypeSeed[] = [
   { code: "RH_REGLEMENT_INTERIEUR", category: "RH", label: "Règlement intérieur (droit du travail — distinct du règlement de fonctionnement)" },
 ];
 
-// Les 66 types upsertés par le seed, dans l'ordre d'affichage.
+// Les 67 types upsertés par le seed, dans l'ordre d'affichage.
 export const DOCUMENT_TYPE_SEEDS: readonly DocTypeSeed[] = [...BASE_DOCUMENT_TYPES, ...PILOT_DOCUMENT_TYPES];

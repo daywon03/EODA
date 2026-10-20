@@ -100,4 +100,5 @@ export const EXPECTED_MIGRATIONS: readonly string[] = [
   "20261014120000_pilot_document_types",
   "20261020120000_document_type_change_and_directive",
   "20261020140000_procedure_ei_violence_label",
+  "20261020160000_plac_document_type_and_checklist_labels",
 ] as const;
