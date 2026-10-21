@@ -65,6 +65,10 @@ describe("describeDiagnosticLine", () => {
       "3 critères impératifs sur 16 sont prouvés. 13 restent à travailler."
     );
     expect(describeDiagnosticLine({ proven: 1, total: 17 })).toBe("1 critère impératif sur 17 est prouvé. 16 restent à travailler.");
+    // Le travail déjà engagé se dit (21/10/2026).
+    expect(describeDiagnosticLine({ proven: 0, total: 16 }, 16)).toBe(
+      "0 critère impératif sur 16 est prouvé. 16 restent à travailler (dont 16 déjà en partie : une pièce attendue reste à relire ou à déposer)."
+    );
     expect(describeDiagnosticLine({ proven: 16, total: 16 })).toMatch(/Tous sont prouvés/);
     expect(describeDiagnosticLine({ proven: 15, total: 16 })).toMatch(/1 reste à travailler/);
     expect(describeDiagnosticLine({ proven: 0, total: 0 })).toMatch(/Aucun critère impératif/);

@@ -17,6 +17,7 @@ import {
   toTimelinePhases,
 } from "@/lib/services/structure-sheet-service";
 import { documentsHref, flattenChecklist } from "@/lib/services/structure-documents-service";
+import { countImperativesInProgress } from "@/lib/services/criteria-proof-service";
 import { structureHref } from "@/lib/design/structure-tabs";
 import { MeasureCard } from "@/components/ui/measure-card";
 import { PhaseTimeline } from "@/components/ui/phase-timeline";
@@ -138,7 +139,10 @@ async function MeasuresSection({ id }: { id: string }) {
   // dépend) — même règle que l'onglet Auto-évaluation.
   const chapters = mission ? allChapters.filter((c) => !c.missionRequired) : [];
   const measures = [
-    { ...describeImperativesMeasure(proof.imperatives, proof.expectedImperatives), href: structureHref(id, "criteres") },
+    {
+      ...describeImperativesMeasure(proof.imperatives, proof.expectedImperatives, countImperativesInProgress(proof.rows)),
+      href: structureHref(id, "criteres"),
+    },
     ...chapters.map((c) => ({
       ...describeChapterMeasure({
         number: c.chapter.number,

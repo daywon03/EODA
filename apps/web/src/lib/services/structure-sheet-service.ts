@@ -68,16 +68,18 @@ export type Measure = { label: string; value: string; percent?: number; note: st
 // total vient des critères en base, le repère du profil n'est cité que s'il diffère.
 export function describeImperativesMeasure(
   proof: { proven: number; total: number },
-  expected: number
+  expected: number,
+  // Impératifs « en partie » (countImperativesInProgress) : dit que le travail avance
+  // même quand aucun n'est encore entièrement prouvé.
+  inProgress = 0
 ): Measure {
+  const base =
+    proof.total === expected ? "prouvés par des documents relus ou acceptés" : `prouvés — repère du profil : ${expected}`;
   return {
     label: "Critères impératifs",
     value: `${proof.proven} / ${proof.total}`,
     percent: proof.total === 0 ? 0 : Math.round((proof.proven / proof.total) * 100),
-    note:
-      proof.total === expected
-        ? "prouvés par des documents relus ou acceptés"
-        : `prouvés — repère du profil : ${expected}`,
+    note: inProgress > 0 ? `${base} · ${inProgress} en partie (une pièce attendue reste à relire ou à déposer)` : base,
   };
 }
 

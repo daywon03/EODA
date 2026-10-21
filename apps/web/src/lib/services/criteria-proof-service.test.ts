@@ -4,6 +4,7 @@ import {
   buildCriteriaProofRows,
   compareCriterionCodes,
   countImperativesProven,
+  countImperativesInProgress,
   deriveCriterionProof,
   describeImperativesProof,
   filterProofRows,
@@ -118,5 +119,16 @@ describe("profil SAD aide / SAD mixte", () => {
     expect(describeImperativesMeasure({ proven: 4, total: 16 }, 16)).toMatchObject({ value: "4 / 16", percent: 25 });
     expect(describeImperativesMeasure({ proven: 0, total: 0 }, 17)).toMatchObject({ percent: 0 });
     expect(describeImperativesMeasure({ proven: 0, total: 16 }, 17).note).toContain("17");
+    // Le travail en cours se voit, même à 0 prouvé (21/10/2026).
+    expect(describeImperativesMeasure({ proven: 0, total: 16 }, 16, 16).note).toContain("16 en partie");
+    expect(describeImperativesMeasure({ proven: 6, total: 16 }, 16, 0).note).not.toContain("en partie");
+    expect(
+      countImperativesInProgress([
+        { isImperative: true, status: "EN_PARTIE" },
+        { isImperative: true, status: "PROUVE" },
+        { isImperative: false, status: "EN_PARTIE" },
+        { isImperative: true, status: "SANS_PREUVE" },
+      ])
+    ).toBe(1);
   });
 });

@@ -118,6 +118,14 @@ export function countImperativesProven(rows: readonly Pick<CriterionProofRow, "i
   return { proven: imperatives.filter((r) => r.status === "PROUVE").length, total: imperatives.length };
 }
 
+// Impératifs EN PARTIE : au moins une pièce déposée, pas encore toutes prouvées.
+// « Prouvé » exige TOUTES les pièces attendues (règle inchangée) : sans ce second
+// compte, un cadre à « 0 / 16 » laissait croire que les documents déjà relus ne
+// comptaient pour rien (constaté le 21/10/2026 sur le pilote, 7 documents validés).
+export function countImperativesInProgress(rows: readonly Pick<CriterionProofRow, "isImperative" | "status">[]): number {
+  return rows.filter((r) => r.isImperative && r.status === "EN_PARTIE").length;
+}
+
 export type ProofFilter = "TOUS" | "IMPERATIFS";
 
 export function parseProofFilter(raw: string | string[] | undefined): ProofFilter {

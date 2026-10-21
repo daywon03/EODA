@@ -5,7 +5,7 @@ import { findMissionOffer } from "@/lib/services/establishment-offer-service";
 import { resolveSupportMode } from "@/lib/services/support-mode-service";
 import { getOfferScope } from "@/lib/services/offer-scope-service";
 import { EXPECTED_IMPERATIVE_COUNT } from "@/lib/services/criterion-applicability-service";
-import type { CriterionProofRow } from "@/lib/services/criteria-proof-service";
+import { countImperativesInProgress, type CriterionProofRow } from "@/lib/services/criteria-proof-service";
 import {
   buildDiagnosticSummary,
   derivePriorityActions,
@@ -96,7 +96,7 @@ export async function readDiagnostic(establishmentId: string): Promise<Diagnosti
     scopeAll,
     rows,
     summary,
-    line: describeDiagnosticLine(summary.imperatives),
+    line: describeDiagnosticLine(summary.imperatives, countImperativesInProgress(rows)),
     priorities: derivePriorityActions(rows, documentLabels),
     chapters: groupDiagnosticChapters(rows, chapters, scopeAll),
     fingerprint,
