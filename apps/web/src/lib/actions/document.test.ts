@@ -37,7 +37,8 @@ const requireCabinetSession = vi.fn();
 const tryEstablishmentAccess = vi.fn();
 
 vi.mock("@eoda/database", () => ({ prisma: prismaMock }));
-vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
+const revalidatePath = vi.fn();
+vi.mock("next/cache", () => ({ revalidatePath: (...args: unknown[]) => revalidatePath(...args) }));
 vi.mock("next/navigation", () => ({
   notFound: () => {
     throw new Error("NEXT_NOT_FOUND");
@@ -213,6 +214,15 @@ describe("uploadDocument — version finale d'EODA (call du 18/10/2026)", () => 
       documentType: { label: LOI_TYPE.label },
       versions: [{ id: "dv-1" }],
     });
+  });
+
+  // Dans une action serveur, revalidatePath fait embarquer à la réponse le rendu
+  // complet de la page : l'écran tournait encore longtemps après la fin de l'analyse
+  // (21/10/2026). L'appelant rafraîchit lui-même, à part (use-analysis-run).
+  it("rend la main sans re-rendre la page : le rafraîchissement est celui de l'appelant", async () => {
+    cabinetAccess();
+    await uploadDocument(finalForm());
+    expect(revalidatePath).not.toHaveBeenCalled();
   });
 
   it("un dépôt final du cabinet vaut validation : relu, validé, tracé, annoncé", async () => {

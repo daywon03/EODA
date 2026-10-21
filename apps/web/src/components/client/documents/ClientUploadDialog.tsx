@@ -1,11 +1,13 @@
 "use client";
 
-import { useId, useRef, useState, useTransition, type DragEvent } from "react";
+import { useId, useRef, useState, type DragEvent } from "react";
 import { AlertCircle, Camera, FileText, Loader2, Upload } from "lucide-react";
 import { uploadDocument } from "@/lib/actions/document";
 import { prepareDocumentPages } from "@/lib/services/document-viewer-service";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
+import { AnalysisRunStatus } from "@/components/checklist/AnalysisRunStatus";
+import { useAnalysisRun } from "@/components/checklist/use-analysis-run";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // DÉPÔT EN TROIS ÉTAPES (maquette « Portail Client v2 », R6).
@@ -44,7 +46,9 @@ export function ClientUploadDialog({
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
-  const [isPending, startTransition] = useTransition();
+  const { phase, elapsedMs, run } = useAnalysisRun();
+  // Le bouton se libère dès l'envoi enregistré ; la mise à jour de la page se fait derrière.
+  const isPending = phase === "running";
   const fileInput = useRef<HTMLInputElement>(null);
   const photoInput = useRef<HTMLInputElement>(null);
   const noticeId = useId();
@@ -72,8 +76,10 @@ export function ClientUploadDialog({
     formData.set("documentTypeId", documentTypeId);
     formData.set("file", file);
     setError(null);
-    startTransition(async () => {
-      const result = await uploadDocument(formData);
+    void run(
+      () => uploadDocument(formData),
+      (result) => !("error" in result)
+    ).then((result) => {
       if ("error" in result) setError(result.error);
       else {
         // Pages de l'aperçu préparées dès le dépôt (cf. DocumentUploadButton).
@@ -158,6 +164,7 @@ export function ClientUploadDialog({
                 Oui, envoyer
               </Button>
             </div>
+            <AnalysisRunStatus phase={phase} elapsedMs={elapsedMs} subject="Lecture du document" className="max-w-none" />
           </>
         )}
 

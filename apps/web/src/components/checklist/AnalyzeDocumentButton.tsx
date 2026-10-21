@@ -1,10 +1,12 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState } from "react";
 import { AlertCircle, Loader2, Sparkles } from "lucide-react";
 import { reanalyzeDocument } from "@/lib/actions/document";
 import { LLM_MODEL_OPTIONS, DEFAULT_LLM_MODEL_ID } from "@/lib/llm/openrouter-models";
 import { Button } from "@/components/ui/button";
+import { AnalysisRunStatus } from "./AnalysisRunStatus";
+import { useAnalysisRun } from "./use-analysis-run";
 
 // « Il faut un bouton analyser » (Damon, 15/09/2026) — cabinet uniquement, comme le
 // sélecteur de modèle au dépôt (DocumentUploadButton). Sert à rattraper une version
@@ -18,13 +20,15 @@ export function AnalyzeDocumentButton({
   hasAnalysis: boolean;
 }) {
   const [modelId, setModelId] = useState(DEFAULT_LLM_MODEL_ID);
-  const [isPending, startTransition] = useTransition();
+  const { phase, elapsedMs, run, busy: isPending } = useAnalysisRun();
   const [error, setError] = useState<string | null>(null);
 
   function handleClick() {
     setError(null);
-    startTransition(async () => {
-      const result = await reanalyzeDocument(documentVersionId, modelId);
+    void run(
+      () => reanalyzeDocument(documentVersionId, modelId),
+      (result) => result === null
+    ).then((result) => {
       if (result && "error" in result) setError(result.error);
     });
   }
@@ -55,6 +59,7 @@ export function AnalyzeDocumentButton({
           {hasAnalysis ? "Réanalyser" : "Analyser"}
         </Button>
       </div>
+      <AnalysisRunStatus phase={phase} elapsedMs={elapsedMs} />
       {error && (
         <p role="alert" className="flex items-start gap-1 text-xs text-rouge-imp">
           <AlertCircle className="mt-0.5 h-3 w-3 flex-shrink-0" aria-hidden="true" />

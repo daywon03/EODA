@@ -1,11 +1,13 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { useRef, useState } from "react";
 import { uploadDocument } from "@/lib/actions/document";
 import { prepareDocumentPages } from "@/lib/services/document-viewer-service";
 import { LLM_MODEL_OPTIONS, DEFAULT_LLM_MODEL_ID } from "@/lib/llm/openrouter-models";
 import { Button } from "@/components/ui/button";
 import { Loader2, Upload, AlertCircle } from "lucide-react";
+import { AnalysisRunStatus } from "./AnalysisRunStatus";
+import { useAnalysisRun } from "./use-analysis-run";
 
 type Props = {
   establishmentId: string;
@@ -30,7 +32,7 @@ export function DocumentUploadButton({
   const [cabinetFinal, setCabinetFinal] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [modelId, setModelId] = useState(DEFAULT_LLM_MODEL_ID);
-  const [isPending, startTransition] = useTransition();
+  const { phase, elapsedMs, run, busy: isPending } = useAnalysisRun();
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -44,8 +46,10 @@ export function DocumentUploadButton({
     if (offerCabinetFinal && cabinetFinal) formData.set("cabinetFinal", "1");
 
     setError(null);
-    startTransition(async () => {
-      const result = await uploadDocument(formData);
+    void run(
+      () => uploadDocument(formData),
+      (result) => !("error" in result)
+    ).then((result) => {
       if ("error" in result) setError(result.error);
       // Les pages de l'aperçu se préparent dès le dépôt : le premier « voir » tombe
       // sur le cache au lieu d'un lancement de Chromium.
@@ -115,6 +119,7 @@ export function DocumentUploadButton({
         )}
         Déposer
       </Button>
+      <AnalysisRunStatus phase={phase} elapsedMs={elapsedMs} subject="Analyse du document déposé" />
       {error && (
         <p role="alert" className="flex items-center gap-1 text-xs text-rouge-imp max-w-[220px] text-right">
           <AlertCircle className="w-3 h-3 flex-shrink-0" aria-hidden="true" />

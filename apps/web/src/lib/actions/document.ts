@@ -225,7 +225,11 @@ export async function uploadDocument(formData: FormData): Promise<UploadDocument
     });
   }
 
-  revalidateDocumentViews(establishmentId);
+  // Pas de `revalidateDocumentViews` ici (21/10/2026) : dans une action serveur, il
+  // fait embarquer à la RÉPONSE le rendu complet de la page courante — l'écran tournait
+  // longtemps après la fin de l'analyse. Les deux appelants (DocumentUploadButton,
+  // ClientUploadDialog) rafraîchissent eux-mêmes, à part (use-analysis-run) ; les
+  // pages sont dynamiques, aucun autre cache n'est à purger.
 
   // Dépôt du cabinet sur un document DÉJÀ validé : la nouvelle version devient le
   // livrable sur-le-champ (deliverables-service prend la dernière version d'EODA),
@@ -1067,7 +1071,7 @@ export async function reanalyzeDocument(
     detail: version.document.documentType?.code ?? null,
   });
 
-  revalidateDocumentViews(version.document.establishmentId);
+  // Rafraîchi par l'appelant (AnalyzeDocumentButton, use-analysis-run) : cf. uploadDocument.
   return null;
 }
 
