@@ -1,6 +1,7 @@
 "use server";
 
-import { requireEstablishmentInTenant } from "@/lib/auth/guards";
+import { requireClientEstablishment, requireEstablishmentInTenant } from "@/lib/auth/guards";
+import { NEED } from "@/lib/auth/capabilities";
 import { getEstablishmentSupportMode } from "@/lib/services/establishment-offer-service";
 import { readCriteriaProofFor } from "@/lib/db/read-criteria-proof";
 import {
@@ -10,7 +11,7 @@ import {
   type EvidenceItem,
   type ImperativesProof,
 } from "@/lib/services/criteria-proof-service";
-import { prisma } from "@eoda/database";
+import { prisma, type EstablishmentType } from "@eoda/database";
 import { readChapters, readChapterTree } from "@/lib/db/referential-cache";
 import { EXPECTED_IMPERATIVE_COUNT } from "@/lib/services/criterion-applicability-service";
 
@@ -31,6 +32,20 @@ export type CriterionEvidence = { items: EvidenceItem[]; hasElements: string[] }
 
 export async function getStructureCriteriaEvidence(establishmentId: string): Promise<Record<string, CriterionEvidence>> {
   const { establishmentId: id, establishmentType } = await requireEstablishmentInTenant(establishmentId, "READ");
+  return buildCriteriaEvidence(id, establishmentType);
+}
+
+// Même détail, côté STRUCTURE (« Mon diagnostic », 21/10/2026) : la structure de
+// l'appelant, résolue par son lien — jamais un identifiant reçu.
+export async function getClientCriteriaEvidence(): Promise<Record<string, CriterionEvidence> | null> {
+  const { establishment } = await requireClientEstablishment(NEED.DIAGNOSTIC_READ);
+  if (!establishment) return null;
+  const row = await prisma.establishment.findUniqueOrThrow({ where: { id: establishment.id }, select: { type: true } });
+  return buildCriteriaEvidence(establishment.id, row.type);
+}
+
+// Aucune garde ici : appelée seulement après l'une des deux gardes ci-dessus.
+async function buildCriteriaEvidence(id: string, establishmentType: EstablishmentType): Promise<Record<string, CriterionEvidence>> {
   const mode = await getEstablishmentSupportMode(id);
   const [rows, documents, chapters] = await Promise.all([
     readCriteriaProofFor(id, establishmentType, mode),

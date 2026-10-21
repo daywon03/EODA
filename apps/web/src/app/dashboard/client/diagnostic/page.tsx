@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { acceptDiagnostic, getClientDiagnostic } from "@/lib/actions/diagnostic";
 import { getClientPractices } from "@/lib/actions/practice";
+import { getClientCriteriaEvidence } from "@/lib/actions/criteria-proof";
 import { DIAGNOSTIC_DISCLAIMER } from "@/lib/services/diagnostic-service";
 import { CLIENT_DOCUMENTS_PATH, CLIENT_PRACTICES_PATH } from "@/lib/design/client-navigation";
 import { DiagnosticChapters, DiagnosticCounters, PriorityActions } from "@/components/diagnostic/DiagnosticSections";
@@ -13,7 +14,11 @@ export const metadata = { title: "Mon diagnostic" };
 // des critères & preuves (N4) ; seuls les deux gestes — relu par EODA, accepté par
 // la structure — sont stockés. Jamais « conforme », jamais « évaluation HAS ».
 export default async function ClientDiagnosticPage() {
-  const [data, practices] = await Promise.all([getClientDiagnostic(), getClientPractices()]);
+  const [data, practices, evidence] = await Promise.all([
+    getClientDiagnostic(),
+    getClientPractices(),
+    getClientCriteriaEvidence(),
+  ]);
 
   if (!data) {
     return (
@@ -71,7 +76,18 @@ export default async function ClientDiagnosticPage() {
 
       <PriorityActions priorities={data.priorities} depositHref={CLIENT_DOCUMENTS_PATH} />
 
-      <DiagnosticChapters chapters={data.chapters} />
+      <DiagnosticChapters
+        chapters={data.chapters}
+        details={
+          evidence
+            ? {
+                evidence,
+                mode: data.mode,
+                documentHref: (label) => `${CLIENT_DOCUMENTS_PATH}?q=${encodeURIComponent(label)}`,
+              }
+            : undefined
+        }
+      />
 
       <p className="text-base text-ink2">{DIAGNOSTIC_DISCLAIMER}</p>
     </div>

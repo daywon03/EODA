@@ -178,6 +178,7 @@ async function buildChecklist(
           uploadedAt: true,
           analysisResultJson: true,
           analysisReviewedAt: true,
+          uploadedBy: { select: { role: true } },
         },
       },
       // Toujours lu, jamais montré tel quel : même discipline que
@@ -347,6 +348,7 @@ function toChecklistVersion(
     uploadedAt: Date;
     analysisResultJson: unknown;
     analysisReviewedAt: Date | null;
+    uploadedBy: { role: string };
   },
   context: { audience: AnalysisAudience; mode: SupportMode; validatedAt: Date | null },
   // Déjà filtré au statut PENDING et à l'audience CABINET par la requête
@@ -367,6 +369,7 @@ function toChecklistVersion(
     analysisReviewedAt: version.analysisReviewedAt,
     validatedAt: context.validatedAt,
     versionUploadedAt: version.uploadedAt,
+    versionByCabinet: version.uploadedBy.role !== "CLIENT_USER",
   });
 
   return {

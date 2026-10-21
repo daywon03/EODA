@@ -168,6 +168,23 @@ export const EVIDENCE_PILLS: Record<EvidenceState, PillSpec> = {
   ABSENTE: { tone: "fix", label: "Pas déposée", glyph: "○" },
 };
 
+// Le même état, dans les mots du PORTAIL (« les deux portails ne regardent pas la même
+// chose », 26/08) : accompagnée, c'est EODA qui relit ; en autonomie, c'est la
+// structure qui accepte — jamais « validé » ni « conforme ».
+export function clientEvidencePill(state: EvidenceState, mode: SupportMode): PillSpec {
+  if (state === "PROUVEE") {
+    return mode === "ACCOMPAGNE"
+      ? { tone: "ok", label: "Relue par EODA", glyph: "✓" }
+      : { tone: "ok", label: "Acceptée par vous", glyph: "✓" };
+  }
+  if (state === "A_RELIRE") {
+    return mode === "ACCOMPAGNE"
+      ? { tone: "progress", label: "Reçue, EODA la relit", glyph: "◐" }
+      : { tone: "progress", label: "À vérifier par vous", glyph: "◐" };
+  }
+  return { tone: "fix", label: "À déposer", glyph: "○" };
+}
+
 export type ProofFilter = "TOUS" | "IMPERATIFS";
 
 export function parseProofFilter(raw: string | string[] | undefined): ProofFilter {

@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  matchesClientSearch,
+  parseClientGroupFilter,
+  parseClientSearch,
   DIPC_BLANK_MODEL_NOTICE,
   UNRANKED_GROUP_LABEL,
   buildClientWorkList,
@@ -35,9 +38,12 @@ describe("versionsVisibleToClient — ce que la structure peut ouvrir", () => {
     expect(versionsVisibleToClient([clientVersion], null).map((v) => v.id)).toEqual(["c"]);
   });
 
-  it("cache une version d'EODA tant que le document n'est pas validé après elle", () => {
+  it("cache une version d'EODA tant que le document n'a jamais été validé", () => {
     expect(versionsVisibleToClient([eodaVersion, clientVersion], null).map((v) => v.id)).toEqual(["c"]);
-    expect(versionsVisibleToClient([eodaVersion, clientVersion], BEFORE).map((v) => v.id)).toEqual(["c"]);
+  });
+
+  it("une version d'EODA déposée APRÈS la validation se voit : elle est le livrable (21/10/2026)", () => {
+    expect(versionsVisibleToClient([eodaVersion, clientVersion], BEFORE).map((v) => v.id)).toEqual(["e", "c"]);
   });
 
   it("montre la version d'EODA dès que le document est validé", () => {
@@ -47,16 +53,20 @@ describe("versionsVisibleToClient — ce que la structure peut ouvrir", () => {
 
 describe("isReviewedByEoda", () => {
   it("vrai sur une analyse relue", () => {
-    expect(isReviewedByEoda({ analysisReviewedAt: AFTER, validatedAt: null, versionUploadedAt: UPLOADED })).toBe(true);
+    expect(isReviewedByEoda({ analysisReviewedAt: AFTER, validatedAt: null, versionUploadedAt: UPLOADED, versionByCabinet: false })).toBe(true);
   });
 
   it("vrai sur une validation posée APRÈS le dépôt, faux sur une validation antérieure", () => {
-    expect(isReviewedByEoda({ analysisReviewedAt: null, validatedAt: AFTER, versionUploadedAt: UPLOADED })).toBe(true);
-    expect(isReviewedByEoda({ analysisReviewedAt: null, validatedAt: BEFORE, versionUploadedAt: UPLOADED })).toBe(false);
+    expect(isReviewedByEoda({ analysisReviewedAt: null, validatedAt: AFTER, versionUploadedAt: UPLOADED, versionByCabinet: false })).toBe(true);
+    expect(isReviewedByEoda({ analysisReviewedAt: null, validatedAt: BEFORE, versionUploadedAt: UPLOADED, versionByCabinet: false })).toBe(false);
   });
 
   it("faux sans version", () => {
-    expect(isReviewedByEoda({ analysisReviewedAt: AFTER, validatedAt: AFTER, versionUploadedAt: null })).toBe(false);
+    expect(isReviewedByEoda({ analysisReviewedAt: AFTER, validatedAt: AFTER, versionUploadedAt: null, versionByCabinet: false })).toBe(false);
+  });
+
+  it("une version d'EODA déposée sur un document validé est « Relu par EODA » (le livret du pilote, 21/10/2026)", () => {
+    expect(isReviewedByEoda({ analysisReviewedAt: null, validatedAt: BEFORE, versionUploadedAt: UPLOADED, versionByCabinet: true })).toBe(true);
   });
 });
 
@@ -339,5 +349,22 @@ describe("greetingFor", () => {
     expect(greetingFor("Camille Exemple")).toBe("Bonjour Camille.");
     expect(greetingFor("  ")).toBe("Bonjour.");
     expect(greetingFor(null)).toBe("Bonjour.");
+  });
+});
+
+describe("rubrique et recherche du portail (21/10/2026)", () => {
+  it("lit une rubrique connue, ignore le reste", () => {
+    expect(parseClientGroupFilter("PROCESSUS")).toBe("PROCESSUS");
+    expect(parseClientGroupFilter("AUTRES")).toBe("AUTRES");
+    expect(parseClientGroupFilter("'; DROP")).toBeNull();
+    expect(parseClientGroupFilter(undefined)).toBeNull();
+  });
+
+  it("cherche sans accents ni majuscules, borne la saisie", () => {
+    expect(matchesClientSearch({ label: "Règlement de fonctionnement" }, "reglement")).toBe(true);
+    expect(matchesClientSearch({ label: "Livret d'accueil" }, "LIVRET")).toBe(true);
+    expect(matchesClientSearch({ label: "Livret d'accueil" }, "plainte")).toBe(false);
+    expect(matchesClientSearch({ label: "Livret d'accueil" }, "")).toBe(true);
+    expect(parseClientSearch("  x".padEnd(200, "y")).length).toBe(80);
   });
 });
