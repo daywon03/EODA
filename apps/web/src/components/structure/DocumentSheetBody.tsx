@@ -4,8 +4,7 @@ import { StatusPill } from "@/components/ui/status-pill";
 import { formatDate } from "@/lib/services/date-format-service";
 import { ChecklistItemDetail } from "@/components/checklist/ChecklistItemDetail";
 import { DocumentUploadButton } from "@/components/checklist/DocumentUploadButton";
-import { DocumentSettingsPanel } from "@/components/structure/DocumentSettingsPanel";
-import { ParticipationFormPicker } from "@/components/checklist/ParticipationFormPicker";
+import { DocumentSettingsPanel, ParticipationFormPicker } from "@/components/structure/lazy-document-panels";
 import { PARTICIPATION_LINE_CODE } from "@/lib/services/participation-form-service";
 
 // Contenu du panneau latéral d'un document (onglet Documents de la fiche). Il
