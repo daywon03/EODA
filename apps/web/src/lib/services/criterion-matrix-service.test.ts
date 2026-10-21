@@ -9,6 +9,7 @@ import {
   pairKey,
   parseCsv,
   parseProposedMatrix,
+  planFullProposalLoad,
   planMatrixDecision,
   promotionError,
   sanitizeRemark,
@@ -261,5 +262,38 @@ describe("promotionError", () => {
     expect(promotionError({ status: "REJECTED", documentTypeId: "t", alreadyLinked: false })).toContain("confirmée");
     expect(promotionError({ status: "CONFIRMED", documentTypeId: null, alreadyLinked: false })).toContain("type");
     expect(promotionError({ status: "CONFIRMED", documentTypeId: "t", alreadyLinked: true })).toContain("déjà");
+  });
+});
+
+describe("planFullProposalLoad — charger toute la proposition", () => {
+  const row = (documentTypeCode: string, criterionCode: string): MatrixRow => ({
+    documentTypeCode,
+    documentTypeLabel: documentTypeCode,
+    criterionCode,
+    confidence: "BASSE",
+    remark: null,
+  });
+
+  it("ajoute chaque couple connu une seule fois, ignore le déjà rattaché et l'inconnu", () => {
+    const plan = planFullProposalLoad(
+      [row("DIPC", "1.2.1"), row("DIPC", "1.2.1"), row("DIPC", "1.4.2"), row("DIPC", "9.9.9"), row("INCONNU", "1.2.1")],
+      {
+        documentTypeIds: new Map([["DIPC", "t-dipc"]]),
+        criterionIds: new Map([["1.2.1", "c-121"], ["1.4.2", "c-142"]]),
+        linkedPairs: new Set([pairKey("DIPC", "1.4.2")]),
+      }
+    );
+    expect(plan).toEqual({ toCreate: [{ documentTypeId: "t-dipc", criterionId: "c-121" }], alreadyLinked: 1, skipped: 2 });
+  });
+
+  it("la proposition embarquée se charge entièrement contre un référentiel complet", () => {
+    const rows = parseProposedMatrix(PROPOSED_MATRIX_CSV);
+    const plan = planFullProposalLoad(rows, {
+      documentTypeIds: new Map(rows.map((r) => [r.documentTypeCode, r.documentTypeCode])),
+      criterionIds: new Map(rows.map((r) => [r.criterionCode, r.criterionCode])),
+      linkedPairs: new Set(),
+    });
+    expect(plan.toCreate.length).toBe(new Set(rows.map((r) => pairKey(r.documentTypeCode, r.criterionCode))).size);
+    expect(plan.skipped).toBe(0);
   });
 });

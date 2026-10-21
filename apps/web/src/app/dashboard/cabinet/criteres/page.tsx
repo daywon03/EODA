@@ -5,6 +5,7 @@ import { PageHeader } from "@/components/layout/PageHeader";
 import { Callout } from "@/components/ui/callout";
 import { MatrixTypeForm } from "@/components/criteres/MatrixTypeForm";
 import { PromoteSuggestionButton } from "@/components/criteres/PromoteSuggestionButton";
+import { LoadProposalButton } from "@/components/criteres/LoadProposalButton";
 
 export const metadata = { title: "Matrice des critères" };
 
@@ -21,6 +22,11 @@ export const metadata = { title: "Matrice des critères" };
 export default async function CriterionMatrixPage() {
   await requireCabinetAdminSession();
   const review = await getMatrixReview();
+  // Rattachements proposés, applicables, pas encore en base — ce que « Charger toute
+  // la proposition » ajouterait (le serveur recalcule le même plan au clic).
+  const missing = new Set(
+    review.groups.flatMap((g) => g.rows.filter((r) => !r.linked).map((r) => `${g.documentTypeCode}|${r.criterionCode}`))
+  ).size;
 
   return (
     <div className="max-w-5xl space-y-8">
@@ -32,8 +38,11 @@ export default async function CriterionMatrixPage() {
 
       <Callout title="Une proposition, pas une décision">
         Les cases de confiance haute sont cochées d&apos;office ; les autres attendent votre avis. Rien n&apos;est
-        enregistré avant « Valider ce type ». Ces rattachements valent pour toutes les structures.
+        enregistré avant « Valider ce type », ou avant « Charger toute la proposition » qui ajoute d&apos;un coup
+        tout ce qui est proposé. Ces rattachements valent pour toutes les structures.
       </Callout>
+
+      <LoadProposalButton missing={missing} />
 
       {review.promotable.length > 0 && (
         <section aria-labelledby="matrix-promote" className="space-y-3">

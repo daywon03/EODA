@@ -221,6 +221,42 @@ export function describeMatrixDecision(documentTypeCode: string, decision: Matri
   return `${documentTypeCode} · +${decision.toCreate.length} −${decision.toDelete.length}`;
 }
 
+// ── Chargement de toute la proposition (décision de Damon, 21/10/2026) ───────
+// « Seule l'admin pour le moment, et charge les propal » : un geste d'administration
+// qui ajoute en une fois chaque rattachement proposé dont le type ET le critère
+// existent en base. Il n'en RETIRE aucun — décocher reste un geste type par type
+// (planMatrixDecision) — et ignore ce qui est déjà rattaché.
+export type ProposalLoadPlan = {
+  toCreate: { documentTypeId: string; criterionId: string }[];
+  alreadyLinked: number;
+  skipped: number;
+};
+
+export function planFullProposalLoad(
+  rows: readonly MatrixRow[],
+  context: {
+    documentTypeIds: ReadonlyMap<string, string>;
+    criterionIds: ReadonlyMap<string, string>;
+    linkedPairs: ReadonlySet<string>;
+  }
+): ProposalLoadPlan {
+  const seen = new Set<string>();
+  const toCreate: ProposalLoadPlan["toCreate"] = [];
+  let alreadyLinked = 0;
+  let skipped = 0;
+  for (const row of rows) {
+    const key = pairKey(row.documentTypeCode, row.criterionCode);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const documentTypeId = context.documentTypeIds.get(row.documentTypeCode);
+    const criterionId = context.criterionIds.get(row.criterionCode);
+    if (!documentTypeId || !criterionId) skipped++;
+    else if (context.linkedPairs.has(key)) alreadyLinked++;
+    else toCreate.push({ documentTypeId, criterionId });
+  }
+  return { toCreate, alreadyLinked, skipped };
+}
+
 // ── Promotion d'une suggestion confirmée au type de document ─────────────────
 // « Ajouter à la matrice » : seule une suggestion CONFIRMÉE par un humain, sur un
 // document qui a un type, et pas déjà rattachée, peut monter au type.
