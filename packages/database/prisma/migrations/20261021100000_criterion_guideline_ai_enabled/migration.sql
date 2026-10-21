@@ -3,3 +3,6 @@
 ALTER TABLE "criterion_guidelines" ADD COLUMN "ai_enabled" BOOLEAN NOT NULL DEFAULT true;
 
 ALTER TYPE "AuditAction" ADD VALUE IF NOT EXISTS 'CRITERION_GUIDELINE_AI_TOGGLED';
+
+-- Import d'une grille Synaé cotée dans l'auto-évaluation (même lot du 21/10/2026).
+ALTER TYPE "AuditAction" ADD VALUE IF NOT EXISTS 'EVALUATION_GRID_IMPORTED';

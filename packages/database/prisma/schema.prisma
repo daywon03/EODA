@@ -1726,6 +1726,9 @@ enum AuditAction {
   // données de la plateforme : c'est précisément le genre d'accès dont il faut
   // pouvoir dire qui, quand, et pour quel établissement.
   EVALUATION_EXPORTED
+  // Import d'une grille Synaé cotée dans la session ouverte d'un chapitre (21/10/2026).
+  // `targetId` = session d'évaluation, `detail` = les comptes, jamais un commentaire.
+  EVALUATION_GRID_IMPORTED
   // Retour d'un avenant signé, et retrait de cette signature. `targetId` =
   // identifiant de la ligne MissionOption, `detail` = le libellé de la prestation
   // (donnée de catalogue, jamais nominative). Ces deux gestes verrouillent ou

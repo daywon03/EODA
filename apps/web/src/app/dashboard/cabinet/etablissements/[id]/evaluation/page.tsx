@@ -9,6 +9,7 @@ import {
 } from "@/lib/services/self-assessment-service";
 import { structureHref } from "@/lib/design/structure-tabs";
 import { ChapterOverviewCard } from "@/components/evaluation/ChapterOverviewCard";
+import { ImportSynaeGridForm } from "@/components/evaluation/ImportSynaeGridForm";
 import { MeasureCard } from "@/components/ui/measure-card";
 import { Callout } from "@/components/ui/callout";
 import { Button } from "@/components/ui/button";
@@ -90,7 +91,15 @@ export default async function EvaluationOverviewPage({ params }: Props) {
       {/* Seconde auto-évaluation « comparable à la première » (§12.6) et export des
           cotations. Le format d'import réel de Synaé n'est toujours pas spécifié —
           l'écran le DIT plutôt que de laisser croire à une compatibilité. */}
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <div className="flex flex-col gap-3 rounded-xl border border-line bg-card p-5">
+          <h3 className="font-bold text-ink">Importer une grille Synaé cotée</h3>
+          <p className="text-ink2">
+            Le chapitre se lit dans la grille ; les cotations complètent la session ouverte. Ce qui est déjà
+            coté à l&apos;écran est conservé, et les règles HAS (RI, NC sur impératif) s&apos;appliquent.
+          </p>
+          <ImportSynaeGridForm establishmentId={id} />
+        </div>
         <div className="flex flex-col gap-3 rounded-xl border border-line bg-card p-5">
           <h3 className="font-bold text-ink">Comparer avec la session précédente</h3>
           <p className="text-ink2">Progressions, reculs et impératifs repassés sous 4, critère par critère.</p>
