@@ -5,7 +5,7 @@ import { anonymizeText } from "@/lib/services/anonymization-service";
 import { deriveDocumentStatus } from "@/lib/services/document-status-service";
 import { buildStorageKey, buildDocumentImageStorageKey } from "@/lib/security/upload-validation-service";
 import { getKnowledgeRetrievalPort } from "@/lib/knowledge";
-import { MAX_GUIDELINES_INJECTED } from "@/lib/services/criterion-guideline-service";
+import { MAX_GUIDELINES_INJECTED, guidelineReach } from "@/lib/services/criterion-guideline-service";
 import { directiveForAnalysis } from "@/lib/services/analysis-directive-service";
 import { extractMarkdown, type ExtractedImage } from "@/lib/services/text-extraction-service";
 import { validateUploadedFile } from "@/lib/security/upload-validation-service";
@@ -597,7 +597,7 @@ export async function fetchCriterionGuidelines(
           select: { criterionId: true },
         })
       : [];
-    const ids = [...new Set([...criterionIds, ...fromDocument.map((s) => s.criterionId)])];
+    const ids = guidelineReach(criterionIds, fromDocument.map((s) => s.criterionId));
     if (ids.length === 0) return [];
 
     const guidelines = await prisma.criterionGuideline.findMany({

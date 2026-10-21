@@ -41,6 +41,9 @@ export type DocumentFacts = {
   // Qui doit produire un document encore manquant (deriveMissingOwner). Facultatif :
   // absent, la pastille reste « Manquant ».
   missingOwner?: MissingOwner | null;
+  // Les fichiers déposés : la recherche porte aussi sur leur nom (call du 21/10/2026 —
+  // « je vais taper enquête » ne trouvait rien sous « questionnaire vierge »).
+  versions?: readonly { originalFilename: string }[];
 };
 
 // ── « À rédiger · EODA » / « Chez la structure » (N2) — dérivés, jamais stockés ─
@@ -185,7 +188,9 @@ export function filterDocumentRows<T extends DocumentFacts>(
   return rows.filter(
     (row) =>
       (filters.category === null || row.category === filters.category) &&
-      (needle === "" || normalise(row.label).includes(needle))
+      (needle === "" ||
+        normalise(row.label).includes(needle) ||
+        (row.versions ?? []).some((version) => normalise(version.originalFilename).includes(needle)))
   );
 }
 

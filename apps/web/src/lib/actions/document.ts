@@ -46,7 +46,7 @@ import {
 } from "@/lib/services/missing-answer-service";
 import { getFileStoragePort } from "@/lib/storage";
 import { getLLMAnalysisPort, isKnownLlmModelId } from "@/lib/llm";
-import { validateGuidelineNote } from "@/lib/services/criterion-guideline-service";
+import { guidelineReach, validateGuidelineNote } from "@/lib/services/criterion-guideline-service";
 import { compareCriterionCodes } from "@/lib/services/criterion-picker-service";
 import {
   CVS_CODE,
@@ -1190,6 +1190,45 @@ export async function addCriterionGuidelines(
     });
   }
   return { saved: criteria.length };
+}
+
+// Les critères dont une guideline sera RELUE à l'analyse de cette version
+// (guidelineReach) : le formulaire prévient quand un critère coché n'en fait pas
+// partie. Cabinet seulement ; l'identifiant de version est une entrée non fiable,
+// l'habilitation porte sur l'établissement propriétaire. Lecture seule.
+export async function getGuidelineReach(
+  documentVersionId: string
+): Promise<{ criterionIds: string[]; documentTypeLabel: string } | null> {
+  const version = await prisma.documentVersion.findUnique({
+    where: { id: documentVersionId },
+    select: {
+      document: {
+        select: { id: true, establishmentId: true, documentTypeId: true, documentType: { select: { label: true } } },
+      },
+    },
+  });
+  if (!version) notFound();
+  const access = await requireEstablishmentAccess(version.document.establishmentId, NEED.DOCUMENTS_READ);
+  if (access.isClient) notFound();
+
+  const typeId = version.document.documentTypeId;
+  const [matrix, suggestions] = await Promise.all([
+    // Un document sans type n'a aucun rattachement : seule l'IA peut lui en donner.
+    typeId
+      ? prisma.documentTypeCriterion.findMany({ where: { documentTypeId: typeId }, select: { criterionId: true } })
+      : Promise.resolve([]),
+    prisma.documentCriterionSuggestion.findMany({
+      where: { documentId: version.document.id, status: { not: "REJECTED" } },
+      select: { criterionId: true },
+    }),
+  ]);
+  return {
+    criterionIds: guidelineReach(
+      matrix.map((row) => row.criterionId),
+      suggestions.map((row) => row.criterionId)
+    ),
+    documentTypeLabel: version.document.documentType?.label ?? "ce type de document",
+  };
 }
 
 export async function listCriterionGuidelines(

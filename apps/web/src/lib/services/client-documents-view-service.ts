@@ -285,6 +285,10 @@ export type ClientDocumentRow = {
   label: string;
   category: DocumentCategory;
   state: ClientDocumentState;
+  // Noms des fichiers que la structure a le droit de voir (`clientSearchableFilenames`),
+  // jamais ceux d'un brouillon d'EODA non validé : la recherche ne doit pas révéler ce
+  // que « Voir » cache.
+  searchableFilenames?: readonly string[];
 };
 
 // Ce qui demande un geste d'abord, ce qui est réglé ensuite.
@@ -349,8 +353,25 @@ function foldForSearch(text: string): string {
   return text.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 }
 
-export function matchesClientSearch(row: Pick<ClientDocumentRow, "label">, query: string): boolean {
-  return query.length === 0 || foldForSearch(row.label).includes(foldForSearch(query));
+export function matchesClientSearch(
+  row: Pick<ClientDocumentRow, "label" | "searchableFilenames">,
+  query: string
+): boolean {
+  if (query.length === 0) return true;
+  const needle = foldForSearch(query);
+  return (
+    foldForSearch(row.label).includes(needle) ||
+    (row.searchableFilenames ?? []).some((name) => foldForSearch(name).includes(needle))
+  );
+}
+
+// Les noms cherchables d'un document côté structure : ceux des versions qu'elle voit,
+// par la MÊME règle que la carte et les routes (`versionsVisibleToClient`).
+export function clientSearchableFilenames(item: {
+  versions: readonly { producedByCabinet: boolean; uploadedAt: Date; originalFilename: string }[];
+  validatedAt: Date | null;
+}): string[] {
+  return versionsVisibleToClient(item.versions, item.validatedAt).map((version) => version.originalFilename);
 }
 
 // Nombre de documents par rubrique, après le filtre d'état et la recherche — ce que

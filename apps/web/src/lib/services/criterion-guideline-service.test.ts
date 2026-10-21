@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { MAX_GUIDELINE_LENGTH, validateGuidelineNote } from "./criterion-guideline-service";
+import { guidelineReach, MAX_GUIDELINE_LENGTH, validateGuidelineNote } from "./criterion-guideline-service";
 
 describe("validateGuidelineNote", () => {
   it("accepte un aide-mémoire court, en le nettoyant des espaces superflus", () => {
@@ -22,5 +22,16 @@ describe("validateGuidelineNote", () => {
   it("accepte un commentaire exactement à la longueur maximale", () => {
     const exact = "a".repeat(MAX_GUIDELINE_LENGTH);
     expect(validateGuidelineNote(exact).ok).toBe(true);
+  });
+});
+
+describe("guidelineReach — les critères dont la guideline est relue pour UN document", () => {
+  it("réunit la matrice du type et les critères reconnus dans le document, sans doublon", () => {
+    expect(guidelineReach(["c-131", "c-151"], ["c-151", "c-227"])).toEqual(["c-131", "c-151", "c-227"]);
+  });
+
+  it("n'atteint pas un critère ni rattaché ni reconnu (call du 21/10/2026)", () => {
+    expect(guidelineReach(["c-111"], [])).not.toContain("c-131");
+    expect(guidelineReach([], [])).toEqual([]);
   });
 });

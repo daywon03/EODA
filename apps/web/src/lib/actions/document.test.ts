@@ -15,6 +15,8 @@ const prismaMock = {
   documentVersion: { findUnique: vi.fn(), update: vi.fn() },
   establishment: { findUnique: vi.fn() },
   criterion: { findMany: vi.fn() },
+  documentTypeCriterion: { findMany: vi.fn() },
+  documentCriterionSuggestion: { findMany: vi.fn() },
   criterionGuideline: { findFirst: vi.fn(), update: vi.fn(), createMany: vi.fn() },
   // La transaction rejoue le rappel sur les mêmes doubles : ce qui compte est ce
   // qu'elle écrit.
@@ -88,6 +90,7 @@ const {
   setDocumentCommentAiUse,
   setParticipationForm,
   addCriterionGuidelines,
+  getGuidelineReach,
 } = await import("./document");
 
 describe("setDocumentCommentAiUse — « Commentaire sur ce document » remis à l'IA", () => {
@@ -527,6 +530,35 @@ describe("addCriterionGuidelines — plusieurs critères en un enregistrement", 
     prismaMock.criterion.findMany.mockResolvedValue([{ id: "c-1", code: "1.2.1" }]);
     expect(await addCriterionGuidelines(["c-1", "inconnu"], "Une consigne.")).toMatchObject({ error: expect.any(String) });
     expect(prismaMock.criterionGuideline.createMany).not.toHaveBeenCalled();
+  });
+});
+
+describe("getGuidelineReach — prévenir qu'une guideline ne sera pas lue", () => {
+  beforeEach(() => {
+    prismaMock.documentVersion.findUnique.mockResolvedValue({
+      document: { id: "doc-1", establishmentId: ESTABLISHMENT_ID, documentTypeId: "dt-1", documentType: { label: "Autre forme de participation des usagers" } },
+    });
+    prismaMock.documentTypeCriterion.findMany.mockResolvedValue([{ criterionId: "c-111" }]);
+    prismaMock.documentCriterionSuggestion.findMany.mockResolvedValue([{ criterionId: "c-227" }]);
+  });
+
+  it("rend la matrice du type plus les critères reconnus dans ce document, au cabinet", async () => {
+    requireEstablishmentAccess.mockResolvedValue({ userId: "u-1", session: { user: { role: "CABINET_ADMIN" } }, isClient: false, missionAccess: "ACTIVE" });
+    expect(await getGuidelineReach("dv-1")).toEqual({
+      criterionIds: ["c-111", "c-227"],
+      documentTypeLabel: "Autre forme de participation des usagers",
+    });
+    // Habilitation sur l'établissement PROPRIÉTAIRE de la version, en lecture.
+    expect(requireEstablishmentAccess).toHaveBeenCalledWith(ESTABLISHMENT_ID, expect.anything());
+    expect(prismaMock.documentCriterionSuggestion.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { documentId: "doc-1", status: { not: "REJECTED" } } })
+    );
+  });
+
+  it("refuse une structure (notFound) et une version inconnue", async () => {
+    await expect(getGuidelineReach("dv-1")).rejects.toThrow("NEXT_NOT_FOUND");
+    prismaMock.documentVersion.findUnique.mockResolvedValue(null);
+    await expect(getGuidelineReach("inconnue")).rejects.toThrow("NEXT_NOT_FOUND");
   });
 });
 

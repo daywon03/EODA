@@ -162,6 +162,12 @@ describe("flattenChecklist, filtres et recherche", () => {
     expect(filterDocumentRows(rows, { query: "plaintes", category: "LOI_2002_2" })).toEqual([]);
   });
 
+  it("cherche aussi dans le nom des fichiers déposés (call du 21/10/2026)", () => {
+    const withFile = [{ ...rows[0]!, label: "Autre forme de participation", versions: [{ originalFilename: "ENQUETE-SATISFACTION_v1.6.docx" }] }];
+    expect(filterDocumentRows(withFile, { query: "enquête", category: null })).toHaveLength(1);
+    expect(filterDocumentRows(withFile, { query: "plainte", category: null })).toHaveLength(0);
+  });
+
   it("rowsInBucket ne garde que l'onglet demandé", () => {
     expect(rowsInBucket(rows, "todo")).toHaveLength(2);
     expect(rowsInBucket(rows, "validated")).toHaveLength(0);

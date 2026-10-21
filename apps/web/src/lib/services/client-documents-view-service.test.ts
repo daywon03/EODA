@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   matchesClientSearch,
+  clientSearchableFilenames,
   parseClientGroupFilter,
   parseClientSearch,
   DIPC_BLANK_MODEL_NOTICE,
@@ -432,6 +433,18 @@ describe("rubrique et recherche du portail (21/10/2026)", () => {
     expect(matchesClientSearch({ label: "Règlement de fonctionnement" }, "reglement")).toBe(true);
     expect(matchesClientSearch({ label: "Livret d'accueil" }, "LIVRET")).toBe(true);
     expect(matchesClientSearch({ label: "Livret d'accueil" }, "plainte")).toBe(false);
+    // Le nom du fichier compte aussi (call du 21/10/2026).
+    expect(matchesClientSearch({ label: "Autre forme de participation", searchableFilenames: ["ENQUETE-satisfaction.docx"] }, "enquête")).toBe(true);
+  });
+
+  it("ne cherche que dans les fichiers que la structure voit — jamais un brouillon d'EODA non validé", () => {
+    const at = new Date("2026-10-01");
+    const versions = [
+      { producedByCabinet: true, uploadedAt: at, originalFilename: "brouillon-eoda.docx" },
+      { producedByCabinet: false, uploadedAt: at, originalFilename: "depot-structure.pdf" },
+    ];
+    expect(clientSearchableFilenames({ versions, validatedAt: null })).toEqual(["depot-structure.pdf"]);
+    expect(clientSearchableFilenames({ versions, validatedAt: at })).toEqual(["brouillon-eoda.docx", "depot-structure.pdf"]);
     expect(matchesClientSearch({ label: "Livret d'accueil" }, "")).toBe(true);
     expect(parseClientSearch("  x".padEnd(200, "y")).length).toBe(80);
   });

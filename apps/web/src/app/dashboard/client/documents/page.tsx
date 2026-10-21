@@ -8,6 +8,7 @@ import {
   countClientFilters,
   countClientGroups,
   matchesClientSearch,
+  clientSearchableFilenames,
   parseClientGroupFilter,
   parseClientSearch,
   type ClientGroupFilter,
@@ -75,7 +76,10 @@ export default async function ClientDocumentsPage({ searchParams }: Props) {
     );
   }
 
-  const rows = flattenChecklist(checklist).map((item) => toClientDocumentRow(item, supportMode));
+  const rows = flattenChecklist(checklist).map((item) => ({
+    ...toClientDocumentRow(item, supportMode),
+    searchableFilenames: clientSearchableFilenames(item),
+  }));
   const filter = parseClientDocumentFilter(params.filtre);
   const group = parseClientGroupFilter(params.groupe);
   const query = parseClientSearch(params.q);

@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
-import { AlertCircle, CheckCircle2, Loader2, MessageSquarePlus, X } from "lucide-react";
+import Link from "next/link";
+import { AlertCircle, AlertTriangle, CheckCircle2, Loader2, MessageSquarePlus, X } from "lucide-react";
 import {
   listCriteriaForPicker,
   addCriterionGuidelines,
+  getGuidelineReach,
   listCriterionGuidelines,
   setCriterionGuidelineAiUse,
   type CriterionOption,
@@ -37,11 +39,25 @@ export function AnalysisGuidelines({ open, documentVersionId }: { open: boolean;
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
   const [filter, setFilter] = useState("");
   const [existing, setExisting] = useState<CriterionGuidelineItem[] | null>(null);
+  // Les critères dont la guideline sera relue pour CE document (getGuidelineReach).
+  const [reach, setReach] = useState<{ ids: ReadonlySet<string>; typeLabel: string } | null>(null);
   const [note, setNote] = useState("");
   const [aiEnabled, setAiEnabled] = useState(true);
   const [saved, setSaved] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+
+  useEffect(() => {
+    if (!open || !documentVersionId || reach !== null) return;
+    let cancelled = false;
+    void getGuidelineReach(documentVersionId).then((result) => {
+      if (!cancelled && result) setReach({ ids: new Set(result.criterionIds), typeLabel: result.documentTypeLabel });
+    });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, documentVersionId]);
 
   useEffect(() => {
     if (!open || criteria !== null) return;
@@ -109,6 +125,9 @@ export function AnalysisGuidelines({ open, documentVersionId }: { open: boolean;
   // Les critères cochés, rappelés au-dessus de la liste dans l'ordre numérique : on voit
   // ce qui sera enregistré sans faire défiler la liste (21/10/2026).
   const chosen = (criteria ?? []).filter((c) => selected.has(c.id));
+  // Une guideline n'est relue que pour les critères rattachés au type du document ou
+  // reconnus dans ce document : la poser ailleurs ne fait rien, et rien ne le disait.
+  const unread = reach ? chosen.filter((c) => !reach.ids.has(c.id)) : [];
 
   const needle = filter.trim().toLowerCase();
   const visible = (criteria ?? []).filter(
@@ -150,6 +169,24 @@ export function AnalysisGuidelines({ open, documentVersionId }: { open: boolean;
                 ))}
               </ul>
             )}
+            {reach && unread.length > 0 && (
+              <div role="note" className="rounded-md border border-amber-fill/40 bg-amber-fill/10 px-2.5 py-2 text-sm text-ink">
+                <p className="flex items-start gap-1.5 font-bold">
+                  <AlertTriangle className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-amber-text" aria-hidden="true" />
+                  {unread.map((c) => c.code).join(", ")} : pas lu{unread.length > 1 ? "s" : ""} pour ce document
+                </p>
+                <p className="mt-0.5 pl-5 text-ink2">
+                  {unread.length > 1 ? "Ces critères ne sont pas rattachés" : "Ce critère n'est pas rattaché"} au type « {reach.typeLabel} ».
+                  La guideline sera enregistrée, mais l&apos;analyse de ce document ne la lira pas. Pour faire vérifier{" "}
+                  {unread.length > 1 ? "ces critères" : "ce critère"} dans ce type de document, rattachez-
+                  {unread.length > 1 ? "les" : "le"} dans{" "}
+                  <Link href="/dashboard/cabinet/criteres" className="font-bold text-accent-text underline">
+                    Critères
+                  </Link>
+                  , puis relancez l&apos;analyse.
+                </p>
+              </div>
+            )}
             <input
               type="search"
               value={filter}
@@ -173,6 +210,7 @@ export function AnalysisGuidelines({ open, documentVersionId }: { open: boolean;
                     <span>
                       <span className="font-bold tabular-nums">{c.code}</span> {c.label}
                       {c.requirementLevel === "IMPERATIF" && <span className="ml-1 font-bold text-accent-text">▲</span>}
+                      {reach && reach.ids.has(c.id) && <span className="ml-1 text-ink2">· lu pour ce document</span>}
                     </span>
                   </label>
                 </li>
