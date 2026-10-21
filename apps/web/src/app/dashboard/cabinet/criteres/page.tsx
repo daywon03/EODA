@@ -6,6 +6,7 @@ import { Callout } from "@/components/ui/callout";
 import { MatrixTypeForm } from "@/components/criteres/MatrixTypeForm";
 import { PromoteSuggestionButton } from "@/components/criteres/PromoteSuggestionButton";
 import { LoadProposalButton } from "@/components/criteres/LoadProposalButton";
+import { ManualMatrixLink } from "@/components/criteres/ManualMatrixLink";
 
 export const metadata = { title: "Matrice des critères" };
 
@@ -43,6 +44,18 @@ export default async function CriterionMatrixPage() {
       </Callout>
 
       <LoadProposalButton missing={missing} />
+
+      <section aria-labelledby="matrix-manual" className="space-y-3">
+        <h2 id="matrix-manual" className="text-xl font-bold text-ink">
+          Rattacher un critère à la main
+        </h2>
+        <p className="text-ink2">
+          Pour un critère que la proposition ne cite pas pour ce type — par exemple les critères que le manuel attend
+          d&apos;une instance de participation, à faire vérifier dans l&apos;enquête de satisfaction. Valable pour
+          toutes les structures ; les analyses suivantes vérifieront ces critères.
+        </p>
+        <ManualMatrixLink documentTypes={review.documentTypes} />
+      </section>
 
       {review.promotable.length > 0 && (
         <section aria-labelledby="matrix-promote" className="space-y-3">
@@ -83,8 +96,8 @@ export default async function CriterionMatrixPage() {
           </h2>
           <p className="text-ink2">
             Ces types existent dans le référentiel, mais la proposition ne cite aucun critère pour
-            eux : rien n&apos;étant proposé, rien ne peut être coché ci-dessus. Seul un critère
-            confirmé sur un document déposé, puis « Ajouter à la matrice », peut les rattacher.
+            eux : rien n&apos;étant proposé, rien ne peut être coché ci-dessus. Rattachez-les avec
+            « Rattacher un critère à la main », ou par « Ajouter à la matrice » sur un critère confirmé.
           </p>
           <ul className="divide-y divide-line rounded-xl border border-line bg-card">
             {review.typesWithoutProposal.map((type) => (
