@@ -107,4 +107,5 @@ export const EXPECTED_MIGRATIONS: readonly string[] = [
   "20261021120000_document_comment_used_by_ai",
   "20261021130000_participation_survey_label",
   "20261021140000_participation_form",
+  "20261021150000_cvs_label",
 ] as const;

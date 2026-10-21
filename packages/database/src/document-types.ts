@@ -42,7 +42,7 @@ export const BASE_DOCUMENT_TYPES: readonly DocTypeSeed[] = [
   {
     code: "L2002_CR_CVS",
     category: "LOI_2002_2",
-    label: "Comptes-rendus CVS (ou autre forme de participation des usagers)",
+    label: "Comptes-rendus CVS",
     expectedFrequency: "ANNUAL",
   },
   {

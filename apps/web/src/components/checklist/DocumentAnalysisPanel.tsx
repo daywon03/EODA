@@ -12,6 +12,7 @@ import {
   Loader2,
   MessageSquarePlus,
   CheckCircle2,
+  X,
 } from "lucide-react";
 import type { DocumentAnalysisResult, AnalysisFinding } from "@/lib/llm";
 import { describeAnalysis, splitCriteriaCoverage, summariseAnalysis } from "@/lib/services/analysis-view-service";
@@ -30,6 +31,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { CriterionSuggestionsList } from "@/components/checklist/CriterionSuggestionsList";
+import { AnalyzeDocumentButton } from "@/components/checklist/AnalyzeDocumentButton";
 import type { CriterionSuggestionItem } from "@/lib/actions/checklist";
 
 // Résultat de l'analyse automatique d'une version déposée. Replié par défaut : la
@@ -227,7 +229,7 @@ export function DocumentAnalysisPanel({
             </div>
           )}
 
-          {canReview && <AnalysisGuidelines open={open} />}
+          {canReview && <AnalysisGuidelines open={open} documentVersionId={documentVersionId ?? null} />}
 
           {error && (
             <p role="alert" className="flex items-center gap-1.5 text-xs text-rouge-imp">
@@ -262,7 +264,7 @@ export function DocumentAnalysisPanel({
 //
 // Chargement paresseux : la liste des critères et les guidelines existantes ne sont
 // demandées que si ce panneau est ouvert (P2/P3).
-function AnalysisGuidelines({ open }: { open: boolean }) {
+function AnalysisGuidelines({ open, documentVersionId }: { open: boolean; documentVersionId: string | null }) {
   const [criteria, setCriteria] = useState<CriterionOption[] | null>(null);
   const [showForm, setShowForm] = useState(false);
   // Plusieurs critères à la fois (21/10/2026) : on coche, on écrit UNE note, on
@@ -339,6 +341,10 @@ function AnalysisGuidelines({ open }: { open: boolean }) {
     });
   }
 
+  // Les critères cochés, rappelés au-dessus de la liste dans l'ordre numérique : on voit
+  // ce qui sera enregistré sans faire défiler la liste (21/10/2026).
+  const chosen = (criteria ?? []).filter((c) => selected.has(c.id));
+
   const needle = filter.trim().toLowerCase();
   const visible = (criteria ?? []).filter(
     (c) => needle.length === 0 || c.code.startsWith(needle) || c.label.toLowerCase().includes(needle)
@@ -361,6 +367,24 @@ function AnalysisGuidelines({ open }: { open: boolean }) {
             <legend className="text-xs font-medium text-brun-ancre">
               Critères concernés — cochez-en un ou plusieurs ({selected.size} coché{selected.size > 1 ? "s" : ""})
             </legend>
+            {chosen.length > 0 && (
+              <ul aria-label="Critères cochés" className="flex flex-wrap gap-1.5">
+                {chosen.map((c) => (
+                  <li key={c.id}>
+                    <button
+                      type="button"
+                      onClick={() => toggle(c.id)}
+                      disabled={isPending}
+                      aria-label={`Retirer le critère ${c.code}`}
+                      className="inline-flex min-h-11 items-center gap-1 rounded-full border border-line bg-card px-3 text-sm font-bold tabular-nums text-ink hover:bg-soft"
+                    >
+                      {c.code}
+                      <X className="h-3.5 w-3.5" aria-hidden="true" />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
             <input
               type="search"
               value={filter}
@@ -472,11 +496,17 @@ function AnalysisGuidelines({ open }: { open: boolean }) {
       )}
 
       {saved !== null && (
-        <p role="status" className="flex items-center gap-1.5 text-xs text-ok-text">
-          <CheckCircle2 className="w-3.5 h-3.5" aria-hidden="true" />
-          Guideline enregistrée sur {saved} critère{saved > 1 ? "s" : ""}. Cliquez sur « Réanalyser » pour
-          qu&apos;elle soit prise en compte maintenant.
-        </p>
+        <div className="space-y-2 rounded-md border border-line bg-card p-2">
+          <p role="status" className="flex items-center gap-1.5 text-xs text-ok-text">
+            <CheckCircle2 className="w-3.5 h-3.5" aria-hidden="true" />
+            Guideline enregistrée sur {saved} critère{saved > 1 ? "s" : ""}. Relancez l&apos;analyse pour
+            qu&apos;elle soit prise en compte maintenant.
+          </p>
+          {/* Enregistrer PUIS analyser (21/10/2026) : le bouton vient juste après
+              l'enregistrement, jamais avant — une analyse lancée avant ne lirait pas
+              la guideline. */}
+          {documentVersionId && <AnalyzeDocumentButton documentVersionId={documentVersionId} hasAnalysis />}
+        </div>
       )}
 
       {error && (
