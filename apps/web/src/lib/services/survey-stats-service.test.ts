@@ -165,7 +165,7 @@ describe("buildSurveyCsv", () => {
     expect(csvCell("=SOMME(A1)")).toBe("'=SOMME(A1)");
     expect(csvCell('dit "oui"; non')).toBe('"dit ""oui""; non"');
     expect(csvCell(null)).toBe("");
-    // En-tête + une ligne par question cotée (16 depuis la V1.6 enrichie) + taux global + fin.
-    expect(csv.split("\r\n").length).toBe(1 + 16 + 1 + 1);
+    // En-tête + une ligne par question cotée (27 dans la version du 21/10) + taux global + fin.
+    expect(csv.split("\r\n").length).toBe(1 + 27 + 1 + 1);
   });
 });

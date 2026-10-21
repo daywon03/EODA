@@ -1,163 +1,165 @@
-import type { SurveyTemplate } from "./types";
+import type { SurveyQuestion, SurveyScaleCode, SurveyTemplate } from "./types";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // QUESTIONNAIRE « PERSONNE ACCOMPAGNÉE » (FALC) — transcrit du gabarit d'enquête de
-// Sandrine (« Ce que vous pensez de votre accompagnement »). Version courante : la
-// V1.6 enrichie remise par Damon le 21/10/2026 (context2/anonymise/20261019_ENQUETE-
-// SATISFACTION_…_v1.0.md) : 16 questions, message libre, bloc RGPD.
+// Sandrine (« Ce que vous pensez de votre accompagnement »). Version courante : celle
+// du 21/10/2026 (context2/anonymise/20261021_ENQUETE-SATISFACTION_…_v1.0.md) — 18
+// questions numérotées et leurs sous-questions lettrées (12 A, 13 A-D, 17 A-G), message
+// libre, bloc RGPD.
 //
-// Seul écart : le nom de la structure du pilote est remplacé par « le service »
-// (aucun nom réel dans le dépôt). Les intitulés sont ceux du gabarit, à la lettre ;
-// toute correction incrémente `version`.
+// Seul écart : le nom de la structure du pilote est remplacé par « le service » (aucun
+// nom réel dans le dépôt). Intitulés et réponses sont ceux du papier, à la lettre (une
+// faute de frappe corrigée : « Estce » → « Est-ce ») ; toute correction incrémente
+// `version`. Les identifiants des questions déjà présentes ne changent pas.
 // ─────────────────────────────────────────────────────────────────────────────
+
+const q = (
+  number: string,
+  id: string,
+  scale: SurveyScaleCode,
+  prompt: string,
+  shortLabel: string,
+  extra: { help?: string; tag?: "REGLEMENT" | "PCA" | "CONTROLE_DOSSIER" } = {}
+): SurveyQuestion => ({ kind: "SCALE", number, id, scale, prompt, shortLabel, ...extra });
 
 export const SURVEY_PERSONNE: SurveyTemplate = {
   code: "PERSONNE",
-  // v2 (20/10/2026) : chapeau restauré du gabarit (confidentialité, aide d'un
-  // proche ou d'une personne de confiance). Les questions et l'ordre sont inchangés.
-  // v3 (21/10/2026) : V1.6 enrichie — cinq questions sur les droits de la personne
-  // (choix des aides, personne de confiance, accès au dossier, explication et accord
-  // avant d'aider) ; « Est-ce qu'on vous demande votre avis ? » retirée. Les
-  // identifiants des questions conservées ne changent pas.
-  version: 3,
+  // v2 (20/10/2026) : chapeau restauré du gabarit.
+  // v3 (21/10/2026) : V1.6 enrichie (droits de la personne).
+  // v4 (21/10/2026, dernière version de Sandrine) : 18 questions + sous-questions
+  // lettrées ; nouveau chapeau (ce que l'équipe fait des réponses, « Profitez de cette
+  // enquête… ») ; réponses du papier question par question.
+  version: 4,
   title: "Ce que vous pensez de votre accompagnement",
   respondentLabel: "La personne accompagnée",
-  // Les deux phrases du gabarit, dans l'ordre : la confidentialité (« seules la
-  // direction et la coordination les lisent ») était tombée à la transcription, et
-  // avec elle la phrase qui dit à la personne qu'elle peut se faire aider. Ce sont
-  // les deux informations qui décident si elle répond (relecture du 20/10/2026).
   intro:
-    "Le service veut savoir si vous êtes content(e) de l'aide que vous recevez. Vos réponses nous aident à améliorer le service. Vous n'êtes pas obligé(e) de répondre à toutes les questions. Vos réponses restent confidentielles : seules la direction et la coordination les lisent. Vous pouvez répondre seul(e), avec un proche, ou avec l'aide d'une personne de confiance.",
+    "Le service veut savoir si vous êtes content(e) de l'aide que vous recevez. Vos réponses nous aident à améliorer le service. Vous n'êtes pas obligé(e) de répondre à toutes les questions. Vos réponses restent confidentielles : seules la direction et la coordination les lisent. L'équipe regarde toutes les réponses. Elle décide des améliorations à faire. Les résultats et les améliorations seront expliqués aux personnes accompagnées et à leurs proches. Profitez de cette enquête pour nous donner votre avis et signaler un problème. Vous pouvez répondre seul(e), avec un proche, ou avec l'aide d'une personne de confiance.",
   questions: [
-    {
-      kind: "SCALE",
-      id: "p01-respect",
-      scale: "FALC3",
-      prompt: "Les personnes qui vous aident sont-elles gentilles et respectueuses avec vous ?",
-      shortLabel: "Gentillesse et respect des intervenants",
-    },
-    {
-      kind: "SCALE",
-      id: "p02-habitudes",
-      scale: "FALC3",
-      prompt: "Est-ce qu'on respecte vos habitudes et vos choix ?",
-      shortLabel: "Respect des habitudes et des choix",
-    },
-    {
-      kind: "SCALE",
-      id: "p03-prevenu",
-      scale: "FALC3",
-      prompt: "Est-ce qu'on vous prévient si l'heure de la visite change ?",
-      shortLabel: "Prévenu(e) en cas de changement d'heure de visite",
-    },
-    {
-      kind: "SCALE",
-      id: "p04-choix-aides",
-      scale: "OUI_EN_PARTIE",
-      prompt: "Avez-vous choisi avec le service les aides dont vous avez besoin ?",
-      shortLabel: "Aides choisies avec le service",
-    },
-    {
-      kind: "SCALE",
-      id: "p04b-personne-confiance",
-      scale: "OUI_NON",
-      prompt:
-        "Vous pouvez choisir une personne de confiance. Cette personne peut vous aider à comprendre vos droits. Elle peut vous accompagner dans vos démarches. Le service vous a-t-il expliqué cette possibilité ?",
-      shortLabel: "Personne de confiance expliquée",
-    },
-    {
-      kind: "SCALE",
-      id: "p04c-acces-dossier",
-      scale: "OUI_NON",
-      prompt:
-        "Le service garde des informations sur votre accompagnement dans un dossier. Vous pouvez demander à voir ces informations. Le service vous a-t-il expliqué comment les demander ?",
-      shortLabel: "Accès au dossier expliqué",
-    },
-    {
-      kind: "SCALE",
-      id: "p04d-explication",
-      scale: "OUI_PARFOIS",
-      prompt: "Avant de vous aider, les professionnels vous expliquent-ils ce qu'ils proposent ?",
-      shortLabel: "Aide proposée expliquée avant d'aider",
-    },
-    {
-      kind: "SCALE",
-      id: "p04e-accord",
-      scale: "OUI_PARFOIS",
-      prompt: "Vous pouvez accepter ou refuser l'aide proposée. Les professionnels vous demandent-ils votre accord ?",
-      shortLabel: "Accord demandé avant d'aider",
-    },
-    {
-      kind: "SCALE",
-      id: "p05-besoins",
-      scale: "FALC3",
-      prompt: "Est-ce que l'aide que vous recevez correspond à ce dont vous avez besoin ?",
-      shortLabel: "Aide adaptée aux besoins",
-    },
-    {
-      kind: "SCALE",
-      id: "p06-securite",
-      scale: "FALC3",
-      prompt: "Est-ce que vous vous sentez en sécurité avec les personnes qui vous accompagnent ?",
-      shortLabel: "Sentiment de sécurité avec les intervenants",
-    },
-    {
-      kind: "SCALE",
-      id: "p07-a-qui-dire",
-      scale: "FALC3",
-      prompt: "Si quelque chose ne va pas, savez-vous à qui le dire ?",
-      shortLabel: "Sait à qui le dire si quelque chose ne va pas",
-    },
-    {
-      kind: "SCALE",
-      id: "p08-reglement",
-      scale: "FALC3",
-      prompt:
-        "Le service a écrit les règles du service. Ce document s'appelle le « règlement de fonctionnement ». Ces règles vous semblent-elles claires et justes ?",
+    q("1", "p00-qui-aide", "OUI_UNPEU_NON", "Savez-vous qui sont les professionnels qui vous aident et ce qu'ils font ?", "Connaît les professionnels et leur rôle"),
+    q("2", "p01-respect", "FALC3", "Les personnes qui vous aident sont-elles gentilles et respectueuses avec vous ?", "Gentillesse et respect des intervenants"),
+    q("3", "p02-habitudes", "FALC3", "Est-ce qu'on respecte vos habitudes et vos choix ?", "Respect des habitudes et des choix"),
+    q("4", "p03-prevenu", "TOUJOURS_PARFOIS_JAMAIS", "Est-ce qu'on vous prévient si l'heure de la visite change ?", "Prévenu(e) en cas de changement d'heure de visite"),
+    q("5", "p04-choix-aides", "OUI_EN_PARTIE_NSP", "Avez-vous choisi avec le service les aides dont vous avez besoin ?", "Aides choisies avec le service"),
+    q(
+      "6",
+      "p04b-personne-confiance",
+      "OUI_NON_NSP",
+      "Vous pouvez choisir une personne de confiance. Elle peut vous aider dans vos démarches. Est-ce que le service vous en a parlé ?",
+      "Personne de confiance expliquée"
+    ),
+    q(
+      "7",
+      "p04c-acces-dossier",
+      "OUI_NON_NSP",
+      "Le service écrit des informations sur vous dans un dossier. Vous pouvez demander à voir ce dossier. Est-ce que le service vous a expliqué comment faire ?",
+      "Accès au dossier expliqué"
+    ),
+    q("8", "p04d-explication", "OUI_PARFOIS_NSP", "Avant de vous aider, les professionnels vous expliquent-ils ce qu'ils vont faire ?", "Aide expliquée avant d'aider"),
+    q(
+      "9",
+      "p04e-accord",
+      "CHAQUE_FOIS_PARFOIS_JAMAIS",
+      "Vous pouvez accepter ou refuser l'aide proposée. Les professionnels vous demandent-ils votre accord ?",
+      "Accord demandé avant d'aider"
+    ),
+    q("10", "p05-besoins", "FALC3", "Est-ce que l'aide que vous recevez correspond à ce dont vous avez besoin ?", "Aide adaptée aux besoins"),
+    q("11", "p06-securite", "FALC3", "Est-ce que vous vous sentez en sécurité avec les personnes qui vous accompagnent ?", "Sentiment de sécurité avec les intervenants"),
+    q("12", "p07-a-qui-dire", "OUI_NON_NSP", "Si quelque chose ne va pas, savez-vous à qui le dire ?", "Sait à qui le dire si quelque chose ne va pas"),
+    q(
+      "12 A",
+      "p07b-reponse-remarque",
+      "REPONSE_REMARQUE",
+      "Si vous avez dit qu'un problème ne vous convenait pas, est-ce qu'on vous a répondu ?",
+      "Réponse reçue après une remarque"
+    ),
+    q(
+      "13 A",
+      "p08a-reglement-connu",
+      "OUI_UNPEU_NON",
+      "Le service a écrit les règles du service. Ce document s'appelle le « règlement de fonctionnement ». Connaissez-vous ce document ?",
+      "Connaît le règlement de fonctionnement",
+      { tag: "REGLEMENT" }
+    ),
+    q("13 B", "p08-reglement", "FALC3_NSP", "Ces règles vous semblent-elles claires et justes ?", "Règlement de fonctionnement clair et juste", {
       help: "Vous pouvez demander à un professionnel de vous lire ou de vous expliquer ce document.",
-      shortLabel: "Règlement de fonctionnement clair et juste",
       tag: "REGLEMENT",
-    },
+    }),
     {
       kind: "TEXT",
+      number: "13 C",
       id: "p08b-regle-proposee",
-      prompt: "Voulez-vous changer ou ajouter une règle ?",
+      prompt: "Voulez-vous changer ou ajouter une règle ? Écrivez-le ici :",
       shortLabel: "Propositions sur le règlement de fonctionnement",
       feedsRuleProposals: true,
     },
-    {
-      kind: "SCALE",
-      id: "p09-plan-crise",
-      scale: "FALC3",
-      prompt:
-        "S'il y a un gros problème (forte chaleur, neige, épidémie, grève…), le service a un plan pour continuer à vous aider. Est-ce qu'on vous a expliqué ce plan ?",
-      help: "Ce plan s'appelle le « plan de gestion de crise et de continuité d'activité ».",
-      shortLabel: "Plan de gestion de crise expliqué",
-      tag: "PCA",
-    },
-    {
-      kind: "SCALE",
-      id: "p10-appel-crise",
-      scale: "CRISE",
-      prompt: "Pendant un gros problème, est-ce que le service vous a appelé(e) pour prendre de vos nouvelles ?",
-      shortLabel: "Appel pour prendre des nouvelles pendant un gros problème",
-      tag: "PCA",
-    },
-    {
-      kind: "SCALE",
-      id: "p11-personne-a-prevenir",
-      scale: "CONTROLE",
-      prompt: "Est-ce que le service a le bon numéro de téléphone de la personne à prévenir pour vous ?",
-      shortLabel: "Bon numéro de la personne à prévenir",
-      tag: "CONTROLE_DOSSIER",
-    },
-    {
-      kind: "SCALE",
-      id: "p12-global",
-      scale: "FALC3",
-      prompt: "Globalement, êtes-vous content(e) de l'aide du service ?",
-      shortLabel: "Satisfaction globale",
-    },
+    q(
+      "13 D",
+      "p08c-avis-regles",
+      "OUI_UNPEU_NON_NSP",
+      "Quand le service a changé ces règles, est-ce qu'on vous a demandé votre avis ?",
+      "Avis demandé quand les règles changent",
+      { tag: "REGLEMENT" }
+    ),
+    q(
+      "14",
+      "p09-plan-crise",
+      "FALC3_NSP",
+      "S'il y a un gros problème (forte chaleur, neige, épidémie, grève…), le service a un plan pour continuer à vous aider. Est-ce que quelqu'un vous a expliqué ce plan ?",
+      "Plan de gestion de crise expliqué",
+      { help: "Ce plan s'appelle le « plan de gestion de crise et de continuité d'activité ».", tag: "PCA" }
+    ),
+    q(
+      "15",
+      "p10-appel-crise",
+      "CRISE",
+      "Pendant un gros problème (grippe, canicule, grand froid), est-ce que le service vous a appelé(e) pour prendre de vos nouvelles ?",
+      "Appel pour prendre des nouvelles pendant un gros problème",
+      { tag: "PCA" }
+    ),
+    q(
+      "16",
+      "p11-personne-a-prevenir",
+      "CONTROLE",
+      "Si le service doit prévenir quelqu'un pour vous, a-t-il le bon numéro de téléphone ?",
+      "Bon numéro de la personne à prévenir",
+      { tag: "CONTROLE_DOSSIER" }
+    ),
+    q(
+      "17 A",
+      "p11a-projet",
+      "OUI_UNPEU_NON_NSP",
+      "Votre projet d'accompagnement explique l'aide que vous avez choisie. Avez-vous pu dire ce que vous voulez dans ce projet ?",
+      "A pu s'exprimer dans son projet d'accompagnement"
+    ),
+    q(
+      "17 B",
+      "p11b-liens",
+      "OUI_UNPEU_NON_PAS_BESOIN",
+      "Le service vous aide-t-il à garder des liens avec d'autres personnes ?",
+      "Aide à garder des liens avec d'autres personnes",
+      { help: "Par exemple : voir vos proches, participer à une association ou à une activité." }
+    ),
+    q(
+      "17 C",
+      "p11c-vie-ville",
+      "BESOIN_AIDE_VIE_SOCIALE",
+      "Avez-vous besoin d'aide pour participer à la vie de votre ville ?",
+      "Besoin d'aide pour participer à la vie de la ville",
+      { help: "Par exemple : voter, aller à une activité ou participer à une association." }
+    ),
+    q("17 D", "p11d-douleur", "DOULEUR", "Si vous avez mal, pouvez-vous le dire facilement ?", "Peut dire facilement qu'il ou elle a mal"),
+    q("17 E", "p11e-ecoute", "ECOUTE", "Les professionnels vous écoutent-ils ?", "Se sent écouté(e) par les professionnels"),
+    q("17 F", "p11f-avis", "SOUVENT_PARFOIS_NON_NSP", "Est-ce que le service vous demande votre avis ?", "Avis demandé par le service", {
+      help: "Par exemple : avec cette enquête, ou en parlant avec un professionnel.",
+    }),
+    q(
+      "17 G",
+      "p11g-suite-avis",
+      "SUITE_DEMANDE",
+      "Quand vous avez donné votre avis ou demandé quelque chose, est-ce que le service vous a dit ce qui en a été fait ?",
+      "Informé(e) de la suite donnée à son avis"
+    ),
+    q("18", "p12-global", "FALC3", "Globalement, êtes-vous content(e) de l'aide du service ?", "Satisfaction globale"),
     {
       kind: "TEXT",
       id: "p13-message",
@@ -166,5 +168,5 @@ export const SURVEY_PERSONNE: SurveyTemplate = {
     },
   ],
   privacyNotice:
-    "Vos informations sont protégées. Vos réponses servent seulement à améliorer le service. Seules la direction et la coordination les lisent. Elles ne sont données à personne d'autre. Votre nom est effacé au bout d'un an : on garde seulement les résultats, sans les noms. N'écrivez pas d'informations sur votre santé. Vous pouvez demander à voir, corriger ou effacer vos réponses. Si vous n'êtes pas d'accord, vous pouvez vous plaindre à la CNIL (www.cnil.fr).",
+    "Vos informations sont protégées. Écrire votre nom n'est pas obligatoire. Vos réponses servent seulement à améliorer le service. Seules la direction et la coordination les lisent. Elles ne sont données à personne d'autre. Votre nom est effacé au bout d'un an : on garde seulement les résultats, sans les noms. N'écrivez pas d'informations sur votre santé. Vous pouvez demander à voir, corriger ou effacer vos réponses. Si vous n'êtes pas d'accord, vous pouvez vous plaindre à la CNIL (www.cnil.fr).",
 };

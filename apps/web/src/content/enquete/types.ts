@@ -11,16 +11,28 @@ import type { SurveyChoice, SurveyTemplateCode } from "@/lib/hds/beneficiary-dat
 
 export type SurveyScaleCode =
   | "FALC3"
+  | "FALC3_NSP"
   | "CRISE"
   | "SAT5"
   | "CONTROLE"
-  // v1.6 enrichie (21/10/2026) : droits de la personne (choix des aides, personne de
-  // confiance, accès au dossier, explication et accord).
-  | "OUI_EN_PARTIE"
-  | "OUI_PARFOIS"
-  | "OUI_NON"
-  | "PROCHE_EN_PARTIE"
-  | "PROCHE_PARFOIS";
+  // Enquête du 21/10/2026 : chaque question garde les réponses écrites sur le papier.
+  | "OUI_UNPEU_NON"
+  | "OUI_UNPEU_NON_NSP"
+  | "OUI_UNPEU_NON_PAS_BESOIN"
+  | "TOUJOURS_PARFOIS_JAMAIS"
+  | "CHAQUE_FOIS_PARFOIS_JAMAIS"
+  | "OUI_EN_PARTIE_NON"
+  | "OUI_EN_PARTIE_NSP"
+  | "OUI_PARFOIS_NSP"
+  | "OUI_PARFOIS_NSP_NC"
+  | "OUI_NON_NSP"
+  | "SOUVENT_PARFOIS_NON_NSP"
+  | "REPONSE_REMARQUE"
+  | "SUITE_DEMANDE"
+  | "SUITE_AVIS"
+  | "BESOIN_AIDE_VIE_SOCIALE"
+  | "DOULEUR"
+  | "ECOUTE";
 
 export type SurveyScaleOption = {
   choice: SurveyChoice;
@@ -45,6 +57,10 @@ export type SurveyQuestionTag = "REGLEMENT" | "PCA" | "CONTROLE_DOSSIER";
 export type SurveyScaleQuestion = {
   kind: "SCALE";
   id: string;
+  // Numéro écrit sur le questionnaire papier (« 12 A », « 17 B »…) : la tablette
+  // l'affiche pour qu'on s'y retrouve en comparant avec le papier. Absent, la
+  // position dans la liste en tient lieu.
+  number?: string;
   scale: SurveyScaleCode;
   prompt: string;
   // Aide lue à voix haute (FALC), facultative.
@@ -57,6 +73,7 @@ export type SurveyScaleQuestion = {
 export type SurveyTextQuestion = {
   kind: "TEXT";
   id: string;
+  number?: string;
   prompt: string;
   shortLabel: string;
   // Les propositions sur le règlement de fonctionnement vont au CVS / à la direction.

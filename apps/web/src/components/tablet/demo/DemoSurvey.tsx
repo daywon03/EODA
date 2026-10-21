@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { ArrowLeft, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { SURVEY_SCALES, surveyTemplateFor } from "@/content/enquete";
+import { missingAnswerHint, SURVEY_SCALES, surveyTemplateFor } from "@/content/enquete";
 import type { SurveyChoice, SurveyTemplateCode } from "@/lib/hds/beneficiary-data-port";
 import { ProgressBar } from "@/components/ui/progress-bar";
 import { TABLET_CHOICE, TABLET_CHOICE_OFF, TABLET_CHOICE_ON, TABLET_PRIMARY, TABLET_SECONDARY } from "../tablet-ui";
@@ -13,8 +13,8 @@ import type { DemoPerson } from "./demo-data";
 // question par écran avec passage automatique, texte libre facultatif, merci. Les
 // questions sont CELLES du questionnaire versionné (content/enquete/).
 // DEUX questionnaires par personne (gabarit « Enquête de satisfaction » v1.0) : celui de
-// la personne accompagnée (FALC, 16 questions) et celui d'un proche ou de la famille
-// (19 questions). « Qui répond ? » choisit le questionnaire, et l'état affiché dans la
+// la personne accompagnée (FALC, 27 questions cotées) et celui d'un proche ou de la famille
+// (28). « Qui répond ? » choisit le questionnaire, et l'état affiché dans la
 // liste suit ce choix : la personne a pu répondre sans que la famille l'ait fait.
 type Props = { people: readonly DemoPerson[]; initialPersonId: string; onDone: (personId: string, who: SurveyTemplateCode) => void; onHome: () => void };
 type Answer = { choice?: SurveyChoice; text?: string };
@@ -34,7 +34,7 @@ export function DemoSurvey({ people, initialPersonId, onDone, onHome }: Props) {
   const question = template.questions[index]!;
   const total = template.questions.length;
   const isLast = index === total - 1;
-  // « 16 questions » et « 19 questions » sont les nombres ANNONCÉS par le gabarit de
+  // Les nombres de questions annoncés sont ceux des questions COTÉES du gabarit de
   // Sandrine, et ce sont les questions cotées : les zones de texte libre (proposition
   // sur le règlement, message final) n'ont pas de numéro, comme sur le papier. Compter
   // tous les écrans annonçait 14 et 17, soit deux questionnaires qui ne ressemblaient
@@ -55,7 +55,7 @@ export function DemoSurvey({ people, initialPersonId, onDone, onHome }: Props) {
 
   function next() {
     if (question.kind === "SCALE" && !answer?.choice) {
-      setHint("Choisissez une réponse ou « Ne se prononce pas ».");
+      setHint(missingAnswerHint(SURVEY_SCALES[question.scale].options));
       return;
     }
     setHint(null);
@@ -88,7 +88,12 @@ export function DemoSurvey({ people, initialPersonId, onDone, onHome }: Props) {
             {(["PERSONNE", "FAMILLE"] as const).map((code) => (
               <button key={code} type="button" aria-pressed={who === code} onClick={() => setWho(code)} className={cn(TABLET_CHOICE, "min-h-24 flex-col items-start justify-center gap-1", who === code ? TABLET_CHOICE_ON : TABLET_CHOICE_OFF)}>
                 <span>{code === "PERSONNE" ? "La personne" : "Un proche"}</span>
-                <span className="text-[17px] font-normal">{code === "PERSONNE" ? "Elle répond elle-même · 12 questions" : "La famille répond pour elle · 14 questions"}</span>
+                {/* Compté depuis le questionnaire : écrit en dur, il annonçait encore
+                    « 12 » et « 14 » après la refonte du 21/10. */}
+                <span className="text-[17px] font-normal">
+                  {code === "PERSONNE" ? "Elle répond elle-même" : "La famille répond pour elle"} ·{" "}
+                  {surveyTemplateFor(code).questions.filter((q) => q.kind === "SCALE").length} questions
+                </span>
               </button>
             ))}
           </div>
@@ -110,7 +115,7 @@ export function DemoSurvey({ people, initialPersonId, onDone, onHome }: Props) {
         </ul>
         {/* Le chapeau du questionnaire choisi. Il change avec « Qui répond ? » — c'est
             ce qui montre qu'il y a DEUX questionnaires et non un seul adapté : la
-            famille a le sien, avec son introduction, ses 14 questions cotées et ses
+            famille a le sien, avec son introduction, ses questions cotées et ses
             trois zones libres. */}
         <div className="rounded-xl border-2 border-muted bg-card px-5 py-4">
           <p className="text-[21px] font-bold text-ink">{template.title}</p>
@@ -151,11 +156,13 @@ export function DemoSurvey({ people, initialPersonId, onDone, onHome }: Props) {
     <section aria-labelledby="enquete-question" className="mx-auto flex max-w-[860px] flex-col gap-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="font-bold tabular-nums text-ink2" aria-live="polite">
+          {/* Le numéro du PAPIER (« 12 A ») d'abord : on compare la tablette au
+              questionnaire imprimé ; l'avancement reste compté sur les questions cotées. */}
           {question.kind === "SCALE"
-            ? `Question ${scalePosition} sur ${scaleTotal} · ${whoLabel}`
+            ? `Question ${question.number ?? scalePosition} · ${scalePosition} sur ${scaleTotal} · ${whoLabel}`
             : question.kind === "CHOICE"
               ? `Question facultative · ${whoLabel}`
-              : `Question libre · ${whoLabel}`}
+              : `${question.number ? `Question ${question.number} · ` : ""}Question libre · ${whoLabel}`}
         </p>
         <ProgressBar value={scalePosition} max={scaleTotal} label="Avancement de l'enquête" colorClassName="bg-accent-fill" className="min-w-[140px] max-w-[280px] flex-1" />
       </div>

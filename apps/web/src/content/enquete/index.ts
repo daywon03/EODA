@@ -22,6 +22,8 @@ export function scaleOptions(question: SurveyScaleQuestion): readonly SurveyScal
   return SURVEY_SCALES[question.scale].options;
 }
 
+export { missingAnswerHint } from "./hints";
+
 // ─────────────────────────────────────────────────────────────────────────────
 // SEUILS DU DÉPOUILLEMENT — ceux de la grille de dépouillement v02 (07/10) :
 // ≥ 90 Excellent, ≥ 75 Satisfaisant, ≥ 60 À surveiller, sinon Point d'alerte.

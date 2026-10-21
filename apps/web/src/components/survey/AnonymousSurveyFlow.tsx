@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { ArrowLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { AnonymousSurveyTemplateView } from "@/lib/actions/anonymous-survey";
+// Le module seul, pas tout le contenu des questionnaires (paquet de la page publique).
+import { missingAnswerHint } from "@/content/enquete/hints";
 import { ProgressBar } from "@/components/ui/progress-bar";
 import { TABLET_CHOICE, TABLET_CHOICE_OFF, TABLET_CHOICE_ON, TABLET_PRIMARY, TABLET_SECONDARY } from "@/components/tablet/tablet-ui";
 
@@ -42,7 +44,7 @@ export function AnonymousSurveyFlow({ template, coaching, onBack, onFinish }: Pr
 
   async function next() {
     if (!chosen) {
-      setHint("Choisissez une réponse. « Ne se prononce pas » en est une.");
+      setHint(missingAnswerHint(question.options));
       return;
     }
     if (!isLast) {
@@ -59,7 +61,8 @@ export function AnonymousSurveyFlow({ template, coaching, onBack, onFinish }: Pr
     <section aria-labelledby="enquete-question" className="mx-auto flex w-full max-w-[860px] flex-col gap-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="font-bold tabular-nums text-ink2" aria-live="polite">
-          Question {index + 1} sur {total}
+          {question.number ? `Question ${question.number} · ` : "Question "}
+          {index + 1} sur {total}
         </p>
         <ProgressBar value={index + 1} max={total} label="Avancement de l'enquête" colorClassName="bg-accent-fill" className="min-w-[140px] max-w-[280px] flex-1" />
       </div>

@@ -52,6 +52,8 @@ export type AnonymousSurveyQuestionView = {
   id: string;
   prompt: string;
   help: string | null;
+  // Numéro du questionnaire papier (« 12 A »), pour s'y retrouver.
+  number: string | null;
   options: { choice: string; label: string }[];
 };
 
@@ -71,6 +73,7 @@ function templateView(template: SurveyTemplate): AnonymousSurveyTemplateView {
       id: q.id,
       prompt: q.prompt,
       help: q.help ?? null,
+      number: q.number ?? null,
       options: SURVEY_SCALES[q.scale].options.map((o) => ({ choice: o.choice, label: o.label })),
     })),
   };
