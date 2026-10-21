@@ -139,3 +139,27 @@ describe("groupDeliverablesByCategory", () => {
     expect([...grouped.keys()].sort()).toEqual(["LOI_2002_2", "RH"]);
   });
 });
+
+// « Montre les différentes versions qui ont été déposées » (21/10/2026).
+describe("selectDeliverables — l'historique d'un livrable", () => {
+  it("liste les autres versions visibles, de la plus récente à la plus ancienne, sans la version remise", () => {
+    const [deliverable] = selectDeliverables([
+      item({
+        validatedAt: new Date("2026-10-07T18:21:00Z"),
+        versions: [
+          version({ id: "c1", versionNumber: 1, producedByCabinet: false }),
+          version({ id: "e2", versionNumber: 2, producedByCabinet: true, uploadedAt: new Date("2026-09-27T19:27:00Z") }),
+          version({ id: "e3", versionNumber: 3, producedByCabinet: true, uploadedAt: new Date("2026-10-07T18:17:00Z") }),
+          version({ id: "e4", versionNumber: 4, producedByCabinet: true, uploadedAt: new Date("2026-10-18T17:08:00Z") }),
+        ],
+      }),
+    ]);
+    expect(deliverable?.documentVersionId).toBe("e4");
+    expect(deliverable?.previousVersions.map((v) => v.id)).toEqual(["e3", "e2", "c1"]);
+  });
+
+  it("une remise d'une seule version n'a pas d'historique", () => {
+    const [deliverable] = selectDeliverables([item({ validatedAt: new Date("2026-10-07"), versions: [cabinetVersion("2026-10-01")] })]);
+    expect(deliverable?.previousVersions).toEqual([]);
+  });
+});

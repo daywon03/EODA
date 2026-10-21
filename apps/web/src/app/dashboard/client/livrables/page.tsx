@@ -15,7 +15,7 @@ import {
   selectDeliverables,
 } from "@/lib/services/deliverables-service";
 import type { DocumentCategory } from "@eoda/database";
-import { AlertTriangle, Clock, PackageOpen } from "lucide-react";
+import { AlertTriangle, ChevronRight, Clock, PackageOpen } from "lucide-react";
 
 export const metadata = { title: "Mes livrables" };
 
@@ -109,7 +109,7 @@ export default async function ClientDeliverablesPage() {
                 {categoryDeliverables.map((deliverable) => (
                   <li
                     key={deliverable.code}
-                    className="flex flex-col gap-2 px-5 py-3.5 sm:flex-row sm:items-center sm:justify-between"
+                    className="flex flex-col gap-2 px-5 py-3.5 sm:flex-row sm:items-start sm:justify-between"
                   >
                     <div className="min-w-0">
                       <p className="flex flex-wrap items-center gap-2 text-sm text-brun-ancre">
@@ -124,6 +124,38 @@ export default async function ClientDeliverablesPage() {
                       <p className="text-xs text-ink2">
                         {deliverable.filename} · remis le {formatDate(deliverable.remittedOn)}
                       </p>
+                      {/* L'historique (21/10/2026) : chaque version déposée, avec son
+                          auteur et sa date, comme dans « Mes documents ». */}
+                      {deliverable.previousVersions.length > 0 && (
+                        <details className="group mt-1.5">
+                          <summary className="inline-flex min-h-11 cursor-pointer list-none items-center gap-1.5 text-sm font-bold text-accent-text [&::-webkit-details-marker]:hidden">
+                            <ChevronRight
+                              className="h-4 w-4 transition-transform group-open:rotate-90 motion-reduce:transition-none"
+                              aria-hidden="true"
+                            />
+                            {deliverable.previousVersions.length} version
+                            {deliverable.previousVersions.length > 1 ? "s" : ""} précédente
+                            {deliverable.previousVersions.length > 1 ? "s" : ""}
+                          </summary>
+                          <ul className="mt-1 space-y-1.5 border-l-2 border-line pl-4">
+                            {deliverable.previousVersions.map((version) => (
+                              <li key={version.id} className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
+                                <span className="text-sm text-ink">
+                                  <span className="font-bold">v{version.versionNumber}</span> · {version.originalFilename}
+                                  <span className="block text-ink2">
+                                    {version.producedByCabinet ? "Préparée par EODA" : "Déposée par votre structure"} ·{" "}
+                                    {formatDate(version.uploadedAt)}
+                                  </span>
+                                </span>
+                                <span className="flex items-center gap-4">
+                                  <DocumentPreviewLink documentVersionId={version.id} />
+                                  <DocumentDownloadLink documentVersionId={version.id} pdfUrl={null} />
+                                </span>
+                              </li>
+                            ))}
+                          </ul>
+                        </details>
+                      )}
                     </div>
                     <div className="flex flex-shrink-0 items-center gap-4">
                       <DocumentPreviewLink documentVersionId={deliverable.documentVersionId} />
