@@ -53,6 +53,8 @@ export type ChecklistItem = {
   status: DocumentStatus;
   documentId: string | null;
   missingJustification: string | null;
+  // Le commentaire est-il remis à l'IA (analyse, mise en conformité) ?
+  commentUsedByAi: boolean;
   // « Je ne l'ai pas » (N3, missing-answer-service) : à produire, pas à déposer.
   declaredMissing: boolean;
   // Qui doit produire ce document encore manquant — pastilles cabinet « À rédiger ·
@@ -165,6 +167,7 @@ async function buildChecklist(
       status: true,
       statusOverriddenByUser: true,
       missingJustification: true,
+      commentUsedByAi: true,
       validatedAt: true,
       clientAcceptedAt: true,
       currentVersion: {
@@ -175,6 +178,7 @@ async function buildChecklist(
           uploadedAt: true,
           analysisResultJson: true,
           analysisReviewedAt: true,
+          uploadedBy: { select: { role: true } },
         },
       },
       // Toujours lu, jamais montré tel quel : même discipline que
@@ -262,6 +266,7 @@ async function buildChecklist(
       status,
       documentId: doc?.id ?? null,
       missingJustification: doc?.missingJustification ?? null,
+      commentUsedByAi: doc?.commentUsedByAi ?? true,
       declaredMissing,
       missingOwner: deriveMissingOwner({
         status,
@@ -307,6 +312,11 @@ async function buildChecklist(
         ),
         analysisReviewed: doc?.currentVersion?.analysisReviewedAt != null,
         validatedAt: doc?.validatedAt ?? null,
+        // La validation doit valoir pour la version COURANTE (isValidationCurrent) — la
+        // même règle que l'onglet Critères.
+        currentVersionUploadedAt: doc?.currentVersion?.uploadedAt ?? null,
+        currentVersionByCabinet:
+          (doc?.versions ?? []).find((version) => version.id === doc?.currentVersion?.id)?.uploadedBy.role !== "CLIENT_USER",
       }),
     };
 
@@ -338,6 +348,7 @@ function toChecklistVersion(
     uploadedAt: Date;
     analysisResultJson: unknown;
     analysisReviewedAt: Date | null;
+    uploadedBy: { role: string };
   },
   context: { audience: AnalysisAudience; mode: SupportMode; validatedAt: Date | null },
   // Déjà filtré au statut PENDING et à l'audience CABINET par la requête
@@ -358,6 +369,7 @@ function toChecklistVersion(
     analysisReviewedAt: version.analysisReviewedAt,
     validatedAt: context.validatedAt,
     versionUploadedAt: version.uploadedAt,
+    versionByCabinet: version.uploadedBy.role !== "CLIENT_USER",
   });
 
   return {

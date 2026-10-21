@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  isValidationCurrent,
   canDeleteVersion,
   DOCUMENT_STEP_LABELS,
   countByStep,
@@ -152,5 +153,38 @@ describe("DOCUMENT_STEP_LABELS", () => {
     expect(DOCUMENT_STEP_LABELS.MODIFIE).toBe("Modifié");
     expect(DOCUMENT_STEP_LABELS.RELU).toBe("Relu");
     expect(DOCUMENT_STEP_LABELS.VALIDE).toBe("Validé");
+  });
+});
+
+// Une seule règle pour « Validé » (panneau) et « prouvé » (critères) — 21/10/2026.
+describe("isValidationCurrent", () => {
+  const validatedAt = new Date("2026-10-07T18:21:00Z");
+  const later = new Date("2026-10-18T17:08:00Z");
+
+  it("vaut si la validation suit le dépôt de la version courante", () => {
+    expect(isValidationCurrent({ validatedAt: later, versionUploadedAt: validatedAt, versionByCabinet: false })).toBe(true);
+  });
+
+  it("une version d'EODA déposée sur un document validé reste validée (le livret du pilote)", () => {
+    expect(isValidationCurrent({ validatedAt, versionUploadedAt: later, versionByCabinet: true })).toBe(true);
+  });
+
+  it("une version de la STRUCTURE déposée après la validation est à relire", () => {
+    expect(isValidationCurrent({ validatedAt, versionUploadedAt: later, versionByCabinet: false })).toBe(false);
+    expect(
+      deriveDocumentStep({
+        hasVersion: true,
+        hasAnalysis: true,
+        hasCabinetVersion: false,
+        analysisReviewed: false,
+        validatedAt,
+        currentVersionUploadedAt: later,
+        currentVersionByCabinet: false,
+      })
+    ).not.toBe("VALIDE");
+  });
+
+  it("sans validation, rien ne vaut", () => {
+    expect(isValidationCurrent({ validatedAt: null, versionUploadedAt: null, versionByCabinet: true })).toBe(false);
   });
 });

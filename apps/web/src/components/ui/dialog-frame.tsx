@@ -1,6 +1,9 @@
 "use client";
 
-import { useEffect, useId, useRef, type ReactNode } from "react";
+import { useEffect, useId, useRef, useSyncExternalStore, type ReactNode } from "react";
+
+// Aucun changement à écouter : seule compte la différence serveur / navigateur.
+const subscribeNever = () => () => undefined;
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -71,6 +74,12 @@ export function DialogFrame({ title, onClose, children, variant, panelClassName 
 
   const isSheet = variant === "sheet";
   const isViewer = variant === "viewer";
+  // Rendu serveur : pas de `document.body` (une fiche ouverte par l'adresse, ?doc=…,
+  // levait « document is not defined » et React finissait la page dans le navigateur —
+  // erreur #419, constatée le 21/10/2026). La fenêtre s'attache donc au premier rendu
+  // navigateur ; le serveur ne rend rien ici, et l'hydratation reste identique.
+  const inBrowser = useSyncExternalStore(subscribeNever, () => true, () => false);
+  if (!inBrowser) return null;
   return createPortal(
     <div
       className={cn(

@@ -6,6 +6,11 @@ import {
   CLIENT_DOCUMENT_FILTERS,
   buildClientWorkList,
   countClientFilters,
+  countClientGroups,
+  matchesClientSearch,
+  parseClientGroupFilter,
+  parseClientSearch,
+  type ClientGroupFilter,
   describeWorkList,
   groupClientDocuments,
   parseClientDocumentFilter,
@@ -20,11 +25,26 @@ import { ClientDocumentCard } from "@/components/client/documents/ClientDocument
 
 export const metadata = { title: "Mes documents" };
 
-type Props = { searchParams: Promise<{ filtre?: string | string[] }> };
+type Props = {
+  searchParams: Promise<{ filtre?: string | string[]; groupe?: string | string[]; q?: string | string[] }>;
+};
 
-function filterHref(filter: ClientDocumentFilter | null): string {
-  return filter ? `${CLIENT_DOCUMENTS_PATH}?filtre=${filter}` : CLIENT_DOCUMENTS_PATH;
+// Les trois filtres se combinent dans l'adresse : partageable, utilisable sans
+// JavaScript, et le bouton « précédent » du navigateur les défait un à un.
+type ClientFilters = { filter: ClientDocumentFilter | null; group: ClientGroupFilter | null; query: string };
+
+function filtersHref({ filter, group, query }: ClientFilters): string {
+  const params = new URLSearchParams();
+  if (filter) params.set("filtre", filter);
+  if (group) params.set("groupe", group);
+  if (query) params.set("q", query);
+  const search = params.toString();
+  return search ? `${CLIENT_DOCUMENTS_PATH}?${search}` : CLIENT_DOCUMENTS_PATH;
 }
+
+const CHIP = "inline-flex h-12 items-center gap-2 rounded-full border-2 px-4 text-[17px] font-bold";
+const CHIP_ON = "border-ink bg-ink-fill text-on-ink";
+const CHIP_OFF = "border-line bg-card text-ink hover:border-ink2";
 
 // « Mes documents » (maquette Portail Client v2, R6), rangé dans les SEPT groupes de
 // l'espace de la structure — Loi 2002-2 · Processus · Gestion des risques · Personne
@@ -51,8 +71,13 @@ export default async function ClientDocumentsPage({ searchParams }: Props) {
 
   const rows = flattenChecklist(checklist).map((item) => toClientDocumentRow(item, supportMode));
   const filter = parseClientDocumentFilter(params.filtre);
-  const counts = countClientFilters(rows);
-  const groups = groupClientDocuments(rows, filter, supportMode);
+  const group = parseClientGroupFilter(params.groupe);
+  const query = parseClientSearch(params.q);
+  const current: ClientFilters = { filter, group, query };
+  // Les compteurs d'état tiennent compte de la recherche : ils annoncent ce qu'on obtient.
+  const counts = countClientFilters(rows.filter((row) => matchesClientSearch(row, query)));
+  const groupCounts = countClientGroups(rows, filter, query, supportMode);
+  const groups = groupClientDocuments(rows, filter, supportMode, { group, query });
   const workList = buildClientWorkList(rows);
   const canAct = canDepositDocuments(missionAccess);
 
@@ -71,29 +96,86 @@ export default async function ClientDocumentsPage({ searchParams }: Props) {
         </p>
       )}
 
-      <nav aria-label="Filtrer les documents" className="flex flex-wrap gap-2">
+      {/* Recherche par nom : un formulaire GET, sans JavaScript ; l'état et la
+          rubrique choisis sont gardés. */}
+      <form action={CLIENT_DOCUMENTS_PATH} method="get" role="search" className="flex flex-wrap items-end gap-2">
+        {filter && <input type="hidden" name="filtre" value={filter} />}
+        {group && <input type="hidden" name="groupe" value={group} />}
+        <label className="flex min-w-[240px] flex-1 flex-col gap-1.5">
+          <span className="text-[17px] font-bold">Chercher un document</span>
+          <input
+            type="search"
+            name="q"
+            defaultValue={query}
+            placeholder="Par exemple : livret, règlement, plaintes…"
+            className="h-12 rounded-xl border-2 border-line bg-card px-4 text-[17px] text-ink placeholder:text-ink2"
+          />
+        </label>
+        <button type="submit" className={cn(CHIP, "rounded-xl", CHIP_OFF)}>
+          Chercher
+        </button>
+        {query && (
+          <Link href={filtersHref({ ...current, query: "" })} className={cn(CHIP, "rounded-xl", CHIP_OFF)}>
+            Effacer la recherche
+          </Link>
+        )}
+      </form>
+
+      <nav aria-label="Filtrer par état" className="flex flex-wrap gap-2">
         {[null, ...CLIENT_DOCUMENT_FILTERS].map((key) => {
           const active = key === filter;
           return (
             <Link
               key={key ?? "tout"}
-              href={filterHref(key)}
+              href={filtersHref({ ...current, filter: key })}
               aria-current={active ? "page" : undefined}
-              className={cn(
-                "inline-flex h-12 items-center gap-2 rounded-full border-2 px-4 text-[17px] font-bold",
-                active ? "border-ink bg-ink-fill text-on-ink" : "border-line bg-card text-ink hover:border-ink2"
-              )}
+              className={cn(CHIP, active ? CHIP_ON : CHIP_OFF)}
             >
               {active && <span aria-hidden="true">✓</span>}
               {key ? CLIENT_DOCUMENT_FILTER_LABELS[key] : "Tout"}
-              <span className="tabular-nums">{key ? counts[key] : rows.length}</span>
+              <span className="tabular-nums">
+                {key ? counts[key] : rows.filter((row) => matchesClientSearch(row, query)).length}
+              </span>
+            </Link>
+          );
+        })}
+      </nav>
+
+      {/* Rubriques (21/10/2026) : aller droit à « Processus » ou « Registres » sans
+          descendre toute la page. */}
+      <nav aria-label="Filtrer par rubrique" className="flex flex-wrap gap-2">
+        <Link
+          href={filtersHref({ ...current, group: null })}
+          aria-current={group === null ? "page" : undefined}
+          className={cn(CHIP, "h-11 text-base", group === null ? CHIP_ON : CHIP_OFF)}
+        >
+          {group === null && <span aria-hidden="true">✓</span>}
+          Toutes les rubriques
+        </Link>
+        {groupCounts.map((entry) => {
+          const active = entry.id === group;
+          return (
+            <Link
+              key={entry.id}
+              href={filtersHref({ ...current, group: entry.id })}
+              aria-current={active ? "page" : undefined}
+              className={cn(CHIP, "h-11 text-base", active ? CHIP_ON : CHIP_OFF)}
+            >
+              {active && <span aria-hidden="true">✓</span>}
+              {entry.label}
+              <span className="tabular-nums">{entry.count}</span>
             </Link>
           );
         })}
       </nav>
 
       {groups.length === 0 && (
-        <p className="rounded-xl border border-line bg-card px-5 py-6 text-center">Aucun document dans ce filtre.</p>
+        <p className="rounded-xl border border-line bg-card px-5 py-6 text-center">
+          Aucun document ne correspond.{" "}
+          <Link href={CLIENT_DOCUMENTS_PATH} className="font-bold text-accent-text underline underline-offset-4">
+            Tout afficher
+          </Link>
+        </p>
       )}
 
       {groups.map((group) => (

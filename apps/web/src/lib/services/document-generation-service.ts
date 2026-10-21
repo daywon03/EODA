@@ -4,7 +4,7 @@ import type { FileStoragePort } from "@/lib/storage";
 import type { BrandedDocxImageInput } from "@/lib/services/markdown-to-docx-service";
 import { anonymizeText } from "@/lib/services/anonymization-service";
 import { parseAnalysisResult } from "@/lib/services/analysis-view-service";
-import { fetchKnowledgeExcerpts, fetchCriterionGuidelines } from "@/lib/services/document-ingestion-service";
+import { fetchKnowledgeExcerpts, fetchCriterionGuidelines, readDocumentComment } from "@/lib/services/document-ingestion-service";
 import { readValidatedExamples } from "@/lib/db/read-validated-examples";
 import { sanitizeProposal, type CorrectionProposal } from "@/lib/llm/correction-proposal";
 import { proposalToMarkdown } from "@/lib/services/correction-proposal-service";
@@ -90,11 +90,12 @@ export async function generateCorrectedDraft(
   const linkedCriteriaOption = linkedCriteria.map((c) => ({ code: c.criterion.code, label: c.criterion.label }));
   const tenantId = version.document.establishment.tenantId;
 
-  const [knowledgeExcerpts, criterionGuidelines, validatedExamples] = await Promise.all([
+  const [knowledgeExcerpts, criterionGuidelines, validatedExamples, documentComment] = await Promise.all([
     fetchKnowledgeExcerpts(tenantId, version.document.documentType.label, criteriaLabels),
     fetchCriterionGuidelines(tenantId, criterionIds, version.document.id),
     // Exemples validés du même type, du même tenant — jamais d'un autre établissement.
     readValidatedExamples(tenantId, documentTypeId),
+    readDocumentComment(version.document.id),
   ]);
 
   const sentText = anonymizeText(version.extractedText);
@@ -108,6 +109,7 @@ export async function generateCorrectedDraft(
       elementsManquants: analysis.elementsManquants,
       suggestionsCorrection: analysis.suggestionsCorrection,
       ...(validatedExamples.length > 0 && { validatedExamples }),
+      ...(documentComment && { documentComment: anonymizeText(documentComment) }),
       ...(modelId && { modelId }),
     });
     // Ce que le modèle ne peut pas prouver est retiré (code hors référentiel,

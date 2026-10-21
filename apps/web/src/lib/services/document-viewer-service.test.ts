@@ -4,10 +4,10 @@ import { documentPagesPrepareUrl, documentViewerSource, prepareDocumentPages } f
 describe("prepareDocumentPages", () => {
   afterEach(() => vi.unstubAllGlobals());
 
-  it("prépare les pages d'un Word, avec les cookies de la session", () => {
+  it("prépare les pages d'un Excel, avec les cookies de la session", () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 204 }));
     vi.stubGlobal("fetch", fetchMock);
-    expect(prepareDocumentPages("v1", "livret.docx")).toBe(true);
+    expect(prepareDocumentPages("v1", "plan.xlsx")).toBe(true);
     expect(fetchMock).toHaveBeenCalledWith("/api/documents/v1/pdf?prepare=1", { credentials: "same-origin" });
   });
 
@@ -42,8 +42,16 @@ describe("documentViewerSource", () => {
     expect(documentViewerSource("v3", "charte.png").kind).toBe("image");
   });
 
-  it("montre les PAGES d'un Word, d'un Excel ou d'un CSV, et sait les préparer", () => {
-    for (const name of ["livret.docx", "plan.xlsx", "export.csv"]) {
+  it("dessine un Word dans le navigateur, mise en page comprise, depuis l'original (21/10/2026)", () => {
+    expect(documentViewerSource("v7", "Livret Accueil.DOCX")).toEqual({
+      kind: "docx",
+      url: "/api/documents/v7/original",
+      pagesUrl: "/api/documents/v7/pdf",
+    });
+  });
+
+  it("montre les PAGES d'un Excel ou d'un CSV, et sait les préparer", () => {
+    for (const name of ["plan.xlsx", "export.csv"]) {
       expect(documentViewerSource("v4", name)).toEqual({
         kind: "pages",
         url: "/api/documents/v4/pdf",

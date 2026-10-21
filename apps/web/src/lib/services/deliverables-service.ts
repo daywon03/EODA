@@ -1,4 +1,5 @@
 import type { DocumentCategory } from "@eoda/database";
+import { versionsVisibleToClient } from "./client-documents-view-service";
 import type { DocumentStep } from "./document-workflow-service";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -51,6 +52,12 @@ export type Deliverable = {
   documentVersionId: string;
   filename: string;
   remittedOn: Date;
+  // L'historique (demande de Damon, 21/10/2026 : « montre les différentes versions
+  // qui ont été déposées, comme dans Mes documents »), de la plus récente à la plus
+  // ancienne, sans la version remise. Mêmes versions que « Mes documents »
+  // (versionsVisibleToClient) : les dépôts de la structure, et les versions d'EODA
+  // d'un document validé.
+  previousVersions: DeliverableSourceVersion[];
 };
 
 // La version remise est la DERNIÈRE produite par EODA, pas la dernière tout court :
@@ -92,6 +99,9 @@ export function selectDeliverables(items: readonly DeliverableSourceItem[]): Del
       documentVersionId: version.id,
       filename: version.originalFilename,
       remittedOn: remittanceDate(version.uploadedAt, item.validatedAt),
+      previousVersions: versionsVisibleToClient(item.versions, item.validatedAt)
+        .filter((other) => other.id !== version.id)
+        .sort((a, b) => b.versionNumber - a.versionNumber),
     });
   }
 

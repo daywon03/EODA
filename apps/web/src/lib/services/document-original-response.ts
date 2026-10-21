@@ -1,5 +1,6 @@
 import {
   detectFileType,
+  DOCX_MIME_TYPE,
   JPEG_MIME_TYPE,
   PDF_MIME_TYPE,
   PNG_MIME_TYPE,
@@ -21,11 +22,15 @@ import {
 // ─────────────────────────────────────────────────────────────────────────────
 
 const INLINE_TYPES = [PDF_MIME_TYPE, JPEG_MIME_TYPE, PNG_MIME_TYPE] as const;
-export type InlineOriginalType = (typeof INLINE_TYPES)[number];
+// Word (21/10/2026) : servi pour que la visionneuse le DESSINE dans le navigateur avec
+// sa mise en page (docx-preview) — jamais affiché tel quel par le navigateur : il part
+// en pièce jointe (`attachment`), le script de la visionneuse le lit par `fetch`.
+const SERVED_TYPES = [...INLINE_TYPES, DOCX_MIME_TYPE] as const;
+export type InlineOriginalType = (typeof SERVED_TYPES)[number];
 
 export function inlineOriginalType(content: Buffer): InlineOriginalType | null {
   const detected = detectFileType(content);
-  return INLINE_TYPES.find((type) => type === detected) ?? null;
+  return SERVED_TYPES.find((type) => type === detected) ?? null;
 }
 
 // Nom assaini (liste blanche ASCII) : concaténé tel quel dans un en-tête, un nom
@@ -37,7 +42,7 @@ export function inlineOriginalFilename(originalFilename: string): string {
 export function inlineOriginalHeaders(type: InlineOriginalType, originalFilename: string): Record<string, string> {
   return {
     "Content-Type": type,
-    "Content-Disposition": `inline; filename="${inlineOriginalFilename(originalFilename)}"`,
+    "Content-Disposition": `${type === DOCX_MIME_TYPE ? "attachment" : "inline"}; filename="${inlineOriginalFilename(originalFilename)}"`,
     // `private` : un document d'établissement n'a rien à faire dans un cache partagé.
     // `no-store` : l'effacer doit le faire disparaître de l'écran.
     "Cache-Control": "private, no-store",

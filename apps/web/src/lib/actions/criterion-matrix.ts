@@ -1,7 +1,8 @@
 "use server";
 
 import { prisma } from "@eoda/database";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
+import { CRITERION_MATRIX_TAG } from "@/lib/db/referential-cache";
 import { notFound } from "next/navigation";
 import { requireCabinetAdminSession } from "@/lib/auth/guards";
 import { recordAuditEvent } from "@/lib/services/audit-log-service";
@@ -145,6 +146,7 @@ export async function validateMatrixForDocumentType(formData: FormData): Promise
   });
 
   revalidatePath(MATRIX_PATH);
+  revalidateTag(CRITERION_MATRIX_TAG);
   return null;
 }
 
@@ -178,6 +180,7 @@ export async function loadFullProposedMatrix(): Promise<{ error: string } | { ad
   });
 
   revalidatePath(MATRIX_PATH);
+  revalidateTag(CRITERION_MATRIX_TAG);
   return { added: created.count, alreadyLinked: plan.alreadyLinked, skipped: plan.skipped };
 }
 
@@ -224,5 +227,6 @@ export async function promoteCriterionSuggestion(formData: FormData): Promise<{ 
   });
 
   revalidatePath(MATRIX_PATH);
+  revalidateTag(CRITERION_MATRIX_TAG);
   return null;
 }

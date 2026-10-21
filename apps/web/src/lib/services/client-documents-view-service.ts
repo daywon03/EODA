@@ -1,6 +1,7 @@
+import { isValidationCurrent } from "./document-workflow-service";
 import type { DocumentCategory, DocumentStatus, SupportMode } from "@eoda/database";
 import { DOCUMENT_PILLS, type PillSpec } from "@/lib/design/status-vocabulary";
-import { groupDocumentTypes, type DocumentGroupId } from "@/content/documents/groupes";
+import { DOCUMENT_GROUPS, groupDocumentTypes, type DocumentGroupId } from "@/content/documents/groupes";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // « MES DOCUMENTS » VU PAR LA STRUCTURE — règles pures (tranches N2, N3, R6).
@@ -15,32 +16,38 @@ import { groupDocumentTypes, type DocumentGroupId } from "@/content/documents/gr
 // un humain ».
 // ─────────────────────────────────────────────────────────────────────────────
 
-// Relu par EODA = la revue de l'analyse de CETTE version, ou la validation du
-// document posée après son dépôt (une validation antérieure portait sur une autre
-// version : `validatedAt` n'est pas remis à zéro au dépôt).
+// Relu par EODA = la revue de l'analyse de CETTE version, ou une validation qui vaut
+// pour elle — la MÊME règle que le panneau cabinet et l'onglet Critères
+// (isValidationCurrent, 21/10/2026) : une version d'EODA déposée sur un document
+// validé reste validée ; une version de la structure déposée après est à relire.
+// Le livret du pilote était « Validé » côté cabinet et « Reçu, en cours » ici.
 export function isReviewedByEoda(facts: {
   analysisReviewedAt: Date | null;
   validatedAt: Date | null;
   versionUploadedAt: Date | null;
+  versionByCabinet: boolean;
 }): boolean {
   if (!facts.versionUploadedAt) return false;
   if (facts.analysisReviewedAt) return true;
-  return facts.validatedAt !== null && facts.validatedAt >= facts.versionUploadedAt;
+  return isValidationCurrent({
+    validatedAt: facts.validatedAt,
+    versionUploadedAt: facts.versionUploadedAt,
+    versionByCabinet: facts.versionByCabinet,
+  });
 }
 
 // Les versions qu'une STRUCTURE peut ouvrir dans « Mes documents » (21/10/2026 —
 // retour de Damon : « il faut qu'il puisse voir les documents faits pour eux par EODA
 // ou qu'eux ont mis, et pas que dans Mes livrables »). Ses propres dépôts, toujours.
-// Une version produite par EODA, seulement une fois le document VALIDÉ après elle :
-// avant, c'est un travail en cours, et le montrer serait promettre à la place de la
-// consultante (même règle que l'annonce à la validation et que les livrables).
+// Une version produite par EODA, seulement une fois le document VALIDÉ : avant, c'est
+// un travail en cours, et le montrer serait promettre à la place de la consultante.
+// Une version d'EODA déposée APRÈS la validation compte comme validée — elle devient
+// le livrable sur-le-champ (isValidationCurrent, même règle que les livrables).
 export function versionsVisibleToClient<T extends { producedByCabinet: boolean; uploadedAt: Date }>(
   versions: readonly T[],
   validatedAt: Date | null
 ): T[] {
-  return versions.filter(
-    (version) => !version.producedByCabinet || (validatedAt !== null && validatedAt >= version.uploadedAt)
-  );
+  return versions.filter((version) => !version.producedByCabinet || validatedAt !== null);
 }
 
 // Une acceptation vaut pour la version courante au moment du geste : une version
@@ -252,12 +259,57 @@ export const UNRANKED_GROUP_LABEL = "Autres documents";
 // Qualité »), dans cet ordre — un classement de CONTENU propre à EODA, jamais la
 // catégorie réglementaire (CLAUDE.md §7). Un groupe sans ligne visible n'est pas rendu :
 // un intertitre suivi du vide ne renseigne personne.
+// ── Rubrique et recherche (21/10/2026 — « dans toutes, devoir descendre tout en bas,
+// ce n'est pas intuitif, alors que le cabinet filtre par catégorie ») ─────────────
+// Mêmes sept rubriques que l'affichage (content/documents/groupes.ts), plus « Autres ».
+// Une valeur reçue de l'adresse est une entrée non fiable : inconnue ⇒ aucun filtre.
+export type ClientGroupFilter = ClientDocumentGroupId;
+
+export function parseClientGroupFilter(raw: string | string[] | undefined): ClientGroupFilter | null {
+  const value = Array.isArray(raw) ? raw[0] : raw;
+  if (value === "AUTRES") return "AUTRES";
+  return DOCUMENT_GROUPS.find((group) => group.id === value)?.id ?? null;
+}
+
+export function parseClientSearch(raw: string | string[] | undefined): string {
+  const value = Array.isArray(raw) ? raw[0] : raw;
+  return (value ?? "").trim().slice(0, 80);
+}
+
+// Sans accents ni majuscules : « reglement » trouve « Règlement de fonctionnement ».
+function foldForSearch(text: string): string {
+  return text.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+}
+
+export function matchesClientSearch(row: Pick<ClientDocumentRow, "label">, query: string): boolean {
+  return query.length === 0 || foldForSearch(row.label).includes(foldForSearch(query));
+}
+
+// Nombre de documents par rubrique, après le filtre d'état et la recherche — ce que
+// la personne obtiendra en cliquant.
+export function countClientGroups<T extends ClientDocumentRow>(
+  rows: readonly T[],
+  filter: ClientDocumentFilter | null,
+  query: string,
+  mode: SupportMode
+): { id: ClientGroupFilter; label: string; count: number }[] {
+  return groupClientDocuments(rows, filter, mode, { query }).map((group) => ({
+    id: group.id,
+    label: group.label,
+    count: group.rows.length,
+  }));
+}
+
 export function groupClientDocuments<T extends ClientDocumentRow>(
   rows: readonly T[],
   filter: ClientDocumentFilter | null,
-  mode: SupportMode
+  mode: SupportMode,
+  options: { group?: ClientGroupFilter | null; query?: string } = {}
 ): ClientDocumentGroup<T>[] {
-  const visible = rows.filter((row) => filter === null || clientFilterOf(row.state) === filter);
+  const query = options.query ?? "";
+  const visible = rows.filter(
+    (row) => (filter === null || clientFilterOf(row.state) === filter) && matchesClientSearch(row, query)
+  );
   const sorted = [...visible].sort(byPriority);
   const { groups, unranked } = groupDocumentTypes(sorted);
 
@@ -270,11 +322,11 @@ export function groupClientDocuments<T extends ClientDocumentRow>(
       progress: groupProgress(group.types, mode),
     }));
 
-  if (unranked.length === 0) return ranked;
-  return [
-    ...ranked,
-    { id: "AUTRES", label: UNRANKED_GROUP_LABEL, rows: unranked, progress: groupProgress(unranked, mode) },
-  ];
+  const all: ClientDocumentGroup<T>[] =
+    unranked.length === 0
+      ? ranked
+      : [...ranked, { id: "AUTRES", label: UNRANKED_GROUP_LABEL, rows: unranked, progress: groupProgress(unranked, mode) }];
+  return options.group ? all.filter((group) => group.id === options.group) : all;
 }
 
 function groupProgress<T extends ClientDocumentRow>(rows: readonly T[], mode: SupportMode): string {

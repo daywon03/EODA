@@ -51,13 +51,51 @@ export type DocumentWorkflowFacts = {
   // L'analyse a été relue et rendue visible au client (analysisReviewedAt).
   analysisReviewed: boolean;
   validatedAt: Date | null;
+  // La version COURANTE : la validation vaut-elle encore pour elle ? (isValidationCurrent)
+  currentVersionUploadedAt?: Date | null;
+  currentVersionByCabinet?: boolean;
 };
+
+// ─────────────────────────────────────────────────────────────────────────────
+// LA VALIDATION VAUT-ELLE POUR LA VERSION COURANTE ? — une seule règle (21/10/2026).
+//
+// Deux écrans se contredisaient : le panneau du document disait « Validé » dès qu'une
+// validation avait EXISTÉ, l'onglet Critères exigeait une validation POSTÉRIEURE à la
+// version courante. Le livret du pilote (validé le 07/10, redéposé par EODA le 18/10)
+// était donc « Validé » d'un côté et « pas encore relu » de l'autre.
+//
+//   - validée APRÈS le dépôt de la version courante : elle vaut ;
+//   - version courante déposée par EODA sur un document déjà validé : elle vaut aussi
+//     — c'est la parole d'EODA, et la version devient le livrable sur-le-champ
+//     (règle du 27/09, upload → announceValidatedDocument) ;
+//   - version déposée par la STRUCTURE après la validation : elle ne vaut plus, la
+//     pièce est à relire.
+// Sans version, une validation posée vaut (cas d'une pièce jugée sans dépôt).
+// ─────────────────────────────────────────────────────────────────────────────
+export function isValidationCurrent(facts: {
+  validatedAt: Date | null;
+  versionUploadedAt: Date | null;
+  versionByCabinet: boolean;
+}): boolean {
+  if (facts.validatedAt === null) return false;
+  if (facts.versionUploadedAt === null) return true;
+  return facts.validatedAt >= facts.versionUploadedAt || facts.versionByCabinet;
+}
 
 // L'étape la plus avancée ATTEINTE. Une étape n'annule pas les précédentes : un
 // document validé a forcément été déposé. On rend donc le point le plus haut du
 // parcours, et l'écran affiche le chemin parcouru.
 export function deriveDocumentStep(facts: DocumentWorkflowFacts): DocumentStep {
-  if (facts.validatedAt !== null) return "VALIDE";
+  if (
+    isValidationCurrent({
+      validatedAt: facts.validatedAt,
+      // Faits de version absents (appelants antérieurs) : la validation posée vaut.
+      versionUploadedAt: facts.currentVersionUploadedAt ?? null,
+      versionByCabinet: facts.currentVersionByCabinet ?? true,
+    })
+  ) {
+    return "VALIDE";
+  }
   if (facts.analysisReviewed) return "RELU";
   if (facts.hasCabinetVersion) return "MODIFIE";
   if (facts.hasAnalysis) return "ANALYSE";

@@ -54,7 +54,7 @@ export async function acceptDocument(
       clientAcceptedAt: true,
       documentType: { select: { code: true, label: true } },
       currentVersion: {
-        select: { uploadedAt: true, analysisResultJson: true, analysisReviewedAt: true },
+        select: { uploadedAt: true, analysisResultJson: true, analysisReviewedAt: true, uploadedBy: { select: { role: true } } },
       },
     },
   });
@@ -66,6 +66,7 @@ export async function acceptDocument(
     analysisReviewedAt: version.analysisReviewedAt,
     validatedAt: document.validatedAt,
     versionUploadedAt: version.uploadedAt,
+    versionByCabinet: version.uploadedBy.role !== "CLIENT_USER",
   });
   // L'analyse telle que le CLIENT la voit — la barrière analysisVisibleTo, pas une
   // seconde règle écrite ici.

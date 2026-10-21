@@ -11,6 +11,8 @@ const requireEstablishmentInTenant = vi.fn();
 const getEstablishmentSupportMode = vi.fn();
 
 vi.mock("@eoda/database", () => ({ prisma: prismaMock }));
+// Cache du référentiel : transparent ici (aucun cache Next hors requête).
+vi.mock("next/cache", () => ({ unstable_cache: <T>(fn: T) => fn }));
 vi.mock("@/lib/auth/guards", () => ({
   requireEstablishmentInTenant: (id: string) => requireEstablishmentInTenant(id),
 }));
@@ -45,7 +47,7 @@ beforeEach(() => {
       documentTypeId: "t-dipc",
       validatedAt: new Date(2026, 9, 5),
       clientAcceptedAt: null,
-      currentVersion: { uploadedAt: new Date(2026, 9, 1) },
+      currentVersion: { uploadedAt: new Date(2026, 9, 1), uploadedBy: { role: "CLIENT_USER" } },
     },
   ]);
 });

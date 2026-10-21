@@ -31,6 +31,9 @@ export type DocumentAnalysisInput = {
   // optionnel : sans guideline, l'analyse fonctionne comme avant (cf.
   // criterion-guideline-service.ts).
   criterionGuidelines?: string[];
+  // « Commentaire sur ce document » (Document.missingJustification), seulement s'il
+  // est « pris en compte par l'IA » (Document.commentUsedByAi). Cf. document-comment.ts.
+  documentComment?: string;
   // Ce que les images extraites du document représentent (cf. image-vision-service.ts)
   // — un panneau affiché photographié, un organigramme… Toujours optionnel : sans
   // image, ou si leur description a échoué, l'analyse fonctionne comme avant.
@@ -124,6 +127,7 @@ export type DocumentGenerationInput = {
   linkedCriteria: LinkedCriterion[];
   knowledgeExcerpts?: string[];
   criterionGuidelines?: string[];
+  documentComment?: string;
   modelId?: string;
   elementsManquants: string[];
   suggestionsCorrection: string[];

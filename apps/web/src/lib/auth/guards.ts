@@ -85,14 +85,27 @@ export type EstablishmentAccessContext = {
 };
 
 // Deux faits, une décision : la clôture de la mission et la révocation de l'accès
-// client. Lecture étroite, faite à chaque garde plutôt que mémorisée — une
-// révocation doit prendre effet immédiatement, pas à la prochaine session.
-async function readMissionClosure(establishmentId: string): Promise<MissionAccessFacts | null> {
+// client. Lecture étroite, jamais mise en cache entre deux requêtes — une révocation
+// prend effet à la navigation suivante, pas à la prochaine session. MÉMOÏSÉE PAR
+// RENDU (`react.cache`, comme `resolveUser`) : une page de fiche appelle six ou sept
+// gardes, qui relisaient chacune la même ligne (mesuré le 21/10/2026 : 7 lectures
+// de la mission pour une seule vue d'ensemble).
+const readMissionClosure = cache(async (establishmentId: string): Promise<MissionAccessFacts | null> => {
   return prisma.mission.findUnique({
     where: { establishmentId },
     select: { closedAt: true, clientAccessRevokedAt: true },
   });
-}
+});
+
+// Appartenance d'une structure au cabinet, mémoïsée par rendu pour la même raison
+// (10 lectures identiques sur la vue d'ensemble d'une fiche). Clé : (structure,
+// cabinet) — jamais la structure seule, le cloisonnement est dans la clé.
+const findEstablishmentInTenant = cache(async (establishmentId: string, tenantId: string) => {
+  return prisma.establishment.findFirst({
+    where: { id: establishmentId, tenantId },
+    select: { id: true, type: true },
+  });
+});
 
 async function resolveMissionAccess(establishmentId: string): Promise<MissionAccessState> {
   return deriveMissionAccessState(await readMissionClosure(establishmentId));
@@ -359,10 +372,7 @@ async function resolveEstablishmentInTenant(
   establishmentId: string
 ): Promise<EstablishmentInTenantContext> {
   requireStructureInScope(context, establishmentId);
-  const establishment = await prisma.establishment.findFirst({
-    where: { id: establishmentId, tenantId: context.tenantId },
-    select: { id: true, type: true },
-  });
+  const establishment = await findEstablishmentInTenant(establishmentId, context.tenantId);
   if (!establishment) notFound();
 
   return { ...context, establishmentId: establishment.id, establishmentType: establishment.type };
@@ -397,10 +407,7 @@ async function resolveCabinetEstablishmentAccess(
   const scope = await resolveStructureScopeFor(session.user.id, user.role);
   if (!isInStructureScope(scope, establishmentId)) return null;
 
-  const establishment = await prisma.establishment.findFirst({
-    where: { id: establishmentId, tenantId: user.tenantId },
-    select: { id: true },
-  });
+  const establishment = await findEstablishmentInTenant(establishmentId, user.tenantId);
   if (!establishment) return null;
 
   // Le cabinet garde l'accès dans TOUS les états — « rétention côté cabinet, zéro

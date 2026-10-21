@@ -51,7 +51,7 @@ function givenDocument(overrides: { analysisReviewedAt?: Date | null; validatedA
     currentVersion:
       overrides.hasVersion === false
         ? null
-        : { uploadedAt: UPLOADED, analysisResultJson: ANALYSIS, analysisReviewedAt: overrides.analysisReviewedAt ?? null },
+        : { uploadedAt: UPLOADED, analysisResultJson: ANALYSIS, analysisReviewedAt: overrides.analysisReviewedAt ?? null, uploadedBy: { role: "CLIENT_USER" } },
   });
 }
 

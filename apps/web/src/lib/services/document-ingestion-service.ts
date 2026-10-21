@@ -355,12 +355,13 @@ async function analyzeVersion(
       ? buildAdditionalCriteriaCatalog(allCriteria, establishment.type, new Set(criterionIds))
       : [];
 
-    const [knowledgeExcerpts, criterionGuidelines, imageDescriptions, validatedExamples] = await Promise.all([
+    const [knowledgeExcerpts, criterionGuidelines, imageDescriptions, validatedExamples, documentComment] = await Promise.all([
       fetchKnowledgeExcerpts(tenantId, params.documentTypeLabel, criteriaLabels),
       fetchCriterionGuidelines(tenantId, criterionIds, params.documentId),
       fetchImageDescriptions(params.documentVersionId),
       // Exemples validés du même type, du même tenant (N8, context/10 §9).
       readValidatedExamples(tenantId, params.documentTypeId),
+      readDocumentComment(params.documentId),
     ]);
 
     const analysis = await llm.analyze({
@@ -376,6 +377,8 @@ async function analyzeVersion(
       ...(params.modelId && { modelId: params.modelId }),
       ...(additionalCriteriaCatalog.length > 0 && { additionalCriteriaCatalog }),
       ...(validatedExamples.length > 0 && { validatedExamples }),
+      // Même anonymisation best-effort que le texte : un commentaire peut citer quelqu'un.
+      ...(documentComment && { documentComment: anonymizeText(documentComment) }),
     });
 
     // Best-effort, comme les autres enrichissements de cette fonction : une
@@ -526,6 +529,24 @@ export async function fetchKnowledgeExcerpts(
 // rend alors `[]` sans même interroger la base, exactement comme si aucune
 // guideline n'existait. Elle commencera à en rappeler dès que cette table sera
 // peuplée, sans qu'aucune ligne de ce fichier n'ait besoin de changer.
+//
+// « Commentaire sur ce document » (Document.missingJustification) — remis à l'IA
+// seulement s'il est « pris en compte » (Document.commentUsedByAi, oui par défaut).
+// Même repli que les guidelines : une panne de lecture n'empêche jamais l'analyse.
+export async function readDocumentComment(documentId: string): Promise<string | undefined> {
+  try {
+    const doc = await prisma.document.findUnique({
+      where: { id: documentId },
+      select: { missingJustification: true, commentUsedByAi: true },
+    });
+    const text = doc?.missingJustification?.trim();
+    return doc?.commentUsedByAi && text ? text : undefined;
+  } catch (error) {
+    console.error("Commentaire du document — lecture échouée, analyse sans lui :", error);
+    return undefined;
+  }
+}
+
 //
 // Call du 18/10/2026 — « les commentaires doivent être pris en compte dans
 // l'analyse » : la matrice seule ne suffisait pas (vide pour la plupart des types),

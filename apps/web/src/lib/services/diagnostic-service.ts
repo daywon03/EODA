@@ -62,12 +62,17 @@ export function buildDiagnosticSummary(rows: readonly CriterionProofRow[]): Diag
 
 // La phrase d'en-tête. Le total est celui des critères EN BASE pour ce profil (16 SAD
 // aide, 17 SAD mixte — context/02 §4), jamais un nombre écrit en dur.
-export function describeDiagnosticLine(imperatives: { proven: number; total: number }): string {
+// `inProgress` : impératifs dont une partie des pièces est déjà là (21/10/2026) —
+// sans lui, « 0 sur 16 » se lisait comme « rien n'est fait ».
+export function describeDiagnosticLine(imperatives: { proven: number; total: number }, inProgress = 0): string {
   if (imperatives.total === 0) return "Aucun critère impératif n'est encore chargé pour votre structure.";
   const remaining = imperatives.total - imperatives.proven;
   const head = `${imperatives.proven} critère${imperatives.proven > 1 ? "s" : ""} impératif${imperatives.proven > 1 ? "s" : ""} sur ${imperatives.total} ${imperatives.proven > 1 ? "sont prouvés" : "est prouvé"}.`;
   if (remaining === 0) return `${head} Tous sont prouvés.`;
-  return `${head} ${remaining} ${remaining > 1 ? "restent" : "reste"} à travailler.`;
+  const started = Math.min(inProgress, remaining);
+  const progress =
+    started > 0 ? ` (dont ${started} déjà en partie : une pièce attendue reste à relire ou à déposer)` : "";
+  return `${head} ${remaining} ${remaining > 1 ? "restent" : "reste"} à travailler${progress}.`;
 }
 
 // ── Les 3 actions prioritaires ───────────────────────────────────────────────

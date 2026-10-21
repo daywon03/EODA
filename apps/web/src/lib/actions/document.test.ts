@@ -73,8 +73,26 @@ vi.mock("@/lib/email/notifications", () => ({
   notifyStructureActivity: (...args: unknown[]) => notifyStructureActivity(...args),
 }));
 
-const { uploadDocument, respondToMissingDocument, generateDocumentDraft, setDocumentValidated, setCriterionGuidelineAiUse } =
+const { uploadDocument, respondToMissingDocument, generateDocumentDraft, setDocumentValidated, setCriterionGuidelineAiUse, setDocumentCommentAiUse } =
   await import("./document");
+
+describe("setDocumentCommentAiUse — « Commentaire sur ce document » remis à l'IA", () => {
+  it("passe par la garde d'écriture, bascule le seul drapeau et journalise sans le commentaire", async () => {
+    prismaMock.document.findUnique.mockResolvedValue({ id: "doc-1", commentUsedByAi: true, documentType: { code: "CVS" } });
+    expect(await setDocumentCommentAiUse("etab-1", "dt-cvs", false)).toBeNull();
+    expect(requireEstablishmentAccess).toHaveBeenCalledWith("etab-1", expect.objectContaining({ mode: "WRITE" }));
+    expect(prismaMock.document.update).toHaveBeenCalledWith({ where: { id: "doc-1" }, data: { commentUsedByAi: false } });
+    expect(recordAuditEvent).toHaveBeenCalledWith(expect.objectContaining({ action: "DOCUMENT_COMMENT_AI_TOGGLED", detail: "CVS · non" }));
+  });
+
+  it("n'écrit rien quand le document n'existe pas ou que l'état est déjà le bon", async () => {
+    prismaMock.document.findUnique.mockResolvedValue(null);
+    expect(await setDocumentCommentAiUse("etab-1", "dt-cvs", false)).toMatchObject({ error: expect.any(String) });
+    prismaMock.document.findUnique.mockResolvedValue({ id: "doc-1", commentUsedByAi: true, documentType: { code: "CVS" } });
+    expect(await setDocumentCommentAiUse("etab-1", "dt-cvs", true)).toBeNull();
+    expect(prismaMock.document.update).not.toHaveBeenCalled();
+  });
+});
 
 // « Pouvoir oui ou non le faire prendre en compte par l'IA » (call du 18/10/2026).
 describe("setCriterionGuidelineAiUse", () => {

@@ -1,6 +1,11 @@
 import Link from "next/link";
-import { getStructureCriteriaProof } from "@/lib/actions/criteria-proof";
+import { ChevronRight } from "lucide-react";
+import { requireCabinetSession } from "@/lib/auth/guards";
+import { hasCabinetCapability } from "@/lib/auth/capabilities";
+import { getStructureCriteriaEvidence, getStructureCriteriaProof, type CriterionEvidence } from "@/lib/actions/criteria-proof";
+import { documentsHref } from "@/lib/services/structure-documents-service";
 import {
+  EVIDENCE_PILLS,
   PROOF_PILLS,
   describeImperativesProof,
   filterProofRows,
@@ -19,38 +24,128 @@ type Props = {
   searchParams: Promise<{ filtre?: string | string[] }>;
 };
 
-const COLUMNS: readonly DataTableColumn<CriterionProofRow>[] = [
-  { id: "code", header: "Critère", cell: (r) => <span className="font-bold tabular-nums">{r.code}</span>, isRowHeader: true },
-  { id: "label", header: "Intitulé", cell: (r) => r.label },
-  {
-    id: "imperative",
-    header: "Impératif",
-    // Glyphe ET mot : jamais la couleur ni le seul triangle.
-    cell: (r) => (r.isImperative ? <span className="whitespace-nowrap font-bold text-ink">▲ Impératif</span> : "—"),
-  },
-  {
-    id: "proofs",
-    header: "Preuves",
-    cell: (r) =>
-      r.expected === 0 ? (
-        "—"
-      ) : (
-        <span className="whitespace-nowrap tabular-nums">
-          {r.proven} / {r.expected} prouvée{r.proven > 1 ? "s" : ""}
-          {r.deposited > r.proven && <span className="block text-sm text-ink2">{r.deposited} déposée{r.deposited > 1 ? "s" : ""}</span>}
-        </span>
+function columns(
+  evidence: Record<string, CriterionEvidence>,
+  documentsPath: string,
+  canEditMatrix: boolean
+): DataTableColumn<CriterionProofRow>[] {
+  return [
+    { id: "code", header: "Critère", cell: (r) => <span className="font-bold tabular-nums">{r.code}</span>, isRowHeader: true },
+    {
+      id: "label",
+      header: "Intitulé",
+      // L'intitulé ouvre le détail : ce que l'évaluateur HAS regarde, et la liste des
+      // documents retenus comme preuves, chacun avec son état (21/10/2026).
+      cell: (r) => (
+        <CriterionDetails
+          row={r}
+          evidence={evidence[r.id]}
+          documentsPath={documentsPath}
+          canEditMatrix={canEditMatrix}
+        />
       ),
-  },
-  { id: "chapter", header: "Chapitre", cell: (r) => `Chapitre ${r.chapterNumber}` },
-  { id: "status", header: "État", cell: (r) => <StatusPill pill={PROOF_PILLS[r.status]} /> },
-];
+    },
+    {
+      id: "imperative",
+      header: "Impératif",
+      // Glyphe ET mot : jamais la couleur ni le seul triangle.
+      cell: (r) => (r.isImperative ? <span className="whitespace-nowrap font-bold text-ink">▲ Impératif</span> : "—"),
+    },
+    {
+      id: "proofs",
+      header: "Preuves",
+      cell: (r) =>
+        r.expected === 0 ? (
+          "—"
+        ) : (
+          <span className="whitespace-nowrap tabular-nums">
+            {r.proven} / {r.expected} prouvée{r.proven > 1 ? "s" : ""}
+            {r.deposited > r.proven && <span className="block text-sm text-ink2">{r.deposited} déposée{r.deposited > 1 ? "s" : ""}</span>}
+          </span>
+        ),
+    },
+    { id: "chapter", header: "Chapitre", cell: (r) => `Chapitre ${r.chapterNumber}` },
+    { id: "status", header: "État", cell: (r) => <StatusPill pill={PROOF_PILLS[r.status]} /> },
+  ];
+}
+
+// Détail d'un critère, dépliable au clic sur son intitulé (<details> : clavier et
+// lecteur d'écran sans une ligne de JavaScript).
+function CriterionDetails({
+  row,
+  evidence,
+  documentsPath,
+  canEditMatrix,
+}: {
+  row: CriterionProofRow;
+  evidence: CriterionEvidence | undefined;
+  documentsPath: string;
+  canEditMatrix: boolean;
+}) {
+  const items = evidence?.items ?? [];
+  const elements = evidence?.hasElements ?? [];
+  return (
+    <details className="group">
+      <summary className="flex min-h-11 cursor-pointer list-none items-start gap-2 [&::-webkit-details-marker]:hidden">
+        <ChevronRight className="mt-1 h-4 w-4 flex-shrink-0 text-ink2 transition-transform group-open:rotate-90 motion-reduce:transition-none" aria-hidden="true" />
+        <span>{row.label}</span>
+      </summary>
+      <div className="mt-3 space-y-4 pl-6">
+        <div>
+          <p className="font-bold text-ink">Documents retenus comme preuves</p>
+          {items.length === 0 ? (
+            <p className="text-ink2">Aucun document n&apos;est encore rattaché à ce critère dans la matrice.</p>
+          ) : (
+            <ul className="mt-1.5 space-y-1.5">
+              {items.map((item) => (
+                <li key={item.documentTypeId} className="flex flex-wrap items-center justify-between gap-2">
+                  {item.state === "ABSENTE" ? (
+                    <span className="text-ink">{item.label}</span>
+                  ) : (
+                    <Link
+                      href={documentsHref(documentsPath, { doc: item.documentTypeId })}
+                      className="inline-flex min-h-11 items-center font-bold text-ink underline-offset-4 hover:underline"
+                    >
+                      {item.label}
+                    </Link>
+                  )}
+                  <StatusPill pill={EVIDENCE_PILLS[item.state]} />
+                </li>
+              ))}
+            </ul>
+          )}
+          {canEditMatrix && (
+            <Link href="/dashboard/cabinet/criteres" className="mt-2 inline-flex min-h-11 items-center font-bold text-accent-text hover:underline">
+              Modifier les preuves attendues (matrice — vaut pour toutes les structures) →
+            </Link>
+          )}
+        </div>
+        {elements.length > 0 && (
+          <div>
+            <p className="font-bold text-ink">Ce que l&apos;évaluateur HAS regarde</p>
+            <ul className="mt-1.5 list-disc space-y-1 pl-5 text-ink2">
+              {elements.map((text) => (
+                <li key={text}>{text}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+    </details>
+  );
+}
 
 // Onglet « Critères » de la fiche structure (tranche N4). Tout est DÉRIVÉ des
 // documents de la structure et de la matrice validée (criteria-proof-service).
 export default async function StructureCriteriaPage({ params, searchParams }: Props) {
   const { id } = await params;
   const filter = parseProofFilter((await searchParams).filtre);
-  const proof = await getStructureCriteriaProof(id);
+  const [proof, evidence, { role }] = await Promise.all([
+    getStructureCriteriaProof(id),
+    getStructureCriteriaEvidence(id),
+    requireCabinetSession("STRUCTURES_READ"),
+  ]);
+  const canEditMatrix = hasCabinetCapability(role, "CABINET_SETTINGS");
   const rows = filterProofRows(proof.rows, filter);
   const base = structureHref(id, "criteres");
   const unlinked = proof.rows.filter((r) => r.status === "NON_RATTACHE").length;
@@ -65,10 +160,17 @@ export default async function StructureCriteriaPage({ params, searchParams }: Pr
             ` (repère du profil : ${proof.expectedImperatives})`}
         </p>
       </div>
-      <p className="text-ink2">
-        Prouvé = chaque document attendu a été relu par EODA (structure accompagnée) ou accepté par la structure
-        (autonomie). Ce n&apos;est pas un avis de conformité.
-      </p>
+      <div className="space-y-1 text-ink2">
+        <p>
+          <span className="font-bold text-ink">Les preuves</span> d&apos;un critère sont les documents que la
+          matrice des critères lui rattache. Une preuve compte quand le document est déposé, puis relu par EODA
+          (structure accompagnée) ou accepté par la structure (autonomie).
+        </p>
+        <p>
+          Prouvé = toutes ses preuves comptent. Cliquez sur un intitulé pour voir lesquelles manquent. Ce n&apos;est
+          pas un avis de conformité.
+        </p>
+      </div>
       <TabsNav
         label="Filtrer les critères"
         activeId={filter}
@@ -89,7 +191,7 @@ export default async function StructureCriteriaPage({ params, searchParams }: Pr
       )}
       <DataTable
         caption="Critères HAS et preuves documentaires de la structure"
-        columns={COLUMNS}
+        columns={columns(evidence, structureHref(id, "documents"), canEditMatrix)}
         rows={rows}
         getRowKey={(r) => r.id}
         emptyMessage="Aucun critère à afficher."

@@ -1,5 +1,6 @@
 import type { SupportMode } from "@eoda/database";
 import type { PillSpec } from "@/lib/design/status-vocabulary";
+import { isValidationCurrent } from "./document-workflow-service";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CRITÈRES & PREUVES — un critère est-il prouvé par les documents de la structure ?
@@ -31,6 +32,8 @@ export type ProofDocumentFacts = {
   versionUploadedAt: Date | null;
   validatedAt: Date | null;
   clientAcceptedAt: Date | null;
+  // Version courante déposée par EODA (et non par la structure) — cf. isValidationCurrent.
+  versionByCabinet?: boolean;
 };
 
 export function isDocumentDeposited(doc: ProofDocumentFacts): boolean {
@@ -40,8 +43,16 @@ export function isDocumentDeposited(doc: ProofDocumentFacts): boolean {
 export function isDocumentProven(doc: ProofDocumentFacts, mode: SupportMode): boolean {
   const uploadedAt = doc.versionUploadedAt;
   if (uploadedAt === null) return false;
-  const fact = mode === "ACCOMPAGNE" ? doc.validatedAt : doc.clientAcceptedAt;
-  return fact !== null && fact >= uploadedAt;
+  // Accompagné : la MÊME règle que le panneau du document (« Validé »), une seule
+  // fonction pour les deux écrans (21/10/2026).
+  if (mode === "ACCOMPAGNE") {
+    return isValidationCurrent({
+      validatedAt: doc.validatedAt,
+      versionUploadedAt: uploadedAt,
+      versionByCabinet: doc.versionByCabinet ?? false,
+    });
+  }
+  return doc.clientAcceptedAt !== null && doc.clientAcceptedAt >= uploadedAt;
 }
 
 export type CriterionProof = {
@@ -116,6 +127,62 @@ export type ImperativesProof = { proven: number; total: number };
 export function countImperativesProven(rows: readonly Pick<CriterionProofRow, "isImperative" | "status">[]): ImperativesProof {
   const imperatives = rows.filter((r) => r.isImperative);
   return { proven: imperatives.filter((r) => r.status === "PROUVE").length, total: imperatives.length };
+}
+
+// Impératifs EN PARTIE : au moins une pièce déposée, pas encore toutes prouvées.
+// « Prouvé » exige TOUTES les pièces attendues (règle inchangée) : sans ce second
+// compte, un cadre à « 0 / 16 » laissait croire que les documents déjà relus ne
+// comptaient pour rien (constaté le 21/10/2026 sur le pilote, 7 documents validés).
+export function countImperativesInProgress(rows: readonly Pick<CriterionProofRow, "isImperative" | "status">[]): number {
+  return rows.filter((r) => r.isImperative && r.status === "EN_PARTIE").length;
+}
+
+// ── Le détail des preuves d'un critère (21/10/2026) ──────────────────────────
+// « Savoir quels documents ont été mis comme preuve » : un critère liste chacun de
+// ses documents attendus avec SON état, par la même règle que le statut du critère
+// (isDocumentProven) — jamais un second calcul.
+export type EvidenceState = "PROUVEE" | "A_RELIRE" | "ABSENTE";
+
+export type EvidenceItem = { documentTypeId: string; label: string; state: EvidenceState };
+
+export function describeEvidence(
+  expectedDocumentTypeIds: readonly string[],
+  documentsByType: ReadonlyMap<string, ProofDocumentFacts>,
+  labels: ReadonlyMap<string, string>,
+  mode: SupportMode
+): EvidenceItem[] {
+  const order: Record<EvidenceState, number> = { A_RELIRE: 0, ABSENTE: 1, PROUVEE: 2 };
+  return [...new Set(expectedDocumentTypeIds)]
+    .map((documentTypeId): EvidenceItem => {
+      const doc = documentsByType.get(documentTypeId);
+      const state: EvidenceState = !doc || !isDocumentDeposited(doc) ? "ABSENTE" : isDocumentProven(doc, mode) ? "PROUVEE" : "A_RELIRE";
+      return { documentTypeId, label: labels.get(documentTypeId) ?? "Document", state };
+    })
+    // Ce qui reste à faire d'abord : à relire, puis à déposer, puis ce qui est acquis.
+    .sort((a, b) => order[a.state] - order[b.state] || a.label.localeCompare(b.label, "fr"));
+}
+
+export const EVIDENCE_PILLS: Record<EvidenceState, PillSpec> = {
+  PROUVEE: { tone: "ok", label: "Prouvée", glyph: "✓" },
+  A_RELIRE: { tone: "progress", label: "Déposée, pas encore relue", glyph: "◐" },
+  ABSENTE: { tone: "fix", label: "Pas déposée", glyph: "○" },
+};
+
+// Le même état, dans les mots du PORTAIL (« les deux portails ne regardent pas la même
+// chose », 26/08) : accompagnée, c'est EODA qui relit ; en autonomie, c'est la
+// structure qui accepte — jamais « validé » ni « conforme ».
+export function clientEvidencePill(state: EvidenceState, mode: SupportMode): PillSpec {
+  if (state === "PROUVEE") {
+    return mode === "ACCOMPAGNE"
+      ? { tone: "ok", label: "Relue par EODA", glyph: "✓" }
+      : { tone: "ok", label: "Acceptée par vous", glyph: "✓" };
+  }
+  if (state === "A_RELIRE") {
+    return mode === "ACCOMPAGNE"
+      ? { tone: "progress", label: "Reçue, EODA la relit", glyph: "◐" }
+      : { tone: "progress", label: "À vérifier par vous", glyph: "◐" };
+  }
+  return { tone: "fix", label: "À déposer", glyph: "○" };
 }
 
 export type ProofFilter = "TOUS" | "IMPERATIFS";

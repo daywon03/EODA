@@ -4,6 +4,8 @@ import {
   buildCriteriaProofRows,
   compareCriterionCodes,
   countImperativesProven,
+  describeEvidence,
+  countImperativesInProgress,
   deriveCriterionProof,
   describeImperativesProof,
   filterProofRows,
@@ -118,5 +120,46 @@ describe("profil SAD aide / SAD mixte", () => {
     expect(describeImperativesMeasure({ proven: 4, total: 16 }, 16)).toMatchObject({ value: "4 / 16", percent: 25 });
     expect(describeImperativesMeasure({ proven: 0, total: 0 }, 17)).toMatchObject({ percent: 0 });
     expect(describeImperativesMeasure({ proven: 0, total: 16 }, 17).note).toContain("17");
+    // Le travail en cours se voit, même à 0 prouvé (21/10/2026).
+    expect(describeImperativesMeasure({ proven: 0, total: 16 }, 16, 16).note).toContain("16 en partie");
+    expect(describeImperativesMeasure({ proven: 6, total: 16 }, 16, 0).note).not.toContain("en partie");
+    expect(
+      countImperativesInProgress([
+        { isImperative: true, status: "EN_PARTIE" },
+        { isImperative: true, status: "PROUVE" },
+        { isImperative: false, status: "EN_PARTIE" },
+        { isImperative: true, status: "SANS_PREUVE" },
+      ])
+    ).toBe(1);
+  });
+});
+
+describe("describeEvidence — les preuves d'un critère, une par une (21/10/2026)", () => {
+  const at = (iso: string) => new Date(iso);
+  const docs = new Map([
+    ["t-dipc", { documentTypeId: "t-dipc", versionUploadedAt: at("2026-10-01"), validatedAt: at("2026-10-07"), clientAcceptedAt: null }],
+    ["t-livret", { documentTypeId: "t-livret", versionUploadedAt: at("2026-10-18"), validatedAt: at("2026-10-07"), clientAcceptedAt: null }],
+  ]);
+  const labels = new Map([["t-dipc", "DIPC"], ["t-livret", "Livret d'accueil"], ["t-cvs", "Comptes-rendus CVS"]]);
+
+  it("même règle que le statut : une version déposée après la relecture n'est plus prouvée", () => {
+    expect(describeEvidence(["t-dipc", "t-livret", "t-cvs", "t-dipc"], docs, labels, "ACCOMPAGNE")).toEqual([
+      { documentTypeId: "t-livret", label: "Livret d'accueil", state: "A_RELIRE" },
+      { documentTypeId: "t-cvs", label: "Comptes-rendus CVS", state: "ABSENTE" },
+      { documentTypeId: "t-dipc", label: "DIPC", state: "PROUVEE" },
+    ]);
+  });
+
+  it("le livret redéposé par EODA après sa validation reste une preuve (même règle que « Validé »)", () => {
+    const byEoda = new Map([["t-livret", { ...docs.get("t-livret")!, versionByCabinet: true }]]);
+    expect(describeEvidence(["t-livret"], byEoda, labels, "ACCOMPAGNE")).toEqual([
+      { documentTypeId: "t-livret", label: "Livret d'accueil", state: "PROUVEE" },
+    ]);
+  });
+
+  it("en autonomie, seule l'acceptation de la structure compte", () => {
+    expect(describeEvidence(["t-dipc"], docs, labels, "AUTONOMIE")).toEqual([
+      { documentTypeId: "t-dipc", label: "DIPC", state: "A_RELIRE" },
+    ]);
   });
 });

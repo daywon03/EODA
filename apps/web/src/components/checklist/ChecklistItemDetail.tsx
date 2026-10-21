@@ -86,6 +86,7 @@ export function ChecklistItemDetail({ item, establishmentId, canManageVersions, 
           category={item.category}
           declaredMissing={item.declaredMissing}
           missingJustification={item.missingJustification}
+          commentUsedByAi={item.commentUsedByAi}
           hasVersion={item.currentVersion !== null}
         />
       )}
