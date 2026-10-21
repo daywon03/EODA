@@ -1,7 +1,7 @@
 "use client";
 
 import { useId, useState, useTransition } from "react";
-import { respondToMissingDocument, updateMissingJustification } from "@/lib/actions/document";
+import { respondToMissingDocument, setDocumentCommentAiUse, updateMissingJustification } from "@/lib/actions/document";
 import { MAX_JUSTIFICATION_LENGTH } from "@/lib/services/document-workflow-service";
 import { Textarea } from "@/components/ui/textarea";
 import { AlertCircle, Check, CheckCircle2, Loader2, X } from "lucide-react";
@@ -16,6 +16,8 @@ type Props = {
   // « Je ne l'ai pas » déjà répondu (missing-answer-service).
   declaredMissing: boolean;
   missingJustification: string | null;
+  // Remis à l'IA à la prochaine analyse (21/10/2026). Oui par défaut.
+  commentUsedByAi?: boolean;
   // Une version existe déjà : le commentaire reste corrigeable, mais la question
   // « ce document vous concerne-t-il ? » n'a plus de sens et ne doit surtout plus
   // pouvoir rebasculer un document déposé en NOT_APPLICABLE.
@@ -48,9 +50,11 @@ export function MissingDocumentJustification({
   category,
   declaredMissing,
   missingJustification,
+  commentUsedByAi = true,
   hasVersion = false,
 }: Props) {
   const [comment, setComment] = useState(missingJustification ?? "");
+  const [usedByAi, setUsedByAi] = useState(commentUsedByAi);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -74,6 +78,18 @@ export function MissingDocumentJustification({
       const result = await updateMissingJustification(establishmentId, documentTypeId, comment);
       if (result && "error" in result) setError(result.error);
       else setSaved(true);
+    });
+  }
+
+  function handleAiToggle(enabled: boolean) {
+    setUsedByAi(enabled);
+    setError(null);
+    startTransition(async () => {
+      const result = await setDocumentCommentAiUse(establishmentId, documentTypeId, enabled);
+      if (result && "error" in result) {
+        setUsedByAi(!enabled);
+        setError(result.error);
+      }
     });
   }
 
@@ -165,6 +181,20 @@ export function MissingDocumentJustification({
             "Enregistré automatiquement quand vous quittez le champ."
           )}
         </p>
+        {/* Oui ou non remis à l'IA (21/10/2026). Seulement quand un document est
+            déposé et le commentaire enregistré : sans eux, il n'y a rien à analyser. */}
+        {hasVersion && (missingJustification ?? "").trim().length > 0 && (
+          <label className="flex min-h-11 cursor-pointer items-center gap-2 text-sm text-ink">
+            <input
+              type="checkbox"
+              checked={usedByAi}
+              disabled={isPending}
+              onChange={(event) => handleAiToggle(event.target.checked)}
+              className="h-4 w-4 accent-current"
+            />
+            Pris en compte par l&apos;IA — s&apos;applique à la prochaine analyse (« Réanalyser »)
+          </label>
+        )}
       </div>
 
       {error && (

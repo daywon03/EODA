@@ -368,6 +368,38 @@ export async function updateMissingJustification(
   return null;
 }
 
+// « Pris en compte par l'IA » pour le commentaire de ce document (21/10/2026). Même
+// garde que l'écriture du commentaire : qui peut l'écrire peut décider s'il est remis
+// à l'analyse. S'applique à la PROCHAINE analyse (« Réanalyser »).
+export async function setDocumentCommentAiUse(
+  establishmentId: string,
+  documentTypeId: string,
+  enabled: boolean
+): Promise<{ error: string } | null> {
+  const access = await requireEstablishmentAccess(establishmentId, NEED.DOCUMENTS_WRITE);
+  if (!canDepositDocuments(access.missionAccess)) return { error: DEPOSIT_CLOSED_MESSAGE };
+
+  const document = await prisma.document.findUnique({
+    where: { establishmentId_documentTypeId: { establishmentId, documentTypeId } },
+    select: { id: true, commentUsedByAi: true, documentType: { select: { code: true } } },
+  });
+  if (!document) return { error: "Aucun commentaire sur ce document." };
+  const value = enabled === true;
+  if (document.commentUsedByAi === value) return null;
+
+  await prisma.document.update({ where: { id: document.id }, data: { commentUsedByAi: value } });
+  await recordAuditEvent({
+    action: "DOCUMENT_COMMENT_AI_TOGGLED",
+    actorUserId: access.userId,
+    actorRole: access.session.user.role,
+    establishmentId,
+    targetId: documentTypeId,
+    detail: `${document.documentType?.code ?? "?"} · ${value ? "oui" : "non"}`,
+  });
+  revalidateDocumentViews(establishmentId);
+  return null;
+}
+
 // Résout une version de document en vérifiant l'habilitation sur SON établissement
 // (et non sur un identifiant fourni par l'appelant) — c'est ce qui empêche de
 // deviner un `documentVersionId` appartenant à un autre établissement.

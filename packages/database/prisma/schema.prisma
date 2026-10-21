@@ -802,6 +802,10 @@ model Document {
   // Réponse Oui/Non + commentaire libre quand le document n'est pas encore déposé —
   // utilisable comme élément de preuve pour la cotation (Module 3). cf. plan Phase 0.
   missingJustification   String?        @map("missing_justification")
+  // Ce commentaire est-il remis à l'IA (analyse et mise en conformité) ? Demande de
+  // Damon du 21/10/2026 : « pouvoir oui ou non le faire prendre en compte ». Oui par
+  // défaut ; la bascule se journalise (DOCUMENT_COMMENT_AI_TOGGLED).
+  commentUsedByAi        Boolean        @default(true) @map("comment_used_by_ai")
 
   // VALIDATION — dernière étape du parcours documentaire décrit par Sandrine le
   // 26/08 : déposé → analysé → mis en conformité → restitué → VALIDÉ.
@@ -1755,6 +1759,9 @@ enum AuditAction {
   // Guideline mise en service ou retirée de l'analyse IA (call du 18/10/2026).
   // `targetId` = identifiant de la guideline ; `detail` = « oui » / « non ».
   CRITERION_GUIDELINE_AI_TOGGLED
+  // « Commentaire sur ce document » remis ou retiré de l'IA (21/10/2026). `targetId` =
+  // type de document, `detail` = « oui » / « non », jamais le commentaire.
+  DOCUMENT_COMMENT_AI_TOGGLED
   // Ré-analyse à la demande d'une version déjà déposée (bouton « Analyser » côté
   // cabinet, 15/09/2026) — `targetId` = identifiant de la version de document.
   DOCUMENT_REANALYZED

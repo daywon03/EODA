@@ -10,7 +10,7 @@ import type { LLMAnalysisPort } from "@/lib/llm";
 // action serveur) peut vérifier cette propriété — cf. revue de la tâche D4.
 
 const prismaMock = {
-  document: { upsert: vi.fn(), update: vi.fn() },
+  document: { upsert: vi.fn(), update: vi.fn(), findUnique: vi.fn() },
   documentVersion: { create: vi.fn(), update: vi.fn() },
   documentVersionImage: { create: vi.fn(), findMany: vi.fn() },
   // Lues par l'analyse (analyzeVersion) — cf. le second describe, qui porte sur la
@@ -321,6 +321,17 @@ describe("ingestDocumentVersion — commentaires du cabinet", () => {
       where: { documentId: "doc-1", status: { not: "REJECTED" } },
       select: { criterionId: true },
     });
+  });
+
+  it("« Commentaire sur ce document » : remis au port quand il est pris en compte, sinon non", async () => {
+    const { llm, analyze } = arm();
+    prismaMock.document.findUnique.mockResolvedValueOnce({ missingJustification: " Autre forme = enquête ", commentUsedByAi: true });
+    await ingestDocumentVersion(baseInput({ extractedText: "Contenu." }), { storage: fakeStorage(), llm });
+    expect(analyze).toHaveBeenLastCalledWith(expect.objectContaining({ documentComment: "Autre forme = enquête" }));
+
+    prismaMock.document.findUnique.mockResolvedValueOnce({ missingJustification: "Autre forme = enquête", commentUsedByAi: false });
+    await ingestDocumentVersion(baseInput({ extractedText: "Contenu." }), { storage: fakeStorage(), llm });
+    expect(analyze.mock.calls.at(-1)?.[0]).not.toHaveProperty("documentComment");
   });
 
   it("ne lit que les commentaires pris en compte par l'IA, et les remet au port", async () => {

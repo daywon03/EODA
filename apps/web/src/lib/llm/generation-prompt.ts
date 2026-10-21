@@ -1,4 +1,5 @@
 import type { DocumentGenerationInput } from "./llm-analysis-port";
+import { renderDocumentComment } from "./document-comment";
 import { MAX_DOCUMENT_CHARS, VALIDATED_EXAMPLES_RULE, renderValidatedExamples } from "./analysis-prompt";
 import { renderStyleGuide } from "@/content/regles-redaction";
 
@@ -97,7 +98,7 @@ export function buildGenerationUserMessage(input: DocumentGenerationInput): stri
 
   return `Type de document : ${input.documentTypeLabel}
 Critères HAS rattachés à ce type de document : ${criteria}
-${truncated ? "\n⚠️ Document original tronqué : seul son début est fourni. Ne réécris pas de mémoire la partie non transmise.\n" : ""}${knowledge}${guidelines}${renderValidatedExamples(input.validatedExamples)}
+${truncated ? "\n⚠️ Document original tronqué : seul son début est fourni. Ne réécris pas de mémoire la partie non transmise.\n" : ""}${knowledge}${guidelines}${renderDocumentComment(input.documentComment)}${renderValidatedExamples(input.validatedExamples)}
 Éléments manquants relevés par l'analyse, à proposer comme ajouts :
 ${missing}
 ${suggestions}

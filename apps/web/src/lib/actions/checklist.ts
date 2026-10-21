@@ -53,6 +53,8 @@ export type ChecklistItem = {
   status: DocumentStatus;
   documentId: string | null;
   missingJustification: string | null;
+  // Le commentaire est-il remis à l'IA (analyse, mise en conformité) ?
+  commentUsedByAi: boolean;
   // « Je ne l'ai pas » (N3, missing-answer-service) : à produire, pas à déposer.
   declaredMissing: boolean;
   // Qui doit produire ce document encore manquant — pastilles cabinet « À rédiger ·
@@ -165,6 +167,7 @@ async function buildChecklist(
       status: true,
       statusOverriddenByUser: true,
       missingJustification: true,
+      commentUsedByAi: true,
       validatedAt: true,
       clientAcceptedAt: true,
       currentVersion: {
@@ -262,6 +265,7 @@ async function buildChecklist(
       status,
       documentId: doc?.id ?? null,
       missingJustification: doc?.missingJustification ?? null,
+      commentUsedByAi: doc?.commentUsedByAi ?? true,
       declaredMissing,
       missingOwner: deriveMissingOwner({
         status,

@@ -1,4 +1,5 @@
 import type { DocumentAnalysisInput, ValidatedExample } from "./llm-analysis-port";
+import { renderDocumentComment } from "./document-comment";
 
 // Construction du prompt d'analyse documentaire — partagée par tous les
 // adaptateurs LLM (Anthropic direct, OpenRouter) pour qu'ils analysent le même
@@ -185,7 +186,7 @@ export function buildUserMessage(input: DocumentAnalysisInput): string {
 
   return `Type de document attendu : ${input.documentTypeLabel}
 Critères HAS rattachés à ce type de document : ${criteria}
-${truncated ? "\n⚠️ Document tronqué : seul son début est fourni. Ne conclus pas à l'absence d'un élément qui pourrait figurer dans la partie non transmise — signale plutôt l'incertitude.\n" : ""}${origin}${additionalCatalog}${knowledge}${guidelines}${images}${renderValidatedExamples(input.validatedExamples)}
+${truncated ? "\n⚠️ Document tronqué : seul son début est fourni. Ne conclus pas à l'absence d'un élément qui pourrait figurer dans la partie non transmise — signale plutôt l'incertitude.\n" : ""}${origin}${additionalCatalog}${knowledge}${guidelines}${renderDocumentComment(input.documentComment)}${images}${renderValidatedExamples(input.validatedExamples)}
 <document>
 ${text}
 </document>`;

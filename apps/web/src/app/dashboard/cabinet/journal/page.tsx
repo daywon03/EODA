@@ -86,6 +86,7 @@ const ACTION_LABELS: Record<AuditAction, string> = {
   DOCUMENT_TYPE_CORRECTION_ADDED: "Correction ajoutée sur un type de document (obsolète)",
   CRITERION_GUIDELINE_ADDED: "Guideline ajoutée sur un critère HAS",
   CRITERION_GUIDELINE_AI_TOGGLED: "Guideline prise en compte ou retirée de l'analyse IA",
+  DOCUMENT_COMMENT_AI_TOGGLED: "Commentaire d'un document remis ou retiré de l'analyse IA",
   DOCUMENT_REANALYZED: "Document réanalysé à la demande",
   CORRECTED_DRAFT_GENERATED: "Brouillon de document corrigé généré par l'IA",
   CORRECTED_DRAFT_EDITED: "Brouillon de document corrigé modifié",
