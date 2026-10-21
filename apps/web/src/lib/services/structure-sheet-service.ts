@@ -105,7 +105,13 @@ export function describeChapterMeasure(chapter: {
 
 // Documents loi 2002-2 : types DÉPOSÉS sur types attendus — pas des documents
 // conformes, et la note le dit.
-export function describeLoi2002Measure(items: readonly { currentVersion: unknown; step: string }[]): Measure {
+// Un document déclaré « Non concerné » (le CVS d'une structure qui n'en a pas, seule
+// exception de la loi 2002-2 — missing-answer-service) sort du total : la structure
+// n'a pas à le produire.
+export function describeLoi2002Measure(
+  allItems: readonly { currentVersion: unknown; step: string; status?: string }[]
+): Measure {
+  const items = allItems.filter((i) => i.status !== "NOT_APPLICABLE");
   const deposited = items.filter((i) => i.currentVersion !== null).length;
   const validated = items.filter((i) => i.step === "VALIDE").length;
   return {

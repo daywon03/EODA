@@ -13,6 +13,8 @@ import { clientWaitingLine } from "@/lib/services/client-document-waiting-servic
 import { canRenderDocumentPages } from "@/lib/services/file-type-service";
 import { StatusPill } from "@/components/ui/status-pill";
 import { DocumentAnalysisPanel } from "@/components/checklist/DocumentAnalysisPanel";
+import { ParticipationFormPicker } from "@/components/checklist/ParticipationFormPicker";
+import { PARTICIPATION_LINE_CODE } from "@/lib/services/participation-form-service";
 import { DocumentDownloadLink } from "@/components/checklist/DocumentDownloadLink";
 import { ClientDocumentActions } from "./ClientDocumentActions";
 
@@ -66,6 +68,14 @@ export function ClientDocumentCard({
               de santé nominative (HDS). Dit à l'écran, pas seulement au dépôt. */}
           {notice && state === "TO_DEPOSIT" && <p className="text-base text-ink2">{notice}</p>}
           {waiting && <p className="text-base text-ink2">{waiting}</p>}
+          {/* Ligne « Autre forme de participation » : la structure dit laquelle (21/10/2026). */}
+          {item.code === PARTICIPATION_LINE_CODE && canAct && (
+            <ParticipationFormPicker
+              establishmentId={establishmentId}
+              form={item.participationForm}
+              otherLabel={item.participationOtherLabel}
+            />
+          )}
           {/* Ce qu'on ouvre est DIT, pas seulement cliquable : « votre dépôt » et
               « document produit par EODA » ne sont pas la même chose juridiquement
               (CLAUDE.md §7, deux mentions jamais interchangeables). */}
@@ -107,6 +117,7 @@ export function ClientDocumentCard({
             documentTypeId={item.documentTypeId}
             label={item.label}
             category={item.category}
+            code={item.code}
             state={state}
             depositNotice={notice}
           />

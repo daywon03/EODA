@@ -131,7 +131,22 @@ export function flattenChecklist<T extends DocumentFacts>(
 
 // ── Paramètres d'adresse (entrées non fiables) ───────────────────────────────
 
-export type DocumentFilters = { bucket: DocumentBucket; query: string; category: DocumentCategory | null };
+// Tri (21/10/2026, « trier par ordre alphabétique pour faciliter la recherche ») :
+// absent = l'ordre de la checklist ; « nom » = alphabétique, sans tenir compte des
+// accents ni des majuscules.
+export type DocumentSort = "nom";
+
+export type DocumentFilters = {
+  bucket: DocumentBucket;
+  query: string;
+  category: DocumentCategory | null;
+  sort?: DocumentSort | null;
+};
+
+export function sortDocumentRows<T extends { label: string }>(rows: readonly T[], sort: DocumentSort | null | undefined): T[] {
+  if (sort !== "nom") return [...rows];
+  return [...rows].sort((a, b) => a.label.localeCompare(b.label, "fr", { sensitivity: "base" }));
+}
 
 const MAX_QUERY_LENGTH = 100;
 
@@ -143,10 +158,12 @@ export function parseDocumentFilters(params: {
   tab?: string | string[];
   q?: string | string[];
   cat?: string | string[];
+  tri?: string | string[];
 }): DocumentFilters {
   const tab = single(params.tab);
   const cat = single(params.cat);
   return {
+    ...(single(params.tri) === "nom" && { sort: "nom" as const }),
     bucket: (DOCUMENT_BUCKETS as readonly string[]).includes(tab ?? "") ? (tab as DocumentBucket) : "todo",
     query: (single(params.q) ?? "").trim().slice(0, MAX_QUERY_LENGTH),
     // `Object.hasOwn` et non `in` : « toString » est « dans » tout objet.
@@ -185,6 +202,7 @@ export function documentsHref(
   const params = new URLSearchParams();
   if (filters.bucket && filters.bucket !== "todo") params.set("tab", filters.bucket);
   if (filters.query) params.set("q", filters.query);
+  if (filters.sort === "nom") params.set("tri", "nom");
   if (filters.category) params.set("cat", filters.category);
   if (filters.doc) params.set("doc", filters.doc);
   const query = params.toString();

@@ -18,6 +18,7 @@ export function ClientDocumentActions({
   documentTypeId,
   label,
   category,
+  code,
   state,
   depositNotice,
 }: {
@@ -25,6 +26,8 @@ export function ClientDocumentActions({
   documentTypeId: string;
   label: string;
   category: DocumentCategory;
+  // Code du type : porte l'exception du CVS au « Non concerné » (missing-answer-service).
+  code: string;
   state: ClientDocumentState;
   depositNotice: string | null;
 }) {
@@ -81,7 +84,7 @@ export function ClientDocumentActions({
             <span className="sr-only"> : {label}</span>
           </button>
           {/* Jamais sur les sept documents de la loi 2002-2 (N3). */}
-          {canAnswerNotConcerned(category) && (
+          {canAnswerNotConcerned(category, code) && (
             <button
               type="button"
               disabled={isPending}

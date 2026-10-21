@@ -60,6 +60,7 @@ vérifie** — sinon elle n'existe pas.
 | Toute fonction qui embarque Chromium embarque son binaire | `pnpm check:chromium` après le build lit les `*.nft.json` et **sort en code 1** si une fonction contient le code de `@sparticuz/chromium` sans `bin/chromium.br` / `al2023.tar.br` (le paquet situe son binaire à l'exécution : le traçage ne le voit pas — l'aperçu des documents répondait **503** en production, 21/10/2026), ou si **aucune** fonction n'est concernée. Réglage : `outputFileTracingIncludes` de `next.config.ts`. Corollaire : le cache du rendu vit dans `document-pdf-cache.ts`, qui n'importe pas Chromium — la suppression d'une version le chargeait dans seize pages | `apps/web/scripts/check-chromium-trace.mjs` + CI |
 | Un envoi « non configuré » n'est jamais compté comme parti | décompte par `countDeliveries` dans toute la couche d'envoi — aucun comptage brut de promesses tenues (il annonçait « Client prévenu (2 personnes) » pour zéro e-mail) | `lib/email/notifications.test.ts` |
 | L'attribut `hidden` masque réellement, même sous une classe d'affichage | `globals.css` porte `[hidden]:where(:not([hidden="until-found"])){display:none !important}` — le préflight de Tailwind, sans `!important`, a la même spécificité que `.flex` (0,1,0) et vient plus tôt : `.flex` gagnait, et le repli du groupe « Réglages » de la barre latérale cabinet restait décoratif (16/10/2026) | `lib/design/hidden-attribute.test.ts` — **échoue** si le `!important` (ou l'exception `until-found`) disparaît de `globals.css` |
+| CVS « Non concerné » seulement avec une autre forme de participation, jamais fusionné avec l'enquête | refus serveur sans forme choisie ; la forme s'écrit sur la ligne « Autre forme de participation » seule ; un document NA sort des preuves attendues sans remplacement | `lib/services/participation-form-service.test.ts`, `missing-answer-service.test.ts`, `criteria-proof-service.test.ts`, `lib/actions/document.test.ts` |
 | Le pool de connexions est borné, et le mode session du pooler est NOMMÉ | `resolveRuntimeDatabaseUrl` (paquet `@eoda/database`) pose `connection_limit=1` sur l'URL runtime **avant** la construction du client ; sans lui, Prisma ouvre `nb_cpu_physiques × 2 + 1` connexions par processus (21 sur le poste à 10 cœurs) contre **15 créneaux** en mode session, sur une base que le poste partage avec la production — incident du 16/10/2026 (`EMAXCONNSESSION`) ; `connectionPoolWarning` nomme le remède au démarrage au lieu de refuser de servir | `lib/db/database-url.test.ts` — dont le garde qui **échoue** si `packages/database/src/index.ts` cesse de passer l'URL résolue au client |
 
 **Dette acceptée, à réexaminer après le 22/09/2026** : `.npmrc` porte `node-linker=hoisted`,
@@ -660,7 +661,15 @@ Détail complet et état d'avancement : `specs/02-architecture-technique.md` §4
   `statusOverriddenByUser` sur un MISSING, aucun nouvel état), il quitte les relances et
   entre dans la liste de travail dérivée ; « non concerné » est refusé côté serveur sur
   les sept documents de la loi 2002-2, et un ancien « Non » sur ceux-ci se relit comme
-  « Je ne l'ai pas » sans réécrire la base. Ne jamais « rétablir » la
+  « Je ne l'ai pas » sans réécrire la base. **Seule exception (21/10/2026) : le compte-rendu
+  CVS** (`NOT_CONCERNED_LOI_2002_2_EXCEPTIONS`), et **seulement une fois la forme de
+  participation choisie** sur la ligne distincte « Autre forme de participation des
+  usagers » (`QUALITE_ENQUETE_QUESTIONNAIRE` : enquête de satisfaction, groupe de parole,
+  autre + précision — `Document.participationForm`, `participation-form-service.ts`). Ce
+  n'est **pas une équivalence** CVS = enquête : c'est la démarche de la structure. Les deux
+  livrables restent distincts dans le modèle ; un CVS « Non concerné » sort de ses preuves
+  attendues (`applicableExpectedIds`) et du compte loi 2002-2, **sans** report de ses
+  critères sur l'enquête. Ne jamais « rétablir » la
   liste complète côté client : demander les 29 à une structure qui fait appel à EODA
   parce qu'elle ne les a pas, c'est lui remettre le travail qu'elle a acheté. La
   liste exacte est modifiable par `CABINET_ADMIN` depuis la fiche client (elle

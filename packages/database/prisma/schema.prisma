@@ -806,6 +806,13 @@ model Document {
   // Damon du 21/10/2026 : « pouvoir oui ou non le faire prendre en compte ». Oui par
   // défaut ; la bascule se journalise (DOCUMENT_COMMENT_AI_TOGGLED).
   commentUsedByAi        Boolean        @default(true) @map("comment_used_by_ai")
+  // FORME de participation des usagers retenue par la structure (21/10/2026), sur la
+  // seule ligne « Autre forme de participation des usagers » (QUALITE_ENQUETE_QUESTIONNAIRE).
+  // Un fait de la structure, pas un second type de document : le CVS et l'autre forme
+  // restent deux livrables distincts. `participationOtherLabel` : libellé libre, exigé
+  // pour AUTRE seulement (participation-form-service).
+  participationForm       ParticipationForm? @map("participation_form")
+  participationOtherLabel String?            @map("participation_other_label")
 
   // CONSIGNE DE LA CONSULTANTE POUR L'ANALYSE (20/10/2026, demande de Damon :
   // « on peut lui donner des précisions pour l'analyse sur le document »).
@@ -1789,6 +1796,9 @@ enum AuditAction {
   // « Commentaire sur ce document » remis ou retiré de l'IA (21/10/2026). `targetId` =
   // type de document, `detail` = « oui » / « non », jamais le commentaire.
   DOCUMENT_COMMENT_AI_TOGGLED
+  // Forme de participation des usagers choisie ou changée (21/10/2026). `targetId` =
+  // type de document, `detail` = la forme (code), jamais le libellé libre.
+  PARTICIPATION_FORM_SET
   // Ré-analyse à la demande d'une version déjà déposée (bouton « Analyser » côté
   // cabinet, 15/09/2026) — `targetId` = identifiant de la version de document.
   DOCUMENT_REANALYZED
@@ -2763,6 +2773,15 @@ model SurveyAnswer {
 // `anonymous-survey-schema.test.ts`, qui échoue si un champ de ce genre apparaît.
 // L'enquête NOMINATIVE (`SurveyResponse`) reste derrière le port HDS.
 // ─────────────────────────────────────────────────────────────────────────────
+
+// Forme de participation des usagers d'une structure sans CVS (loi 2002-2 : « un CVS ou
+// une autre forme de participation »), choisie sur sa ligne « Autre forme de
+// participation des usagers » (21/10/2026).
+enum ParticipationForm {
+  ENQUETE_SATISFACTION
+  GROUPE_PAROLE
+  AUTRE
+}
 
 enum AnonymousSurveyChannel {
   // Remplie sur la tablette enregistrée, avec un intervenant (mode assisté ou seul).

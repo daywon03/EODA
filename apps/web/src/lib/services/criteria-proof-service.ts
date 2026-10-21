@@ -1,6 +1,7 @@
 import type { SupportMode } from "@eoda/database";
 import type { PillSpec } from "@/lib/design/status-vocabulary";
 import { isValidationCurrent } from "./document-workflow-service";
+import { compareCriterionCodes } from "./criterion-picker-service";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CRITÈRES & PREUVES — un critère est-il prouvé par les documents de la structure ?
@@ -34,7 +35,20 @@ export type ProofDocumentFacts = {
   clientAcceptedAt: Date | null;
   // Version courante déposée par EODA (et non par la structure) — cf. isValidationCurrent.
   versionByCabinet?: boolean;
+  // Déclaré « Non concerné » par la structure (21/10/2026 : le CVS d'une structure
+  // qui n'en a pas). Le document SORT de ses preuves attendues — il n'est remplacé par
+  // rien : la démarche « autre forme de participation » a ses propres critères.
+  notApplicable?: boolean;
 };
+
+// Les preuves attendues POUR CETTE STRUCTURE : celles de la matrice, moins les
+// documents qu'elle a déclarés « Non concerné ».
+export function applicableExpectedIds(
+  expectedDocumentTypeIds: readonly string[],
+  documentsByType: ReadonlyMap<string, ProofDocumentFacts>
+): string[] {
+  return [...new Set(expectedDocumentTypeIds)].filter((id) => documentsByType.get(id)?.notApplicable !== true);
+}
 
 export function isDocumentDeposited(doc: ProofDocumentFacts): boolean {
   return doc.versionUploadedAt !== null;
@@ -67,7 +81,7 @@ export function deriveCriterionProof(
   documentsByType: ReadonlyMap<string, ProofDocumentFacts>,
   mode: SupportMode
 ): CriterionProof {
-  const expectedIds = [...new Set(expectedDocumentTypeIds)];
+  const expectedIds = applicableExpectedIds(expectedDocumentTypeIds, documentsByType);
   const docs = expectedIds.flatMap((id) => {
     const doc = documentsByType.get(id);
     return doc ? [doc] : [];
@@ -98,15 +112,9 @@ export type CriterionProofSource = {
 export type CriterionProofRow = CriterionProofSource & CriterionProof;
 
 // « 1.10.2 » avant « 1.2.1 » serait l'ordre alphabétique : on compare nombre à nombre.
-export function compareCriterionCodes(a: string, b: string): number {
-  const pa = a.split(".").map(Number);
-  const pb = b.split(".").map(Number);
-  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
-    const diff = (pa[i] ?? 0) - (pb[i] ?? 0);
-    if (diff !== 0) return diff;
-  }
-  return 0;
-}
+// UNE implémentation (criterion-picker-service), réexportée ici pour les appelants
+// existants — la fusion du 21/10/2026 en avait laissé deux.
+export { compareCriterionCodes } from "./criterion-picker-service";
 
 export function buildCriteriaProofRows(
   criteria: readonly CriterionProofSource[],
@@ -152,7 +160,7 @@ export function describeEvidence(
   mode: SupportMode
 ): EvidenceItem[] {
   const order: Record<EvidenceState, number> = { A_RELIRE: 0, ABSENTE: 1, PROUVEE: 2 };
-  return [...new Set(expectedDocumentTypeIds)]
+  return applicableExpectedIds(expectedDocumentTypeIds, documentsByType)
     .map((documentTypeId): EvidenceItem => {
       const doc = documentsByType.get(documentTypeId);
       const state: EvidenceState = !doc || !isDocumentDeposited(doc) ? "ABSENTE" : isDocumentProven(doc, mode) ? "PROUVEE" : "A_RELIRE";

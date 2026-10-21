@@ -13,6 +13,8 @@ type Props = {
   documentTypeId: string;
   status: DocumentStatus;
   category: DocumentCategory;
+  // Code du type : porte l'exception du CVS au « Non concerné » (missing-answer-service).
+  code: string;
   // « Je ne l'ai pas » déjà répondu (missing-answer-service).
   declaredMissing: boolean;
   missingJustification: string | null;
@@ -48,6 +50,7 @@ export function MissingDocumentJustification({
   documentTypeId,
   status,
   category,
+  code,
   declaredMissing,
   missingJustification,
   commentUsedByAi = true,
@@ -124,7 +127,7 @@ export function MissingDocumentJustification({
             />
             {/* Jamais proposé sur les sept documents de la loi 2002-2 — le serveur
                 le refuse de toute façon (missing-answer-service). */}
-            {canAnswerNotConcerned(category) && (
+            {canAnswerNotConcerned(category, code) && (
               <ChoiceButton
                 selected={notApplicable}
                 disabled={isPending}

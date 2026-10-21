@@ -47,6 +47,13 @@ import {
 import { getFileStoragePort } from "@/lib/storage";
 import { getLLMAnalysisPort, isKnownLlmModelId } from "@/lib/llm";
 import { validateGuidelineNote } from "@/lib/services/criterion-guideline-service";
+import { compareCriterionCodes } from "@/lib/services/criterion-picker-service";
+import {
+  CVS_CODE,
+  PARTICIPATION_LINE_CODE,
+  cvsNotConcernedError,
+  parseParticipationForm,
+} from "@/lib/services/participation-form-service";
 import type { PickerCriterion } from "@/lib/services/criterion-picker-service";
 import { buildFilePreview } from "@/lib/services/file-preview-service";
 import type { FilePreviewData } from "@/lib/services/file-preview-types";
@@ -280,8 +287,19 @@ export async function respondToMissingDocument(
     return { error: OUT_OF_OFFER_ERROR };
   }
 
-  const refusal = missingAnswerError(answer, documentType.category);
+  const refusal = missingAnswerError(answer, documentType.category, documentType.code);
   if (refusal) return { error: refusal };
+
+  // CVS « Non concerné » : seulement une fois l'autre forme de participation choisie
+  // (participation-form-service) — lue sur le document de SA ligne, pour CETTE structure.
+  if (answer === "NOT_CONCERNED" && documentType.code === CVS_CODE) {
+    const participation = await prisma.document.findFirst({
+      where: { establishmentId, documentType: { code: PARTICIPATION_LINE_CODE } },
+      select: { participationForm: true },
+    });
+    const cvsRefusal = cvsNotConcernedError(documentType.code, participation?.participationForm ?? null);
+    if (cvsRefusal) return { error: cvsRefusal };
+  }
 
   const trimmedComment = comment?.trim().slice(0, MAX_JUSTIFICATION_LENGTH) || null;
   const { status, statusOverriddenByUser } = missingAnswerWrite(answer);
@@ -323,6 +341,57 @@ export async function respondToMissingDocument(
     });
   }
 
+  return null;
+}
+
+// ── Forme de participation des usagers (21/10/2026) ──────────────────────────
+// Choisie sur la ligne « Autre forme de participation des usagers » par la structure
+// ou par le cabinet (c'est la démarche de la structure ; le cabinet peut la corriger).
+// Même garde que l'écriture d'un commentaire. Crée la ligne si elle n'existe pas encore
+// (statut « à déposer » : choisir une forme ne vaut pas dépôt). Le libellé libre n'est
+// jamais recopié dans le journal.
+export async function setParticipationForm(
+  establishmentId: string,
+  rawForm: string,
+  rawOtherLabel: string | null
+): Promise<{ error: string } | null> {
+  const access = await requireEstablishmentAccess(establishmentId, NEED.DOCUMENTS_WRITE);
+  if (!canDepositDocuments(access.missionAccess)) return { error: DEPOSIT_CLOSED_MESSAGE };
+
+  const parsed = parseParticipationForm(rawForm, rawOtherLabel);
+  if (!parsed.ok) return { error: parsed.error };
+
+  const documentType = await prisma.documentType.findUnique({
+    where: { code: PARTICIPATION_LINE_CODE },
+    select: { id: true, category: true },
+  });
+  if (!documentType) return { error: "La ligne « Autre forme de participation » n'existe pas dans le référentiel." };
+  if (!(await isCategoryCoveredForEstablishment(establishmentId, documentType.category))) {
+    return { error: OUT_OF_OFFER_ERROR };
+  }
+
+  await prisma.document.upsert({
+    where: { establishmentId_documentTypeId: { establishmentId, documentTypeId: documentType.id } },
+    update: { participationForm: parsed.form, participationOtherLabel: parsed.otherLabel },
+    create: {
+      establishmentId,
+      documentTypeId: documentType.id,
+      status: "MISSING",
+      participationForm: parsed.form,
+      participationOtherLabel: parsed.otherLabel,
+    },
+  });
+
+  await recordAuditEvent({
+    action: "PARTICIPATION_FORM_SET",
+    actorUserId: access.userId,
+    actorRole: access.session.user.role,
+    establishmentId,
+    targetId: documentType.id,
+    detail: parsed.form,
+  });
+
+  revalidateDocumentViews(establishmentId);
   return null;
 }
 
@@ -1061,7 +1130,9 @@ export async function listCriteriaForPicker(): Promise<CriterionOption[] | null>
     },
   });
 
-  return criteria.map((criterion) => ({
+  // Ordre NUMÉRIQUE (1.2 avant 1.10) — la base trie les codes comme du texte
+  // (21/10/2026 : « mets les critères dans le bon ordre, du plus petit au plus grand »).
+  return [...criteria].sort((a, b) => compareCriterionCodes(a.code, b.code)).map((criterion) => ({
     id: criterion.id,
     code: criterion.code,
     label: criterion.label,
@@ -1073,31 +1144,48 @@ export async function listCriteriaForPicker(): Promise<CriterionOption[] | null>
   }));
 }
 
-export async function addCriterionGuideline(
-  criterionId: string,
+// Une guideline sur PLUSIEURS critères en un seul enregistrement (21/10/2026 : « pouvoir
+// en sélectionner plusieurs et appuyer sur Enregistrer avant de lancer l'analyse »). Une
+// ligne par critère — la guideline reste ancrée au critère (CriterionGuideline) — dans
+// UNE transaction : tout ou rien. Les identifiants reçus sont relus en base.
+const MAX_GUIDELINE_CRITERIA = 40;
+
+export async function addCriterionGuidelines(
+  criterionIds: string[],
   note: string,
   aiEnabled = true
-): Promise<{ error: string } | null> {
+): Promise<{ error: string } | { saved: number }> {
   const validated = validateGuidelineNote(note);
   if (!validated.ok) return { error: validated.error };
 
   const { tenantId, userId, session } = await requireCabinetSession("STRUCTURES_WRITE");
 
-  const criterion = await prisma.criterion.findUnique({ where: { id: criterionId }, select: { id: true } });
-  if (!criterion) return { error: "Critère invalide." };
+  const unique = [...new Set(Array.isArray(criterionIds) ? criterionIds.filter((id) => typeof id === "string") : [])];
+  if (unique.length === 0) return { error: "Cochez au moins un critère." };
+  if (unique.length > MAX_GUIDELINE_CRITERIA) return { error: `Au plus ${MAX_GUIDELINE_CRITERIA} critères à la fois.` };
 
-  await prisma.criterionGuideline.create({
-    data: { tenantId, criterionId, note: validated.value, aiEnabled: aiEnabled === true, createdByUserId: userId },
+  const criteria = await prisma.criterion.findMany({ where: { id: { in: unique } }, select: { id: true, code: true } });
+  if (criteria.length !== unique.length) return { error: "Un critère coché n'existe pas dans le référentiel." };
+
+  await prisma.criterionGuideline.createMany({
+    data: criteria.map((criterion) => ({
+      tenantId,
+      criterionId: criterion.id,
+      note: validated.value,
+      aiEnabled: aiEnabled === true,
+      createdByUserId: userId,
+    })),
   });
 
-  await recordAuditEvent({
-    action: "CRITERION_GUIDELINE_ADDED",
-    actorUserId: userId,
-    actorRole: session.user.role,
-    targetId: criterionId,
-  });
-
-  return null;
+  for (const criterion of criteria) {
+    await recordAuditEvent({
+      action: "CRITERION_GUIDELINE_ADDED",
+      actorUserId: userId,
+      actorRole: session.user.role,
+      targetId: criterion.id,
+    });
+  }
+  return { saved: criteria.length };
 }
 
 export async function listCriterionGuidelines(

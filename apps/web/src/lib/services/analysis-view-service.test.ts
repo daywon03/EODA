@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  splitCriteriaCoverage,
   analysisVisibleTo,
   describeAnalysis,
   describeReviewMention,
@@ -176,5 +177,18 @@ describe("isAnalysisAwaitingReview", () => {
     expect(isAnalysisAwaitingReview({ analysis: COMPLETE, reviewedAt: null })).toBe(true);
     expect(isAnalysisAwaitingReview({ analysis: null, reviewedAt: null })).toBe(false);
     expect(isAnalysisAwaitingReview({ analysis: COMPLETE, reviewedAt: new Date() })).toBe(false);
+  });
+});
+
+describe("splitCriteriaCoverage — détectés / attendus absents (21/10/2026)", () => {
+  it("sépare les deux listes, chacune dans l'ordre numérique", () => {
+    const { detected, missing } = splitCriteriaCoverage([
+      { criterionCode: "1.10.1", status: "absent" as const },
+      { criterionCode: "1.2.3", status: "partiel" as const },
+      { criterionCode: "1.2.1", status: "couvert" as const },
+      { criterionCode: "1.9.2", status: "absent" as const },
+    ]);
+    expect(detected.map((c) => c.criterionCode)).toEqual(["1.2.1", "1.2.3"]);
+    expect(missing.map((c) => c.criterionCode)).toEqual(["1.9.2", "1.10.1"]);
   });
 });

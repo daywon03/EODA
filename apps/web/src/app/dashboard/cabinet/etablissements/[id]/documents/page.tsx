@@ -17,6 +17,7 @@ import {
   flattenChecklist,
   parseDocumentFilters,
   rowsInBucket,
+  sortDocumentRows,
   type DocumentRow,
 } from "@/lib/services/structure-documents-service";
 import { structureHref } from "@/lib/design/structure-tabs";
@@ -35,7 +36,13 @@ export const metadata = { title: "Documents" };
 
 type Props = {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ tab?: string | string[]; q?: string | string[]; cat?: string | string[]; doc?: string | string[] }>;
+  searchParams: Promise<{
+    tab?: string | string[];
+    q?: string | string[];
+    cat?: string | string[];
+    tri?: string | string[];
+    doc?: string | string[];
+  }>;
 };
 
 type Row = DocumentRow<ChecklistItem>;
@@ -88,7 +95,7 @@ export default async function StructureDocumentsPage({ params, searchParams }: P
   const allRows = flattenChecklist(checklist);
   const searched = filterDocumentRows(allRows, filters);
   const counts = countDocumentBuckets(searched);
-  const rows = rowsInBucket(searched, filters.bucket);
+  const rows = sortDocumentRows(rowsInBucket(searched, filters.bucket), filters.sort);
 
   // Le panneau : cherché dans la checklist de CETTE structure, déjà bornée au tenant.
   const docParam = Array.isArray(raw.doc) ? raw.doc[0] : raw.doc;
@@ -157,6 +164,13 @@ export default async function StructureDocumentsPage({ params, searchParams }: P
                   {DOCUMENT_CATEGORY_LABELS[category]}
                 </option>
               ))}
+            </Select>
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="text-sm font-bold text-ink">Trier</span>
+            <Select name="tri" defaultValue={filters.sort ?? ""} className="w-48">
+              <option value="">Par état (défaut)</option>
+              <option value="nom">Par nom, de A à Z</option>
             </Select>
           </label>
           <Button type="submit" variant="outline">

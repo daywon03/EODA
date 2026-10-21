@@ -127,19 +127,27 @@ describe("seed — types de document du référentiel du pilote", () => {
   const sql = migrationSql("20261014120000_pilot_document_types");
   const inserted = insertedDocumentTypesIn(sql);
 
-  // 20261021090000 renomme quatre gabarits (« modèle vierge » → « … personnalisé ») :
-  // le seed reflète l'état APRÈS les deux migrations, rejouées ici.
+  // Les migrations postérieures RENOMMENT des libellés : le seed reflète l'état APRÈS
+  // elles, rejouées ici.
+  //   - 20261021090000 : quatre gabarits « modèle vierge » → « … personnalisé » ;
+  //   - 20261021130000 : le questionnaire d'enquête → « Autre forme de participation
+  //     des usagers — Enquête de satisfaction ».
   const renameSql = migrationSql("20261021090000_blank_model_personalized_labels");
   const renamedCodes = new Set([...renameSql.matchAll(/'([A-Z0-9_]+)'/g)].map((m) => m[1]!));
+  const relabelSql = migrationSql("20261021130000_participation_survey_label");
+  const relabels = new Map(
+    [...relabelSql.matchAll(/SET "label" = '((?:[^']|'')*)'\s+WHERE "code" = '([A-Z0-9_]+)'/g)].map((m) => [m[2]!, m[1]!.replace(/''/g, "'")])
+  );
 
   it("reprend exactement les 19 types insérés par 20261014120000, libellés renommés le 21/10 compris", () => {
     expect(inserted).toHaveLength(19);
     expect(renamedCodes.size).toBe(4);
+    expect(relabels.size).toBe(1);
     expect(PILOT_DOCUMENT_TYPES.map(({ code, category, label }) => ({ code, category, label }))).toEqual(
       inserted.map(({ code, category, label }) => ({
         code,
         category,
-        label: code && renamedCodes.has(code) ? `${label} personnalisé` : label,
+        label: (code && relabels.get(code)) ?? (code && renamedCodes.has(code) ? `${label} personnalisé` : label),
       }))
     );
   });

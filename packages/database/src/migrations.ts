@@ -105,4 +105,6 @@ export const EXPECTED_MIGRATIONS: readonly string[] = [
   "20261021100000_criterion_guideline_ai_enabled",
   "20261021110000_anonymous_survey",
   "20261021120000_document_comment_used_by_ai",
+  "20261021130000_participation_survey_label",
+  "20261021140000_participation_form",
 ] as const;

@@ -372,13 +372,17 @@ export function groupClientDocuments<T extends ClientDocumentRow>(
   rows: readonly T[],
   filter: ClientDocumentFilter | null,
   mode: SupportMode,
-  options: { group?: ClientGroupFilter | null; query?: string } = {}
+  // `sort: "nom"` (21/10/2026) : alphabétique dans chaque rubrique, au lieu de l'ordre
+  // « ce qui demande un geste d'abord ».
+  options: { group?: ClientGroupFilter | null; query?: string; sort?: "nom" | null } = {}
 ): ClientDocumentGroup<T>[] {
   const query = options.query ?? "";
   const visible = rows.filter(
     (row) => (filter === null || clientFilterOf(row.state) === filter) && matchesClientSearch(row, query)
   );
-  const sorted = [...visible].sort(byPriority);
+  const sorted = [...visible].sort(
+    options.sort === "nom" ? (a, b) => a.label.localeCompare(b.label, "fr", { sensitivity: "base" }) : byPriority
+  );
   const { groups, unranked } = groupDocumentTypes(sorted);
 
   const ranked: ClientDocumentGroup<T>[] = groups
@@ -470,6 +474,15 @@ export const DIPC_CODE = "L2002_DIPC";
 export const DIPC_BLANK_MODEL_NOTICE =
   "Déposez le modèle vierge personnalisé du DIPC, sans nom ni signature. N'envoyez jamais un DIPC signé par une personne accompagnée.";
 
+// La ligne « Autre forme de participation des usagers » (21/10/2026) ne dit plus
+// « questionnaire vierge » : la règle HDS se dit donc au dépôt — la démarche, jamais
+// les réponses d'une personne.
+export const PARTICIPATION_SURVEY_CODE = "QUALITE_ENQUETE_QUESTIONNAIRE";
+export const PARTICIPATION_SURVEY_NOTICE =
+  "Déposez votre démarche : le questionnaire de l'enquête et les affiches d'information. Jamais les réponses d'une personne (aucun nom, aucune information de santé).";
+
 export function depositNoticeFor(code: string): string | null {
-  return code === DIPC_CODE ? DIPC_BLANK_MODEL_NOTICE : null;
+  if (code === DIPC_CODE) return DIPC_BLANK_MODEL_NOTICE;
+  if (code === PARTICIPATION_SURVEY_CODE) return PARTICIPATION_SURVEY_NOTICE;
+  return null;
 }

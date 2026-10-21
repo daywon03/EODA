@@ -194,5 +194,12 @@ describe("cadres de mesure", () => {
       ])
     ).toEqual({ label: "Documents loi 2002-2", value: "2 / 4", percent: 50, note: "Déposés · 1 validé par EODA" });
     expect(describeLoi2002Measure([]).percent).toBe(0);
+    // Le CVS « Non concerné » (structure sans CVS, 21/10/2026) sort du total.
+    expect(
+      describeLoi2002Measure([
+        { currentVersion: {}, step: "VALIDE", status: "VALIDATED" },
+        { currentVersion: null, step: "ATTENDU", status: "NOT_APPLICABLE" },
+      ]).value
+    ).toBe("1 / 1");
   });
 });

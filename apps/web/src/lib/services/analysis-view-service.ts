@@ -1,5 +1,6 @@
 import type { SupportMode } from "@eoda/database";
 import type { DocumentAnalysisResult } from "@/lib/llm";
+import { compareCriterionCodes } from "./criterion-picker-service";
 import {
   normalizeFindings,
   normalizeCriteriaCoverage,
@@ -161,3 +162,17 @@ export function describeAnalysis(summary: AnalysisSummary): string {
 // Mention de relecture : déplacée dans review-mention-service, service UNIQUE des
 // mentions (N1). Réexportée pour les appelants existants (file « À relire »).
 export { describeReviewMention } from "./review-mention-service";
+
+// ── Critères détectés / attendus absents (21/10/2026) ─────────────────────────
+// « Distinguer clairement les critères détectés dans le document de ceux attendus mais
+// absents. » Deux listes, chacune dans l'ordre NUMÉRIQUE du référentiel (1.2 avant
+// 1.10). « Partiel » est un critère détecté : le document en parle, imparfaitement.
+export function splitCriteriaCoverage<T extends { criterionCode: string; status: "couvert" | "partiel" | "absent" }>(
+  coverage: readonly T[]
+): { detected: T[]; missing: T[] } {
+  const sorted = [...coverage].sort((a, b) => compareCriterionCodes(a.criterionCode, b.criterionCode));
+  return {
+    detected: sorted.filter((c) => c.status !== "absent"),
+    missing: sorted.filter((c) => c.status === "absent"),
+  };
+}

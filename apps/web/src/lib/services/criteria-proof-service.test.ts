@@ -85,7 +85,9 @@ describe("lignes, filtres et décompte des impératifs", () => {
 
   it("trie les codes nombre à nombre", () => {
     expect(rows.map((r) => r.code)).toEqual(["1.2.1", "1.10.1", "3.11.1"]);
-    expect(compareCriterionCodes("1.2", "1.2.0")).toBe(0);
+    // Une seule implémentation depuis la fusion du 21/10 (criterion-picker-service) :
+    // le code le plus court passe devant. Les codes HAS réels ont toujours trois segments.
+    expect(compareCriterionCodes("1.2", "1.2.0")).toBeLessThan(0);
   });
 
   it("compte les impératifs prouvés", () => {
@@ -161,5 +163,28 @@ describe("describeEvidence — les preuves d'un critère, une par une (21/10/202
     expect(describeEvidence(["t-dipc"], docs, labels, "AUTONOMIE")).toEqual([
       { documentTypeId: "t-dipc", label: "DIPC", state: "A_RELIRE" },
     ]);
+  });
+});
+
+// Le CVS « Non concerné » d'une structure sans CVS (21/10/2026) : il sort de SES preuves
+// attendues, sans être remplacé par l'enquête (deux livrables distincts).
+describe("document « Non concerné » — retiré des preuves attendues de la structure", () => {
+  const at = (iso: string) => new Date(iso);
+  const docs = new Map([
+    ["t-dipc", { documentTypeId: "t-dipc", versionUploadedAt: at("2026-10-01"), validatedAt: at("2026-10-07"), clientAcceptedAt: null }],
+    ["t-cvs", { documentTypeId: "t-cvs", versionUploadedAt: null, validatedAt: null, clientAcceptedAt: null, notApplicable: true }],
+  ]);
+
+  it("un critère qui n'attendait plus que le CVS en plus devient prouvé", () => {
+    expect(deriveCriterionProof(["t-dipc", "t-cvs"], docs, "ACCOMPAGNE")).toMatchObject({ status: "PROUVE", expected: 1, proven: 1 });
+  });
+
+  it("le détail des preuves ne le liste plus, et ne le remplace par rien", () => {
+    const labels = new Map([["t-dipc", "DIPC"], ["t-cvs", "Comptes-rendus CVS"]]);
+    expect(describeEvidence(["t-dipc", "t-cvs"], docs, labels, "ACCOMPAGNE").map((i) => i.documentTypeId)).toEqual(["t-dipc"]);
+  });
+
+  it("un critère qui n'attendait QUE le CVS devient « non rattaché » pour cette structure", () => {
+    expect(deriveCriterionProof(["t-cvs"], docs, "ACCOMPAGNE").status).toBe("NON_RATTACHE");
   });
 });

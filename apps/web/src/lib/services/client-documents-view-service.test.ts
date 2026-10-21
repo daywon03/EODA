@@ -342,6 +342,8 @@ describe("DIPC : modèle vierge seulement (HDS)", () => {
     expect(DIPC_BLANK_MODEL_NOTICE).toMatch(/modèle vierge/);
     expect(DIPC_BLANK_MODEL_NOTICE).toMatch(/signé/);
     expect(depositNoticeFor("L2002_LIVRET_ACCUEIL")).toBeNull();
+    // Ligne « Autre forme de participation » : la démarche, jamais des réponses nominatives.
+    expect(depositNoticeFor("QUALITE_ENQUETE_QUESTIONNAIRE")).toMatch(/Jamais les réponses d.une personne/);
   });
 });
 

@@ -368,7 +368,7 @@ export const PILOT_DOCUMENT_TYPES: readonly DocTypeSeed[] = [
   { code: "QUALITE_GABARIT_CR_REUNION", category: "QUALITE_RISQUES", label: "Compte rendu de réunion — gabarit unique" },
   // [SUIVI] enquêtes de satisfaction · [FINAUX] enquête V1.6 · [SEANCES] §6 « Participation »
   // · [MO] enquête en ligne et papier. La SYNTHÈSE reste QUALITE_ENQUETES_SATISFACTION.
-  { code: "QUALITE_ENQUETE_QUESTIONNAIRE", category: "QUALITE_RISQUES", label: "Enquête de satisfaction — questionnaire vierge (personnes accompagnées, proches)" },
+  { code: "QUALITE_ENQUETE_QUESTIONNAIRE", category: "QUALITE_RISQUES", label: "Autre forme de participation des usagers" },
   // [SUIVI] « Procédure P1 » · [GUIDE] phases 4 et 5 · [OFFRE] pack P1-P5
   { code: "P12_PROCEDURE", category: "QUALITE_RISQUES", label: "Procédure P1 — Plaintes et réclamations (Obj. 3.12)" },
   // [SUIVI] « Procédure P2 » · [GUIDE] phases 4 et 5 · [OFFRE] pack P1-P5

@@ -11,6 +11,7 @@ import {
   findDocumentRow,
   flattenChecklist,
   parseDocumentFilters,
+  sortDocumentRows,
   rowsInBucket,
   type DocumentFacts,
 } from "./structure-documents-service";
@@ -195,5 +196,19 @@ describe("documentsHref", () => {
     expect(documentsHref("/f/documents", { bucket: "review", query: "livret", category: "RH", doc: "t1" })).toBe(
       "/f/documents?tab=review&q=livret&cat=RH&doc=t1"
     );
+  });
+});
+
+describe("tri alphabétique (21/10/2026)", () => {
+  it("par nom, sans accents ni majuscules ; ordre d'origine sans tri", () => {
+    const rows = [{ label: "Règlement de fonctionnement" }, { label: "accusés de réception" }, { label: "Livret d'accueil" }];
+    expect(sortDocumentRows(rows, "nom").map((r) => r.label)).toEqual([
+      "accusés de réception",
+      "Livret d'accueil",
+      "Règlement de fonctionnement",
+    ]);
+    expect(sortDocumentRows(rows, null)).toEqual(rows);
+    expect(parseDocumentFilters({ tri: "nom" }).sort).toBe("nom");
+    expect(parseDocumentFilters({ tri: "autre" }).sort).toBeUndefined();
   });
 });

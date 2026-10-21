@@ -33,15 +33,24 @@ export function parseMissingAnswer(raw: unknown): MissingAnswer | null {
 
 // Les documents de la loi 2002-2 sont dus par TOUT service (art. L311-4 CASF et
 // suivants) : « ne nous concerne pas » n'est pas une réponse possible (07/09, 15/09).
-export function canAnswerNotConcerned(category: DocumentCategory): boolean {
-  return category !== "LOI_2002_2";
+// UNE exception, décidée par Damon le 21/10/2026 : le CVS. La loi 2002-2 exige « un
+// conseil de la vie sociale OU une autre forme de participation » ; une structure sans
+// CVS (le pilote, entre autres) le déclare « Non concerné », et sa démarche de
+// participation (affiches d'information + enquête) vit sur la ligne distincte « Autre
+// forme de participation des usagers — Enquête de satisfaction ». Les deux livrables
+// restent DISTINCTS : ce n'est pas une équivalence, c'est un choix de démarche. Les six
+// autres documents de la loi 2002-2 restent verrouillés.
+export const NOT_CONCERNED_LOI_2002_2_EXCEPTIONS: readonly string[] = ["L2002_CR_CVS"];
+
+export function canAnswerNotConcerned(category: DocumentCategory, code: string): boolean {
+  return category !== "LOI_2002_2" || NOT_CONCERNED_LOI_2002_2_EXCEPTIONS.includes(code);
 }
 
 export const NOT_CONCERNED_FORBIDDEN_MESSAGE =
   "Ce document est obligatoire pour tous les services (loi 2002-2). Si vous ne l'avez pas, répondez « Je ne l'ai pas ».";
 
-export function missingAnswerError(answer: MissingAnswer, category: DocumentCategory): string | null {
-  return answer === "NOT_CONCERNED" && !canAnswerNotConcerned(category)
+export function missingAnswerError(answer: MissingAnswer, category: DocumentCategory, code: string): string | null {
+  return answer === "NOT_CONCERNED" && !canAnswerNotConcerned(category, code)
     ? NOT_CONCERNED_FORBIDDEN_MESSAGE
     : null;
 }
@@ -62,6 +71,8 @@ export function missingAnswerWrite(answer: MissingAnswer): {
 
 export type MissingFacts = {
   category: DocumentCategory;
+  // Code du type : porte l'exception du CVS (NOT_CONCERNED_LOI_2002_2_EXCEPTIONS).
+  code: string;
   // Statut lu en base (ou dérivé : MISSING sans ligne, péremption appliquée).
   status: DocumentStatus;
   statusOverriddenByUser: boolean;
@@ -79,7 +90,7 @@ export function normaliseMissingState(facts: MissingFacts): {
   declaredMissing: boolean;
 } {
   if (facts.hasVersion) return { status: facts.status, declaredMissing: false };
-  if (facts.status === "NOT_APPLICABLE" && !canAnswerNotConcerned(facts.category)) {
+  if (facts.status === "NOT_APPLICABLE" && !canAnswerNotConcerned(facts.category, facts.code)) {
     return { status: "MISSING", declaredMissing: true };
   }
   return {

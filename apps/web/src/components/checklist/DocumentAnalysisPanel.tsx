@@ -14,11 +14,11 @@ import {
   CheckCircle2,
 } from "lucide-react";
 import type { DocumentAnalysisResult, AnalysisFinding } from "@/lib/llm";
-import { describeAnalysis, summariseAnalysis } from "@/lib/services/analysis-view-service";
+import { describeAnalysis, splitCriteriaCoverage, summariseAnalysis } from "@/lib/services/analysis-view-service";
 import {
   setAnalysisReviewed,
   listCriteriaForPicker,
-  addCriterionGuideline,
+  addCriterionGuidelines,
   listCriterionGuidelines,
   setCriterionGuidelineAiUse,
   type CriterionOption,
@@ -128,35 +128,53 @@ export function DocumentAnalysisPanel({
 
       {open && (
         <div className="px-3 pb-3 pt-1 space-y-3 animate-fade-in">
-          {analysis.criteriaCoverage.length > 0 && (
-            <div>
-              <p className="flex items-center gap-1.5 text-xs font-medium text-brun-ancre mb-1">
-                <CheckCircle2 className="w-3.5 h-3.5 text-accent-text" aria-hidden="true" />
-                Couverture par critère HAS
-              </p>
-              <ul className="space-y-1 pl-5">
-                {analysis.criteriaCoverage.map((c) => (
-                  <li key={c.criterionCode} className="text-xs list-disc marker:text-gris-light">
-                    <span className="font-medium text-brun-ancre">{c.criterionCode}</span>
-                    {" — "}
-                    <span
-                      className={
-                        c.status === "couvert"
-                          ? "text-ok-text"
-                          : c.status === "partiel"
-                            ? "text-amber-text"
-                            : "text-rouge-imp"
-                      }
-                    >
-                      {c.status}
-                    </span>
-                    {" : "}
-                    <span className="text-ink2">{c.note}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
+          {/* Deux listes (21/10/2026) : ce que le document TRAITE, et ce qu'on attendait
+              de lui sans le trouver — chacune dans l'ordre numérique du référentiel. */}
+          {analysis.criteriaCoverage.length > 0 && (() => {
+            const { detected, missing } = splitCriteriaCoverage(analysis.criteriaCoverage);
+            return (
+              <div className="space-y-2">
+                {detected.length > 0 && (
+                  <div>
+                    <p className="mb-1 flex items-center gap-1.5 text-xs font-medium text-brun-ancre">
+                      <CheckCircle2 className="h-3.5 w-3.5 text-accent-text" aria-hidden="true" />
+                      Critères HAS détectés dans le document ({detected.length})
+                    </p>
+                    <ul className="space-y-1 pl-5">
+                      {detected.map((c) => (
+                        <li key={c.criterionCode} className="list-disc text-xs marker:text-gris-light">
+                          <span className="font-medium text-brun-ancre">{c.criterionCode}</span>
+                          {" — "}
+                          <span className={c.status === "couvert" ? "text-ok-text" : "text-amber-text"}>
+                            {c.status === "couvert" ? "traité" : "traité en partie"}
+                          </span>
+                          {" : "}
+                          <span className="text-ink2">{c.note}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {missing.length > 0 && (
+                  <div>
+                    <p className="mb-1 flex items-center gap-1.5 text-xs font-medium text-brun-ancre">
+                      <AlertCircle className="h-3.5 w-3.5 text-rouge-imp" aria-hidden="true" />
+                      Critères attendus pour ce type de document, absents ({missing.length})
+                    </p>
+                    <ul className="space-y-1 pl-5">
+                      {missing.map((c) => (
+                        <li key={c.criterionCode} className="list-disc text-xs marker:text-gris-light">
+                          <span className="font-medium text-brun-ancre">{c.criterionCode}</span>
+                          {" : "}
+                          <span className="text-ink2">{c.note}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
 
           {canReview && establishmentId && (
             <CriterionSuggestionsList establishmentId={establishmentId} suggestions={criterionSuggestions} />
@@ -247,49 +265,66 @@ export function DocumentAnalysisPanel({
 function AnalysisGuidelines({ open }: { open: boolean }) {
   const [criteria, setCriteria] = useState<CriterionOption[] | null>(null);
   const [showForm, setShowForm] = useState(false);
-  const [criterionId, setCriterionId] = useState("");
+  // Plusieurs critères à la fois (21/10/2026) : on coche, on écrit UNE note, on
+  // enregistre UNE fois, puis on relance l'analyse.
+  const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
+  const [filter, setFilter] = useState("");
   const [existing, setExisting] = useState<CriterionGuidelineItem[] | null>(null);
   const [note, setNote] = useState("");
   const [aiEnabled, setAiEnabled] = useState(true);
-  const [saved, setSaved] = useState(false);
+  const [saved, setSaved] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   useEffect(() => {
     if (!open || criteria !== null) return;
     startTransition(async () => {
+      // Déjà dans l'ordre NUMÉRIQUE (listCriteriaForPicker).
       const result = await listCriteriaForPicker();
       setCriteria(result ?? []);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
-  function handleCriterionChange(value: string) {
-    setCriterionId(value);
+  // Les guidelines existantes se montrent quand UN critère est coché : sur plusieurs,
+  // la liste mélangerait des critères différents.
+  const single = selected.size === 1 ? [...selected][0]! : null;
+  useEffect(() => {
     setExisting(null);
-    setSaved(false);
-    if (!value) return;
-    startTransition(async () => {
-      const result = await listCriterionGuidelines(value);
-      setExisting(result ?? []);
+    if (!single) return;
+    let cancelled = false;
+    void listCriterionGuidelines(single).then((result) => {
+      if (!cancelled) setExisting(result ?? []);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [single]);
+
+  function toggle(id: string) {
+    setSaved(null);
+    setSelected((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
     });
   }
 
   function handleSubmit() {
     const trimmed = note.trim();
-    if (!criterionId || trimmed.length === 0) return;
+    if (selected.size === 0 || trimmed.length === 0) return;
     setError(null);
-    setSaved(false);
+    setSaved(null);
     startTransition(async () => {
-      const result = await addCriterionGuideline(criterionId, trimmed, aiEnabled);
-      if (result && "error" in result) {
+      const result = await addCriterionGuidelines([...selected], trimmed, aiEnabled);
+      if ("error" in result) {
         setError(result.error);
         return;
       }
       setNote("");
-      setSaved(true);
-      const refreshed = await listCriterionGuidelines(criterionId);
-      setExisting(refreshed ?? []);
+      setSaved(result.saved);
+      if (single) setExisting((await listCriterionGuidelines(single)) ?? []);
     });
   }
 
@@ -300,10 +335,14 @@ function AnalysisGuidelines({ open }: { open: boolean }) {
     startTransition(async () => {
       const result = await setCriterionGuidelineAiUse(guidelineId, enabled);
       if (result && "error" in result) setError(result.error);
-      const refreshed = await listCriterionGuidelines(criterionId);
-      setExisting(refreshed ?? []);
+      if (single) setExisting((await listCriterionGuidelines(single)) ?? []);
     });
   }
+
+  const needle = filter.trim().toLowerCase();
+  const visible = (criteria ?? []).filter(
+    (c) => needle.length === 0 || c.code.startsWith(needle) || c.label.toLowerCase().includes(needle)
+  );
 
   return (
     <div className="space-y-2 border-t border-gris-light pt-2">
@@ -311,27 +350,46 @@ function AnalysisGuidelines({ open }: { open: boolean }) {
         <button
           type="button"
           onClick={() => setShowForm(true)}
-          className="flex items-center gap-1.5 text-xs text-accent-text hover:underline"
+          className="flex min-h-11 items-center gap-1.5 text-xs text-accent-text hover:underline"
         >
           <MessageSquarePlus className="w-3.5 h-3.5" aria-hidden="true" />
-          Ajouter une guideline sur un critère HAS
+          Ajouter une guideline sur des critères HAS
         </button>
       ) : (
-        <div className="space-y-1.5">
-          <label className="block text-xs font-medium text-brun-ancre">Critère concerné</label>
-          <select
-            value={criterionId}
-            onChange={(e) => handleCriterionChange(e.target.value)}
-            disabled={isPending || criteria === null}
-            className="w-full rounded-md border border-gris-light bg-surface px-2 py-1.5 text-xs text-brun-ancre"
-          >
-            <option value="">— Sélectionner un critère —</option>
-            {criteria?.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.code} — {c.label.slice(0, 80)}
-              </option>
-            ))}
-          </select>
+        <div className="space-y-2">
+          <fieldset className="space-y-1.5">
+            <legend className="text-xs font-medium text-brun-ancre">
+              Critères concernés — cochez-en un ou plusieurs ({selected.size} coché{selected.size > 1 ? "s" : ""})
+            </legend>
+            <input
+              type="search"
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+              placeholder="Filtrer : 3.12 ou « plaintes »"
+              aria-label="Filtrer les critères"
+              className="h-11 w-full rounded-md border border-gris-light bg-surface px-2 text-xs text-brun-ancre"
+            />
+            <ul className="max-h-60 space-y-0.5 overflow-y-auto rounded-md border border-gris-light bg-surface p-1">
+              {criteria === null && <li className="px-2 py-1.5 text-xs text-ink2">Chargement des critères…</li>}
+              {visible.map((c) => (
+                <li key={c.id}>
+                  <label className="flex min-h-11 cursor-pointer items-start gap-2 rounded px-2 py-1.5 text-xs text-brun-ancre hover:bg-soft">
+                    <input
+                      type="checkbox"
+                      checked={selected.has(c.id)}
+                      disabled={isPending}
+                      onChange={() => toggle(c.id)}
+                      className="mt-0.5 h-4 w-4 flex-shrink-0 accent-current"
+                    />
+                    <span>
+                      <span className="font-bold tabular-nums">{c.code}</span> {c.label}
+                      {c.requirementLevel === "IMPERATIF" && <span className="ml-1 font-bold text-accent-text">▲</span>}
+                    </span>
+                  </label>
+                </li>
+              ))}
+            </ul>
+          </fieldset>
 
           {existing && existing.length > 0 && (
             <ul className="space-y-1.5">
@@ -363,10 +421,13 @@ function AnalysisGuidelines({ open }: { open: boolean }) {
           </label>
           <Textarea
             value={note}
-            onChange={(e) => setNote(e.target.value)}
+            onChange={(e) => {
+              setNote(e.target.value);
+              setSaved(null);
+            }}
             rows={2}
             maxLength={MAX_GUIDELINE_LENGTH}
-            disabled={isPending || !criterionId}
+            disabled={isPending || selected.size === 0}
             className="text-xs"
             placeholder="ex : vérifier aussi la date de révision annuelle du règlement."
           />
@@ -374,17 +435,17 @@ function AnalysisGuidelines({ open }: { open: boolean }) {
             <input
               type="checkbox"
               checked={aiEnabled}
-              disabled={isPending || !criterionId}
+              disabled={isPending || selected.size === 0}
               onChange={(e) => setAiEnabled(e.target.checked)}
               className="h-4 w-4 accent-current"
             />
             Faire prendre en compte par l&apos;IA dans les prochaines analyses
           </label>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Button
               type="button"
               size="sm"
-              disabled={isPending || !criterionId || note.trim().length === 0}
+              disabled={isPending || selected.size === 0 || note.trim().length === 0}
               onClick={handleSubmit}
             >
               {isPending ? (
@@ -392,15 +453,15 @@ function AnalysisGuidelines({ open }: { open: boolean }) {
               ) : (
                 <MessageSquarePlus className="w-3.5 h-3.5" aria-hidden="true" />
               )}
-              Enregistrer
+              Enregistrer{selected.size > 1 ? ` sur ${selected.size} critères` : ""}
             </Button>
             <button
               type="button"
-              className="text-xs text-ink2 hover:underline"
+              className="min-h-11 text-xs text-ink2 hover:underline"
               onClick={() => {
                 setShowForm(false);
                 setNote("");
-                setCriterionId("");
+                setSelected(new Set());
                 setExisting(null);
               }}
             >
@@ -410,11 +471,11 @@ function AnalysisGuidelines({ open }: { open: boolean }) {
         </div>
       )}
 
-      {saved && (
+      {saved !== null && (
         <p role="status" className="flex items-center gap-1.5 text-xs text-ok-text">
           <CheckCircle2 className="w-3.5 h-3.5" aria-hidden="true" />
-          Guideline enregistrée — reprise dans les prochaines analyses des documents qui répondent à ce critère, tant
-          qu&apos;elle est prise en compte par l&apos;IA. « Réanalyser » l&apos;applique tout de suite.
+          Guideline enregistrée sur {saved} critère{saved > 1 ? "s" : ""}. Cliquez sur « Réanalyser » pour
+          qu&apos;elle soit prise en compte maintenant.
         </p>
       )}
 

@@ -55,6 +55,7 @@ async function buildCriteriaEvidence(id: string, establishmentType: Establishmen
         documentTypeId: true,
         validatedAt: true,
         clientAcceptedAt: true,
+        status: true,
         currentVersion: { select: { uploadedAt: true, uploadedBy: { select: { role: true } } } },
       },
     }),
@@ -67,7 +68,7 @@ async function buildCriteriaEvidence(id: string, establishmentType: Establishmen
   const byType = new Map(
     documents.flatMap((d) =>
       d.documentTypeId
-        ? [[d.documentTypeId, { documentTypeId: d.documentTypeId, versionUploadedAt: d.currentVersion?.uploadedAt ?? null, validatedAt: d.validatedAt, clientAcceptedAt: d.clientAcceptedAt, versionByCabinet: d.currentVersion != null && d.currentVersion.uploadedBy.role !== "CLIENT_USER" }] as const]
+        ? [[d.documentTypeId, { documentTypeId: d.documentTypeId, versionUploadedAt: d.currentVersion?.uploadedAt ?? null, validatedAt: d.validatedAt, clientAcceptedAt: d.clientAcceptedAt, versionByCabinet: d.currentVersion != null && d.currentVersion.uploadedBy.role !== "CLIENT_USER", notApplicable: d.status === "NOT_APPLICABLE" }] as const]
         : []
     )
   );

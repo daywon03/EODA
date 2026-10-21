@@ -11,10 +11,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const prismaMock = {
   mission: { findUnique: vi.fn() },
   documentType: { findMany: vi.fn(), findUnique: vi.fn() },
-  document: { upsert: vi.fn(), findUnique: vi.fn(), update: vi.fn() },
+  document: { upsert: vi.fn(), findUnique: vi.fn(), findFirst: vi.fn(), update: vi.fn() },
   documentVersion: { findUnique: vi.fn(), update: vi.fn() },
   establishment: { findUnique: vi.fn() },
-  criterionGuideline: { findFirst: vi.fn(), update: vi.fn() },
+  criterion: { findMany: vi.fn() },
+  criterionGuideline: { findFirst: vi.fn(), update: vi.fn(), createMany: vi.fn() },
   // La transaction rejoue le rappel sur les mêmes doubles : ce qui compte est ce
   // qu'elle écrit.
   $transaction: vi.fn(async (callback: (tx: unknown) => Promise<unknown>) => callback(prismaMock)),
@@ -84,6 +85,8 @@ const {
   getDocumentPreviewData,
   setCriterionGuidelineAiUse,
   setDocumentCommentAiUse,
+  setParticipationForm,
+  addCriterionGuidelines,
 } = await import("./document");
 
 describe("setDocumentCommentAiUse — « Commentaire sur ce document » remis à l'IA", () => {
@@ -416,6 +419,104 @@ describe("respondToMissingDocument — « Je ne l'ai pas » (N3)", () => {
       respondToMissingDocument("etab-autre", LOI_TYPE.id, "DONT_HAVE", null)
     ).rejects.toThrow("NEXT_NOT_FOUND");
     expect(prismaMock.document.upsert).not.toHaveBeenCalled();
+  });
+});
+
+// CVS et « Autre forme de participation des usagers » (21/10/2026) : deux livrables
+// distincts ; le CVS ne se déclare « Non concerné » qu'une fois la forme choisie.
+const CVS_TYPE = { id: "dt-cvs", code: "L2002_CR_CVS", label: "Comptes-rendus CVS", category: "LOI_2002_2" };
+const PARTICIPATION_TYPE = { id: "dt-participation", code: "QUALITE_ENQUETE_QUESTIONNAIRE", category: "QUALITE_RISQUES" };
+
+describe("respondToMissingDocument — CVS « Non concerné »", () => {
+  it("refuse sans forme de participation choisie, sans rien écrire", async () => {
+    givenMission("EXCELLENCE");
+    prismaMock.documentType.findUnique.mockResolvedValue(CVS_TYPE);
+    prismaMock.document.findFirst.mockResolvedValue(null);
+
+    const result = await respondToMissingDocument(ESTABLISHMENT_ID, CVS_TYPE.id, "NOT_CONCERNED", null);
+
+    expect(result).toMatchObject({ error: expect.stringContaining("autre forme de participation") });
+    expect(prismaMock.document.upsert).not.toHaveBeenCalled();
+  });
+
+  it("accepte une fois l'enquête de satisfaction choisie : NOT_APPLICABLE, pas un document manquant", async () => {
+    givenMission("EXCELLENCE");
+    prismaMock.documentType.findUnique.mockResolvedValue(CVS_TYPE);
+    prismaMock.document.findFirst.mockResolvedValue({ participationForm: "ENQUETE_SATISFACTION" });
+
+    const result = await respondToMissingDocument(ESTABLISHMENT_ID, CVS_TYPE.id, "NOT_CONCERNED", null);
+
+    expect(result).toBeNull();
+    // La forme est lue pour CETTE structure, jamais pour une autre.
+    expect(prismaMock.document.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ establishmentId: ESTABLISHMENT_ID }) })
+    );
+    expect(prismaMock.document.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({ update: expect.objectContaining({ status: "NOT_APPLICABLE" }) })
+    );
+  });
+});
+
+describe("setParticipationForm — la forme choisie par la structure", () => {
+  it("enregistre la forme sur la ligne « Autre forme de participation », jamais sur le CVS", async () => {
+    givenMission("EXCELLENCE");
+    prismaMock.documentType.findUnique.mockResolvedValue(PARTICIPATION_TYPE);
+
+    expect(await setParticipationForm(ESTABLISHMENT_ID, "ENQUETE_SATISFACTION", "ignoré")).toBeNull();
+
+    expect(prismaMock.documentType.findUnique).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { code: "QUALITE_ENQUETE_QUESTIONNAIRE" } })
+    );
+    const call = prismaMock.document.upsert.mock.calls[0]?.[0] as {
+      update: Record<string, unknown>;
+      create: Record<string, unknown>;
+    };
+    // Les versions et l'analyse existantes ne sont pas touchées : seuls ces deux champs.
+    expect(call.update).toEqual({ participationForm: "ENQUETE_SATISFACTION", participationOtherLabel: null });
+    expect(call.create).toMatchObject({ status: "MISSING", participationForm: "ENQUETE_SATISFACTION" });
+    expect(recordAuditEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ action: "PARTICIPATION_FORM_SET", detail: "ENQUETE_SATISFACTION" })
+    );
+  });
+
+  it("refuse une forme inconnue ou un « Autre » sans précision, sans rien écrire", async () => {
+    expect(await setParticipationForm(ESTABLISHMENT_ID, "CVS", null)).toMatchObject({ error: expect.any(String) });
+    expect(await setParticipationForm(ESTABLISHMENT_ID, "AUTRE", "  ")).toMatchObject({ error: expect.any(String) });
+    expect(prismaMock.document.upsert).not.toHaveBeenCalled();
+  });
+
+  it("propage le refus de la garde", async () => {
+    requireEstablishmentAccess.mockRejectedValue(new Error("NEXT_NOT_FOUND"));
+    await expect(setParticipationForm("etab-autre", "GROUPE_PAROLE", null)).rejects.toThrow("NEXT_NOT_FOUND");
+    expect(prismaMock.document.upsert).not.toHaveBeenCalled();
+  });
+});
+
+describe("addCriterionGuidelines — plusieurs critères en un enregistrement", () => {
+  beforeEach(() => {
+    requireCabinetSession.mockResolvedValue({ tenantId: "t-1", userId: "u-1", session: { user: { role: "CABINET_ADMIN" } } });
+  });
+
+  it("enregistre la même consigne sur chaque critère coché, doublons retirés", async () => {
+    prismaMock.criterion.findMany.mockResolvedValue([
+      { id: "c-1", code: "1.2.1" },
+      { id: "c-2", code: "1.10.1" },
+    ]);
+
+    const result = await addCriterionGuidelines(["c-1", "c-2", "c-1"], "Vérifier la date de mise à jour.");
+
+    expect(result).toEqual({ saved: 2 });
+    expect(requireCabinetSession).toHaveBeenCalledWith("STRUCTURES_WRITE");
+    const data = (prismaMock.criterionGuideline.createMany.mock.calls[0]?.[0] as { data: { criterionId: string; tenantId: string }[] }).data;
+    expect(data.map((d) => d.criterionId)).toEqual(["c-1", "c-2"]);
+    expect(data.every((d) => d.tenantId === "t-1")).toBe(true);
+  });
+
+  it("refuse une liste vide ou un critère inconnu, sans rien écrire", async () => {
+    expect(await addCriterionGuidelines([], "Une consigne.")).toEqual({ error: "Cochez au moins un critère." });
+    prismaMock.criterion.findMany.mockResolvedValue([{ id: "c-1", code: "1.2.1" }]);
+    expect(await addCriterionGuidelines(["c-1", "inconnu"], "Une consigne.")).toMatchObject({ error: expect.any(String) });
+    expect(prismaMock.criterionGuideline.createMany).not.toHaveBeenCalled();
   });
 });
 

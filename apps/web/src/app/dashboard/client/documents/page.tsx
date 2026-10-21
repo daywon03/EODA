@@ -26,18 +26,24 @@ import { ClientDocumentCard } from "@/components/client/documents/ClientDocument
 export const metadata = { title: "Mes documents" };
 
 type Props = {
-  searchParams: Promise<{ filtre?: string | string[]; groupe?: string | string[]; q?: string | string[] }>;
+  searchParams: Promise<{ filtre?: string | string[]; groupe?: string | string[]; q?: string | string[]; tri?: string | string[] }>;
 };
 
 // Les trois filtres se combinent dans l'adresse : partageable, utilisable sans
 // JavaScript, et le bouton « précédent » du navigateur les défait un à un.
-type ClientFilters = { filter: ClientDocumentFilter | null; group: ClientGroupFilter | null; query: string };
+type ClientFilters = {
+  filter: ClientDocumentFilter | null;
+  group: ClientGroupFilter | null;
+  query: string;
+  sort: "nom" | null;
+};
 
-function filtersHref({ filter, group, query }: ClientFilters): string {
+function filtersHref({ filter, group, query, sort }: ClientFilters): string {
   const params = new URLSearchParams();
   if (filter) params.set("filtre", filter);
   if (group) params.set("groupe", group);
   if (query) params.set("q", query);
+  if (sort) params.set("tri", sort);
   const search = params.toString();
   return search ? `${CLIENT_DOCUMENTS_PATH}?${search}` : CLIENT_DOCUMENTS_PATH;
 }
@@ -73,11 +79,12 @@ export default async function ClientDocumentsPage({ searchParams }: Props) {
   const filter = parseClientDocumentFilter(params.filtre);
   const group = parseClientGroupFilter(params.groupe);
   const query = parseClientSearch(params.q);
-  const current: ClientFilters = { filter, group, query };
+  const sort = (Array.isArray(params.tri) ? params.tri[0] : params.tri) === "nom" ? "nom" : null;
+  const current: ClientFilters = { filter, group, query, sort };
   // Les compteurs d'état tiennent compte de la recherche : ils annoncent ce qu'on obtient.
   const counts = countClientFilters(rows.filter((row) => matchesClientSearch(row, query)));
   const groupCounts = countClientGroups(rows, filter, query, supportMode);
-  const groups = groupClientDocuments(rows, filter, supportMode, { group, query });
+  const groups = groupClientDocuments(rows, filter, supportMode, { group, query, sort });
   const workList = buildClientWorkList(rows);
   const canAct = canDepositDocuments(missionAccess);
 
@@ -101,6 +108,7 @@ export default async function ClientDocumentsPage({ searchParams }: Props) {
       <form action={CLIENT_DOCUMENTS_PATH} method="get" role="search" className="flex flex-wrap items-end gap-2">
         {filter && <input type="hidden" name="filtre" value={filter} />}
         {group && <input type="hidden" name="groupe" value={group} />}
+        {sort && <input type="hidden" name="tri" value={sort} />}
         <label className="flex min-w-[240px] flex-1 flex-col gap-1.5">
           <span className="text-[17px] font-bold">Chercher un document</span>
           <input
@@ -119,6 +127,16 @@ export default async function ClientDocumentsPage({ searchParams }: Props) {
             Effacer la recherche
           </Link>
         )}
+        {/* Tri alphabétique (21/10/2026) : un interrupteur, l'ordre par défaut met en
+            tête ce qui demande un geste. */}
+        <Link
+          href={filtersHref({ ...current, sort: sort ? null : "nom" })}
+          aria-pressed={sort === "nom"}
+          className={cn(CHIP, "rounded-xl", sort ? CHIP_ON : CHIP_OFF)}
+        >
+          {sort && <span aria-hidden="true">✓</span>}
+          Trier de A à Z
+        </Link>
       </form>
 
       <nav aria-label="Filtrer par état" className="flex flex-wrap gap-2">
