@@ -48,16 +48,23 @@ export default async function TabletPage() {
         {session && (
           <div className="flex flex-col gap-6">
             <h1 className="text-[36px] font-bold">Bonjour {firstNameOf(session.staffDisplayName) ?? session.staffDisplayName}.</h1>
+            {/* L'enquête ANONYME fonctionne dès maintenant : elle ne garde aucune donnée
+                de personne (21/10/2026). */}
+            <div className="flex max-w-[760px] flex-col gap-3 rounded-2xl border border-line bg-card p-6">
+              <h2 className="text-[26px] font-bold">Enquête de satisfaction</h2>
+              <p>Anonyme : aucun nom, rien à écrire. Les réponses comptent dans les statistiques du service.</p>
+              <Link href="/tablette/enquete" className={`${TABLET_PRIMARY} w-fit`}>Faire une enquête</Link>
+            </div>
             {getBeneficiaryDataPort().isAvailable ? (
               <p>Les enquêtes et les dossiers s&apos;ouvrent sur la tablette dès que le parcours réel est activé par EODA.</p>
             ) : (
               <>
                 <HdsLockedNotice showDemoLink={false} />
                 <p className="max-w-[65ch]">
-                  L&apos;enquête de satisfaction et l&apos;accueil d&apos;une nouvelle personne se montrent déjà en démonstration, avec des
+                  Le dossier d&apos;une personne et l&apos;accueil d&apos;une nouvelle personne se montrent déjà en démonstration, avec des
                   personnes fictives. Rien n&apos;y est enregistré.
                 </p>
-                <Link href="/tablette/demonstration" className={`${TABLET_PRIMARY} w-fit`}>Ouvrir la démonstration</Link>
+                <Link href="/tablette/demonstration" className={`${TABLET_SECONDARY} w-fit`}>Ouvrir la démonstration</Link>
               </>
             )}
           </div>

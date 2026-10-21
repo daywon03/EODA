@@ -51,6 +51,7 @@ vérifie** — sinon elle n'existe pas.
 | La matrice type de document ↔ critères ATTEINT le prompt | les rattachements sont lus en base pour LE type analysé (`documentTypeCriterion.findMany`) et remis à l'IA sous « Critères HAS rattachés à ce type de document » ; matrice vide → « aucun rattachement connu », jamais un catalogue de remplacement | `lib/services/document-ingestion-service.test.ts` (matrice lue → port d'analyse), `lib/llm/analysis-prompt.test.ts` (rendu de la ligne, repli vide) |
 | L'IA ne touche jamais une version ni une date du document | règle du cahier de style (v02) **et** `sanitizeProposal` : toute version/date absente du document d'origine et des extraits du manuel devient `[À compléter : version ou date]`, segments ORIGINAL compris ; un code de critère (« 1.10.12 ») n'est pas une date | `lib/llm/correction-proposal.test.ts` (describe « versions et dates ») |
 | Les commentaires du cabinet atteignent l'analyse, et seulement s'ils sont « pris en compte par l'IA » | `fetchCriterionGuidelines` lit les critères de la matrice **et** ceux reconnus dans le document (suggestions non rejetées), filtre `aiEnabled: true` ; la bascule est gardée par tenant (`notFound`) et journalisée `CRITERION_GUIDELINE_AI_TOGGLED`, le texte reste append-only | `lib/services/document-ingestion-service.test.ts` (« commentaires du cabinet »), `lib/actions/document.test.ts` (`setCriterionGuidelineAiUse`) |
+| L'enquête ANONYME ne peut contenir aucune donnée de personne (hors verrou HDS) | test qui lit le schéma et **échoue** si `AnonymousSurveyResponse` / `AnonymousSurveyAnswer` gagnent un champ hors liste (personne, salarié, texte, horodatage), si `completedOn` n'est plus un `@db.Date`, ou si le lien désigne quelqu'un ; actions : lien à usage unique consommé atomiquement, débit par IP, salarié jamais enregistré, réponse jamais journalisée ; réponses refusées si un texte libre ou une question de contrôle s'y glisse | `lib/hds/anonymous-survey-schema.test.ts`, `lib/actions/anonymous-survey.test.ts`, `lib/services/anonymous-survey-service.test.ts`, `lib/auth/routes.test.ts` |
 | Un échec de lancement de Chromium est NOMMÉ, et n'invite pas à réessayer | le lancement enveloppe son erreur (`ChromiumLaunchError`, cause conservée, recours nommé : `PUPPETEER_EXECUTABLE_PATH` en développement) et le message d'aperçu **échoue** s'il dit « Réessayez » sur cet échec-là ; les drapeaux serverless ne sont jamais passés à un Chrome de bureau | `lib/services/headless-chromium-service.test.ts`, `lib/services/document-pdf-response.test.ts` |
 | Toute fonction qui embarque Chromium embarque son binaire | `pnpm check:chromium` après le build lit les `*.nft.json` et **sort en code 1** si une fonction contient le code de `@sparticuz/chromium` sans `bin/chromium.br` / `al2023.tar.br` (le paquet situe son binaire à l'exécution : le traçage ne le voit pas — l'aperçu des documents répondait **503** en production, 21/10/2026), ou si **aucune** fonction n'est concernée. Réglage : `outputFileTracingIncludes` de `next.config.ts`. Corollaire : le cache du rendu vit dans `document-pdf-cache.ts`, qui n'importe pas Chromium — la suppression d'une version le chargeait dans seize pages | `apps/web/scripts/check-chromium-trace.mjs` + CI |
 | Un envoi « non configuré » n'est jamais compté comme parti | décompte par `countDeliveries` dans toute la couche d'envoi — aucun comptage brut de promesses tenues (il annonçait « Client prévenu (2 personnes) » pour zéro e-mail) | `lib/email/notifications.test.ts` |
@@ -329,6 +330,22 @@ Détail complet et état d'avancement : `specs/02-architecture-technique.md` §4
   **mode démonstration** (en mémoire du navigateur, données fictives, port jamais appelé).
   Les appareils enregistrés et codes des salariés (`DeviceEnrollment`, `StaffPin`) ne
   sont pas des données usager et restent sur l'infrastructure actuelle.
+  **Enquête de satisfaction ANONYME — en service réel depuis le 21/10/2026** (décision de
+  Damon : « la vraie enquête, on ne va pas prendre de donnée sensible »). Tables
+  **séparées** (`AnonymousSurveyResponse` / `AnonymousSurveyAnswer` /
+  `AnonymousSurveyInvite`), hors port HDS parce qu'elles ne PEUVENT pas contenir de
+  donnée de personne : aucun lien vers un dossier, **aucun texte libre**, **aucun
+  salarié**, date au **jour**, questions de contrôle du dossier écartées
+  (`anonymousQuestions`, `lib/services/anonymous-survey-service.ts`). Deux portes : la
+  tablette enregistrée (`/tablette/enquete`, appareil + code) et un **lien à usage
+  unique** créé par la structure (`/enquete/<jeton>`, route ANONYMOUS, socle
+  `one-time-token.ts`, 30 jours, débit par IP) — `lib/actions/anonymous-survey.ts`. Les
+  réponses rejoignent le même dépouillement (`getSurveyBoard`, export agrégé) et ne sont
+  **jamais journalisées** (heure + appareil = la visite, donc la personne). Ne jamais y
+  ajouter un nom, un texte, un salarié ou une heure : ce serait remettre l'enquête sous
+  le verrou HDS (`anonymous-survey-schema.test.ts` échoue). L'enquête **nominative**
+  (« enquête faite » par personne, non-répondants) reste verrouillée. Mention d'anonymat
+  et durée des liens **provisoires, à valider par Sandrine**.
 
 ## 7. Ce que Claude Code ne doit PAS faire
 

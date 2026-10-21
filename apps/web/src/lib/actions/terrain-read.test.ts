@@ -4,7 +4,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 // cabinet ne lit jamais la liste nominative des personnes accompagnées — ni par
 // l'écran, ni par l'action, ni par le port.
 
-const prismaMock = { establishment: { findUniqueOrThrow: vi.fn() } };
+const prismaMock = {
+  establishment: { findUniqueOrThrow: vi.fn() },
+  // Réponses de l'enquête anonyme (21/10/2026), lues hors du port HDS.
+  anonymousSurveyResponse: { findMany: vi.fn().mockResolvedValue([]) },
+};
 const guards = { requireEstablishmentAccess: vi.fn() };
 const audit = vi.fn();
 const port = {
@@ -117,6 +121,28 @@ describe("getSurveyBoard et export — statistiques", () => {
       ],
     },
   ];
+
+  it("les réponses de l'enquête anonyme rejoignent le dépouillement (21/10/2026)", async () => {
+    guards.requireEstablishmentAccess.mockResolvedValue(CABINET_ACCESS);
+    port.listSurveyResponses.mockResolvedValue([]);
+    prismaMock.anonymousSurveyResponse.findMany.mockResolvedValueOnce([
+      {
+        id: "a1",
+        templateCode: "PERSONNE",
+        templateVersion: surveyTemplateFor("PERSONNE").version,
+        respondentKind: "PERSONNE",
+        mode: "SEULE",
+        completedOn: new Date("2026-10-21"),
+        answers: [{ questionId: "p01-respect", choice: "TRES" }],
+      },
+    ]);
+    const board = await getSurveyBoard("etab-1");
+    expect(board.coverage.personne).toBe(1);
+    expect(board.surveyStats.find((s) => s.templateCode === "PERSONNE")?.responses).toBe(1);
+    expect(prismaMock.anonymousSurveyResponse.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ tenantId: expect.any(String), establishmentId: "etab-1" }) })
+    );
+  });
 
   it("le cabinet ne reçoit AUCUN commentaire libre (minimisation, 14/10/2026)", async () => {
     guards.requireEstablishmentAccess.mockResolvedValue(CABINET_ACCESS);

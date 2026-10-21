@@ -111,6 +111,8 @@ const ACTION_LABELS: Record<AuditAction, string> = {
   QUIZ_ATTEMPT_COMPLETED: "Quiz de sensibilisation passé",
   QUIZ_SIGNOFF_EXPORTED: "Émargement des quiz exporté",
   QUIZ_LINK_RATE_LIMITED: "Lien de quiz : trop de tentatives",
+  ANONYMOUS_SURVEY_LINKS_CREATED: "Liens d'enquête anonyme créés",
+  ANONYMOUS_SURVEY_LINK_RATE_LIMITED: "Lien d'enquête : trop de tentatives",
   DOCUMENT_TYPE_CRITERIA_UPDATED: "Matrice documents → critères validée",
   DOCUMENT_TYPE_CRITERION_PROMOTED: "Critère confirmé ajouté à la matrice",
   ACTION_ITEM_CREATED: "Tâche créée",

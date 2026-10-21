@@ -12,6 +12,7 @@ import { deriveDeadlineAlerts, isActiveOn, type DeadlineAlert } from "@/lib/serv
 import { computeBeneficiaryAggregates, type BeneficiaryAggregates } from "@/lib/services/beneficiary-aggregate-service";
 import { buildEodaFileName } from "@/lib/services/document-naming-service";
 import { recordAuditEvent } from "@/lib/services/audit-log-service";
+import { toSurveyRecord } from "@/lib/services/anonymous-survey-service";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TERRAIN — LECTURES (lot C). Garde : requireEstablishmentAccess(id, TERRAIN_READ)
@@ -57,6 +58,24 @@ function campaignStart(now: Date): Date {
   const start = new Date(now.getTime());
   start.setUTCMonth(start.getUTCMonth() - SURVEY_CAMPAIGN_MONTHS);
   return start;
+}
+
+// Réponses de l'enquête ANONYME (21/10/2026) — hors port HDS, parce qu'elles ne
+// contiennent aucune donnée de personne. Elles rejoignent le même dépouillement.
+async function readAnonymousResponses(scope: BeneficiaryScope, since: Date): Promise<SurveyResponseRecord[]> {
+  const rows = await prisma.anonymousSurveyResponse.findMany({
+    where: { tenantId: scope.tenantId, establishmentId: scope.establishmentId, completedOn: { gte: since } },
+    select: {
+      id: true,
+      templateCode: true,
+      templateVersion: true,
+      respondentKind: true,
+      mode: true,
+      completedOn: true,
+      answers: { select: { questionId: true, choice: true } },
+    },
+  });
+  return rows.map(toSurveyRecord);
 }
 
 async function contextOf(establishmentId: unknown): Promise<TerrainContext> {
@@ -129,10 +148,12 @@ export async function getSurveyBoard(establishmentId: string): Promise<TerrainSu
   const { scope, access } = await contextOf(establishmentId);
   const port = getBeneficiaryDataPort();
   const now = new Date();
-  const [timelines, responses] = await Promise.all([
+  const [timelines, nominative, anonymous] = await Promise.all([
     port.listBeneficiaryTimelines(scope),
     port.listSurveyResponses(scope, campaignStart(now)),
+    readAnonymousResponses(scope, campaignStart(now)),
   ]);
+  const responses = [...nominative, ...anonymous];
   const surveyed = surveyedIdsOf(responses);
   const active = timelines.filter((b) => isActiveOn(b, now));
   const computed = SURVEY_TEMPLATES.map((template) => computeTemplateStats(template, responses));
@@ -156,7 +177,11 @@ export async function getSurveyBoard(establishmentId: string): Promise<TerrainSu
 // /api/export/enquete/[id]. Journalisé sans contenu.
 export async function buildSurveyExport(establishmentId: string): Promise<{ csv: string; fileName: string }> {
   const { scope, name, access } = await contextOf(establishmentId);
-  const responses = await getBeneficiaryDataPort().listSurveyResponses(scope, campaignStart(new Date()));
+  const since = campaignStart(new Date());
+  const responses = [
+    ...(await getBeneficiaryDataPort().listSurveyResponses(scope, since)),
+    ...(await readAnonymousResponses(scope, since)),
+  ];
   const csv = buildSurveyCsv(SURVEY_TEMPLATES.map((template) => computeTemplateStats(template, responses)));
   await recordAuditEvent({
     action: "SURVEY_RESULTS_EXPORTED",

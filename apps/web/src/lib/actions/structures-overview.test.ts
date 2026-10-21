@@ -41,6 +41,7 @@ const ESTABLISHMENT = {
   id: "e1",
   name: "SAD Les Glycines (fictif)",
   type: "SAD_AIDE",
+  logoDataUri: null,
   hasEvaluationTargetDate: new Date("2027-01-03"),
   prospect: { status: "SIGNE" },
   mission: {
@@ -93,6 +94,7 @@ describe("getStructuresOverview", () => {
     expect(rows[0]).toEqual({
       id: "e1",
       name: "SAD Les Glycines (fictif)",
+      hasLogo: false,
       type: "SAD_AIDE",
       stage: "EN_COURS",
       isBeta: true,

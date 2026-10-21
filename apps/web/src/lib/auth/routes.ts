@@ -46,7 +46,14 @@ export const PROSPECT_SPACE_PATH = "/espace";
 // EXACTE : tout sous-chemin reste protégé.
 export const TABLET_PATH = "/tablette";
 export const TABLET_DEMO_PATH = "/tablette/demonstration";
-const TABLET_PATHS: readonly string[] = [TABLET_PATH, TABLET_DEMO_PATH];
+// Enquête de satisfaction ANONYME sur la tablette (21/10/2026) : même garde que
+// l'accueil (appareil enregistré + code du salarié), vérifiée par la page et l'action.
+export const TABLET_SURVEY_PATH = "/tablette/enquete";
+const TABLET_PATHS: readonly string[] = [TABLET_PATH, TABLET_DEMO_PATH, TABLET_SURVEY_PATH];
+
+// Enquête anonyme par LIEN à usage unique (21/10/2026) : /enquete/<jeton>, un seul
+// segment, comme le quiz. Le jeton n'ouvre qu'UNE enquête, UNE fois.
+export const ANONYMOUS_SURVEY_PREFIX = "/enquete/";
 
 export function classifyPath(pathname: string): PathAccess {
   if (pathname === "/login" || pathname.startsWith("/login/")) return "AUTH";
@@ -55,6 +62,7 @@ export function classifyPath(pathname: string): PathAccess {
   if (pathname.startsWith(QUIZ_PUBLIC_PREFIX) && /^\/quiz\/[A-Za-z0-9_-]+$/.test(pathname)) return "ANONYMOUS";
   if (/^\/confirmer-email(?:\/[A-Za-z0-9_-]+)?$/.test(pathname)) return "ANONYMOUS";
   if (TABLET_PATHS.includes(pathname)) return "ANONYMOUS";
+  if (/^\/enquete\/[A-Za-z0-9_-]+$/.test(pathname)) return "ANONYMOUS";
   return "PROTECTED";
 }
 
