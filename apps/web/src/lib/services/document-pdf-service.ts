@@ -1,4 +1,5 @@
-import { getFileStoragePort, type FileStoragePort } from "@/lib/storage";
+import { getFileStoragePort } from "@/lib/storage";
+import { documentPdfCacheKey, readCachedDocumentPdf } from "@/lib/services/document-pdf-cache";
 import { buildDocumentBody, renderHtmlToPdf } from "@/lib/services/document-pdf-render-service";
 import { buildPrintableHtml } from "@/lib/services/printable-html-service";
 
@@ -22,11 +23,11 @@ import { buildPrintableHtml } from "@/lib/services/printable-html-service";
 // refusée ne fait pas échouer l'aperçu, elle le rend juste plus lent. Et comme le PDF
 // est dérivé d'une pièce nominative, il disparaît avec elle
 // (`deleteCachedDocumentPdf`, appelé par la suppression d'une version).
+//
+// La clé, la lecture et la suppression du cache vivent dans `document-pdf-cache.ts`,
+// qui n'importe pas Chromium : la suppression d'une version n'a pas à le charger
+// (21/10/2026).
 // ─────────────────────────────────────────────────────────────────────────────
-
-export function documentPdfCacheKey(versionId: string): string {
-  return `renders/${versionId}.pdf`;
-}
 
 export type DocumentPdfSource = {
   versionId: string;
@@ -47,7 +48,7 @@ export async function getOrRenderDocumentPdf(source: DocumentPdfSource): Promise
   const storage = getFileStoragePort();
   const cacheKey = documentPdfCacheKey(source.versionId);
 
-  const cached = await readCachedPdf(storage, cacheKey);
+  const cached = await readCachedDocumentPdf(storage, cacheKey);
   if (cached) return cached;
 
   const content = await storage.download(source.fileStorageKey);
@@ -77,30 +78,4 @@ export async function getOrRenderDocumentPdf(source: DocumentPdfSource): Promise
   }
 
   return pdf;
-}
-
-// Une suppression de version emporte son rendu : un PDF dérivé d'une pièce nominative
-// ne survit pas à la pièce (§6, HDS — même sur le stockage actuel, on ne garde pas de
-// copie d'un document supprimé).
-export async function deleteCachedDocumentPdf(versionId: string): Promise<void> {
-  try {
-    await getFileStoragePort().delete(documentPdfCacheKey(versionId));
-  } catch (error) {
-    console.warn(
-      "Rendu PDF — suppression du cache impossible :",
-      error instanceof Error ? error.message : "erreur inconnue"
-    );
-  }
-}
-
-async function readCachedPdf(storage: FileStoragePort, key: string): Promise<Buffer | null> {
-  try {
-    const cached = await storage.download(key);
-    // Signature vérifiée : un objet tronqué ou étranger rangé sous cette clé ne doit
-    // pas être servi comme un PDF. Le contrôle coûte cinq octets.
-    return cached.subarray(0, 5).toString("latin1") === "%PDF-" ? cached : null;
-  } catch {
-    // Absence normale (premier aperçu) ou stockage indisponible : on rend.
-    return null;
-  }
 }

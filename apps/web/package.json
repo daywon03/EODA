@@ -11,7 +11,8 @@
     "test": "vitest run --coverage",
     "verify:prod-config": "tsx scripts/verify-production-config.ts",
     "check:bundle": "node scripts/check-bundle-budget.mjs",
-    "check:csp": "node scripts/check-csp-nonce.mjs"
+    "check:csp": "node scripts/check-csp-nonce.mjs",
+    "check:chromium": "node scripts/check-chromium-trace.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.112.3",

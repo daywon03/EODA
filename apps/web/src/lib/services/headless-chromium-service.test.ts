@@ -17,7 +17,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const launch = vi.fn();
 const executablePath = vi.fn();
 const SERVERLESS_ARGS = ["--single-process", "--no-zygote"];
-let envExecutablePath: string | undefined;
+// `null`, comme `getEnv()` le rend réellement quand la variable est absente — le
+// double tenait `undefined`, ce qui masquait un drapeau toujours faux.
+let envExecutablePath: string | null;
 
 vi.mock("puppeteer-core", () => ({
   default: { launch: (...args: unknown[]) => launch(...args) },
@@ -43,7 +45,7 @@ const LOCAL_CHROME = "/Applications/Google Chrome.app/Contents/MacOS/Google Chro
 describe("launchHeadlessChromium", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    envExecutablePath = undefined;
+    envExecutablePath = null;
     executablePath.mockResolvedValue("/tmp/chromium");
     launch.mockResolvedValue({ marker: "browser" });
   });

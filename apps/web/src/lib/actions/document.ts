@@ -22,7 +22,9 @@ import { canDeleteVersion,
 } from "@/lib/services/document-workflow-service";
 import { extractMarkdown } from "@/lib/services/text-extraction-service";
 import { canRenderDocumentPages } from "@/lib/services/file-type-service";
-import { deleteCachedDocumentPdf } from "@/lib/services/document-pdf-service";
+// Le module de CACHE, pas le service de rendu : celui-ci importe Chromium, et cette
+// action est chargée par toutes les pages qui touchent aux documents.
+import { deleteCachedDocumentPdf } from "@/lib/services/document-pdf-cache";
 import { suggestDocumentType } from "@/lib/services/document-categorization-service";
 import { ingestDocumentVersion, reanalyzeDocumentVersion } from "@/lib/services/document-ingestion-service";
 import { saveCorrectedDraft } from "@/lib/services/document-generation-service";
