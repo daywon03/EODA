@@ -703,6 +703,16 @@ Détail complet et état d'avancement : `specs/02-architecture-technique.md` §4
   - **ce qui est dérivé disparaît avec sa source** : `deleteDocumentVersion` supprime le
     rendu en cache (`deleteCachedDocumentPdf`), et un cache illisible ou de signature
     invalide n'est jamais servi — il est refait.
+  **Écart décidé par Damon le 21/10/2026 — le Word garde son DESIGN** (« quand on met
+  le doc avec un certain design, il ne faut pas que dans la preview le design
+  change ») : un `.docx` est désormais DESSINÉ dans le navigateur par `docx-preview`
+  (0.4.1 épinglé, chargé à l'ouverture seulement — `components/structure/DocxPreview.tsx`),
+  depuis l'original servi en pièce jointe par `/api/documents/[versionId]/original`
+  (signature vérifiée). Liens neutralisés hors http(s)/mailto
+  (`docx-preview-safety.ts`, testé), images en `data:`, repli sur les pages serveur si
+  le dessin échoue. Conséquence assumée : pour un Word, l'aperçu et l'export PDF ne
+  sont plus le même artefact (l'export garde la chaîne serveur). Excel et CSV ne
+  changent pas.
   Le PDF **du document** (`?download=1`, bouton « PDF ») existe là où la structure
   remet une pièce (checklist, `/dashboard/client/livrables`) ; la bibliothèque de
   modèles a l'aperçu paginé et laisse le téléchargement au lecteur natif.
