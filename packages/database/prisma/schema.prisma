@@ -321,6 +321,8 @@ model Tenant {
   beneficiaryJournal       BeneficiaryJournalEntry[]
   surveyResponses          SurveyResponse[]
   deviceEnrollments        DeviceEnrollment[]
+  anonymousSurveyInvites   AnonymousSurveyInvite[]
+  anonymousSurveyResponses AnonymousSurveyResponse[]
 
   @@map("tenants")
 }
@@ -392,6 +394,7 @@ model User {
   devicesEnrolled             DeviceEnrollment[]            @relation("DeviceEnrolledBy")
   devicesRevoked              DeviceEnrollment[]            @relation("DeviceRevokedBy")
   staffPinsSet                StaffPin[]                    @relation("StaffPinSetBy")
+  anonymousSurveyInvites      AnonymousSurveyInvite[]       @relation("AnonymousSurveyInviteCreatedBy")
 
   @@index([tenantId])
   @@map("users")
@@ -441,26 +444,28 @@ model Establishment {
   createdAt               DateTime       @default(now()) @map("created_at")
   updatedAt               DateTime       @updatedAt @map("updated_at")
 
-  tenant                Tenant                    @relation(fields: [tenantId], references: [id])
-  establishmentUsers    EstablishmentUser[]
-  documents             Document[]
-  evaluationSessions    EvaluationSession[]
-  prospect              Prospect?
-  mission               Mission?
-  optionRequests        ClientOptionRequest[]
-  appointments          Appointment[]
-  messages              MissionMessage[]
-  actionItems           ActionItem[]
-  diagnosticValidations DiagnosticValidation[]
-  practiceAnswers       PracticeAnswer[]
-  assignments           EstablishmentAssignment[]
-  staffMembers          StaffMember[]
-  quizCampaigns         QuizCampaign[]
-  quizAttempts          QuizAttempt[]
-  beneficiaries         Beneficiary[]
-  beneficiaryDocuments  BeneficiaryDocument[]
-  surveyResponses       SurveyResponse[]
-  deviceEnrollments     DeviceEnrollment[]
+  tenant                   Tenant                    @relation(fields: [tenantId], references: [id])
+  establishmentUsers       EstablishmentUser[]
+  documents                Document[]
+  evaluationSessions       EvaluationSession[]
+  prospect                 Prospect?
+  mission                  Mission?
+  optionRequests           ClientOptionRequest[]
+  appointments             Appointment[]
+  messages                 MissionMessage[]
+  actionItems              ActionItem[]
+  diagnosticValidations    DiagnosticValidation[]
+  practiceAnswers          PracticeAnswer[]
+  assignments              EstablishmentAssignment[]
+  staffMembers             StaffMember[]
+  quizCampaigns            QuizCampaign[]
+  quizAttempts             QuizAttempt[]
+  beneficiaries            Beneficiary[]
+  beneficiaryDocuments     BeneficiaryDocument[]
+  surveyResponses          SurveyResponse[]
+  deviceEnrollments        DeviceEnrollment[]
+  anonymousSurveyInvites   AnonymousSurveyInvite[]
+  anonymousSurveyResponses AnonymousSurveyResponse[]
 
   @@index([tenantId])
   @@map("establishments")
@@ -740,6 +745,10 @@ model CriterionGuideline {
   tenantId        String   @map("tenant_id")
   criterionId     String   @map("criterion_id")
   note            String
+  // « Pouvoir oui ou non le faire prendre en compte par l'IA » (call du 18/10/2026).
+  // Le TEXTE reste append-only ; seul l'usage se bascule, et chaque bascule se
+  // journalise (CRITERION_GUIDELINE_AI_TOGGLED). Une guideline retirée reste lisible.
+  aiEnabled       Boolean  @default(true) @map("ai_enabled")
   createdByUserId String   @map("created_by_user_id")
   createdAt       DateTime @default(now()) @map("created_at")
 
@@ -1722,6 +1731,9 @@ enum AuditAction {
   // données de la plateforme : c'est précisément le genre d'accès dont il faut
   // pouvoir dire qui, quand, et pour quel établissement.
   EVALUATION_EXPORTED
+  // Import d'une grille Synaé cotée dans la session ouverte d'un chapitre (21/10/2026).
+  // `targetId` = session d'évaluation, `detail` = les comptes, jamais un commentaire.
+  EVALUATION_GRID_IMPORTED
   // Retour d'un avenant signé, et retrait de cette signature. `targetId` =
   // identifiant de la ligne MissionOption, `detail` = le libellé de la prestation
   // (donnée de catalogue, jamais nominative). Ces deux gestes verrouillent ou
@@ -1740,6 +1752,9 @@ enum AuditAction {
   // connaissances qui apprend des erreurs constatées). `targetId` = identifiant du
   // critère, jamais le contenu de la guideline.
   CRITERION_GUIDELINE_ADDED
+  // Guideline mise en service ou retirée de l'analyse IA (call du 18/10/2026).
+  // `targetId` = identifiant de la guideline ; `detail` = « oui » / « non ».
+  CRITERION_GUIDELINE_AI_TOGGLED
   // Ré-analyse à la demande d'une version déjà déposée (bouton « Analyser » côté
   // cabinet, 15/09/2026) — `targetId` = identifiant de la version de document.
   DOCUMENT_REANALYZED
@@ -1805,6 +1820,12 @@ enum AuditAction {
   QUIZ_ATTEMPT_COMPLETED
   QUIZ_SIGNOFF_EXPORTED
   QUIZ_LINK_RATE_LIMITED
+  // Enquête anonyme (21/10/2026) : création de liens à usage unique (`detail` = le
+  // nombre et le questionnaire), et débit dépassé sur la page publique. Une réponse
+  // anonyme n'est JAMAIS journalisée : l'heure et l'appareil la rattacheraient à une
+  // visite, donc à une personne.
+  ANONYMOUS_SURVEY_LINKS_CREATED
+  ANONYMOUS_SURVEY_LINK_RATE_LIMITED
   // Relance manuelle d'un devis envoyé (maquettes v2, 13/10/2026) : un geste, jamais
   // un automate. `detail` = numéro du devis.
   DEVIS_REMINDER_SENT
@@ -2696,6 +2717,80 @@ model SurveyAnswer {
 
   @@unique([responseId, questionId])
   @@map("survey_answers")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ENQUÊTE DE SATISFACTION ANONYME — décision de Damon du 21/10/2026 : « la vraie
+// enquête, on ne va pas prendre de donnée sensible ». HORS verrou HDS parce qu'elle
+// ne PEUT PAS en contenir : ces tables n'ont, par construction, aucun lien vers une
+// personne accompagnée, aucun texte libre (un texte peut contenir un nom ou une
+// information de santé), aucun salarié (salarié + heure = la personne visitée), et
+// la date est au JOUR. Ce sont des choix d'échelle, rien d'autre — vérifié par
+// `anonymous-survey-schema.test.ts`, qui échoue si un champ de ce genre apparaît.
+// L'enquête NOMINATIVE (`SurveyResponse`) reste derrière le port HDS.
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum AnonymousSurveyChannel {
+  // Remplie sur la tablette enregistrée, avec un intervenant (mode assisté ou seul).
+  TABLETTE
+  // Remplie depuis un lien à usage unique remis par la structure (e-mail, SMS, QR).
+  LIEN
+}
+
+// Lien à usage unique. Le jeton n'est JAMAIS en base : seule son empreinte SHA-256.
+// Le lien ne désigne personne — la structure le remet à qui elle veut.
+model AnonymousSurveyInvite {
+  id              String             @id @default(cuid())
+  tenantId        String             @map("tenant_id")
+  establishmentId String             @map("establishment_id")
+  templateCode    SurveyTemplateCode @map("template_code")
+  tokenHash       String             @unique @map("token_hash")
+  expiresAt       DateTime           @map("expires_at")
+  usedAt          DateTime?          @map("used_at")
+  createdByUserId String?            @map("created_by_user_id")
+  createdAt       DateTime           @default(now()) @map("created_at")
+
+  tenant        Tenant        @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  establishment Establishment @relation(fields: [establishmentId], references: [id], onDelete: Restrict)
+  createdBy     User?         @relation("AnonymousSurveyInviteCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId])
+  @@index([establishmentId, createdAt])
+  @@index([createdByUserId])
+  @@map("anonymous_survey_invites")
+}
+
+model AnonymousSurveyResponse {
+  id              String                 @id @default(cuid())
+  tenantId        String                 @map("tenant_id")
+  establishmentId String                 @map("establishment_id")
+  templateCode    SurveyTemplateCode     @map("template_code")
+  templateVersion Int                    @map("template_version")
+  respondentKind  SurveyRespondentKind   @map("respondent_kind")
+  mode            SurveyMode
+  channel         AnonymousSurveyChannel
+  // Au JOUR, jamais à l'heure : une heure précise recoupe le passage d'un intervenant.
+  completedOn     DateTime               @map("completed_on") @db.Date
+
+  tenant        Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  establishment Establishment           @relation(fields: [establishmentId], references: [id], onDelete: Restrict)
+  answers       AnonymousSurveyAnswer[]
+
+  @@index([tenantId])
+  @@index([establishmentId, completedOn])
+  @@map("anonymous_survey_responses")
+}
+
+model AnonymousSurveyAnswer {
+  id         String       @id @default(cuid())
+  responseId String       @map("response_id")
+  questionId String       @map("question_id")
+  choice     SurveyChoice
+
+  response AnonymousSurveyResponse @relation(fields: [responseId], references: [id], onDelete: Cascade)
+
+  @@unique([responseId, questionId])
+  @@map("anonymous_survey_answers")
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

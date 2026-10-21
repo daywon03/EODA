@@ -22,7 +22,9 @@ import { canDeleteVersion,
 } from "@/lib/services/document-workflow-service";
 import { extractMarkdown } from "@/lib/services/text-extraction-service";
 import { canRenderDocumentPages } from "@/lib/services/file-type-service";
-import { deleteCachedDocumentPdf } from "@/lib/services/document-pdf-service";
+// Le module de CACHE, pas le service de rendu : celui-ci importe Chromium, et cette
+// action est chargée par toutes les pages qui touchent aux documents.
+import { deleteCachedDocumentPdf } from "@/lib/services/document-pdf-cache";
 import { suggestDocumentType } from "@/lib/services/document-categorization-service";
 import { ingestDocumentVersion, reanalyzeDocumentVersion } from "@/lib/services/document-ingestion-service";
 import { saveCorrectedDraft } from "@/lib/services/document-generation-service";
@@ -65,7 +67,9 @@ const OUT_OF_OFFER_ERROR =
 export type DocumentTypeCandidate = { id: string; label: string; category: string };
 
 export type UploadDocumentResult =
-  | { success: true; documentTypeId: string }
+  // `documentVersionId` : l'écran qui vient de déposer prépare aussitôt les pages de
+  // l'aperçu (`?prepare=1`), pour que le premier « voir » tombe sur le cache.
+  | { success: true; documentTypeId: string; documentVersionId: string }
   | { error: string; needsManualType?: true; candidates?: DocumentTypeCandidate[] };
 
 function revalidateDocumentViews(establishmentId: string): void {
@@ -181,6 +185,35 @@ export async function uploadDocument(formData: FormData): Promise<UploadDocument
     detail: documentType.code,
   });
 
+  // VERSION FINALE D'EODA (call du 18/10/2026) : quand le cabinet dépose le document
+  // qu'il a lui-même finalisé, le faire repasser par « À relire » demandait à Sandrine
+  // de relire son propre travail. Coché au dépôt (par défaut côté cabinet), le dépôt
+  // VAUT validation — même effet et même trace que `setDocumentValidated`. Décoché,
+  // c'est un dépôt POUR LE COMPTE de la structure (un original du client), qui suit le
+  // parcours normal : on ne valide jamais en silence une pièce que personne n'a relue.
+  // Jamais pour un client : le champ est ignoré si l'appelant n'est pas du cabinet.
+  if (!access.isClient && formData.get("cabinetFinal") === "1") {
+    const now = new Date();
+    const validatedDocument = await prisma.$transaction(async (tx) => {
+      await tx.documentVersion.update({
+        where: { id: result.documentVersionId },
+        data: { analysisReviewedAt: now },
+      });
+      return tx.document.update({
+        where: { establishmentId_documentTypeId: { establishmentId, documentTypeId: documentType.id } },
+        data: { validatedAt: now, validatedByUserId: access.userId },
+        select: { id: true },
+      });
+    });
+    await recordAuditEvent({
+      action: "DOCUMENT_VALIDATED",
+      actorUserId: access.userId,
+      actorRole: access.session.user.role,
+      establishmentId,
+      targetId: validatedDocument.id,
+    });
+  }
+
   revalidateDocumentViews(establishmentId);
 
   // Dépôt du cabinet sur un document DÉJÀ validé : la nouvelle version devient le
@@ -209,7 +242,7 @@ export async function uploadDocument(formData: FormData): Promise<UploadDocument
     });
   }
 
-  return { success: true, documentTypeId: documentType.id };
+  return { success: true, documentTypeId: documentType.id, documentVersionId: result.documentVersionId };
 }
 
 // Réponse sur un document pas encore déposé (missing-answer-service, N3) :
@@ -741,6 +774,8 @@ export type CriterionOption = {
 export type CriterionGuidelineItem = {
   id: string;
   note: string;
+  // Prise en compte par l'IA (call du 18/10/2026) — le texte, lui, ne change jamais.
+  aiEnabled: boolean;
   createdAt: Date;
   createdByName: string;
 };
@@ -758,7 +793,8 @@ export async function listCriteriaForPicker(): Promise<CriterionOption[] | null>
 
 export async function addCriterionGuideline(
   criterionId: string,
-  note: string
+  note: string,
+  aiEnabled = true
 ): Promise<{ error: string } | null> {
   const validated = validateGuidelineNote(note);
   if (!validated.ok) return { error: validated.error };
@@ -769,7 +805,7 @@ export async function addCriterionGuideline(
   if (!criterion) return { error: "Critère invalide." };
 
   await prisma.criterionGuideline.create({
-    data: { tenantId, criterionId, note: validated.value, createdByUserId: userId },
+    data: { tenantId, criterionId, note: validated.value, aiEnabled: aiEnabled === true, createdByUserId: userId },
   });
 
   await recordAuditEvent({
@@ -797,9 +833,39 @@ export async function listCriterionGuidelines(
   return guidelines.map((g) => ({
     id: g.id,
     note: g.note,
+    aiEnabled: g.aiEnabled,
     createdAt: g.createdAt,
     createdByName: g.createdBy.name,
   }));
+}
+
+// « Oui ou non pris en compte par l'IA » : seul l'USAGE d'une guideline se bascule,
+// jamais son texte (append-only). Tenant de l'appelant obligatoire — une guideline
+// d'un autre cabinet répond notFound(), comme tout objet hors périmètre.
+export async function setCriterionGuidelineAiUse(
+  guidelineId: string,
+  aiEnabled: boolean
+): Promise<{ error: string } | null> {
+  const { tenantId, userId, session } = await requireCabinetSession("STRUCTURES_WRITE");
+  if (typeof guidelineId !== "string" || guidelineId.length === 0) return { error: "Guideline manquante." };
+
+  const guideline = await prisma.criterionGuideline.findFirst({
+    where: { id: guidelineId, tenantId },
+    select: { id: true, aiEnabled: true },
+  });
+  if (!guideline) notFound();
+  const enabled = aiEnabled === true;
+  if (guideline.aiEnabled === enabled) return null;
+
+  await prisma.criterionGuideline.update({ where: { id: guideline.id }, data: { aiEnabled: enabled } });
+  await recordAuditEvent({
+    action: "CRITERION_GUIDELINE_AI_TOGGLED",
+    actorUserId: userId,
+    actorRole: session.user.role,
+    targetId: guideline.id,
+    detail: enabled ? "oui" : "non",
+  });
+  return null;
 }
 
 // ── Validation d'un document ─────────────────────────────────────────────────

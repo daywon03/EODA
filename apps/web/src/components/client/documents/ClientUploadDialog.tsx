@@ -3,6 +3,7 @@
 import { useId, useRef, useState, useTransition, type DragEvent } from "react";
 import { AlertCircle, Camera, FileText, Loader2, Upload } from "lucide-react";
 import { uploadDocument } from "@/lib/actions/document";
+import { prepareDocumentPages } from "@/lib/services/document-viewer-service";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 
@@ -74,7 +75,11 @@ export function ClientUploadDialog({
     startTransition(async () => {
       const result = await uploadDocument(formData);
       if ("error" in result) setError(result.error);
-      else setSent(true);
+      else {
+        // Pages de l'aperçu préparées dès le dépôt (cf. DocumentUploadButton).
+        prepareDocumentPages(result.documentVersionId, file.name);
+        setSent(true);
+      }
     });
   }
 

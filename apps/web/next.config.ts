@@ -3,6 +3,10 @@ import path from "node:path";
 
 const isProduction = process.env.NODE_ENV === "production";
 
+// Les archives du binaire serverless (chromium.br, al2023.tar.br…), cf.
+// `outputFileTracingIncludes` plus bas.
+const CHROMIUM_BINARIES = "../../node_modules/@sparticuz/chromium/bin/**";
+
 // ─────────────────────────────────────────────────────────────────────────────
 // EN-TÊTES DE SÉCURITÉ
 //
@@ -71,6 +75,28 @@ const nextConfig: NextConfig = {
   },
   output: "standalone",
   outputFileTracingRoot: path.join(__dirname, "../.."),
+  // ───────────────────────────────────────────────────────────────────────────
+  // LE BINAIRE CHROMIUM DOIT VOYAGER AVEC LES FONCTIONS QUI LE LANCENT
+  //
+  // `@sparticuz/chromium` calcule l'emplacement de son dossier `bin/` à l'exécution
+  // (`import.meta.url`) : le traçage de fichiers ne peut pas le deviner, et il
+  // n'embarquait que le JavaScript du paquet. Sur Vercel, Chromium n'avait donc rien à
+  // décompresser : l'aperçu des documents répondait 503 « Aperçu paginé indisponible »
+  // et l'envoi de devis par e-mail échouait de même (mesuré le 21/10/2026 sur le
+  // `.nft.json` des deux routes PDF). Le chemin est relatif à `apps/web` ; le dépôt
+  // hisse `node_modules` à la racine (`node-linker=hoisted`).
+  //
+  // Les pages commerciales sont listées parce que les actions d'envoi et de relance
+  // de devis (`lib/actions/devis-email.ts`) s'exécutent dans la fonction de la page
+  // qui les importe. Garde : `pnpm check:chromium` après le build (CI) échoue si une
+  // fonction embarque le code du paquet sans son binaire — y compris une route future.
+  outputFileTracingIncludes: {
+    "/api/documents/[versionId]/pdf": [CHROMIUM_BINARIES],
+    "/api/templates/versions/[versionId]/pdf": [CHROMIUM_BINARIES],
+    "/dashboard/cabinet/commercial": [CHROMIUM_BINARIES],
+    "/dashboard/cabinet/commercial/devis": [CHROMIUM_BINARIES],
+    "/dashboard/cabinet/commercial/devis/[id]": [CHROMIUM_BINARIES],
+  },
   // Ne pas divulguer la version du framework aux scanners automatisés.
   poweredByHeader: false,
   async headers() {

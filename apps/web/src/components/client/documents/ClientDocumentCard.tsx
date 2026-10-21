@@ -4,8 +4,10 @@ import type { ChecklistItem } from "@/lib/actions/checklist";
 import {
   clientDocumentPill,
   depositNoticeFor,
+  versionsVisibleToClient,
   type ClientDocumentState,
 } from "@/lib/services/client-documents-view-service";
+import { ClientDocumentViewer } from "./ClientDocumentViewer";
 import { clientWaitingLine } from "@/lib/services/client-document-waiting-service";
 import { StatusPill } from "@/components/ui/status-pill";
 import { DocumentAnalysisPanel } from "@/components/checklist/DocumentAnalysisPanel";
@@ -40,7 +42,12 @@ export function ClientDocumentCard({
     <article className="flex flex-col gap-3 rounded-xl border border-line bg-card px-5 py-4">
       <div className="flex flex-wrap items-center gap-4">
         <div className="flex min-w-[240px] flex-1 flex-col gap-1">
-          <h3 className="text-[19px] font-bold leading-snug">{item.label}</h3>
+          {/* Le nom ouvre le document (ses dépôts, et ceux d'EODA une fois validés). */}
+          <ClientDocumentViewer
+            label={item.label}
+            versions={versionsVisibleToClient(item.versions, item.validatedAt)}
+            mention={version?.clientMention ?? null}
+          />
           {item.expiryNotice && <p className="text-base font-bold">{item.expiryNotice}</p>}
           {/* Le DIPC se réclame en modèle vierge : un exemplaire signé est une donnée
               de santé nominative (HDS). Dit à l'écran, pas seulement au dépôt. */}

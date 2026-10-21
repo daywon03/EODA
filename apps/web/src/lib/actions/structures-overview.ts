@@ -106,6 +106,7 @@ export async function getStructuresOverview(): Promise<StructuresOverview> {
     return {
       id: e.id,
       name: e.name,
+      hasLogo: e.logoDataUri !== null,
       type: e.type,
       stage: deriveFunnelStage({ prospectStatus: e.prospect?.status ?? null, mission }),
       isBeta: isBetaMission(mission),

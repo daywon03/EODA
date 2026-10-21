@@ -36,6 +36,6 @@ export class ChromiumLaunchError extends Error {
 // `devis-pdf-failure.ts` — jamais le détail technique à l'écran.
 export function chromiumLaunchHint(usedEmbeddedBinary: boolean): string {
   return usedEmbeddedBinary
-    ? "Chromium n'a pas pu démarrer : c'est le binaire serverless embarqué qui a été utilisé, et il ne s'exécute pas sur cette machine. En développement, posez PUPPETEER_EXECUTABLE_PATH dans .env.local (chemin d'un Chrome installé) ; en production, la variable doit rester vide."
+    ? "Chromium n'a pas pu démarrer : c'est le binaire serverless embarqué qui a été utilisé. En développement, il ne s'exécute pas sur macOS : posez PUPPETEER_EXECUTABLE_PATH dans .env.local (chemin d'un Chrome installé). En production, la variable doit rester vide ; vérifiez que les fichiers @sparticuz/chromium/bin sont bien embarqués dans la fonction (outputFileTracingIncludes de next.config.ts, contrôlé par `pnpm check:chromium`)."
     : "Chromium n'a pas pu démarrer : le Chrome désigné par PUPPETEER_EXECUTABLE_PATH a refusé de se lancer.";
 }

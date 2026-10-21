@@ -11,6 +11,7 @@ import {
   describeMatrixDecision,
   pairKey,
   parseProposedMatrix,
+  planFullProposalLoad,
   planMatrixDecision,
   promotionError,
   type MatrixView,
@@ -145,6 +146,39 @@ export async function validateMatrixForDocumentType(formData: FormData): Promise
 
   revalidatePath(MATRIX_PATH);
   return null;
+}
+
+// « Charger toute la proposition » (décision de Damon, 21/10/2026) — CABINET_ADMIN
+// seul. Ajoute, n'enlève rien ; le plan est recalculé ici depuis la proposition
+// embarquée et la base, aucune entrée du formulaire n'est lue.
+export async function loadFullProposedMatrix(): Promise<{ error: string } | { added: number; alreadyLinked: number; skipped: number }> {
+  const { userId, session } = await requireCabinetAdminSession();
+
+  const [criteria, documentTypes, linkedPairs] = await Promise.all([
+    prisma.criterion.findMany({ select: { id: true, code: true } }),
+    prisma.documentType.findMany({ select: { id: true, code: true } }),
+    loadLinkedPairs(),
+  ]);
+  const plan = planFullProposalLoad(parseProposedMatrix(PROPOSED_MATRIX_CSV), {
+    documentTypeIds: new Map(documentTypes.map((t) => [t.code, t.id])),
+    criterionIds: new Map(criteria.map((c) => [c.code, c.id])),
+    linkedPairs,
+  });
+
+  const created =
+    plan.toCreate.length === 0
+      ? { count: 0 }
+      : await prisma.documentTypeCriterion.createMany({ data: plan.toCreate, skipDuplicates: true });
+
+  await recordAuditEvent({
+    action: "DOCUMENT_TYPE_CRITERIA_UPDATED",
+    actorUserId: userId,
+    actorRole: session.user.role,
+    detail: `proposition complète · +${created.count}`,
+  });
+
+  revalidatePath(MATRIX_PATH);
+  return { added: created.count, alreadyLinked: plan.alreadyLinked, skipped: plan.skipped };
 }
 
 // « Ajouter à la matrice » une suggestion confirmée sur un document d'une structure.

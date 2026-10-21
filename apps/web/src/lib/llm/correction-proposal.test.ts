@@ -3,7 +3,9 @@ import {
   CORRECTION_PROPOSAL_JSON_SCHEMA,
   InvalidProposalError,
   parseCorrectionProposalJson,
+  protectVersionsAndDates,
   readStoredProposal,
+  VERSION_OR_DATE_PLACEHOLDER,
   sanitizeProposal,
   validateCorrectionProposal,
 } from "./correction-proposal";
@@ -69,14 +71,46 @@ describe("sanitizeProposal", () => {
     const clean = sanitizeProposal(proposal, {
       knownCriterionCodes: new Set(["3.12.1"]),
       knowledgeExcerpts: ["Critère 3.12.1 : le   service INFORME la personne."],
+      originalText: "Article 1",
     });
     expect(clean.segments[1]).toMatchObject({ criterionCode: "3.12.1", manualQuote: "Le service informe" });
   });
 
   it("retire un code inventé et une citation introuvable", () => {
-    const clean = sanitizeProposal(proposal, { knownCriterionCodes: new Set(["2.2.2"]), knowledgeExcerpts: ["Autre texte."] });
+    const clean = sanitizeProposal(proposal, { knownCriterionCodes: new Set(["2.2.2"]), knowledgeExcerpts: ["Autre texte."], originalText: "Article 1" });
     expect(clean.segments[1]).toMatchObject({ criterionCode: null, manualQuote: null });
     expect(clean.segments[0]).toEqual(proposal.segments[0]);
+  });
+});
+
+// Call du 18/10/2026 : l'IA ne touche jamais aux numéros de version ni aux dates.
+describe("versions et dates", () => {
+  const ORIGINAL_TEXT = "Règlement de fonctionnement — Version 3 du 12/03/2025. Loi n° 2002-2 du 2 janvier 2002.";
+  const ctx = { knownCriterionCodes: new Set<string>(), knowledgeExcerpts: [] as string[], originalText: ORIGINAL_TEXT };
+
+  it("garde les versions et dates qui figurent dans la source", () => {
+    expect(protectVersionsAndDates("Version 3 du 12/03/2025, loi du 2 janvier 2002", ORIGINAL_TEXT.toLowerCase())).toBe(
+      "Version 3 du 12/03/2025, loi du 2 janvier 2002"
+    );
+  });
+
+  it("remplace une version « corrigée » dans un segment recopié de l'original", () => {
+    const clean = sanitizeProposal(validateCorrectionProposal({ segments: [{ kind: "ORIGINAL", text: "Version 4 du 21/10/2026" }] }), ctx);
+    expect(clean.segments[0]?.text).toBe(`${VERSION_OR_DATE_PLACEHOLDER} du ${VERSION_OR_DATE_PLACEHOLDER}`);
+  });
+
+  it("ne laisse aucun ajout inventer une version ou une date", () => {
+    const clean = sanitizeProposal(
+      validateCorrectionProposal({ segments: [{ kind: "AJOUT", id: "a1", text: "Mis à jour le 1er octobre 2026 (v2.1)." }] }),
+      ctx
+    );
+    expect(clean.segments[0]?.text).toBe(`Mis à jour le ${VERSION_OR_DATE_PLACEHOLDER} (${VERSION_OR_DATE_PLACEHOLDER}).`);
+  });
+
+  it("n'altère pas un texte sans version ni date", () => {
+    expect(protectVersionsAndDates("Article 12 : la personne est informée.", "")).toBe("Article 12 : la personne est informée.");
+    // Un code de critère HAS n'est pas une date.
+    expect(protectVersionsAndDates("Critères 1.10.12 et 3.12.1.", "")).toBe("Critères 1.10.12 et 3.12.1.");
   });
 });
 

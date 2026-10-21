@@ -127,10 +127,20 @@ describe("seed — types de document du référentiel du pilote", () => {
   const sql = migrationSql("20261014120000_pilot_document_types");
   const inserted = insertedDocumentTypesIn(sql);
 
-  it("reprend exactement les 19 types insérés par 20261014120000 (code, catégorie, libellé)", () => {
+  // 20261021090000 renomme quatre gabarits (« modèle vierge » → « … personnalisé ») :
+  // le seed reflète l'état APRÈS les deux migrations, rejouées ici.
+  const renameSql = migrationSql("20261021090000_blank_model_personalized_labels");
+  const renamedCodes = new Set([...renameSql.matchAll(/'([A-Z0-9_]+)'/g)].map((m) => m[1]!));
+
+  it("reprend exactement les 19 types insérés par 20261014120000, libellés renommés le 21/10 compris", () => {
     expect(inserted).toHaveLength(19);
+    expect(renamedCodes.size).toBe(4);
     expect(PILOT_DOCUMENT_TYPES.map(({ code, category, label }) => ({ code, category, label }))).toEqual(
-      inserted.map(({ code, category, label }) => ({ code, category, label }))
+      inserted.map(({ code, category, label }) => ({
+        code,
+        category,
+        label: code && renamedCodes.has(code) ? `${label} personnalisé` : label,
+      }))
     );
   });
 

@@ -65,7 +65,11 @@ export function CabinetNavList({ sections, collapsed, onNavigate }: Props) {
   }
 
   return (
-    <div className={cn("flex flex-1 flex-col gap-0.5 px-3 py-1", collapsed ? "overflow-visible" : "overflow-y-auto")}>
+    // Défilement vertical dans les DEUX modes : replié, la liste passait en
+    // `overflow-visible` pour laisser déborder les infobulles, et sur un écran peu haut
+    // les dernières entrées étaient coupées (call du 18/10/2026). L'infobulle est
+    // désormais positionnée en `fixed` (NavEntry) et n'a plus besoin du débordement.
+    <div className="flex flex-1 flex-col gap-0.5 overflow-y-auto overflow-x-hidden px-3 py-1">
       {sections.map((section, index) => {
         const canCollapse = section.collapsible === true && !collapsed;
         const isOpen = canCollapse
@@ -172,11 +176,26 @@ function NavEntry({
   const Icon = NAV_ICONS[item.icon];
   const hasCount = (item.count ?? 0) > 0;
   const label = accessibleItemLabel(item);
+  // Infobulle de l'entrée repliée, positionnée en `fixed` depuis le rectangle du lien :
+  // elle sort de la liste défilante sans exiger de débordement visible.
+  const [tip, setTip] = useState<{ top: number; left: number } | null>(null);
+  function showTip(event: React.MouseEvent<HTMLAnchorElement> | React.FocusEvent<HTMLAnchorElement>) {
+    if (!collapsed) return;
+    const rect = event.currentTarget.getBoundingClientRect();
+    setTip({ top: rect.top + rect.height / 2, left: rect.right + 12 });
+  }
+  function hideTip() {
+    setTip(null);
+  }
 
   return (
     <Link
       href={item.href}
       onClick={() => onNavigate?.()}
+      onMouseEnter={showTip}
+      onFocus={showTip}
+      onMouseLeave={hideTip}
+      onBlur={hideTip}
       aria-current={isActive ? "page" : undefined}
       aria-label={collapsed ? label : undefined}
       className={cn(
@@ -200,10 +219,11 @@ function NavEntry({
           <span className="sr-only">, {item.countLabel}</span>
         </>
       )}
-      {collapsed && (
+      {collapsed && tip && (
         <span
           aria-hidden="true"
-          className="pointer-events-none absolute left-full top-1/2 z-50 ml-3 hidden -translate-y-1/2 rounded-md bg-ink-fill px-2.5 py-1 text-sm font-normal text-on-ink shadow-eoda-md group-hover/item:block group-focus-visible/item:block"
+          className="pointer-events-none fixed z-50 -translate-y-1/2 whitespace-nowrap rounded-md bg-ink-fill px-2.5 py-1 text-sm font-normal text-on-ink shadow-eoda-md"
+          style={{ top: tip.top, left: tip.left }}
         >
           {label}
         </span>

@@ -98,4 +98,7 @@ export const EXPECTED_MIGRATIONS: readonly string[] = [
   "20261014100000_lot_c_audit_actions",
   "20261014110000_sad_mixte_full_labels",
   "20261014120000_pilot_document_types",
+  "20261021090000_blank_model_personalized_labels",
+  "20261021100000_criterion_guideline_ai_enabled",
+  "20261021110000_anonymous_survey",
 ] as const;

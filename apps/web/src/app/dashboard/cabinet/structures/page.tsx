@@ -17,12 +17,42 @@ import { ProgressBar } from "@/components/ui/progress-bar";
 import { Button } from "@/components/ui/button";
 import { StageBadge } from "@/components/crm/StageBadge";
 import { describeImperativesProof } from "@/lib/services/criteria-proof-service";
+import { establishmentLogoUrl } from "@/lib/services/logo-response-service";
 
 export const metadata = { title: "Structures" };
 
 function columns(now: Date): DataTableColumn<StructureFacts>[] {
   return [
-    { id: "name", header: "Structure", cell: (row) => row.name, isRowHeader: true },
+    {
+      id: "name",
+      header: "Structure",
+      isRowHeader: true,
+      // Le logo devant le nom : on reconnaît un client d'un coup d'œil (call du
+      // 18/10/2026). Sans logo, une pastille à l'initiale garde l'alignement.
+      cell: (row) => (
+        <span className="flex items-center gap-3">
+          {row.hasLogo ? (
+            // eslint-disable-next-line @next/next/no-img-element -- servi par notre route, en cache navigateur.
+            <img
+              src={establishmentLogoUrl(row.id)}
+              alt=""
+              width={36}
+              height={36}
+              loading="lazy"
+              className="h-9 w-9 flex-shrink-0 rounded-md border border-line bg-card object-contain"
+            />
+          ) : (
+            <span
+              aria-hidden="true"
+              className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md bg-soft text-sm font-bold text-ink2"
+            >
+              {row.name.trim().charAt(0).toUpperCase()}
+            </span>
+          )}
+          {row.name}
+        </span>
+      ),
+    },
     { id: "type", header: "Type", cell: (row) => ESTABLISHMENT_TYPE_LABELS[row.type] },
     { id: "stage", header: "Étape", cell: (row) => <StageBadge stage={row.stage} beta={row.isBeta} /> },
     {

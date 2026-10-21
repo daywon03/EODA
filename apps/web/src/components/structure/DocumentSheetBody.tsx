@@ -49,7 +49,12 @@ export function DocumentSheetBody({
       />
 
       <div className="border-t border-line pt-4">
-        <DocumentUploadButton establishmentId={establishmentId} documentTypeId={item.documentTypeId} showModelSelector />
+        <DocumentUploadButton
+          establishmentId={establishmentId}
+          documentTypeId={item.documentTypeId}
+          showModelSelector
+          offerCabinetFinal
+        />
       </div>
     </div>
   );

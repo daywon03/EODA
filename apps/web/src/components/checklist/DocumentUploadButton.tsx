@@ -2,6 +2,7 @@
 
 import { useRef, useState, useTransition } from "react";
 import { uploadDocument } from "@/lib/actions/document";
+import { prepareDocumentPages } from "@/lib/services/document-viewer-service";
 import { LLM_MODEL_OPTIONS, DEFAULT_LLM_MODEL_ID } from "@/lib/llm/openrouter-models";
 import { Button } from "@/components/ui/button";
 import { Loader2, Upload, AlertCircle } from "lucide-react";
@@ -14,14 +15,19 @@ type Props = {
   // client — sans OPENROUTER_API_KEY configurée, ce choix est de toute façon ignoré
   // par l'adaptateur actif (cf. lib/llm/index.ts).
   showModelSelector?: boolean;
+  // Côté cabinet : « Version finale d'EODA » — le dépôt vaut validation (call du
+  // 18/10/2026). Décochée, c'est un dépôt pour le compte de la structure.
+  offerCabinetFinal?: boolean;
 };
 
 export function DocumentUploadButton({
   establishmentId,
   documentTypeId,
   showModelSelector = false,
+  offerCabinetFinal = false,
 }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const [cabinetFinal, setCabinetFinal] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [modelId, setModelId] = useState(DEFAULT_LLM_MODEL_ID);
   const [isPending, startTransition] = useTransition();
@@ -35,11 +41,15 @@ export function DocumentUploadButton({
     formData.set("documentTypeId", documentTypeId);
     formData.set("file", file);
     if (showModelSelector) formData.set("modelId", modelId);
+    if (offerCabinetFinal && cabinetFinal) formData.set("cabinetFinal", "1");
 
     setError(null);
     startTransition(async () => {
       const result = await uploadDocument(formData);
       if ("error" in result) setError(result.error);
+      // Les pages de l'aperçu se préparent dès le dépôt : le premier « voir » tombe
+      // sur le cache au lieu d'un lancement de Chromium.
+      else prepareDocumentPages(result.documentVersionId, file.name);
       if (inputRef.current) inputRef.current.value = "";
     });
   }
@@ -60,6 +70,23 @@ export function DocumentUploadButton({
             </option>
           ))}
         </select>
+      )}
+      {offerCabinetFinal && (
+        <label className="flex max-w-[320px] cursor-pointer items-start gap-2 text-sm text-ink">
+          <input
+            type="checkbox"
+            checked={cabinetFinal}
+            onChange={(e) => setCabinetFinal(e.target.checked)}
+            disabled={isPending}
+            className="mt-1 h-4 w-4"
+          />
+          <span>
+            <span className="font-bold">Version finale d&apos;EODA</span>
+            <span className="block text-ink2">
+              Validée au dépôt, sans passer par « À relire ». Décochez pour déposer un document de la structure à sa place.
+            </span>
+          </span>
+        </label>
       )}
       <input
         ref={inputRef}

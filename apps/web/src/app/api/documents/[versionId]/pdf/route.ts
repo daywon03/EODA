@@ -59,7 +59,31 @@ export async function GET(request: Request, context: Context): Promise<Response>
   const access = await tryEstablishmentAccess(version.document.establishmentId, NEED.DOCUMENTS_READ);
   if (!access) notFound();
 
-  const download = new URL(request.url).searchParams.get("download") === "1";
+  const searchParams = new URL(request.url).searchParams;
+  const download = searchParams.get("download") === "1";
+
+  // PRÉPARER, sans servir (21/10/2026) : la visionneuse appelle `?prepare=1` au survol
+  // d'une ligne et après un dépôt, pour que le clic tombe sur le cache plutôt que sur
+  // un lancement de Chromium. Aucun octet ne part (204), donc aucun accès au contenu
+  // n'a lieu et rien n'est journalisé — l'accès réel, au clic, l'est. Le contrôle
+  // d'accès, lui, a déjà eu lieu au-dessus : on ne fait rien travailler pour un tiers.
+  if (searchParams.get("prepare") === "1") {
+    try {
+      await getOrRenderDocumentPdf({
+        versionId: version.id,
+        originalFilename: version.originalFilename,
+        fileStorageKey: version.fileStorageKey,
+        title: version.document.documentType?.label ?? "Document",
+        subtitle: `Version ${version.versionNumber} · ${version.originalFilename}`,
+      });
+    } catch (error) {
+      console.warn(
+        "Aperçu de document — préparation échouée :",
+        error instanceof Error ? error.message : "erreur inconnue"
+      );
+    }
+    return new Response(null, { status: 204, headers: { "Cache-Control": "no-store" } });
+  }
 
   // Journalisé AVANT le rendu : l'accès a eu lieu, même si la conversion échoue
   // ensuite. C'est ce que la modale ne peut pas journaliser elle-même (elle ne remet

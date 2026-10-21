@@ -23,6 +23,9 @@ export const INACTIVITY_ALERT_DAYS = 21;
 export type StructureFacts = {
   id: string;
   name: string;
+  // Un logo a-t-il été déposé ? L'image elle-même part par sa route
+  // (`/api/establishments/[id]/logo`), jamais dans la page.
+  hasLogo: boolean;
   type: EstablishmentType;
   stage: FunnelStage | null;
   isBeta: boolean;

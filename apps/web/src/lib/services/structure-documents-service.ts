@@ -83,6 +83,23 @@ export function countDocumentBuckets(items: readonly DocumentFacts[]): Record<Do
   return counts;
 }
 
+// « Fourni par » (call du 18/10/2026 : un document déposé par EODA s'affichait « fourni
+// par la structure »). La colonne lisait le RÉGLAGE du type (réclamé au client ou non),
+// pas le fait. Avec une version déposée, c'est son AUTEUR qui répond — le même fait que
+// l'historique des versions (`producedByCabinet`, rôle du déposant). Sans version, on
+// dit qui doit la fournir, sans le confondre avec un dépôt.
+export function documentProviderLabel(row: {
+  requestedFromClient: boolean;
+  currentVersion: { id: string } | null;
+  versions: readonly { id: string; producedByCabinet: boolean }[];
+}): string {
+  if (row.currentVersion) {
+    const current = row.versions.find((version) => version.id === row.currentVersion?.id);
+    if (current) return current.producedByCabinet ? "EODA" : "La structure";
+  }
+  return row.requestedFromClient ? "Attendu de la structure" : "À produire par EODA";
+}
+
 // Pastille de la ligne. « Validé » = relu ET validé par EODA ; jamais « accepté »,
 // qui est un geste du client (D6) que le schéma ne porte pas encore.
 export function documentRowPill(item: DocumentFacts): PillSpec {

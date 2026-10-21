@@ -1,4 +1,4 @@
-import { EXPECTED_MIGRATIONS } from "@eoda/database";
+import { connectionPoolWarning, databaseUrlReport, EXPECTED_MIGRATIONS } from "@eoda/database";
 import {
   getEnv,
   isBuildPhase,
@@ -86,6 +86,16 @@ async function reportSchemaState(): Promise<void> {
   }
 }
 
+// Non bloquant, et pour une raison différente de celle des migrations : le pooler en mode
+// session n'est pas une configuration INVALIDE, c'est une configuration qui tient tant que
+// personne ne travaille en parallèle. Refuser de démarrer là-dessus éteindrait
+// l'application au moment précis où elle rame — l'inverse du but. On nomme le remède, une
+// fois, dans les journaux d'infrastructure.
+function reportConnectionPoolState(): void {
+  const warning = connectionPoolWarning(databaseUrlReport);
+  if (warning) console.warn(`[EODA] ${warning}`);
+}
+
 export async function runStartupChecks(): Promise<void> {
   // `next build` s'exécute avec NODE_ENV=production sur une machine de CI qui n'a
   // légitimement aucun secret : valider le profil de production y ferait échouer le
@@ -103,5 +113,6 @@ export async function runStartupChecks(): Promise<void> {
     }
   }
 
+  reportConnectionPoolState();
   await reportSchemaState();
 }

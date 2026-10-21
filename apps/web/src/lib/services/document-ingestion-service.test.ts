@@ -295,3 +295,45 @@ describe("ingestDocumentVersion — matrice type de document ↔ critères", () 
     expect(analyze).toHaveBeenCalledWith(expect.objectContaining({ linkedCriteria: [] }));
   });
 });
+
+// Call du 18/10/2026 : un commentaire du cabinet (guideline) doit atteindre
+// l'analyse, et seulement s'il est « pris en compte par l'IA ».
+describe("ingestDocumentVersion — commentaires du cabinet", () => {
+  function arm() {
+    prismaMock.documentTypeCriterion.findMany.mockResolvedValue([]);
+    prismaMock.establishment.findUnique.mockResolvedValue({ tenantId: "tenant-1", type: "SAD_AIDE" });
+    prismaMock.criterion.findMany.mockResolvedValue([]);
+    prismaMock.documentVersionImage.findMany.mockResolvedValue([]);
+    // Le document porte déjà un critère reconnu (matrice vide pour son type).
+    prismaMock.documentCriterionSuggestion.findMany.mockResolvedValue([{ criterionId: "crit-9" }]);
+    prismaMock.criterionGuideline.findMany.mockResolvedValue([{ note: "Vérifier la date de révision." }]);
+    prismaMock.$transaction.mockResolvedValue([]);
+    prismaMock.documentVersion.update.mockResolvedValue({});
+    const analyze = vi.fn().mockResolvedValue({ criteresSupplementaires: [] });
+    return { analyze, llm: { analyze } as unknown as LLMAnalysisPort };
+  }
+
+  it("relit les critères du document lui-même, hors critères rejetés", async () => {
+    const { llm } = arm();
+    await ingestDocumentVersion(baseInput({ extractedText: "Contenu." }), { storage: fakeStorage(), llm });
+
+    expect(prismaMock.documentCriterionSuggestion.findMany).toHaveBeenCalledWith({
+      where: { documentId: "doc-1", status: { not: "REJECTED" } },
+      select: { criterionId: true },
+    });
+  });
+
+  it("ne lit que les commentaires pris en compte par l'IA, et les remet au port", async () => {
+    const { llm, analyze } = arm();
+    await ingestDocumentVersion(baseInput({ extractedText: "Contenu." }), { storage: fakeStorage(), llm });
+
+    expect(prismaMock.criterionGuideline.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { tenantId: "tenant-1", aiEnabled: true, criterionId: { in: ["crit-9"] } },
+      })
+    );
+    expect(analyze).toHaveBeenCalledWith(
+      expect.objectContaining({ criterionGuidelines: ["Vérifier la date de révision."] })
+    );
+  });
+});

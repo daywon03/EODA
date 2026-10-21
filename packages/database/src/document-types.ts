@@ -320,17 +320,17 @@ export const BASE_DOCUMENT_TYPES: readonly DocTypeSeed[] = [
 // ─────────────────────────────────────────────────────────────────────────────
 export const PILOT_DOCUMENT_TYPES: readonly DocTypeSeed[] = [
   // [SUIVI] « PAP » (5 critères) · [FINAUX] PAP v1.0 du 07/10 · [SEANCES] §3 et §6 « PAP »
-  { code: "FONCT_PAP_GABARIT", category: "FONCTIONNEMENT", label: "Projet d'accompagnement personnalisé (PAP) — modèle vierge" },
+  { code: "FONCT_PAP_GABARIT", category: "FONCTIONNEMENT", label: "Projet d'accompagnement personnalisé (PAP) — modèle vierge personnalisé" },
   // [SUIVI] « Fiche de tâches » (19 critères) · [FINAUX] fiche intégrée au PAP v1.0 du 07/10
-  { code: "FONCT_FICHE_TACHES_GABARIT", category: "FONCTIONNEMENT", label: "Fiche des tâches à domicile — modèle vierge" },
+  { code: "FONCT_FICHE_TACHES_GABARIT", category: "FONCTIONNEMENT", label: "Fiche des tâches à domicile — modèle vierge personnalisé" },
   // [SUIVI] « Grille d'évaluation des besoins » (29 critères) · [SEANCES] §6 DIPC (questions
   // sensibles de l'évaluation des besoins) · [MO] séance du 22/09 · [REF] périodicités
-  { code: "FONCT_GRILLE_EVAL_BESOINS", category: "FONCTIONNEMENT", label: "Grille d'évaluation des besoins — modèle vierge" },
+  { code: "FONCT_GRILLE_EVAL_BESOINS", category: "FONCTIONNEMENT", label: "Grille d'évaluation des besoins — modèle vierge personnalisé" },
   // [SUIVI] « Note de service » (15 critères) · [SEANCES] §2 (propagation), §4 (logos), §6 (PAC)
   { code: "FONCT_NOTE_SERVICE", category: "FONCTIONNEMENT", label: "Note de service" },
   // [SUIVI] « Lettre de consentement — entretien auto-évaluation » · [GUIDE] phase 1
   // (« feuilles de consentement ») et §8.2 (consentement tracé)
-  { code: "FONCT_CONSENTEMENT_ENTRETIEN", category: "FONCTIONNEMENT", label: "Lettre de consentement à l'entretien d'auto-évaluation — modèle vierge" },
+  { code: "FONCT_CONSENTEMENT_ENTRETIEN", category: "FONCTIONNEMENT", label: "Lettre de consentement à l'entretien d'auto-évaluation — modèle vierge personnalisé" },
   // [SUIVI] « Support / fiche de sensibilisation » (20 critères) · [SEANCES] §3 · [MO] fiches
   // (douleur, éthique, risque infectieux…) · [REF] « fiches de sensibilisation »
   { code: "QUALITE_FICHE_SENSIBILISATION", category: "QUALITE_RISQUES", label: "Fiche de sensibilisation des professionnels (par thème)" },

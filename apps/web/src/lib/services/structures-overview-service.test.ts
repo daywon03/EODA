@@ -19,6 +19,7 @@ const inDays = (n: number) => new Date(2026, 9, 9 + n, 12, 0);
 const facts = (over: Partial<StructureFacts> = {}): StructureFacts => ({
   id: "e1",
   name: "SAD Les Glycines (fictif)",
+  hasLogo: false,
   type: "SAD_AIDE",
   stage: "EN_COURS",
   isBeta: false,

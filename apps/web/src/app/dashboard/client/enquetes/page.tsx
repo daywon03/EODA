@@ -2,8 +2,8 @@ import Link from "next/link";
 import { requireClientEstablishment } from "@/lib/auth/guards";
 import { clientAllows, NEED } from "@/lib/auth/capabilities";
 import { getSurveyBoard } from "@/lib/actions/terrain-read";
-import { HdsLockedNotice } from "@/components/terrain/HdsLockedNotice";
 import { SurveyBoard } from "@/components/terrain/SurveyBoard";
+import { AnonymousSurveyLinksPanel } from "@/components/terrain/AnonymousSurveyLinksPanel";
 
 export const metadata = { title: "Enquêtes" };
 
@@ -29,18 +29,27 @@ export default async function ClientSurveysPage() {
         <div>
           <h1 className="text-[30px] font-bold leading-tight">Enquêtes de satisfaction</h1>
           <p className="mt-1 max-w-[65ch] text-ink2">
-            À terminer avant l&apos;évaluation. Les intervenants les font sur la tablette, au domicile.
+            À terminer avant l&apos;évaluation. Anonymes : aucun nom, rien à écrire. Sur la tablette au domicile, ou
+            par un lien envoyé aux personnes et à leurs proches.
           </p>
         </div>
         <Link
-          href="/tablette"
+          href="/tablette/enquete"
           className="inline-flex h-12 items-center rounded-md bg-accent-fill px-5 font-bold text-on-accent shadow-eoda-sm hover:bg-accent-fill/90"
         >
-          Faire une enquête
+          Faire une enquête sur la tablette
         </Link>
       </div>
-      {!board.hdsAvailable && <HdsLockedNotice />}
+      {canWrite && <AnonymousSurveyLinksPanel establishmentId={establishment.id} />}
       <SurveyBoard board={board} establishmentId={establishment.id} canWrite={canWrite} />
+      {/* L'enquête NOMINATIVE (rattachée au dossier d'une personne) reste verrouillée
+          tant que l'hébergement n'est pas certifié HDS ; l'anonyme n'en dépend pas. */}
+      {!board.hdsAvailable && (
+        <p className="max-w-[65ch] text-ink2">
+          Le suivi « enquête faite » personne par personne s&apos;ouvrira avec l&apos;hébergement des données de santé.
+          D&apos;ici là, les enquêtes sont anonymes.
+        </p>
+      )}
     </div>
   );
 }

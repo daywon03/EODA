@@ -40,6 +40,9 @@ export async function launchHeadlessChromium(): Promise<Browser> {
     // faut poser PUPPETEER_EXECUTABLE_PATH pour tester en local (constaté le
     // 16/10/2026, en vérifiant l'aperçu de document sur un poste macOS). L'appelant
     // peut alors reconnaître CET échec-là et ne pas proposer de réessayer.
-    throw new ChromiumLaunchError(error, localExecutablePath === undefined);
+    // `getEnv()` rend `null` quand la variable est absente, jamais `undefined` : le
+    // test d'égalité stricte à `undefined` rendait ce drapeau toujours faux, et le
+    // journal nommait le mauvais recours (corrigé le 21/10/2026).
+    throw new ChromiumLaunchError(error, !localExecutablePath);
   }
 }

@@ -92,15 +92,16 @@ export async function generateCorrectedDraft(
 
   const [knowledgeExcerpts, criterionGuidelines, validatedExamples] = await Promise.all([
     fetchKnowledgeExcerpts(tenantId, version.document.documentType.label, criteriaLabels),
-    fetchCriterionGuidelines(tenantId, criterionIds),
+    fetchCriterionGuidelines(tenantId, criterionIds, version.document.id),
     // Exemples validés du même type, du même tenant — jamais d'un autre établissement.
     readValidatedExamples(tenantId, documentTypeId),
   ]);
 
+  const sentText = anonymizeText(version.extractedText);
   try {
     const raw = await llm.generateCorrectedDocument({
       documentTypeLabel: version.document.documentType.label,
-      extractedText: anonymizeText(version.extractedText),
+      extractedText: sentText,
       linkedCriteria: linkedCriteriaOption,
       knowledgeExcerpts,
       criterionGuidelines,
@@ -114,6 +115,7 @@ export async function generateCorrectedDraft(
     const proposal = sanitizeProposal(raw, {
       knownCriterionCodes: new Set(allCriteria.map((c) => c.code)),
       knowledgeExcerpts,
+      originalText: sentText,
     });
 
     const [created] = await prisma.$transaction([

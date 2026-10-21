@@ -285,6 +285,14 @@ d'assurance, titre du dirigeant (président bénévole / directeur), **DPO**, **
 qualité**, autorité de tarification, partenaires du territoire, numéro d'astreinte. À
 défaut : `[À compléter : …]`, jamais une valeur plausible inventée.
 
+**Versions et dates (call du 18/10/2026)** : l'IA ne touche **jamais** au numéro de
+version ni aux dates du document — elles appartiennent au circuit de validation de la
+structure. Elle les recopie à l'identique et n'en écrit aucune nouvelle (`[À compléter :
+version ou date]`). Règle du cahier de style (`content/regles-redaction/`, v02) **et**
+contrôle mécanique : `sanitizeProposal` remplace toute version ou date absente du
+document d'origine et des extraits du manuel (`protectVersionsAndDates`,
+`lib/llm/correction-proposal.test.ts`).
+
 ## 8. Documents réclamés au client
 
 Les **7 documents loi 2002-2** sont obligatoires pour **toutes** les structures, sans option

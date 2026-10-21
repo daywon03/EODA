@@ -17,8 +17,10 @@ type Props = {
   title: string;
   onClose: () => void;
   children: ReactNode;
-  // Disposition : fenêtre centrée ou panneau latéral.
-  variant: "modal" | "sheet";
+  // Disposition : fenêtre centrée, panneau latéral, ou visionneuse de document (large,
+  // presque plein écran : l'aperçu et le détail côte à côte — le contenu gère lui-même
+  // ses colonnes et leur défilement).
+  variant: "modal" | "sheet" | "viewer";
   panelClassName?: string;
 };
 
@@ -68,11 +70,14 @@ export function DialogFrame({ title, onClose, children, variant, panelClassName 
   useDialogBehavior(panel, onClose);
 
   const isSheet = variant === "sheet";
+  const isViewer = variant === "viewer";
   return createPortal(
     <div
       className={cn(
-        "fixed inset-0 z-50 flex bg-ink-fill/60 animate-fade-in",
-        isSheet ? "justify-end" : "items-center justify-center p-4"
+        "fixed inset-0 z-50 flex bg-ink-fill/60",
+        // La visionneuse apparaît sans fondu : elle doit être là AU clic, pas 200 ms après.
+        !isViewer && "animate-fade-in",
+        isSheet ? "justify-end" : "items-center justify-center p-2 sm:p-4"
       )}
       onClick={onClose}
     >
@@ -84,7 +89,9 @@ export function DialogFrame({ title, onClose, children, variant, panelClassName 
         tabIndex={-1}
         className={cn(
           "flex flex-col overflow-hidden bg-card text-ink shadow-eoda-lg",
-          isSheet ? "h-full w-full max-w-[480px] border-l border-line" : "max-h-[85vh] w-full rounded-xl",
+          isSheet && "h-full w-full max-w-[480px] border-l border-line",
+          isViewer && "h-full max-h-[calc(100dvh-1rem)] w-full max-w-[1440px] rounded-xl sm:max-h-[calc(100dvh-2rem)]",
+          variant === "modal" && "max-h-[85vh] w-full rounded-xl",
           panelClassName
         )}
         onClick={(e) => e.stopPropagation()}
@@ -102,7 +109,17 @@ export function DialogFrame({ title, onClose, children, variant, panelClassName 
             <X className="h-5 w-5" aria-hidden="true" />
           </button>
         </div>
-        <div className="min-h-0 flex-1 overflow-auto px-5 py-4">{children}</div>
+        {/* Défilement VERTICAL seulement : un contenu trop large (une ligne de boutons,
+            un nom de fichier) passe à la ligne au lieu de pousser « Réanalyser » hors de
+            vue derrière un défilement horizontal (retour du 21/10/2026). */}
+        <div
+          className={cn(
+            "min-h-0 min-w-0 flex-1",
+            isViewer ? "overflow-hidden" : "overflow-y-auto overflow-x-hidden break-words px-5 py-4"
+          )}
+        >
+          {children}
+        </div>
       </div>
     </div>,
     document.body

@@ -20,9 +20,8 @@ vi.mock("@/lib/services/document-pdf-render-service", () => ({
   renderHtmlToPdf,
 }));
 
-const { documentPdfCacheKey, deleteCachedDocumentPdf, getOrRenderDocumentPdf } = await import(
-  "./document-pdf-service"
-);
+const { getOrRenderDocumentPdf } = await import("./document-pdf-service");
+const { documentPdfCacheKey, deleteCachedDocumentPdf } = await import("./document-pdf-cache");
 
 const SOURCE = {
   versionId: "version-1",

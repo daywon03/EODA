@@ -110,3 +110,9 @@ jobs:
       # Contrôle du HTML réellement produit, pas du réglage déclaré.
       - name: CSP à nonce applicable
         run: pnpm --filter @eoda/web check:csp
+
+      # @sparticuz/chromium situe son binaire à l'exécution : le traçage ne l'embarque
+      # pas sans `outputFileTracingIncludes`, et l'aperçu des documents répondait 503 en
+      # production (21/10/2026). Contrôle des traces réellement produites.
+      - name: Binaire Chromium embarqué
+        run: pnpm --filter @eoda/web check:chromium

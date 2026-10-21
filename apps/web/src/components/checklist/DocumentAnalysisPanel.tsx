@@ -20,11 +20,13 @@ import {
   listCriteriaForPicker,
   addCriterionGuideline,
   listCriterionGuidelines,
+  setCriterionGuidelineAiUse,
   type CriterionOption,
   type CriterionGuidelineItem,
 } from "@/lib/actions/document";
 import { MAX_GUIDELINE_LENGTH } from "@/lib/services/criterion-guideline-service";
 import { formatDate } from "@/lib/services/date-format-service";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { CriterionSuggestionsList } from "@/components/checklist/CriterionSuggestionsList";
@@ -212,9 +214,10 @@ export function DocumentAnalysisPanel({
 // SUR LE CRITÈRE HAS — cf. CriterionGuideline dans le schéma. Rappelée à toute
 // analyse future d'un document rattaché à ce critère, quel que soit l'établissement.
 //
-// La consultante choisit elle-même le critère (`document_type_criteria` est encore
-// vide, cf. specs/04-liaison-document-type-critere.md) plutôt que de se le voir
-// proposer automatiquement à partir du document ouvert.
+// La consultante choisit elle-même le critère. Une guideline est relue pour tout
+// document dont le TYPE est rattaché au critère (matrice) ou dont l'analyse a reconnu
+// ce critère (suggestion non rejetée) — et seulement si elle est « prise en compte par
+// l'IA » (call du 18/10/2026 : oui ou non, case à cocher, chaque bascule journalisée).
 //
 // Chargement paresseux : la liste des critères et les guidelines existantes ne sont
 // demandées que si ce panneau est ouvert (P2/P3).
@@ -224,6 +227,7 @@ function AnalysisGuidelines({ open }: { open: boolean }) {
   const [criterionId, setCriterionId] = useState("");
   const [existing, setExisting] = useState<CriterionGuidelineItem[] | null>(null);
   const [note, setNote] = useState("");
+  const [aiEnabled, setAiEnabled] = useState(true);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -254,13 +258,25 @@ function AnalysisGuidelines({ open }: { open: boolean }) {
     setError(null);
     setSaved(false);
     startTransition(async () => {
-      const result = await addCriterionGuideline(criterionId, trimmed);
+      const result = await addCriterionGuideline(criterionId, trimmed, aiEnabled);
       if (result && "error" in result) {
         setError(result.error);
         return;
       }
       setNote("");
       setSaved(true);
+      const refreshed = await listCriterionGuidelines(criterionId);
+      setExisting(refreshed ?? []);
+    });
+  }
+
+  function handleToggleAi(guidelineId: string, enabled: boolean) {
+    setError(null);
+    // Réponse immédiate à l'écran ; l'état serveur est relu ensuite.
+    setExisting((list) => list?.map((g) => (g.id === guidelineId ? { ...g, aiEnabled: enabled } : g)) ?? null);
+    startTransition(async () => {
+      const result = await setCriterionGuidelineAiUse(guidelineId, enabled);
+      if (result && "error" in result) setError(result.error);
       const refreshed = await listCriterionGuidelines(criterionId);
       setExisting(refreshed ?? []);
     });
@@ -298,10 +314,22 @@ function AnalysisGuidelines({ open }: { open: boolean }) {
             <ul className="space-y-1.5">
               {existing.map((g) => (
                 <li key={g.id} className="rounded-md bg-surface/70 px-2 py-1.5 text-xs text-brun-ancre">
-                  <p>{g.note}</p>
-                  <p className="mt-0.5 text-sm text-ink2">
-                    {g.createdByName} · {formatDate(g.createdAt)}
-                  </p>
+                  <p className={cn(!g.aiEnabled && "text-ink2")}>{g.note}</p>
+                  <div className="mt-1 flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-sm text-ink2">
+                      {g.createdByName} · {formatDate(g.createdAt)}
+                    </p>
+                    <label className="inline-flex min-h-11 cursor-pointer items-center gap-2 text-sm text-ink">
+                      <input
+                        type="checkbox"
+                        checked={g.aiEnabled}
+                        disabled={isPending}
+                        onChange={(e) => handleToggleAi(g.id, e.target.checked)}
+                        className="h-4 w-4 accent-current"
+                      />
+                      Pris en compte par l&apos;IA
+                    </label>
+                  </div>
                 </li>
               ))}
             </ul>
@@ -319,6 +347,16 @@ function AnalysisGuidelines({ open }: { open: boolean }) {
             className="text-xs"
             placeholder="ex : vérifier aussi la date de révision annuelle du règlement."
           />
+          <label className="inline-flex min-h-11 cursor-pointer items-center gap-2 text-sm text-ink">
+            <input
+              type="checkbox"
+              checked={aiEnabled}
+              disabled={isPending || !criterionId}
+              onChange={(e) => setAiEnabled(e.target.checked)}
+              className="h-4 w-4 accent-current"
+            />
+            Faire prendre en compte par l&apos;IA dans les prochaines analyses
+          </label>
           <div className="flex items-center gap-2">
             <Button
               type="button"
@@ -352,7 +390,8 @@ function AnalysisGuidelines({ open }: { open: boolean }) {
       {saved && (
         <p role="status" className="flex items-center gap-1.5 text-xs text-ok-text">
           <CheckCircle2 className="w-3.5 h-3.5" aria-hidden="true" />
-          Guideline enregistrée — reprise dans les prochaines analyses rattachées à ce critère.
+          Guideline enregistrée — reprise dans les prochaines analyses des documents qui répondent à ce critère, tant
+          qu&apos;elle est prise en compte par l&apos;IA. « Réanalyser » l&apos;applique tout de suite.
         </p>
       )}
 
