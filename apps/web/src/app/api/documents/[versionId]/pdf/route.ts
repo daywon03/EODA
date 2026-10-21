@@ -3,6 +3,7 @@ import { prisma } from "@eoda/database";
 import { tryEstablishmentAccess } from "@/lib/auth/guards";
 import { NEED } from "@/lib/auth/capabilities";
 import { recordAuditEvent } from "@/lib/services/audit-log-service";
+import { isVersionVisibleToClient } from "@/lib/services/deliverables-service";
 import { getOrRenderDocumentPdf } from "@/lib/services/document-pdf-service";
 import {
   documentPdfErrorResponse,
@@ -43,9 +44,11 @@ export async function GET(request: Request, context: Context): Promise<Response>
       originalFilename: true,
       fileStorageKey: true,
       versionNumber: true,
+      uploadedBy: { select: { role: true } },
       document: {
         select: {
           establishmentId: true,
+          validatedAt: true,
           documentType: { select: { code: true, label: true } },
         },
       },
@@ -58,6 +61,20 @@ export async function GET(request: Request, context: Context): Promise<Response>
   // Le client y a droit — c'est SON document, et son portail a le même bouton.
   const access = await tryEstablishmentAccess(version.document.establishmentId, NEED.DOCUMENTS_READ);
   if (!access) notFound();
+
+  // Un brouillon produit par EODA n'est pas restituable avant validation du document
+  // (deliverables-service). La structure reçoit les identifiants des versions dans sa
+  // page : la route doit refuser, pas seulement la carte cacher le bouton.
+  if (
+    access.isClient &&
+    !isVersionVisibleToClient({
+      producedByCabinet: version.uploadedBy.role !== "CLIENT_USER",
+      validatedAt: version.document.validatedAt,
+    })
+  ) {
+    notFound();
+  }
+
 
   const searchParams = new URL(request.url).searchParams;
   const download = searchParams.get("download") === "1";

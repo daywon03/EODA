@@ -42,7 +42,15 @@ export function diffMigrations(
 
   return {
     pending: expected.filter((name) => !applied.has(name)),
-    failed: rows.filter((r) => !isSuccessfullyApplied(r)).map((r) => r.migrationName),
+    // Une tentative annulée puis RÉAPPLIQUÉE avec succès n'est plus un échec : c'est la
+    // reprise documentée par Prisma (`migrate resolve --rolled-back`, puis `deploy`),
+    // qui laisse l'ancienne ligne en base. La compter faisait annoncer au démarrage une
+    // base « désynchronisée » qui ne l'était pas (21/10/2026, 20261021090000).
+    failed: [
+      ...new Set(
+        rows.filter((r) => !isSuccessfullyApplied(r) && !applied.has(r.migrationName)).map((r) => r.migrationName)
+      ),
+    ],
     unknown: [...applied].filter((name) => !expectedSet.has(name)).sort(),
   };
 }

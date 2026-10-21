@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   matchesClientSearch,
+  clientSearchableFilenames,
   parseClientGroupFilter,
   parseClientSearch,
   DIPC_BLANK_MODEL_NOTICE,
@@ -22,6 +23,7 @@ import {
   parseClientDocumentFilter,
   toClientDocumentRow,
   versionsVisibleToClient,
+  viewableVersionFor,
   type ClientDocumentFacts,
   type ClientDocumentRow,
 } from "./client-documents-view-service";
@@ -341,6 +343,73 @@ describe("DIPC : modèle vierge seulement (HDS)", () => {
     expect(DIPC_BLANK_MODEL_NOTICE).toMatch(/modèle vierge/);
     expect(DIPC_BLANK_MODEL_NOTICE).toMatch(/signé/);
     expect(depositNoticeFor("L2002_LIVRET_ACCUEIL")).toBeNull();
+    // Ligne « Autre forme de participation » : la démarche, jamais des réponses nominatives.
+    expect(depositNoticeFor("QUALITE_ENQUETE_QUESTIONNAIRE")).toMatch(/Jamais les réponses d.une personne/);
+  });
+});
+
+describe("viewableVersionFor — ce que la structure peut ouvrir depuis « Mes documents »", () => {
+  const own = (n: number) => ({
+    id: `v${n}`,
+    versionNumber: n,
+    originalFilename: `client-v${n}.pdf`,
+    producedByCabinet: false,
+  });
+  const cabinet = (n: number) => ({
+    id: `v${n}`,
+    versionNumber: n,
+    originalFilename: `eoda-v${n}.docx`,
+    producedByCabinet: true,
+  });
+
+  it("montre la pièce déposée par la structure, quelle que soit l'étape", () => {
+    const item = {
+      validatedAt: null,
+      currentVersion: own(1),
+      versions: [own(1)],
+    };
+    expect(viewableVersionFor(item)).toMatchObject({ id: "v1", filename: "client-v1.pdf", producedByCabinet: false });
+  });
+
+  it("ne montre PAS un brouillon produit par EODA avant validation", () => {
+    const item = { validatedAt: null, currentVersion: cabinet(2), versions: [own(1), cabinet(2)] };
+    // Rien à montrer de la version en cours — mais le dépôt du client reste accessible.
+    expect(viewableVersionFor(item)).toEqual({
+      id: "v1",
+      filename: "client-v1.pdf",
+      versionNumber: 1,
+      producedByCabinet: false,
+    });
+  });
+
+  it("ne montre rien quand EODA n'a produit qu'un brouillon non validé", () => {
+    expect(
+      viewableVersionFor({ validatedAt: null, currentVersion: cabinet(1), versions: [cabinet(1)] })
+    ).toBeNull();
+  });
+
+  it("montre la pièce d'EODA une fois le document validé", () => {
+    const item = { validatedAt: AFTER, currentVersion: cabinet(2), versions: [own(1), cabinet(2)] };
+    expect(viewableVersionFor(item)).toEqual({
+      id: "v2",
+      filename: "eoda-v2.docx",
+      versionNumber: 2,
+      producedByCabinet: true,
+    });
+  });
+
+  it("ne montre rien sans version", () => {
+    expect(viewableVersionFor({ validatedAt: null, currentVersion: null, versions: [] })).toBeNull();
+  });
+
+  it("origine inconnue = traitée comme produite par le cabinet (on ne publie pas un doute)", () => {
+    expect(
+      viewableVersionFor({
+        validatedAt: null,
+        currentVersion: { id: "orpheline", versionNumber: 3, originalFilename: "x.pdf" },
+        versions: [],
+      })
+    ).toBeNull();
   });
 });
 
@@ -364,6 +433,18 @@ describe("rubrique et recherche du portail (21/10/2026)", () => {
     expect(matchesClientSearch({ label: "Règlement de fonctionnement" }, "reglement")).toBe(true);
     expect(matchesClientSearch({ label: "Livret d'accueil" }, "LIVRET")).toBe(true);
     expect(matchesClientSearch({ label: "Livret d'accueil" }, "plainte")).toBe(false);
+    // Le nom du fichier compte aussi (call du 21/10/2026).
+    expect(matchesClientSearch({ label: "Autre forme de participation", searchableFilenames: ["ENQUETE-satisfaction.docx"] }, "enquête")).toBe(true);
+  });
+
+  it("ne cherche que dans les fichiers que la structure voit — jamais un brouillon d'EODA non validé", () => {
+    const at = new Date("2026-10-01");
+    const versions = [
+      { producedByCabinet: true, uploadedAt: at, originalFilename: "brouillon-eoda.docx" },
+      { producedByCabinet: false, uploadedAt: at, originalFilename: "depot-structure.pdf" },
+    ];
+    expect(clientSearchableFilenames({ versions, validatedAt: null })).toEqual(["depot-structure.pdf"]);
+    expect(clientSearchableFilenames({ versions, validatedAt: at })).toEqual(["brouillon-eoda.docx", "depot-structure.pdf"]);
     expect(matchesClientSearch({ label: "Livret d'accueil" }, "")).toBe(true);
     expect(parseClientSearch("  x".padEnd(200, "y")).length).toBe(80);
   });

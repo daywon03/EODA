@@ -15,8 +15,12 @@ import {
   planFullProposalLoad,
   planMatrixDecision,
   promotionError,
+  manualUnlinkError,
+  MAX_MANUAL_LINKS,
+  planManualLinks,
   type MatrixView,
 } from "@/lib/services/criterion-matrix-service";
+import { compareCriterionCodes } from "@/lib/services/criterion-picker-service";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // MATRICE TYPE DE DOCUMENT → CRITÈRE — écran d'administration (tranche N4, spec 04).
@@ -34,7 +38,11 @@ export type PromotableSuggestion = {
   criterionLabel: string;
 };
 
-export type MatrixReview = MatrixView & { promotable: PromotableSuggestion[] };
+export type MatrixReview = MatrixView & {
+  promotable: PromotableSuggestion[];
+  // Tous les types de la base, par libellé : le rattachement à la main en a besoin.
+  documentTypes: { code: string; label: string }[];
+};
 
 async function loadLinkedPairs(): Promise<Set<string>> {
   const links = await prisma.documentTypeCriterion.findMany({
@@ -88,7 +96,13 @@ export async function getMatrixReview(): Promise<MatrixReview> {
     ];
   });
 
-  return { ...view, promotable };
+  return {
+    ...view,
+    promotable,
+    documentTypes: documentTypes
+      .map((t) => ({ code: t.code, label: t.label }))
+      .sort((a, b) => a.label.localeCompare(b.label, "fr", { sensitivity: "base" })),
+  };
 }
 
 // Validation d'UN type de document : les cases cochées (entrée non fiable) sont
@@ -224,6 +238,116 @@ export async function promoteCriterionSuggestion(formData: FormData): Promise<{ 
     actorRole: session.user.role,
     targetId: suggestion.id,
     detail: `${suggestion.document.documentType?.code ?? "?"} · ${suggestion.criterion.code}`,
+  });
+
+  revalidatePath(MATRIX_PATH);
+  revalidateTag(CRITERION_MATRIX_TAG);
+  return null;
+}
+
+// ── Rattachement à la main (call du 21/10/2026) ─────────────────────────────
+
+export type DocumentTypeLink = { code: string; label: string; proposed: boolean };
+
+function proposedCodesFor(typeCode: string): Set<string> {
+  return new Set(
+    parseProposedMatrix(PROPOSED_MATRIX_CSV)
+      .filter((r) => r.documentTypeCode === typeCode)
+      .map((r) => r.criterionCode)
+  );
+}
+
+// Les critères rattachés à UN type, dans l'ordre numérique, avec leur provenance.
+export async function getDocumentTypeLinks(typeCode: string): Promise<DocumentTypeLink[]> {
+  await requireCabinetAdminSession();
+  const documentType = await prisma.documentType.findUnique({ where: { code: typeCode }, select: { id: true } });
+  if (!documentType) notFound();
+  const links = await prisma.documentTypeCriterion.findMany({
+    where: { documentTypeId: documentType.id },
+    select: { criterion: { select: { code: true, label: true } } },
+  });
+  const proposed = proposedCodesFor(typeCode);
+  return links
+    .map((l) => ({ code: l.criterion.code, label: l.criterion.label, proposed: proposed.has(l.criterion.code) }))
+    .sort((a, b) => compareCriterionCodes(a.code, b.code));
+}
+
+export async function addManualMatrixLinks(
+  typeCode: string,
+  criterionCodes: string[]
+): Promise<{ error: string } | { added: number; alreadyLinked: number }> {
+  const { userId, session } = await requireCabinetAdminSession();
+  const requested = Array.isArray(criterionCodes) ? criterionCodes.filter((c): c is string => typeof c === "string") : [];
+  if (requested.length === 0) return { error: "Cochez au moins un critère." };
+  if (requested.length > MAX_MANUAL_LINKS) return { error: `Au plus ${MAX_MANUAL_LINKS} critères à la fois.` };
+
+  const documentType = await prisma.documentType.findUnique({ where: { code: typeCode }, select: { id: true } });
+  if (!documentType) notFound();
+
+  const [criteria, linked] = await Promise.all([
+    prisma.criterion.findMany({ where: { code: { in: requested } }, select: { id: true, code: true } }),
+    prisma.documentTypeCriterion.findMany({
+      where: { documentTypeId: documentType.id },
+      select: { criterion: { select: { code: true } } },
+    }),
+  ]);
+  const plan = planManualLinks({
+    requestedCriterionCodes: requested,
+    knownCriterionCodes: new Set(criteria.map((c) => c.code)),
+    linkedCriterionCodes: new Set(linked.map((l) => l.criterion.code)),
+  });
+  if (plan.unknown.length > 0) return { error: `Critère inconnu du référentiel : ${plan.unknown.join(", ")}.` };
+
+  const idByCode = new Map(criteria.map((c) => [c.code, c.id]));
+  const created =
+    plan.toCreate.length === 0
+      ? { count: 0 }
+      : await prisma.documentTypeCriterion.createMany({
+          data: plan.toCreate.flatMap((code) => {
+            const criterionId = idByCode.get(code);
+            return criterionId ? [{ documentTypeId: documentType.id, criterionId }] : [];
+          }),
+          skipDuplicates: true,
+        });
+
+  // Codes seulement : ni libellé libre, ni donnée de structure.
+  await recordAuditEvent({
+    action: "DOCUMENT_TYPE_CRITERIA_UPDATED",
+    actorUserId: userId,
+    actorRole: session.user.role,
+    targetId: documentType.id,
+    detail: `${typeCode} · ajout manuel +${created.count} (${plan.toCreate.join(", ")})`,
+  });
+
+  revalidatePath(MATRIX_PATH);
+  revalidateTag(CRITERION_MATRIX_TAG);
+  return { added: created.count, alreadyLinked: plan.alreadyLinked.length };
+}
+
+export async function removeManualMatrixLink(typeCode: string, criterionCode: string): Promise<{ error: string } | null> {
+  const { userId, session } = await requireCabinetAdminSession();
+  const [documentType, criterion] = await Promise.all([
+    prisma.documentType.findUnique({ where: { code: typeCode }, select: { id: true } }),
+    prisma.criterion.findUnique({ where: { code: criterionCode }, select: { id: true } }),
+  ]);
+  if (!documentType || !criterion) notFound();
+
+  const link = await prisma.documentTypeCriterion.findUnique({
+    where: { documentTypeId_criterionId: { documentTypeId: documentType.id, criterionId: criterion.id } },
+    select: { criterionId: true },
+  });
+  const error = manualUnlinkError({ proposed: proposedCodesFor(typeCode).has(criterionCode), linked: link !== null });
+  if (error) return { error };
+
+  await prisma.documentTypeCriterion.delete({
+    where: { documentTypeId_criterionId: { documentTypeId: documentType.id, criterionId: criterion.id } },
+  });
+  await recordAuditEvent({
+    action: "DOCUMENT_TYPE_CRITERIA_UPDATED",
+    actorUserId: userId,
+    actorRole: session.user.role,
+    targetId: documentType.id,
+    detail: `${typeCode} · retrait manuel ${criterionCode}`,
   });
 
   revalidatePath(MATRIX_PATH);

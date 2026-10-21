@@ -1,6 +1,6 @@
 "use server";
 
-import { prisma } from "@eoda/database";
+import { prisma, Prisma, type DocumentCategory } from "@eoda/database";
 import { revalidatePath } from "next/cache";
 import { notFound } from "next/navigation";
 import {
@@ -17,9 +17,12 @@ import {
   canDepositDocuments,
   type MissionAccessState,
 } from "@/lib/services/mission-access-service";
-import { canDeleteVersion,
+import {
+  canDeleteVersion,
   MAX_JUSTIFICATION_LENGTH,
 } from "@/lib/services/document-workflow-service";
+import { isVersionVisibleToClient } from "@/lib/services/deliverables-service";
+import { decideAnalysisDirective } from "@/lib/services/analysis-directive-service";
 import { extractMarkdown } from "@/lib/services/text-extraction-service";
 import { canRenderDocumentPages } from "@/lib/services/file-type-service";
 // Le module de CACHE, pas le service de rendu : celui-ci importe Chromium, et cette
@@ -43,7 +46,15 @@ import {
 } from "@/lib/services/missing-answer-service";
 import { getFileStoragePort } from "@/lib/storage";
 import { getLLMAnalysisPort, isKnownLlmModelId } from "@/lib/llm";
-import { validateGuidelineNote } from "@/lib/services/criterion-guideline-service";
+import { guidelineReach, validateGuidelineNote } from "@/lib/services/criterion-guideline-service";
+import { compareCriterionCodes } from "@/lib/services/criterion-picker-service";
+import {
+  CVS_CODE,
+  PARTICIPATION_LINE_CODE,
+  cvsNotConcernedError,
+  parseParticipationForm,
+} from "@/lib/services/participation-form-service";
+import type { PickerCriterion } from "@/lib/services/criterion-picker-service";
 import { buildFilePreview } from "@/lib/services/file-preview-service";
 import type { FilePreviewData } from "@/lib/services/file-preview-types";
 
@@ -214,7 +225,11 @@ export async function uploadDocument(formData: FormData): Promise<UploadDocument
     });
   }
 
-  revalidateDocumentViews(establishmentId);
+  // Pas de `revalidateDocumentViews` ici (21/10/2026) : dans une action serveur, il
+  // fait embarquer à la RÉPONSE le rendu complet de la page courante — l'écran tournait
+  // longtemps après la fin de l'analyse. Les deux appelants (DocumentUploadButton,
+  // ClientUploadDialog) rafraîchissent eux-mêmes, à part (use-analysis-run) ; les
+  // pages sont dynamiques, aucun autre cache n'est à purger.
 
   // Dépôt du cabinet sur un document DÉJÀ validé : la nouvelle version devient le
   // livrable sur-le-champ (deliverables-service prend la dernière version d'EODA),
@@ -276,8 +291,19 @@ export async function respondToMissingDocument(
     return { error: OUT_OF_OFFER_ERROR };
   }
 
-  const refusal = missingAnswerError(answer, documentType.category);
+  const refusal = missingAnswerError(answer, documentType.category, documentType.code);
   if (refusal) return { error: refusal };
+
+  // CVS « Non concerné » : seulement une fois l'autre forme de participation choisie
+  // (participation-form-service) — lue sur le document de SA ligne, pour CETTE structure.
+  if (answer === "NOT_CONCERNED" && documentType.code === CVS_CODE) {
+    const participation = await prisma.document.findFirst({
+      where: { establishmentId, documentType: { code: PARTICIPATION_LINE_CODE } },
+      select: { participationForm: true },
+    });
+    const cvsRefusal = cvsNotConcernedError(documentType.code, participation?.participationForm ?? null);
+    if (cvsRefusal) return { error: cvsRefusal };
+  }
 
   const trimmedComment = comment?.trim().slice(0, MAX_JUSTIFICATION_LENGTH) || null;
   const { status, statusOverriddenByUser } = missingAnswerWrite(answer);
@@ -319,6 +345,57 @@ export async function respondToMissingDocument(
     });
   }
 
+  return null;
+}
+
+// ── Forme de participation des usagers (21/10/2026) ──────────────────────────
+// Choisie sur la ligne « Autre forme de participation des usagers » par la structure
+// ou par le cabinet (c'est la démarche de la structure ; le cabinet peut la corriger).
+// Même garde que l'écriture d'un commentaire. Crée la ligne si elle n'existe pas encore
+// (statut « à déposer » : choisir une forme ne vaut pas dépôt). Le libellé libre n'est
+// jamais recopié dans le journal.
+export async function setParticipationForm(
+  establishmentId: string,
+  rawForm: string,
+  rawOtherLabel: string | null
+): Promise<{ error: string } | null> {
+  const access = await requireEstablishmentAccess(establishmentId, NEED.DOCUMENTS_WRITE);
+  if (!canDepositDocuments(access.missionAccess)) return { error: DEPOSIT_CLOSED_MESSAGE };
+
+  const parsed = parseParticipationForm(rawForm, rawOtherLabel);
+  if (!parsed.ok) return { error: parsed.error };
+
+  const documentType = await prisma.documentType.findUnique({
+    where: { code: PARTICIPATION_LINE_CODE },
+    select: { id: true, category: true },
+  });
+  if (!documentType) return { error: "La ligne « Autre forme de participation » n'existe pas dans le référentiel." };
+  if (!(await isCategoryCoveredForEstablishment(establishmentId, documentType.category))) {
+    return { error: OUT_OF_OFFER_ERROR };
+  }
+
+  await prisma.document.upsert({
+    where: { establishmentId_documentTypeId: { establishmentId, documentTypeId: documentType.id } },
+    update: { participationForm: parsed.form, participationOtherLabel: parsed.otherLabel },
+    create: {
+      establishmentId,
+      documentTypeId: documentType.id,
+      status: "MISSING",
+      participationForm: parsed.form,
+      participationOtherLabel: parsed.otherLabel,
+    },
+  });
+
+  await recordAuditEvent({
+    action: "PARTICIPATION_FORM_SET",
+    actorUserId: access.userId,
+    actorRole: access.session.user.role,
+    establishmentId,
+    targetId: documentType.id,
+    detail: parsed.form,
+  });
+
+  revalidateDocumentViews(establishmentId);
   return null;
 }
 
@@ -400,6 +477,199 @@ export async function setDocumentCommentAiUse(
   return null;
 }
 
+
+// ── Reclasser un document sous un autre type ─────────────────────────────────
+//
+// « Quand ce n'est pas un compte-rendu de CVS et que c'est une enquête de
+// satisfaction, il faut pouvoir le changer, et l'analyse doit le savoir » (Damon,
+// 20/10/2026). Le classement initial vient d'une devinette (suggestDocumentType) ou
+// d'un choix fatigué au dépôt ; il ne pouvait plus être corrigé, et tout le reste en
+// dépendait : la checklist qui l'affiche, les critères rattachés à son type, donc
+// l'analyse.
+//
+// Ce que l'action change : le TYPE sous lequel le document est rangé. Ce qu'elle
+// DÉTRUIT, volontairement : l'analyse et ses traces, qui portaient sur un autre type
+// et deviendraient un mensonge (« couvert au regard des critères X » alors que le
+// document est maintenant rangé sous Y). Les fichiers, les versions et l'historique
+// restent intacts : on re-classe un document, on ne le redépose pas.
+//
+// Elle ne relance pas l'analyse elle-même : c'est un appel payant, et le geste de la
+// consultante est de relire le nouveau classement avant qu'on redemande au modèle.
+// L'écran le dit (« analyse effacée — relancer »), le bouton Analyser existant suffit.
+export async function changeDocumentType(
+  establishmentId: string,
+  fromDocumentTypeId: string,
+  toDocumentTypeId: string
+): Promise<{ error: string } | null> {
+  const access = await requireEstablishmentAccess(establishmentId, NEED.DOCUMENTS_WRITE);
+  if (!canDepositDocuments(access.missionAccess)) return { error: DEPOSIT_CLOSED_MESSAGE };
+
+  if (fromDocumentTypeId === toDocumentTypeId) return null;
+
+  const [from, to] = await Promise.all([
+    prisma.documentType.findUnique({ where: { id: fromDocumentTypeId }, select: { id: true, code: true, category: true } }),
+    prisma.documentType.findUnique({ where: { id: toDocumentTypeId }, select: { id: true, code: true, category: true } }),
+  ]);
+  if (!from || !to) return { error: "Type de document invalide." };
+
+  // Même arbitrage que le dépôt : on ne re-classe pas sous un type que l'offre de la
+  // structure ne couvre pas — le document disparaîtrait de sa checklist.
+  if (!(await isCategoryCoveredForEstablishment(establishmentId, to.category))) {
+    return { error: OUT_OF_OFFER_ERROR };
+  }
+
+  const document = await prisma.document.findUnique({
+    where: { establishmentId_documentTypeId: { establishmentId, documentTypeId: from.id } },
+    select: { id: true },
+  });
+  if (!document) return { error: "Ce document n'est pas encore déposé : il n'y a rien à reclasser." };
+
+  // `@@unique([establishmentId, documentTypeId])` : sans ce contrôle, la contrainte
+  // tomberait dans le `catch` et l'écran annoncerait une panne technique là où le
+  // problème est un simple conflit de rangement.
+  const target = await prisma.document.findUnique({
+    where: { establishmentId_documentTypeId: { establishmentId, documentTypeId: to.id } },
+    select: { id: true },
+  });
+  if (target) {
+    return {
+      error: `Un document existe déjà sous « ${to.code} » pour cette structure : supprimez-le ou fusionnez-les avant de reclasser.`,
+    };
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await tx.document.update({
+      where: { id: document.id },
+      data: {
+        documentTypeId: to.id,
+        // Le document redevient « déposé, non analysé » : sa validation et
+        // l'acceptation du client portaient sur un autre classement.
+        status: "UPLOADED",
+        statusOverriddenByUser: false,
+        missingJustification: null,
+        validatedAt: null,
+        validatedByUserId: null,
+        clientAcceptedAt: null,
+        clientAcceptedByUserId: null,
+      },
+    });
+
+    // L'analyse portait sur les critères de l'ANCIEN type : elle est effacée, pas
+    // conservée « au cas où » — une analyse affichée sous le mauvais type est pire
+    // qu'une absence d'analyse.
+    await tx.documentVersion.updateMany({
+      where: { documentId: document.id },
+      data: {
+        analysisResultJson: Prisma.DbNull,
+        analysisReviewedAt: null,
+        analysisReviewedByUserId: null,
+        analysisDirectiveUsed: null,
+      },
+    });
+
+    // Suggestions de critères calculées pour l'ancien type : elles n'ont plus de sens.
+    await tx.documentCriterionSuggestion.deleteMany({ where: { documentId: document.id } });
+  });
+
+  await recordAuditEvent({
+    action: "DOCUMENT_TYPE_CHANGED",
+    actorUserId: access.userId,
+    actorRole: access.session.user.role,
+    establishmentId,
+    targetId: document.id,
+    // Codes, jamais les libellés libres ni un nom de fichier.
+    detail: `${from.code} -> ${to.code}`,
+  });
+
+  revalidateDocumentViews(establishmentId);
+  return null;
+}
+
+// ── Consigne de la consultante sur l'analyse d'un document ───────────────────
+//
+// Même demande (20/10/2026) : « dans la partie commentaire du document, ce serait
+// bien de pouvoir lui donner des précisions pour l'analyse, et de pouvoir les prendre
+// en compte ou non avec un bouton ». La consigne est CONSERVÉE quand le bouton est
+// éteint — c'est une note de travail, pas un champ qu'on efface pour la désactiver.
+//
+// Ce n'est pas un guide de cotation : le prompt (analysis-prompt.ts) la traite comme
+// un contexte à consulter, qui ne peut ni changer le rôle du modèle ni le faire
+// conclure. Le texte libre n'est JAMAIS recopié dans le journal d'audit : il peut
+// citer une situation de personne accompagnée.
+// La règle (longueur, refus d'une consigne vide activée) et la constante vivent dans
+// `lib/services/analysis-directive-service.ts` : ce fichier porte `"use server"`, donc
+// il ne peut exporter que des fonctions asynchrones — et une règle recopiée dans un
+// composant finirait par diverger de celle du serveur.
+export async function updateAnalysisDirective(
+  establishmentId: string,
+  documentTypeId: string,
+  directive: string,
+  includeInAnalysis: boolean
+): Promise<{ error: string } | null> {
+  const access = await requireEstablishmentAccess(establishmentId, NEED.DOCUMENTS_WRITE);
+  if (!canDepositDocuments(access.missionAccess)) return { error: DEPOSIT_CLOSED_MESSAGE };
+
+  const decision = decideAnalysisDirective(directive, includeInAnalysis);
+  if ("error" in decision) return { error: decision.error };
+
+  const documentType = await prisma.documentType.findUnique({
+    where: { id: documentTypeId },
+    select: { id: true, code: true, category: true },
+  });
+  if (!documentType) return { error: "Type de document invalide." };
+
+  if (!(await isCategoryCoveredForEstablishment(establishmentId, documentType.category))) {
+    return { error: OUT_OF_OFFER_ERROR };
+  }
+
+  await prisma.document.upsert({
+    where: { establishmentId_documentTypeId: { establishmentId, documentTypeId } },
+    update: {
+      analysisDirective: decision.directive,
+      directiveInAnalysis: decision.includeInAnalysis,
+    },
+    // Aucune ligne encore (document pas déposé) : la consigne attend le dépôt, et le
+    // document reste manquant — jamais un statut fabriqué à partir d'une note.
+    create: {
+      establishmentId,
+      documentTypeId,
+      status: "MISSING",
+      analysisDirective: decision.directive,
+      directiveInAnalysis: decision.includeInAnalysis,
+    },
+  });
+
+  await recordAuditEvent({
+    action: "DOCUMENT_DIRECTIVE_UPDATED",
+    actorUserId: access.userId,
+    actorRole: access.session.user.role,
+    establishmentId,
+    targetId: documentType.id,
+    // Le drapeau et le code, jamais le texte de la consigne.
+    detail: `${documentType.code} → ${decision.includeInAnalysis ? "prise en compte" : "ignorée"}`,
+  });
+
+  revalidateDocumentViews(establishmentId);
+  return null;
+}
+
+// Types proposés au reclassement : ceux des catégories couvertes par l'offre de CETTE
+// structure. Rendus depuis le serveur plutôt que recopiés dans un composant (D1) — la
+// liste change avec le catalogue et avec l'offre souscrite.
+export async function listDocumentTypeOptions(
+  establishmentId: string
+): Promise<{ id: string; label: string; category: DocumentCategory }[] | null> {
+  const access = await tryEstablishmentAccess(establishmentId, NEED.DOCUMENTS_WRITE);
+  if (!access) return null;
+
+  const categories = await getEstablishmentCoveredCategories(establishmentId);
+  return prisma.documentType.findMany({
+    where: categories ? { category: { in: [...categories] } } : {},
+    select: { id: true, label: true, category: true },
+    orderBy: [{ category: "asc" }, { label: "asc" }],
+  });
+}
+
 // Résout une version de document en vérifiant l'habilitation sur SON établissement
 // (et non sur un identifiant fourni par l'appelant) — c'est ce qui empêche de
 // deviner un `documentVersionId` appartenant à un autre établissement.
@@ -408,12 +678,38 @@ async function getAuthorizedDocumentVersion(documentVersionId: string) {
 
   const version = await prisma.documentVersion.findUnique({
     where: { id: documentVersionId },
-    include: { document: { select: { establishmentId: true, documentType: { select: { code: true } } } } },
+    include: {
+      // `validatedAt` et l'auteur de la version : la règle de restitution ci-dessous
+      // a besoin des deux, et les relire ailleurs ferait diverger les portes.
+      uploadedBy: { select: { role: true } },
+      document: {
+        select: {
+          establishmentId: true,
+          validatedAt: true,
+          documentType: { select: { code: true } },
+        },
+      },
+    },
   });
   if (!version) return null;
 
   const access = await tryEstablishmentAccess(version.document.establishmentId, NEED.DOCUMENTS_READ);
   if (!access) return null;
+
+  // Un brouillon produit par le cabinet n'est pas lisible par la structure avant
+  // validation du document (deliverables-service — même règle que la carte de
+  // « Mes documents » et que la route PDF). La structure reçoit l'historique des
+  // versions dans sa page : leurs identifiants ne sont donc pas un secret, et
+  // masquer un bouton ne protégerait rien.
+  if (
+    access.isClient &&
+    !isVersionVisibleToClient({
+      producedByCabinet: version.uploadedBy.role !== "CLIENT_USER",
+      validatedAt: version.document.validatedAt,
+    })
+  ) {
+    return null;
+  }
 
   return { version, access };
 }
@@ -775,7 +1071,7 @@ export async function reanalyzeDocument(
     detail: version.document.documentType?.code ?? null,
   });
 
-  revalidateDocumentViews(version.document.establishmentId);
+  // Rafraîchi par l'appelant (AnalyzeDocumentButton, use-analysis-run) : cf. uploadDocument.
   return null;
 }
 
@@ -796,12 +1092,11 @@ export async function reanalyzeDocument(
 //
 // Append-only : aucune action de modification ni de suppression n'est exposée. Une
 // guideline est une leçon retenue à une date donnée, pas un champ à corriger.
-export type CriterionOption = {
-  id: string;
-  code: string;
-  label: string;
-  requirementLevel: "IMPERATIF" | "STANDARD";
-};
+// Forme unique, partagée avec le rangement par chapitre et thématique : l'écran de
+// sélection a besoin du numéro de chapitre et du code de thématique pour grouper, et
+// deux formes parallèles finiraient par diverger (call du 20/09 : « les 157 critères…
+// j'ai mal à la tête »).
+export type CriterionOption = PickerCriterion;
 
 export type CriterionGuidelineItem = {
   id: string;
@@ -816,38 +1111,124 @@ export async function listCriteriaForPicker(): Promise<CriterionOption[] | null>
   const cabinet = await tryCabinetSession("STRUCTURES_READ");
   if (!cabinet) return null;
 
+  // Chapitre et thématique sont lus avec le critère, pas recopiés côté client : le
+  // rangement doit suivre le référentiel en base le jour où le manuel HAS évolue.
   const criteria = await prisma.criterion.findMany({
     orderBy: { code: "asc" },
-    select: { id: true, code: true, label: true, requirementLevel: true },
+    select: {
+      id: true,
+      code: true,
+      label: true,
+      requirementLevel: true,
+      objective: {
+        select: {
+          theme: {
+            select: {
+              code: true,
+              name: true,
+              chapter: { select: { number: true, name: true } },
+            },
+          },
+        },
+      },
+    },
   });
-  return criteria;
+
+  // Ordre NUMÉRIQUE (1.2 avant 1.10) — la base trie les codes comme du texte
+  // (21/10/2026 : « mets les critères dans le bon ordre, du plus petit au plus grand »).
+  return [...criteria].sort((a, b) => compareCriterionCodes(a.code, b.code)).map((criterion) => ({
+    id: criterion.id,
+    code: criterion.code,
+    label: criterion.label,
+    requirementLevel: criterion.requirementLevel,
+    chapterNumber: criterion.objective.theme.chapter.number,
+    chapterName: criterion.objective.theme.chapter.name,
+    themeCode: criterion.objective.theme.code,
+    themeName: criterion.objective.theme.name,
+  }));
 }
 
-export async function addCriterionGuideline(
-  criterionId: string,
+// Une guideline sur PLUSIEURS critères en un seul enregistrement (21/10/2026 : « pouvoir
+// en sélectionner plusieurs et appuyer sur Enregistrer avant de lancer l'analyse »). Une
+// ligne par critère — la guideline reste ancrée au critère (CriterionGuideline) — dans
+// UNE transaction : tout ou rien. Les identifiants reçus sont relus en base.
+const MAX_GUIDELINE_CRITERIA = 40;
+
+export async function addCriterionGuidelines(
+  criterionIds: string[],
   note: string,
   aiEnabled = true
-): Promise<{ error: string } | null> {
+): Promise<{ error: string } | { saved: number }> {
   const validated = validateGuidelineNote(note);
   if (!validated.ok) return { error: validated.error };
 
   const { tenantId, userId, session } = await requireCabinetSession("STRUCTURES_WRITE");
 
-  const criterion = await prisma.criterion.findUnique({ where: { id: criterionId }, select: { id: true } });
-  if (!criterion) return { error: "Critère invalide." };
+  const unique = [...new Set(Array.isArray(criterionIds) ? criterionIds.filter((id) => typeof id === "string") : [])];
+  if (unique.length === 0) return { error: "Cochez au moins un critère." };
+  if (unique.length > MAX_GUIDELINE_CRITERIA) return { error: `Au plus ${MAX_GUIDELINE_CRITERIA} critères à la fois.` };
 
-  await prisma.criterionGuideline.create({
-    data: { tenantId, criterionId, note: validated.value, aiEnabled: aiEnabled === true, createdByUserId: userId },
+  const criteria = await prisma.criterion.findMany({ where: { id: { in: unique } }, select: { id: true, code: true } });
+  if (criteria.length !== unique.length) return { error: "Un critère coché n'existe pas dans le référentiel." };
+
+  await prisma.criterionGuideline.createMany({
+    data: criteria.map((criterion) => ({
+      tenantId,
+      criterionId: criterion.id,
+      note: validated.value,
+      aiEnabled: aiEnabled === true,
+      createdByUserId: userId,
+    })),
   });
 
-  await recordAuditEvent({
-    action: "CRITERION_GUIDELINE_ADDED",
-    actorUserId: userId,
-    actorRole: session.user.role,
-    targetId: criterionId,
-  });
+  for (const criterion of criteria) {
+    await recordAuditEvent({
+      action: "CRITERION_GUIDELINE_ADDED",
+      actorUserId: userId,
+      actorRole: session.user.role,
+      targetId: criterion.id,
+    });
+  }
+  return { saved: criteria.length };
+}
 
-  return null;
+// Les critères dont une guideline sera RELUE à l'analyse de cette version
+// (guidelineReach) : le formulaire prévient quand un critère coché n'en fait pas
+// partie. Cabinet seulement ; l'identifiant de version est une entrée non fiable,
+// l'habilitation porte sur l'établissement propriétaire. Lecture seule.
+export async function getGuidelineReach(
+  documentVersionId: string
+): Promise<{ criterionIds: string[]; documentTypeLabel: string } | null> {
+  const version = await prisma.documentVersion.findUnique({
+    where: { id: documentVersionId },
+    select: {
+      document: {
+        select: { id: true, establishmentId: true, documentTypeId: true, documentType: { select: { label: true } } },
+      },
+    },
+  });
+  if (!version) notFound();
+  const access = await requireEstablishmentAccess(version.document.establishmentId, NEED.DOCUMENTS_READ);
+  if (access.isClient) notFound();
+
+  const typeId = version.document.documentTypeId;
+  const [matrix, suggestions] = await Promise.all([
+    // Un document sans type n'a aucun rattachement : seule l'IA peut lui en donner.
+    typeId
+      ? prisma.documentTypeCriterion.findMany({ where: { documentTypeId: typeId }, select: { criterionId: true } })
+      : Promise.resolve([]),
+    prisma.documentCriterionSuggestion.findMany({
+      where: { documentId: version.document.id, status: { not: "REJECTED" } },
+      select: { criterionId: true },
+    }),
+  ]);
+  return {
+    criterionIds: guidelineReach(
+      matrix.map((row) => row.criterionId),
+      suggestions.map((row) => row.criterionId)
+    ),
+    documentTypeLabel: version.document.documentType?.label ?? "ce type de document",
+  };
 }
 
 export async function listCriterionGuidelines(

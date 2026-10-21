@@ -1,4 +1,4 @@
-import { SURVEY_SCALES, type SurveyTemplate } from "@/content/enquete";
+import { SURVEY_SCALES, type SurveyChoiceQuestion, type SurveyTemplate } from "@/content/enquete";
 import type { SurveyAnswerInput, SurveyChoice } from "@/lib/hds/beneficiary-data-port";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -11,7 +11,32 @@ import type { SurveyAnswerInput, SurveyChoice } from "@/lib/hds/beneficiary-data
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const MAX_FREE_TEXT_LENGTH = 1000;
+// Précision d'un choix fermé (« Autre : … ») : une ligne sur le papier, pas un texte
+// libre. Plus court exprès — ce n'est pas une zone de commentaire.
+export const MAX_CHOICE_PRECISION_LENGTH = 200;
 const MAX_RAW_LENGTH = 40_000;
+
+// Une réponse à une question CHOICE arrive en `freeText`, sous la forme « Libellé »
+// ou « Libellé : précision ». Le libellé est cherché PARMI les options de la question,
+// jamais pris tel quel — pas de cast, même règle que les échelles.
+// Trois issues distinctes : vide (facultatif, la question est sautée), invalide
+// (l'enquête entière est refusée), ou une réponse normalisée.
+type ChoiceAnswer = { kind: "skip" } | { kind: "invalid" } | { kind: "value"; freeText: string };
+
+function parseChoiceAnswer(question: SurveyChoiceQuestion, raw: unknown): ChoiceAnswer {
+  if (raw === undefined || raw === null || raw === "") return { kind: "skip" };
+  if (typeof raw !== "string") return { kind: "invalid" };
+  const text = raw.trim();
+  if (!text) return { kind: "skip" };
+  const [label, ...rest] = text.split(" : ");
+  const option = question.options.find((candidate) => candidate === label?.trim());
+  if (!option) return { kind: "invalid" };
+  const precision = rest.join(" : ").trim();
+  if (!precision) return { kind: "value", freeText: option };
+  // Une précision n'a de sens que sur l'option ouverte du gabarit (« autre : .... »).
+  if (question.otherOption !== option || precision.length > MAX_CHOICE_PRECISION_LENGTH) return { kind: "invalid" };
+  return { kind: "value", freeText: `${option} : ${precision}` };
+}
 
 export type ParsedAnswers = { ok: true; value: SurveyAnswerInput[] } | { ok: false; error: string };
 
@@ -40,6 +65,12 @@ export function parseSurveyAnswers(template: SurveyTemplate, raw: unknown): Pars
       const text = typeof entry.freeText === "string" ? entry.freeText.trim() : "";
       if (text.length > MAX_FREE_TEXT_LENGTH) return { ok: false, error: `Un texte dépasse ${MAX_FREE_TEXT_LENGTH} caractères.` };
       if (text) answers.push({ questionId: question.id, choice: null, freeText: text });
+      continue;
+    }
+    if (question.kind === "CHOICE") {
+      const parsedChoice = parseChoiceAnswer(question, entry.freeText);
+      if (parsedChoice.kind === "invalid") return { ok: false, error: "Une réponse n'existe pas pour cette question." };
+      if (parsedChoice.kind === "value") answers.push({ questionId: question.id, choice: null, freeText: parsedChoice.freeText });
       continue;
     }
     const option = SURVEY_SCALES[question.scale].options.find((o) => o.choice === entry.choice);

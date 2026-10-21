@@ -40,6 +40,15 @@ describe("diffMigrations", () => {
     expect(status.failed).toEqual(["a"]);
   });
 
+  it("ne signale plus une tentative annulée puis réappliquée avec succès", () => {
+    const status = diffMigrations(["a"], [
+      { migrationName: "a", finishedAt: null, rolledBackAt: new Date("2026-10-21T09:10:00Z") },
+      applied("a"),
+    ]);
+    expect(status).toEqual({ pending: [], failed: [], unknown: [] });
+    expect(isSchemaUpToDate(status)).toBe(true);
+  });
+
   it("signale une base EN AVANCE sans la considérer comme désynchronisée", () => {
     const status = diffMigrations(["a"], [applied("a"), applied("z_future")]);
     expect(status.unknown).toEqual(["z_future"]);

@@ -15,7 +15,7 @@
 // `generation-prompt.test.ts` vérifie que le prompt l'embarque bien.
 // ─────────────────────────────────────────────────────────────────────────────
 
-export const STYLE_GUIDE_VERSION = "regles-redaction v02 — 21/10/2026";
+export const STYLE_GUIDE_VERSION = "regles-redaction v03 — 21/10/2026";
 
 export type StyleGuideSection = { title: string; rules: readonly string[] };
 
@@ -49,7 +49,7 @@ export const STYLE_GUIDE: readonly StyleGuideSection[] = [
       "Les références légales et réglementaires du critère (fiche du manuel) insérées dans le document quand elles sont fournies. [10 §4]",
       "Un bloc « Validation et diffusion » en fin de document. [10 §4]",
       "Toujours le TITRE d'un document cité, jamais un code de fichier. [10 §4, 11 B§6]",
-      "Sigle DIPC, jamais une autre graphie ; plan d'action : PAC. [11 B§2, B§6]",
+      "Sigle DIPC, jamais une autre graphie ; plan d'action : PLAC (plan d'amélioration continue), jamais PAC. [11 B§2, B§6]",
     ],
   },
   {

@@ -28,12 +28,18 @@ export function FilePreviewModal({
   preview: FilePreviewData;
   onClose: () => void;
 }) {
+  // Écoute en CAPTURE, et consommation de l'événement : l'aperçu s'ouvre par-dessus le
+  // panneau d'un document (la visionneuse, DialogFrame), qui écoute Échap en bulle sur le même
+  // nœud. Sans cela, une seule touche fermait les DEUX — l'aperçu et le panneau qu'on
+  // venait d'ouvrir avec (constaté le 20/10/2026). Échap ferme le dessus, une fois.
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
+      if (e.key !== "Escape") return;
+      e.stopPropagation();
+      onClose();
     }
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
+    document.addEventListener("keydown", handleKeyDown, true);
+    return () => document.removeEventListener("keydown", handleKeyDown, true);
   }, [onClose]);
 
   return createPortal(

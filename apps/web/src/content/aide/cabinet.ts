@@ -58,7 +58,7 @@ const ARTICLES: readonly HelpArticle[] = [
     category: "MISSION",
     audiences: AUDIENCE_CABINET,
     where: "Fiche structure → onglet « Mission »",
-    keywords: ["mission", "formule", "diagnostic", "étapes", "phases", "offre", "PAC", "clôture"],
+    keywords: ["mission", "formule", "diagnostic", "étapes", "phases", "offre", "PAC", "PLAC", "clôture"],
     body: [
       {
         kind: "paragraph",
@@ -87,8 +87,8 @@ const ARTICLES: readonly HelpArticle[] = [
           "Cotation des critères",
           "Vérification des documents loi 2002-2",
           "Rédaction du rapport de diagnostic",
-          "Création du PAC (plan d'action)",
-          "Réunion distancielle — restitution du PAC",
+          "Co-construction du PLAC (plan d'amélioration continue)",
+          "Réunion distancielle — restitution du PLAC",
         ],
       },
       {

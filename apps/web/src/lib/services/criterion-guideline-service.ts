@@ -27,3 +27,16 @@ export function validateGuidelineNote(raw: string): { ok: true; value: string } 
   }
   return { ok: true, value };
 }
+
+// PORTÉE d'une guideline pour UN document : les critères dont la guideline est relue à
+// son analyse. Ceux que la matrice rattache à son TYPE, plus ceux que l'IA a reconnus
+// dans CE document (suggestions non rejetées). Une seule règle pour la lecture
+// (fetchCriterionGuidelines) et pour l'écran qui prévient quand une guideline ne sera
+// PAS lue (call du 21/10/2026 : Sandrine posait une guideline sur 1.3.1 pour faire
+// vérifier ce critère dans l'enquête — elle n'était jamais relue, faute de rattachement).
+export function guidelineReach(
+  matrixCriterionIds: readonly string[],
+  documentSuggestionCriterionIds: readonly string[]
+): string[] {
+  return [...new Set([...matrixCriterionIds, ...documentSuggestionCriterionIds])];
+}

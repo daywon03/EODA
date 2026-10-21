@@ -127,19 +127,27 @@ describe("seed — types de document du référentiel du pilote", () => {
   const sql = migrationSql("20261014120000_pilot_document_types");
   const inserted = insertedDocumentTypesIn(sql);
 
-  // 20261021090000 renomme quatre gabarits (« modèle vierge » → « … personnalisé ») :
-  // le seed reflète l'état APRÈS les deux migrations, rejouées ici.
+  // Les migrations postérieures RENOMMENT des libellés : le seed reflète l'état APRÈS
+  // elles, rejouées ici.
+  //   - 20261021090000 : quatre gabarits « modèle vierge » → « … personnalisé » ;
+  //   - 20261021130000 : le questionnaire d'enquête → « Autre forme de participation
+  //     des usagers — Enquête de satisfaction ».
   const renameSql = migrationSql("20261021090000_blank_model_personalized_labels");
   const renamedCodes = new Set([...renameSql.matchAll(/'([A-Z0-9_]+)'/g)].map((m) => m[1]!));
+  const relabelSql = migrationSql("20261021130000_participation_survey_label");
+  const relabels = new Map(
+    [...relabelSql.matchAll(/SET "label" = '((?:[^']|'')*)'\s+WHERE "code" = '([A-Z0-9_]+)'/g)].map((m) => [m[2]!, m[1]!.replace(/''/g, "'")])
+  );
 
   it("reprend exactement les 19 types insérés par 20261014120000, libellés renommés le 21/10 compris", () => {
     expect(inserted).toHaveLength(19);
     expect(renamedCodes.size).toBe(4);
+    expect(relabels.size).toBe(1);
     expect(PILOT_DOCUMENT_TYPES.map(({ code, category, label }) => ({ code, category, label }))).toEqual(
       inserted.map(({ code, category, label }) => ({
         code,
         category,
-        label: code && renamedCodes.has(code) ? `${label} personnalisé` : label,
+        label: (code && relabels.get(code)) ?? (code && renamedCodes.has(code) ? `${label} personnalisé` : label),
       }))
     );
   });
@@ -170,10 +178,51 @@ describe("seed — types de document du référentiel du pilote", () => {
     }
   });
 
-  it("aucun code en double dans la liste complète du seed (66 types)", () => {
+  it("aucun code en double dans la liste complète du seed (67 types)", () => {
     const codes = DOCUMENT_TYPE_SEEDS.map((t) => t.code);
     expect(new Set(codes).size).toBe(codes.length);
-    expect(codes).toHaveLength(66);
+    expect(codes).toHaveLength(67);
+  });
+
+  it("QUALITE_PLAC (PLAC, sigle de context/11) est produit par EODA et rangé hors loi 2002-2", () => {
+    const plac = DOCUMENT_TYPE_SEEDS.find((t) => t.code === "QUALITE_PLAC");
+    expect(plac).toBeDefined();
+    expect(plac?.label).toBe("Plan d'amélioration continue — PLAC");
+    expect(plac?.category).toBe("QUALITE_RISQUES");
+    expect(REQUESTED_FROM_CLIENT_DOCUMENT_CODES).not.toContain("QUALITE_PLAC");
+  });
+});
+
+// RÈGLE ZÉRO (20/10/2026) : les libellés d'items de checklist vivent DEUX fois — dans la
+// migration qui corrige une base existante, et dans le seed qui en construit une neuve.
+// Les deux doivent dire la même chose, sinon un déploiement neuf garde l'ancien sigle.
+// `seed.ts` est un script (il s'exécute à l'import) : il se relit comme un texte.
+describe("seed — sigle PLAC dans la checklist de mission", () => {
+  const SEED = path.resolve(__dirname, "../../../../../packages/database/prisma/seed.ts");
+  const PLAC_LABELS: Readonly<Record<string, string>> = {
+    DIAG_11: "Co-construction du PLAC (plan d'amélioration continue)",
+    DIAG_12: "Réunion distancielle — restitution du PLAC",
+  };
+
+  it("le seed ne nomme plus le plan d'action « PAC »", () => {
+    const seed = readFileSync(SEED, "utf8");
+    for (const [code, label] of Object.entries(PLAC_LABELS)) {
+      expect(seed).toContain(`{ code: "${code}",`);
+      expect(seed).toContain(`label: "${label}"`);
+    }
+    expect(seed).not.toMatch(/label: "Création du PAC|restitution du PAC/);
+  });
+
+  it("la migration 20261020160000 pose les mêmes libellés, ciblés par code et idempotents", () => {
+    const sql = migrationSql("20261020160000_plac_document_type_and_checklist_labels");
+    for (const [code, label] of Object.entries(PLAC_LABELS)) {
+      const escaped = label.replace(/'/g, "''");
+      expect(sql).toContain(`SET "label" = '${escaped}'`);
+      expect(sql).toContain(`WHERE "code" = '${code}'`);
+      expect(sql).toContain(`AND "label" <> '${escaped}'`);
+    }
+    expect(insertedDocumentTypesIn(sql).map((t) => t.code)).toEqual(["QUALITE_PLAC"]);
+    expect(sql).toMatch(/ON CONFLICT \("code"\) DO NOTHING;/);
   });
 });
 

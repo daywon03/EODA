@@ -1,9 +1,11 @@
 import type { SupportMode } from "@eoda/database";
 import type { DocumentAnalysisResult } from "@/lib/llm";
+import { compareCriterionCodes } from "./criterion-picker-service";
 import {
   normalizeFindings,
   normalizeCriteriaCoverage,
   normalizeCriterionSuggestions,
+  normalizeObservedNature,
 } from "@/lib/llm/llm-analysis-port";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -52,6 +54,9 @@ export function parseAnalysisResult(value: unknown): DocumentAnalysisResult | nu
   // Même repli : absent sur toute analyse stockée avant l'ajout du catalogue
   // supplémentaire (20/09/2026).
   const criteresSupplementaires = normalizeCriterionSuggestions(raw.criteresSupplementaires);
+  // Absent sur toute analyse antérieure au 20/10/2026 : `undefined`, jamais « le type
+  // correspond » — c'est une affirmation, et personne ne l'a faite (cf. ObservedNature).
+  const natureObservee = normalizeObservedNature(raw.natureObservee);
 
   const hasContent =
     elementsPresents.length > 0 ||
@@ -71,6 +76,7 @@ export function parseAnalysisResult(value: unknown): DocumentAnalysisResult | nu
     sembleConforme,
     criteriaCoverage,
     criteresSupplementaires,
+    ...(natureObservee ? { natureObservee } : {}),
   };
 }
 
@@ -156,3 +162,17 @@ export function describeAnalysis(summary: AnalysisSummary): string {
 // Mention de relecture : déplacée dans review-mention-service, service UNIQUE des
 // mentions (N1). Réexportée pour les appelants existants (file « À relire »).
 export { describeReviewMention } from "./review-mention-service";
+
+// ── Critères détectés / attendus absents (21/10/2026) ─────────────────────────
+// « Distinguer clairement les critères détectés dans le document de ceux attendus mais
+// absents. » Deux listes, chacune dans l'ordre NUMÉRIQUE du référentiel (1.2 avant
+// 1.10). « Partiel » est un critère détecté : le document en parle, imparfaitement.
+export function splitCriteriaCoverage<T extends { criterionCode: string; status: "couvert" | "partiel" | "absent" }>(
+  coverage: readonly T[]
+): { detected: T[]; missing: T[] } {
+  const sorted = [...coverage].sort((a, b) => compareCriterionCodes(a.criterionCode, b.criterionCode));
+  return {
+    detected: sorted.filter((c) => c.status !== "absent"),
+    missing: sorted.filter((c) => c.status === "absent"),
+  };
+}

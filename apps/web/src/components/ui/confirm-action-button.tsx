@@ -38,6 +38,12 @@ type Props = {
   // Permet au parent de neutraliser l'action pendant une de ses propres opérations
   // (une ligne d'interlocuteur en cours d'enregistrement, par exemple).
   disabled?: boolean;
+  // Côté où la surcouche s'aligne. `end` (défaut) : sous le déclencheur, bord droit
+  // contre bord droit. `start` pour un déclencheur au bord GAUCHE d'un panneau étroit
+  // (panneau de droite de l'aperçu d'un document) : alignée à droite, la surcouche
+  // débordait à gauche du panneau, y était coupée et passait sous l'aperçu PDF — le
+  // bouton « Supprimer le fichier » n'était plus cliquable (21/10/2026).
+  align?: "start" | "end";
 };
 
 // Confirmation d'une action, en deux temps : on demande, puis on confirme.
@@ -66,6 +72,7 @@ export function ConfirmActionButton({
   compact = false,
   appearance = "button",
   disabled = false,
+  align = "end",
 }: Props) {
   const [asking, setAsking] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -147,7 +154,7 @@ export function ConfirmActionButton({
   return (
     // `relative` : c'est l'ancre de la surcouche. `inline-flex` pour que le
     // déclencheur garde exactement la place qu'il occupait.
-    <span ref={rootRef} className="relative inline-flex flex-col items-end gap-1">
+    <span ref={rootRef} className={`relative inline-flex flex-col gap-1 ${align === "start" ? "items-start" : "items-end"}`}>
       {appearance === "link" ? (
         <button
           ref={triggerRef}
@@ -195,7 +202,7 @@ export function ConfirmActionButton({
           // Ancrée SOUS le déclencheur et alignée à droite : elle reste dans le
           // champ de vision sans jamais élargir son conteneur. `max-w` la garde
           // dans l'écran sur un téléphone.
-          className="absolute right-0 top-full z-50 mt-2 flex w-64 max-w-[calc(100vw-2rem)] flex-col gap-2 rounded-lg border border-gris-light bg-surface p-3 text-left shadow-eoda-md"
+          className={`absolute ${align === "start" ? "left-0" : "right-0"} top-full z-50 mt-2 flex w-64 max-w-[calc(100vw-2rem)] flex-col gap-2 rounded-lg border border-gris-light bg-surface p-3 text-left shadow-eoda-md`}
         >
           <span id={questionId} className="block text-xs leading-snug text-brun-ancre">
             {question}

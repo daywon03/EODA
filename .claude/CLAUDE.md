@@ -50,6 +50,7 @@ vérifie** — sinon elle n'existe pas.
 | Contraste des tokens ≥ 4.5:1 (clair et sombre) | test qui lit `globals.css`, résout les alias et **échoue** sous 4.5:1 ; vérifie que les deux voies du sombre sont identiques | `apps/web/src/lib/design/theme-contrast.test.ts` |
 | Ce que la structure fait prévient le cabinet, et personne d'autre | destinataires résolus par le périmètre (`resolveStructureScope` — commercial exclu, consultante non affectée exclue), compte désactivé exclu, dépôt du cabinet muet, « il arrive » muet, libellé du type jamais le nom de fichier | `lib/services/cabinet-recipients-service.test.ts`, `lib/email/templates.test.ts`, `lib/actions/document.test.ts`, `lib/actions/client-document-acceptance.test.ts` |
 | « Voir » montre le document, jamais le texte extrait | `.docx`/`.xlsx`/`.csv`/images passent par les pages rendues côté serveur (`document` AVANT `markdown` dans `buildFilePreview`), le PDF est servi en `inline`, son export et son aperçu sont le MÊME artefact, et seuls les formats convertibles proposent le bouton | `lib/services/printable-html-service.test.ts` (nettoyage : script, `on*`, styles, ressources distantes), `document-pdf-render-service.test.ts` (**la signature décide, pas l'extension**), `document-pdf-service.test.ts`, `document-pdf-response.test.ts`, `file-preview-service.test.ts` (ordre des branches), `file-type-service.test.ts` |
+| « Voir » depuis « Mes documents » n'ouvre jamais un brouillon | la carte, `getAuthorizedDocumentVersion` et la route `/api/documents/[versionId]/pdf` appliquent la MÊME règle `isVersionVisibleToClient` : le dépôt de la structure est toujours visible, une pièce du cabinet seulement une fois `Document.validatedAt` posé ; un brouillon du cabinet retombe sur le dernier dépôt du client (`viewableVersionFor`) | `lib/services/deliverables-service.test.ts`, `lib/services/client-documents-view-service.test.ts`, `lib/actions/document.test.ts` |
 | La matrice type de document ↔ critères ATTEINT le prompt | les rattachements sont lus en base pour LE type analysé (`documentTypeCriterion.findMany`) et remis à l'IA sous « Critères HAS rattachés à ce type de document » ; matrice vide → « aucun rattachement connu », jamais un catalogue de remplacement | `lib/services/document-ingestion-service.test.ts` (matrice lue → port d'analyse), `lib/llm/analysis-prompt.test.ts` (rendu de la ligne, repli vide) |
 | L'IA ne touche jamais une version ni une date du document | règle du cahier de style (v02) **et** `sanitizeProposal` : toute version/date absente du document d'origine et des extraits du manuel devient `[À compléter : version ou date]`, segments ORIGINAL compris ; un code de critère (« 1.10.12 ») n'est pas une date | `lib/llm/correction-proposal.test.ts` (describe « versions et dates ») |
 | Les commentaires du cabinet atteignent l'analyse, et seulement s'ils sont « pris en compte par l'IA » | `fetchCriterionGuidelines` lit les critères de la matrice **et** ceux reconnus dans le document (suggestions non rejetées), filtre `aiEnabled: true` ; la bascule est gardée par tenant (`notFound`) et journalisée `CRITERION_GUIDELINE_AI_TOGGLED`, le texte reste append-only | `lib/services/document-ingestion-service.test.ts` (« commentaires du cabinet »), `lib/actions/document.test.ts` (`setCriterionGuidelineAiUse`) |
@@ -59,6 +60,9 @@ vérifie** — sinon elle n'existe pas.
 | Toute fonction qui embarque Chromium embarque son binaire | `pnpm check:chromium` après le build lit les `*.nft.json` et **sort en code 1** si une fonction contient le code de `@sparticuz/chromium` sans `bin/chromium.br` / `al2023.tar.br` (le paquet situe son binaire à l'exécution : le traçage ne le voit pas — l'aperçu des documents répondait **503** en production, 21/10/2026), ou si **aucune** fonction n'est concernée. Réglage : `outputFileTracingIncludes` de `next.config.ts`. Corollaire : le cache du rendu vit dans `document-pdf-cache.ts`, qui n'importe pas Chromium — la suppression d'une version le chargeait dans seize pages | `apps/web/scripts/check-chromium-trace.mjs` + CI |
 | Un envoi « non configuré » n'est jamais compté comme parti | décompte par `countDeliveries` dans toute la couche d'envoi — aucun comptage brut de promesses tenues (il annonçait « Client prévenu (2 personnes) » pour zéro e-mail) | `lib/email/notifications.test.ts` |
 | L'attribut `hidden` masque réellement, même sous une classe d'affichage | `globals.css` porte `[hidden]:where(:not([hidden="until-found"])){display:none !important}` — le préflight de Tailwind, sans `!important`, a la même spécificité que `.flex` (0,1,0) et vient plus tôt : `.flex` gagnait, et le repli du groupe « Réglages » de la barre latérale cabinet restait décoratif (16/10/2026) | `lib/design/hidden-attribute.test.ts` — **échoue** si le `!important` (ou l'exception `until-found`) disparaît de `globals.css` |
+| CVS « Non concerné » seulement avec une autre forme de participation, jamais fusionné avec l'enquête | refus serveur sans forme choisie ; la forme s'écrit sur la ligne « Autre forme de participation » seule ; un document NA sort des preuves attendues sans remplacement | `lib/services/participation-form-service.test.ts`, `missing-answer-service.test.ts`, `criteria-proof-service.test.ts`, `lib/actions/document.test.ts` |
+| Une analyse dit quand elle est finie, même si la page met du temps à se mettre à jour | `uploadDocument` et `reanalyzeDocument` ne font plus de `revalidatePath` (il faisait embarquer le rendu complet de la fiche à la réponse de l'action) : l'appelant passe par `useAnalysisRun`, qui affiche un pourcentage ESTIMÉ (« environ », plafonné à 90 %), puis « Analyse terminée — mise à jour de l'affichage… » pendant le `router.refresh()` | `lib/services/analysis-progress-service.test.ts`, `lib/actions/document.test.ts` (« rend la main sans re-rendre la page ») |
+| Une guideline posée là où elle ne sera pas lue est signalée ; un critère se rattache à la main | `guidelineReach` (matrice du type ∪ suggestions non rejetées du document) est la règle UNIQUE de `fetchCriterionGuidelines` et de `getGuidelineReach` ; `planManualLinks` n'écrit que des codes présents en base, `manualUnlinkError` refuse de retirer un rattachement proposé | `lib/services/criterion-guideline-service.test.ts`, `lib/services/criterion-matrix-service.test.ts`, `lib/actions/criterion-matrix.test.ts`, `lib/actions/document.test.ts` |
 | Le pool de connexions est borné, et le mode session du pooler est NOMMÉ | `resolveRuntimeDatabaseUrl` (paquet `@eoda/database`) pose `connection_limit=1` sur l'URL runtime **avant** la construction du client ; sans lui, Prisma ouvre `nb_cpu_physiques × 2 + 1` connexions par processus (21 sur le poste à 10 cœurs) contre **15 créneaux** en mode session, sur une base que le poste partage avec la production — incident du 16/10/2026 (`EMAXCONNSESSION`) ; `connectionPoolWarning` nomme le remède au démarrage au lieu de refuser de servir | `lib/db/database-url.test.ts` — dont le garde qui **échoue** si `packages/database/src/index.ts` cesse de passer l'URL résolue au client |
 
 **Dette acceptée, à réexaminer après le 22/09/2026** : `.npmrc` porte `node-linker=hoisted`,
@@ -659,7 +663,15 @@ Détail complet et état d'avancement : `specs/02-architecture-technique.md` §4
   `statusOverriddenByUser` sur un MISSING, aucun nouvel état), il quitte les relances et
   entre dans la liste de travail dérivée ; « non concerné » est refusé côté serveur sur
   les sept documents de la loi 2002-2, et un ancien « Non » sur ceux-ci se relit comme
-  « Je ne l'ai pas » sans réécrire la base. Ne jamais « rétablir » la
+  « Je ne l'ai pas » sans réécrire la base. **Seule exception (21/10/2026) : le compte-rendu
+  CVS** (`NOT_CONCERNED_LOI_2002_2_EXCEPTIONS`), et **seulement une fois la forme de
+  participation choisie** sur la ligne distincte « Autre forme de participation des
+  usagers » (`QUALITE_ENQUETE_QUESTIONNAIRE` : enquête de satisfaction, groupe de parole,
+  autre + précision — `Document.participationForm`, `participation-form-service.ts`). Ce
+  n'est **pas une équivalence** CVS = enquête : c'est la démarche de la structure. Les deux
+  livrables restent distincts dans le modèle ; un CVS « Non concerné » sort de ses preuves
+  attendues (`applicableExpectedIds`) et du compte loi 2002-2, **sans** report de ses
+  critères sur l'enquête. Ne jamais « rétablir » la
   liste complète côté client : demander les 29 à une structure qui fait appel à EODA
   parce qu'elle ne les a pas, c'est lui remettre le travail qu'elle a acheté. La
   liste exacte est modifiable par `CABINET_ADMIN` depuis la fiche client (elle
@@ -914,8 +926,17 @@ Détail complet et état d'avancement : `specs/02-architecture-technique.md` §4
   accompagné**, **aucun droit de génération**. Ne jamais lui inventer une formule.
 - **La matrice type de document → critère ne s'écrit que par l'écran**
   `/dashboard/cabinet/criteres` (CABINET_ADMIN, spec 04) — jamais par seed ni migration.
-  La proposition du 08/10 y est embarquée et vérifiée contre sa source ; seuls les
-  critères **proposés et présents en base** sont décidables (`planMatrixDecision`).
+  La proposition du 08/10 y est embarquée et vérifiée contre sa source ; sur la carte
+  d'un type, seuls les critères **proposés et présents en base** sont décidables
+  (`planMatrixDecision`). **Depuis le 21/10/2026**, « Rattacher un critère à la main »
+  (même écran, CABINET_ADMIN) rattache n'importe quel critère du référentiel en base à
+  n'importe quel type (`planManualLinks`, codes recalculés, journal sans libellé) et ne
+  retire que ce qui n'est pas proposé (`manualUnlinkError`) — c'est ainsi qu'on fait
+  vérifier dans l'enquête les critères que le manuel attend d'une instance de
+  participation. Une **guideline n'est relue que pour les critères rattachés au type du
+  document ou reconnus dans ce document** (`guidelineReach`) : le formulaire le dit
+  quand un critère coché n'en fait pas partie (call du 21/10 — les guidelines posées
+  pour « forcer » un critère n'étaient jamais lues).
 - **« Prouvé » est dérivé, jamais stocké, jamais « conforme »**
   (`criteria-proof-service`) : tous les documents attendus d'un critère relus par EODA
   (`validatedAt` postérieur à la version courante, structure accompagnée) ou acceptés
@@ -968,6 +989,22 @@ Détail complet et état d'avancement : `specs/02-architecture-technique.md` §4
   jamais le nom de fichier ni le contenu. Dans l'application, la pastille « Mes
   livrables » se DÉRIVE de `EstablishmentUser.deliverablesSeenAt` (seul fait stocké)
   par `countNewDeliverables` — pas de table de notifications.
+- **« Voir » depuis « Mes documents » montre la pièce — et la même règle vaut pour
+  la route** (20/10/2026, demande de Damon : la structure ne pouvait ouvrir ses
+  documents que depuis « Mes livrables »). La carte `ClientDocumentCard` porte
+  l'aperçu, le téléchargement et, pour les formats convertibles, le PDF ; le choix
+  de la version est UNE règle, `viewableVersionFor` / `isVersionVisibleToClient`
+  (`lib/services/deliverables-service.ts`) : le dépôt de la structure est toujours
+  visible, une pièce produite par le cabinet seulement une fois
+  `Document.validatedAt` posé. Un brouillon du cabinet posé au-dessus d'un dépôt du
+  client fait retomber la carte sur ce dépôt, jamais sur le vide. Cette règle est
+  appliquée à la carte **et** aux deux portes qui servent les octets
+  (`getAuthorizedDocumentVersion`, route `/api/documents/[versionId]/pdf`) : la
+  structure reçoit les identifiants de TOUTES ses versions dans sa page, donc
+  masquer un bouton n'a jamais fermé une route. Un identifiant de version y est une
+  entrée non fiable — l'habilitation porte sur l'établissement propriétaire, puis
+  sur la visibilité, sinon `notFound()`. La lecture reste possible en bibliothèque
+  (mission close) : lire n'est pas déposer.
 - **Ce que la STRUCTURE fait, le cabinet l'apprend par e-mail** (16/10/2026, demande de
   Damon : les deux parties doivent voir ce qui se met à jour). Jusqu'ici le cabinet
   informait le client, jamais l'inverse. Trois gestes de la structure, et **trois

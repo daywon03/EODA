@@ -12,7 +12,11 @@ function response(
   code: "PERSONNE" | "FAMILLE",
   choices: Record<string, SurveyChoice>,
   texts: Record<string, string> = {},
-  version = 1
+  // La version COURANTE du contenu, jamais un 1 figé : les questionnaires sont
+  // versionnés et une correction de chapeau l'incrémente (v2 le 20/10/2026). Un test
+  // qui écrit « version 1 » en dur casserait à chaque correction de contenu — et pire,
+  // il passerait en décrivant des réponses que le service considère comme périmées.
+  version = surveyTemplateFor(code).version
 ): SurveyResponseForStats {
   const answers: SurveyAnswerInput[] = [
     ...Object.entries(choices).map(([questionId, choice]) => ({ questionId, choice, freeText: null })),
@@ -87,7 +91,9 @@ describe("computeTemplateStats", () => {
 
   it("ignore une autre version, un autre questionnaire, un choix hors échelle et une question inconnue", () => {
     const stats = computeTemplateStats(PERSONNE, [
-      response("PERSONNE", { "p01-respect": "PAS" }, {}, 2),
+      // « Une autre version » se calcule : une version figée finit par devenir la
+      // version courante, et le test cesse alors de tester ce qu'il annonce.
+      response("PERSONNE", { "p01-respect": "PAS" }, {}, PERSONNE.version + 1),
       response("FAMILLE", { "p01-respect": "PAS" }),
       response("PERSONNE", { "p01-respect": "PLUTOT", "inconnue": "TRES" }),
     ]);
@@ -159,6 +165,7 @@ describe("buildSurveyCsv", () => {
     expect(csvCell("=SOMME(A1)")).toBe("'=SOMME(A1)");
     expect(csvCell('dit "oui"; non')).toBe('"dit ""oui""; non"');
     expect(csvCell(null)).toBe("");
-    expect(csv.split("\r\n").length).toBe(1 + 12 + 1 + 1);
+    // En-tête + une ligne par question cotée (16 depuis la V1.6 enrichie) + taux global + fin.
+    expect(csv.split("\r\n").length).toBe(1 + 16 + 1 + 1);
   });
 });

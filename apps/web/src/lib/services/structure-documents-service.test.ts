@@ -11,6 +11,7 @@ import {
   findDocumentRow,
   flattenChecklist,
   parseDocumentFilters,
+  sortDocumentRows,
   rowsInBucket,
   type DocumentFacts,
 } from "./structure-documents-service";
@@ -161,6 +162,12 @@ describe("flattenChecklist, filtres et recherche", () => {
     expect(filterDocumentRows(rows, { query: "plaintes", category: "LOI_2002_2" })).toEqual([]);
   });
 
+  it("cherche aussi dans le nom des fichiers déposés (call du 21/10/2026)", () => {
+    const withFile = [{ ...rows[0]!, label: "Autre forme de participation", versions: [{ originalFilename: "ENQUETE-SATISFACTION_v1.6.docx" }] }];
+    expect(filterDocumentRows(withFile, { query: "enquête", category: null })).toHaveLength(1);
+    expect(filterDocumentRows(withFile, { query: "plainte", category: null })).toHaveLength(0);
+  });
+
   it("rowsInBucket ne garde que l'onglet demandé", () => {
     expect(rowsInBucket(rows, "todo")).toHaveLength(2);
     expect(rowsInBucket(rows, "validated")).toHaveLength(0);
@@ -195,5 +202,19 @@ describe("documentsHref", () => {
     expect(documentsHref("/f/documents", { bucket: "review", query: "livret", category: "RH", doc: "t1" })).toBe(
       "/f/documents?tab=review&q=livret&cat=RH&doc=t1"
     );
+  });
+});
+
+describe("tri alphabétique (21/10/2026)", () => {
+  it("par nom, sans accents ni majuscules ; ordre d'origine sans tri", () => {
+    const rows = [{ label: "Règlement de fonctionnement" }, { label: "accusés de réception" }, { label: "Livret d'accueil" }];
+    expect(sortDocumentRows(rows, "nom").map((r) => r.label)).toEqual([
+      "accusés de réception",
+      "Livret d'accueil",
+      "Règlement de fonctionnement",
+    ]);
+    expect(sortDocumentRows(rows, null)).toEqual(rows);
+    expect(parseDocumentFilters({ tri: "nom" }).sort).toBe("nom");
+    expect(parseDocumentFilters({ tri: "autre" }).sort).toBeUndefined();
   });
 });

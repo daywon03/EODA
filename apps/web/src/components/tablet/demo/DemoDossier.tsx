@@ -24,7 +24,11 @@ export function DemoDossier({ person, evidence, onSurvey, onNote }: Props) {
   const docs = [
     { name: "Feuille de réception", done: Boolean(person.receptionSignedOn), status: person.receptionSignedOn ? `Signée · ${person.receptionSignedOn}` : "À faire" },
     { name: "Projet personnalisé (PAP)", done: person.pap.length > 0, status: person.pap.length > 0 ? "Version en cours" : "À construire" },
-    { name: "Enquête de satisfaction", done: person.surveyDone, status: person.surveyDone ? "Faite" : "À faire" },
+    // Deux questionnaires distincts (gabarit « Enquête de satisfaction » v1.0) : la
+    // personne peut avoir répondu sans que sa famille l'ait fait, et l'inverse. Une
+    // seule ligne « Enquête de satisfaction » cachait lequel des deux restait à faire.
+    { name: "Enquête — avec la personne", done: person.surveys.PERSONNE, status: person.surveys.PERSONNE ? "Faite" : "À faire" },
+    { name: "Enquête — avec un proche", done: person.surveys.FAMILLE, status: person.surveys.FAMILLE ? "Faite" : "À faire" },
   ];
 
   return (

@@ -10,6 +10,8 @@ import type { LLMAnalysisPort } from "@/lib/llm";
 // action serveur) peut vérifier cette propriété — cf. revue de la tâche D4.
 
 const prismaMock = {
+  // `findUnique` : relu au moment de l'analyse pour la consigne de la consultante
+  // (`analysisDirective` / `directiveInAnalysis`, 20/10/2026).
   document: { upsert: vi.fn(), update: vi.fn(), findUnique: vi.fn() },
   documentVersion: { create: vi.fn(), update: vi.fn() },
   documentVersionImage: { create: vi.fn(), findMany: vi.fn() },
@@ -71,6 +73,8 @@ beforeEach(() => {
   prismaMock.document.upsert.mockResolvedValue({ id: "doc-1", versions: [] });
   prismaMock.documentVersion.create.mockResolvedValue({ id: "dv-1" });
   prismaMock.document.update.mockResolvedValue({});
+  // Aucune consigne par défaut : c'est le cas de la quasi-totalité des documents.
+  prismaMock.document.findUnique.mockResolvedValue(null);
   prismaMock.documentVersionImage.create.mockResolvedValue({});
 });
 
@@ -293,6 +297,54 @@ describe("ingestDocumentVersion — matrice type de document ↔ critères", () 
     });
 
     expect(analyze).toHaveBeenCalledWith(expect.objectContaining({ linkedCriteria: [] }));
+  });
+
+  // ── LA CONSIGNE DE LA CONSULTANTE (20/10/2026) ──────────────────────────────
+  // Elle est relue EN BASE au moment de l'analyse, pas reçue de l'appelant : c'est
+  // ce qui fait que le dépôt, la ré-analyse et le reclassement voient tous la
+  // consigne à jour, sans qu'aucun des trois ait à y penser.
+  it("transmet la consigne active, et la recopie sur la version analysée", async () => {
+    const { llm, analyze } = armAnalysis(2);
+    prismaMock.document.findUnique.mockResolvedValue({
+      analysisDirective: "  Il s'agit de la synthèse 2025.  ",
+      directiveInAnalysis: true,
+    });
+
+    await ingestDocumentVersion(baseInput({ extractedText: "Contenu." }), {
+      storage: fakeStorage(),
+      llm,
+    });
+
+    expect(analyze).toHaveBeenCalledWith(
+      expect.objectContaining({ analysisDirective: "Il s'agit de la synthèse 2025." })
+    );
+    // La copie sur la version est ce qui permet de dire, six mois plus tard, avec
+    // quelle consigne cette analyse-là a été produite.
+    expect(prismaMock.documentVersion.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ analysisDirectiveUsed: "Il s'agit de la synthèse 2025." }),
+      })
+    );
+  });
+
+  it("n'envoie rien quand le bouton « prendre en compte » est éteint — le texte reste en base", async () => {
+    const { llm, analyze } = armAnalysis(2);
+    prismaMock.document.findUnique.mockResolvedValue({
+      analysisDirective: "Note de travail, pas encore prête.",
+      directiveInAnalysis: false,
+    });
+
+    await ingestDocumentVersion(baseInput({ extractedText: "Contenu." }), {
+      storage: fakeStorage(),
+      llm,
+    });
+
+    const payload = analyze.mock.calls[0]?.[0] as Record<string, unknown> | undefined;
+    expect(payload).toBeDefined();
+    expect(payload).not.toHaveProperty("analysisDirective");
+    expect(prismaMock.documentVersion.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ analysisDirectiveUsed: null }) })
+    );
   });
 });
 

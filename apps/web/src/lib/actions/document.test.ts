@@ -11,10 +11,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const prismaMock = {
   mission: { findUnique: vi.fn() },
   documentType: { findMany: vi.fn(), findUnique: vi.fn() },
-  document: { upsert: vi.fn(), findUnique: vi.fn(), update: vi.fn() },
+  document: { upsert: vi.fn(), findUnique: vi.fn(), findFirst: vi.fn(), update: vi.fn() },
   documentVersion: { findUnique: vi.fn(), update: vi.fn() },
   establishment: { findUnique: vi.fn() },
-  criterionGuideline: { findFirst: vi.fn(), update: vi.fn() },
+  criterion: { findMany: vi.fn() },
+  documentTypeCriterion: { findMany: vi.fn() },
+  documentCriterionSuggestion: { findMany: vi.fn() },
+  criterionGuideline: { findFirst: vi.fn(), update: vi.fn(), createMany: vi.fn() },
   // La transaction rejoue le rappel sur les mêmes doubles : ce qui compte est ce
   // qu'elle écrit.
   $transaction: vi.fn(async (callback: (tx: unknown) => Promise<unknown>) => callback(prismaMock)),
@@ -31,9 +34,13 @@ const extractMarkdown = vi.fn();
 const suggestDocumentType = vi.fn();
 const requireEstablishmentAccess = vi.fn();
 const requireCabinetSession = vi.fn();
+// `tryEstablishmentAccess` — la garde qui a servi jusqu'ici sans être doublée : elle
+// répond, dans ces tests, ce que la session serait (cabinet ou structure).
+const tryEstablishmentAccess = vi.fn();
 
 vi.mock("@eoda/database", () => ({ prisma: prismaMock }));
-vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
+const revalidatePath = vi.fn();
+vi.mock("next/cache", () => ({ revalidatePath: (...args: unknown[]) => revalidatePath(...args) }));
 vi.mock("next/navigation", () => ({
   notFound: () => {
     throw new Error("NEXT_NOT_FOUND");
@@ -42,7 +49,7 @@ vi.mock("next/navigation", () => ({
 vi.mock("@/lib/auth/guards", () => ({
   requireEstablishmentAccess: (...args: [string]) => requireEstablishmentAccess(...args),
   requireCabinetSession: (...args: unknown[]) => requireCabinetSession(...args),
-  tryEstablishmentAccess: vi.fn(),
+  tryEstablishmentAccess: (...args: unknown[]) => tryEstablishmentAccess(...args),
 }));
 vi.mock("@/lib/services/text-extraction-service", () => ({
   extractMarkdown: (...args: unknown[]) => extractMarkdown(...args),
@@ -73,8 +80,18 @@ vi.mock("@/lib/email/notifications", () => ({
   notifyStructureActivity: (...args: unknown[]) => notifyStructureActivity(...args),
 }));
 
-const { uploadDocument, respondToMissingDocument, generateDocumentDraft, setDocumentValidated, setCriterionGuidelineAiUse, setDocumentCommentAiUse } =
-  await import("./document");
+const {
+  uploadDocument,
+  respondToMissingDocument,
+  generateDocumentDraft,
+  setDocumentValidated,
+  getDocumentPreviewData,
+  setCriterionGuidelineAiUse,
+  setDocumentCommentAiUse,
+  setParticipationForm,
+  addCriterionGuidelines,
+  getGuidelineReach,
+} = await import("./document");
 
 describe("setDocumentCommentAiUse — « Commentaire sur ce document » remis à l'IA", () => {
   it("passe par la garde d'écriture, bascule le seul drapeau et journalise sans le commentaire", async () => {
@@ -200,6 +217,15 @@ describe("uploadDocument — version finale d'EODA (call du 18/10/2026)", () => 
       documentType: { label: LOI_TYPE.label },
       versions: [{ id: "dv-1" }],
     });
+  });
+
+  // Dans une action serveur, revalidatePath fait embarquer à la réponse le rendu
+  // complet de la page : l'écran tournait encore longtemps après la fin de l'analyse
+  // (21/10/2026). L'appelant rafraîchit lui-même, à part (use-analysis-run).
+  it("rend la main sans re-rendre la page : le rafraîchissement est celui de l'appelant", async () => {
+    cabinetAccess();
+    await uploadDocument(finalForm());
+    expect(revalidatePath).not.toHaveBeenCalled();
   });
 
   it("un dépôt final du cabinet vaut validation : relu, validé, tracé, annoncé", async () => {
@@ -406,6 +432,133 @@ describe("respondToMissingDocument — « Je ne l'ai pas » (N3)", () => {
       respondToMissingDocument("etab-autre", LOI_TYPE.id, "DONT_HAVE", null)
     ).rejects.toThrow("NEXT_NOT_FOUND");
     expect(prismaMock.document.upsert).not.toHaveBeenCalled();
+  });
+});
+
+// CVS et « Autre forme de participation des usagers » (21/10/2026) : deux livrables
+// distincts ; le CVS ne se déclare « Non concerné » qu'une fois la forme choisie.
+const CVS_TYPE = { id: "dt-cvs", code: "L2002_CR_CVS", label: "Comptes-rendus CVS", category: "LOI_2002_2" };
+const PARTICIPATION_TYPE = { id: "dt-participation", code: "QUALITE_ENQUETE_QUESTIONNAIRE", category: "QUALITE_RISQUES" };
+
+describe("respondToMissingDocument — CVS « Non concerné »", () => {
+  it("refuse sans forme de participation choisie, sans rien écrire", async () => {
+    givenMission("EXCELLENCE");
+    prismaMock.documentType.findUnique.mockResolvedValue(CVS_TYPE);
+    prismaMock.document.findFirst.mockResolvedValue(null);
+
+    const result = await respondToMissingDocument(ESTABLISHMENT_ID, CVS_TYPE.id, "NOT_CONCERNED", null);
+
+    expect(result).toMatchObject({ error: expect.stringContaining("autre forme de participation") });
+    expect(prismaMock.document.upsert).not.toHaveBeenCalled();
+  });
+
+  it("accepte une fois l'enquête de satisfaction choisie : NOT_APPLICABLE, pas un document manquant", async () => {
+    givenMission("EXCELLENCE");
+    prismaMock.documentType.findUnique.mockResolvedValue(CVS_TYPE);
+    prismaMock.document.findFirst.mockResolvedValue({ participationForm: "ENQUETE_SATISFACTION" });
+
+    const result = await respondToMissingDocument(ESTABLISHMENT_ID, CVS_TYPE.id, "NOT_CONCERNED", null);
+
+    expect(result).toBeNull();
+    // La forme est lue pour CETTE structure, jamais pour une autre.
+    expect(prismaMock.document.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ establishmentId: ESTABLISHMENT_ID }) })
+    );
+    expect(prismaMock.document.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({ update: expect.objectContaining({ status: "NOT_APPLICABLE" }) })
+    );
+  });
+});
+
+describe("setParticipationForm — la forme choisie par la structure", () => {
+  it("enregistre la forme sur la ligne « Autre forme de participation », jamais sur le CVS", async () => {
+    givenMission("EXCELLENCE");
+    prismaMock.documentType.findUnique.mockResolvedValue(PARTICIPATION_TYPE);
+
+    expect(await setParticipationForm(ESTABLISHMENT_ID, "ENQUETE_SATISFACTION", "ignoré")).toBeNull();
+
+    expect(prismaMock.documentType.findUnique).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { code: "QUALITE_ENQUETE_QUESTIONNAIRE" } })
+    );
+    const call = prismaMock.document.upsert.mock.calls[0]?.[0] as {
+      update: Record<string, unknown>;
+      create: Record<string, unknown>;
+    };
+    // Les versions et l'analyse existantes ne sont pas touchées : seuls ces deux champs.
+    expect(call.update).toEqual({ participationForm: "ENQUETE_SATISFACTION", participationOtherLabel: null });
+    expect(call.create).toMatchObject({ status: "MISSING", participationForm: "ENQUETE_SATISFACTION" });
+    expect(recordAuditEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ action: "PARTICIPATION_FORM_SET", detail: "ENQUETE_SATISFACTION" })
+    );
+  });
+
+  it("refuse une forme inconnue ou un « Autre » sans précision, sans rien écrire", async () => {
+    expect(await setParticipationForm(ESTABLISHMENT_ID, "CVS", null)).toMatchObject({ error: expect.any(String) });
+    expect(await setParticipationForm(ESTABLISHMENT_ID, "AUTRE", "  ")).toMatchObject({ error: expect.any(String) });
+    expect(prismaMock.document.upsert).not.toHaveBeenCalled();
+  });
+
+  it("propage le refus de la garde", async () => {
+    requireEstablishmentAccess.mockRejectedValue(new Error("NEXT_NOT_FOUND"));
+    await expect(setParticipationForm("etab-autre", "GROUPE_PAROLE", null)).rejects.toThrow("NEXT_NOT_FOUND");
+    expect(prismaMock.document.upsert).not.toHaveBeenCalled();
+  });
+});
+
+describe("addCriterionGuidelines — plusieurs critères en un enregistrement", () => {
+  beforeEach(() => {
+    requireCabinetSession.mockResolvedValue({ tenantId: "t-1", userId: "u-1", session: { user: { role: "CABINET_ADMIN" } } });
+  });
+
+  it("enregistre la même consigne sur chaque critère coché, doublons retirés", async () => {
+    prismaMock.criterion.findMany.mockResolvedValue([
+      { id: "c-1", code: "1.2.1" },
+      { id: "c-2", code: "1.10.1" },
+    ]);
+
+    const result = await addCriterionGuidelines(["c-1", "c-2", "c-1"], "Vérifier la date de mise à jour.");
+
+    expect(result).toEqual({ saved: 2 });
+    expect(requireCabinetSession).toHaveBeenCalledWith("STRUCTURES_WRITE");
+    const data = (prismaMock.criterionGuideline.createMany.mock.calls[0]?.[0] as { data: { criterionId: string; tenantId: string }[] }).data;
+    expect(data.map((d) => d.criterionId)).toEqual(["c-1", "c-2"]);
+    expect(data.every((d) => d.tenantId === "t-1")).toBe(true);
+  });
+
+  it("refuse une liste vide ou un critère inconnu, sans rien écrire", async () => {
+    expect(await addCriterionGuidelines([], "Une consigne.")).toEqual({ error: "Cochez au moins un critère." });
+    prismaMock.criterion.findMany.mockResolvedValue([{ id: "c-1", code: "1.2.1" }]);
+    expect(await addCriterionGuidelines(["c-1", "inconnu"], "Une consigne.")).toMatchObject({ error: expect.any(String) });
+    expect(prismaMock.criterionGuideline.createMany).not.toHaveBeenCalled();
+  });
+});
+
+describe("getGuidelineReach — prévenir qu'une guideline ne sera pas lue", () => {
+  beforeEach(() => {
+    prismaMock.documentVersion.findUnique.mockResolvedValue({
+      document: { id: "doc-1", establishmentId: ESTABLISHMENT_ID, documentTypeId: "dt-1", documentType: { label: "Autre forme de participation des usagers" } },
+    });
+    prismaMock.documentTypeCriterion.findMany.mockResolvedValue([{ criterionId: "c-111" }]);
+    prismaMock.documentCriterionSuggestion.findMany.mockResolvedValue([{ criterionId: "c-227" }]);
+  });
+
+  it("rend la matrice du type plus les critères reconnus dans ce document, au cabinet", async () => {
+    requireEstablishmentAccess.mockResolvedValue({ userId: "u-1", session: { user: { role: "CABINET_ADMIN" } }, isClient: false, missionAccess: "ACTIVE" });
+    expect(await getGuidelineReach("dv-1")).toEqual({
+      criterionIds: ["c-111", "c-227"],
+      documentTypeLabel: "Autre forme de participation des usagers",
+    });
+    // Habilitation sur l'établissement PROPRIÉTAIRE de la version, en lecture.
+    expect(requireEstablishmentAccess).toHaveBeenCalledWith(ESTABLISHMENT_ID, expect.anything());
+    expect(prismaMock.documentCriterionSuggestion.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { documentId: "doc-1", status: { not: "REJECTED" } } })
+    );
+  });
+
+  it("refuse une structure (notFound) et une version inconnue", async () => {
+    await expect(getGuidelineReach("dv-1")).rejects.toThrow("NEXT_NOT_FOUND");
+    prismaMock.documentVersion.findUnique.mockResolvedValue(null);
+    await expect(getGuidelineReach("inconnue")).rejects.toThrow("NEXT_NOT_FOUND");
   });
 });
 
@@ -631,5 +784,50 @@ describe("respondToMissingDocument — ce qui demande du travail au cabinet", ()
       error: "Ce document n'entre pas dans le périmètre de l'offre souscrite pour cet établissement.",
     });
     expect(notifyStructureActivity).not.toHaveBeenCalled();
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// L'APERÇU N'EST PAS QU'UN BOUTON (20/10/2026).
+//
+// « Mes documents » propose désormais « Voir », et la structure reçoit dans sa page
+// l'historique complet des versions — donc leurs identifiants. Un brouillon produit
+// par EODA et pas encore validé ne doit donc pas être servi, même si quelqu'un
+// construit l'identifiant à la main : la règle vit dans `isVersionVisibleToClient`
+// (deliverables-service) et les DEUX portes qui servent les octets l'appliquent.
+describe("getDocumentPreviewData — ce que la structure a le droit d'ouvrir", () => {
+  function versionRow(role: string, validatedAt: Date | null) {
+    return {
+      id: "v-1",
+      originalFilename: "document.docx",
+      fileStorageKey: "storage-key",
+      extractedText: null,
+      uploadedBy: { role },
+      document: {
+        establishmentId: ESTABLISHMENT_ID,
+        validatedAt,
+        documentType: { code: "L2002_LIVRET_ACCUEIL" },
+      },
+    };
+  }
+
+  beforeEach(() => {
+    prismaMock.documentVersion.findUnique.mockReset();
+    tryEstablishmentAccess.mockReset();
+    tryEstablishmentAccess.mockResolvedValue({ isClient: true, userId: "u-1", session: { user: {} } });
+  });
+
+  it("refuse le brouillon du cabinet tant que le document n'est pas validé", async () => {
+    prismaMock.documentVersion.findUnique.mockResolvedValue(versionRow("CABINET_ADMIN", null));
+
+    await expect(getDocumentPreviewData("v-1")).resolves.toBeNull();
+  });
+
+  it("sert la pièce déposée par la structure, et celle du cabinet une fois validée", async () => {
+    prismaMock.documentVersion.findUnique.mockResolvedValue(versionRow("CLIENT_USER", null));
+    await expect(getDocumentPreviewData("v-1")).resolves.toMatchObject({ kind: "document" });
+
+    prismaMock.documentVersion.findUnique.mockResolvedValue(versionRow("CABINET_ADMIN", new Date()));
+    await expect(getDocumentPreviewData("v-1")).resolves.toMatchObject({ kind: "document" });
   });
 });

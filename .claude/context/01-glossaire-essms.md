@@ -92,7 +92,7 @@ critère ou un E.E. dans l'outil d'auto-évaluation.
 
 | Terme | Définition |
 |---|---|
-| **PLAC** | Plan d'Accompagnement à l'auto-évaluation — livrable EODA structurant la mission client en 4 phases (Fondations, Déploiement, Consolidation, Préparation finale). |
+| **PLAC** | Plan d'Amélioration Continue — livrable EODA : le plan d'action formalisé de la mission, avec jalons et responsables, priorisant les critères impératifs à risque. Sigle de `context/11` §6.2 (qui fait foi) ; « PAC » n'est plus écrit dans les sorties (20/10/2026). Développement retenu : celui de Sandrine — le glossaire disait auparavant « Plan d'Accompagnement à l'auto-évaluation », une lecture concurrente du même sigle. |
 | **Bordereau de demande documentaire** | Gabarit EODA listant les pièces attendues par catégorie, avec colonnes demandé/reçu/date — **input direct du module Analyse documentaire**. |
 | **Cadrage** | Phase de démarrage de mission (réunion de cadrage, recueil documentaire, planning de visite, lettre aux parties prenantes). |
 | **Bêta-test** | Statut du client ASSAD BENOIT — reçoit l'offre Excellence gratuitement en échange de retours produit. |

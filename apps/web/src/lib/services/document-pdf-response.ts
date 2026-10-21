@@ -49,9 +49,15 @@ export function documentPdfPreviewFailureMessage(error: unknown): string {
 // une fonction de rendu HTML — le jour où quelqu'un y glisse un intitulé de document
 // (qui vient d'un tiers), un `<` refermerait le paragraphe. L'échappement ici ne coûte
 // rien et rend l'erreur impossible à transformer en balisage.
+//
+// `data-preview-error` : l'aperçu affiche cette page DANS un `<iframe>`. Sans ce
+// marqueur, un 503 se lisait comme un cadre blanc — ou comme un message de navigateur
+// — et la consultante n'avait aucun moyen de savoir que le document, lui, allait bien
+// (constaté le 20/10/2026). Le cadre lit ce marqueur (même origine) et rend le message
+// dans l'écran, avec le ton d'échec qui convient.
 export function documentPdfErrorResponse(status: number, message: string): Response {
   return new Response(
-    `<!doctype html><html lang="fr"><head><meta charset="utf-8" /><title>Aperçu indisponible</title></head><body><p>${escapeHtml(message)}</p></body></html>`,
+    `<!doctype html><html lang="fr"><head><meta charset="utf-8" /><title>Aperçu indisponible</title></head><body data-preview-error="${escapeHtml(message)}"><p>${escapeHtml(message)}</p></body></html>`,
     {
       status,
       headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" },

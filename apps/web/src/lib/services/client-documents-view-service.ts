@@ -2,6 +2,7 @@ import { isValidationCurrent } from "./document-workflow-service";
 import type { DocumentCategory, DocumentStatus, SupportMode } from "@eoda/database";
 import { DOCUMENT_PILLS, type PillSpec } from "@/lib/design/status-vocabulary";
 import { DOCUMENT_GROUPS, groupDocumentTypes, type DocumentGroupId } from "@/content/documents/groupes";
+import { isVersionVisibleToClient } from "./deliverables-service";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // « MES DOCUMENTS » VU PAR LA STRUCTURE — règles pures (tranches N2, N3, R6).
@@ -47,7 +48,9 @@ export function versionsVisibleToClient<T extends { producedByCabinet: boolean; 
   versions: readonly T[],
   validatedAt: Date | null
 ): T[] {
-  return versions.filter((version) => !version.producedByCabinet || validatedAt !== null);
+  return versions.filter((version) =>
+    isVersionVisibleToClient({ producedByCabinet: version.producedByCabinet, validatedAt })
+  );
 }
 
 // Une acceptation vaut pour la version courante au moment du geste : une version
@@ -170,6 +173,71 @@ export function toClientDocumentRow<T extends ClientChecklistFacts>(
   return { ...item, state };
 }
 
+// ── Voir la pièce depuis « Mes documents » (20/10/2026) ──────────────────────
+//
+// La structure voyait ses documents seulement dans « Mes livrables », qui ne
+// contient QUE ce qu'EODA a produit et validé : sa propre pièce déposée n'était
+// consultable nulle part, pas plus qu'un document produit pour elle mais pas
+// encore validé. « Voir » vit donc aussi sur la carte de « Mes documents ».
+//
+// Deux règles, et pas une de plus :
+//   1. la pièce qu'elle a DÉPOSÉE est toujours visible — c'est son fichier ;
+//   2. une pièce produite par le cabinet n'est visible qu'une fois le document
+//      VALIDE. Avant, c'est un brouillon de travail : le montrer au client, c'est
+//      lui remettre un document que la consultante n'a pas encore pris sur elle
+//      (même verrou que `selectDeliverables`, CDC §5).
+//
+// Si EODA a déposé un brouillon par-dessus la pièce du client, la carte n'affiche
+// pas la version en cours (muette) mais le DERNIER dépôt du client : le faire
+// disparaître de son propre portail le temps d'une relecture serait une régression.
+export type ViewableVersion = {
+  id: string;
+  filename: string;
+  versionNumber: number;
+  producedByCabinet: boolean;
+};
+
+export function viewableVersionFor(item: {
+  validatedAt: Date | null;
+  currentVersion: { id: string; originalFilename: string; versionNumber: number } | null;
+  versions: readonly {
+    id: string;
+    versionNumber: number;
+    originalFilename: string;
+    producedByCabinet: boolean;
+  }[];
+}): ViewableVersion | null {
+  const current = item.currentVersion;
+  if (!current) return null;
+
+  // Origine de la version en cours, lue dans l'historique déjà chargé (pas de
+  // colonne de plus). Origine inconnue ⇒ traitée comme produite par le cabinet :
+  // on préfère ne pas montrer que publier un brouillon.
+  const producedByCabinet =
+    item.versions.find((version) => version.id === current.id)?.producedByCabinet ?? true;
+
+  if (isVersionVisibleToClient({ producedByCabinet, validatedAt: item.validatedAt })) {
+    return {
+      id: current.id,
+      filename: current.originalFilename,
+      versionNumber: current.versionNumber,
+      producedByCabinet,
+    };
+  }
+
+  const own = item.versions
+    .filter((version) => !version.producedByCabinet)
+    .sort((a, b) => b.versionNumber - a.versionNumber)[0];
+  return own
+    ? {
+        id: own.id,
+        filename: own.originalFilename,
+        versionNumber: own.versionNumber,
+        producedByCabinet: false,
+      }
+    : null;
+}
+
 // ── Filtres (« À déposer » / « À produire » / « Reçu, en cours » / « Accepté ») ─
 //
 // « À produire » est séparé de « À déposer » : un document déclaré absent ne se
@@ -217,6 +285,10 @@ export type ClientDocumentRow = {
   label: string;
   category: DocumentCategory;
   state: ClientDocumentState;
+  // Noms des fichiers que la structure a le droit de voir (`clientSearchableFilenames`),
+  // jamais ceux d'un brouillon d'EODA non validé : la recherche ne doit pas révéler ce
+  // que « Voir » cache.
+  searchableFilenames?: readonly string[];
 };
 
 // Ce qui demande un geste d'abord, ce qui est réglé ensuite.
@@ -281,8 +353,25 @@ function foldForSearch(text: string): string {
   return text.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 }
 
-export function matchesClientSearch(row: Pick<ClientDocumentRow, "label">, query: string): boolean {
-  return query.length === 0 || foldForSearch(row.label).includes(foldForSearch(query));
+export function matchesClientSearch(
+  row: Pick<ClientDocumentRow, "label" | "searchableFilenames">,
+  query: string
+): boolean {
+  if (query.length === 0) return true;
+  const needle = foldForSearch(query);
+  return (
+    foldForSearch(row.label).includes(needle) ||
+    (row.searchableFilenames ?? []).some((name) => foldForSearch(name).includes(needle))
+  );
+}
+
+// Les noms cherchables d'un document côté structure : ceux des versions qu'elle voit,
+// par la MÊME règle que la carte et les routes (`versionsVisibleToClient`).
+export function clientSearchableFilenames(item: {
+  versions: readonly { producedByCabinet: boolean; uploadedAt: Date; originalFilename: string }[];
+  validatedAt: Date | null;
+}): string[] {
+  return versionsVisibleToClient(item.versions, item.validatedAt).map((version) => version.originalFilename);
 }
 
 // Nombre de documents par rubrique, après le filtre d'état et la recherche — ce que
@@ -304,13 +393,17 @@ export function groupClientDocuments<T extends ClientDocumentRow>(
   rows: readonly T[],
   filter: ClientDocumentFilter | null,
   mode: SupportMode,
-  options: { group?: ClientGroupFilter | null; query?: string } = {}
+  // `sort: "nom"` (21/10/2026) : alphabétique dans chaque rubrique, au lieu de l'ordre
+  // « ce qui demande un geste d'abord ».
+  options: { group?: ClientGroupFilter | null; query?: string; sort?: "nom" | null } = {}
 ): ClientDocumentGroup<T>[] {
   const query = options.query ?? "";
   const visible = rows.filter(
     (row) => (filter === null || clientFilterOf(row.state) === filter) && matchesClientSearch(row, query)
   );
-  const sorted = [...visible].sort(byPriority);
+  const sorted = [...visible].sort(
+    options.sort === "nom" ? (a, b) => a.label.localeCompare(b.label, "fr", { sensitivity: "base" }) : byPriority
+  );
   const { groups, unranked } = groupDocumentTypes(sorted);
 
   const ranked: ClientDocumentGroup<T>[] = groups
@@ -402,6 +495,15 @@ export const DIPC_CODE = "L2002_DIPC";
 export const DIPC_BLANK_MODEL_NOTICE =
   "Déposez le modèle vierge personnalisé du DIPC, sans nom ni signature. N'envoyez jamais un DIPC signé par une personne accompagnée.";
 
+// La ligne « Autre forme de participation des usagers » (21/10/2026) ne dit plus
+// « questionnaire vierge » : la règle HDS se dit donc au dépôt — la démarche, jamais
+// les réponses d'une personne.
+export const PARTICIPATION_SURVEY_CODE = "QUALITE_ENQUETE_QUESTIONNAIRE";
+export const PARTICIPATION_SURVEY_NOTICE =
+  "Déposez votre démarche : le questionnaire de l'enquête et les affiches d'information. Jamais les réponses d'une personne (aucun nom, aucune information de santé).";
+
 export function depositNoticeFor(code: string): string | null {
-  return code === DIPC_CODE ? DIPC_BLANK_MODEL_NOTICE : null;
+  if (code === DIPC_CODE) return DIPC_BLANK_MODEL_NOTICE;
+  if (code === PARTICIPATION_SURVEY_CODE) return PARTICIPATION_SURVEY_NOTICE;
+  return null;
 }

@@ -14,6 +14,9 @@ export function DeleteDocumentVersionButton({ documentVersionId, filename }: Pro
   return (
     <ConfirmActionButton
       appearance="link"
+      // Au bord gauche du panneau de droite de l'aperçu : la surcouche s'ouvre vers la
+      // droite, dans le panneau (sinon coupée et sous le PDF).
+      align="start"
       label="Supprimer"
       accessibleLabel={`Supprimer ${filename}`}
       icon={Trash2}

@@ -6,6 +6,12 @@
 // port HDS. Aucun nom réel : toute personne porte « (fictif) ».
 // ─────────────────────────────────────────────────────────────────────────────
 
+// Deux questionnaires par personne (gabarit « Enquête de satisfaction » v1.0) : celui
+// de la personne accompagnée (FALC, 12 questions) et celui d'un proche (14 questions).
+// Un seul booléen ne pouvait pas dire « la personne a répondu, le proche non » — et
+// c'est pourtant l'état réel le plus fréquent, la famille répondant souvent à part.
+export type DemoSurveyState = { PERSONNE: boolean; FAMILLE: boolean };
+
 export type DemoPerson = {
   id: string;
   name: string;
@@ -13,7 +19,7 @@ export type DemoPerson = {
   address: string;
   hours: string;
   since: string;
-  surveyDone: boolean;
+  surveys: DemoSurveyState;
   pap: string[];
   contacts: { who: string; how: string }[];
   journal: { date: string; text: string; possibleAdverseEvent: boolean }[];
@@ -23,6 +29,7 @@ export type DemoPerson = {
 export const DEMO_STRUCTURE = "SAD Les Glycines (fictif)";
 export const DEMO_STAFF = "Camille (fictif)";
 export const DEMO_TOTAL_PEOPLE = 48;
+// Compté en QUESTIONNAIRES, pas en personnes : chaque personne en a deux.
 export const DEMO_SURVEYS_ALREADY_DONE = 10;
 
 export const DEMO_PEOPLE: readonly DemoPerson[] = [
@@ -33,7 +40,7 @@ export const DEMO_PEOPLE: readonly DemoPerson[] = [
     address: "12 rue des Tanneurs, Ville fictive",
     hours: "24 h par mois",
     since: "mars 2024",
-    surveyDone: false,
+    surveys: { PERSONNE: false, FAMILLE: true },
     pap: [
       "Aide au lever et au coucher, tous les jours",
       "Repas du midi, du lundi au vendredi",
@@ -50,13 +57,21 @@ export const DEMO_PEOPLE: readonly DemoPerson[] = [
     ],
     receptionSignedOn: "03/2024",
   },
-  person("d2", "M. Lucien Ferrand (fictif)", 4, "12 h par mois", "janvier 2025", true),
-  person("d3", "Mme Yvette Diallo (fictif)", 3, "18 h par mois", "juin 2023", false),
-  person("d4", "M. Robert Kessler (fictif)", 1, "40 h par mois", "octobre 2022", true),
-  person("d5", "Mme Jeanne Poulain (fictif)", 5, "8 h par mois", "avril 2026", false),
+  person("d2", "M. Lucien Ferrand (fictif)", 4, "12 h par mois", "janvier 2025", true, true),
+  person("d3", "Mme Yvette Diallo (fictif)", 3, "18 h par mois", "juin 2023", false, false),
+  person("d4", "M. Robert Kessler (fictif)", 1, "40 h par mois", "octobre 2022", true, true),
+  person("d5", "Mme Jeanne Poulain (fictif)", 5, "8 h par mois", "avril 2026", true, false),
 ];
 
-function person(id: string, name: string, gir: number, hours: string, since: string, surveyDone: boolean): DemoPerson {
+function person(
+  id: string,
+  name: string,
+  gir: number,
+  hours: string,
+  since: string,
+  personneDone: boolean,
+  familleDone: boolean
+): DemoPerson {
   return {
     id,
     name,
@@ -64,13 +79,21 @@ function person(id: string, name: string, gir: number, hours: string, since: str
     address: "Adresse fictive",
     hours,
     since,
-    surveyDone,
+    surveys: { PERSONNE: personneDone, FAMILLE: familleDone },
     pap: ["Aide au ménage et aux courses", "Préparation des repas"],
     contacts: [{ who: "Proche référent (fictif)", how: "06 00 00 00 00" }],
     journal: [],
     receptionSignedOn: "01/2025",
   };
 }
+
+/** Nombre de questionnaires faits pour une personne (0, 1 ou 2). */
+export function surveyCount(person: DemoPerson): number {
+  return (person.surveys.PERSONNE ? 1 : 0) + (person.surveys.FAMILLE ? 1 : 0);
+}
+
+/** Ce qu'on attend d'une personne : les deux questionnaires. */
+export const SURVEYS_PER_PERSON = 2;
 
 // Repère de couleur du GIR (charge d'aide), toujours accompagné du chiffre.
 export function girTone(gir: number): string {

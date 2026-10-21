@@ -1,5 +1,8 @@
 "use server";
 
+import type { ParticipationForm } from "@eoda/database";
+import { participationLineLabel } from "@/lib/services/participation-form-service";
+
 import { NEED } from "@/lib/auth/capabilities";
 import { prisma } from "@eoda/database";
 import { notFound } from "next/navigation";
@@ -55,6 +58,14 @@ export type ChecklistItem = {
   missingJustification: string | null;
   // Le commentaire est-il remis à l'IA (analyse, mise en conformité) ?
   commentUsedByAi: boolean;
+  // Ligne « Autre forme de participation des usagers » : la forme choisie (21/10/2026).
+  participationForm: ParticipationForm | null;
+  participationOtherLabel: string | null;
+  // Consigne libre de la consultante sur CE document, et le bouton qui décide si
+  // elle entre dans la prochaine analyse (20/10/2026). Le texte n'est jamais
+  // recopié dans le journal d'audit.
+  analysisDirective: string | null;
+  directiveInAnalysis: boolean;
   // « Je ne l'ai pas » (N3, missing-answer-service) : à produire, pas à déposer.
   declaredMissing: boolean;
   // Qui doit produire ce document encore manquant — pastilles cabinet « À rédiger ·
@@ -168,6 +179,12 @@ async function buildChecklist(
       statusOverriddenByUser: true,
       missingJustification: true,
       commentUsedByAi: true,
+      participationForm: true,
+      participationOtherLabel: true,
+      // Consigne de la consultante pour la prochaine analyse (20/10/2026) : elle
+      // s'édite dans le panneau du document, elle est donc lue avec lui.
+      analysisDirective: true,
+      directiveInAnalysis: true,
       validatedAt: true,
       clientAcceptedAt: true,
       currentVersion: {
@@ -237,6 +254,7 @@ async function buildChecklist(
     const hasVersion = !!doc?.currentVersion;
     const { status, declaredMissing } = normaliseMissingState({
       category: dt.category,
+      code: dt.code,
       status: rawStatus,
       statusOverriddenByUser: doc?.statusOverriddenByUser ?? false,
       hasVersion,
@@ -257,7 +275,9 @@ async function buildChecklist(
     const item: ChecklistItem = {
       documentTypeId: dt.id,
       code: dt.code,
-      label: dt.label,
+      // La ligne « Autre forme de participation » porte la forme choisie par la
+      // structure (« … — Enquête de satisfaction ») : tous les écrans lisent ce libellé.
+      label: participationLineLabel(dt.code, dt.label, doc?.participationForm ?? null, doc?.participationOtherLabel ?? null),
       category: dt.category,
       isConditional: dt.isConditional,
       expectedFrequency: dt.expectedFrequency,
@@ -267,6 +287,10 @@ async function buildChecklist(
       documentId: doc?.id ?? null,
       missingJustification: doc?.missingJustification ?? null,
       commentUsedByAi: doc?.commentUsedByAi ?? true,
+      participationForm: doc?.participationForm ?? null,
+      participationOtherLabel: doc?.participationOtherLabel ?? null,
+      analysisDirective: doc?.analysisDirective ?? null,
+      directiveInAnalysis: doc?.directiveInAnalysis ?? false,
       declaredMissing,
       missingOwner: deriveMissingOwner({
         status,

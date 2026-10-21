@@ -2,8 +2,9 @@ import type { SurveyTemplate } from "./types";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // QUESTIONNAIRE « PERSONNE ACCOMPAGNÉE » (FALC) — transcrit du gabarit d'enquête de
-// Sandrine (« Ce que vous pensez de votre accompagnement », v1.0 du 30/09/2026,
-// transcription V1.6 du rapport context2) : 12 questions, message libre, bloc RGPD.
+// Sandrine (« Ce que vous pensez de votre accompagnement »). Version courante : la
+// V1.6 enrichie remise par Damon le 21/10/2026 (context2/anonymise/20261019_ENQUETE-
+// SATISFACTION_…_v1.0.md) : 16 questions, message libre, bloc RGPD.
 //
 // Seul écart : le nom de la structure du pilote est remplacé par « le service »
 // (aucun nom réel dans le dépôt). Les intitulés sont ceux du gabarit, à la lettre ;
@@ -12,11 +13,21 @@ import type { SurveyTemplate } from "./types";
 
 export const SURVEY_PERSONNE: SurveyTemplate = {
   code: "PERSONNE",
-  version: 1,
+  // v2 (20/10/2026) : chapeau restauré du gabarit (confidentialité, aide d'un
+  // proche ou d'une personne de confiance). Les questions et l'ordre sont inchangés.
+  // v3 (21/10/2026) : V1.6 enrichie — cinq questions sur les droits de la personne
+  // (choix des aides, personne de confiance, accès au dossier, explication et accord
+  // avant d'aider) ; « Est-ce qu'on vous demande votre avis ? » retirée. Les
+  // identifiants des questions conservées ne changent pas.
+  version: 3,
   title: "Ce que vous pensez de votre accompagnement",
   respondentLabel: "La personne accompagnée",
+  // Les deux phrases du gabarit, dans l'ordre : la confidentialité (« seules la
+  // direction et la coordination les lisent ») était tombée à la transcription, et
+  // avec elle la phrase qui dit à la personne qu'elle peut se faire aider. Ce sont
+  // les deux informations qui décident si elle répond (relecture du 20/10/2026).
   intro:
-    "Le service veut savoir si vous êtes content(e) de l'aide que vous recevez. Vos réponses nous aident à améliorer le service. Vous n'êtes pas obligé(e) de répondre à toutes les questions.",
+    "Le service veut savoir si vous êtes content(e) de l'aide que vous recevez. Vos réponses nous aident à améliorer le service. Vous n'êtes pas obligé(e) de répondre à toutes les questions. Vos réponses restent confidentielles : seules la direction et la coordination les lisent. Vous pouvez répondre seul(e), avec un proche, ou avec l'aide d'une personne de confiance.",
   questions: [
     {
       kind: "SCALE",
@@ -41,10 +52,40 @@ export const SURVEY_PERSONNE: SurveyTemplate = {
     },
     {
       kind: "SCALE",
-      id: "p04-avis",
-      scale: "FALC3",
-      prompt: "Est-ce qu'on vous demande votre avis sur votre accompagnement ?",
-      shortLabel: "Avis demandé sur l'accompagnement",
+      id: "p04-choix-aides",
+      scale: "OUI_EN_PARTIE",
+      prompt: "Avez-vous choisi avec le service les aides dont vous avez besoin ?",
+      shortLabel: "Aides choisies avec le service",
+    },
+    {
+      kind: "SCALE",
+      id: "p04b-personne-confiance",
+      scale: "OUI_NON",
+      prompt:
+        "Vous pouvez choisir une personne de confiance. Cette personne peut vous aider à comprendre vos droits. Elle peut vous accompagner dans vos démarches. Le service vous a-t-il expliqué cette possibilité ?",
+      shortLabel: "Personne de confiance expliquée",
+    },
+    {
+      kind: "SCALE",
+      id: "p04c-acces-dossier",
+      scale: "OUI_NON",
+      prompt:
+        "Le service garde des informations sur votre accompagnement dans un dossier. Vous pouvez demander à voir ces informations. Le service vous a-t-il expliqué comment les demander ?",
+      shortLabel: "Accès au dossier expliqué",
+    },
+    {
+      kind: "SCALE",
+      id: "p04d-explication",
+      scale: "OUI_PARFOIS",
+      prompt: "Avant de vous aider, les professionnels vous expliquent-ils ce qu'ils proposent ?",
+      shortLabel: "Aide proposée expliquée avant d'aider",
+    },
+    {
+      kind: "SCALE",
+      id: "p04e-accord",
+      scale: "OUI_PARFOIS",
+      prompt: "Vous pouvez accepter ou refuser l'aide proposée. Les professionnels vous demandent-ils votre accord ?",
+      shortLabel: "Accord demandé avant d'aider",
     },
     {
       kind: "SCALE",

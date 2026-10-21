@@ -6,6 +6,7 @@ import { recordAuditEvent } from "@/lib/services/audit-log-service";
 import { getFileStoragePort } from "@/lib/storage";
 import { inlineOriginalHeaders, inlineOriginalType } from "@/lib/services/document-original-response";
 import { documentPdfErrorResponse } from "@/lib/services/document-pdf-response";
+import { isVersionVisibleToClient } from "@/lib/services/deliverables-service";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // L'ORIGINAL D'UN PDF OU D'UNE PHOTO, pour la visionneuse (21/10/2026).
@@ -32,7 +33,8 @@ export async function GET(_request: Request, context: Context): Promise<Response
       id: true,
       originalFilename: true,
       fileStorageKey: true,
-      document: { select: { establishmentId: true, documentType: { select: { code: true } } } },
+      uploadedBy: { select: { role: true } },
+      document: { select: { establishmentId: true, validatedAt: true, documentType: { select: { code: true } } } },
     },
   });
   if (!version) notFound();
@@ -41,6 +43,18 @@ export async function GET(_request: Request, context: Context): Promise<Response
   // identifiant fourni. Le client y a droit : c'est son document.
   const access = await tryEstablishmentAccess(version.document.establishmentId, NEED.DOCUMENTS_READ);
   if (!access) notFound();
+
+  // Même garde que la route des pages : un brouillon d'EODA n'est pas restituable à la
+  // structure avant la validation du document — refusé ici, pas seulement caché.
+  if (
+    access.isClient &&
+    !isVersionVisibleToClient({
+      producedByCabinet: version.uploadedBy.role !== "CLIENT_USER",
+      validatedAt: version.document.validatedAt,
+    })
+  ) {
+    notFound();
+  }
 
   const content = await getFileStoragePort().download(version.fileStorageKey);
   const type = inlineOriginalType(content);

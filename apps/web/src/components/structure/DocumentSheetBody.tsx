@@ -4,6 +4,8 @@ import { StatusPill } from "@/components/ui/status-pill";
 import { formatDate } from "@/lib/services/date-format-service";
 import { ChecklistItemDetail } from "@/components/checklist/ChecklistItemDetail";
 import { DocumentUploadButton } from "@/components/checklist/DocumentUploadButton";
+import { DocumentSettingsPanel, ParticipationFormPicker } from "@/components/structure/lazy-document-panels";
+import { PARTICIPATION_LINE_CODE } from "@/lib/services/participation-form-service";
 
 // Contenu du panneau latéral d'un document (onglet Documents de la fiche). Il
 // RECOMPOSE l'existant — historique et aperçu, parcours et validation
@@ -56,6 +58,27 @@ export function DocumentSheetBody({
           offerCabinetFinal
         />
       </div>
+
+      {/* Ligne « Autre forme de participation des usagers » : la forme choisie
+          (enquête, groupe de parole, autre) — 21/10/2026. */}
+      {item.code === PARTICIPATION_LINE_CODE && (
+        <ParticipationFormPicker
+          establishmentId={establishmentId}
+          form={item.participationForm}
+          otherLabel={item.participationOtherLabel}
+        />
+      )}
+
+      {/* Sous quel TYPE ce fichier est rangé, et la consigne libre donnée au modèle.
+          Replier par défaut : ce sont des réglages, pas le quotidien du panneau. */}
+      <DocumentSettingsPanel
+        establishmentId={establishmentId}
+        documentTypeId={item.documentTypeId}
+        currentLabel={item.label}
+        currentCategory={item.category}
+        directive={item.analysisDirective}
+        includeInAnalysis={item.directiveInAnalysis}
+      />
     </div>
   );
 }

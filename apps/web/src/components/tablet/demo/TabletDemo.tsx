@@ -5,7 +5,7 @@ import { ArrowLeft, ChevronRight, Check, Circle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ProgressBar } from "@/components/ui/progress-bar";
 import { TABLET_INPUT, TABLET_SECONDARY } from "../tablet-ui";
-import { DEMO_PEOPLE, DEMO_STAFF, DEMO_SURVEYS_ALREADY_DONE, DEMO_TOTAL_PEOPLE, girTone, type DemoPerson } from "./demo-data";
+import { DEMO_PEOPLE, DEMO_STAFF, DEMO_SURVEYS_ALREADY_DONE, DEMO_TOTAL_PEOPLE, SURVEYS_PER_PERSON, girTone, surveyCount, type DemoPerson } from "./demo-data";
 import { DemoSurvey } from "./DemoSurvey";
 import { DemoReception, type DemoEvidence } from "./DemoReception";
 import { DemoDossier } from "./DemoDossier";
@@ -30,8 +30,10 @@ export function TabletDemo() {
     setScreen(next);
     window.scrollTo(0, 0);
   };
-  const done = people.filter((p) => p.surveyDone).length + DEMO_SURVEYS_ALREADY_DONE;
-  const firstToSurvey = people.find((p) => !p.surveyDone) ?? people[0]!;
+  // Compté en QUESTIONNAIRES : deux par personne (la personne, puis un proche).
+  const totalSurveys = DEMO_TOTAL_PEOPLE * SURVEYS_PER_PERSON;
+  const done = people.reduce((n, p) => n + surveyCount(p), 0) + DEMO_SURVEYS_ALREADY_DONE;
+  const firstToSurvey = people.find((p) => surveyCount(p) < SURVEYS_PER_PERSON) ?? people[0]!;
   const visible = people.filter((p) => !query || p.name.toLowerCase().includes(query.toLowerCase()));
   const update = (id: string, change: (p: DemoPerson) => DemoPerson) => setPeople((list) => list.map((p) => (p.id === id ? change(p) : p)));
 
@@ -52,15 +54,15 @@ export function TabletDemo() {
         <>
           <div>
             <h1 className="text-[36px] font-bold">Bonjour {DEMO_STAFF}.</h1>
-            <p className="mt-1.5 text-[21px]">{DEMO_TOTAL_PEOPLE - done} enquêtes restent à faire. Commencez par les personnes que vous voyez aujourd&apos;hui.</p>
+            <p className="mt-1.5 text-[21px]">{totalSurveys - done} enquêtes restent à faire. Commencez par les personnes que vous voyez aujourd&apos;hui.</p>
           </div>
           <div className="grid gap-5 md:grid-cols-2">
             <button type="button" onClick={() => go({ kind: "survey", personId: firstToSurvey.id })} className="flex flex-col gap-3 rounded-[18px] border-2 border-accent-fill bg-card p-7 text-left text-[19px] text-ink">
               <span className="w-fit rounded-md bg-amber-fill px-3 py-0.5 text-[16px] font-bold">Priorité · avant l&apos;évaluation</span>
               <span className="text-[30px] font-bold leading-tight">Enquête de satisfaction</span>
               <span>Posez les questions à la personne ou à sa famille. Les réponses sont comptées automatiquement.</span>
-              <span className="tabular-nums text-[16px] text-ink2">{done} enquêtes faites sur {DEMO_TOTAL_PEOPLE} personnes accompagnées</span>
-              <ProgressBar value={done} max={DEMO_TOTAL_PEOPLE} label="Enquêtes faites" colorClassName="bg-accent-fill" />
+              <span className="tabular-nums text-[16px] text-ink2">{done} enquêtes faites sur {totalSurveys} · deux par personne, l&apos;une avec elle, l&apos;autre avec un proche</span>
+              <ProgressBar value={done} max={totalSurveys} label="Enquêtes faites" colorClassName="bg-accent-fill" />
               <span className="mt-2 flex h-[60px] items-center justify-center rounded-xl bg-accent-fill text-[20px] font-bold text-on-accent">Commencer une enquête</span>
             </button>
             <button type="button" onClick={() => go({ kind: "reception" })} className="flex flex-col gap-3 rounded-[18px] border border-line bg-card p-7 text-left text-[19px] text-ink">
@@ -87,9 +89,9 @@ export function TabletDemo() {
                       <span className="text-[21px] font-bold">{p.name}</span>
                       <span className="text-[17px] text-ink2">{p.address}</span>
                     </span>
-                    <span className={cn("inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border-2 px-3 py-1 text-[16px] font-bold", p.surveyDone ? "border-ok-text bg-ok-soft" : "border-dashed border-ink2 bg-card")}>
-                      {p.surveyDone ? <Check className="h-4 w-4" aria-hidden="true" /> : <Circle className="h-4 w-4" aria-hidden="true" />}
-                      {p.surveyDone ? "Enquête faite" : "Enquête à faire"}
+                    <span className={cn("inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border-2 px-3 py-1 text-[16px] font-bold", surveyCount(p) === SURVEYS_PER_PERSON ? "border-ok-text bg-ok-soft" : "border-dashed border-ink2 bg-card")}>
+                      {surveyCount(p) === SURVEYS_PER_PERSON ? <Check className="h-4 w-4" aria-hidden="true" /> : <Circle className="h-4 w-4" aria-hidden="true" />}
+                      {surveyCount(p) === SURVEYS_PER_PERSON ? "Deux enquêtes faites" : surveyCount(p) === 0 ? "Enquêtes à faire" : "1 enquête sur 2"}
                     </span>
                     <ChevronRight className="h-6 w-6 text-ink2" aria-hidden="true" />
                   </button>
@@ -104,7 +106,7 @@ export function TabletDemo() {
         <DemoSurvey
           people={people}
           initialPersonId={screen.personId}
-          onDone={(id) => update(id, (p) => ({ ...p, surveyDone: true }))}
+          onDone={(id, who) => update(id, (p) => ({ ...p, surveys: { ...p.surveys, [who]: true } }))}
           onHome={() => go({ kind: "home" })}
         />
       )}

@@ -270,3 +270,37 @@ export function promotionError(input: {
   if (input.alreadyLinked) return "Ce critère est déjà rattaché à ce type de document.";
   return null;
 }
+
+// ── Rattachement À LA MAIN (call du 21/10/2026) ──────────────────────────────
+// Sandrine devait faire vérifier dans l'enquête de satisfaction les critères que le
+// manuel attend du CVS (1.3.1, 1.5.1…) : la proposition ne les citait pas pour ce
+// type, l'écran ne permettait de cocher QUE ce qui était proposé, et la guideline
+// qu'elle posait à la place n'était jamais relue. L'administratrice peut désormais
+// rattacher n'importe quel critère du référentiel en base à n'importe quel type.
+// Les codes reçus sont une entrée non fiable : seuls les codes présents en base sont
+// écrits, ceux déjà rattachés sont ignorés, rien n'est jamais retiré par ce geste.
+export const MAX_MANUAL_LINKS = 40;
+
+export type ManualLinkPlan = { toCreate: string[]; alreadyLinked: string[]; unknown: string[] };
+
+export function planManualLinks(input: {
+  requestedCriterionCodes: readonly string[];
+  knownCriterionCodes: ReadonlySet<string>;
+  linkedCriterionCodes: ReadonlySet<string>;
+}): ManualLinkPlan {
+  const requested = [...new Set(input.requestedCriterionCodes.map((code) => code.trim()).filter(Boolean))];
+  return {
+    toCreate: requested.filter((c) => input.knownCriterionCodes.has(c) && !input.linkedCriterionCodes.has(c)),
+    alreadyLinked: requested.filter((c) => input.knownCriterionCodes.has(c) && input.linkedCriterionCodes.has(c)),
+    unknown: requested.filter((c) => !input.knownCriterionCodes.has(c)),
+  };
+}
+
+// Retirer à la main : seulement un rattachement que la proposition ne cite PAS pour ce
+// type. Un rattachement proposé se décoche sur la carte du type (planMatrixDecision) —
+// deux portes pour le même geste finiraient par se contredire.
+export function manualUnlinkError(input: { proposed: boolean; linked: boolean }): string | null {
+  if (!input.linked) return "Ce critère n'est pas rattaché à ce type de document.";
+  if (input.proposed) return "Ce rattachement vient de la proposition : décochez-le sur la carte du type.";
+  return null;
+}

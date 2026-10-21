@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
+import dynamic from "next/dynamic";
 import {
   ChevronDown,
   AlertCircle,
@@ -10,26 +11,22 @@ import {
   Eye,
   EyeOff,
   Loader2,
-  MessageSquarePlus,
   CheckCircle2,
 } from "lucide-react";
 import type { DocumentAnalysisResult, AnalysisFinding } from "@/lib/llm";
-import { describeAnalysis, summariseAnalysis } from "@/lib/services/analysis-view-service";
-import {
-  setAnalysisReviewed,
-  listCriteriaForPicker,
-  addCriterionGuideline,
-  listCriterionGuidelines,
-  setCriterionGuidelineAiUse,
-  type CriterionOption,
-  type CriterionGuidelineItem,
-} from "@/lib/actions/document";
-import { MAX_GUIDELINE_LENGTH } from "@/lib/services/criterion-guideline-service";
-import { formatDate } from "@/lib/services/date-format-service";
-import { cn } from "@/lib/utils";
+import { describeAnalysis, splitCriteriaCoverage, summariseAnalysis } from "@/lib/services/analysis-view-service";
+import { setAnalysisReviewed } from "@/lib/actions/document";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import { CriterionSuggestionsList } from "@/components/checklist/CriterionSuggestionsList";
+
+// Le formulaire des guidelines (liste des critères, saisie, relance de l'analyse) ne
+// sert qu'au cabinet, panneau ouvert : chargé à la demande, il sort du premier
+// chargement de la page Documents (budget de JavaScript, check:bundle).
+const CriterionSuggestionsList = dynamic(() =>
+  import("./CriterionSuggestionsList").then((m) => m.CriterionSuggestionsList)
+);
+const AnalysisGuidelines = dynamic(() => import("./AnalysisGuidelines").then((m) => m.AnalysisGuidelines), {
+  loading: () => <p className="border-t border-gris-light pt-2 text-xs text-ink2">Chargement…</p>,
+});
 import type { CriterionSuggestionItem } from "@/lib/actions/checklist";
 
 // Résultat de l'analyse automatique d'une version déposée. Replié par défaut : la
@@ -103,37 +100,78 @@ export function DocumentAnalysisPanel({
         <p className="px-3 pb-2 text-sm font-bold text-ink">{clientMention}</p>
       )}
 
+      {/* « Le modèle doit savoir que ce n'est pas un compte-rendu du CVS mais une
+          enquête de satisfaction » (Damon, 20/10/2026). Quand il le dit, on le montre
+          TOUJOURS, panneau replié compris : c'est peut-être la raison pour laquelle
+          l'analyse parle à côté, et le geste qui la corrige (reclasser le document, ou
+          écrire une consigne) est juste en dessous. `correspondAuType === false` est une
+          observation du modèle, jamais un verdict : la décision reste humaine. */}
+      {analysis.natureObservee?.correspondAuType === false && (
+        <div className="mx-3 mb-2 rounded-md border border-amber-fill/40 bg-amber-fill/10 px-2.5 py-2">
+          <p className="flex items-start gap-1.5 text-sm font-bold text-ink">
+            <AlertCircle className="mt-0.5 w-3.5 h-3.5 flex-shrink-0 text-amber-text" aria-hidden="true" />
+            Ce document ne semble pas être celui annoncé
+          </p>
+          {analysis.natureObservee.commentaire && (
+            <p className="mt-0.5 pl-5 text-sm text-ink2">{analysis.natureObservee.commentaire}</p>
+          )}
+          <p className="mt-1 pl-5 text-sm text-ink2">
+            L&apos;analyse porte donc sur ce qu&apos;il est vraiment. Si le classement est faux, corrigez-le
+            dans « Classement et consigne d&apos;analyse », plus bas : l&apos;analyse sera à relancer sur les
+            critères du bon type.
+          </p>
+        </div>
+      )}
+
       {open && (
         <div className="px-3 pb-3 pt-1 space-y-3 animate-fade-in">
-          {analysis.criteriaCoverage.length > 0 && (
-            <div>
-              <p className="flex items-center gap-1.5 text-xs font-medium text-brun-ancre mb-1">
-                <CheckCircle2 className="w-3.5 h-3.5 text-accent-text" aria-hidden="true" />
-                Couverture par critère HAS
-              </p>
-              <ul className="space-y-1 pl-5">
-                {analysis.criteriaCoverage.map((c) => (
-                  <li key={c.criterionCode} className="text-xs list-disc marker:text-gris-light">
-                    <span className="font-medium text-brun-ancre">{c.criterionCode}</span>
-                    {" — "}
-                    <span
-                      className={
-                        c.status === "couvert"
-                          ? "text-ok-text"
-                          : c.status === "partiel"
-                            ? "text-amber-text"
-                            : "text-rouge-imp"
-                      }
-                    >
-                      {c.status}
-                    </span>
-                    {" : "}
-                    <span className="text-ink2">{c.note}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
+          {/* Deux listes (21/10/2026) : ce que le document TRAITE, et ce qu'on attendait
+              de lui sans le trouver — chacune dans l'ordre numérique du référentiel. */}
+          {analysis.criteriaCoverage.length > 0 && (() => {
+            const { detected, missing } = splitCriteriaCoverage(analysis.criteriaCoverage);
+            return (
+              <div className="space-y-2">
+                {detected.length > 0 && (
+                  <div>
+                    <p className="mb-1 flex items-center gap-1.5 text-xs font-medium text-brun-ancre">
+                      <CheckCircle2 className="h-3.5 w-3.5 text-accent-text" aria-hidden="true" />
+                      Critères HAS détectés dans le document ({detected.length})
+                    </p>
+                    <ul className="space-y-1 pl-5">
+                      {detected.map((c) => (
+                        <li key={c.criterionCode} className="list-disc text-xs marker:text-gris-light">
+                          <span className="font-medium text-brun-ancre">{c.criterionCode}</span>
+                          {" — "}
+                          <span className={c.status === "couvert" ? "text-ok-text" : "text-amber-text"}>
+                            {c.status === "couvert" ? "traité" : "traité en partie"}
+                          </span>
+                          {" : "}
+                          <span className="text-ink2">{c.note}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {missing.length > 0 && (
+                  <div>
+                    <p className="mb-1 flex items-center gap-1.5 text-xs font-medium text-brun-ancre">
+                      <AlertCircle className="h-3.5 w-3.5 text-rouge-imp" aria-hidden="true" />
+                      Critères attendus pour ce type de document, absents ({missing.length})
+                    </p>
+                    <ul className="space-y-1 pl-5">
+                      {missing.map((c) => (
+                        <li key={c.criterionCode} className="list-disc text-xs marker:text-gris-light">
+                          <span className="font-medium text-brun-ancre">{c.criterionCode}</span>
+                          {" : "}
+                          <span className="text-ink2">{c.note}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
 
           {canReview && establishmentId && (
             <CriterionSuggestionsList establishmentId={establishmentId} suggestions={criterionSuggestions} />
@@ -186,7 +224,7 @@ export function DocumentAnalysisPanel({
             </div>
           )}
 
-          {canReview && <AnalysisGuidelines open={open} />}
+          {canReview && <AnalysisGuidelines open={open} documentVersionId={documentVersionId ?? null} />}
 
           {error && (
             <p role="alert" className="flex items-center gap-1.5 text-xs text-rouge-imp">
@@ -204,202 +242,6 @@ export function DocumentAnalysisPanel({
             consultant.
           </p>
         </div>
-      )}
-    </div>
-  );
-}
-
-// « Que la base de connaissance apprenne des commentaires que mettra Sandrine lors
-// des analyses, pour ne pas refaire les mêmes erreurs » (Damon, 10/09/2026), ANCRÉES
-// SUR LE CRITÈRE HAS — cf. CriterionGuideline dans le schéma. Rappelée à toute
-// analyse future d'un document rattaché à ce critère, quel que soit l'établissement.
-//
-// La consultante choisit elle-même le critère. Une guideline est relue pour tout
-// document dont le TYPE est rattaché au critère (matrice) ou dont l'analyse a reconnu
-// ce critère (suggestion non rejetée) — et seulement si elle est « prise en compte par
-// l'IA » (call du 18/10/2026 : oui ou non, case à cocher, chaque bascule journalisée).
-//
-// Chargement paresseux : la liste des critères et les guidelines existantes ne sont
-// demandées que si ce panneau est ouvert (P2/P3).
-function AnalysisGuidelines({ open }: { open: boolean }) {
-  const [criteria, setCriteria] = useState<CriterionOption[] | null>(null);
-  const [showForm, setShowForm] = useState(false);
-  const [criterionId, setCriterionId] = useState("");
-  const [existing, setExisting] = useState<CriterionGuidelineItem[] | null>(null);
-  const [note, setNote] = useState("");
-  const [aiEnabled, setAiEnabled] = useState(true);
-  const [saved, setSaved] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [isPending, startTransition] = useTransition();
-
-  useEffect(() => {
-    if (!open || criteria !== null) return;
-    startTransition(async () => {
-      const result = await listCriteriaForPicker();
-      setCriteria(result ?? []);
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
-
-  function handleCriterionChange(value: string) {
-    setCriterionId(value);
-    setExisting(null);
-    setSaved(false);
-    if (!value) return;
-    startTransition(async () => {
-      const result = await listCriterionGuidelines(value);
-      setExisting(result ?? []);
-    });
-  }
-
-  function handleSubmit() {
-    const trimmed = note.trim();
-    if (!criterionId || trimmed.length === 0) return;
-    setError(null);
-    setSaved(false);
-    startTransition(async () => {
-      const result = await addCriterionGuideline(criterionId, trimmed, aiEnabled);
-      if (result && "error" in result) {
-        setError(result.error);
-        return;
-      }
-      setNote("");
-      setSaved(true);
-      const refreshed = await listCriterionGuidelines(criterionId);
-      setExisting(refreshed ?? []);
-    });
-  }
-
-  function handleToggleAi(guidelineId: string, enabled: boolean) {
-    setError(null);
-    // Réponse immédiate à l'écran ; l'état serveur est relu ensuite.
-    setExisting((list) => list?.map((g) => (g.id === guidelineId ? { ...g, aiEnabled: enabled } : g)) ?? null);
-    startTransition(async () => {
-      const result = await setCriterionGuidelineAiUse(guidelineId, enabled);
-      if (result && "error" in result) setError(result.error);
-      const refreshed = await listCriterionGuidelines(criterionId);
-      setExisting(refreshed ?? []);
-    });
-  }
-
-  return (
-    <div className="space-y-2 border-t border-gris-light pt-2">
-      {!showForm ? (
-        <button
-          type="button"
-          onClick={() => setShowForm(true)}
-          className="flex items-center gap-1.5 text-xs text-accent-text hover:underline"
-        >
-          <MessageSquarePlus className="w-3.5 h-3.5" aria-hidden="true" />
-          Ajouter une guideline sur un critère HAS
-        </button>
-      ) : (
-        <div className="space-y-1.5">
-          <label className="block text-xs font-medium text-brun-ancre">Critère concerné</label>
-          <select
-            value={criterionId}
-            onChange={(e) => handleCriterionChange(e.target.value)}
-            disabled={isPending || criteria === null}
-            className="w-full rounded-md border border-gris-light bg-surface px-2 py-1.5 text-xs text-brun-ancre"
-          >
-            <option value="">— Sélectionner un critère —</option>
-            {criteria?.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.code} — {c.label.slice(0, 80)}
-              </option>
-            ))}
-          </select>
-
-          {existing && existing.length > 0 && (
-            <ul className="space-y-1.5">
-              {existing.map((g) => (
-                <li key={g.id} className="rounded-md bg-surface/70 px-2 py-1.5 text-xs text-brun-ancre">
-                  <p className={cn(!g.aiEnabled && "text-ink2")}>{g.note}</p>
-                  <div className="mt-1 flex flex-wrap items-center justify-between gap-2">
-                    <p className="text-sm text-ink2">
-                      {g.createdByName} · {formatDate(g.createdAt)}
-                    </p>
-                    <label className="inline-flex min-h-11 cursor-pointer items-center gap-2 text-sm text-ink">
-                      <input
-                        type="checkbox"
-                        checked={g.aiEnabled}
-                        disabled={isPending}
-                        onChange={(e) => handleToggleAi(g.id, e.target.checked)}
-                        className="h-4 w-4 accent-current"
-                      />
-                      Pris en compte par l&apos;IA
-                    </label>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-
-          <label className="block text-xs font-medium text-brun-ancre">
-            Aide-mémoire court — une phrase, pas un paragraphe
-          </label>
-          <Textarea
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-            rows={2}
-            maxLength={MAX_GUIDELINE_LENGTH}
-            disabled={isPending || !criterionId}
-            className="text-xs"
-            placeholder="ex : vérifier aussi la date de révision annuelle du règlement."
-          />
-          <label className="inline-flex min-h-11 cursor-pointer items-center gap-2 text-sm text-ink">
-            <input
-              type="checkbox"
-              checked={aiEnabled}
-              disabled={isPending || !criterionId}
-              onChange={(e) => setAiEnabled(e.target.checked)}
-              className="h-4 w-4 accent-current"
-            />
-            Faire prendre en compte par l&apos;IA dans les prochaines analyses
-          </label>
-          <div className="flex items-center gap-2">
-            <Button
-              type="button"
-              size="sm"
-              disabled={isPending || !criterionId || note.trim().length === 0}
-              onClick={handleSubmit}
-            >
-              {isPending ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin" aria-hidden="true" />
-              ) : (
-                <MessageSquarePlus className="w-3.5 h-3.5" aria-hidden="true" />
-              )}
-              Enregistrer
-            </Button>
-            <button
-              type="button"
-              className="text-xs text-ink2 hover:underline"
-              onClick={() => {
-                setShowForm(false);
-                setNote("");
-                setCriterionId("");
-                setExisting(null);
-              }}
-            >
-              Fermer
-            </button>
-          </div>
-        </div>
-      )}
-
-      {saved && (
-        <p role="status" className="flex items-center gap-1.5 text-xs text-ok-text">
-          <CheckCircle2 className="w-3.5 h-3.5" aria-hidden="true" />
-          Guideline enregistrée — reprise dans les prochaines analyses des documents qui répondent à ce critère, tant
-          qu&apos;elle est prise en compte par l&apos;IA. « Réanalyser » l&apos;applique tout de suite.
-        </p>
-      )}
-
-      {error && (
-        <p role="alert" className="flex items-center gap-1.5 text-xs text-rouge-imp">
-          <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" aria-hidden="true" />
-          {error}
-        </p>
       )}
     </div>
   );

@@ -15,6 +15,8 @@ import {
   sanitizeRemark,
   type MatrixRow,
   type MatrixView,
+  manualUnlinkError,
+  planManualLinks,
 } from "./criterion-matrix-service";
 
 const SOURCE = path.resolve(__dirname, "../../../../../.claude/specs/data/20261008_proposition-document-type-criterion.csv");
@@ -47,7 +49,7 @@ describe("copie embarquée de la matrice proposée", () => {
     expect(PILOT_DOCUMENT_TYPES.filter((t) => !proposed.has(t.code))).toEqual([]);
   });
 
-  it("laisse 11 types du seed sans aucune proposition — aucun n'est un type du pilote", () => {
+  it("laisse 12 types du seed sans aucune proposition — aucun n'est un type du pilote", () => {
     // Mesuré le 15/10/2026 : ces types sont muets, donc indécidables depuis l'écran
     // « Matrice » — c'est cette liste que la page affiche pour qu'ils ne disparaissent
     // pas en silence. Le chiffre vit ici : le commentaire d'en-tête a déjà dérivé une fois.
@@ -73,6 +75,9 @@ describe("copie embarquée de la matrice proposée", () => {
       "P13_SIGNALEMENT_ARS",
       "P14_DATE_REVISION",
       "P14_PREUVE_SIMULATION",
+      // 20/10/2026 : PLAC entre au catalogue (context/11 §6.2) mais la feuille de suivi
+      // du pilote ne porte pas de ligne « PLAC » — aucune proposition ne s'invente.
+      "QUALITE_PLAC",
     ]);
     const pilotCodes = new Set(PILOT_DOCUMENT_TYPES.map((t) => t.code));
     expect(view.typesWithoutProposal.filter((t) => pilotCodes.has(t.code))).toEqual([]);
@@ -295,5 +300,23 @@ describe("planFullProposalLoad — charger toute la proposition", () => {
     });
     expect(plan.toCreate.length).toBe(new Set(rows.map((r) => pairKey(r.documentTypeCode, r.criterionCode))).size);
     expect(plan.skipped).toBe(0);
+  });
+});
+
+describe("planManualLinks / manualUnlinkError — rattachement à la main", () => {
+  it("crée les codes connus non rattachés, compte les déjà rattachés, signale les inconnus", () => {
+    expect(
+      planManualLinks({
+        requestedCriterionCodes: ["1.3.1", " 1.5.1 ", "1.1.1", "9.9.9", "1.3.1"],
+        knownCriterionCodes: new Set(["1.3.1", "1.5.1", "1.1.1"]),
+        linkedCriterionCodes: new Set(["1.1.1"]),
+      })
+    ).toEqual({ toCreate: ["1.3.1", "1.5.1"], alreadyLinked: ["1.1.1"], unknown: ["9.9.9"] });
+  });
+
+  it("ne retire à la main que ce qui n'est pas proposé, et seulement s'il est rattaché", () => {
+    expect(manualUnlinkError({ proposed: false, linked: true })).toBeNull();
+    expect(manualUnlinkError({ proposed: true, linked: true })).toMatch(/proposition/);
+    expect(manualUnlinkError({ proposed: false, linked: false })).toMatch(/pas rattaché/);
   });
 });

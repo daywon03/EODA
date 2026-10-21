@@ -84,6 +84,7 @@ export function ChecklistItemDetail({ item, establishmentId, canManageVersions, 
           documentTypeId={item.documentTypeId}
           status={item.status}
           category={item.category}
+          code={item.code}
           declaredMissing={item.declaredMissing}
           missingJustification={item.missingJustification}
           commentUsedByAi={item.commentUsedByAi}
