@@ -52,7 +52,20 @@ export type SurveyTextQuestion = {
   feedsRuleProposals?: boolean;
 };
 
-export type SurveyQuestion = SurveyScaleQuestion | SurveyTextQuestion;
+export type SurveyChoiceQuestion = {
+  kind: "CHOICE";
+  id: string;
+  prompt: string;
+  shortLabel: string;
+  // Propositions fermées (le « ☐ conjoint(e) ☐ enfant ☐ autre » du gabarit). Elles
+  // n'entrent dans aucun taux : cette question n'est pas une échelle de satisfaction.
+  options: readonly string[];
+  // Libellé de l'option qui ouvre une précision libre (« autre : .... »). La dernière
+  // option du gabarit seulement, jamais toutes.
+  otherOption?: string;
+};
+
+export type SurveyQuestion = SurveyScaleQuestion | SurveyTextQuestion | SurveyChoiceQuestion;
 
 export type SurveyTemplate = {
   code: SurveyTemplateCode;

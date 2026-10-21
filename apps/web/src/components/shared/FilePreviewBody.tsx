@@ -4,6 +4,7 @@ import { useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type { FilePreviewData } from "@/lib/services/file-preview-types";
+import { Callout } from "@/components/ui/callout";
 
 // Les deux aperçus « pages » — `pdf` (le fichier déposé) et `document` (ses pages
 // produites côté serveur, cf. document-pdf-service) — sont le même objet à l'écran :
@@ -15,6 +16,39 @@ import type { FilePreviewData } from "@/lib/services/file-preview-types";
 // pour que l'attente soit annoncée, pas seulement affichée.
 function PdfFrame({ url, filename }: { url: string; filename: string }) {
   const [ready, setReady] = useState(false);
+  const [failure, setFailure] = useState<string | null>(null);
+
+  // Un 503 de notre route arrivait DANS le cadre, sous la forme d'une page HTML : à
+  // l'écran, « Failed to load resource » et un cadre vide. Le cadre est de même
+  // origine, donc on peut lire ce qu'il a reçu — et si c'est notre page d'échec
+  // (`data-preview-error`), on rend SON message ici, à la place du cadre.
+  //
+  // Un PDF du stockage signé est d'une autre origine : `contentDocument` est alors
+  // nul, et il n'y a rien à lire — c'est le cas normal, on affiche le cadre.
+  function handleLoad(event: React.SyntheticEvent<HTMLIFrameElement>) {
+    let received: Document | null = null;
+    try {
+      received = event.currentTarget.contentDocument;
+    } catch {
+      received = null;
+    }
+    const message = received?.body?.dataset.previewError;
+    if (message) {
+      setFailure(message);
+      return;
+    }
+    setReady(true);
+  }
+
+  if (failure) {
+    return (
+      <div className="px-5 py-4">
+        <Callout tone="warning" title="Aperçu indisponible" role="alert">
+          {failure}
+        </Callout>
+      </div>
+    );
+  }
 
   return (
     <div className="relative h-full w-full">
@@ -26,7 +60,7 @@ function PdfFrame({ url, filename }: { url: string; filename: string }) {
       <iframe
         src={url}
         title={filename}
-        onLoad={() => setReady(true)}
+        onLoad={handleLoad}
         className="h-full w-full border-0"
       />
     </div>

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import type { ReactNode } from "react";
+import type { MouseEvent, ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
 export type DataTableColumn<Row> = {
@@ -26,6 +26,13 @@ type Props<Row> = {
   // l'un ni l'autre. Un bouton placé dans une autre cellule porte `relative z-10`
   // pour rester cliquable au-dessus du lien étendu.
   rowHref?: (row: Row) => string;
+  // Geste LOCAL au clic sur la ligne, quand le lien ne doit pas coûter un aller-retour
+  // serveur (le panneau d'un document, 20/10/2026). Le lien reste un vrai lien : les
+  // modificateurs (Ctrl/⌘, Maj, clic du milieu) et « ouvrir dans un nouvel onglet »
+  // gardent leur comportement, et le clavier continue d'atteindre la ligne. Seul le
+  // clic gauche simple est intercepté, et l'appelant décide de l'adresse à laisser
+  // dans la barre.
+  onRowClick?: (row: Row) => void;
   emptyMessage?: string;
   className?: string;
 };
@@ -39,6 +46,7 @@ export function DataTable<Row>({
   rows,
   getRowKey,
   rowHref,
+  onRowClick,
   emptyMessage = "Aucun élément.",
   className,
 }: Props<Row>) {
@@ -95,7 +103,32 @@ export function DataTable<Row>({
                   return (
                     <th key={col.id} scope="row" className={cn(cellClass, "font-bold")}>
                       {href ? (
-                        <Link href={href} className="after:absolute after:inset-0 hover:underline">
+                        <Link
+                          href={href}
+                          className="after:absolute after:inset-0 hover:underline"
+                          // Pose `onClick` seulement s'il y a un geste local : sous
+                          // `exactOptionalPropertyTypes`, passer `undefined` n'est pas
+                          // la même chose que ne pas passer la propriété.
+                          {...(onRowClick
+                            ? {
+                                onClick: (event: MouseEvent<HTMLAnchorElement>) => {
+                                  // Clic gauche simple seulement : un nouvel onglet
+                                  // reste un nouvel onglet.
+                                  if (
+                                    event.button !== 0 ||
+                                    event.metaKey ||
+                                    event.ctrlKey ||
+                                    event.shiftKey ||
+                                    event.altKey
+                                  ) {
+                                    return;
+                                  }
+                                  event.preventDefault();
+                                  onRowClick(row);
+                                },
+                              }
+                            : {})}
+                        >
                           {content}
                         </Link>
                       ) : (

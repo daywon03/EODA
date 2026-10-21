@@ -17,9 +17,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const launch = vi.fn();
 const executablePath = vi.fn();
 const SERVERLESS_ARGS = ["--single-process", "--no-zygote"];
-// `null`, comme `getEnv()` le rend réellement quand la variable est absente — le
-// double tenait `undefined`, ce qui masquait un drapeau toujours faux.
-let envExecutablePath: string | null;
+const findLocalBrowser = vi.fn();
+let envExecutablePath: string | undefined;
+let envIsDevelopment = false;
 
 vi.mock("puppeteer-core", () => ({
   default: { launch: (...args: unknown[]) => launch(...args) },
@@ -33,7 +33,11 @@ vi.mock("@sparticuz/chromium", () => ({
 }));
 
 vi.mock("@/lib/config/env", () => ({
-  getEnv: () => ({ puppeteerExecutablePath: envExecutablePath }),
+  getEnv: () => ({ puppeteerExecutablePath: envExecutablePath, isDevelopment: envIsDevelopment }),
+}));
+
+vi.mock("@/lib/services/local-browser-paths", () => ({
+  findLocalBrowser: (...args: unknown[]) => findLocalBrowser(...args),
 }));
 
 import { ChromiumLaunchError } from "@/lib/services/chromium-launch-error";
@@ -45,7 +49,9 @@ const LOCAL_CHROME = "/Applications/Google Chrome.app/Contents/MacOS/Google Chro
 describe("launchHeadlessChromium", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    envExecutablePath = null;
+    envExecutablePath = undefined;
+    envIsDevelopment = false;
+    findLocalBrowser.mockReturnValue(null);
     executablePath.mockResolvedValue("/tmp/chromium");
     launch.mockResolvedValue({ marker: "browser" });
   });
@@ -68,6 +74,34 @@ describe("launchHeadlessChromium", () => {
   it("retombe sur le binaire embarqué, avec ses drapeaux, quand rien n'est configuré", async () => {
     await launchHeadlessChromium();
 
+    expect(launch).toHaveBeenCalledWith({
+      args: SERVERLESS_ARGS,
+      executablePath: "/tmp/chromium",
+      headless: true,
+    });
+  });
+
+  it("en développement, prend le navigateur installé sur la machine", async () => {
+    // C'est le cas d'un poste macOS qui clone le dépôt : le binaire embarqué est
+    // Linux, donc inutilisable, et exiger une variable d'environnement pour voir un
+    // aperçu de document rendait l'application « cassée » à la première ouverture.
+    envIsDevelopment = true;
+    findLocalBrowser.mockReturnValue(LOCAL_CHROME);
+
+    await launchHeadlessChromium();
+
+    expect(launch).toHaveBeenCalledWith({ args: [], executablePath: LOCAL_CHROME, headless: true });
+    expect(executablePath).not.toHaveBeenCalled();
+  });
+
+  it("en production, ne cherche jamais un navigateur de bureau", async () => {
+    // Un Chrome d'ordinateur sur un serveur serait une surprise, pas une solution :
+    // en production, c'est le binaire embarqué ou rien.
+    findLocalBrowser.mockReturnValue(LOCAL_CHROME);
+
+    await launchHeadlessChromium();
+
+    expect(findLocalBrowser).not.toHaveBeenCalled();
     expect(launch).toHaveBeenCalledWith({
       args: SERVERLESS_ARGS,
       executablePath: "/tmp/chromium",

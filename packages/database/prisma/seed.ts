@@ -172,8 +172,8 @@ const MISSION_CHECKLIST_ITEMS: MissionChecklistItemSeed[] = [
   { code: "DIAG_08", scope: "DIAGNOSTIC", order: 8, label: "Cotation des critères" },
   { code: "DIAG_09", scope: "DIAGNOSTIC", order: 9, label: "Vérification des documents loi 2002-2" },
   { code: "DIAG_10", scope: "DIAGNOSTIC", order: 10, label: "Rédaction du rapport diagnostic" },
-  { code: "DIAG_11", scope: "DIAGNOSTIC", order: 11, label: "Création du PAC (plan d'action)" },
-  { code: "DIAG_12", scope: "DIAGNOSTIC", order: 12, label: "Réunion distancielle — restitution du PAC" },
+  { code: "DIAG_11", scope: "DIAGNOSTIC", order: 11, label: "Co-construction du PLAC (plan d'amélioration continue)" },
+  { code: "DIAG_12", scope: "DIAGNOSTIC", order: 12, label: "Réunion distancielle — restitution du PLAC" },
 
   // Phase 1 — Diagnostic, clé FONDATIONS (toutes formules) — libellés : PHASE_LABELS
   { code: "F1", scope: "FONDATIONS", order: 1, label: "PDCA co-construit" },

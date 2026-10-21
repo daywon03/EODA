@@ -12,11 +12,17 @@ import type { SurveyTemplate } from "./types";
 
 export const SURVEY_PERSONNE: SurveyTemplate = {
   code: "PERSONNE",
-  version: 1,
+  // v2 (20/10/2026) : chapeau restauré du gabarit (confidentialité, aide d'un
+  // proche ou d'une personne de confiance). Les questions et l'ordre sont inchangés.
+  version: 2,
   title: "Ce que vous pensez de votre accompagnement",
   respondentLabel: "La personne accompagnée",
+  // Les deux phrases du gabarit, dans l'ordre : la confidentialité (« seules la
+  // direction et la coordination les lisent ») était tombée à la transcription, et
+  // avec elle la phrase qui dit à la personne qu'elle peut se faire aider. Ce sont
+  // les deux informations qui décident si elle répond (relecture du 20/10/2026).
   intro:
-    "Le service veut savoir si vous êtes content(e) de l'aide que vous recevez. Vos réponses nous aident à améliorer le service. Vous n'êtes pas obligé(e) de répondre à toutes les questions.",
+    "Le service veut savoir si vous êtes content(e) de l'aide que vous recevez. Vos réponses nous aident à améliorer le service. Vous n'êtes pas obligé(e) de répondre à toutes les questions. Vos réponses restent confidentielles : seules la direction et la coordination les lisent. Vous pouvez répondre seul(e), avec un proche, ou avec l'aide d'une personne de confiance.",
   questions: [
     {
       kind: "SCALE",

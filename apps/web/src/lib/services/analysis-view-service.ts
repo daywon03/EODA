@@ -4,6 +4,7 @@ import {
   normalizeFindings,
   normalizeCriteriaCoverage,
   normalizeCriterionSuggestions,
+  normalizeObservedNature,
 } from "@/lib/llm/llm-analysis-port";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -52,6 +53,9 @@ export function parseAnalysisResult(value: unknown): DocumentAnalysisResult | nu
   // Même repli : absent sur toute analyse stockée avant l'ajout du catalogue
   // supplémentaire (20/09/2026).
   const criteresSupplementaires = normalizeCriterionSuggestions(raw.criteresSupplementaires);
+  // Absent sur toute analyse antérieure au 20/10/2026 : `undefined`, jamais « le type
+  // correspond » — c'est une affirmation, et personne ne l'a faite (cf. ObservedNature).
+  const natureObservee = normalizeObservedNature(raw.natureObservee);
 
   const hasContent =
     elementsPresents.length > 0 ||
@@ -71,6 +75,7 @@ export function parseAnalysisResult(value: unknown): DocumentAnalysisResult | nu
     sembleConforme,
     criteriaCoverage,
     criteresSupplementaires,
+    ...(natureObservee ? { natureObservee } : {}),
   };
 }
 

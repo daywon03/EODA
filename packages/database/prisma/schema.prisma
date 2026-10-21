@@ -807,6 +807,17 @@ model Document {
   // défaut ; la bascule se journalise (DOCUMENT_COMMENT_AI_TOGGLED).
   commentUsedByAi        Boolean        @default(true) @map("comment_used_by_ai")
 
+  // CONSIGNE DE LA CONSULTANTE POUR L'ANALYSE (20/10/2026, demande de Damon :
+  // « on peut lui donner des précisions pour l'analyse sur le document »).
+  //
+  // Un texte libre qui vit sur le DOCUMENT, pas sur la version : une consigne
+  // (« ce document couvre aussi les entretiens téléphoniques ») reste vraie après
+  // un nouveau dépôt. `directiveInAnalysis` est le bouton : elle est conservée
+  // même quand elle n'entre pas dans l'analyse, pour qu'on puisse la désactiver
+  // sans la perdre.
+  analysisDirective   String?  @map("analysis_directive")
+  directiveInAnalysis Boolean  @default(false) @map("directive_in_analysis")
+
   // VALIDATION — dernière étape du parcours documentaire décrit par Sandrine le
   // 26/08 : déposé → analysé → mis en conformité → restitué → VALIDÉ.
   //
@@ -857,6 +868,17 @@ model DocumentVersion {
   uploadedAt         DateTime @default(now()) @map("uploaded_at")
   extractedText      String?  @map("extracted_text")
   analysisResultJson Json?    @map("analysis_result_json")
+
+  // CONSIGNE RÉELLEMENT APPLIQUÉE à cette analyse (20/10/2026).
+  //
+  // `Document.analysisDirective` dit ce que la consultante veut dire AUJOURD'HUI ;
+  // cette colonne dit ce que le modèle a REÇU le jour de l'analyse. Les deux
+  // diffèrent dès qu'on écrit une consigne après coup — et sans cette copie, une
+  // analyse passée laisserait croire qu'elle en a tenu compte.
+  //
+  // `null` = analyse produite sans consigne (ou consigne éteinte), ce qui est un
+  // fait et non un manque : l'écran ne doit donc pas afficher « consigne inconnue ».
+  analysisDirectiveUsed String? @map("analysis_directive_used")
 
   // REVUE HUMAINE DE L'ANALYSE — exigence du cahier des charges (§5 et §7 du CDC
   // du 20/08/2026, écrite deux fois) : « aucune analyse de conformité automatisée
@@ -1713,6 +1735,11 @@ enum AuditAction {
   // Cycle de vie d'une version de document
   DOCUMENT_VERSION_DELETED
   DOCUMENT_JUSTIFICATION_UPDATED
+  // Correction du TYPE d'un document (« ce n'est pas un compte-rendu CVS, c'est une
+  // enquête de satisfaction ») et consigne d'analyse. `targetId` = le type visé,
+  // `detail` = le code du type ancien → nouveau : des clés, jamais un nom de fichier.
+  DOCUMENT_TYPE_CHANGED
+  DOCUMENT_DIRECTIVE_UPDATED
   // Fin de mission (§12.5). `targetId` = identifiant de la mission. Ces quatre
   // gestes ouvrent ou ferment l'accès d'un client à ses propres documents : ils
   // sont les plus sensibles du module et doivent laisser une trace datée et

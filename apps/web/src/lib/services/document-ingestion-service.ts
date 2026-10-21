@@ -6,6 +6,7 @@ import { deriveDocumentStatus } from "@/lib/services/document-status-service";
 import { buildStorageKey, buildDocumentImageStorageKey } from "@/lib/security/upload-validation-service";
 import { getKnowledgeRetrievalPort } from "@/lib/knowledge";
 import { MAX_GUIDELINES_INJECTED } from "@/lib/services/criterion-guideline-service";
+import { directiveForAnalysis } from "@/lib/services/analysis-directive-service";
 import { extractMarkdown, type ExtractedImage } from "@/lib/services/text-extraction-service";
 import { validateUploadedFile } from "@/lib/security/upload-validation-service";
 import { describeImage } from "@/lib/services/image-vision-service";
@@ -326,7 +327,7 @@ async function analyzeVersion(
   llm: LLMAnalysisPort
 ): Promise<boolean> {
   try {
-    const [linkedCriteria, establishment, allCriteria] = await Promise.all([
+    const [linkedCriteria, establishment, allCriteria, documentDirective] = await Promise.all([
       prisma.documentTypeCriterion.findMany({
         where: { documentTypeId: params.documentTypeId },
         include: { criterion: { select: { id: true, code: true, label: true } } },
@@ -340,6 +341,16 @@ async function analyzeVersion(
       // analyse plutôt que mis en cache : ~140 lignes, un montant négligeable à
       // côté du texte du document lui-même, et le référentiel évolue (CLAUDE.md §6).
       prisma.criterion.findMany({ select: { id: true, code: true, label: true, applicableTo: true } }),
+      // Consigne de la consultante sur CE document (20/10/2026), lue ICI et non reçue
+      // d'un appelant : le dépôt initial, la ré-analyse et la ré-analyse après
+      // changement de type doivent tous voir la consigne du moment, jamais celle qui
+      // avait été recopiée à l'endroit d'où l'on vient.
+      // Le « Commentaire sur ce document » et son interrupteur (21/10/2026) sont lus
+      // dans la MÊME requête que la consigne : une ligne, une lecture.
+      prisma.document.findUnique({
+        where: { id: params.documentId },
+        select: { analysisDirective: true, directiveInAnalysis: true, missingJustification: true, commentUsedByAi: true },
+      }),
     ]);
     const criteriaLabels = linkedCriteria.map((c) => c.criterion.label);
     const criterionIds = linkedCriteria.map((c) => c.criterion.id);
@@ -355,14 +366,25 @@ async function analyzeVersion(
       ? buildAdditionalCriteriaCatalog(allCriteria, establishment.type, new Set(criterionIds))
       : [];
 
-    const [knowledgeExcerpts, criterionGuidelines, imageDescriptions, validatedExamples, documentComment] = await Promise.all([
+    const [knowledgeExcerpts, criterionGuidelines, imageDescriptions, validatedExamples] = await Promise.all([
       fetchKnowledgeExcerpts(tenantId, params.documentTypeLabel, criteriaLabels),
       fetchCriterionGuidelines(tenantId, criterionIds, params.documentId),
       fetchImageDescriptions(params.documentVersionId),
       // Exemples validés du même type, du même tenant (N8, context/10 §9).
       readValidatedExamples(tenantId, params.documentTypeId),
-      readDocumentComment(params.documentId),
     ]);
+    const commentText = documentDirective?.missingJustification?.trim();
+    const documentComment = documentDirective?.commentUsedByAi && commentText ? commentText : undefined;
+
+    // Consigne réellement transmise au modèle — vide si le bouton « prendre en
+    // compte » est éteint, ou si la consigne est blanche. C'est ELLE qui est
+    // recopiée sur la version (analysisDirectiveUsed) : une analyse relue six mois
+    // plus tard doit pouvoir dire avec quelles consignes elle a été produite, sans
+    // dépendre de l'état actuel du document.
+    const directive = directiveForAnalysis({
+      analysisDirective: documentDirective?.analysisDirective ?? null,
+      directiveInAnalysis: documentDirective?.directiveInAnalysis === true,
+    });
 
     const analysis = await llm.analyze({
       documentTypeLabel: params.documentTypeLabel,
@@ -379,6 +401,7 @@ async function analyzeVersion(
       ...(validatedExamples.length > 0 && { validatedExamples }),
       // Même anonymisation best-effort que le texte : un commentaire peut citer quelqu'un.
       ...(documentComment && { documentComment: anonymizeText(documentComment) }),
+      ...(directive !== undefined && { analysisDirective: directive }),
     });
 
     // Best-effort, comme les autres enrichissements de cette fonction : une
@@ -391,7 +414,12 @@ async function analyzeVersion(
 
     await prisma.documentVersion.update({
       where: { id: params.documentVersionId },
-      data: { analysisResultJson: analysis as unknown as object },
+      data: {
+        analysisResultJson: analysis as unknown as object,
+        // `null` = analyse produite SANS consigne (ou consigne éteinte), pas
+        // « consigne vide » : le rendu sait ainsi distinguer les deux cas.
+        analysisDirectiveUsed: directive ?? null,
+      },
     });
     await prisma.document.update({
       where: { id: params.documentId },

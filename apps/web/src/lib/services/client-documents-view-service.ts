@@ -2,6 +2,7 @@ import { isValidationCurrent } from "./document-workflow-service";
 import type { DocumentCategory, DocumentStatus, SupportMode } from "@eoda/database";
 import { DOCUMENT_PILLS, type PillSpec } from "@/lib/design/status-vocabulary";
 import { DOCUMENT_GROUPS, groupDocumentTypes, type DocumentGroupId } from "@/content/documents/groupes";
+import { isVersionVisibleToClient } from "./deliverables-service";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // « MES DOCUMENTS » VU PAR LA STRUCTURE — règles pures (tranches N2, N3, R6).
@@ -47,7 +48,9 @@ export function versionsVisibleToClient<T extends { producedByCabinet: boolean; 
   versions: readonly T[],
   validatedAt: Date | null
 ): T[] {
-  return versions.filter((version) => !version.producedByCabinet || validatedAt !== null);
+  return versions.filter((version) =>
+    isVersionVisibleToClient({ producedByCabinet: version.producedByCabinet, validatedAt })
+  );
 }
 
 // Une acceptation vaut pour la version courante au moment du geste : une version
@@ -168,6 +171,71 @@ export function toClientDocumentRow<T extends ClientChecklistFacts>(
     reviewedByEoda: item.currentVersion?.reviewedByEoda ?? false,
   });
   return { ...item, state };
+}
+
+// ── Voir la pièce depuis « Mes documents » (20/10/2026) ──────────────────────
+//
+// La structure voyait ses documents seulement dans « Mes livrables », qui ne
+// contient QUE ce qu'EODA a produit et validé : sa propre pièce déposée n'était
+// consultable nulle part, pas plus qu'un document produit pour elle mais pas
+// encore validé. « Voir » vit donc aussi sur la carte de « Mes documents ».
+//
+// Deux règles, et pas une de plus :
+//   1. la pièce qu'elle a DÉPOSÉE est toujours visible — c'est son fichier ;
+//   2. une pièce produite par le cabinet n'est visible qu'une fois le document
+//      VALIDE. Avant, c'est un brouillon de travail : le montrer au client, c'est
+//      lui remettre un document que la consultante n'a pas encore pris sur elle
+//      (même verrou que `selectDeliverables`, CDC §5).
+//
+// Si EODA a déposé un brouillon par-dessus la pièce du client, la carte n'affiche
+// pas la version en cours (muette) mais le DERNIER dépôt du client : le faire
+// disparaître de son propre portail le temps d'une relecture serait une régression.
+export type ViewableVersion = {
+  id: string;
+  filename: string;
+  versionNumber: number;
+  producedByCabinet: boolean;
+};
+
+export function viewableVersionFor(item: {
+  validatedAt: Date | null;
+  currentVersion: { id: string; originalFilename: string; versionNumber: number } | null;
+  versions: readonly {
+    id: string;
+    versionNumber: number;
+    originalFilename: string;
+    producedByCabinet: boolean;
+  }[];
+}): ViewableVersion | null {
+  const current = item.currentVersion;
+  if (!current) return null;
+
+  // Origine de la version en cours, lue dans l'historique déjà chargé (pas de
+  // colonne de plus). Origine inconnue ⇒ traitée comme produite par le cabinet :
+  // on préfère ne pas montrer que publier un brouillon.
+  const producedByCabinet =
+    item.versions.find((version) => version.id === current.id)?.producedByCabinet ?? true;
+
+  if (isVersionVisibleToClient({ producedByCabinet, validatedAt: item.validatedAt })) {
+    return {
+      id: current.id,
+      filename: current.originalFilename,
+      versionNumber: current.versionNumber,
+      producedByCabinet,
+    };
+  }
+
+  const own = item.versions
+    .filter((version) => !version.producedByCabinet)
+    .sort((a, b) => b.versionNumber - a.versionNumber)[0];
+  return own
+    ? {
+        id: own.id,
+        filename: own.originalFilename,
+        versionNumber: own.versionNumber,
+        producedByCabinet: false,
+      }
+    : null;
 }
 
 // ── Filtres (« À déposer » / « À produire » / « Reçu, en cours » / « Accepté ») ─

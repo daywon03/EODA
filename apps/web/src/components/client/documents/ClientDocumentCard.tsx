@@ -5,17 +5,26 @@ import {
   clientDocumentPill,
   depositNoticeFor,
   versionsVisibleToClient,
+  viewableVersionFor,
   type ClientDocumentState,
 } from "@/lib/services/client-documents-view-service";
 import { ClientDocumentViewer } from "./ClientDocumentViewer";
 import { clientWaitingLine } from "@/lib/services/client-document-waiting-service";
+import { canRenderDocumentPages } from "@/lib/services/file-type-service";
 import { StatusPill } from "@/components/ui/status-pill";
 import { DocumentAnalysisPanel } from "@/components/checklist/DocumentAnalysisPanel";
+import { DocumentDownloadLink } from "@/components/checklist/DocumentDownloadLink";
 import { ClientDocumentActions } from "./ClientDocumentActions";
 
 // Une carte de « Mes documents » : le nom, la pastille (mot + glyphe), un geste
 // principal, et — quand il y a quelque chose à lire — l'analyse sous sa mention
 // (review-mention-service, calculée par la couche de lecture).
+//
+// « Voir » est là depuis le 20/10/2026 : la structure ne pouvait ouvrir ses pièces
+// que dans « Mes livrables », qui ne montre que ce qu'EODA a validé. Sa propre pièce
+// déposée n'était consultable nulle part. Ce qui est montrable est décidé une seule
+// fois, dans `viewableVersionFor` (pure, testée) — pas ici : un brouillon EODA non
+// validé ne se restitue pas, une pièce déposée par la structure, si.
 export function ClientDocumentCard({
   item,
   state,
@@ -37,6 +46,10 @@ export function ClientDocumentCard({
   const version = item.currentVersion;
   const notice = depositNoticeFor(item.code);
   const waiting = clientWaitingLine(state, mode);
+  // La pièce à ouvrir peut ne PAS être la version en cours : quand EODA a déposé un
+  // brouillon par-dessus le dépôt du client, on montre le dépôt du client (règle 1
+  // de `viewableVersionFor`).
+  const viewable = viewableVersionFor(item);
 
   return (
     <article className="flex flex-col gap-3 rounded-xl border border-line bg-card px-5 py-4">
@@ -53,8 +66,33 @@ export function ClientDocumentCard({
               de santé nominative (HDS). Dit à l'écran, pas seulement au dépôt. */}
           {notice && state === "TO_DEPOSIT" && <p className="text-base text-ink2">{notice}</p>}
           {waiting && <p className="text-base text-ink2">{waiting}</p>}
+          {/* Ce qu'on ouvre est DIT, pas seulement cliquable : « votre dépôt » et
+              « document produit par EODA » ne sont pas la même chose juridiquement
+              (CLAUDE.md §7, deux mentions jamais interchangeables). */}
+          {viewable && (
+            <p className="text-base text-ink2">
+              {viewable.producedByCabinet ? "Document produit par EODA" : "Votre dépôt"} · version{" "}
+              {viewable.versionNumber}
+            </p>
+          )}
         </div>
         <StatusPill pill={clientDocumentPill(state, mode, { reviewedByEoda: version?.reviewedByEoda ?? false })} className="text-base" />
+        {viewable && (
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+            {/* « Voir » est porté par le nom du document (ClientDocumentViewer) : un
+                second bouton identique ici serait un doublon. */}
+            <DocumentDownloadLink
+              documentVersionId={viewable.id}
+              // Le PDF existe là où le format se convertit ; ailleurs, le lien natif
+              // suffit (document-pdf-service décide par SIGNATURE, pas par extension).
+              pdfUrl={
+                canRenderDocumentPages(viewable.filename)
+                  ? `/api/documents/${viewable.id}/pdf?download=1`
+                  : null
+              }
+            />
+          </div>
+        )}
         {complianceHref && (
           <Link
             href={complianceHref}

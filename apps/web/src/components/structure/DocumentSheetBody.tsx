@@ -4,6 +4,7 @@ import { StatusPill } from "@/components/ui/status-pill";
 import { formatDate } from "@/lib/services/date-format-service";
 import { ChecklistItemDetail } from "@/components/checklist/ChecklistItemDetail";
 import { DocumentUploadButton } from "@/components/checklist/DocumentUploadButton";
+import { DocumentSettingsPanel } from "@/components/structure/DocumentSettingsPanel";
 
 // Contenu du panneau latéral d'un document (onglet Documents de la fiche). Il
 // RECOMPOSE l'existant — historique et aperçu, parcours et validation
@@ -56,6 +57,17 @@ export function DocumentSheetBody({
           offerCabinetFinal
         />
       </div>
+
+      {/* Sous quel TYPE ce fichier est rangé, et la consigne libre donnée au modèle.
+          Replier par défaut : ce sont des réglages, pas le quotidien du panneau. */}
+      <DocumentSettingsPanel
+        establishmentId={establishmentId}
+        documentTypeId={item.documentTypeId}
+        currentLabel={item.label}
+        currentCategory={item.category}
+        directive={item.analysisDirective}
+        includeInAnalysis={item.directiveInAnalysis}
+      />
     </div>
   );
 }

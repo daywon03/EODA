@@ -3,10 +3,10 @@ import type { SurveyTemplate } from "./types";
 // ─────────────────────────────────────────────────────────────────────────────
 // QUESTIONNAIRE « FAMILLE ET PROCHES » — transcrit du gabarit d'enquête de Sandrine
 // (v1.0 du 30/09/2026, transcription V1.6 du rapport context2) : 14 questions,
-// « Non concerné », avis libres, bloc RGPD. Le nom de la structure du pilote est
-// remplacé par « le service ». Le « lien avec la personne accompagnée » (conjoint,
-// enfant, autre) n'est pas repris : il n'entre dans aucun calcul et la tablette sait
-// déjà qui répond (`respondentKind`).
+// « Non concerné », avis libres, le lien avec la personne accompagnée, bloc RGPD. Le
+// nom de la structure du pilote est remplacé par « le service ». Le lien
+// (conjoint(e) / enfant / autre) est demandé facultatif comme sur le papier ; il
+// n'entre dans aucun taux, c'est une question de contexte, pas une échelle.
 // ─────────────────────────────────────────────────────────────────────────────
 
 const sat = (id: string, prompt: string, shortLabel: string, tag?: "REGLEMENT" | "PCA") =>
@@ -14,11 +14,18 @@ const sat = (id: string, prompt: string, shortLabel: string, tag?: "REGLEMENT" |
 
 export const SURVEY_FAMILLE: SurveyTemplate = {
   code: "FAMILLE",
-  version: 1,
+  // v2 (20/10/2026) : chapeau restauré du gabarit (anonymat possible, ce qui
+  // fonctionne bien / ce qui peut être amélioré). Les questions sont inchangées.
+  // v3 (20/10/2026) : le lien avec la personne accompagnée, présent sur le papier
+  // juste après les avis libres, était absent du contenu.
+  version: 3,
   title: "Enquête de satisfaction — famille et proches",
   respondentLabel: "Un proche",
+  // Le chapeau du gabarit dit trois choses, pas deux : l'anonymat possible, et les
+  // deux questions auxquelles le questionnaire répond (ce qui fonctionne bien, ce
+  // qui peut être amélioré). Restaurés le 20/10/2026.
   intro:
-    "Votre avis compte pour améliorer l'accompagnement de votre proche. Ce questionnaire prend environ 5 minutes.",
+    "Votre avis compte pour améliorer l'accompagnement de votre proche. Le service réalise cette enquête pour mieux comprendre votre expérience et celle de votre proche, identifier ce qui fonctionne bien et ce qui peut être amélioré. Ce questionnaire prend environ 5 minutes. Vos réponses peuvent rester anonymes si vous le souhaitez (voir « Protection de vos données personnelles »).",
   questions: [
     sat("f01-relation", "La qualité de la relation entre les intervenants et votre proche", "Qualité de la relation intervenants / proche"),
     sat(
@@ -85,6 +92,17 @@ export const SURVEY_FAMILLE: SurveyTemplate = {
     sat("f14-global", "Votre satisfaction globale à l'égard du service", "Satisfaction globale"),
     { kind: "TEXT", id: "f15-fonctionne-bien", prompt: "Qu'est-ce qui fonctionne particulièrement bien ?", shortLabel: "Ce qui fonctionne bien" },
     { kind: "TEXT", id: "f16-ameliorer", prompt: "Qu'est-ce qui pourrait être amélioré ?", shortLabel: "Ce qui pourrait être amélioré" },
+    // Placé là où le gabarit le met : après les avis libres, avant le nom et la date.
+    // Comme le nom sur le papier, il est facultatif — il ne bloque donc pas le passage
+    // à l'écran suivant, et il n'entre dans aucun taux.
+    {
+      kind: "CHOICE",
+      id: "f17-lien",
+      prompt: "Votre lien avec la personne accompagnée (facultatif)",
+      shortLabel: "Lien avec la personne accompagnée",
+      options: ["Conjoint(e)", "Enfant", "Autre"],
+      otherOption: "Autre",
+    },
   ],
   privacyNotice:
     "Les informations recueillies sont traitées par le service, responsable du traitement, pour mesurer la satisfaction et améliorer la qualité de l'accompagnement (intérêt légitime, art. 6.1.f du RGPD ; obligation d'évaluation de la qualité, art. L312-8 du CASF). Répondre est facultatif. Seules la direction et la coordination ont accès aux réponses, qui ne sont transmises à aucun tiers ; les résultats sont diffusés uniquement de façon globale et anonyme. Les questionnaires nominatifs sont conservés 1 an, puis détruits. Vous disposez d'un droit d'accès, de rectification, d'effacement, de limitation et d'opposition auprès du délégué à la protection des données du service, et pouvez saisir la CNIL (www.cnil.fr). N'indiquez pas d'informations médicales dans les zones libres.",

@@ -46,7 +46,7 @@
 | 2 | Synthèse des 3 dernières enquêtes de satisfaction | `QUALITE_ENQUETES_SATISFACTION` | 2.2.6 |
 | 3 | Plan bleu / PCA (continuité d'activité) | `QUALITE_PCA_PLAN_BLEU` | **3.14.1, 3.14.2** |
 | 4 | Politique qualité + index référentiel des procédures | `QUALITE_POLITIQUE_INDEX` | 3.10.1, 3.10.2 |
-| 5 | Procédure traitement EI / réclamations / signalements maltraitance | `QUALITE_PROCEDURE_EI_PLAINTES` | **3.11.1, 3.11.2, 3.12.1-3, 3.13.1-3** |
+| 5 | Procédure traitement EI / réclamations / signalements maltraitance et violence | `QUALITE_PROCEDURE_EI_PLAINTES` | **3.11.1, 3.11.2, 3.12.1-3, 3.13.1-3** |
 
 ### Sous-checklist détaillée — Plaintes & réclamations (Objectif 3.12, impératif)
 

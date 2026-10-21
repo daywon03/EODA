@@ -55,14 +55,14 @@ export function DocumentUploadButton({
   }
 
   return (
-    <div className="flex flex-col items-end gap-1">
+    <div className="flex min-w-0 max-w-full flex-col items-end gap-1">
       {showModelSelector && (
         <select
           value={modelId}
           onChange={(e) => setModelId(e.target.value)}
           disabled={isPending}
           aria-label="Modèle IA pour l'analyse de ce dépôt"
-          className="text-xs border border-gris-light rounded-md px-1.5 py-0.5 bg-surface text-brun-ancre"
+          className="max-w-full truncate text-xs border border-gris-light rounded-md px-1.5 py-0.5 bg-surface text-brun-ancre"
         >
           {LLM_MODEL_OPTIONS.map((option) => (
             <option key={option.id} value={option.id}>

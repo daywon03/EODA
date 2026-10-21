@@ -13,7 +13,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
 import { AlertCircle, CheckCircle2, Loader2, Upload } from "lucide-react";
 
 // Dépôt d'une version. Un vrai formulaire et non un simple sélecteur de fichier : le
@@ -59,7 +58,6 @@ function ReferenceUpload({ templateId }: { templateId: string }) {
   const folderInputRef = useRef<HTMLInputElement>(null);
   const [selected, setSelected] = useState<File[]>([]);
   const [versionLabel, setVersionLabel] = useState("");
-  const [changeNote, setChangeNote] = useState("");
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
   const [outcome, setOutcome] = useState<{ done: number; failures: string[] } | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -85,7 +83,6 @@ function ReferenceUpload({ templateId }: { templateId: string }) {
       for (const file of selected) {
         const formData = new FormData();
         formData.set("versionLabel", versionLabel);
-        formData.set("changeNote", changeNote);
         formData.set("file", file);
 
         const result = await uploadTemplateVersion(templateId, null, formData);
@@ -121,19 +118,6 @@ function ReferenceUpload({ templateId }: { templateId: string }) {
           numérote pas les versions d&apos;un document qu&apos;elle ne produit pas.
           Partagée par tous les fichiers déposés ensemble ici.
         </p>
-      </div>
-
-      <div className="space-y-1.5">
-        <Label htmlFor="changeNote">Ce qui change dans cette version</Label>
-        <Textarea
-          id="changeNote"
-          value={changeNote}
-          onChange={(e) => setChangeNote(e.target.value)}
-          rows={2}
-          maxLength={500}
-          placeholder="ex : ajout de l'article L.311-8 du CASF, reformulation du §3."
-          disabled={isPending}
-        />
       </div>
 
       <div className="space-y-1.5">
@@ -291,18 +275,6 @@ function GabaritUpload({ templateId }: { templateId: string }) {
             forme n&apos;est pas une refonte.
           </p>
         </div>
-      </div>
-
-      <div className="space-y-1.5">
-        <Label htmlFor="changeNote">Ce qui change dans cette version</Label>
-        <Textarea
-          id="changeNote"
-          name="changeNote"
-          rows={2}
-          maxLength={500}
-          placeholder="ex : ajout de l'article L.311-8 du CASF, reformulation du §3."
-          disabled={isPending}
-        />
       </div>
 
       <div className="space-y-1.5">
