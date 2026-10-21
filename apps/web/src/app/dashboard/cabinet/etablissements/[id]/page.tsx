@@ -38,7 +38,9 @@ export default async function StructureOverviewPage({ params }: Props) {
   const { id } = await params;
   // Lectures parallèles, chacune sous sa garde (getEstablishment et la checklist
   // passent par requireEstablishmentInTenant : notFound hors tenant).
-  const [establishment, checklist, mission, appointments, proof, tasks, diagnostic] = await Promise.all([
+  // Les chapitres partent dans le MÊME lot que le reste (ils attendaient la mission :
+  // une étape de plus pour rien) — chacun répond `missionRequired` sans mission.
+  const [establishment, checklist, mission, appointments, proof, tasks, diagnostic, allChapters] = await Promise.all([
     getEstablishment(id),
     getEstablishmentChecklist(id),
     getMission(id),
@@ -46,14 +48,13 @@ export default async function StructureOverviewPage({ params }: Props) {
     getStructureCriteriaProof(id),
     listEstablishmentActionItems(id),
     getStructureDiagnostic(id),
+    listChapters().then((list) => Promise.all(list.map((c) => getEvaluationChapter(id, c.number)))),
   ]);
   const now = new Date();
 
   // Les chapitres ne se lisent qu'avec une mission (le périmètre de critères en
   // dépend) — même règle que l'onglet Auto-évaluation.
-  const chapters = mission
-    ? await Promise.all((await listChapters()).map((c) => getEvaluationChapter(id, c.number)))
-    : [];
+  const chapters = mission ? allChapters.filter((c) => !c.missionRequired) : [];
 
   const documents = flattenChecklist(checklist);
   // Chaque mesure mène à son détail (call du 18/10/2026).

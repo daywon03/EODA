@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { prisma } from "@eoda/database";
 import type { CommercialTier, DocumentCategory, SupportMode } from "@eoda/database";
 import {
@@ -24,12 +25,15 @@ export type MissionOffer = { formule: CommercialTier | null; gratuit: boolean; s
 // Lecture étroite de l'offre contractée ET du mode d'accompagnement (N1). Exportée :
 // la garde de génération (document.ts) et la checklist en ont besoin, et la relire
 // ailleurs serait une seconde résolution qui finirait par diverger.
-export async function findMissionOffer(establishmentId: string): Promise<MissionOffer | null> {
+//
+// MÉMOÏSÉE PAR RENDU (`react.cache`, 21/10/2026) : la vue d'ensemble d'une fiche la
+// demandait une fois par panneau. Rien n'est gardé entre deux requêtes.
+export const findMissionOffer = cache(async (establishmentId: string): Promise<MissionOffer | null> => {
   return prisma.mission.findUnique({
     where: { establishmentId },
     select: { formule: true, gratuit: true, supportMode: true },
   });
-}
+});
 
 // Mode effectif : celui de la mission, ou la règle STRICTE sans mission.
 export async function getEstablishmentSupportMode(establishmentId: string): Promise<SupportMode> {

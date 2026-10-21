@@ -15,7 +15,8 @@ const requireCabinetAdminSession = vi.fn();
 const recordAuditEvent = vi.fn();
 
 vi.mock("@eoda/database", () => ({ prisma: prismaMock }));
-vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
+// Cache du référentiel : transparent ici (aucun cache Next hors requête).
+vi.mock("next/cache", () => ({ revalidatePath: vi.fn(), revalidateTag: vi.fn(), unstable_cache: <T>(fn: T) => fn }));
 vi.mock("next/navigation", () => ({
   notFound: () => {
     throw new Error("NOT_FOUND");

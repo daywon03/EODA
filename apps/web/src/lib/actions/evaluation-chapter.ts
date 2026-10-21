@@ -7,6 +7,9 @@ import { getOfferScope } from "@/lib/services/offer-scope-service";
 import { applicableToValuesFor } from "@/lib/services/criterion-applicability-service";
 import { computeCriterionScore, computeWeightedAverage } from "@/lib/services/scoring-service";
 import { shouldSuggestCompliance } from "@/lib/services/pre-rating-suggestion-service";
+import { readChapters, readChapterTree, readCriteriaWithMatrix } from "@/lib/db/referential-cache";
+import { readDocumentStatuses } from "@/lib/db/read-document-statuses";
+import { readMission } from "@/lib/db/read-mission";
 
 // LECTURE de l'auto-évaluation (arbre chapitre → thème → objectif → critère →
 // élément), séparée des gestes d'écriture (evaluation.ts) le 10/10/2026 pour garder
@@ -68,7 +71,7 @@ export async function getEvaluationChapter(
   // Profil SAD aide / mixte : jamais les critères de l'autre profil (N4).
   const applicableTo = { in: applicableToValuesFor(establishmentType) };
 
-  const mission = await prisma.mission.findUnique({ where: { establishmentId } });
+  const mission = await readMission(establishmentId);
   if (!mission) {
     return {
       chapter: { id: "", number: chapterNumber, name: "", method: "" },
@@ -85,30 +88,24 @@ export async function getEvaluationChapter(
   // l'Excellence complète, y compris sur les critères cotables.
   const offerScope = getOfferScope(mission.formule, mission.gratuit);
 
-  const chapter = await prisma.chapter.findFirst({
-    where: { number: chapterNumber },
-    include: {
-      themes: {
-        orderBy: { code: "asc" },
-        include: {
-          objectives: {
-            orderBy: { code: "asc" },
-            include: {
-              criteria: {
-                orderBy: { code: "asc" },
-                where:
-                  offerScope.criteriaScope === "IMPERATIFS_ONLY"
-                    ? { requirementLevel: "IMPERATIF", applicableTo }
-                    : { applicableTo },
-                include: { evaluationElements: true },
-              },
-            },
-          },
-        },
-      },
-    },
-  });
-  if (!chapter) notFound();
+  // Arbre du chapitre en cache (référentiel commun, referential-cache.ts), filtré ici
+  // exactement comme le faisait la requête : profil SAD, puis impératifs seuls en
+  // Essentiel.
+  const tree = await readChapterTree(chapterNumber);
+  if (!tree) notFound();
+  const keepCriterion = (c: { applicableTo: (typeof applicableTo.in)[number]; requirementLevel: string }) =>
+    applicableTo.in.includes(c.applicableTo) &&
+    (offerScope.criteriaScope !== "IMPERATIFS_ONLY" || c.requirementLevel === "IMPERATIF");
+  const chapter = {
+    ...tree,
+    themes: tree.themes.map((theme) => ({
+      ...theme,
+      objectives: theme.objectives.map((objective) => ({
+        ...objective,
+        criteria: objective.criteria.filter(keepCriterion),
+      })),
+    })),
+  };
 
   const activeSession = await prisma.evaluationSession.findFirst({
     where: { establishmentId, chapterId: chapter.id },
@@ -124,14 +121,16 @@ export async function getEvaluationChapter(
   // conformes reçoivent une suggestion de cotation 4, jamais persistée tant que
   // l'évaluateur ne clique pas — cf. pre-rating-suggestion-service.ts.
   const criterionIds = chapter.themes.flatMap((t) => t.objectives.flatMap((o) => o.criteria.map((c) => c.id)));
-  const linkedDocTypes = await prisma.documentTypeCriterion.findMany({
-    where: { criterionId: { in: criterionIds } },
-  });
-  const documents = await prisma.document.findMany({
-    where: { establishmentId, documentTypeId: { in: linkedDocTypes.map((l) => l.documentTypeId) } },
-    select: { documentTypeId: true, status: true },
-  });
-  const statusByDocTypeId = new Map(documents.map((d) => [d.documentTypeId, d.status]));
+  // Matrice lue dans le cache du référentiel, statuts des documents lus UNE fois par
+  // rendu pour les trois chapitres (21/10/2026 : 2 requêtes par chapitre en moins).
+  const wanted = new Set(criterionIds);
+  const [matrix, statusByDocTypeId] = await Promise.all([
+    readCriteriaWithMatrix(),
+    readDocumentStatuses(establishmentId),
+  ]);
+  const linkedDocTypes = matrix
+    .filter((c) => wanted.has(c.id))
+    .flatMap((c) => c.documentTypes.map((d) => ({ criterionId: c.id, documentTypeId: d.documentTypeId })));
   const docTypeIdsByCriterionId = new Map<string, string[]>();
   for (const link of linkedDocTypes) {
     const list = docTypeIdsByCriterionId.get(link.criterionId) ?? [];
@@ -211,5 +210,5 @@ export async function getEvaluationChapter(
 
 export async function listChapters() {
   await requireCabinetSession("STRUCTURES_READ");
-  return prisma.chapter.findMany({ orderBy: { number: "asc" } });
+  return readChapters();
 }

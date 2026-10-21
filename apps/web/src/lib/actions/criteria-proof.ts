@@ -2,7 +2,7 @@
 
 import { requireEstablishmentInTenant } from "@/lib/auth/guards";
 import { getEstablishmentSupportMode } from "@/lib/services/establishment-offer-service";
-import { readCriteriaProof } from "@/lib/db/read-criteria-proof";
+import { readCriteriaProofFor } from "@/lib/db/read-criteria-proof";
 import { countImperativesProven, type CriterionProofRow, type ImperativesProof } from "@/lib/services/criteria-proof-service";
 import { EXPECTED_IMPERATIVE_COUNT } from "@/lib/services/criterion-applicability-service";
 
@@ -19,7 +19,7 @@ export type StructureCriteriaProof = {
 export async function getStructureCriteriaProof(establishmentId: string): Promise<StructureCriteriaProof> {
   const { establishmentId: id, establishmentType } = await requireEstablishmentInTenant(establishmentId, "READ");
   const mode = await getEstablishmentSupportMode(id);
-  const rows = (await readCriteriaProof([{ id, type: establishmentType, mode }])).get(id) ?? [];
+  const rows = await readCriteriaProofFor(id, establishmentType, mode);
   return {
     rows,
     imperatives: countImperativesProven(rows),

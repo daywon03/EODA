@@ -11,6 +11,8 @@ const requireEstablishmentInTenant = vi.fn();
 const getEstablishmentSupportMode = vi.fn();
 
 vi.mock("@eoda/database", () => ({ prisma: prismaMock }));
+// Cache du référentiel : transparent ici (aucun cache Next hors requête).
+vi.mock("next/cache", () => ({ unstable_cache: <T>(fn: T) => fn }));
 vi.mock("@/lib/auth/guards", () => ({
   requireEstablishmentInTenant: (id: string) => requireEstablishmentInTenant(id),
 }));

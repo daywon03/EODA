@@ -1,5 +1,6 @@
 import { prisma, type EstablishmentType, type SupportMode } from "@eoda/database";
-import { readCriteriaProof } from "./read-criteria-proof";
+import { readCriteriaProofFor } from "./read-criteria-proof";
+import { readChapters } from "./referential-cache";
 import { findMissionOffer } from "@/lib/services/establishment-offer-service";
 import { resolveSupportMode } from "@/lib/services/support-mode-service";
 import { getOfferScope } from "@/lib/services/offer-scope-service";
@@ -68,12 +69,13 @@ export async function readDiagnostic(establishmentId: string): Promise<Diagnosti
   // référentiel qu'aucun contrat ne couvre.
   const scopeAll = offer ? getOfferScope(offer.formule, offer.gratuit).criteriaScope === "ALL" : false;
 
-  const [proof, chapters, latestValidation] = await Promise.all([
-    readCriteriaProof([{ id: establishment.id, type: establishment.type, mode }]),
-    prisma.chapter.findMany({ select: { number: true, name: true }, orderBy: { number: "asc" } }),
+  // Calcul « critères & preuves » partagé avec les autres panneaux du même rendu, et
+  // chapitres lus dans le cache du référentiel.
+  const [rows, chapters, latestValidation] = await Promise.all([
+    readCriteriaProofFor(establishment.id, establishment.type, mode),
+    readChapters(),
     readLatestDiagnosticValidation(establishment.id),
   ]);
-  const rows = proof.get(establishment.id) ?? [];
 
   const expectedTypeIds = [...new Set(rows.flatMap((r) => r.expectedDocumentTypeIds))];
   const documentTypes =

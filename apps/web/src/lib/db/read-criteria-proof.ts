@@ -1,7 +1,9 @@
+import { cache } from "react";
 import { prisma, type EstablishmentType, type SupportMode } from "@eoda/database";
 import { isCriterionApplicable } from "@/lib/services/criterion-applicability-service";
 import { isCriterionImperativeForEstablishment } from "@/lib/services/criterion-imperativeness-service";
 import { buildCriteriaProofRows, type CriterionProofRow } from "@/lib/services/criteria-proof-service";
+import { readCriteriaWithMatrix } from "./referential-cache";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // LECTURE « critères & preuves » pour une ou plusieurs structures (tranche N4).
@@ -14,6 +16,14 @@ import { buildCriteriaProofRows, type CriterionProofRow } from "@/lib/services/c
 
 export type ProofTarget = { id: string; type: EstablishmentType; mode: SupportMode };
 
+// Une seule structure, MÉMOÏSÉE PAR RENDU (`react.cache`) : l'onglet Critères, le
+// cadre « Critères impératifs » et le diagnostic de la même vue d'ensemble faisaient
+// chacun le calcul complet (21/10/2026). Clé : (structure, profil, mode).
+export const readCriteriaProofFor = cache(
+  async (id: string, type: EstablishmentType, mode: SupportMode): Promise<CriterionProofRow[]> =>
+    (await readCriteriaProof([{ id, type, mode }])).get(id) ?? []
+);
+
 export async function readCriteriaProof(
   targets: readonly ProofTarget[]
 ): Promise<Map<string, CriterionProofRow[]>> {
@@ -21,17 +31,8 @@ export async function readCriteriaProof(
   if (targets.length === 0) return result;
 
   const [criteria, documents] = await Promise.all([
-    prisma.criterion.findMany({
-      select: {
-        id: true,
-        code: true,
-        label: true,
-        requirementLevel: true,
-        applicableTo: true,
-        objective: { select: { theme: { select: { chapter: { select: { number: true } } } } } },
-        documentTypes: { select: { documentTypeId: true } },
-      },
-    }),
+    // Référentiel + matrice : communs à tous, gardés en cache (referential-cache.ts).
+    readCriteriaWithMatrix(),
     prisma.document.findMany({
       where: { establishmentId: { in: targets.map((t) => t.id) }, documentTypeId: { not: null } },
       select: {
