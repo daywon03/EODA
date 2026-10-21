@@ -185,6 +185,35 @@ export async function uploadDocument(formData: FormData): Promise<UploadDocument
     detail: documentType.code,
   });
 
+  // VERSION FINALE D'EODA (call du 18/10/2026) : quand le cabinet dépose le document
+  // qu'il a lui-même finalisé, le faire repasser par « À relire » demandait à Sandrine
+  // de relire son propre travail. Coché au dépôt (par défaut côté cabinet), le dépôt
+  // VAUT validation — même effet et même trace que `setDocumentValidated`. Décoché,
+  // c'est un dépôt POUR LE COMPTE de la structure (un original du client), qui suit le
+  // parcours normal : on ne valide jamais en silence une pièce que personne n'a relue.
+  // Jamais pour un client : le champ est ignoré si l'appelant n'est pas du cabinet.
+  if (!access.isClient && formData.get("cabinetFinal") === "1") {
+    const now = new Date();
+    const validatedDocument = await prisma.$transaction(async (tx) => {
+      await tx.documentVersion.update({
+        where: { id: result.documentVersionId },
+        data: { analysisReviewedAt: now },
+      });
+      return tx.document.update({
+        where: { establishmentId_documentTypeId: { establishmentId, documentTypeId: documentType.id } },
+        data: { validatedAt: now, validatedByUserId: access.userId },
+        select: { id: true },
+      });
+    });
+    await recordAuditEvent({
+      action: "DOCUMENT_VALIDATED",
+      actorUserId: access.userId,
+      actorRole: access.session.user.role,
+      establishmentId,
+      targetId: validatedDocument.id,
+    });
+  }
+
   revalidateDocumentViews(establishmentId);
 
   // Dépôt du cabinet sur un document DÉJÀ validé : la nouvelle version devient le

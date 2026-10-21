@@ -12,8 +12,11 @@ const prismaMock = {
   mission: { findUnique: vi.fn() },
   documentType: { findMany: vi.fn(), findUnique: vi.fn() },
   document: { upsert: vi.fn(), findUnique: vi.fn(), update: vi.fn() },
-  documentVersion: { findUnique: vi.fn() },
+  documentVersion: { findUnique: vi.fn(), update: vi.fn() },
   establishment: { findUnique: vi.fn() },
+  // La transaction rejoue le rappel sur les mêmes doubles : ce qui compte est ce
+  // qu'elle écrit.
+  $transaction: vi.fn(async (callback: (tx: unknown) => Promise<unknown>) => callback(prismaMock)),
 };
 
 const notifyDocumentAvailable = vi.fn();
@@ -110,6 +113,71 @@ beforeEach(() => {
   ingestDocumentVersion.mockResolvedValue({ documentVersionId: "dv-1" });
   recordAuditEvent.mockResolvedValue(undefined);
   prismaMock.document.upsert.mockResolvedValue({});
+});
+
+describe("uploadDocument — version finale d'EODA (call du 18/10/2026)", () => {
+  function cabinetAccess(): void {
+    requireEstablishmentAccess.mockResolvedValue({
+      userId: "consultante-1",
+      session: { user: { role: "CABINET_ADMIN" } },
+      isClient: false,
+      missionAccess: "ACTIVE",
+    });
+  }
+
+  function finalForm(): FormData {
+    const formData = uploadForm(LOI_TYPE.id);
+    formData.set("cabinetFinal", "1");
+    return formData;
+  }
+
+  beforeEach(() => {
+    givenMission("EXCELLENCE");
+    prismaMock.documentType.findUnique.mockResolvedValue(LOI_TYPE);
+    prismaMock.document.update.mockResolvedValue({ id: "doc-1" });
+    // Relu deux fois après le dépôt : « déjà validé ? » puis, pour l'annonce, le type
+    // et l'existence d'une version d'EODA.
+    prismaMock.document.findUnique.mockResolvedValue({
+      validatedAt: new Date(),
+      documentType: { label: LOI_TYPE.label },
+      versions: [{ id: "dv-1" }],
+    });
+  });
+
+  it("un dépôt final du cabinet vaut validation : relu, validé, tracé, annoncé", async () => {
+    cabinetAccess();
+
+    await uploadDocument(finalForm());
+
+    expect(prismaMock.documentVersion.update).toHaveBeenCalledWith({
+      where: { id: "dv-1" },
+      data: { analysisReviewedAt: expect.any(Date) },
+    });
+    expect(prismaMock.document.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: { validatedAt: expect.any(Date), validatedByUserId: "consultante-1" } })
+    );
+    expect(recordAuditEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ action: "DOCUMENT_VALIDATED", targetId: "doc-1" })
+    );
+    expect(notifyDocumentAvailable).toHaveBeenCalled();
+  });
+
+  it("décoché (dépôt pour le compte de la structure), rien n'est validé en silence", async () => {
+    cabinetAccess();
+    prismaMock.document.findUnique.mockResolvedValue({ validatedAt: null });
+
+    await uploadDocument(uploadForm(LOI_TYPE.id));
+
+    expect(prismaMock.$transaction).not.toHaveBeenCalled();
+    expect(recordAuditEvent).not.toHaveBeenCalledWith(expect.objectContaining({ action: "DOCUMENT_VALIDATED" }));
+  });
+
+  it("ignore le champ pour une structure : un client ne valide jamais", async () => {
+    await uploadDocument(finalForm());
+
+    expect(prismaMock.$transaction).not.toHaveBeenCalled();
+    expect(prismaMock.document.update).not.toHaveBeenCalled();
+  });
 });
 
 describe("uploadDocument — périmètre de l'offre", () => {

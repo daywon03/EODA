@@ -4,6 +4,7 @@ import {
   countDocumentBuckets,
   deriveMissingOwner,
   documentBucket,
+  documentProviderLabel,
   documentRowPill,
   documentsHref,
   filterDocumentRows,
@@ -23,6 +24,32 @@ const doc = (over: Partial<DocumentFacts> = {}): DocumentFacts => ({
   step: "DEPOSE",
   currentVersion: version(),
   ...over,
+});
+
+describe("documentProviderLabel — qui a fourni, d'après l'auteur du dépôt", () => {
+  const cabinetVersion = { id: "v1", producedByCabinet: true };
+  const clientVersion = { id: "v1", producedByCabinet: false };
+
+  it("dit EODA quand EODA a déposé, même pour un document réclamé à la structure", () => {
+    expect(
+      documentProviderLabel({ requestedFromClient: true, currentVersion: { id: "v1" }, versions: [cabinetVersion] })
+    ).toBe("EODA");
+  });
+
+  it("dit la structure quand c'est elle qui a déposé", () => {
+    expect(
+      documentProviderLabel({ requestedFromClient: false, currentVersion: { id: "v1" }, versions: [clientVersion] })
+    ).toBe("La structure");
+  });
+
+  it("sans dépôt, dit qui doit le fournir", () => {
+    expect(documentProviderLabel({ requestedFromClient: true, currentVersion: null, versions: [] })).toBe(
+      "Attendu de la structure"
+    );
+    expect(documentProviderLabel({ requestedFromClient: false, currentVersion: null, versions: [] })).toBe(
+      "À produire par EODA"
+    );
+  });
 });
 
 describe("documentBucket — chaque document dans UN onglet", () => {

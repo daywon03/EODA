@@ -9,6 +9,7 @@ import {
   DOCUMENT_BUCKET_LABELS,
   DOCUMENT_BUCKETS,
   DOCUMENT_CATEGORY_LABELS,
+  documentProviderLabel,
   documentRowPill,
   documentsHref,
   filterDocumentRows,
@@ -67,10 +68,9 @@ function columns(): DataTableColumn<Row>[] {
         </span>
       ),
     },
-    // « Critères couverts » et « Responsable » de la maquette arrivent avec leurs
-    // tranches (N4 rattachements, N9 rôles). Ce qui se sait aujourd'hui : qui doit
-    // fournir le document.
-    { id: "source", header: "Fourni par", cell: (row) => (row.requestedFromClient ? "La structure" : "EODA") },
+    // Qui a FOURNI le document — l'auteur du dépôt, pas le réglage du type (call du
+    // 18/10/2026) ; sans dépôt, qui doit le fournir.
+    { id: "source", header: "Fourni par", cell: (row) => documentProviderLabel(row) },
   ];
 }
 
