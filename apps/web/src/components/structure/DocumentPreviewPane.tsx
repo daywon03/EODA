@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { FileX, Loader2 } from "lucide-react";
+import { DocxPreview } from "./DocxPreview";
 import { getDocumentPreviewData } from "@/lib/actions/document";
 import { documentViewerSource } from "@/lib/services/document-viewer-service";
 import type { FilePreviewData } from "@/lib/services/file-preview-types";
@@ -48,6 +49,15 @@ function ImagePreview({ url, title }: { url: string; title: string }) {
       />
     </div>
   );
+}
+
+// Word : dessiné avec sa mise en page dans le navigateur (DocxPreview) ; si le dessin
+// échoue, les pages produites côté serveur prennent le relais.
+function WordPreview({ url, pagesUrl, title }: { url: string; pagesUrl: string; title: string }) {
+  const [failed, setFailed] = useState(false);
+  const onFailed = useCallback(() => setFailed(true), []);
+  if (failed) return <FramedPreview url={pagesUrl} title={title} waitingLabel="Préparation des pages…" />;
+  return <DocxPreview url={url} title={title} onFailed={onFailed} />;
 }
 
 function FallbackPreview({ versionId }: { versionId: string }) {
@@ -105,6 +115,8 @@ export function DocumentPreviewPane({
   switch (source.kind) {
     case "pdf":
       return <FramedPreview key={versionId} url={source.url} title={title} waitingLabel="Chargement du PDF…" />;
+    case "docx":
+      return <WordPreview key={versionId} url={source.url} pagesUrl={source.pagesUrl} title={title} />;
     case "pages":
       return (
         <FramedPreview key={versionId} url={source.url} title={title} waitingLabel="Préparation des pages…" />

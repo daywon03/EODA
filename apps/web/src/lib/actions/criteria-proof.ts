@@ -36,7 +36,12 @@ export async function getStructureCriteriaEvidence(establishmentId: string): Pro
     readCriteriaProofFor(id, establishmentType, mode),
     prisma.document.findMany({
       where: { establishmentId: id, documentTypeId: { not: null } },
-      select: { documentTypeId: true, validatedAt: true, clientAcceptedAt: true, currentVersion: { select: { uploadedAt: true } } },
+      select: {
+        documentTypeId: true,
+        validatedAt: true,
+        clientAcceptedAt: true,
+        currentVersion: { select: { uploadedAt: true, uploadedBy: { select: { role: true } } } },
+      },
     }),
     readChapters().then((list) => Promise.all(list.map((c) => readChapterTree(c.number)))),
   ]);
@@ -47,7 +52,7 @@ export async function getStructureCriteriaEvidence(establishmentId: string): Pro
   const byType = new Map(
     documents.flatMap((d) =>
       d.documentTypeId
-        ? [[d.documentTypeId, { documentTypeId: d.documentTypeId, versionUploadedAt: d.currentVersion?.uploadedAt ?? null, validatedAt: d.validatedAt, clientAcceptedAt: d.clientAcceptedAt }] as const]
+        ? [[d.documentTypeId, { documentTypeId: d.documentTypeId, versionUploadedAt: d.currentVersion?.uploadedAt ?? null, validatedAt: d.validatedAt, clientAcceptedAt: d.clientAcceptedAt, versionByCabinet: d.currentVersion != null && d.currentVersion.uploadedBy.role !== "CLIENT_USER" }] as const]
         : []
     )
   );

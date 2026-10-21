@@ -150,6 +150,13 @@ describe("describeEvidence — les preuves d'un critère, une par une (21/10/202
     ]);
   });
 
+  it("le livret redéposé par EODA après sa validation reste une preuve (même règle que « Validé »)", () => {
+    const byEoda = new Map([["t-livret", { ...docs.get("t-livret")!, versionByCabinet: true }]]);
+    expect(describeEvidence(["t-livret"], byEoda, labels, "ACCOMPAGNE")).toEqual([
+      { documentTypeId: "t-livret", label: "Livret d'accueil", state: "PROUVEE" },
+    ]);
+  });
+
   it("en autonomie, seule l'acceptation de la structure compte", () => {
     expect(describeEvidence(["t-dipc"], docs, labels, "AUTONOMIE")).toEqual([
       { documentTypeId: "t-dipc", label: "DIPC", state: "A_RELIRE" },

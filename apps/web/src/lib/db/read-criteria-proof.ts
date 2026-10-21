@@ -40,7 +40,7 @@ export async function readCriteriaProof(
         documentTypeId: true,
         validatedAt: true,
         clientAcceptedAt: true,
-        currentVersion: { select: { uploadedAt: true } },
+        currentVersion: { select: { uploadedAt: true, uploadedBy: { select: { role: true } } } },
       },
     }),
   ]);
@@ -66,6 +66,7 @@ export async function readCriteriaProof(
                 versionUploadedAt: d.currentVersion?.uploadedAt ?? null,
                 validatedAt: d.validatedAt,
                 clientAcceptedAt: d.clientAcceptedAt,
+                versionByCabinet: d.currentVersion != null && d.currentVersion.uploadedBy.role !== "CLIENT_USER",
               },
             ]
           : []

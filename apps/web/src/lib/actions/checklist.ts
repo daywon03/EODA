@@ -311,6 +311,11 @@ async function buildChecklist(
         ),
         analysisReviewed: doc?.currentVersion?.analysisReviewedAt != null,
         validatedAt: doc?.validatedAt ?? null,
+        // La validation doit valoir pour la version COURANTE (isValidationCurrent) — la
+        // même règle que l'onglet Critères.
+        currentVersionUploadedAt: doc?.currentVersion?.uploadedAt ?? null,
+        currentVersionByCabinet:
+          (doc?.versions ?? []).find((version) => version.id === doc?.currentVersion?.id)?.uploadedBy.role !== "CLIENT_USER",
       }),
     };
 

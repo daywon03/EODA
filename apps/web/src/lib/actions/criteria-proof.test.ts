@@ -47,7 +47,7 @@ beforeEach(() => {
       documentTypeId: "t-dipc",
       validatedAt: new Date(2026, 9, 5),
       clientAcceptedAt: null,
-      currentVersion: { uploadedAt: new Date(2026, 9, 1) },
+      currentVersion: { uploadedAt: new Date(2026, 9, 1), uploadedBy: { role: "CLIENT_USER" } },
     },
   ]);
 });

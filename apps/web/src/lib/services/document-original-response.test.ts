@@ -27,6 +27,15 @@ describe("inlineOriginalHeaders", () => {
     expect(headers["X-Content-Type-Options"]).toBe("nosniff");
   });
 
+  it("un Word part en pièce jointe : le navigateur ne l'affiche jamais lui-même (21/10/2026)", () => {
+    const headers = inlineOriginalHeaders(
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "livret.docx"
+    );
+    expect(headers["Content-Disposition"]).toMatch(/^attachment; filename="/);
+    expect(headers["X-Content-Type-Options"]).toBe("nosniff");
+  });
+
   it("assainit le nom : aucun guillemet ni retour à la ligne n'atteint l'en-tête", () => {
     const disposition = inlineOriginalHeaders("application/pdf", 'a"b\r\nSet-Cookie: x.pdf')["Content-Disposition"] ?? "";
     expect(disposition).not.toMatch(/[\r\n]/);

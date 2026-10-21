@@ -23,7 +23,12 @@ export type DocumentViewerSource =
   // Une photo déposée, servie telle quelle — jamais via Chromium, qui la transformait
   // en PDF de 22 Mo en 5 s pour un simple affichage (mesuré le 21/10/2026).
   | { kind: "image"; url: string }
-  // Word, Excel, CSV : les PAGES produites côté serveur (cf. document-pdf-service).
+  // Word (.docx) : DESSINÉ dans le navigateur avec sa mise en page (docx-preview) à
+  // partir de l'original — polices, couleurs, tableaux, en-têtes et pieds de page
+  // (demande de Damon, 21/10/2026 : « le design ne doit pas changer dans l'aperçu »).
+  // `pagesUrl` : le rendu serveur, en repli si le dessin échoue.
+  | { kind: "docx"; url: string; pagesUrl: string }
+  // Excel, CSV : les PAGES produites côté serveur (cf. document-pdf-service).
   | { kind: "pages"; url: string; prepareUrl: string }
   // `.doc` / `.xls` et formats sans convertisseur : la visionneuse demande le repli
   // (texte extrait) à l'action serveur existante.
@@ -58,6 +63,9 @@ export function prepareDocumentPages(versionId: string, originalFilename: string
 export function documentViewerSource(versionId: string, originalFilename: string): DocumentViewerSource {
   if (isPdfFile(originalFilename)) return { kind: "pdf", url: documentOriginalUrl(versionId) };
   if (isImageFile(originalFilename)) return { kind: "image", url: documentOriginalUrl(versionId) };
+  if (originalFilename.toLowerCase().endsWith(".docx")) {
+    return { kind: "docx", url: documentOriginalUrl(versionId), pagesUrl: documentPagesUrl(versionId) };
+  }
   if (canRenderDocumentPages(originalFilename)) {
     return { kind: "pages", url: documentPagesUrl(versionId), prepareUrl: documentPagesPrepareUrl(versionId) };
   }

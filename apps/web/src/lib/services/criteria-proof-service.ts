@@ -1,5 +1,6 @@
 import type { SupportMode } from "@eoda/database";
 import type { PillSpec } from "@/lib/design/status-vocabulary";
+import { isValidationCurrent } from "./document-workflow-service";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CRITÈRES & PREUVES — un critère est-il prouvé par les documents de la structure ?
@@ -31,6 +32,8 @@ export type ProofDocumentFacts = {
   versionUploadedAt: Date | null;
   validatedAt: Date | null;
   clientAcceptedAt: Date | null;
+  // Version courante déposée par EODA (et non par la structure) — cf. isValidationCurrent.
+  versionByCabinet?: boolean;
 };
 
 export function isDocumentDeposited(doc: ProofDocumentFacts): boolean {
@@ -40,8 +43,16 @@ export function isDocumentDeposited(doc: ProofDocumentFacts): boolean {
 export function isDocumentProven(doc: ProofDocumentFacts, mode: SupportMode): boolean {
   const uploadedAt = doc.versionUploadedAt;
   if (uploadedAt === null) return false;
-  const fact = mode === "ACCOMPAGNE" ? doc.validatedAt : doc.clientAcceptedAt;
-  return fact !== null && fact >= uploadedAt;
+  // Accompagné : la MÊME règle que le panneau du document (« Validé »), une seule
+  // fonction pour les deux écrans (21/10/2026).
+  if (mode === "ACCOMPAGNE") {
+    return isValidationCurrent({
+      validatedAt: doc.validatedAt,
+      versionUploadedAt: uploadedAt,
+      versionByCabinet: doc.versionByCabinet ?? false,
+    });
+  }
+  return doc.clientAcceptedAt !== null && doc.clientAcceptedAt >= uploadedAt;
 }
 
 export type CriterionProof = {
