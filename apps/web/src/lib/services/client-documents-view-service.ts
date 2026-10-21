@@ -348,7 +348,7 @@ export function describeWorkList(count: number): string {
 // l'hébergement actuel.
 export const DIPC_CODE = "L2002_DIPC";
 export const DIPC_BLANK_MODEL_NOTICE =
-  "Déposez le modèle vierge du DIPC, sans nom ni signature. N'envoyez jamais un DIPC signé par une personne accompagnée.";
+  "Déposez le modèle vierge personnalisé du DIPC, sans nom ni signature. N'envoyez jamais un DIPC signé par une personne accompagnée.";
 
 export function depositNoticeFor(code: string): string | null {
   return code === DIPC_CODE ? DIPC_BLANK_MODEL_NOTICE : null;

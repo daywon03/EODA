@@ -15,7 +15,7 @@ import {
   describeLoi2002Measure,
   toTimelinePhases,
 } from "@/lib/services/structure-sheet-service";
-import { flattenChecklist } from "@/lib/services/structure-documents-service";
+import { documentsHref, flattenChecklist } from "@/lib/services/structure-documents-service";
 import { structureHref } from "@/lib/design/structure-tabs";
 import { MeasureCard } from "@/components/ui/measure-card";
 import { PhaseTimeline } from "@/components/ui/phase-timeline";
@@ -56,17 +56,22 @@ export default async function StructureOverviewPage({ params }: Props) {
     : [];
 
   const documents = flattenChecklist(checklist);
+  // Chaque mesure mène à son détail (call du 18/10/2026).
   const measures = [
-    describeImperativesMeasure(proof.imperatives, proof.expectedImperatives),
-    ...chapters.map((c) =>
-      describeChapterMeasure({
+    { ...describeImperativesMeasure(proof.imperatives, proof.expectedImperatives), href: structureHref(id, "criteres") },
+    ...chapters.map((c) => ({
+      ...describeChapterMeasure({
         number: c.chapter.number,
         name: c.chapter.name,
         score: c.chapterScore,
         imperatifsAtRisk: c.imperatifsAtRisk.length,
-      })
-    ),
-    describeLoi2002Measure(checklist.LOI_2002_2 ?? []),
+      }),
+      href: `${structureHref(id, "evaluation")}/chapitre/${c.chapter.number}`,
+    })),
+    {
+      ...describeLoi2002Measure(checklist.LOI_2002_2 ?? []),
+      href: documentsHref(structureHref(id, "documents"), { bucket: "validated", category: "LOI_2002_2" }),
+    },
   ];
   const nextActions = deriveNextActions({ establishmentId: id, documents, appointments, now, tasks: tasks.items });
 
@@ -78,7 +83,7 @@ export default async function StructureOverviewPage({ params }: Props) {
         </h2>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {measures.map((m) => (
-            <MeasureCard key={m.label} label={m.label} value={m.value} percent={m.percent} note={m.note} />
+            <MeasureCard key={m.label} label={m.label} value={m.value} percent={m.percent} note={m.note} href={m.href} />
           ))}
         </div>
         <p className="mt-2.5 text-sm text-ink2">
