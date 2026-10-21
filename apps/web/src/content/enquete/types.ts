@@ -9,7 +9,18 @@ import type { SurveyChoice, SurveyTemplateCode } from "@/lib/hds/beneficiary-dat
 // ne demande jamais de migration.
 // ─────────────────────────────────────────────────────────────────────────────
 
-export type SurveyScaleCode = "FALC3" | "CRISE" | "SAT5" | "CONTROLE";
+export type SurveyScaleCode =
+  | "FALC3"
+  | "CRISE"
+  | "SAT5"
+  | "CONTROLE"
+  // v1.6 enrichie (21/10/2026) : droits de la personne (choix des aides, personne de
+  // confiance, accès au dossier, explication et accord).
+  | "OUI_EN_PARTIE"
+  | "OUI_PARFOIS"
+  | "OUI_NON"
+  | "PROCHE_EN_PARTIE"
+  | "PROCHE_PARFOIS";
 
 export type SurveyScaleOption = {
   choice: SurveyChoice;

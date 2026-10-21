@@ -13,8 +13,8 @@ import type { DemoPerson } from "./demo-data";
 // question par écran avec passage automatique, texte libre facultatif, merci. Les
 // questions sont CELLES du questionnaire versionné (content/enquete/).
 // DEUX questionnaires par personne (gabarit « Enquête de satisfaction » v1.0) : celui de
-// la personne accompagnée (FALC, 12 questions) et celui d'un proche ou de la famille
-// (14 questions). « Qui répond ? » choisit le questionnaire, et l'état affiché dans la
+// la personne accompagnée (FALC, 16 questions) et celui d'un proche ou de la famille
+// (19 questions). « Qui répond ? » choisit le questionnaire, et l'état affiché dans la
 // liste suit ce choix : la personne a pu répondre sans que la famille l'ait fait.
 type Props = { people: readonly DemoPerson[]; initialPersonId: string; onDone: (personId: string, who: SurveyTemplateCode) => void; onHome: () => void };
 type Answer = { choice?: SurveyChoice; text?: string };
@@ -34,7 +34,7 @@ export function DemoSurvey({ people, initialPersonId, onDone, onHome }: Props) {
   const question = template.questions[index]!;
   const total = template.questions.length;
   const isLast = index === total - 1;
-  // « 12 questions » et « 14 questions » sont les nombres ANNONCÉS par le gabarit de
+  // « 16 questions » et « 19 questions » sont les nombres ANNONCÉS par le gabarit de
   // Sandrine, et ce sont les questions cotées : les zones de texte libre (proposition
   // sur le règlement, message final) n'ont pas de numéro, comme sur le papier. Compter
   // tous les écrans annonçait 14 et 17, soit deux questionnaires qui ne ressemblaient

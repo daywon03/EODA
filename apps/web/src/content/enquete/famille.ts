@@ -1,8 +1,8 @@
 import type { SurveyTemplate } from "./types";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// QUESTIONNAIRE « FAMILLE ET PROCHES » — transcrit du gabarit d'enquête de Sandrine
-// (v1.0 du 30/09/2026, transcription V1.6 du rapport context2) : 14 questions,
+// QUESTIONNAIRE « FAMILLE ET PROCHES » — transcrit du gabarit d'enquête de Sandrine.
+// Version courante : la V1.6 enrichie remise par Damon le 21/10/2026 : 19 questions,
 // « Non concerné », avis libres, le lien avec la personne accompagnée, bloc RGPD. Le
 // nom de la structure du pilote est remplacé par « le service ». Le lien
 // (conjoint(e) / enfant / autre) est demandé facultatif comme sur le papier ; il
@@ -12,13 +12,23 @@ import type { SurveyTemplate } from "./types";
 const sat = (id: string, prompt: string, shortLabel: string, tag?: "REGLEMENT" | "PCA") =>
   ({ kind: "SCALE", id, scale: "SAT5", prompt, shortLabel, ...(tag ? { tag } : {}) }) as const;
 
+// Consigne du questionnaire, lue avant chacune des cinq questions « à votre
+// connaissance ».
+const PROCHE_HELP =
+  "Répondez selon ce que vous savez de l'accompagnement de votre proche. Si vous ne savez pas, choisissez « Je ne sais pas ».";
+const proche = (id: string, scale: "PROCHE_EN_PARTIE" | "PROCHE_PARFOIS", prompt: string, shortLabel: string) =>
+  ({ kind: "SCALE", id, scale, prompt, help: PROCHE_HELP, shortLabel }) as const;
+
 export const SURVEY_FAMILLE: SurveyTemplate = {
   code: "FAMILLE",
   // v2 (20/10/2026) : chapeau restauré du gabarit (anonymat possible, ce qui
   // fonctionne bien / ce qui peut être amélioré). Les questions sont inchangées.
   // v3 (20/10/2026) : le lien avec la personne accompagnée, présent sur le papier
   // juste après les avis libres, était absent du contenu.
-  version: 3,
+  // v4 (21/10/2026) : V1.6 enrichie — cinq questions « à votre connaissance » sur les
+  // droits du proche (personne de confiance, dossier, explication, accord, choix des
+  // aides), après l'information en cas de changement. Identifiants conservés.
+  version: 4,
   title: "Enquête de satisfaction — famille et proches",
   respondentLabel: "Un proche",
   // Le chapeau du gabarit dit trois choses, pas deux : l'anonymat possible, et les
@@ -37,6 +47,36 @@ export const SURVEY_FAMILLE: SurveyTemplate = {
       "f03-information-changement",
       "L'information reçue en cas de changement (horaire, intervenant, absence)",
       "Information en cas de changement"
+    ),
+    proche(
+      "f03b-personne-confiance",
+      "PROCHE_EN_PARTIE",
+      "À votre connaissance, le service a-t-il expliqué à votre proche qu'il peut désigner une personne de confiance ?",
+      "Personne de confiance expliquée au proche"
+    ),
+    proche(
+      "f03c-acces-dossier",
+      "PROCHE_EN_PARTIE",
+      "À votre connaissance, le service a-t-il expliqué à votre proche comment consulter les informations de son dossier concernant son accompagnement ?",
+      "Accès au dossier expliqué au proche"
+    ),
+    proche(
+      "f03d-explication",
+      "PROCHE_PARFOIS",
+      "À votre connaissance, les professionnels expliquent-ils à votre proche l'aide proposée pour qu'il puisse l'accepter ou la refuser ?",
+      "Aide proposée expliquée au proche"
+    ),
+    proche(
+      "f03e-accord",
+      "PROCHE_PARFOIS",
+      "À votre connaissance, les professionnels demandent-ils l'accord de votre proche avant de lui apporter leur aide ?",
+      "Accord du proche demandé avant d'aider"
+    ),
+    proche(
+      "f03f-choix-aides",
+      "PROCHE_EN_PARTIE",
+      "À votre connaissance, votre proche a-t-il choisi avec le service les aides à prévoir selon ses besoins et ses souhaits ?",
+      "Aides choisies avec le service"
     ),
     sat("f04-reactivite", "La rapidité de réponse en cas de problème ou de question", "Rapidité de réponse"),
     sat(
