@@ -774,6 +774,8 @@ export type CriterionOption = {
 export type CriterionGuidelineItem = {
   id: string;
   note: string;
+  // Prise en compte par l'IA (call du 18/10/2026) — le texte, lui, ne change jamais.
+  aiEnabled: boolean;
   createdAt: Date;
   createdByName: string;
 };
@@ -791,7 +793,8 @@ export async function listCriteriaForPicker(): Promise<CriterionOption[] | null>
 
 export async function addCriterionGuideline(
   criterionId: string,
-  note: string
+  note: string,
+  aiEnabled = true
 ): Promise<{ error: string } | null> {
   const validated = validateGuidelineNote(note);
   if (!validated.ok) return { error: validated.error };
@@ -802,7 +805,7 @@ export async function addCriterionGuideline(
   if (!criterion) return { error: "Critère invalide." };
 
   await prisma.criterionGuideline.create({
-    data: { tenantId, criterionId, note: validated.value, createdByUserId: userId },
+    data: { tenantId, criterionId, note: validated.value, aiEnabled: aiEnabled === true, createdByUserId: userId },
   });
 
   await recordAuditEvent({
@@ -830,9 +833,39 @@ export async function listCriterionGuidelines(
   return guidelines.map((g) => ({
     id: g.id,
     note: g.note,
+    aiEnabled: g.aiEnabled,
     createdAt: g.createdAt,
     createdByName: g.createdBy.name,
   }));
+}
+
+// « Oui ou non pris en compte par l'IA » : seul l'USAGE d'une guideline se bascule,
+// jamais son texte (append-only). Tenant de l'appelant obligatoire — une guideline
+// d'un autre cabinet répond notFound(), comme tout objet hors périmètre.
+export async function setCriterionGuidelineAiUse(
+  guidelineId: string,
+  aiEnabled: boolean
+): Promise<{ error: string } | null> {
+  const { tenantId, userId, session } = await requireCabinetSession("STRUCTURES_WRITE");
+  if (typeof guidelineId !== "string" || guidelineId.length === 0) return { error: "Guideline manquante." };
+
+  const guideline = await prisma.criterionGuideline.findFirst({
+    where: { id: guidelineId, tenantId },
+    select: { id: true, aiEnabled: true },
+  });
+  if (!guideline) notFound();
+  const enabled = aiEnabled === true;
+  if (guideline.aiEnabled === enabled) return null;
+
+  await prisma.criterionGuideline.update({ where: { id: guideline.id }, data: { aiEnabled: enabled } });
+  await recordAuditEvent({
+    action: "CRITERION_GUIDELINE_AI_TOGGLED",
+    actorUserId: userId,
+    actorRole: session.user.role,
+    targetId: guideline.id,
+    detail: enabled ? "oui" : "non",
+  });
+  return null;
 }
 
 // ── Validation d'un document ─────────────────────────────────────────────────

@@ -357,7 +357,7 @@ async function analyzeVersion(
 
     const [knowledgeExcerpts, criterionGuidelines, imageDescriptions, validatedExamples] = await Promise.all([
       fetchKnowledgeExcerpts(tenantId, params.documentTypeLabel, criteriaLabels),
-      fetchCriterionGuidelines(tenantId, criterionIds),
+      fetchCriterionGuidelines(tenantId, criterionIds, params.documentId),
       fetchImageDescriptions(params.documentVersionId),
       // Exemples validés du même type, du même tenant (N8, context/10 §9).
       readValidatedExamples(tenantId, params.documentTypeId),
@@ -526,15 +526,33 @@ export async function fetchKnowledgeExcerpts(
 // rend alors `[]` sans même interroger la base, exactement comme si aucune
 // guideline n'existait. Elle commencera à en rappeler dès que cette table sera
 // peuplée, sans qu'aucune ligne de ce fichier n'ait besoin de changer.
+//
+// Call du 18/10/2026 — « les commentaires doivent être pris en compte dans
+// l'analyse » : la matrice seule ne suffisait pas (vide pour la plupart des types),
+// un commentaire posé sur un critère que l'IA avait reconnu dans CE document n'était
+// jamais relu. Les critères du document lui-même (suggestions en attente ou
+// confirmées, jamais rejetées) s'ajoutent donc à ceux de la matrice quand
+// `documentId` est fourni. Seules les guidelines « prises en compte par l'IA »
+// (`aiEnabled`) entrent dans le prompt.
 export async function fetchCriterionGuidelines(
   tenantId: string | null,
-  criterionIds: string[]
+  criterionIds: string[],
+  documentId?: string | null
 ): Promise<string[]> {
-  if (!tenantId || criterionIds.length === 0) return [];
+  if (!tenantId) return [];
 
   try {
+    const fromDocument = documentId
+      ? await prisma.documentCriterionSuggestion.findMany({
+          where: { documentId, status: { not: "REJECTED" } },
+          select: { criterionId: true },
+        })
+      : [];
+    const ids = [...new Set([...criterionIds, ...fromDocument.map((s) => s.criterionId)])];
+    if (ids.length === 0) return [];
+
     const guidelines = await prisma.criterionGuideline.findMany({
-      where: { tenantId, criterionId: { in: criterionIds } },
+      where: { tenantId, aiEnabled: true, criterionId: { in: ids } },
       orderBy: { createdAt: "desc" },
       take: MAX_GUIDELINES_INJECTED,
       select: { note: true },

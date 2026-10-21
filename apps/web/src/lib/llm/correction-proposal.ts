@@ -125,23 +125,61 @@ function normalizeSpaces(text: string): string {
   return text.replace(/\s+/g, " ").trim().toLowerCase();
 }
 
+// Numéros de version et dates (call du 18/10/2026 : « l'IA ne doit jamais toucher
+// aux numéros de version »). Ils appartiennent à la structure et à son circuit de
+// validation : un « v3 » devenu « v4 », ou une date de mise à jour inventée, ferait
+// mentir le document le jour où l'évaluateur le lit.
+const MONTHS = "janvier|février|fevrier|mars|avril|mai|juin|juillet|août|aout|septembre|octobre|novembre|décembre|decembre";
+const VERSION_OR_DATE = new RegExp(
+  [
+    String.raw`\bv(?:ersion)?\s?\d+(?:[.,]\d+)*\b`,
+    String.raw`\b\d{1,2}([/-])\d{1,2}\1\d{2,4}\b`,
+    // Point comme séparateur : année sur quatre chiffres seulement — sinon un code
+    // de critère HAS (« 1.10.12 ») passerait pour une date.
+    String.raw`\b\d{1,2}\.\d{1,2}\.\d{4}\b`,
+    String.raw`\b\d{4}-\d{2}-\d{2}\b`,
+    String.raw`\b\d{1,2}(?:er)?\s+(?:${MONTHS})\s+\d{4}\b`,
+  ].join("|"),
+  "gi"
+);
+export const VERSION_OR_DATE_PLACEHOLDER = "[À compléter : version ou date]";
+
+// Toute version ou date du texte qui n'existe pas dans la SOURCE (le document
+// d'origine, plus les extraits du manuel fournis) est remplacée par un champ à
+// compléter : le modèle ne peut ni en changer une ni en inventer une. Une date qui
+// figure déjà dans la source (une loi citée, la date du document) passe telle quelle.
+export function protectVersionsAndDates(text: string, normalizedSource: string): string {
+  return text.replace(VERSION_OR_DATE, (match) =>
+    normalizedSource.includes(normalizeSpaces(match)) ? match : VERSION_OR_DATE_PLACEHOLDER
+  );
+}
+
 // Ce que le modèle ne peut pas prouver est retiré, jamais deviné : un code de
 // critère hors référentiel devient « critère à identifier », une citation absente
-// des extraits du manuel fournis disparaît.
+// des extraits du manuel fournis disparaît, une version ou une date absente de la
+// source devient un champ à compléter (segments ORIGINAL compris : le modèle les
+// recopie, il pourrait les « corriger »).
 export function sanitizeProposal(
   proposal: CorrectionProposal,
-  context: { knownCriterionCodes: ReadonlySet<string>; knowledgeExcerpts: readonly string[] }
+  context: {
+    knownCriterionCodes: ReadonlySet<string>;
+    knowledgeExcerpts: readonly string[];
+    // Texte du document d'origine, tel qu'envoyé au modèle.
+    originalText: string;
+  }
 ): CorrectionProposal {
   const corpus = normalizeSpaces(context.knowledgeExcerpts.join("\n"));
+  const source = `${normalizeSpaces(context.originalText)}\n${corpus}`;
   return {
     ...proposal,
     segments: proposal.segments.map((segment) => {
-      if (segment.kind !== "AJOUT") return segment;
+      const text = protectVersionsAndDates(segment.text, source);
+      if (segment.kind !== "AJOUT") return { ...segment, text };
       const criterionCode =
         segment.criterionCode && context.knownCriterionCodes.has(segment.criterionCode) ? segment.criterionCode : null;
       const quote = segment.manualQuote ? normalizeSpaces(segment.manualQuote) : "";
       const manualQuote = quote.length > 0 && corpus.includes(quote) ? segment.manualQuote : null;
-      return { ...segment, criterionCode, manualQuote };
+      return { ...segment, text, criterionCode, manualQuote };
     }),
   };
 }

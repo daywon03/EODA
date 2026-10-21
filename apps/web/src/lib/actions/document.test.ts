@@ -14,6 +14,7 @@ const prismaMock = {
   document: { upsert: vi.fn(), findUnique: vi.fn(), update: vi.fn() },
   documentVersion: { findUnique: vi.fn(), update: vi.fn() },
   establishment: { findUnique: vi.fn() },
+  criterionGuideline: { findFirst: vi.fn(), update: vi.fn() },
   // La transaction rejoue le rappel sur les mêmes doubles : ce qui compte est ce
   // qu'elle écrit.
   $transaction: vi.fn(async (callback: (tx: unknown) => Promise<unknown>) => callback(prismaMock)),
@@ -29,11 +30,18 @@ const recordAuditEvent = vi.fn();
 const extractMarkdown = vi.fn();
 const suggestDocumentType = vi.fn();
 const requireEstablishmentAccess = vi.fn();
+const requireCabinetSession = vi.fn();
 
 vi.mock("@eoda/database", () => ({ prisma: prismaMock }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
+vi.mock("next/navigation", () => ({
+  notFound: () => {
+    throw new Error("NEXT_NOT_FOUND");
+  },
+}));
 vi.mock("@/lib/auth/guards", () => ({
   requireEstablishmentAccess: (...args: [string]) => requireEstablishmentAccess(...args),
+  requireCabinetSession: (...args: unknown[]) => requireCabinetSession(...args),
   tryEstablishmentAccess: vi.fn(),
 }));
 vi.mock("@/lib/services/text-extraction-service", () => ({
@@ -65,8 +73,40 @@ vi.mock("@/lib/email/notifications", () => ({
   notifyStructureActivity: (...args: unknown[]) => notifyStructureActivity(...args),
 }));
 
-const { uploadDocument, respondToMissingDocument, generateDocumentDraft, setDocumentValidated } =
+const { uploadDocument, respondToMissingDocument, generateDocumentDraft, setDocumentValidated, setCriterionGuidelineAiUse } =
   await import("./document");
+
+// « Pouvoir oui ou non le faire prendre en compte par l'IA » (call du 18/10/2026).
+describe("setCriterionGuidelineAiUse", () => {
+  beforeEach(() => {
+    requireCabinetSession.mockResolvedValue({ tenantId: "tenant-1", userId: "u-cab", session: { user: { role: "CABINET_ADMIN" } } });
+  });
+
+  it("cherche la guideline DANS le cabinet de l'appelant, sinon notFound", async () => {
+    prismaMock.criterionGuideline.findFirst.mockResolvedValue(null);
+    await expect(setCriterionGuidelineAiUse("g-autre", false)).rejects.toThrow("NEXT_NOT_FOUND");
+    expect(prismaMock.criterionGuideline.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: "g-autre", tenantId: "tenant-1" } })
+    );
+    expect(prismaMock.criterionGuideline.update).not.toHaveBeenCalled();
+  });
+
+  it("bascule l'usage seul, jamais le texte, et le journalise", async () => {
+    prismaMock.criterionGuideline.findFirst.mockResolvedValue({ id: "g-1", aiEnabled: true });
+    expect(await setCriterionGuidelineAiUse("g-1", false)).toBeNull();
+    expect(prismaMock.criterionGuideline.update).toHaveBeenCalledWith({ where: { id: "g-1" }, data: { aiEnabled: false } });
+    expect(recordAuditEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ action: "CRITERION_GUIDELINE_AI_TOGGLED", targetId: "g-1", detail: "non" })
+    );
+  });
+
+  it("n'écrit rien quand l'état demandé est déjà le bon", async () => {
+    prismaMock.criterionGuideline.findFirst.mockResolvedValue({ id: "g-1", aiEnabled: true });
+    expect(await setCriterionGuidelineAiUse("g-1", true)).toBeNull();
+    expect(prismaMock.criterionGuideline.update).not.toHaveBeenCalled();
+    expect(recordAuditEvent).not.toHaveBeenCalled();
+  });
+});
 
 const ESTABLISHMENT_ID = "etab-1";
 

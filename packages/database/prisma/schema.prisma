@@ -740,6 +740,10 @@ model CriterionGuideline {
   tenantId        String   @map("tenant_id")
   criterionId     String   @map("criterion_id")
   note            String
+  // « Pouvoir oui ou non le faire prendre en compte par l'IA » (call du 18/10/2026).
+  // Le TEXTE reste append-only ; seul l'usage se bascule, et chaque bascule se
+  // journalise (CRITERION_GUIDELINE_AI_TOGGLED). Une guideline retirée reste lisible.
+  aiEnabled       Boolean  @default(true) @map("ai_enabled")
   createdByUserId String   @map("created_by_user_id")
   createdAt       DateTime @default(now()) @map("created_at")
 
@@ -1740,6 +1744,9 @@ enum AuditAction {
   // connaissances qui apprend des erreurs constatées). `targetId` = identifiant du
   // critère, jamais le contenu de la guideline.
   CRITERION_GUIDELINE_ADDED
+  // Guideline mise en service ou retirée de l'analyse IA (call du 18/10/2026).
+  // `targetId` = identifiant de la guideline ; `detail` = « oui » / « non ».
+  CRITERION_GUIDELINE_AI_TOGGLED
   // Ré-analyse à la demande d'une version déjà déposée (bouton « Analyser » côté
   // cabinet, 15/09/2026) — `targetId` = identifiant de la version de document.
   DOCUMENT_REANALYZED

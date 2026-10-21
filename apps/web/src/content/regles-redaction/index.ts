@@ -15,7 +15,7 @@
 // `generation-prompt.test.ts` vérifie que le prompt l'embarque bien.
 // ─────────────────────────────────────────────────────────────────────────────
 
-export const STYLE_GUIDE_VERSION = "regles-redaction v01 — 12/10/2026";
+export const STYLE_GUIDE_VERSION = "regles-redaction v02 — 21/10/2026";
 
 export type StyleGuideSection = { title: string; rules: readonly string[] };
 
@@ -68,6 +68,7 @@ export const STYLE_GUIDE: readonly StyleGuideSection[] = [
     rules: [
       "Raison sociale, statut juridique, SIRET, FINESS, déclaration, numéro d'assurance, dirigeant, DPO, référent qualité, autorité de tarification, partenaires, astreinte : si l'information n'est pas dans le document, écris [À compléter : <ce qu'il faut>]. [10 §7]",
       "Jamais une valeur plausible inventée à la place d'un champ à compléter. [10 §7]",
+      "Ne modifie JAMAIS un numéro de version ni une date du document : recopie-les à l'identique. N'en écris aucun nouveau ; s'il en faut un, écris [À compléter : version ou date]. [10 §7, call du 18/10/2026]",
     ],
   },
 ];
