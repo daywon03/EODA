@@ -2,6 +2,7 @@
 
 import { useRef, useState, useTransition } from "react";
 import { uploadDocument } from "@/lib/actions/document";
+import { prepareDocumentPages } from "@/lib/services/document-viewer-service";
 import { LLM_MODEL_OPTIONS, DEFAULT_LLM_MODEL_ID } from "@/lib/llm/openrouter-models";
 import { Button } from "@/components/ui/button";
 import { Loader2, Upload, AlertCircle } from "lucide-react";
@@ -40,6 +41,9 @@ export function DocumentUploadButton({
     startTransition(async () => {
       const result = await uploadDocument(formData);
       if ("error" in result) setError(result.error);
+      // Les pages de l'aperçu se préparent dès le dépôt : le premier « voir » tombe
+      // sur le cache au lieu d'un lancement de Chromium.
+      else prepareDocumentPages(result.documentVersionId, file.name);
       if (inputRef.current) inputRef.current.value = "";
     });
   }

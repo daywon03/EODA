@@ -27,7 +27,7 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { DocumentReminderForm } from "@/components/etablissement/DocumentReminderForm";
-import { UrlSheet } from "@/components/structure/UrlSheet";
+import { DocumentWorkspace, type WorkspaceEntry } from "@/components/structure/DocumentWorkspace";
 import { DocumentSheetBody } from "@/components/structure/DocumentSheetBody";
 
 export const metadata = { title: "Documents" };
@@ -98,7 +98,35 @@ export default async function StructureDocumentsPage({ params, searchParams }: P
   const reminderCount = selectReminderLabels(allRows).length;
   const categories = Object.keys(DOCUMENT_CATEGORY_LABELS) as DocumentCategory[];
 
+  // Ce que la visionneuse doit savoir AVANT la réponse du serveur : un intitulé et la
+  // version à afficher. Rien de plus — le détail arrive avec le rendu serveur.
+  const entries: Record<string, WorkspaceEntry> = Object.fromEntries(
+    allRows.map((row) => [
+      row.documentTypeId,
+      {
+        title: row.label,
+        versionId: row.currentVersion?.id ?? null,
+        originalFilename: row.currentVersion?.originalFilename ?? null,
+      },
+    ])
+  );
+
   return (
+    <DocumentWorkspace
+      entries={entries}
+      serverOpenedId={opened?.documentTypeId ?? null}
+      closeHref={documentsHref(basePath, filters)}
+      panel={
+        opened ? (
+          <DocumentSheetBody
+            item={opened}
+            categoryLabel={DOCUMENT_CATEGORY_LABELS[opened.category]}
+            establishmentId={id}
+            canEditScope={hasCabinetCapability(role, "CABINET_SETTINGS")}
+          />
+        ) : null
+      }
+    >
     <div className="space-y-4">
       <h2 className="sr-only">Documents</h2>
       <TabsNav
@@ -150,12 +178,7 @@ export default async function StructureDocumentsPage({ params, searchParams }: P
         rowHref={(row) => documentsHref(basePath, { ...filters, doc: row.documentTypeId })}
         emptyMessage="Rien dans cette liste. Les documents apparaissent ici dès que leur état change."
       />
-
-      {opened && (
-        <UrlSheet title={opened.label} closeHref={documentsHref(basePath, filters)}>
-          <DocumentSheetBody item={opened} categoryLabel={DOCUMENT_CATEGORY_LABELS[opened.category]} establishmentId={id} canEditScope={hasCabinetCapability(role, "CABINET_SETTINGS")} />
-        </UrlSheet>
-      )}
     </div>
+    </DocumentWorkspace>
   );
 }

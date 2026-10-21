@@ -28,6 +28,21 @@ export function isReviewedByEoda(facts: {
   return facts.validatedAt !== null && facts.validatedAt >= facts.versionUploadedAt;
 }
 
+// Les versions qu'une STRUCTURE peut ouvrir dans « Mes documents » (21/10/2026 —
+// retour de Damon : « il faut qu'il puisse voir les documents faits pour eux par EODA
+// ou qu'eux ont mis, et pas que dans Mes livrables »). Ses propres dépôts, toujours.
+// Une version produite par EODA, seulement une fois le document VALIDÉ après elle :
+// avant, c'est un travail en cours, et le montrer serait promettre à la place de la
+// consultante (même règle que l'annonce à la validation et que les livrables).
+export function versionsVisibleToClient<T extends { producedByCabinet: boolean; uploadedAt: Date }>(
+  versions: readonly T[],
+  validatedAt: Date | null
+): T[] {
+  return versions.filter(
+    (version) => !version.producedByCabinet || (validatedAt !== null && validatedAt >= version.uploadedAt)
+  );
+}
+
 // Une acceptation vaut pour la version courante au moment du geste : une version
 // déposée ensuite la rend caduque — dérivé, jamais remis à zéro en base.
 export function isAcceptanceCurrent(facts: {

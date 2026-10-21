@@ -132,7 +132,7 @@ describe("uploadDocument — périmètre de l'offre", () => {
 
     const result = await uploadDocument(uploadForm(LOI_TYPE.id));
 
-    expect(result).toEqual({ success: true, documentTypeId: LOI_TYPE.id });
+    expect(result).toEqual({ success: true, documentTypeId: LOI_TYPE.id, documentVersionId: "dv-1" });
     expect(ingestDocumentVersion).toHaveBeenCalledTimes(1);
   });
 
@@ -156,7 +156,7 @@ describe("uploadDocument — périmètre de l'offre", () => {
 
     const result = await uploadDocument(uploadForm(RH_TYPE.id));
 
-    expect(result).toEqual({ success: true, documentTypeId: RH_TYPE.id });
+    expect(result).toEqual({ success: true, documentTypeId: RH_TYPE.id, documentVersionId: "dv-1" });
     expect(ingestDocumentVersion).toHaveBeenCalledTimes(1);
   });
 
@@ -167,6 +167,7 @@ describe("uploadDocument — périmètre de l'offre", () => {
     await expect(uploadDocument(uploadForm(RH_TYPE.id))).resolves.toEqual({
       success: true,
       documentTypeId: RH_TYPE.id,
+      documentVersionId: "dv-1",
     });
   });
 

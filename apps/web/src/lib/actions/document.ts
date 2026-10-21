@@ -67,7 +67,9 @@ const OUT_OF_OFFER_ERROR =
 export type DocumentTypeCandidate = { id: string; label: string; category: string };
 
 export type UploadDocumentResult =
-  | { success: true; documentTypeId: string }
+  // `documentVersionId` : l'écran qui vient de déposer prépare aussitôt les pages de
+  // l'aperçu (`?prepare=1`), pour que le premier « voir » tombe sur le cache.
+  | { success: true; documentTypeId: string; documentVersionId: string }
   | { error: string; needsManualType?: true; candidates?: DocumentTypeCandidate[] };
 
 function revalidateDocumentViews(establishmentId: string): void {
@@ -211,7 +213,7 @@ export async function uploadDocument(formData: FormData): Promise<UploadDocument
     });
   }
 
-  return { success: true, documentTypeId: documentType.id };
+  return { success: true, documentTypeId: documentType.id, documentVersionId: result.documentVersionId };
 }
 
 // Réponse sur un document pas encore déposé (missing-answer-service, N3) :

@@ -18,6 +18,7 @@ import {
   isSettledForClient,
   parseClientDocumentFilter,
   toClientDocumentRow,
+  versionsVisibleToClient,
   type ClientDocumentFacts,
   type ClientDocumentRow,
 } from "./client-documents-view-service";
@@ -25,6 +26,24 @@ import {
 const UPLOADED = new Date("2026-10-01T10:00:00Z");
 const BEFORE = new Date("2026-09-20T10:00:00Z");
 const AFTER = new Date("2026-10-02T10:00:00Z");
+
+describe("versionsVisibleToClient — ce que la structure peut ouvrir", () => {
+  const clientVersion = { id: "c", producedByCabinet: false, uploadedAt: BEFORE };
+  const eodaVersion = { id: "e", producedByCabinet: true, uploadedAt: UPLOADED };
+
+  it("montre toujours les dépôts de la structure", () => {
+    expect(versionsVisibleToClient([clientVersion], null).map((v) => v.id)).toEqual(["c"]);
+  });
+
+  it("cache une version d'EODA tant que le document n'est pas validé après elle", () => {
+    expect(versionsVisibleToClient([eodaVersion, clientVersion], null).map((v) => v.id)).toEqual(["c"]);
+    expect(versionsVisibleToClient([eodaVersion, clientVersion], BEFORE).map((v) => v.id)).toEqual(["c"]);
+  });
+
+  it("montre la version d'EODA dès que le document est validé", () => {
+    expect(versionsVisibleToClient([eodaVersion, clientVersion], AFTER).map((v) => v.id)).toEqual(["e", "c"]);
+  });
+});
 
 describe("isReviewedByEoda", () => {
   it("vrai sur une analyse relue", () => {
