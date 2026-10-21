@@ -126,6 +126,37 @@ export function countImperativesInProgress(rows: readonly Pick<CriterionProofRow
   return rows.filter((r) => r.isImperative && r.status === "EN_PARTIE").length;
 }
 
+// ── Le détail des preuves d'un critère (21/10/2026) ──────────────────────────
+// « Savoir quels documents ont été mis comme preuve » : un critère liste chacun de
+// ses documents attendus avec SON état, par la même règle que le statut du critère
+// (isDocumentProven) — jamais un second calcul.
+export type EvidenceState = "PROUVEE" | "A_RELIRE" | "ABSENTE";
+
+export type EvidenceItem = { documentTypeId: string; label: string; state: EvidenceState };
+
+export function describeEvidence(
+  expectedDocumentTypeIds: readonly string[],
+  documentsByType: ReadonlyMap<string, ProofDocumentFacts>,
+  labels: ReadonlyMap<string, string>,
+  mode: SupportMode
+): EvidenceItem[] {
+  const order: Record<EvidenceState, number> = { A_RELIRE: 0, ABSENTE: 1, PROUVEE: 2 };
+  return [...new Set(expectedDocumentTypeIds)]
+    .map((documentTypeId): EvidenceItem => {
+      const doc = documentsByType.get(documentTypeId);
+      const state: EvidenceState = !doc || !isDocumentDeposited(doc) ? "ABSENTE" : isDocumentProven(doc, mode) ? "PROUVEE" : "A_RELIRE";
+      return { documentTypeId, label: labels.get(documentTypeId) ?? "Document", state };
+    })
+    // Ce qui reste à faire d'abord : à relire, puis à déposer, puis ce qui est acquis.
+    .sort((a, b) => order[a.state] - order[b.state] || a.label.localeCompare(b.label, "fr"));
+}
+
+export const EVIDENCE_PILLS: Record<EvidenceState, PillSpec> = {
+  PROUVEE: { tone: "ok", label: "Prouvée", glyph: "✓" },
+  A_RELIRE: { tone: "progress", label: "Déposée, pas encore relue", glyph: "◐" },
+  ABSENTE: { tone: "fix", label: "Pas déposée", glyph: "○" },
+};
+
 export type ProofFilter = "TOUS" | "IMPERATIFS";
 
 export function parseProofFilter(raw: string | string[] | undefined): ProofFilter {

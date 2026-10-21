@@ -4,6 +4,7 @@ import {
   buildCriteriaProofRows,
   compareCriterionCodes,
   countImperativesProven,
+  describeEvidence,
   countImperativesInProgress,
   deriveCriterionProof,
   describeImperativesProof,
@@ -130,5 +131,28 @@ describe("profil SAD aide / SAD mixte", () => {
         { isImperative: true, status: "SANS_PREUVE" },
       ])
     ).toBe(1);
+  });
+});
+
+describe("describeEvidence — les preuves d'un critère, une par une (21/10/2026)", () => {
+  const at = (iso: string) => new Date(iso);
+  const docs = new Map([
+    ["t-dipc", { documentTypeId: "t-dipc", versionUploadedAt: at("2026-10-01"), validatedAt: at("2026-10-07"), clientAcceptedAt: null }],
+    ["t-livret", { documentTypeId: "t-livret", versionUploadedAt: at("2026-10-18"), validatedAt: at("2026-10-07"), clientAcceptedAt: null }],
+  ]);
+  const labels = new Map([["t-dipc", "DIPC"], ["t-livret", "Livret d'accueil"], ["t-cvs", "Comptes-rendus CVS"]]);
+
+  it("même règle que le statut : une version déposée après la relecture n'est plus prouvée", () => {
+    expect(describeEvidence(["t-dipc", "t-livret", "t-cvs", "t-dipc"], docs, labels, "ACCOMPAGNE")).toEqual([
+      { documentTypeId: "t-livret", label: "Livret d'accueil", state: "A_RELIRE" },
+      { documentTypeId: "t-cvs", label: "Comptes-rendus CVS", state: "ABSENTE" },
+      { documentTypeId: "t-dipc", label: "DIPC", state: "PROUVEE" },
+    ]);
+  });
+
+  it("en autonomie, seule l'acceptation de la structure compte", () => {
+    expect(describeEvidence(["t-dipc"], docs, labels, "AUTONOMIE")).toEqual([
+      { documentTypeId: "t-dipc", label: "DIPC", state: "A_RELIRE" },
+    ]);
   });
 });
