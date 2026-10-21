@@ -34,6 +34,7 @@ vérifie** — sinon elle n'existe pas.
 | Aucun secret commité | `gitleaks` en pre-commit **et** en CI (historique complet) | `.githooks/pre-commit` + `.github/workflows/ci.yml` |
 | Hooks installés par le dépôt | `git config core.hooksPath .githooks` posé par le `postinstall` | `package.json` |
 | Manifeste de migrations à jour | test qui compare `EXPECTED_MIGRATIONS` au dossier `prisma/migrations` | `apps/web/src/lib/db/migration-manifest.test.ts` |
+| Une migration écrite à la main vise une table qui existe | test qui lit chaque `migration.sql` (commentaires retirés) et **échoue** sur une table citée (UPDATE, INSERT, ALTER, FROM, JOIN, REFERENCES) absente des `@@map` du schéma et des tables créées par les migrations — le 21/10/2026, `"DocumentType"` au lieu de `"document_types"` a bloqué toutes les migrations suivantes (P3009) sur la base partagée | `apps/web/src/lib/db/migration-table-names.test.ts` |
 | Clés étrangères indexées (convention `P6`) | test qui lit le schéma et **échoue** sur toute relation sans index, liste d'exceptions figée | `apps/web/src/lib/db/foreign-key-indexes.test.ts` |
 | Matrice des rôles cabinet appliquée par les gardes (N9) | matrice testée case par case, chaque garde × chaque rôle testée, commercial gardé export par export | `lib/auth/capabilities.test.ts`, `guards-roles.test.ts`, `commercial-pages-guard.test.ts` |
 | La lecture seule n'écrit rien | test qui **échoue** si une action gardée en lecture contient une écriture Prisma | `apps/web/src/lib/auth/read-guards-never-write.test.ts` |

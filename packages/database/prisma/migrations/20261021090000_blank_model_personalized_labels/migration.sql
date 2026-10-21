@@ -1,7 +1,8 @@
 -- Call du 18/10/2026 : « modèle vierge » devient « modèle vierge personnalisé » —
 -- le gabarit remis à la structure est celui qu'EODA a adapté pour elle, pas un
 -- formulaire générique. Libellés seulement : les codes ne changent pas.
-UPDATE "DocumentType"
+-- (Table « document_types » : @@map du modèle DocumentType.)
+UPDATE "document_types"
 SET "label" = "label" || ' personnalisé'
 WHERE "code" IN (
   'FONCT_PAP_GABARIT',
