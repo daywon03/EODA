@@ -70,7 +70,7 @@ export function parseAnonymousAnswers(template: SurveyTemplate, raw: unknown): P
   const value: AnonymousAnswer[] = [];
   for (const question of questions) {
     const option = SURVEY_SCALES[question.scale].options.find((o) => o.choice === entries[question.id]);
-    if (!option) return { ok: false, error: "Répondez à chaque question (« Ne se prononce pas » est une réponse)." };
+    if (!option) return { ok: false, error: "Répondez à chaque question (« Je ne sais pas » est une réponse)." };
     value.push({ questionId: question.id, choice: option.choice });
   }
   return { ok: true, value };

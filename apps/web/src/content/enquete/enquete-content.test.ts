@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   ACTION_PROPOSAL_THRESHOLD,
   findSurveyTemplate,
+  missingAnswerHint,
   SATISFACTION_GRADES,
   scaleOptions,
   SURVEY_SCALES,
@@ -19,43 +20,54 @@ const scaleCount = (code: "PERSONNE" | "FAMILLE") =>
   surveyTemplateFor(code).questions.filter((q) => q.kind === "SCALE").length;
 
 describe("questionnaires", () => {
-  it("16 questions côté personne, 19 côté famille (hors textes libres) — V1.6 enrichie du 21/10", () => {
-    expect(scaleCount("PERSONNE")).toBe(16);
-    expect(scaleCount("FAMILLE")).toBe(19);
+  it("27 questions cotées côté personne, 28 côté famille — version du 21/10/2026", () => {
+    expect(scaleCount("PERSONNE")).toBe(27);
+    expect(scaleCount("FAMILLE")).toBe(28);
   });
 
-  it("suit la numérotation du questionnaire papier V1.6 enrichie", () => {
-    const scaleIds = (code: "PERSONNE" | "FAMILLE") =>
-      surveyTemplateFor(code).questions.filter((q) => q.kind === "SCALE").map((q) => q.id);
-    // Personne : 4 à 8 = droits (choix des aides … accord), 12 = règlement, 16 = global.
-    const personne = scaleIds("PERSONNE");
-    expect(personne.slice(3, 8)).toEqual([
-      "p04-choix-aides",
-      "p04b-personne-confiance",
-      "p04c-acces-dossier",
-      "p04d-explication",
-      "p04e-accord",
+  it("porte le numéro du papier, dans l'ordre du papier (sous-questions lettrées comprises)", () => {
+    const numbers = (code: "PERSONNE" | "FAMILLE") =>
+      surveyTemplateFor(code).questions.flatMap((q) => (q.kind === "CHOICE" || !q.number ? [] : [q.number]));
+    expect(numbers("PERSONNE")).toEqual([
+      "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "12 A",
+      "13 A", "13 B", "13 C", "13 D", "14", "15", "16",
+      "17 A", "17 B", "17 C", "17 D", "17 E", "17 F", "17 G", "18",
     ]);
-    expect(personne[11]).toBe("p08-reglement");
-    expect(personne[15]).toBe("p12-global");
-    expect(personne).not.toContain("p04-avis");
-    // Famille : 4 à 8 = « à votre connaissance », 18 = règlement, 19 = global.
-    const famille = scaleIds("FAMILLE");
-    expect(famille[3]).toBe("f03b-personne-confiance");
-    expect(famille[7]).toBe("f03f-choix-aides");
-    expect(famille[17]).toBe("f13-reglement");
-    expect(famille[18]).toBe("f14-global");
+    expect(numbers("FAMILLE")).toEqual([
+      "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "11 A", "12", "13", "14", "15", "16", "17", "18",
+      "18 A", "18 B", "18 C", "18 D", "18 E", "18 F", "18 G", "18 H", "19",
+    ]);
   });
 
-  it("garde « Je ne sais plus » côté personne et « Je ne sais pas » côté proches, hors calcul", () => {
+  it("garde les réponses écrites sur le papier, question par question", () => {
     const labels = (code: keyof typeof SURVEY_SCALES) => SURVEY_SCALES[code].options.map((o) => o.label);
-    expect(labels("OUI_EN_PARTIE")).toEqual(["Oui", "En partie", "Non", "Je ne sais plus"]);
-    expect(labels("OUI_PARFOIS")).toEqual(["Oui", "Parfois", "Non", "Je ne sais plus"]);
-    expect(labels("OUI_NON")).toEqual(["Oui", "Non", "Je ne sais plus"]);
-    expect(labels("PROCHE_EN_PARTIE")).toEqual(["Oui", "En partie", "Non", "Je ne sais pas"]);
-    expect(labels("PROCHE_PARFOIS")).toEqual(["Oui", "Parfois", "Non", "Je ne sais pas"]);
-    for (const code of ["OUI_EN_PARTIE", "OUI_PARFOIS", "OUI_NON", "PROCHE_EN_PARTIE", "PROCHE_PARFOIS"] as const) {
-      expect(SURVEY_SCALES[code].options.find((o) => o.choice === "NSP")?.weight).toBeNull();
+    // 15 : plus de « Un peu » (remarque de Sandrine au test tablette du 21/10).
+    expect(labels("CRISE")).toEqual(["Oui", "Non", "Je ne sais pas", "Cela ne m'est pas arrivé"]);
+    expect(labels("CHAQUE_FOIS_PARFOIS_JAMAIS")).toEqual(["Oui, à chaque fois", "Parfois", "Non, jamais", "Je ne sais pas"]);
+    expect(labels("REPONSE_REMARQUE")).toEqual(["Oui", "Non", "Je n'ai jamais fait de remarque"]);
+    expect(labels("CONTROLE")).toEqual(["Oui", "Non", "Je ne sais pas"]);
+  });
+
+  it("exclut du calcul « Je ne sais pas » et les réponses « pas concerné(e) », et ne note pas un besoin", () => {
+    for (const scale of Object.values(SURVEY_SCALES)) {
+      for (const option of scale.options) {
+        if (option.choice === "NSP" || option.choice === "NON_CONCERNE") expect(option.weight).toBeNull();
+      }
+    }
+    // « Avez-vous besoin d'aide pour participer à la vie de votre ville ? » : un besoin.
+    expect(SURVEY_SCALES.BESOIN_AIDE_VIE_SOCIALE.options.every((o) => o.weight === null)).toBe(true);
+  });
+
+  it("le message « pas de réponse » ne propose que le « je ne sais pas » de la question", () => {
+    expect(missingAnswerHint(SURVEY_SCALES.REPONSE_REMARQUE.options)).toBe("Choisissez une réponse.");
+    expect(missingAnswerHint(SURVEY_SCALES.CRISE.options)).toBe("Choisissez une réponse. « Je ne sais pas » en est une.");
+    expect(missingAnswerHint(SURVEY_SCALES.FALC3.options)).toBe("Choisissez une réponse. « Ne se prononce pas » en est une.");
+  });
+
+  it("chaque échelle a des choix distincts (une réponse = un choix stocké)", () => {
+    for (const scale of Object.values(SURVEY_SCALES)) {
+      const choices = scale.options.map((o) => o.choice);
+      expect(new Set(choices).size).toBe(choices.length);
     }
   });
 
@@ -83,7 +95,7 @@ describe("questionnaires", () => {
 
   // Le gabarit famille demande, après les avis libres, « Votre lien avec la personne
   // accompagnée (facultatif) : ☐ conjoint(e) ☐ enfant ☐ autre : .... ». Il ne compte
-  // ni dans les 19 questions cotées, ni dans les taux.
+  // ni dans les questions cotées, ni dans les taux.
   it("demande le lien avec la personne accompagnée, facultatif et hors taux (gabarit famille)", () => {
     const choices = SURVEY_FAMILLE.questions.filter((q) => q.kind === "CHOICE");
     expect(choices).toHaveLength(1);
@@ -93,7 +105,7 @@ describe("questionnaires", () => {
       otherOption: "Autre",
     });
     expect(SURVEY_PERSONNE.questions.filter((q) => q.kind === "CHOICE")).toHaveLength(0);
-    expect(scaleCount("FAMILLE")).toBe(19);
+    expect(scaleCount("FAMILLE")).toBe(28);
   });
 
   it("propose « Non concerné » sur l'échelle famille et l'exclut du calcul", () => {
@@ -110,7 +122,7 @@ describe("questionnaires", () => {
     expect(findSurveyTemplate("FAMILLE")?.code).toBe("FAMILLE");
     expect(findSurveyTemplate("AUTRE")).toBeNull();
     const first = surveyTemplateFor("PERSONNE").questions[0]!;
-    if (first.kind === "SCALE") expect(scaleOptions(first)).toBe(SURVEY_SCALES.FALC3.options);
+    if (first.kind === "SCALE") expect(scaleOptions(first)).toBe(SURVEY_SCALES[first.scale].options);
   });
 });
 
