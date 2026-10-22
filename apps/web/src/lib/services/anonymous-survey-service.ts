@@ -25,6 +25,13 @@ export const MAX_ANONYMOUS_SURVEY_LINKS = 100;
 export const ANONYMOUS_SURVEY_NOTICE =
   "Cette enquête est anonyme. On ne vous demande pas votre nom, et vos réponses ne sont reliées ni à vous ni à votre dossier. Il n'y a rien à écrire : vous choisissez une réponse à chaque question. Les réponses servent seulement à améliorer le service, en comptant toutes les réponses ensemble.";
 
+// Quand la personne a été choisie dans la liste de la tablette (22/10/2026) : son nom
+// sert à cocher « fait » sur la tablette, jamais à relier ses réponses. L'enquête
+// n'est plus « anonyme » pour l'intervenant qui la fait passer — elle reste
+// confidentielle. Texte PROVISOIRE, à valider par Sandrine.
+export const LISTED_SURVEY_NOTICE =
+  "Votre nom sert seulement à noter, sur cette tablette, que vous avez répondu. Vos réponses ne sont jamais reliées à votre nom : personne ne pourra savoir ce que vous avez répondu. Il n'y a rien à écrire : vous choisissez une réponse à chaque question. Les réponses servent seulement à améliorer le service, en comptant toutes les réponses ensemble.";
+
 export function anonymousQuestions(template: SurveyTemplate): SurveyScaleQuestion[] {
   return template.questions.filter(
     (q): q is SurveyScaleQuestion =>
