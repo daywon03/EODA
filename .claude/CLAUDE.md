@@ -56,6 +56,7 @@ vérifie** — sinon elle n'existe pas.
 | Les commentaires du cabinet atteignent l'analyse, et seulement s'ils sont « pris en compte par l'IA » | `fetchCriterionGuidelines` lit les critères de la matrice **et** ceux reconnus dans le document (suggestions non rejetées), filtre `aiEnabled: true` ; la bascule est gardée par tenant (`notFound`) et journalisée `CRITERION_GUIDELINE_AI_TOGGLED`, le texte reste append-only | `lib/services/document-ingestion-service.test.ts` (« commentaires du cabinet »), `lib/actions/document.test.ts` (`setCriterionGuidelineAiUse`) |
 | « Commentaire sur ce document » atteint l'analyse et la mise en conformité, et seulement s'il est « pris en compte par l'IA » | `readDocumentComment` lit `Document.missingJustification` si `commentUsedByAi` (oui par défaut), anonymisé, rendu balisé `<commentaire_document>` comme une information, jamais une instruction (balise fermante neutralisée) ; bascule par `setDocumentCommentAiUse` (garde `DOCUMENTS_WRITE`, journal `DOCUMENT_COMMENT_AI_TOGGLED` sans le texte) | `lib/llm/document-comment.test.ts`, `lib/services/document-ingestion-service.test.ts`, `lib/actions/document.test.ts` |
 | L'enquête ANONYME ne peut contenir aucune donnée de personne (hors verrou HDS) | test qui lit le schéma et **échoue** si `AnonymousSurveyResponse` / `AnonymousSurveyAnswer` gagnent un champ hors liste (personne, salarié, texte, horodatage), si `completedOn` n'est plus un `@db.Date`, ou si le lien désigne quelqu'un ; actions : lien à usage unique consommé atomiquement, débit par IP, salarié jamais enregistré, réponse jamais journalisée ; réponses refusées si un texte libre ou une question de contrôle s'y glisse | `lib/hds/anonymous-survey-schema.test.ts`, `lib/actions/anonymous-survey.test.ts`, `lib/services/anonymous-survey-service.test.ts`, `lib/auth/routes.test.ts` |
+| La liste des personnes à enquêter ne quitte jamais la tablette | test qui lit tout `src/` et **échoue** si un fichier sans `"use client"` en tête importe `survey-roster-service` ou `xlsx-rows-reader` (une action, une route ou une page serveur recevrait des noms) ; l'envoi (`submitTabletAnonymousSurvey`) ne reçoit que questionnaire, mode et réponses ; import Excel lu dans le navigateur, colonnes autres que Nom/Prénom jamais gardées ; export CSV fabriqué dans le navigateur, formules neutralisées | `lib/hds/survey-roster-boundary.test.ts`, `lib/services/survey-roster-service.test.ts`, `lib/services/xlsx-rows-reader.test.ts` |
 | Un échec de lancement de Chromium est NOMMÉ, et n'invite pas à réessayer | le lancement enveloppe son erreur (`ChromiumLaunchError`, cause conservée, recours nommé : `PUPPETEER_EXECUTABLE_PATH` en développement) et le message d'aperçu **échoue** s'il dit « Réessayez » sur cet échec-là ; les drapeaux serverless ne sont jamais passés à un Chrome de bureau | `lib/services/headless-chromium-service.test.ts`, `lib/services/document-pdf-response.test.ts` |
 | Toute fonction qui embarque Chromium embarque son binaire | `pnpm check:chromium` après le build lit les `*.nft.json` et **sort en code 1** si une fonction contient le code de `@sparticuz/chromium` sans `bin/chromium.br` / `al2023.tar.br` (le paquet situe son binaire à l'exécution : le traçage ne le voit pas — l'aperçu des documents répondait **503** en production, 21/10/2026), ou si **aucune** fonction n'est concernée. Réglage : `outputFileTracingIncludes` de `next.config.ts`. Corollaire : le cache du rendu vit dans `document-pdf-cache.ts`, qui n'importe pas Chromium — la suppression d'une version le chargeait dans seize pages | `apps/web/scripts/check-chromium-trace.mjs` + CI |
 | Un envoi « non configuré » n'est jamais compté comme parti | décompte par `countDeliveries` dans toute la couche d'envoi — aucun comptage brut de promesses tenues (il annonçait « Client prévenu (2 personnes) » pour zéro e-mail) | `lib/email/notifications.test.ts` |
@@ -351,8 +352,24 @@ Détail complet et état d'avancement : `specs/02-architecture-technique.md` §4
   **jamais journalisées** (heure + appareil = la visite, donc la personne). Ne jamais y
   ajouter un nom, un texte, un salarié ou une heure : ce serait remettre l'enquête sous
   le verrou HDS (`anonymous-survey-schema.test.ts` échoue). L'enquête **nominative**
-  (« enquête faite » par personne, non-répondants) reste verrouillée. Mention d'anonymat
+  (réponses rattachées au dossier) reste verrouillée. Mention d'anonymat
   et durée des liens **provisoires, à valider par Sandrine**.
+  **Version officielle sur la tablette — 22/10/2026, décision de Damon (« liste sur la
+  tablette »)** : la structure importe la liste de ses personnes (Excel ou CSV, export
+  Ximi compris — colonnes « Nom » / « Prénom » reconnues où qu'elles soient, le reste
+  ignoré) ou tape nom + prénom ; la liste vit **dans le stockage du navigateur de la
+  tablette seulement** (`survey-roster-service.ts`, clé par structure), jamais en base,
+  jamais envoyée. On touche la personne → questionnaire → les réponses partent par
+  `submitTabletAnonymousSurvey`, **sans nom ni identifiant** → la tablette coche le JOUR
+  où c'est fait et propose la personne suivante. Rien ne relie un nom à des réponses :
+  l'enquête n'est plus anonyme pour l'intervenant, elle reste **confidentielle**
+  (`LISTED_SURVEY_NOTICE`, provisoire, à valider par Sandrine). « Exporter (Ximi) »
+  fabrique dans le navigateur un CSV « Nom ; Prénom ; enquête personne ; enquête
+  proche » — **format d'import Ximi à confirmer sur un exemple réel**. Limites
+  assumées : une liste par tablette (non partagée entre appareils), effacée si le
+  navigateur l'est (réimporter). Ne **jamais** déplacer cette liste vers le serveur
+  avant la migration HDS (`survey-roster-boundary.test.ts` échoue), ni y ajouter les
+  réponses.
 
 ## 7. Ce que Claude Code ne doit PAS faire
 
