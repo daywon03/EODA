@@ -111,3 +111,30 @@ construit** dès maintenant, mais **rien de nominatif** ne s'écrit avant la mig
   une donnée de santé.
 - **Écrire dans l'ERP du client** (option c du doc 09) : reste ouverte pour plus tard,
   le port permettra un adaptateur ERP sans toucher au métier.
+
+## Complément du 22/10/2026 — liste des personnes à enquêter, sur la tablette seulement
+
+**Demande** (Damon) : version officielle de l'enquête, avec import de la liste des
+personnes (ou au moins nom + prénom) pour savoir qui a répondu, export vers Ximi, et un
+parcours qu'« un enfant » peut faire passer.
+
+**Décision** (Damon, option « liste sur la tablette ») : la liste nom + prénom vit
+**uniquement dans le navigateur de la tablette** de la structure — comme sa feuille
+d'émargement papier —, jamais sur l'infrastructure EODA. Les réponses partent par la
+voie anonyme existante, sans nom ni identifiant de la liste ; la tablette ne garde que
+le jour où chaque questionnaire a été fait, jamais les réponses. L'import (Excel lu dans
+le navigateur, CSV, copier-coller) et l'export CSV pour Ximi se font dans le navigateur.
+
+**Pourquoi ce n'est pas une levée du verrou** : aucune donnée nominative n'est hébergée
+par EODA ; le point 1 (« un port, deux adaptateurs ») ne bouge pas. L'enquête cesse
+d'être anonyme pour l'intervenant présent ; elle reste confidentielle — personne ne peut
+relier un nom à des réponses.
+
+**Contrôle** : `lib/hds/survey-roster-boundary.test.ts` échoue si un module serveur
+importe la liste ou le lecteur Excel.
+
+**Écarté** : enregistrer la liste par le port HDS (inutilisable avant la migration) ;
+la stocker sur Supabase « juste les noms » (c'est la donnée interdite).
+
+**Limites assumées** : liste propre à chaque tablette ; perdue si les données du
+navigateur sont effacées (réimport) ; format d'import Ximi à confirmer sur un exemple.

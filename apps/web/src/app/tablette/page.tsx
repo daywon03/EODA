@@ -48,11 +48,12 @@ export default async function TabletPage() {
         {session && (
           <div className="flex flex-col gap-6">
             <h1 className="text-[36px] font-bold">Bonjour {firstNameOf(session.staffDisplayName) ?? session.staffDisplayName}.</h1>
-            {/* L'enquête ANONYME fonctionne dès maintenant : elle ne garde aucune donnée
-                de personne (21/10/2026). */}
+            {/* L'enquête fonctionne dès maintenant : le serveur ne garde aucune donnée
+                de personne (21/10/2026) ; la liste des noms reste dans la tablette
+                (22/10/2026). */}
             <div className="flex max-w-[760px] flex-col gap-3 rounded-2xl border border-line bg-card p-6">
               <h2 className="text-[26px] font-bold">Enquête de satisfaction</h2>
-              <p>Anonyme : aucun nom, rien à écrire. Les réponses comptent dans les statistiques du service.</p>
+              <p>Choisissez la personne dans la liste, posez les questions : la tablette coche « fait ». Les réponses partent sans aucun nom.</p>
               <Link href="/tablette/enquete" className={`${TABLET_PRIMARY} w-fit`}>Faire une enquête</Link>
             </div>
             {getBeneficiaryDataPort().isAvailable ? (

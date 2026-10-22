@@ -2,16 +2,17 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { resolveTabletSession } from "@/lib/auth/guards";
 import { getTabletAnonymousSurveyTemplates } from "@/lib/actions/anonymous-survey";
-import { ANONYMOUS_SURVEY_NOTICE } from "@/lib/services/anonymous-survey-service";
+import { ANONYMOUS_SURVEY_NOTICE, LISTED_SURVEY_NOTICE } from "@/lib/services/anonymous-survey-service";
 import { TabletSignOutButton } from "@/components/tablet/TabletSignOutButton";
 import { TabletHeader, TabletMain } from "@/components/tablet/TabletHeader";
-import { TabletAnonymousSurvey } from "@/components/tablet/TabletAnonymousSurvey";
+import { TabletSurvey } from "@/components/tablet/survey/TabletSurvey";
 
-export const metadata: Metadata = { title: "Enquête anonyme", robots: { index: false, follow: false } };
+export const metadata: Metadata = { title: "Enquête de satisfaction", robots: { index: false, follow: false } };
 
-// Enquête ANONYME sur la tablette (21/10/2026). Même garde que l'accueil : appareil
-// enregistré + salarié connecté avec son code ; sinon retour à l'accueil, qui dit
-// quoi faire. L'action d'envoi revérifie la session.
+// Enquête sur la tablette (anonyme le 21/10, liste des personnes le 22/10/2026). Même
+// garde que l'accueil : appareil enregistré + salarié connecté avec son code ; sinon
+// retour à l'accueil, qui dit quoi faire. L'action d'envoi revérifie la session. La
+// liste des personnes vit dans le navigateur (TabletSurvey) : la page ne la voit pas.
 export default async function TabletSurveyPage() {
   const session = await resolveTabletSession();
   if (!session) redirect("/tablette");
@@ -22,7 +23,13 @@ export default async function TabletSurveyPage() {
     <div className="flex min-h-screen flex-col bg-paper text-ink">
       <TabletHeader structureName={session.establishmentName} aside={<TabletSignOutButton name={session.staffDisplayName} />} />
       <TabletMain>
-        <TabletAnonymousSurvey templates={templates} notice={ANONYMOUS_SURVEY_NOTICE} />
+        <TabletSurvey
+          templates={templates}
+          establishmentId={session.establishmentId}
+          structureName={session.establishmentName}
+          listedNotice={LISTED_SURVEY_NOTICE}
+          anonymousNotice={ANONYMOUS_SURVEY_NOTICE}
+        />
       </TabletMain>
     </div>
   );
