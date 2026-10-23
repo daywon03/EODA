@@ -137,6 +137,8 @@ export type ReviewQueueEntry = {
   establishmentName: string;
   documentLabel: string;
   versionLabel: string;
+  // Décide du rendu de l'aperçu (DocumentPreviewPane), comme sur la fiche.
+  originalFilename: string;
   uploadedAt: Date;
   analysisReviewedAt: Date | null;
   // Une version remplacée n'est plus ce que le client verra : on l'affiche, sans
@@ -192,6 +194,7 @@ export async function getReviewQueueEntry(versionId: string): Promise<ReviewQueu
     establishmentName: establishment.name,
     documentLabel: version.document.documentType?.label ?? version.originalFilename,
     versionLabel: `Version ${version.versionNumber}`,
+    originalFilename: version.originalFilename,
     uploadedAt: version.uploadedAt,
     analysisReviewedAt: version.analysisReviewedAt,
     isCurrent: version.currentForDocument !== null,

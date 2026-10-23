@@ -2,6 +2,7 @@
 
 import { prisma, Prisma, type DocumentCategory } from "@eoda/database";
 import { revalidatePath } from "next/cache";
+import { revalidateDocumentViews } from "./document-views-revalidation";
 import { notFound } from "next/navigation";
 import {
   requireCabinetAdminSession,
@@ -82,12 +83,6 @@ export type UploadDocumentResult =
   // l'aperçu (`?prepare=1`), pour que le premier « voir » tombe sur le cache.
   | { success: true; documentTypeId: string; documentVersionId: string }
   | { error: string; needsManualType?: true; candidates?: DocumentTypeCandidate[] };
-
-function revalidateDocumentViews(establishmentId: string): void {
-  revalidatePath("/dashboard/client");
-  revalidatePath("/dashboard/client/documents");
-  revalidatePath(`/dashboard/cabinet/etablissements/${establishmentId}`);
-}
 
 export async function uploadDocument(formData: FormData): Promise<UploadDocumentResult> {
   const establishmentId = formData.get("establishmentId");
