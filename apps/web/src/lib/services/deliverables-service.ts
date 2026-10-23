@@ -43,6 +43,10 @@ export type DeliverableSourceItem = {
   // deux dates qui dit quand le client l'a reçu.
   validatedAt: Date | null;
   versions: readonly DeliverableSourceVersion[];
+  // La structure a accepté la version courante (« Mes documents », acceptDocument) —
+  // fait DÉJÀ rendu caduc par une version plus récente (`isAcceptanceCurrent`). Absent
+  // quand l'appelant ne fait que compter (pastille « Mes livrables »).
+  clientAccepted?: boolean;
 };
 
 export type Deliverable = {
@@ -58,6 +62,9 @@ export type Deliverable = {
   // (versionsVisibleToClient) : les dépôts de la structure, et les versions d'EODA
   // d'un document validé.
   previousVersions: DeliverableSourceVersion[];
+  // Même fait que « Accepté par vous » dans « Mes documents » (23/10/2026) : accepter
+  // là-bas se voit ici, sans seconde règle.
+  clientAccepted: boolean;
 };
 
 // La version remise est la DERNIÈRE produite par EODA, pas la dernière tout court :
@@ -121,6 +128,7 @@ export function selectDeliverables(items: readonly DeliverableSourceItem[]): Del
       previousVersions: versionsVisibleToClient(item.versions, item.validatedAt)
         .filter((other) => other.id !== version.id)
         .sort((a, b) => b.versionNumber - a.versionNumber),
+      clientAccepted: item.clientAccepted ?? false,
     });
   }
 

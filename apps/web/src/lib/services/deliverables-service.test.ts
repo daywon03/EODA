@@ -176,3 +176,20 @@ describe("selectDeliverables — l'historique d'un livrable", () => {
     expect(deliverable?.previousVersions).toEqual([]);
   });
 });
+
+describe("selectDeliverables — l'acceptation de la structure (23/10/2026)", () => {
+  // Accepter dans « Mes documents » doit se voir dans « Mes livrables » : même fait
+  // (`clientAccepted`, déjà rendu caduc par une version plus récente), aucune règle
+  // recopiée ici.
+  it("reprend l'acceptation à jour du document", () => {
+    const [deliverable] = selectDeliverables([
+      item({ validatedAt: new Date("2026-08-10T10:00:00Z"), versions: [cabinetVersion("2026-08-05T10:00:00Z")], clientAccepted: true }),
+    ]);
+    expect(deliverable?.clientAccepted).toBe(true);
+  });
+
+  it("n'annonce rien d'accepté sans le fait", () => {
+    const [deliverable] = selectDeliverables([item({ validatedAt: new Date("2026-08-10T10:00:00Z"), versions: [cabinetVersion("2026-08-05T10:00:00Z")] })]);
+    expect(deliverable?.clientAccepted).toBe(false);
+  });
+});
