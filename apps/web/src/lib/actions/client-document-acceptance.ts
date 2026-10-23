@@ -2,7 +2,7 @@
 
 import { NEED } from "@/lib/auth/capabilities";
 import { prisma } from "@eoda/database";
-import { revalidatePath } from "next/cache";
+import { revalidateDocumentViews } from "./document-views-revalidation";
 import { notFound } from "next/navigation";
 import { requireEstablishmentAccess } from "@/lib/auth/guards";
 import { recordAuditEvent } from "@/lib/services/audit-log-service";
@@ -98,9 +98,7 @@ export async function acceptDocument(
     detail: document.documentType?.code ?? null,
   });
 
-  revalidatePath("/dashboard/client");
-  revalidatePath("/dashboard/client/documents");
-  revalidatePath(`/dashboard/cabinet/etablissements/${establishmentId}`);
+  revalidateDocumentViews(establishmentId);
 
   // Le cabinet est prévenu (16/10/2026) : c'est une fin de cycle — « c'est lui qui
   // valide, ce n'est pas moi » (15/09) — et il ne l'apprenait qu'en rouvrant la fiche.

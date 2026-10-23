@@ -3,7 +3,7 @@ import { getReviewQueueEntry, listDocumentsAwaitingReview } from "@/lib/actions/
 import { describeReviewMention } from "@/lib/services/analysis-view-service";
 import { formatAgo } from "@/lib/services/elapsed-time-service";
 import { nextQueueHref, pluralizeProposals, type ReviewQueueItem } from "@/lib/services/review-queue-service";
-import { InlineDocumentPreview } from "@/components/review/InlineDocumentPreview";
+import { DocumentPreviewPane } from "@/components/structure/DocumentPreviewPane";
 import { ReviewPanel } from "@/components/review/ReviewPanel";
 import { EodaMark } from "@/components/layout/EodaLogo";
 import { cn } from "@/lib/utils";
@@ -69,7 +69,16 @@ export default async function ReviewQueuePage({ searchParams }: { searchParams: 
                 {entry.versionLabel} · déposé {formatAgo(entry.uploadedAt, now)}
               </span>
             </div>
-            <InlineDocumentPreview key={entry.versionId} versionId={entry.versionId} />
+            {/* Le même aperçu que la fiche et que les portails (23/10/2026) : un Word
+                garde sa mise en page. */}
+            <div className="h-[70dvh] min-h-[420px] overflow-hidden rounded-lg border border-line bg-card">
+              <DocumentPreviewPane
+                key={entry.versionId}
+                versionId={entry.versionId}
+                originalFilename={entry.originalFilename}
+                title={entry.documentLabel}
+              />
+            </div>
             <Link
               href={`/dashboard/cabinet/etablissements/${entry.establishmentId}`}
               className="inline-flex min-h-11 items-center text-base font-bold text-accent-text underline-offset-4 hover:underline"

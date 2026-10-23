@@ -742,7 +742,15 @@ Détail complet et état d'avancement : `specs/02-architecture-technique.md` §4
   (`docx-preview-safety.ts`, testé), images en `data:`, repli sur les pages serveur si
   le dessin échoue. Conséquence assumée : pour un Word, l'aperçu et l'export PDF ne
   sont plus le même artefact (l'export garde la chaîne serveur). Excel et CSV ne
-  changent pas.
+  changent pas. **Une seule visionneuse partout (23/10/2026)** : « Mes livrables »,
+  l'historique des versions et la file « À relire » passaient encore par l'aperçu
+  reconstruit (`getDocumentPreviewData`) — l'ASSAD voyait son livret sans mise en page
+  quand le cabinet le voyait dessiné. `DocumentPreviewLink` ouvre désormais
+  `DocumentViewer` / `DocumentPreviewPane` (nom de fichier obligatoire) ;
+  `getDocumentPreviewData` ne sert plus que le repli `.doc`/`.xls`. Accepter un
+  document rafraîchit aussi « Mes livrables », qui affiche « Accepté par vous » (même
+  fait `clientAccepted`) — liste unique des écrans rafraîchis :
+  `lib/actions/document-views-revalidation.ts`.
   Le PDF **du document** (`?download=1`, bouton « PDF ») existe là où la structure
   remet une pièce (checklist, `/dashboard/client/livrables`) ; la bibliothèque de
   modèles a l'aperçu paginé et laisse le téléchargement au lecteur natif.
