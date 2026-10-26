@@ -27,6 +27,24 @@ export type DemoPerson = {
 };
 
 export const DEMO_STRUCTURE = "SAD Les Glycines (fictif)";
+
+// DIPC FICTIF de la démonstration (accueil et contrat, 26/10/2026) : il montre la
+// fusion des champs `{{…}}` saisis une fois. Le vrai texte est celui qu'EODA valide
+// pour chaque structure.
+export const DEMO_DIPC = {
+  versionId: "demo",
+  versionNumber: 1,
+  validatedOn: "2026-10-01",
+  text: [
+    "DOCUMENT INDIVIDUEL DE PRISE EN CHARGE (exemple fictif)",
+    "Entre {{structure.nom}}, d'une part, et {{personne.civilite}} {{personne.prenom}} {{personne.nom}}, né(e) {{personne.nom_naissance}} le {{personne.date_naissance}}, demeurant {{personne.adresse}}, {{personne.code_postal}} {{personne.ville}}, d'autre part.",
+    "ARTICLE 1 — OBJET. Le présent document définit les objectifs et la nature de l'accompagnement, à partir du {{aide.date_debut}}.",
+    "ARTICLE 2 — PRESTATIONS. Aide financée : {{aide.types}}. Heures prévues par mois : {{aide.heures_semaine}} en semaine, {{aide.heures_dimanche}} le dimanche.",
+    "ARTICLE 3 — PERSONNE À PRÉVENIR. {{proche.lien}} : {{proche.prenom}} {{proche.nom}}, {{proche.telephone}}.",
+    "ARTICLE 4 — RÉVISION. Ce document est revu avec la personne au moins une fois par an.",
+    "Fait le {{date.signature}}, en présence de {{intervenant.nom}}.",
+  ].join("\n"),
+} as const;
 export const DEMO_STAFF = "Camille (fictif)";
 export const DEMO_TOTAL_PEOPLE = 48;
 // Compté en QUESTIONNAIRES, pas en personnes : chaque personne en a deux.

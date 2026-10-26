@@ -13,9 +13,14 @@ import { describe, expect, it } from "vitest";
 // l'importerait — donc recevrait des noms — échoue en CI.
 // ─────────────────────────────────────────────────────────────────────────────
 
+// Depuis le 26/10/2026, la même frontière tient l'accueil d'une nouvelle personne et
+// son DIPC signé (admission-*) : fiche d'identité, signatures et contrat ne quittent
+// pas la tablette. Un import dynamique (`import("…/admission-pdf")`) est surveillé
+// comme un import statique.
 const SRC = path.resolve(__dirname, "../..");
-const GUARDED = /from\s+["'][^"']*\/(?:survey-roster-service|xlsx-rows-reader)["']/;
-const OWN = [path.join("lib", "services", "survey-roster-service.ts"), path.join("lib", "services", "xlsx-rows-reader.ts")];
+const GUARDED_MODULES = ["survey-roster-service", "xlsx-rows-reader", "admission-service", "admission-document-service", "admission-pdf"];
+const GUARDED = new RegExp(`(?:from\\s+|import\\(\\s*)["'][^"']*\\/(?:${GUARDED_MODULES.join("|")})["']`);
+const OWN = GUARDED_MODULES.map((name) => path.join("lib", "services", `${name}.ts`));
 
 function listSourceFiles(dir: string): string[] {
   return readdirSync(dir).flatMap((entry) => {
@@ -43,13 +48,19 @@ describe("liste des personnes — côté navigateur seulement", () => {
     expect(serverSide).toEqual([]);
   });
 
-  it("la liste est réellement utilisée (le garde ne surveille pas le vide)", () => {
-    expect(importers().length).toBeGreaterThan(0);
+  it("la liste et le contrat sont réellement utilisés (le garde ne surveille pas le vide)", () => {
+    const sources = importers().map((file) => readFileSync(path.join(SRC, file), "utf8"));
+    for (const name of ["survey-roster-service", "admission-service", "admission-pdf"]) {
+      expect(sources.some((source) => source.includes(`/${name}"`))).toBe(true);
+    }
   });
 
   it("le test sait échouer", () => {
     expect(GUARDED.test('import { planRosterImport } from "@/lib/services/survey-roster-service";')).toBe(true);
     expect(GUARDED.test('import { readXlsxRows } from "@/lib/services/xlsx-rows-reader";')).toBe(true);
+    expect(GUARDED.test('import { planAdmissionDocument } from "@/lib/services/admission-document-service";')).toBe(true);
+    expect(GUARDED.test('const pdf = await import("@/lib/services/admission-pdf");')).toBe(true);
+    expect(GUARDED.test('import { selectTabletDipc } from "@/lib/services/tablet-dipc-service";')).toBe(false);
     expect(isClientModule('"use client";\nimport x from "y";')).toBe(true);
     expect(isClientModule('// commentaire\n"use client";')).toBe(true);
     expect(isClientModule('"use server";\nimport x from "y";')).toBe(false);

@@ -21,7 +21,7 @@ beforeEach(() => {
 describe("getContentReviewCatalog", () => {
   it("cas nominal : le catalogue, avec les libellés des documents lus en base", async () => {
     const catalog = await getContentReviewCatalog();
-    expect(catalog.families).toHaveLength(5);
+    expect(catalog.families).toHaveLength(6);
     expect(JSON.stringify(catalog)).toContain("Livret d'accueil");
   });
 
