@@ -12,9 +12,28 @@ import { cn } from "@/lib/utils";
 // des points n'existe nulle part — c'est ce qui en ferait une donnée biométrique
 // (09 §8).
 // ─────────────────────────────────────────────────────────────────────────────
-type Props = { onChange: (pngDataUrl: string | null) => void };
+// L'image remise est TOUJOURS à l'encre noire. À l'écran, le trait prend la couleur
+// du texte ; en thème sombre il est clair, et collé tel quel sur un contrat blanc il
+// devenait presque invisible (mesuré le 26/10/2026 sur le PDF du DIPC). On redessine
+// donc l'image en noir, en gardant sa transparence (`source-in`).
+function inkPng(canvas: HTMLCanvasElement): string {
+  const out = document.createElement("canvas");
+  out.width = canvas.width;
+  out.height = canvas.height;
+  const ctx = out.getContext("2d");
+  if (!ctx) return canvas.toDataURL("image/png");
+  ctx.drawImage(canvas, 0, 0);
+  ctx.globalCompositeOperation = "source-in";
+  ctx.fillStyle = "#111111";
+  ctx.fillRect(0, 0, out.width, out.height);
+  return out.toDataURL("image/png");
+}
 
-export function SignaturePad({ onChange }: Props) {
+// `label` nomme le cadre quand plusieurs signataires signent sur le même écran
+// (DIPC : la personne, son représentant, le service).
+type Props = { onChange: (pngDataUrl: string | null) => void; label?: string };
+
+export function SignaturePad({ onChange, label = "Signature" }: Props) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const drawing = useRef(false);
   const [hasInk, setHasInk] = useState(false);
@@ -63,7 +82,7 @@ export function SignaturePad({ onChange }: Props) {
   function end(event: React.PointerEvent<HTMLCanvasElement>) {
     if (!drawing.current) return;
     drawing.current = false;
-    if (hasInk) onChange(event.currentTarget.toDataURL("image/png"));
+    if (hasInk) onChange(inkPng(event.currentTarget));
   }
 
   function clear() {
@@ -79,7 +98,7 @@ export function SignaturePad({ onChange }: Props) {
         <canvas
           ref={canvasRef}
           role="img"
-          aria-label={hasInk ? "Signature dessinée" : "Zone de signature, vide"}
+          aria-label={hasInk ? `${label} : signature dessinée` : `${label} : zone de signature, vide`}
           className="block h-full w-full cursor-crosshair touch-none"
           onPointerDown={start}
           onPointerMove={move}
@@ -93,7 +112,7 @@ export function SignaturePad({ onChange }: Props) {
         )}
         <span aria-hidden="true" className="pointer-events-none absolute bottom-14 left-6 right-6 h-0.5 bg-line" />
       </div>
-      <button type="button" onClick={clear} className="h-14 w-fit rounded-xl border border-ink bg-card px-5 text-[18px] text-ink hover:bg-soft">
+      <button type="button" onClick={clear} aria-label={`Effacer — ${label}`} className="h-14 w-fit rounded-xl border border-ink bg-card px-5 text-[18px] text-ink hover:bg-soft">
         Effacer
       </button>
     </div>

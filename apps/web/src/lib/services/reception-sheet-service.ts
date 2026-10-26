@@ -1,4 +1,5 @@
 import { RECEPTION_DOCUMENTS, type ReceptionDocument } from "@/content/enquete/reception";
+import { mergePlaceholders, placeholdersIn } from "./placeholder-merge";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // RENDU DE LA FEUILLE DE RÉCEPTION — service PUR (lot C, décision 6).
@@ -24,27 +25,18 @@ export const RECEPTION_FIELDS = [
 export type ReceptionField = (typeof RECEPTION_FIELDS)[number];
 export type ReceptionFieldValues = Record<ReceptionField, string>;
 
-const PLACEHOLDER = /\{\{\s*([\w.]+)\s*\}\}/g;
-
 export type ReceptionRender =
   | { ok: true; text: string }
   | { ok: false; unknownFields: string[]; emptyFields: ReceptionField[] };
 
-function isKnownField(name: string): name is ReceptionField {
-  return (RECEPTION_FIELDS as readonly string[]).includes(name);
-}
+export { placeholdersIn };
 
-export function placeholdersIn(template: string): string[] {
-  return [...new Set([...template.matchAll(PLACEHOLDER)].map((match) => match[1]!))];
-}
-
+// Ici, un champ vide ou inconnu bloque : la feuille ne part jamais incomplète.
 export function renderReceptionSheet(template: string | null, values: ReceptionFieldValues): ReceptionRender {
   if (!template || !template.trim()) return { ok: false, unknownFields: [], emptyFields: [] };
-  const used = placeholdersIn(template);
-  const unknownFields = used.filter((name) => !isKnownField(name));
-  const emptyFields = used.filter(isKnownField).filter((name) => !values[name].trim());
+  const { text, unknownFields, emptyFields } = mergePlaceholders(template, RECEPTION_FIELDS, values);
   if (unknownFields.length > 0 || emptyFields.length > 0) return { ok: false, unknownFields, emptyFields };
-  return { ok: true, text: template.replace(PLACEHOLDER, (_match, name: string) => values[name as ReceptionField].trim()) };
+  return { ok: true, text };
 }
 
 // Liste lisible des documents présentés, dans l'ordre de la présentation.

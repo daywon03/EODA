@@ -1,14 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ArrowLeft, ChevronRight, Check, Circle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ProgressBar } from "@/components/ui/progress-bar";
 import { TABLET_INPUT, TABLET_SECONDARY } from "../tablet-ui";
-import { DEMO_PEOPLE, DEMO_STAFF, DEMO_SURVEYS_ALREADY_DONE, DEMO_TOTAL_PEOPLE, SURVEYS_PER_PERSON, girTone, surveyCount, type DemoPerson } from "./demo-data";
+import { DEMO_DIPC, DEMO_PEOPLE, DEMO_STAFF, DEMO_STRUCTURE, DEMO_SURVEYS_ALREADY_DONE, DEMO_TOTAL_PEOPLE, SURVEYS_PER_PERSON, girTone, surveyCount, type DemoPerson } from "./demo-data";
 import { DemoSurvey } from "./DemoSurvey";
 import { DemoReception, type DemoEvidence } from "./DemoReception";
 import { DemoDossier } from "./DemoDossier";
+import { fullName, type AdmissionRecord } from "@/lib/services/admission-service";
+import { AdmissionWizard } from "../admission/AdmissionWizard";
+import { downloadBlob, sha256Hex } from "../admission/use-admissions";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // MODE DÉMONSTRATION DE LA TABLETTE (lot C) — tourne ENTIÈREMENT en mémoire du
@@ -17,7 +20,13 @@ import { DemoDossier } from "./DemoDossier";
 // parcours démontrable tant que le verrou HDS est fermé.
 // ─────────────────────────────────────────────────────────────────────────────
 
-type Screen = { kind: "home" } | { kind: "survey"; personId: string } | { kind: "reception" } | { kind: "dossier"; personId: string };
+type Screen =
+  | { kind: "home" }
+  | { kind: "survey"; personId: string }
+  | { kind: "reception" }
+  | { kind: "admission"; personId: string }
+  | { kind: "admission-done"; record: AdmissionRecord }
+  | { kind: "dossier"; personId: string };
 
 export function TabletDemo() {
   const [screen, setScreen] = useState<Screen>({ kind: "home" });
@@ -25,6 +34,13 @@ export function TabletDemo() {
   const [query, setQuery] = useState("");
   const [evidence, setEvidence] = useState<Record<string, DemoEvidence>>({});
   const [toast, setToast] = useState<string | null>(null);
+  // Contrats signés de la démonstration : en mémoire seulement, jamais rangés.
+  const [contracts, setContracts] = useState<Record<string, Blob>>({});
+  const [demoDipcSha, setDemoDipcSha] = useState("");
+
+  useEffect(() => {
+    void sha256Hex(new TextEncoder().encode(DEMO_DIPC.text)).then(setDemoDipcSha);
+  }, []);
 
   const go = (next: Screen) => {
     setScreen(next);
@@ -70,6 +86,12 @@ export function TabletDemo() {
               <span className="text-[30px] font-bold leading-tight">Nouvelle personne accompagnée</span>
               <span>Présentez le livret d&apos;accueil, le règlement de fonctionnement et le DIPC. La personne signe une fois sur la tablette.</span>
               <span className="mt-auto flex h-[60px] items-center justify-center rounded-xl border-2 border-ink text-[20px] font-bold">Créer son dossier</span>
+            </button>
+            <button type="button" onClick={() => go({ kind: "admission", personId: `n${Date.now()}` })} disabled={!demoDipcSha} className="flex flex-col gap-3 rounded-[18px] border border-line bg-card p-7 text-left text-[19px] text-ink md:col-span-2">
+              <span className="w-fit rounded-md border border-muted px-3 py-0.5 text-[16px] font-bold text-ink2">Nouveau · contrat signé sur la tablette</span>
+              <span className="text-[30px] font-bold leading-tight">Accueil et contrat (DIPC)</span>
+              <span>Fiche remplie une fois, DIPC relu ensemble, points du manuel HAS expliqués et cochés, signatures, PDF à envoyer ou exporter.</span>
+              <span className="mt-auto flex h-[60px] items-center justify-center rounded-xl border-2 border-ink text-[20px] font-bold">Essayer avec une personne fictive</span>
             </button>
           </div>
           <section aria-labelledby="personnes-titre" className="flex flex-col gap-3">
@@ -121,6 +143,44 @@ export function TabletDemo() {
             go({ kind: "dossier", personId: person.id });
           }}
         />
+      )}
+
+      {screen.kind === "admission" && (
+        <AdmissionWizard
+          structureName={DEMO_STRUCTURE}
+          staffName={DEMO_STAFF}
+          dipc={{ ...DEMO_DIPC, sha256: demoDipcSha }}
+          person={{ personId: screen.personId, lastName: "Rousseau (fictif)", firstName: "Germaine" }}
+          onCancel={() => go({ kind: "home" })}
+          onSigned={async (record, pdf) => {
+            setContracts((all) => ({ ...all, [record.id]: pdf }));
+            setPeople((list) => [
+              ...list,
+              { id: record.personId, name: fullName(record.identity), gir: 3, address: "Adresse fictive", hours: "Heures selon le DIPC", since: "aujourd'hui", surveys: { PERSONNE: false, FAMILLE: false }, pap: [], contacts: [], journal: [], receptionSignedOn: "aujourd'hui" },
+            ]);
+            go({ kind: "admission-done", record });
+          }}
+        />
+      )}
+
+      {screen.kind === "admission-done" && (
+        <section role="status" className="mx-auto flex max-w-[760px] flex-col items-center gap-5 text-center">
+          <h1 className="text-[34px] font-bold">Contrat signé (démonstration)</h1>
+          <p className="text-[20px]">{fullName(screen.record.identity)} · rien n&apos;est enregistré. En service réel, le contrat reste sur la tablette, s&apos;envoie à la personne et s&apos;exporte vers Ximi.</p>
+          <button
+            type="button"
+            className="inline-flex min-h-16 w-full items-center justify-center rounded-2xl bg-accent-fill px-6 text-[21px] font-bold text-on-accent"
+            onClick={() => {
+              const pdf = contracts[screen.record.id];
+              if (pdf) downloadBlob(screen.record.pdfFileName, pdf);
+            }}
+          >
+            Voir le contrat (PDF)
+          </button>
+          <button type="button" className="inline-flex min-h-16 w-full items-center justify-center rounded-2xl border border-ink bg-card px-6 text-[19px]" onClick={() => go({ kind: "dossier", personId: screen.record.personId })}>
+            Ouvrir son dossier
+          </button>
+        </section>
       )}
 
       {screen.kind === "dossier" && (() => {

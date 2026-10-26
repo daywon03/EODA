@@ -113,8 +113,16 @@ function runsText(xml: string): string {
   return text;
 }
 
+// Un classeur écrit par le SDK OpenXML de Microsoft préfixe ses balises
+// (`<x:row>`, `<x:c>`, `<x:si>`) — c'est le cas de l'export « Clients » de Ximi
+// (mesuré le 26/10/2026 : sans ceci, ZÉRO ligne lue). On retire le préfixe des NOMS
+// de balise seulement ; les attributs (`r:id`) restent tels quels.
+export function withoutTagPrefixes(xml: string): string {
+  return xml.replace(/<(\/?)[A-Za-z_][\w.-]*:(?=[A-Za-z_])/g, "<$1");
+}
+
 export function parseSharedStrings(xml: string): string[] {
-  return Array.from(xml.matchAll(/<si>([\s\S]*?)<\/si>|<si\/>/g), (m) => runsText(m[1] ?? ""));
+  return Array.from(withoutTagPrefixes(xml).matchAll(/<si>([\s\S]*?)<\/si>|<si\/>/g), (m) => runsText(m[1] ?? ""));
 }
 
 // « BC12 » → 54 (index de colonne, 0 = A).
@@ -127,7 +135,7 @@ export function columnIndex(ref: string): number {
 
 export function parseSheetRows(xml: string, shared: readonly string[]): string[][] {
   const rows: string[][] = [];
-  for (const rowMatch of xml.matchAll(/<row\b[^>]*>([\s\S]*?)<\/row>/g)) {
+  for (const rowMatch of withoutTagPrefixes(xml).matchAll(/<row\b[^>]*>([\s\S]*?)<\/row>/g)) {
     if (rows.length >= MAX_ROWS) break;
     const row: string[] = [];
     for (const cell of rowMatch[1]!.matchAll(/<c\b([^>]*?)(?:\/>|>([\s\S]*?)<\/c>)/g)) {
@@ -156,7 +164,7 @@ async function firstSheetPath(bytes: Uint8Array, entries: ZipEntry[]): Promise<s
   const workbook = find("xl/workbook.xml");
   const rels = find("xl/_rels/workbook.xml.rels");
   if (workbook && rels) {
-    const rid = /<sheet\b[^>]*\br:id="([^"]+)"/.exec(await readEntry(bytes, workbook))?.[1];
+    const rid = /<sheet\b[^>]*\br:id="([^"]+)"/.exec(withoutTagPrefixes(await readEntry(bytes, workbook)))?.[1];
     if (rid) {
       const relsXml = await readEntry(bytes, rels);
       for (const rel of relsXml.matchAll(/<Relationship\b([^>]*)\/?>/g)) {

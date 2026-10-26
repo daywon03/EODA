@@ -5,7 +5,7 @@ import { ArrowLeft, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { RECEPTION_DOCUMENTS, RECEPTION_POINTS_PROVISIONAL } from "@/content/enquete/reception";
 import { TABLET_CHOICE_OFF, TABLET_CHOICE_ON, TABLET_INPUT, TABLET_PRIMARY, TABLET_SECONDARY } from "../tablet-ui";
-import { SignaturePad } from "./SignaturePad";
+import { SignaturePad } from "../SignaturePad";
 import type { DemoPerson } from "./demo-data";
 
 // Feuille de réception (maquette T6, décision 6) : identité réduite, les trois
