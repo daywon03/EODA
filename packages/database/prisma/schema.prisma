@@ -720,7 +720,7 @@ model DocumentType {
 // erreurs constatées par Sandrine, PAR CRITÈRE HAS (demande de Damon, 10/09/2026,
 // affinée le même jour : ancrée sur le critère plutôt que le type de document, un
 // même critère étant rattaché à plusieurs types via DocumentTypeCriterion — une
-// leçon apprise sur le DIPC doit aussi valoir pour tout autre document qui répond
+// leçon apprise sur le DIPEC doit aussi valoir pour tout autre document qui répond
 // au même critère, pas seulement être ressaisie type par type).
 //
 // Volontairement PAS un mécanisme de recherche vectorielle comme KnowledgeChunk :
@@ -2521,9 +2521,9 @@ enum RepresentativeKind {
 
 enum BeneficiaryDocumentKind {
   // Feuille de réception UNIQUE (décision 6 des maquettes v2) : livret d'accueil,
-  // règlement de fonctionnement et DIPC présentés, une signature.
+  // règlement de fonctionnement et DIPEC présentés, une signature.
   FEUILLE_RECEPTION
-  // DIPC signé — en option, quand la structure le fait signer à part.
+  // DIPEC signé — en option, quand la structure le fait signer à part.
   DIPC
   PAP
   LIVRET_REMIS
@@ -2635,7 +2635,7 @@ model BeneficiaryDocument {
   renderedFileKey         String                  @map("rendered_file_key")
   sha256                  String
   issuedAt                DateTime                @map("issued_at")
-  // Échéance de renouvellement (DIPC / documents de suivi annuels) → alerte D12.
+  // Échéance de renouvellement (DIPEC / documents de suivi annuels) → alerte D12.
   renewDueOn              DateTime?               @map("renew_due_on") @db.Date
   createdAt               DateTime                @default(now()) @map("created_at")
 

@@ -1,7 +1,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // FUSION DE CHAMPS `{{champ}}` DANS UN TEXTE VALIDÉ PAR EODA — service PUR.
 //
-// Une seule règle pour la feuille de réception (lot C) et le DIPC signé sur la
+// Une seule règle pour la feuille de réception (lot C) et le DIPEC signé sur la
 // tablette (26/10/2026) : on remplace un champ CONNU par sa valeur, on SIGNALE un
 // champ inconnu (faute de frappe dans le gabarit) et un champ vide. Ce service
 // n'écrit aucune clause ; chaque appelant décide de ce qu'il refuse.

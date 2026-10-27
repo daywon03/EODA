@@ -48,7 +48,7 @@ export const BASE_DOCUMENT_TYPES: readonly DocTypeSeed[] = [
   {
     code: "L2002_DIPC",
     category: "LOI_2002_2",
-    label: "DIPC / Contrat de séjour",
+    label: "DIPEC / Contrat de séjour",
     expectedFrequency: "ANNUAL",
   },
   {
@@ -347,7 +347,7 @@ export const PILOT_DOCUMENT_TYPES: readonly DocTypeSeed[] = [
   { code: "FONCT_PAP_GABARIT", category: "FONCTIONNEMENT", label: "Projet d'accompagnement personnalisé (PAP) — modèle vierge personnalisé" },
   // [SUIVI] « Fiche de tâches » (19 critères) · [FINAUX] fiche intégrée au PAP v1.0 du 07/10
   { code: "FONCT_FICHE_TACHES_GABARIT", category: "FONCTIONNEMENT", label: "Fiche des tâches à domicile — modèle vierge personnalisé" },
-  // [SUIVI] « Grille d'évaluation des besoins » (29 critères) · [SEANCES] §6 DIPC (questions
+  // [SUIVI] « Grille d'évaluation des besoins » (29 critères) · [SEANCES] §6 DIPEC (questions
   // sensibles de l'évaluation des besoins) · [MO] séance du 22/09 · [REF] périodicités
   { code: "FONCT_GRILLE_EVAL_BESOINS", category: "FONCTIONNEMENT", label: "Grille d'évaluation des besoins — modèle vierge personnalisé" },
   // [SUIVI] « Note de service » (15 critères) · [SEANCES] §2 (propagation), §4 (logos), §6 (PAC)

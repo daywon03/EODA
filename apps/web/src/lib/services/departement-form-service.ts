@@ -169,6 +169,14 @@ function declarationItems(input: DepartementFormInput): FormItem[] {
   ];
 }
 
+// Qui signe le formulaire : la même personne que la déclaration ci-dessus — le tuteur
+// sous tutelle, sinon la personne (sous curatelle, assistée, elle signe elle-même).
+// Sa signature est REPRISE du contrat qu'elle vient de signer (demande de Damon,
+// 27/10/2026) : jamais celle du service.
+export function departementFormSigner(record: Pick<AdmissionRecord, "contact">): "PERSONNE" | "REPRESENTANT" {
+  return record.contact?.kind === "TUTEUR" ? "REPRESENTANT" : "PERSONNE";
+}
+
 export function planDepartementForm(input: DepartementFormInput): FormItem[] {
   return [...identityItems(input.record), ...serviceAndContactItems(input.record, input.structure), ...declarationItems(input)];
 }

@@ -25,7 +25,7 @@ document client et à le comparer aux exigences HAS/loi 2002-2.
    a. extraction du texte (PDF → texte, DOCX → texte)
    b. appel à un LLM avec un **prompt structuré** qui contient :
       - le type de document détecté
-      - la liste des **attendus** pour ce type de document (ex : pour le DIPC, vérifier
+      - la liste des **attendus** pour ce type de document (ex : pour le DIPEC, vérifier
         présence signature + date de révision annuelle, cf. critère 1.10.6)
       - les **critères HAS rattachés** à ce type de document (relation
         `document_type_criterion`)
@@ -49,7 +49,7 @@ document client et à le comparer aux exigences HAS/loi 2002-2.
 - L'analyse automatique est une **aide à la décision**, jamais une validation finale —
   Sandrine doit toujours pouvoir surclasser manuellement un statut (passer un document
   en `COMPLIANT` même si le système l'a détecté `INCOMPLETE`, avec justification libre).
-- Les documents contenant des données personnelles de personnes accompagnées (ex : DIPC
+- Les documents contenant des données personnelles de personnes accompagnées (ex : DIPEC
   rempli, dossier usager) ne doivent **jamais** être envoyés tels quels à un LLM externe
   sans anonymisation préalable a minima des champs nominatifs — voir contrainte RGPD,
   `specs/02-architecture-technique.md` §sécurité. En V1, prévoir au minimum un avertissement

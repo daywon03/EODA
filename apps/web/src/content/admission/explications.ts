@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // ACCUEIL D'UNE NOUVELLE PERSONNE — ce qu'il faut lui EXPLIQUER avant la signature
-// du DIPC, sur la tablette (demande de Damon, 26/10/2026).
+// du DIPEC, sur la tablette (demande de Damon, 26/10/2026).
 //
 // ⚠️ PROVISOIRE (`ADMISSION_EXPLANATIONS_PROVISIONAL`), à valider par Sandrine.
 //
@@ -14,11 +14,11 @@
 //      des droits, personnes ressources), 1.4.1 (choix), 1.5.1 (participation et
 //      satisfaction), 1.7.1 / 1.7.4 (consentement éclairé, tracé), 1.10.1 (attentes
 //      sur le projet), 1.11.1 (place de l'entourage).
-//   2. Le cahier de style, DIPC revu le 22/09 (context/10 §6) : coupon « personne
+//   2. Le cahier de style, DIPEC revu le 22/09 (context/10 §6) : coupon « personne
 //      de confiance » détachable, arrêté des personnes qualifiées joint, numéros
 //      d'urgence 17 / 112 / 114.
 //   3. La loi : CASF L311-4 (livret d'accueil, charte, règlement de fonctionnement
-//      remis ; DIPC), L311-5 (personnes qualifiées), L311-5-1 (personne de
+//      remis ; DIPEC), L311-5 (personnes qualifiées), L311-5-1 (personne de
 //      confiance) ; Code de la consommation L221-18 (rétractation de 14 jours d'un
 //      contrat signé au domicile — application aux SAD À CONFIRMER par Sandrine).
 //
@@ -71,7 +71,7 @@ export const ADMISSION_EXPLANATIONS: readonly AdmissionExplanationSection[] = [
         hint: "En cas de désaccord avec le service, elles aident la personne à faire valoir ses droits.",
         criteria: ["1.2.5", "1.2.6"],
         nature: "OBLIGATION",
-        source: "CASF L311-5 · DIPC revu le 22/09 · HAS 1.2.6",
+        source: "CASF L311-5 · DIPEC revu le 22/09 · HAS 1.2.6",
       },
     ],
   },
@@ -91,7 +91,7 @@ export const ADMISSION_EXPLANATIONS: readonly AdmissionExplanationSection[] = [
         label: "Montrer les numéros d'urgence (17, 112, 114) et le numéro du service",
         criteria: ["1.2.2"],
         nature: "CHOIX_STRUCTURE",
-        source: "DIPC revu le 22/09",
+        source: "DIPEC revu le 22/09",
       },
     ],
   },
@@ -109,10 +109,10 @@ export const ADMISSION_EXPLANATIONS: readonly AdmissionExplanationSection[] = [
       {
         id: "personne-confiance",
         label: "Dire qu'elle peut choisir une personne de confiance, et expliquer son rôle",
-        hint: "Le coupon « personne de confiance » est dans le DIPC. Elle peut le remplir plus tard.",
+        hint: "Le coupon « personne de confiance » est dans le DIPEC. Elle peut le remplir plus tard.",
         criteria: ["1.2.3"],
         nature: "OBLIGATION",
-        source: "CASF L311-5-1 · HAS 1.2.3 · DIPC revu le 22/09",
+        source: "CASF L311-5-1 · HAS 1.2.3 · DIPEC revu le 22/09",
       },
       {
         id: "acces-dossier",
@@ -132,21 +132,21 @@ export const ADMISSION_EXPLANATIONS: readonly AdmissionExplanationSection[] = [
   },
   {
     id: "contrat",
-    title: "Le contrat (DIPC)",
+    title: "Le contrat (DIPEC)",
     points: [
       {
         id: "prestations-heures",
         label: "Relire ensemble les aides prévues, les jours et le nombre d'heures",
         criteria: ["1.4.1"],
         nature: "OBLIGATION",
-        source: "CASF L311-4 (DIPC) · HAS 1.4.1",
+        source: "CASF L311-4 (DIPEC) · HAS 1.4.1",
       },
       {
         id: "tarif-reste-a-charge",
         label: "Confirmer le tarif et ce qui reste à payer",
         criteria: [],
         nature: "OBLIGATION",
-        source: "CASF L311-4 (DIPC)",
+        source: "CASF L311-4 (DIPEC)",
       },
       {
         id: "attentes",
@@ -207,7 +207,7 @@ export function allAdmissionPoints(): AdmissionExplanation[] {
 }
 
 // Documents remis en main propre, cochés un à un (preuve de remise — CASF L311-4,
-// HAS 1.2.2 « a reçu les documents ») ; le DIPC signé s'y ajoute.
+// HAS 1.2.2 « a reçu les documents ») ; le DIPEC signé s'y ajoute.
 export const ADMISSION_HANDED_DOCUMENTS = [
   { id: "livret", label: "Livret d'accueil" },
   { id: "charte", label: "Charte des droits et libertés de la personne accueillie" },

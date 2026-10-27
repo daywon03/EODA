@@ -142,7 +142,7 @@ describe("buildMatrixView", () => {
       ["3.1.1", "Intitulé 3.1.1"],
     ]),
     documentTypeLabels: new Map([
-      ["L2002_DIPC", "DIPC / Contrat de séjour"],
+      ["L2002_DIPC", "DIPEC / Contrat de séjour"],
       ["A_TYPE", "Type A"],
     ]),
     linkedPairs: new Set([pairKey("L2002_DIPC", "1.2.1")]),
@@ -151,7 +151,7 @@ describe("buildMatrixView", () => {
   it("groupe par type (libellé de la base), trie les critères nombre à nombre, sans doublon", () => {
     expect(view.groups.map((g) => g.documentTypeCode)).toEqual(["A_TYPE", "L2002_DIPC"]);
     const dipc = view.groups[1];
-    expect(dipc?.documentTypeLabel).toBe("DIPC / Contrat de séjour");
+    expect(dipc?.documentTypeLabel).toBe("DIPEC / Contrat de séjour");
     expect(dipc?.rows.map((r) => [r.criterionCode, r.linked])).toEqual([
       ["1.2.1", true],
       ["1.10.2", false],
@@ -177,7 +177,7 @@ describe("buildMatrixView — types de la base sans rattachement proposé", () =
   const DOCUMENT_TYPE_LABELS = new Map([
     ["A_TYPE", "Type A"],
     ["B_TYPE", "Type B"],
-    ["L2002_DIPC", "DIPC / Contrat de séjour"],
+    ["L2002_DIPC", "DIPEC / Contrat de séjour"],
   ]);
 
   function viewOf(rows: MatrixRow[], criterionLabels: [string, string][]): MatrixView {
@@ -214,7 +214,7 @@ describe("buildMatrixView — types de la base sans rattachement proposé", () =
     expect(v.groups).toEqual([]);
     expect(v.typesWithoutProposal).toEqual([
       { code: "A_TYPE", label: "Type A" },
-      { code: "L2002_DIPC", label: "DIPC / Contrat de séjour" },
+      { code: "L2002_DIPC", label: "DIPEC / Contrat de séjour" },
     ]);
   });
 

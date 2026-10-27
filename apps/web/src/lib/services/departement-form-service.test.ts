@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { PDFDocument } from "pdf-lib";
-import { DEPARTEMENT_FORM, departementFormFileName, departementFormGaps, planDepartementForm, type FormItem } from "./departement-form-service";
+import { DEPARTEMENT_FORM, departementFormFileName, departementFormGaps, departementFormSigner, planDepartementForm, type FormItem } from "./departement-form-service";
 import { fillOfficialForm, OfficialFormMismatchError } from "./departement-form-pdf";
 import { EMPTY_AID, EMPTY_CONTACT, EMPTY_IDENTITY, type AdmissionRecord } from "./admission-service";
 
@@ -26,6 +26,8 @@ const record: AdmissionRecord = {
   pdfSha256: "0",
   outcome: "SIGNE",
   refusal: null,
+  trustedPerson: null,
+  word: null,
 };
 const structure = { name: "SAD Fictif", address: "1 avenue Fictive – 93000 Ville" };
 const base = { record, structure, certifies: true, acceptsTransmission: true, signedOn: new Date("2026-10-27T10:00:00Z"), withSignature: true };
@@ -35,6 +37,12 @@ const checks = (items: FormItem[], page: number) => items.filter((i) => i.kind =
 
 describe("planDepartementForm", () => {
   const items = planDepartementForm(base);
+
+  it("la signature reprise du contrat est celle de la personne, ou du tuteur sous tutelle — jamais celle du service", () => {
+    expect(departementFormSigner({ contact: null })).toBe("PERSONNE");
+    expect(departementFormSigner({ contact: { ...EMPTY_CONTACT, kind: "CURATEUR" } })).toBe("PERSONNE");
+    expect(departementFormSigner({ contact: { ...EMPTY_CONTACT, kind: "TUTEUR" } })).toBe("REPRESENTANT");
+  });
 
   it("page 1 : identité, date de naissance et code postal chiffre par chiffre, aide cochée", () => {
     expect(texts(items, 0)).toEqual(expect.arrayContaining(["EXEMPLE", "Paulette", "MARTIN", "1 rue Fictive", "Ville-Fictive"]));

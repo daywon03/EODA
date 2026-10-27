@@ -70,8 +70,8 @@ export function parseCsv(text: string): string[][] {
 }
 
 // La remarque de la proposition cite parfois le sigle tel qu'écrit dans le fichier
-// source (« le xlsx écrit … »). L'interface dit DIPC, toujours : ces mentions de
-// provenance sont retirées à la lecture, le reste de la remarque est conservé.
+// source (« le xlsx écrit … »). Ces mentions de provenance n'apprennent rien à qui
+// relit la matrice : elles sont retirées à la lecture, le reste de la remarque est conservé.
 export function sanitizeRemark(raw: string): string | null {
   const parts = raw
     .split(" ; ")

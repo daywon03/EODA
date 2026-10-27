@@ -10,7 +10,8 @@ import { DemoSurvey } from "./DemoSurvey";
 import { DemoReception, type DemoEvidence } from "./DemoReception";
 import { DemoDossier } from "./DemoDossier";
 import { fullName, type AdmissionRecord } from "@/lib/services/admission-service";
-import { AdmissionWizard } from "../admission/AdmissionWizard";
+import { departementFormSigner } from "@/lib/services/departement-form-service";
+import { AdmissionWizard, type AdmissionExtras } from "../admission/AdmissionWizard";
 import { DepartementFormPanel } from "../admission/DepartementFormPanel";
 import { downloadBlob, sha256Hex } from "../admission/use-admissions";
 
@@ -38,6 +39,7 @@ export function TabletDemo() {
   const [toast, setToast] = useState<string | null>(null);
   // Contrats signés de la démonstration : en mémoire seulement, jamais rangés.
   const [contracts, setContracts] = useState<Record<string, Blob>>({});
+  const [demoSignatures, setDemoSignatures] = useState<Record<string, AdmissionExtras["signatures"]>>({});
   const [demoDipcSha, setDemoDipcSha] = useState("");
 
   useEffect(() => {
@@ -86,13 +88,13 @@ export function TabletDemo() {
             <button type="button" onClick={() => go({ kind: "reception" })} className="flex flex-col gap-3 rounded-[18px] border border-line bg-card p-7 text-left text-[19px] text-ink">
               <span className="w-fit rounded-md border border-muted px-3 py-0.5 text-[16px] font-bold text-ink2">À l&apos;arrivée d&apos;une personne</span>
               <span className="text-[30px] font-bold leading-tight">Nouvelle personne accompagnée</span>
-              <span>Présentez le livret d&apos;accueil, le règlement de fonctionnement et le DIPC. La personne signe une fois sur la tablette.</span>
+              <span>Présentez le livret d&apos;accueil, le règlement de fonctionnement et le DIPEC. La personne signe une fois sur la tablette.</span>
               <span className="mt-auto flex h-[60px] items-center justify-center rounded-xl border-2 border-ink text-[20px] font-bold">Créer son dossier</span>
             </button>
             <button type="button" onClick={() => go({ kind: "admission", personId: `n${Date.now()}` })} disabled={!demoDipcSha} className="flex flex-col gap-3 rounded-[18px] border border-line bg-card p-7 text-left text-[19px] text-ink md:col-span-2">
               <span className="w-fit rounded-md border border-muted px-3 py-0.5 text-[16px] font-bold text-ink2">Nouveau · contrat signé sur la tablette</span>
-              <span className="text-[30px] font-bold leading-tight">Accueil et contrat (DIPC)</span>
-              <span>Fiche remplie une fois, DIPC relu ensemble, points du manuel HAS expliqués et cochés, signatures, PDF à envoyer ou exporter.</span>
+              <span className="text-[30px] font-bold leading-tight">Accueil et contrat (DIPEC)</span>
+              <span>Fiche remplie une fois, DIPEC relu ensemble, points du manuel HAS expliqués et cochés, signatures, PDF à envoyer ou exporter.</span>
               <span className="mt-auto flex h-[60px] items-center justify-center rounded-xl border-2 border-ink text-[20px] font-bold">Essayer avec une personne fictive</span>
             </button>
           </div>
@@ -152,13 +154,15 @@ export function TabletDemo() {
           structureName={DEMO_STRUCTURE}
           staffName={DEMO_STAFF}
           dipc={{ ...DEMO_DIPC, sha256: demoDipcSha }}
+          word={null}
           person={{ personId: screen.personId, lastName: "Rousseau (fictif)", firstName: "Germaine" }}
           onCancel={() => go({ kind: "home" })}
-          onRecorded={async (record, pdf) => {
+          onRecorded={async (record, pdf, extras) => {
             setContracts((all) => ({ ...all, [record.id]: pdf }));
+            setDemoSignatures((all) => ({ ...all, [record.id]: extras.signatures }));
             setPeople((list) => [
               ...list,
-              { id: record.personId, name: fullName(record.identity), gir: 3, address: "Adresse fictive", hours: "Heures selon le DIPC", since: "aujourd'hui", surveys: { PERSONNE: false, FAMILLE: false }, pap: [], contacts: [], journal: [], receptionSignedOn: "aujourd'hui" },
+              { id: record.personId, name: fullName(record.identity), gir: 3, address: "Adresse fictive", hours: "Heures selon le DIPEC", since: "aujourd'hui", surveys: { PERSONNE: false, FAMILLE: false }, pap: [], contacts: [], journal: [], receptionSignedOn: "aujourd'hui" },
             ]);
             go({ kind: "admission-done", record });
           }}
@@ -199,7 +203,11 @@ export function TabletDemo() {
         <DepartementFormPanel
           record={screen.record}
           structure={{ name: DEMO_STRUCTURE, address: "1 avenue Fictive – 93000 Ville-Fictive" }}
-          contractPdf={async () => contracts[screen.record.id] ?? null}
+          contractFiles={async () => {
+            const pdf = contracts[screen.record.id];
+            return pdf ? [{ fileName: screen.record.pdfFileName, blob: pdf }] : [];
+          }}
+          contractSignature={async () => demoSignatures[screen.record.id]?.[departementFormSigner(screen.record)] ?? null}
           onSaved={() => Promise.resolve(true)}
           onBack={() => go({ kind: "admission-done", record: screen.record })}
         />

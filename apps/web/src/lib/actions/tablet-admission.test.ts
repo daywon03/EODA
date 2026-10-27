@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-// DIPC à signer sur la tablette : la seule lecture serveur du parcours. Ce qu'elle lit,
+// DIPEC à signer sur la tablette : la seule lecture serveur du parcours. Ce qu'elle lit,
 // pour qui, et ce qu'elle journalise.
 
 const prismaMock = { document: { findFirst: vi.fn() }, establishment: { findUnique: vi.fn() } };
@@ -28,7 +28,7 @@ describe("getTabletDipcSource", () => {
     expect(prismaMock.document.findFirst).not.toHaveBeenCalled();
   });
 
-  it("lit le DIPC de la structure de l'APPAREIL, jamais d'une autre", async () => {
+  it("lit le DIPEC de la structure de l'APPAREIL, jamais d'une autre", async () => {
     prismaMock.document.findFirst.mockResolvedValue(null);
     await getTabletDipcSource();
     expect(prismaMock.document.findFirst).toHaveBeenCalledWith(
@@ -41,14 +41,14 @@ describe("getTabletDipcSource", () => {
       validatedAt: day("2026-10-05"),
       versions: [
         { id: "v1", versionNumber: 1, uploadedAt: day("2026-09-01"), extractedText: "texte client", uploadedBy: { role: "CLIENT_USER" } },
-        { id: "v2", versionNumber: 2, uploadedAt: day("2026-10-01"), extractedText: "DIPC d'EODA", uploadedBy: { role: "CABINET_EVALUATOR" } },
+        { id: "v2", versionNumber: 2, uploadedAt: day("2026-10-01"), extractedText: "DIPEC d'EODA", uploadedBy: { role: "CABINET_EVALUATOR" } },
       ],
     });
-    expect(await getTabletDipcSource()).toEqual({ status: "READY", versionId: "v2", versionNumber: 2, validatedOn: "2026-10-05", text: "DIPC d'EODA" });
-    expect(recordAuditEvent).toHaveBeenCalledWith({ action: "DOCUMENT_PREVIEWED", establishmentId: "etab1", targetId: "v2", detail: "tablette · DIPC à signer" });
+    expect(await getTabletDipcSource()).toEqual({ status: "READY", versionId: "v2", versionNumber: 2, validatedOn: "2026-10-05", text: "DIPEC d'EODA", hasWord: false });
+    expect(recordAuditEvent).toHaveBeenCalledWith({ action: "DOCUMENT_PREVIEWED", establishmentId: "etab1", targetId: "v2", detail: "tablette · DIPEC à signer" });
   });
 
-  it("DIPC absent ou non validé : on le dit, rien n'est journalisé", async () => {
+  it("DIPEC absent ou non validé : on le dit, rien n'est journalisé", async () => {
     prismaMock.document.findFirst.mockResolvedValue(null);
     expect(await getTabletDipcSource()).toEqual({ status: "ABSENT" });
     prismaMock.document.findFirst.mockResolvedValue({

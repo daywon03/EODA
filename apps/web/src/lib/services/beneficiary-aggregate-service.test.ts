@@ -30,7 +30,7 @@ describe("computeBeneficiaryAggregates", () => {
       timelines: [
         timeline("a", "2026-01-10"), // feuille remise, rien à revoir → à jour
         timeline("b", "2026-09-01"), // rien remis, délai de 15 jours dépassé → en retard
-        timeline("c", "2025-10-20"), // DIPC à revoir sous 30 jours
+        timeline("c", "2025-10-20"), // DIPEC à revoir sous 30 jours
         timeline("d", "2025-01-01", "2026-06-30"), // accompagnement terminé : hors compte
       ],
       documents: [

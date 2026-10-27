@@ -282,8 +282,10 @@ d'évaluation », « personne accompagnée » (jamais « usager » dans l'interf
 ### 6.3 Mots interdits
 
 « Évaluation officielle », « certifié HAS », « automatiquement conforme », « score A/B/C/D » en
-saisie. Le sigle **DIPEC**/**DPEC** est un contresens (le bon sigle est **DIPC**) et **fait
-échouer** `content-guard.test.ts`, comme **toute donnée du client pilote** (nom, commune, FINESS)
+saisie. Le sigle s'écrit **DIPEC**, comme l'écrit Sandrine (décision de Damon du 27/10/2026,
+qui renverse la décision 9 des maquettes v2) : **DIPC** et **DPEC** à l'écran, dans un contenu,
+un nom de fichier ou un test **font échouer** `content-guard.test.ts` — seuls les identifiants
+internes (`L2002_DIPC`, la valeur d'énumération `"DIPC"`) restent, ce sont des clés. Échouent de même **toute donnée du client pilote** (nom, commune, FINESS)
 et **tout second champ mot de passe** écrit à la main plutôt que par `PasswordInput`.
 
 Depuis le 08/10/2026, « IA » **peut** être nommée — mais jamais sans sa réserve. Une sortie de
