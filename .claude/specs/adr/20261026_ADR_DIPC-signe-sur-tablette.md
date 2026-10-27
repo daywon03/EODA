@@ -86,9 +86,9 @@ Contraintes :
   tablette ; durée indéterminée proposée d'emblée ; dates exigées pour la durée
   déterminée.
 
-## Reste à faire
-
-- Refus de signer à tracer (HAS 1.7.4).
+- **Refus de signer** (HAS 1.7.3 / 1.7.4) : enregistré sur la même fiche que le contrat
+  (issue « refusé »), avec une attestation qui ne fait rien signer, le motif s'il est
+  donné et la date à laquelle reproposer ; visible dans la liste et dans l'export.
 - Valider avec Sandrine : les points d'explication (dont le délai de rétractation de 14 jours,
   Code conso L221-18, à confirmer pour un SAD), la signature « pour le service » par
   l'intervenant (ou la direction), le format d'import de Ximi.

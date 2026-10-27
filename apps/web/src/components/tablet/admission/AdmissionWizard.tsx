@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { ArrowLeft, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ADMISSION_EXPLANATIONS_VERSION, type HandedDocumentId } from "@/content/admission/explications";
-import { planAdmissionDocument } from "@/lib/services/admission-document-service";
+import { planAdmissionDocument, planRefusalDocument } from "@/lib/services/admission-document-service";
 import {
   admissionFieldValues,
   admissionPdfFileName,
@@ -14,6 +14,8 @@ import {
   EMPTY_CONTACT,
   EMPTY_IDENTITY,
   defaultDuration,
+  defaultReproposeOn,
+  refusalProblems,
   dipcEntryValues,
   durationProblems,
   fullName,
@@ -26,6 +28,8 @@ import {
   signingProblems,
   SIGNER_LABELS,
   type AdmissionContact,
+  type AdmissionOutcome,
+  type AdmissionRefusal,
   type AdmissionRecord,
   type DipcDuration,
   type AdmissionSigner,
@@ -36,6 +40,7 @@ import { AdmissionExplainStep } from "./AdmissionExplainStep";
 import { AdmissionIdentityStep } from "./AdmissionIdentityStep";
 import { AdmissionPreview } from "./AdmissionPreview";
 import { AdmissionProjectStep } from "./AdmissionProjectStep";
+import { AdmissionRefusalPanel } from "./AdmissionRefusalPanel";
 import { sha256Hex } from "./use-admissions";
 import { prepareDipcForTablet } from "@/lib/services/dipc-tablet-preparation";
 
@@ -43,20 +48,24 @@ export type TabletDipc = { versionId: string; versionNumber: number; validatedOn
 
 const STEPS = ["La personne", "Le projet", "Le contrat", "À expliquer", "Signatures"] as const;
 const STEP = { PERSON: 0, PROJECT: 1, CONTRACT: 2, EXPLAIN: 3, SIGN: 4 } as const;
+const STEP_TITLES = ["Qui accueillons-nous ?", "Ce que prévoit le contrat", "Relisez le contrat ensemble", "À expliquer à la personne", "Signatures"];
 
 function contactOrNull(contact: AdmissionContact): AdmissionContact | null {
   return contact.kind ? contact : null;
 }
 
-export function AdmissionWizard({ structureName, staffName, dipc, person, onSigned, onCancel }: {
+export function AdmissionWizard({ structureName, staffName, dipc, person, onRecorded, onCancel }: {
   structureName: string;
   staffName: string;
   dipc: TabletDipc;
   person: { personId: string; lastName: string; firstName: string } | null;
-  onSigned: (record: AdmissionRecord, pdf: Blob) => Promise<void>;
+  onRecorded: (record: AdmissionRecord, pdf: Blob) => Promise<void>;
   onCancel: () => void;
 }) {
   const [step, setStep] = useState(0);
+  const [refusing, setRefusing] = useState(false);
+  const [refusal, setRefusal] = useState<AdmissionRefusal>(() => ({ reason: "", reproposeOn: defaultReproposeOn(new Date()) }));
+  const [refusalError, setRefusalError] = useState<string | null>(null);
   const [identity, setIdentity] = useState({ ...EMPTY_IDENTITY, birthName: person?.lastName ?? "", firstName: person?.firstName ?? "" });
   const [aid, setAid] = useState(EMPTY_AID);
   const [contact, setContact] = useState<AdmissionContact>(EMPTY_CONTACT);
@@ -129,27 +138,55 @@ export function AdmissionWizard({ structureName, staffName, dipc, person, onSign
       }
       const name = fullName(identity);
       const pdf = new Blob([(await renderAdmissionPdf({ blocks, signatures: images, footer: `DIPC — ${structureName} — ${name}`, title: `DIPC — ${name}`, signedAt })) as BlobPart], { type: "application/pdf" });
-      const record: AdmissionRecord = {
-        version: 1,
-        id: window.crypto.randomUUID(),
-        personId: person?.personId ?? window.crypto.randomUUID(),
-        identity,
-        aid,
-        contact: linked,
-        explanationsVersion: ADMISSION_EXPLANATIONS_VERSION,
-        explained,
-        handed,
-        signers,
-        signedAt: signedAt.toISOString(),
-        staffName,
-        dipc: { versionId: dipc.versionId, versionNumber: dipc.versionNumber, validatedOn: dipc.validatedOn, sha256: dipc.sha256 },
-        pdfFileName: admissionPdfFileName(structureName, identity, signedAt),
-        // L'empreinte porte sur les octets mêmes qui sont rangés et envoyés.
-        pdfSha256: await sha256Hex(await pdf.arrayBuffer()),
-      };
-      await onSigned(record, pdf);
+      await onRecorded(await recordOf(signedAt, "SIGNE", null, signers, pdf), pdf);
     } catch {
       setSignError("Le contrat n'a pas pu être fabriqué. Vérifiez les signatures, puis recommencez la signature.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  // Ce que la tablette garde, contrat signé ou refus : la même fiche, la même trace.
+  async function recordOf(at: Date, outcome: AdmissionOutcome, refusalData: AdmissionRefusal | null, recordSigners: AdmissionSigner[], pdf: Blob): Promise<AdmissionRecord> {
+    return {
+      version: 1,
+      id: window.crypto.randomUUID(),
+      personId: person?.personId ?? window.crypto.randomUUID(),
+      identity,
+      aid,
+      contact: linked,
+      explanationsVersion: ADMISSION_EXPLANATIONS_VERSION,
+      explained,
+      handed,
+      signers: recordSigners,
+      signedAt: at.toISOString(),
+      staffName,
+      dipc: { versionId: dipc.versionId, versionNumber: dipc.versionNumber, validatedOn: dipc.validatedOn, sha256: dipc.sha256 },
+      pdfFileName: admissionPdfFileName(structureName, identity, at, outcome),
+      // L'empreinte porte sur les octets mêmes qui sont rangés et envoyés.
+      pdfSha256: await sha256Hex(await pdf.arrayBuffer()),
+      outcome,
+      refusal: refusalData,
+    };
+  }
+
+  // La personne ne souhaite pas signer (HAS 1.7.3 / 1.7.4) : son refus est respecté
+  // et TRACÉ, avec la date à laquelle le contrat lui sera reproposé.
+  async function recordRefusal() {
+    const found = refusalProblems(refusal, new Date());
+    if (found.length > 0) return setRefusalError(found.join(" "));
+    setBusy(true);
+    setRefusalError(null);
+    try {
+      const recordedAt = new Date();
+      const blocks = planRefusalDocument({ ...docInput, dipc, recordedAt, reason: refusal.reason, reproposeOn: refusal.reproposeOn });
+      const { renderAdmissionPdf } = await import("@/lib/services/admission-pdf");
+      const name = fullName(identity);
+      const bytes = await renderAdmissionPdf({ blocks, signatures: {}, footer: `Refus du DIPC — ${structureName} — ${name}`, title: `Refus du DIPC — ${name}`, signedAt: recordedAt });
+      const pdf = new Blob([bytes as BlobPart], { type: "application/pdf" });
+      await onRecorded(await recordOf(recordedAt, "REFUS", { reason: refusal.reason.trim(), reproposeOn: refusal.reproposeOn }, [], pdf), pdf);
+    } catch {
+      setRefusalError("L'attestation n'a pas pu être fabriquée. Recommencez.");
     } finally {
       setBusy(false);
     }
@@ -167,13 +204,24 @@ export function AdmissionWizard({ structureName, staffName, dipc, person, onSign
       </ol>
 
       <h1 id="admission-titre" className="text-[34px] font-bold leading-tight">
-        {step === STEP.PERSON && "Qui accueillons-nous ?"}
-        {step === STEP.PROJECT && "Ce que prévoit le contrat"}
-        {step === STEP.CONTRACT && "Relisez le contrat ensemble"}
-        {step === STEP.EXPLAIN && "À expliquer à la personne"}
-        {step === STEP.SIGN && "Signatures"}
+        {refusing ? "La personne ne souhaite pas signer" : STEP_TITLES[step]}
       </h1>
 
+      {refusing ? (
+        <AdmissionRefusalPanel
+          personName={fullName(identity)}
+          refusal={refusal}
+          onRefusal={setRefusal}
+          error={refusalError}
+          busy={busy}
+          onConfirm={() => void recordRefusal()}
+          onBack={() => {
+            setRefusing(false);
+            setRefusalError(null);
+          }}
+        />
+      ) : (
+      <>
       {step === STEP.PERSON && <AdmissionIdentityStep identity={identity} aid={aid} contact={contact} onIdentity={setIdentity} onAid={setAid} onContact={setContact} />}
 
       {step === STEP.PROJECT && (
@@ -243,6 +291,14 @@ export function AdmissionWizard({ structureName, staffName, dipc, person, onSign
                     : "Signer le contrat"}
         </button>
       </div>
+      {/* Le refus se propose une fois le contrat présenté : avant, il n'y a rien à refuser. */}
+      {step >= STEP.CONTRACT && (
+        <button type="button" className={cn(TABLET_SECONDARY, "w-fit")} onClick={() => setRefusing(true)} disabled={busy}>
+          La personne ne souhaite pas signer
+        </button>
+      )}
+      </>
+      )}
     </section>
   );
 }

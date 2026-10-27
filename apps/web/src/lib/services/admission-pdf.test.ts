@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { PDFDocument } from "pdf-lib";
 import { ADMISSION_HANDED_DOCUMENTS, allAdmissionPoints } from "@/content/admission/explications";
-import { dipcDocumentBlocks, frenchDateTime, planAdmissionDocument, type AdmissionDocumentInput } from "./admission-document-service";
+import { dipcDocumentBlocks, frenchDateTime, planAdmissionDocument, planRefusalDocument, type AdmissionDocumentInput } from "./admission-document-service";
 import { prepareDipcForTablet } from "./dipc-tablet-preparation";
 import { pngDataUrlToBytes, renderAdmissionPdf, sanitizeForFont, wrapText } from "./admission-pdf";
 import { EMPTY_AID, EMPTY_CONTACT, EMPTY_IDENTITY } from "./admission-service";
@@ -96,5 +96,49 @@ describe("rendu PDF", () => {
   it("refuse une image qui n'est pas un PNG en data URL", () => {
     expect(pngDataUrlToBytes("data:image/jpeg;base64,AAAA")).toBeNull();
     expect(pngDataUrlToBytes("javascript:alert(1)")).toBeNull();
+  });
+});
+
+describe("attestation de refus (HAS 1.7.3 / 1.7.4)", () => {
+  const refusal = {
+    structureName: input.structureName,
+    identity: input.identity,
+    aid: input.aid,
+    contact: input.contact,
+    explained: input.explained,
+    handed: input.handed,
+    explanationsVersion: input.explanationsVersion,
+    staffName: input.staffName,
+    dipc: { versionNumber: 3, validatedOn: "2026-10-01", sha256: "f".repeat(64) },
+    recordedAt: signedAt,
+    reason: "  Veut en parler  avec sa fille ",
+    reproposeOn: "2026-11-26",
+  };
+  const blocks = planRefusalDocument(refusal);
+  const all = JSON.stringify(blocks);
+
+  it("trace le refus, le motif, la date pour reproposer, et ce qui a été expliqué — sans rien faire signer", () => {
+    expect(blocks[0]).toEqual({ kind: "title", text: "Refus de signer le document individuel de prise en charge (DIPC)" });
+    expect(all).toContain("Elle ne souhaite pas le signer.");
+    expect(blocks).toContainEqual({ kind: "field", label: "Motif donné par la personne", value: "Veut en parler avec sa fille" });
+    expect(blocks).toContainEqual({ kind: "field", label: "Le service lui reproposera le contrat le", value: "26/11/2026" });
+    expect(all).toContain("expliqué à 09:00 · HAS 1.2.3");
+    expect(all).toContain(`Empreinte SHA-256 du texte du DIPC présenté (validé par EODA) : ${"f".repeat(64)}`);
+    expect(blocks.some((b) => b.kind === "signature")).toBe(false);
+    // Le contrat n'a pas été conclu : son texte n'est pas recopié.
+    expect(all).not.toContain("Article 1 — Objet");
+  });
+
+  it("sans motif : la personne n'a pas à se justifier, et ça se lit", () => {
+    expect(planRefusalDocument({ ...refusal, reason: " " })).toContainEqual({
+      kind: "field",
+      label: "Motif donné par la personne",
+      value: "Pas de motif donné (la personne n'a pas à se justifier).",
+    });
+  });
+
+  it("se rend en PDF sans aucune signature", async () => {
+    const bytes = await renderAdmissionPdf({ blocks, signatures: {}, footer: "Refus — test", title: "Refus du DIPC — test", signedAt });
+    expect((await PDFDocument.load(bytes)).getTitle()).toBe("Refus du DIPC — test");
   });
 });

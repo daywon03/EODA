@@ -123,12 +123,24 @@ export type AdmissionRecord = {
   explained: Record<string, string>; // point → heure ISO
   handed: Partial<Record<HandedDocumentId, string>>;
   signers: AdmissionSigner[];
+  // Moment de l'issue : la signature, ou l'enregistrement du refus.
   signedAt: string; // ISO
   staffName: string;
   dipc: AdmissionDipcRef;
   pdfFileName: string;
   pdfSha256: string;
+  // Le DIPC présenté a été signé, ou la personne a refusé de le signer (HAS 1.7.4 :
+  // le consentement OU LE REFUS est tracé). Un enregistrement antérieur au 27/10/2026
+  // n'a pas ce champ : il se relit comme signé.
+  outcome: AdmissionOutcome;
+  refusal: AdmissionRefusal | null;
 };
+
+export type AdmissionOutcome = "SIGNE" | "REFUS";
+// Le motif est facultatif (la personne n'a pas à se justifier) ; la date à laquelle le
+// contrat lui sera reproposé, elle, est exigée (HAS 1.7.3 : réinterroger le refus).
+export type AdmissionRefusal = { reason: string; reproposeOn: string };
+export const REFUSAL_REASON_MAX = 500;
 
 // ── Identité ─────────────────────────────────────────────────────────────────
 
@@ -448,10 +460,44 @@ function slug(value: string, max: number, fallback: string): string {
   );
 }
 
-// « Externe » : le contrat est remis à la personne.
-export function admissionPdfFileName(structureName: string, identity: AdmissionIdentity, signedAt: Date): string {
+// « Externe » : le contrat (ou l'attestation de refus) est remis à la personne.
+export function admissionPdfFileName(structureName: string, identity: AdmissionIdentity, signedAt: Date, outcome: AdmissionOutcome = "SIGNE"): string {
   const person = slug(`${displayLastName(identity)} ${cleanName(identity.firstName)}`, 50, "Personne");
-  return `${dayOf(signedAt).replace(/-/g, "")}_DIPC_${slug(structureName, 40, "Structure")}_${person}_v01_Externe.pdf`;
+  const type = outcome === "REFUS" ? "REFUS-DIPC" : "DIPC";
+  return `${dayOf(signedAt).replace(/-/g, "")}_${type}_${slug(structureName, 40, "Structure")}_${person}_v01_Externe.pdf`;
+}
+
+// ── Refus de signer (HAS 1.7.3 / 1.7.4) ──────────────────────────────────────
+
+export function refusalProblems(refusal: AdmissionRefusal, today: Date): string[] {
+  return [
+    ...(isRealDay(refusal.reproposeOn) ? [] : ["Écrivez la date à laquelle le contrat lui sera reproposé."]),
+    ...(isRealDay(refusal.reproposeOn) && refusal.reproposeOn < dayOf(today) ? ["La date pour reproposer le contrat est déjà passée."] : []),
+    ...(refusal.reason.length > REFUSAL_REASON_MAX ? [`Le motif est trop long (${REFUSAL_REASON_MAX} caractères au plus).`] : []),
+  ];
+}
+
+// Un mois plus tard, par défaut : assez pour réfléchir, assez tôt pour ne pas perdre le fil.
+export function defaultReproposeOn(today: Date): string {
+  const next = new Date(today);
+  next.setMonth(next.getMonth() + 1);
+  return dayOf(next);
+}
+
+// ── État d'une personne dans la liste ────────────────────────────────────────
+
+export type AdmissionState = "A_FAIRE" | "SIGNE" | "A_REVOIR" | "REFUS" | "A_REPROPOSER";
+
+export function admissionState(record: AdmissionRecord | null, today: Date): { state: AdmissionState; label: string } {
+  if (!record) return { state: "A_FAIRE", label: "DIPC à faire signer" };
+  const on = frenchDay(record.signedAt.slice(0, 10));
+  if (record.outcome === "REFUS") {
+    const repropose = record.refusal?.reproposeOn ?? "";
+    if (!repropose || repropose <= dayOf(today)) return { state: "A_REPROPOSER", label: `Refus le ${on} · à reproposer maintenant` };
+    return { state: "REFUS", label: `Refus le ${on} · à reproposer le ${frenchDay(repropose)}` };
+  }
+  if (isAdmissionDueForReview(record, today)) return { state: "A_REVOIR", label: `Signé le ${on} · à revoir` };
+  return { state: "SIGNE", label: `Signé le ${on}` };
 }
 
 export function admissionArchiveFileName(structureName: string, today: Date): string {
@@ -469,8 +515,10 @@ export const ADMISSION_EXPORT_HEADER = [
   "Ville",
   "Début de l'accompagnement",
   "Version du DIPC",
-  "Signé le",
+  "Issue",
+  "Le",
   "Signataires",
+  "À reproposer le",
   "Fichier",
   "Empreinte SHA-256 du PDF",
 ] as const;
@@ -488,8 +536,10 @@ export function buildAdmissionsCsv(records: readonly AdmissionRecord[]): string 
         cleanName(r.identity.city),
         frenchDay(r.aid.startDate),
         `v${r.dipc.versionNumber}`,
+        r.outcome === "REFUS" ? "Refusé" : "Signé",
         frenchDay(r.signedAt.slice(0, 10)),
         r.signers.map((signer) => SIGNER_LABELS[signer]).join(" + "),
+        r.refusal ? frenchDay(r.refusal.reproposeOn) : "",
         r.pdfFileName,
         r.pdfSha256,
       ]
@@ -603,7 +653,16 @@ export function parseStoredAdmission(raw: unknown): AdmissionRecord | null {
     dipc: { versionId: dipc.versionId, versionNumber: dipc.versionNumber, validatedOn: str(dipc.validatedOn, 10), sha256: str(dipc.sha256, 64) },
     pdfFileName: str(o.pdfFileName, 200),
     pdfSha256: o.pdfSha256.slice(0, 64),
+    ...readOutcome(o),
   };
+}
+
+// Sans champ `outcome` (enregistrement antérieur au 27/10/2026) : un contrat signé.
+// Un refus sans date pour le reproposer reste un refus, « à reproposer maintenant ».
+function readOutcome(o: Record<string, unknown>): Pick<AdmissionRecord, "outcome" | "refusal"> {
+  if (o.outcome !== "REFUS") return { outcome: "SIGNE", refusal: null };
+  const refusal = (typeof o.refusal === "object" && o.refusal !== null ? o.refusal : {}) as Record<string, unknown>;
+  return { outcome: "REFUS", refusal: { reason: str(refusal.reason, REFUSAL_REASON_MAX), reproposeOn: str(refusal.reproposeOn, 10) } };
 }
 
 // La base de la tablette porte la structure dans son nom : une tablette
