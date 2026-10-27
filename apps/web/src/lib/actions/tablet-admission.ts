@@ -15,6 +15,15 @@ import { DIPC_DOCUMENT_TYPE_CODE, selectTabletDipc, type TabletDipcSource } from
 // reçu.
 // ─────────────────────────────────────────────────────────────────────────────
 
+// Adresse de la structure, pour la case « SAD 1 » du formulaire de désignation du
+// Département : donnée institutionnelle, lue depuis l'APPAREIL enregistré.
+export async function getTabletStructureAddress(): Promise<string | null> {
+  const session = await resolveTabletSession();
+  if (!session) return null;
+  const establishment = await prisma.establishment.findUnique({ where: { id: session.establishmentId }, select: { address: true } });
+  return establishment?.address ?? "";
+}
+
 export async function getTabletDipcSource(): Promise<TabletDipcSource | null> {
   const session = await resolveTabletSession();
   if (!session) return null;

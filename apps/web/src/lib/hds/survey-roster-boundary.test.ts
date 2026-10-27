@@ -18,7 +18,16 @@ import { describe, expect, it } from "vitest";
 // pas la tablette. Un import dynamique (`import("…/admission-pdf")`) est surveillé
 // comme un import statique.
 const SRC = path.resolve(__dirname, "../..");
-const GUARDED_MODULES = ["survey-roster-service", "xlsx-rows-reader", "admission-service", "admission-document-service", "admission-pdf"];
+const GUARDED_MODULES = [
+  "survey-roster-service",
+  "xlsx-rows-reader",
+  "admission-service",
+  "admission-document-service",
+  "admission-pdf",
+  // Formulaire du Département rempli depuis la fiche (27/10/2026).
+  "departement-form-service",
+  "departement-form-pdf",
+];
 const GUARDED = new RegExp(`(?:from\\s+|import\\(\\s*)["'][^"']*\\/(?:${GUARDED_MODULES.join("|")})["']`);
 const OWN = GUARDED_MODULES.map((name) => path.join("lib", "services", `${name}.ts`));
 

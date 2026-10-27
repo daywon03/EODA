@@ -1,0 +1,149 @@
+"use client";
+
+import { useState } from "react";
+import { ArrowLeft, Check, Download, FileText, Send } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { fullName, type AdmissionRecord } from "@/lib/services/admission-service";
+import { DEPARTEMENT_FORM, departementFormFileName, departementFormGaps, planDepartementForm } from "@/lib/services/departement-form-service";
+import { TABLET_PRIMARY, TABLET_SECONDARY } from "../tablet-ui";
+import { SignaturePad } from "../SignaturePad";
+import { downloadBlob, sha256Hex, shareFilesOrDownload } from "./use-admissions";
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FORMULAIRE DU DÉPARTEMENT (93) rempli depuis la fiche (27/10/2026). Tout se fait
+// dans le navigateur : le PDF officiel vierge est chargé, rempli, rangé sur la
+// tablette, puis envoyé AVEC le contrat — le Département exige les deux ensemble.
+// Les deux déclarations sur l'honneur se cochent par la personne, jamais d'office.
+// ─────────────────────────────────────────────────────────────────────────────
+
+function Tick({ on, onToggle, children }: { on: boolean; onToggle: () => void; children: React.ReactNode }) {
+  return (
+    <button type="button" role="checkbox" aria-checked={on} onClick={onToggle} className={cn("flex min-h-[68px] w-full items-center gap-3.5 rounded-xl border-2 px-3.5 py-2 text-left text-[19px]", on ? "border-ok-text bg-ok-soft" : "border-line bg-card")}>
+      <span className={cn("flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg border-2", on ? "border-ok-text bg-green-fill" : "border-muted bg-card")}>
+        {on && <Check className="h-5 w-5" aria-hidden="true" />}
+      </span>
+      <span>{children}</span>
+    </button>
+  );
+}
+
+export function DepartementFormPanel({ record, structure, contractPdf, onSaved, onBack }: {
+  record: AdmissionRecord;
+  structure: { name: string; address: string };
+  contractPdf: () => Promise<Blob | null>;
+  onSaved: (pdf: Blob) => Promise<boolean>;
+  onBack: () => void;
+}) {
+  const [certifies, setCertifies] = useState(false);
+  const [accepts, setAccepts] = useState(false);
+  const [onPaper, setOnPaper] = useState(false);
+  const [signature, setSignature] = useState<string | null>(null);
+  const [form, setForm] = useState<Blob | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+  const gaps = departementFormGaps(record);
+  const fileName = departementFormFileName(structure.name, record, new Date());
+  const signer = record.contact?.kind === "TUTEUR" ? "Le tuteur" : "La personne";
+
+  async function build() {
+    if (!onPaper && !signature) return setMessage(`${signer} doit signer dans le cadre, ou choisissez « signer sur papier ».`);
+    setBusy(true);
+    setMessage(null);
+    try {
+      const official = new Uint8Array(await (await fetch(DEPARTEMENT_FORM.path)).arrayBuffer());
+      const { fillOfficialForm } = await import("@/lib/services/departement-form-pdf");
+      const { pngDataUrlToBytes } = await import("@/lib/services/admission-pdf");
+      const items = planDepartementForm({ record, structure, certifies, acceptsTransmission: accepts, signedOn: new Date(), withSignature: !onPaper });
+      const bytes = await fillOfficialForm({
+        officialPdf: official,
+        officialSha256: DEPARTEMENT_FORM.sha256,
+        actualSha256: await sha256Hex(official),
+        items,
+        signaturePng: onPaper ? null : pngDataUrlToBytes(signature ?? ""),
+      });
+      const pdf = new Blob([bytes as BlobPart], { type: "application/pdf" });
+      setForm(pdf);
+      const kept = await onSaved(pdf);
+      setMessage(kept ? "Formulaire prêt." : "Formulaire prêt. La tablette n'a pas pu le garder : envoyez-le ou téléchargez-le maintenant.");
+    } catch (error) {
+      setMessage(error instanceof Error && error.name === "OfficialFormMismatchError" ? error.message : "Le formulaire n'a pas pu être fabriqué. Vérifiez la connexion, puis recommencez.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function send() {
+    if (!form) return;
+    const contract = await contractPdf();
+    const files = [{ fileName, blob: form }, ...(contract ? [{ fileName: record.pdfFileName, blob: contract }] : [])];
+    const result = await shareFilesOrDownload(files, `Désignation du SAD — ${fullName(record.identity)}`);
+    setMessage(
+      result === "shared"
+        ? `Envoyé. Le Département attend les deux pièces à ${DEPARTEMENT_FORM.sendTo}.`
+        : result === "downloaded"
+          ? `Téléchargé. À envoyer avec le contrat à ${DEPARTEMENT_FORM.sendTo}.`
+          : null
+    );
+  }
+
+  return (
+    <section aria-labelledby="formulaire-titre" className="mx-auto flex w-full max-w-[860px] flex-col gap-6">
+      <button type="button" className={cn(TABLET_SECONDARY, "w-fit")} onClick={onBack}>
+        <ArrowLeft className="h-5 w-5" aria-hidden="true" />
+        Retour
+      </button>
+      <div>
+        <h1 id="formulaire-titre" className="text-[32px] font-bold leading-tight">Formulaire du Département</h1>
+        <p className="mt-1 text-[19px]">{DEPARTEMENT_FORM.title} · {fullName(record.identity)}</p>
+      </div>
+      <p className="text-[19px]">
+        Rempli avec la fiche de la personne. Il part au Département <span className="font-bold">avec le contrat</span>, à {DEPARTEMENT_FORM.sendTo}.
+      </p>
+      {gaps.length > 0 && (
+        <p className="rounded-xl bg-soft px-4 py-3 text-[18px]">
+          Pas dans la fiche, donc à compléter à la main sur le formulaire : {gaps.join(", ")}.
+        </p>
+      )}
+
+      {!form && (
+        <>
+          <section aria-labelledby="formulaire-declaration" className="flex flex-col gap-2.5">
+            <h2 id="formulaire-declaration" className="text-[24px] font-bold">Déclaration sur l&apos;honneur</h2>
+            <p className="text-[18px] text-ink2">Lisez chaque phrase {signer === "Le tuteur" ? "au tuteur" : "à la personne"}, et cochez seulement si elle est d&apos;accord.</p>
+            <Tick on={certifies} onToggle={() => setCertifies(!certifies)}>
+              Je certifie sur l&apos;honneur l&apos;exactitude des renseignements et je m&apos;engage à signaler tout changement au Conseil départemental.
+            </Tick>
+            <Tick on={accepts} onToggle={() => setAccepts(!accepts)}>
+              J&apos;accepte que le service transmette ces informations au Conseil départemental de la Seine-Saint-Denis.
+            </Tick>
+          </section>
+          <section aria-labelledby="formulaire-signature" className="flex flex-col gap-2.5">
+            <h2 id="formulaire-signature" className="text-[24px] font-bold">Signature</h2>
+            <Tick on={onPaper} onToggle={() => setOnPaper(!onPaper)}>
+              Signer sur papier, une fois le formulaire imprimé
+            </Tick>
+            {!onPaper && <SignaturePad label={`${signer} — formulaire du Département`} onChange={setSignature} />}
+          </section>
+          <button type="button" className={TABLET_PRIMARY} onClick={() => void build()} disabled={busy} aria-busy={busy}>
+            <FileText className="h-6 w-6" aria-hidden="true" />
+            {busy ? "Fabrication du formulaire…" : "Fabriquer le formulaire"}
+          </button>
+        </>
+      )}
+
+      {form && (
+        <div className="grid gap-3 sm:grid-cols-2">
+          <button type="button" className={TABLET_PRIMARY} onClick={() => void send()}>
+            <Send className="h-6 w-6" aria-hidden="true" />
+            Envoyer (formulaire + contrat)
+          </button>
+          <button type="button" className={TABLET_SECONDARY} onClick={() => downloadBlob(fileName, form)}>
+            <Download className="h-6 w-6" aria-hidden="true" />
+            Télécharger le formulaire
+          </button>
+        </div>
+      )}
+      {message && <p role="status" className="text-[19px] font-bold">{message}</p>}
+    </section>
+  );
+}
