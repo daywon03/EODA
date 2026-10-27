@@ -41,7 +41,7 @@ export function PeopleAggregates({ aggregates }: { aggregates: BeneficiaryAggreg
           value={`${receptionToRenew} / ${activePeople}`}
           percent={percentOf(receptionToRenew, activePeople)}
           progressLabel="Part des dossiers à remettre ou à renouveler"
-          note="DIPC pas encore remis, ou à revoir dans les 30 jours."
+          note="DIPEC pas encore remis, ou à revoir dans les 30 jours."
         />
         <MeasureCard
           label="Enquête de satisfaction faite"
@@ -61,8 +61,8 @@ export function PeopleAggregates({ aggregates }: { aggregates: BeneficiaryAggreg
           <p className="text-ink2">Aucune échéance proche.</p>
         ) : (
           <dl className="grid grid-cols-1 divide-y divide-line rounded-xl border border-line bg-card sm:grid-cols-3 sm:divide-x sm:divide-y-0">
-            <AlertCount label="DIPC à remettre" value={alerts.toDeliver} />
-            <AlertCount label="DIPC ou projet personnalisé à revoir" value={alerts.toRenew} />
+            <AlertCount label="DIPEC à remettre" value={alerts.toDeliver} />
+            <AlertCount label="DIPEC ou projet personnalisé à revoir" value={alerts.toRenew} />
             <AlertCount label="Dont en retard" value={alerts.overdue} isUrgent={alerts.overdue > 0} />
           </dl>
         )}

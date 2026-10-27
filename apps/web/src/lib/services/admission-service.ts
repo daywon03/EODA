@@ -5,19 +5,19 @@ import { mergePlaceholders } from "./placeholder-merge";
 import { cleanName, csvCell, dayOf } from "./survey-roster-service";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ACCUEIL D'UNE NOUVELLE PERSONNE ET SIGNATURE DU DIPC SUR LA TABLETTE — service PUR
+// ACCUEIL D'UNE NOUVELLE PERSONNE ET SIGNATURE DU DIPEC SUR LA TABLETTE — service PUR
 // (demande de Damon, 26/10/2026).
 //
 // Même frontière que la liste de l'enquête (décision du 22/10, survey-roster-service) :
 // l'identité d'une personne accompagnée, son contrat signé et sa signature sont des
 // données de santé (ADR 20261014, verrou HDS). Tout se passe donc DANS LE NAVIGATEUR
-// de la tablette : saisie, fusion dans le DIPC validé par EODA, signature, PDF,
-// export. Le serveur ne donne que le DIPC de la structure (document institutionnel)
+// de la tablette : saisie, fusion dans le DIPEC validé par EODA, signature, PDF,
+// export. Le serveur ne donne que le DIPEC de la structure (document institutionnel)
 // et ne reçoit jamais rien en retour. Aucun module serveur n'importe ce fichier
 // (`survey-roster-boundary.test.ts`).
 //
 // « On met le nom une fois et ça se met partout » : la fiche saisie ici alimente
-// l'en-tête du contrat, les champs `{{…}}` du DIPC, la liste des personnes de
+// l'en-tête du contrat, les champs `{{…}}` du DIPEC, la liste des personnes de
 // l'enquête, l'index d'export pour Ximi — et porte déjà tout ce que demande le
 // formulaire de désignation du SAD du Département (nom de naissance, nom d'époux,
 // date de naissance, aide APA / PCH / aide-ménagère, heures en semaine et le
@@ -105,13 +105,13 @@ export const EMPTY_CONTACT: AdmissionContact = {
   email: "",
 };
 
-// Le DIPC présenté : la version d'EODA, son jour de validation, et l'empreinte du
+// Le DIPEC présenté : la version d'EODA, son jour de validation, et l'empreinte du
 // texte tel qu'il a été montré (calculée sur la tablette).
 export type AdmissionDipcRef = { versionId: string; versionNumber: number; validatedOn: string; sha256: string };
 
 // Ce que la tablette GARDE d'un contrat signé : de quoi lister, retrouver et
 // exporter. Le contrat lui-même est le PDF, rangé à côté (jamais régénéré : une
-// nouvelle version du DIPC ne réécrit pas un contrat déjà signé).
+// nouvelle version du DIPEC ne réécrit pas un contrat déjà signé).
 export type AdmissionRecord = {
   version: 1;
   id: string;
@@ -129,7 +129,7 @@ export type AdmissionRecord = {
   dipc: AdmissionDipcRef;
   pdfFileName: string;
   pdfSha256: string;
-  // Le DIPC présenté a été signé, ou la personne a refusé de le signer (HAS 1.7.4 :
+  // Le DIPEC présenté a été signé, ou la personne a refusé de le signer (HAS 1.7.4 :
   // le consentement OU LE REFUS est tracé). Un enregistrement antérieur au 27/10/2026
   // n'a pas ce champ : il se relit comme signé.
   outcome: AdmissionOutcome;
@@ -212,7 +212,7 @@ export function contactProblems(contact: AdmissionContact | null): string[] {
 
 // Sous tutelle, le tuteur signe à la place de la personne ; sous curatelle, la
 // personne signe, assistée de son curateur, qui signe aussi. Le service signe
-// toujours : le DIPC engage les deux parties.
+// toujours : le DIPEC engage les deux parties.
 export function requiredSigners(contact: AdmissionContact | null): AdmissionSigner[] {
   if (contact?.kind === "TUTEUR") return ["REPRESENTANT", "SERVICE"];
   if (contact?.kind === "CURATEUR") return ["PERSONNE", "REPRESENTANT", "SERVICE"];
@@ -257,7 +257,7 @@ export function signingProblems(draft: SigningDraft, today: Date): string[] {
     ...aidProblems(draft.aid),
     ...contactProblems(draft.contact),
     ...(draft.unknownDipcFields.length > 0
-      ? [`Le DIPC contient un champ inconnu (${draft.unknownDipcFields.join(", ")}) : EODA doit le corriger avant toute signature.`]
+      ? [`Le DIPEC contient un champ inconnu (${draft.unknownDipcFields.join(", ")}) : EODA doit le corriger avant toute signature.`]
       : []),
     ...(missingPoints.length > 0 ? [`${missingPoints.length} point${missingPoints.length > 1 ? "s" : ""} à expliquer.`] : []),
     ...(missingDocs.length > 0 ? [`Documents pas encore remis : ${missingDocs.join(", ")}.`] : []),
@@ -266,9 +266,9 @@ export function signingProblems(draft: SigningDraft, today: Date): string[] {
   ];
 }
 
-// ── Champs du DIPC ───────────────────────────────────────────────────────────
+// ── Champs du DIPEC ───────────────────────────────────────────────────────────
 
-// EODA peut écrire ces champs dans le DIPC validé (`{{personne.nom}}`…) : ils sont
+// EODA peut écrire ces champs dans le DIPEC validé (`{{personne.nom}}`…) : ils sont
 // remplis sur la tablette. Un champ inconnu bloque la signature (faute de frappe à
 // corriger par EODA) ; un champ connu mais vide laisse une ligne à compléter.
 export const ADMISSION_FIELDS = [
@@ -353,7 +353,7 @@ export function admissionFieldValues(input: {
   };
 }
 
-// « Prénom NOM, curateur » si le lien correspond, « sans objet » sinon : le DIPC
+// « Prénom NOM, curateur » si le lien correspond, « sans objet » sinon : le DIPEC
 // demande de l'écrire plutôt que de laisser la ligne vide.
 function contactIdentity(contact: AdmissionContact | null, kinds: readonly ContactKind[]): string {
   if (!contact?.kind || !kinds.includes(contact.kind)) return "sans objet";
@@ -361,7 +361,7 @@ function contactIdentity(contact: AdmissionContact | null, kinds: readonly Conta
   return [name, contactLink(contact).toLocaleLowerCase("fr-FR")].filter(Boolean).join(", ");
 }
 
-// Qui signe pour la personne, écrit en toutes lettres sur la page de signature du DIPC.
+// Qui signe pour la personne, écrit en toutes lettres sur la page de signature du DIPEC.
 function signatoryName(identity: AdmissionIdentity, contact: AdmissionContact | null): string {
   const person = fullName(identity);
   if (contact?.kind === "TUTEUR") return `${contactIdentity(contact, ["TUTEUR"])}, pour ${person}`;
@@ -376,7 +376,7 @@ function oneYearAfter(date: Date): Date {
   return next;
 }
 
-// Les zones propres au DIPC de la structure (« [à compléter] », « ☐ ») s'ajoutent
+// Les zones propres au DIPEC de la structure (« [à compléter] », « ☐ ») s'ajoutent
 // aux champs connus : elles ne sont pas inconnues, elles viennent du texte validé.
 export function mergeDipcText(dipcText: string, values: Record<AdmissionField, string>, entries: Readonly<Record<string, string>> = {}) {
   const fields = [...ADMISSION_FIELDS, ...Object.keys(entries)];
@@ -386,7 +386,7 @@ export function mergeDipcText(dipcText: string, values: Record<AdmissionField, s
 export const CHECKED_MARK = "☒";
 export const UNCHECKED_MARK = "☐";
 
-// La copie du DIPC préparée pour la tablette (dipc-tablet-preparation), remplie bloc
+// La copie du DIPEC préparée pour la tablette (dipc-tablet-preparation), remplie bloc
 // par bloc. Les champs inconnus de tous les blocs sont réunis : un seul suffit à
 // bloquer la signature.
 export function mergeDipcBlocks(blocks: readonly DipcBlock[], values: Record<AdmissionField, string>, entries: Readonly<Record<string, string>>) {
@@ -428,7 +428,7 @@ export function dipcEntryValues(
   };
 }
 
-// Durée du contrat : un choix est exigé dès que le DIPC en propose un ; à durée
+// Durée du contrat : un choix est exigé dès que le DIPEC en propose un ; à durée
 // déterminée, les deux dates, dans l'ordre.
 export function durationProblems(choice: PreparedDipc["durationChoice"], duration: DipcDuration): string[] {
   if (!choice) return [];
@@ -439,9 +439,9 @@ export function durationProblems(choice: PreparedDipc["durationChoice"], duratio
   return duration.end < duration.start ? ["La date de fin du contrat est avant la date de début."] : [];
 }
 
-// L'option « durée indéterminée » est proposée d'emblée quand le DIPC en a une : c'est
+// L'option « durée indéterminée » est proposée d'emblée quand le DIPEC en a une : c'est
 // la règle pour un SAD autorisé APA / PCH non habilité à l'aide sociale (CASF L347-1,
-// rappelé en note du DIPC du client pilote) — l'intervenant peut en changer.
+// rappelé en note du DIPEC du client pilote) — l'intervenant peut en changer.
 export function defaultDuration(choice: PreparedDipc["durationChoice"]): DipcDuration {
   const indefinite = choice?.options.find((o) => /indéterminée/i.test(o.label));
   return { ...NO_DURATION, choice: indefinite?.number ?? null };
@@ -463,7 +463,7 @@ function slug(value: string, max: number, fallback: string): string {
 // « Externe » : le contrat (ou l'attestation de refus) est remis à la personne.
 export function admissionPdfFileName(structureName: string, identity: AdmissionIdentity, signedAt: Date, outcome: AdmissionOutcome = "SIGNE"): string {
   const person = slug(`${displayLastName(identity)} ${cleanName(identity.firstName)}`, 50, "Personne");
-  const type = outcome === "REFUS" ? "REFUS-DIPC" : "DIPC";
+  const type = outcome === "REFUS" ? "REFUS-DIPEC" : "DIPEC";
   return `${dayOf(signedAt).replace(/-/g, "")}_${type}_${slug(structureName, 40, "Structure")}_${person}_v01_Externe.pdf`;
 }
 
@@ -489,7 +489,7 @@ export function defaultReproposeOn(today: Date): string {
 export type AdmissionState = "A_FAIRE" | "SIGNE" | "A_REVOIR" | "REFUS" | "A_REPROPOSER";
 
 export function admissionState(record: AdmissionRecord | null, today: Date): { state: AdmissionState; label: string } {
-  if (!record) return { state: "A_FAIRE", label: "DIPC à faire signer" };
+  if (!record) return { state: "A_FAIRE", label: "DIPEC à faire signer" };
   const on = frenchDay(record.signedAt.slice(0, 10));
   if (record.outcome === "REFUS") {
     const repropose = record.refusal?.reproposeOn ?? "";
@@ -501,7 +501,7 @@ export function admissionState(record: AdmissionRecord | null, today: Date): { s
 }
 
 export function admissionArchiveFileName(structureName: string, today: Date): string {
-  return `${dayOf(today).replace(/-/g, "")}_DIPC_${slug(structureName, 40, "Structure")}_Contrats-signes_v01_Interne.zip`;
+  return `${dayOf(today).replace(/-/g, "")}_DIPEC_${slug(structureName, 40, "Structure")}_Contrats-signes_v01_Interne.zip`;
 }
 
 // ── Index d'export (Ximi, serveur de la structure) ───────────────────────────
@@ -514,7 +514,7 @@ export const ADMISSION_EXPORT_HEADER = [
   "Code postal",
   "Ville",
   "Début de l'accompagnement",
-  "Version du DIPC",
+  "Version du DIPEC",
   "Issue",
   "Le",
   "Signataires",
@@ -565,7 +565,7 @@ export function latestAdmissionFor(records: readonly AdmissionRecord[], personId
   return records.filter((r) => r.personId === personId).sort((a, b) => b.signedAt.localeCompare(a.signedAt))[0] ?? null;
 }
 
-// Le DIPC se revoit au moins une fois par an (HAS 1.10.6, context/03 périodicités).
+// Le DIPEC se revoit au moins une fois par an (HAS 1.10.6, context/03 périodicités).
 export function isAdmissionDueForReview(record: AdmissionRecord, today: Date): boolean {
   const signed = new Date(record.signedAt);
   const due = new Date(signed);

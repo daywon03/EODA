@@ -134,7 +134,7 @@ describe("seuils", () => {
 });
 
 describe("feuille de réception", () => {
-  it("présente livret, règlement et DIPC, chacun avec ses points, marqués provisoires", () => {
+  it("présente livret, règlement et DIPEC, chacun avec ses points, marqués provisoires", () => {
     expect(RECEPTION_DOCUMENTS.map((d) => d.kind)).toEqual(["LIVRET_REMIS", "REGLEMENT_REMIS", "DIPC"]);
     for (const doc of RECEPTION_DOCUMENTS) expect(doc.points.length).toBeGreaterThan(0);
     expect(RECEPTION_POINTS_PROVISIONAL).toBe(true);

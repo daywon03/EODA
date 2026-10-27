@@ -532,5 +532,5 @@ bloquantes et reste à faire consolidé depuis les calls du 20/09 au 07/10 :
   test refusant `text-[10px]`/`text-[11px]` et `--gris-mid` en couleur de texte, axe-core
   en CI sur les pages client. Tant que ce n'est pas branché, l'accessibilité reste une dette
   déclarée (CLAUDE.md §6).
-- [ ] **Vérification HDS immédiate** : s'assurer qu'aucune pièce nominative (DIPC signé,
+- [ ] **Vérification HDS immédiate** : s'assurer qu'aucune pièce nominative (DIPEC signé,
   PAP) n'est déposée dans la checklist actuelle ; durcir l'avertissement à l'upload.

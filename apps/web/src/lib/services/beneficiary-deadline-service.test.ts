@@ -26,7 +26,7 @@ function doc(beneficiaryId: string, kind: BeneficiaryDocumentSummary["kind"], is
 }
 
 describe("renewalDueOn", () => {
-  it("un an pour le DIPC et le PAP, rien pour une feuille de réception", () => {
+  it("un an pour le DIPEC et le PAP, rien pour une feuille de réception", () => {
     expect(renewalDueOn("DIPC", new Date("2026-03-01T00:00:00Z"))?.toISOString()).toBe("2027-03-01T00:00:00.000Z");
     expect(renewalDueOn("PAP", new Date("2026-03-01T00:00:00Z"))).not.toBeNull();
     expect(renewalDueOn("FEUILLE_RECEPTION", TODAY)).toBeNull();
@@ -35,7 +35,7 @@ describe("renewalDueOn", () => {
 });
 
 describe("deriveDeadlineAlerts", () => {
-  it("signale un DIPC à remettre sous 15 jours, en retard ou non", () => {
+  it("signale un DIPEC à remettre sous 15 jours, en retard ou non", () => {
     const alerts = deriveDeadlineAlerts([person("a", "2026-10-10"), person("b", "2026-09-01")], [], TODAY);
     expect(alerts.map((a) => [a.beneficiaryId, a.kind, a.overdue])).toEqual([
       ["b", "DIPC_A_REMETTRE", true],
@@ -43,7 +43,7 @@ describe("deriveDeadlineAlerts", () => {
     ]);
   });
 
-  it("ne réclame pas de DIPC quand la feuille de réception est signée", () => {
+  it("ne réclame pas de DIPEC quand la feuille de réception est signée", () => {
     expect(deriveDeadlineAlerts([person("a", "2026-10-10")], [doc("a", "FEUILLE_RECEPTION", "2026-10-11", null)], TODAY)).toEqual([]);
   });
 

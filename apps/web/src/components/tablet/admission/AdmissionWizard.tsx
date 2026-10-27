@@ -78,7 +78,7 @@ export function AdmissionWizard({ structureName, staffName, dipc, person, onReco
   const [signError, setSignError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  // La copie du DIPC pour la tablette : dérivée du texte validé, jamais rangée.
+  // La copie du DIPEC pour la tablette : dérivée du texte validé, jamais rangée.
   const prepared = useMemo(() => prepareDipcForTablet(dipc.text), [dipc.text]);
   const [texts, setTexts] = useState<Record<string, string>>({});
   const [checks, setChecks] = useState<Record<string, boolean>>({});
@@ -97,7 +97,7 @@ export function AdmissionWizard({ structureName, staffName, dipc, person, onReco
     const today = new Date();
     if (index === STEP.PERSON) return [...identityProblems(identity, today), ...aidProblems(aid), ...contactProblems(linked)];
     if (index === STEP.PROJECT) return durationProblems(prepared.durationChoice, duration);
-    if (index === STEP.CONTRACT) return merged.unknownFields.length > 0 ? [`Le DIPC contient un champ inconnu (${merged.unknownFields.join(", ")}). Prévenez EODA : on ne fait pas signer ce contrat.`] : [];
+    if (index === STEP.CONTRACT) return merged.unknownFields.length > 0 ? [`Le DIPEC contient un champ inconnu (${merged.unknownFields.join(", ")}). Prévenez EODA : on ne fait pas signer ce contrat.`] : [];
     if (index === STEP.EXPLAIN) {
       const points = missingExplanations(explained);
       const docs = missingHandedDocuments(handed);
@@ -137,7 +137,7 @@ export function AdmissionWizard({ structureName, staffName, dipc, person, onReco
         images[signer] = bytes;
       }
       const name = fullName(identity);
-      const pdf = new Blob([(await renderAdmissionPdf({ blocks, signatures: images, footer: `DIPC — ${structureName} — ${name}`, title: `DIPC — ${name}`, signedAt })) as BlobPart], { type: "application/pdf" });
+      const pdf = new Blob([(await renderAdmissionPdf({ blocks, signatures: images, footer: `DIPEC — ${structureName} — ${name}`, title: `DIPEC — ${name}`, signedAt })) as BlobPart], { type: "application/pdf" });
       await onRecorded(await recordOf(signedAt, "SIGNE", null, signers, pdf), pdf);
     } catch {
       setSignError("Le contrat n'a pas pu être fabriqué. Vérifiez les signatures, puis recommencez la signature.");
@@ -182,7 +182,7 @@ export function AdmissionWizard({ structureName, staffName, dipc, person, onReco
       const blocks = planRefusalDocument({ ...docInput, dipc, recordedAt, reason: refusal.reason, reproposeOn: refusal.reproposeOn });
       const { renderAdmissionPdf } = await import("@/lib/services/admission-pdf");
       const name = fullName(identity);
-      const bytes = await renderAdmissionPdf({ blocks, signatures: {}, footer: `Refus du DIPC — ${structureName} — ${name}`, title: `Refus du DIPC — ${name}`, signedAt: recordedAt });
+      const bytes = await renderAdmissionPdf({ blocks, signatures: {}, footer: `Refus du DIPEC — ${structureName} — ${name}`, title: `Refus du DIPEC — ${name}`, signedAt: recordedAt });
       const pdf = new Blob([bytes as BlobPart], { type: "application/pdf" });
       await onRecorded(await recordOf(recordedAt, "REFUS", { reason: refusal.reason.trim(), reproposeOn: refusal.reproposeOn }, [], pdf), pdf);
     } catch {
@@ -240,7 +240,7 @@ export function AdmissionWizard({ structureName, staffName, dipc, person, onReco
 
       {step === STEP.CONTRACT && (
         <div className="flex max-w-[900px] flex-col gap-3">
-          <p className="text-[19px]">Le DIPC validé par EODA (version {dipc.versionNumber}), rempli avec la fiche de la personne. Faites-le défiler avec elle.</p>
+          <p className="text-[19px]">Le DIPEC validé par EODA (version {dipc.versionNumber}), rempli avec la fiche de la personne. Faites-le défiler avec elle.</p>
           {merged.emptyFields.length > 0 && (
             <p className="text-[18px] text-ink2">
               {merged.emptyFields.length} ligne{merged.emptyFields.length > 1 ? "s restent" : " reste"} à compléter à la main (« ………………… ») : revenez à la fiche ou au projet si vous avez l&apos;information.

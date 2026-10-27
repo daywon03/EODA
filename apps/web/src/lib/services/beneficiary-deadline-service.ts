@@ -5,8 +5,8 @@ import type { BeneficiaryDocumentKind, BeneficiaryDocumentSummary, BeneficiaryTi
 // ÉCHÉANCES DU DOSSIER — service PUR (lot C, alertes D12).
 //
 // Ce qui revient chaque année (context/10 §6 et 03-documents-obligatoires) : le PAP
-// est réévalué au moins une fois par an, le DIPC est revu chaque année (questions
-// sensibles reposées). Le DIPC se remet au plus tard 15 jours après le début de
+// est réévalué au moins une fois par an, le DIPEC est revu chaque année (questions
+// sensibles reposées). Le DIPEC se remet au plus tard 15 jours après le début de
 // l'accompagnement. Tout est DÉRIVÉ des faits (dates de remise, début) : aucun
 // statut stocké. Une alerte d'échéance part automatiquement — ce n'est pas une
 // relance (CLAUDE.md §7).

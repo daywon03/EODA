@@ -72,9 +72,9 @@ describe("vocabulaire des pastilles", () => {
     expect(DOCUMENT_PILLS.valide.label).not.toBe(DOCUMENT_PILLS.accepteParVous.label);
   });
 
-  it("aucune pastille ne nomme une personne côté client (D7) ni n'écrit DIPEC", () => {
+  it("aucune pastille ne nomme une personne côté client (D7) ni ne déforme le sigle DIPEC", () => {
     for (const p of ALL_PILLS) {
-      expect(p.label).not.toMatch(/Sandrine|DIPEC|DPEC/);
+      expect(p.label).not.toMatch(/Sandrine|\bDIPC\b|DPEC/);
     }
     expect(DOCUMENT_PILLS.aRedigerEoda.label).toContain("EODA");
   });

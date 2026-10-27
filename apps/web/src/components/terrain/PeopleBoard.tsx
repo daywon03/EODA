@@ -15,7 +15,7 @@ function girTone(gir: number | null): string {
 }
 
 const ALERT_LABEL = {
-  DIPC_A_REMETTRE: "DIPC à remettre",
+  DIPC_A_REMETTRE: "DIPEC à remettre",
   RENOUVELLEMENT: "À revoir",
 } as const;
 
@@ -33,7 +33,7 @@ export function PeopleBoard({ board }: { board: TerrainPeopleBoard }) {
               <li key={`${alert.beneficiaryId}-${alert.kind}-${alert.documentKind}`} className="flex flex-wrap items-center gap-3 px-4 py-3">
                 <span className="min-w-[12rem] flex-1 font-bold">{alert.name}</span>
                 <span>
-                  {ALERT_LABEL[alert.kind]} · {alert.documentKind === "PAP" ? "projet personnalisé" : "DIPC"}
+                  {ALERT_LABEL[alert.kind]} · {alert.documentKind === "PAP" ? "projet personnalisé" : "DIPEC"}
                 </span>
                 <span className={cn("tabular-nums", alert.overdue ? "font-bold text-danger-text" : "text-ink2")}>
                   {alert.overdue ? "En retard depuis le " : "Avant le "}

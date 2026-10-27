@@ -13,9 +13,9 @@ import { deriveDeadlineAlerts, isActiveOn } from "./beneficiary-deadline-service
 // finirait par contredire la liste de la structure.
 //
 // Partition des personnes en cours d'accompagnement :
-//   - « à jour » : feuille de réception (ou DIPC) remise, aucune échéance proche ;
+//   - « à jour » : feuille de réception (ou DIPEC) remise, aucune échéance proche ;
 //   - « à remettre ou à renouveler » : au moins une échéance dans les 30 jours ou
-//     dépassée (DIPC jamais remis, DIPC ou projet personnalisé à revoir).
+//     dépassée (DIPEC jamais remis, DIPEC ou projet personnalisé à revoir).
 // ─────────────────────────────────────────────────────────────────────────────
 
 export type BeneficiaryAggregates = {

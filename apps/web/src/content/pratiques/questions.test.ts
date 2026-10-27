@@ -19,7 +19,7 @@ const SAD_MIXTE_EXTRA = ["3.6.2"];
 const FORBIDDEN: readonly RegExp[] = [
   // `\b` ne voit pas la fin d'un mot qui finit par « é » : une lettre ne doit pas suivre.
   new RegExp(["\\bfor", "m(?:er|é|ée|és|ées|ez|ons|ent|ation|ations)(?![a-zà-ÿ])"].join(""), "i"), // « sensibiliser »
-  new RegExp(["\\bDI", "PEC\\b|\\bDP", "EC\\b"].join(""), "i"), // sigle DIPC seulement
+  new RegExp(["\\bDI", "PEC\\b|\\bDP", "EC\\b"].join(""), "i"), // sigle DIPEC seulement
   /conforme/i, // jamais promis côté structure
   /Sandrine/i, // D7 : jamais un prénom côté client
 ];

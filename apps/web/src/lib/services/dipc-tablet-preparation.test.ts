@@ -2,10 +2,10 @@ import { describe, expect, it } from "vitest";
 import { blankZonesIn, cleanMarkdownText, prepareDipcForTablet } from "./dipc-tablet-preparation";
 import { admissionFieldValues, dipcEntryValues, EMPTY_AID, EMPTY_CONTACT, EMPTY_FIELD_MARK, EMPTY_IDENTITY, mergeDipcBlocks } from "./admission-service";
 
-// DIPC FICTIF qui reprend la FORME du texte extrait d'un DIPC d'EODA (Markdown du
+// DIPEC FICTIF qui reprend la FORME du texte extrait d'un DIPEC d'EODA (Markdown du
 // Word : gras, échappements, sommaire, pointillés, crochets en italique,
 // « [à compléter] », cases ☐, annexes). Aucun texte réel de structure ici.
-const DIPC = [
+const DIPEC = [
   "**[Image 1]**",
   "[Volet aide 2](#_Toc111)",
   "**Document individuel de prise en charge**",
@@ -22,7 +22,7 @@ const DIPC = [
   "Objectifs de l’accompagnement",
   "\\[à compléter\\]",
   "Modalités de coordination",
-  "\\[à compléter\\] (voir aussi annexe 4 du présent DIPC)",
+  "\\[à compléter\\] (voir aussi annexe 4 du présent DIPEC)",
   "Délai de formalisation de l'avenant",
   "\\[à compléter — dans un délai de 6 mois suivant la signature\\]",
   "Réévaluation annuelle ; prochaine révision prévue le : ../../....",
@@ -44,7 +44,7 @@ const DIPC = [
   "\\[à compléter\\]",
 ].join("\n\n");
 
-const prepared = prepareDipcForTablet(DIPC);
+const prepared = prepareDipcForTablet(DIPEC);
 const texts = prepared.blocks.map((b) => b.text);
 const annexStart = prepared.blocks.findIndex((b) => b.kind === "heading" && b.text.startsWith("ANNEXE"));
 
@@ -86,11 +86,11 @@ describe("prepareDipcForTablet", () => {
   it("« [à compléter] » devient une zone de saisie, avec le libellé du dessus et l'aide du texte", () => {
     expect(prepared.freeFields).toEqual([
       { id: "saisie.1", label: "Objectifs de l’accompagnement", hint: "" },
-      { id: "saisie.2", label: "Modalités de coordination", hint: "(voir aussi annexe 4 du présent DIPC)" },
+      { id: "saisie.2", label: "Modalités de coordination", hint: "(voir aussi annexe 4 du présent DIPEC)" },
       { id: "saisie.3", label: "Délai de formalisation de l'avenant", hint: "dans un délai de 6 mois suivant la signature" },
       { id: "saisie.4", label: "Le bénéficiaire était accompagné de (nom, qualité)", hint: "" },
     ]);
-    expect(texts).toContain("{{saisie.2}} (voir aussi annexe 4 du présent DIPC)");
+    expect(texts).toContain("{{saisie.2}} (voir aussi annexe 4 du présent DIPEC)");
   });
 
   it("chaque ☐ du contrat devient une case", () => {
@@ -145,7 +145,7 @@ describe("remplissage de la copie", () => {
   });
 
   it("une saisie laissée vide reste une ligne à compléter à la main", () => {
-    expect(all).toContain(`${EMPTY_FIELD_MARK} (voir aussi annexe 4 du présent DIPC)`);
+    expect(all).toContain(`${EMPTY_FIELD_MARK} (voir aussi annexe 4 du présent DIPEC)`);
     expect(filled.emptyFields).toContain("saisie.2");
   });
 });

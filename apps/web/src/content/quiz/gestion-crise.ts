@@ -6,7 +6,7 @@ import type { QuizModule } from "./types";
 // 3.14.3 et 3.14.4 standard, évalués en entretien avec les professionnels) et 2.8.1
 // (repérer une situation de crise ou de rupture et alerter). Deux questions ne sont
 // PAS sourcées dans le manuel : la priorité aux personnes fragiles (plan bleu cité,
-// priorisation non décrite) et le 112 (context/10, numéros d'urgence du DIPC).
+// priorisation non décrite) et le 112 (context/10, numéros d'urgence du DIPEC).
 export const GESTION_CRISE_QUIZ: QuizModule = {
   code: "GESTION_CRISE",
   version: 2,
@@ -22,7 +22,7 @@ export const GESTION_CRISE_QUIZ: QuizModule = {
     "Manuel HAS juillet 2025 — critère 3.14.3 exercices et retours d'expérience (standard, SAD), p. 160",
     "Manuel HAS juillet 2025 — critère 2.8.1 situations de crise ou de rupture (standard, SAD), p. 105",
     "context/11-modes-operatoires-sandrine.md — Partie B, procédure P4 (PCA, annuaire de crise)",
-    "context/10-regles-mise-en-conformite.md — DIPC, numéros d'urgence",
+    "context/10-regles-mise-en-conformite.md — DIPEC, numéros d'urgence",
   ],
   questions: [
     {
@@ -134,7 +134,7 @@ export const GESTION_CRISE_QUIZ: QuizModule = {
       correctChoiceId: "b",
       explanation: "En urgence, on appelle les secours (112). Ensuite, on prévient le service.",
       pictogram: "triangle-alert",
-      source: "context/10 §DIPC — numéros d'urgence 17, 112, 114. Hors manuel HAS, à valider.",
+      source: "context/10 §DIPEC — numéros d'urgence 17, 112, 114. Hors manuel HAS, à valider.",
     },
   ],
 };

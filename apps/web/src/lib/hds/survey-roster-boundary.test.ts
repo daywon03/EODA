@@ -14,7 +14,7 @@ import { describe, expect, it } from "vitest";
 // ─────────────────────────────────────────────────────────────────────────────
 
 // Depuis le 26/10/2026, la même frontière tient l'accueil d'une nouvelle personne et
-// son DIPC signé (admission-*) : fiche d'identité, signatures et contrat ne quittent
+// son DIPEC signé (admission-*) : fiche d'identité, signatures et contrat ne quittent
 // pas la tablette. Un import dynamique (`import("…/admission-pdf")`) est surveillé
 // comme un import statique.
 const SRC = path.resolve(__dirname, "../..");

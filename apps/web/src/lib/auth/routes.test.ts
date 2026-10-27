@@ -17,7 +17,7 @@ describe("classifyPath — refuser par défaut", () => {
     // Enquête anonyme (21/10/2026) : tablette, et lien à usage unique à un seul segment.
     ["/tablette/enquete", "ANONYMOUS"],
     ["/tablette/enquete/x", "PROTECTED"],
-    // Accueil et DIPC signé (26/10/2026) : oublié le 26/10, la tablette tombait sur /login.
+    // Accueil et DIPEC signé (26/10/2026) : oublié le 26/10, la tablette tombait sur /login.
     ["/tablette/admission", "ANONYMOUS"],
     ["/tablette/admission/x", "PROTECTED"],
     // Formulaires officiels vierges : servis hors middleware (matcher), jamais par classifyPath.

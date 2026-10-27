@@ -11,9 +11,9 @@ import { TabletAdmission } from "@/components/tablet/admission/TabletAdmission";
 
 export const metadata: Metadata = { title: "Accueil et contrat", robots: { index: false, follow: false } };
 
-// Accueil d'une nouvelle personne et signature du DIPC (26/10/2026). Même garde que
+// Accueil d'une nouvelle personne et signature du DIPEC (26/10/2026). Même garde que
 // l'enquête : appareil enregistré + salarié connecté avec son code. La page ne
-// transmet que le DIPC VALIDÉ de la structure ; la personne, ses signatures et son
+// transmet que le DIPEC VALIDÉ de la structure ; la personne, ses signatures et son
 // contrat restent dans la tablette (admission-service, verrou HDS).
 export default async function TabletAdmissionPage() {
   const session = await resolveTabletSession();

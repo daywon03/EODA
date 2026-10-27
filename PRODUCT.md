@@ -77,7 +77,7 @@ humain : peut comporter des erreurs. À relire absolument. »
   documents « D »).
 - Rituels : réunion de découverte → devis → signature → diagnostic → ateliers → suivi
   hebdomadaire → seconde auto-évaluation → évaluation externe.
-- Terrain : visites à domicile, signature de DIPC, questionnaires de satisfaction papier et
+- Terrain : visites à domicile, signature de DIPEC, questionnaires de satisfaction papier et
   en ligne, CVS, fiches de sensibilisation rangées dans les casiers des AVS.
 - Autorités : HAS (national), ARS (régional), Conseil départemental (ATC du SAD).
 
@@ -98,7 +98,7 @@ Contraintes durables :
 - Hébergement en Europe ; cloisonnement strict par établissement ; toute consultation de
   document journalisée.
 - Données de personnes accompagnées : minimisées ; la signature sur tablette et le stockage
-  de DIPC signés relèvent de l'HDS : **décidé le 08/10/2026**, le backend migre vers un hébergement certifié ;
+  de DIPEC signés relèvent de l'HDS : **décidé le 08/10/2026**, le backend migre vers un hébergement certifié ;
   rien de nominatif en production avant la migration (cf. `09-vision-produit.md` §8).
 
 Décisions ouvertes (ne pas inventer) : nouvelle grille tarifaire SaaS, paiement en ligne,

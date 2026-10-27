@@ -28,8 +28,8 @@ describe("plan du contrat", () => {
   const all = JSON.stringify(blocks);
 
   it("pose les parties, le texte d'EODA tel quel, puis la trace", () => {
-    expect(blocks[0]).toEqual({ kind: "title", text: "Document individuel de prise en charge (DIPC)" });
-    expect(all).toContain("DIPC version 3, validé par EODA le 01/10/2026.");
+    expect(blocks[0]).toEqual({ kind: "title", text: "Document individuel de prise en charge (DIPEC)" });
+    expect(all).toContain("DIPEC version 3, validé par EODA le 01/10/2026.");
     expect(all).toContain('"value":"DURAND"');
     expect(blocks.filter((b) => b.kind === "paragraph").map((b) => (b as { text: string }).text).slice(0, 3)).toEqual([
       "Article 1 — Objet",
@@ -45,7 +45,7 @@ describe("plan du contrat", () => {
 
   it("sous curatelle : trois signatures, et la note de preuve porte l'empreinte", () => {
     expect(blocks.filter((b) => b.kind === "signature").map((b) => (b as { signer: string }).signer)).toEqual(["PERSONNE", "REPRESENTANT", "SERVICE"]);
-    expect(all).toContain(`Empreinte SHA-256 du texte du DIPC validé par EODA : ${"f".repeat(64)}`);
+    expect(all).toContain(`Empreinte SHA-256 du texte du DIPEC validé par EODA : ${"f".repeat(64)}`);
   });
 
   it("aperçu avant signature : « à signer »", () => {
@@ -72,7 +72,7 @@ describe("rendu PDF", () => {
   it("remplace ce que la police ne sait pas écrire au lieu d'échouer", () => {
     const latin = new Set([..."Ae >=-?".split("").map((c) => c.codePointAt(0)!)]);
     expect(sanitizeForFont("A e ≥ 😀", latin)).toBe("A e >= ?");
-    // Caractères mesurés dans un vrai DIPC (27/10/2026) : cases, ciseau, retour de note.
+    // Caractères mesurés dans un vrai DIPEC (27/10/2026) : cases, ciseau, retour de note.
     const withBrackets = new Set([..."[ ]x-".split("").map((c) => c.codePointAt(0)!)]);
     expect(sanitizeForFont("□ ☐ ✂-- ↑​", withBrackets)).toBe("[ ] [ ] -- ");
   });
@@ -83,13 +83,13 @@ describe("rendu PDF", () => {
     const bytes = await renderAdmissionPdf({
       blocks: planAdmissionDocument(long),
       signatures: { PERSONNE: png, REPRESENTANT: png, SERVICE: png },
-      footer: "DIPC — SAD Les Glycines (fictif) — DURAND Paulette",
-      title: "DIPC — DURAND Paulette",
+      footer: "DIPEC — SAD Les Glycines (fictif) — DURAND Paulette",
+      title: "DIPEC — DURAND Paulette",
       signedAt,
     });
     const doc = await PDFDocument.load(bytes);
     expect(doc.getPageCount()).toBeGreaterThan(2);
-    expect(doc.getTitle()).toBe("DIPC — DURAND Paulette");
+    expect(doc.getTitle()).toBe("DIPEC — DURAND Paulette");
     expect(doc.getCreationDate()?.toISOString()).toBe(signedAt.toISOString());
   });
 
@@ -118,12 +118,12 @@ describe("attestation de refus (HAS 1.7.3 / 1.7.4)", () => {
   const all = JSON.stringify(blocks);
 
   it("trace le refus, le motif, la date pour reproposer, et ce qui a été expliqué — sans rien faire signer", () => {
-    expect(blocks[0]).toEqual({ kind: "title", text: "Refus de signer le document individuel de prise en charge (DIPC)" });
+    expect(blocks[0]).toEqual({ kind: "title", text: "Refus de signer le document individuel de prise en charge (DIPEC)" });
     expect(all).toContain("Elle ne souhaite pas le signer.");
     expect(blocks).toContainEqual({ kind: "field", label: "Motif donné par la personne", value: "Veut en parler avec sa fille" });
     expect(blocks).toContainEqual({ kind: "field", label: "Le service lui reproposera le contrat le", value: "26/11/2026" });
     expect(all).toContain("expliqué à 09:00 · HAS 1.2.3");
-    expect(all).toContain(`Empreinte SHA-256 du texte du DIPC présenté (validé par EODA) : ${"f".repeat(64)}`);
+    expect(all).toContain(`Empreinte SHA-256 du texte du DIPEC présenté (validé par EODA) : ${"f".repeat(64)}`);
     expect(blocks.some((b) => b.kind === "signature")).toBe(false);
     // Le contrat n'a pas été conclu : son texte n'est pas recopié.
     expect(all).not.toContain("Article 1 — Objet");
@@ -138,7 +138,7 @@ describe("attestation de refus (HAS 1.7.3 / 1.7.4)", () => {
   });
 
   it("se rend en PDF sans aucune signature", async () => {
-    const bytes = await renderAdmissionPdf({ blocks, signatures: {}, footer: "Refus — test", title: "Refus du DIPC — test", signedAt });
-    expect((await PDFDocument.load(bytes)).getTitle()).toBe("Refus du DIPC — test");
+    const bytes = await renderAdmissionPdf({ blocks, signatures: {}, footer: "Refus — test", title: "Refus du DIPEC — test", signedAt });
+    expect((await PDFDocument.load(bytes)).getTitle()).toBe("Refus du DIPEC — test");
   });
 });

@@ -65,7 +65,7 @@ export const MALTRAITANCE_QUIZ: QuizModule = {
       explanation: "Prendre l'argent d'une personne fragile peut être un abus. On en parle au service.",
       pictogram: "wallet",
       source:
-        "Manuel HAS juillet 2025, critère 2.4.6, p. 93 — « Les professionnels évaluent les risques de harcèlement ou d'abus de faiblesse » ; context/10 §DIPC, Questions sensibles (abus financier, procurations).",
+        "Manuel HAS juillet 2025, critère 2.4.6, p. 93 — « Les professionnels évaluent les risques de harcèlement ou d'abus de faiblesse » ; context/10 §DIPEC, Questions sensibles (abus financier, procurations).",
     },
     {
       id: "mt-v2-4",

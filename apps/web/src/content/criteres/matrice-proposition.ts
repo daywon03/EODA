@@ -122,46 +122,46 @@ L2002_CHARTE_DROITS,Charte des droits et libertés de la personne accueillie,2.2
 L2002_CR_CVS,Comptes-rendus CVS,3.13.2,TRAME-PRESENTATION PCA-CVS | GABARIT CR-Entretien-CVS,MOYENNE,"trame/CR d’entretien CVS, pas un CR de séance CVS ; source : onglet Critères Impératifs uniquement"
 L2002_CR_CVS,Comptes-rendus CVS,3.14.1,TRAME-PRESENTATION PCA-CVS | GABARIT CR-Entretien-CVS,MOYENNE,"trame/CR d’entretien CVS, pas un CR de séance CVS ; source : onglet Critères Impératifs uniquement"
 L2002_CR_CVS,Comptes-rendus CVS,3.14.2,Trame et CR d'entretien — instance de participation des usagers | TRAME-PRESENTATION PCA-CVS | GABARIT CR-Entretien-CVS,MOYENNE,"trame/CR d’entretien CVS, pas un CR de séance CVS ; confirmé par les deux onglets"
-L2002_DIPC,DIPC / Contrat de séjour,1.2.1,DIPEC,MOYENNE,le xlsx écrit « DIPEC » ; libellé recopié à l'identique sur tout l'objectif — à confirmer critère par critère
-L2002_DIPC,DIPC / Contrat de séjour,1.2.2,DIPEC,MOYENNE,le xlsx écrit « DIPEC » ; libellé recopié à l'identique sur tout l'objectif — à confirmer critère par critère
-L2002_DIPC,DIPC / Contrat de séjour,1.2.3,DIPEC,MOYENNE,le xlsx écrit « DIPEC » ; libellé recopié à l'identique sur tout l'objectif — à confirmer critère par critère
-L2002_DIPC,DIPC / Contrat de séjour,1.2.4,DIPEC,MOYENNE,le xlsx écrit « DIPEC » ; libellé recopié à l'identique sur tout l'objectif — à confirmer critère par critère
-L2002_DIPC,DIPC / Contrat de séjour,1.2.5,DIPEC,MOYENNE,le xlsx écrit « DIPEC » ; libellé recopié à l'identique sur tout l'objectif — à confirmer critère par critère
-L2002_DIPC,DIPC / Contrat de séjour,1.2.6,DIPEC,MOYENNE,le xlsx écrit « DIPEC » ; libellé recopié à l'identique sur tout l'objectif — à confirmer critère par critère
-L2002_DIPC,DIPC / Contrat de séjour,1.2.7,DIPEC,MOYENNE,le xlsx écrit « DIPEC » ; libellé recopié à l'identique sur tout l'objectif — à confirmer critère par critère
-L2002_DIPC,DIPC / Contrat de séjour,1.4.1,DIPEC,HAUTE,le xlsx écrit « DIPEC »
-L2002_DIPC,DIPC / Contrat de séjour,1.4.2,DIPEC,HAUTE,le xlsx écrit « DIPEC » ; hors périmètre SAD aide selon le manuel (Tous ESSMS | Établissement | Tous publics)
-L2002_DIPC,DIPC / Contrat de séjour,1.10.1,DIPEC,MOYENNE,le xlsx écrit « DIPEC » ; libellé recopié à l'identique sur tout l'objectif — à confirmer critère par critère
-L2002_DIPC,DIPC / Contrat de séjour,1.10.2,DIPEC,MOYENNE,le xlsx écrit « DIPEC » ; libellé recopié à l'identique sur tout l'objectif — à confirmer critère par critère
-L2002_DIPC,DIPC / Contrat de séjour,1.10.3,DIPEC,MOYENNE,le xlsx écrit « DIPEC » ; libellé recopié à l'identique sur tout l'objectif — à confirmer critère par critère
-L2002_DIPC,DIPC / Contrat de séjour,1.10.4,DIPEC,MOYENNE,le xlsx écrit « DIPEC » ; libellé recopié à l'identique sur tout l'objectif — à confirmer critère par critère
-L2002_DIPC,DIPC / Contrat de séjour,1.10.5,DIPEC,MOYENNE,le xlsx écrit « DIPEC » ; libellé recopié à l'identique sur tout l'objectif — à confirmer critère par critère
-L2002_DIPC,DIPC / Contrat de séjour,1.10.6,DIPEC,MOYENNE,le xlsx écrit « DIPEC » ; libellé recopié à l'identique sur tout l'objectif — à confirmer critère par critère
-L2002_DIPC,DIPC / Contrat de séjour,1.11.1,DIPEC,HAUTE,le xlsx écrit « DIPEC »
-L2002_DIPC,DIPC / Contrat de séjour,1.11.2,DIPEC,HAUTE,le xlsx écrit « DIPEC »
-L2002_DIPC,DIPC / Contrat de séjour,1.17.2,DIPEC,HAUTE,le xlsx écrit « DIPEC »
-L2002_DIPC,DIPC / Contrat de séjour,1.17.3,DIPEC,HAUTE,le xlsx écrit « DIPEC »
-L2002_DIPC,DIPC / Contrat de séjour,1.17.4,DIPEC,HAUTE,le xlsx écrit « DIPEC »
-L2002_DIPC,DIPC / Contrat de séjour,2.1.2,DIPEC,HAUTE,le xlsx écrit « DIPEC »
-L2002_DIPC,DIPC / Contrat de séjour,2.2.2,DIPEC,HAUTE,le xlsx écrit « DIPEC » ; source : onglet Critères Impératifs uniquement
-L2002_DIPC,DIPC / Contrat de séjour,2.2.3,DIPEC,HAUTE,le xlsx écrit « DIPEC » ; source : onglet Critères Impératifs uniquement
-L2002_DIPC,DIPC / Contrat de séjour,2.2.5,DIPEC,HAUTE,le xlsx écrit « DIPEC » ; source : onglet Critères Impératifs uniquement
-L2002_DIPC,DIPC / Contrat de séjour,2.2.6,DIPEC,HAUTE,le xlsx écrit « DIPEC » ; confirmé par les deux onglets
-L2002_DIPC,DIPC / Contrat de séjour,2.4.1,DIPEC,MOYENNE,le xlsx écrit « DIPEC » ; libellé recopié à l'identique sur tout l'objectif — à confirmer critère par critère ; hors périmètre SAD aide selon le manuel (Tous ESSMS | Établissement | Tous publics)
-L2002_DIPC,DIPC / Contrat de séjour,2.4.2,DIPEC,MOYENNE,le xlsx écrit « DIPEC » ; libellé recopié à l'identique sur tout l'objectif — à confirmer critère par critère
-L2002_DIPC,DIPC / Contrat de séjour,2.4.3,DIPEC,MOYENNE,le xlsx écrit « DIPEC » ; libellé recopié à l'identique sur tout l'objectif — à confirmer critère par critère
-L2002_DIPC,DIPC / Contrat de séjour,2.4.4,DIPEC,MOYENNE,le xlsx écrit « DIPEC » ; libellé recopié à l'identique sur tout l'objectif — à confirmer critère par critère
-L2002_DIPC,DIPC / Contrat de séjour,2.4.5,DIPEC,MOYENNE,le xlsx écrit « DIPEC » ; libellé recopié à l'identique sur tout l'objectif — à confirmer critère par critère
-L2002_DIPC,DIPC / Contrat de séjour,2.4.6,DIPEC,MOYENNE,le xlsx écrit « DIPEC » ; libellé recopié à l'identique sur tout l'objectif — à confirmer critère par critère
-L2002_DIPC,DIPC / Contrat de séjour,2.4.7,DIPEC,MOYENNE,le xlsx écrit « DIPEC » ; libellé recopié à l'identique sur tout l'objectif — à confirmer critère par critère
-L2002_DIPC,DIPC / Contrat de séjour,2.7.1,DIPEC,HAUTE,le xlsx écrit « DIPEC » ; hors périmètre SAD aide selon le manuel (Médico-social | Toutes structures | PA/PHA/PDS) — applicable SAD mixte
-L2002_DIPC,DIPC / Contrat de séjour,2.8.2,DIPEC,HAUTE,le xlsx écrit « DIPEC »
-L2002_DIPC,DIPC / Contrat de séjour,2.9.1,DIPEC,HAUTE,le xlsx écrit « DIPEC »
-L2002_DIPC,DIPC / Contrat de séjour,2.9.2,DIPEC,HAUTE,le xlsx écrit « DIPEC »
-L2002_DIPC,DIPC / Contrat de séjour,2.9.3,DIPEC,HAUTE,le xlsx écrit « DIPEC »
-L2002_DIPC,DIPC / Contrat de séjour,2.10.1,DIPEC,HAUTE,le xlsx écrit « DIPEC »
-L2002_DIPC,DIPC / Contrat de séjour,3.2.1,DIPEC,HAUTE,le xlsx écrit « DIPEC »
-L2002_DIPC,DIPC / Contrat de séjour,3.2.2,DIPEC,HAUTE,le xlsx écrit « DIPEC » ; hors périmètre SAD aide selon le manuel (Tous ESSMS | Établissement | Tous publics)
+L2002_DIPC,DIPEC / Contrat de séjour,1.2.1,DIPEC,MOYENNE,le xlsx écrit « DIPEC » ; libellé recopié à l'identique sur tout l'objectif — à confirmer critère par critère
+L2002_DIPC,DIPEC / Contrat de séjour,1.2.2,DIPEC,MOYENNE,le xlsx écrit « DIPEC » ; libellé recopié à l'identique sur tout l'objectif — à confirmer critère par critère
+L2002_DIPC,DIPEC / Contrat de séjour,1.2.3,DIPEC,MOYENNE,le xlsx écrit « DIPEC » ; libellé recopié à l'identique sur tout l'objectif — à confirmer critère par critère
+L2002_DIPC,DIPEC / Contrat de séjour,1.2.4,DIPEC,MOYENNE,le xlsx écrit « DIPEC » ; libellé recopié à l'identique sur tout l'objectif — à confirmer critère par critère
+L2002_DIPC,DIPEC / Contrat de séjour,1.2.5,DIPEC,MOYENNE,le xlsx écrit « DIPEC » ; libellé recopié à l'identique sur tout l'objectif — à confirmer critère par critère
+L2002_DIPC,DIPEC / Contrat de séjour,1.2.6,DIPEC,MOYENNE,le xlsx écrit « DIPEC » ; libellé recopié à l'identique sur tout l'objectif — à confirmer critère par critère
+L2002_DIPC,DIPEC / Contrat de séjour,1.2.7,DIPEC,MOYENNE,le xlsx écrit « DIPEC » ; libellé recopié à l'identique sur tout l'objectif — à confirmer critère par critère
+L2002_DIPC,DIPEC / Contrat de séjour,1.4.1,DIPEC,HAUTE,le xlsx écrit « DIPEC »
+L2002_DIPC,DIPEC / Contrat de séjour,1.4.2,DIPEC,HAUTE,le xlsx écrit « DIPEC » ; hors périmètre SAD aide selon le manuel (Tous ESSMS | Établissement | Tous publics)
+L2002_DIPC,DIPEC / Contrat de séjour,1.10.1,DIPEC,MOYENNE,le xlsx écrit « DIPEC » ; libellé recopié à l'identique sur tout l'objectif — à confirmer critère par critère
+L2002_DIPC,DIPEC / Contrat de séjour,1.10.2,DIPEC,MOYENNE,le xlsx écrit « DIPEC » ; libellé recopié à l'identique sur tout l'objectif — à confirmer critère par critère
+L2002_DIPC,DIPEC / Contrat de séjour,1.10.3,DIPEC,MOYENNE,le xlsx écrit « DIPEC » ; libellé recopié à l'identique sur tout l'objectif — à confirmer critère par critère
+L2002_DIPC,DIPEC / Contrat de séjour,1.10.4,DIPEC,MOYENNE,le xlsx écrit « DIPEC » ; libellé recopié à l'identique sur tout l'objectif — à confirmer critère par critère
+L2002_DIPC,DIPEC / Contrat de séjour,1.10.5,DIPEC,MOYENNE,le xlsx écrit « DIPEC » ; libellé recopié à l'identique sur tout l'objectif — à confirmer critère par critère
+L2002_DIPC,DIPEC / Contrat de séjour,1.10.6,DIPEC,MOYENNE,le xlsx écrit « DIPEC » ; libellé recopié à l'identique sur tout l'objectif — à confirmer critère par critère
+L2002_DIPC,DIPEC / Contrat de séjour,1.11.1,DIPEC,HAUTE,le xlsx écrit « DIPEC »
+L2002_DIPC,DIPEC / Contrat de séjour,1.11.2,DIPEC,HAUTE,le xlsx écrit « DIPEC »
+L2002_DIPC,DIPEC / Contrat de séjour,1.17.2,DIPEC,HAUTE,le xlsx écrit « DIPEC »
+L2002_DIPC,DIPEC / Contrat de séjour,1.17.3,DIPEC,HAUTE,le xlsx écrit « DIPEC »
+L2002_DIPC,DIPEC / Contrat de séjour,1.17.4,DIPEC,HAUTE,le xlsx écrit « DIPEC »
+L2002_DIPC,DIPEC / Contrat de séjour,2.1.2,DIPEC,HAUTE,le xlsx écrit « DIPEC »
+L2002_DIPC,DIPEC / Contrat de séjour,2.2.2,DIPEC,HAUTE,le xlsx écrit « DIPEC » ; source : onglet Critères Impératifs uniquement
+L2002_DIPC,DIPEC / Contrat de séjour,2.2.3,DIPEC,HAUTE,le xlsx écrit « DIPEC » ; source : onglet Critères Impératifs uniquement
+L2002_DIPC,DIPEC / Contrat de séjour,2.2.5,DIPEC,HAUTE,le xlsx écrit « DIPEC » ; source : onglet Critères Impératifs uniquement
+L2002_DIPC,DIPEC / Contrat de séjour,2.2.6,DIPEC,HAUTE,le xlsx écrit « DIPEC » ; confirmé par les deux onglets
+L2002_DIPC,DIPEC / Contrat de séjour,2.4.1,DIPEC,MOYENNE,le xlsx écrit « DIPEC » ; libellé recopié à l'identique sur tout l'objectif — à confirmer critère par critère ; hors périmètre SAD aide selon le manuel (Tous ESSMS | Établissement | Tous publics)
+L2002_DIPC,DIPEC / Contrat de séjour,2.4.2,DIPEC,MOYENNE,le xlsx écrit « DIPEC » ; libellé recopié à l'identique sur tout l'objectif — à confirmer critère par critère
+L2002_DIPC,DIPEC / Contrat de séjour,2.4.3,DIPEC,MOYENNE,le xlsx écrit « DIPEC » ; libellé recopié à l'identique sur tout l'objectif — à confirmer critère par critère
+L2002_DIPC,DIPEC / Contrat de séjour,2.4.4,DIPEC,MOYENNE,le xlsx écrit « DIPEC » ; libellé recopié à l'identique sur tout l'objectif — à confirmer critère par critère
+L2002_DIPC,DIPEC / Contrat de séjour,2.4.5,DIPEC,MOYENNE,le xlsx écrit « DIPEC » ; libellé recopié à l'identique sur tout l'objectif — à confirmer critère par critère
+L2002_DIPC,DIPEC / Contrat de séjour,2.4.6,DIPEC,MOYENNE,le xlsx écrit « DIPEC » ; libellé recopié à l'identique sur tout l'objectif — à confirmer critère par critère
+L2002_DIPC,DIPEC / Contrat de séjour,2.4.7,DIPEC,MOYENNE,le xlsx écrit « DIPEC » ; libellé recopié à l'identique sur tout l'objectif — à confirmer critère par critère
+L2002_DIPC,DIPEC / Contrat de séjour,2.7.1,DIPEC,HAUTE,le xlsx écrit « DIPEC » ; hors périmètre SAD aide selon le manuel (Médico-social | Toutes structures | PA/PHA/PDS) — applicable SAD mixte
+L2002_DIPC,DIPEC / Contrat de séjour,2.8.2,DIPEC,HAUTE,le xlsx écrit « DIPEC »
+L2002_DIPC,DIPEC / Contrat de séjour,2.9.1,DIPEC,HAUTE,le xlsx écrit « DIPEC »
+L2002_DIPC,DIPEC / Contrat de séjour,2.9.2,DIPEC,HAUTE,le xlsx écrit « DIPEC »
+L2002_DIPC,DIPEC / Contrat de séjour,2.9.3,DIPEC,HAUTE,le xlsx écrit « DIPEC »
+L2002_DIPC,DIPEC / Contrat de séjour,2.10.1,DIPEC,HAUTE,le xlsx écrit « DIPEC »
+L2002_DIPC,DIPEC / Contrat de séjour,3.2.1,DIPEC,HAUTE,le xlsx écrit « DIPEC »
+L2002_DIPC,DIPEC / Contrat de séjour,3.2.2,DIPEC,HAUTE,le xlsx écrit « DIPEC » ; hors périmètre SAD aide selon le manuel (Tous ESSMS | Établissement | Tous publics)
 L2002_LIVRET_ACCUEIL,Livret d'accueil,1.1.1,Livret d accueil,HAUTE,
 L2002_LIVRET_ACCUEIL,Livret d'accueil,1.2.1,Livret d'accueil PA,MOYENNE,libellé recopié à l'identique sur tout l'objectif — à confirmer critère par critère
 L2002_LIVRET_ACCUEIL,Livret d'accueil,1.2.2,Livret d'accueil PA,MOYENNE,libellé recopié à l'identique sur tout l'objectif — à confirmer critère par critère

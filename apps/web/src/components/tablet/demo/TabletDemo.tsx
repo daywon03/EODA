@@ -86,13 +86,13 @@ export function TabletDemo() {
             <button type="button" onClick={() => go({ kind: "reception" })} className="flex flex-col gap-3 rounded-[18px] border border-line bg-card p-7 text-left text-[19px] text-ink">
               <span className="w-fit rounded-md border border-muted px-3 py-0.5 text-[16px] font-bold text-ink2">À l&apos;arrivée d&apos;une personne</span>
               <span className="text-[30px] font-bold leading-tight">Nouvelle personne accompagnée</span>
-              <span>Présentez le livret d&apos;accueil, le règlement de fonctionnement et le DIPC. La personne signe une fois sur la tablette.</span>
+              <span>Présentez le livret d&apos;accueil, le règlement de fonctionnement et le DIPEC. La personne signe une fois sur la tablette.</span>
               <span className="mt-auto flex h-[60px] items-center justify-center rounded-xl border-2 border-ink text-[20px] font-bold">Créer son dossier</span>
             </button>
             <button type="button" onClick={() => go({ kind: "admission", personId: `n${Date.now()}` })} disabled={!demoDipcSha} className="flex flex-col gap-3 rounded-[18px] border border-line bg-card p-7 text-left text-[19px] text-ink md:col-span-2">
               <span className="w-fit rounded-md border border-muted px-3 py-0.5 text-[16px] font-bold text-ink2">Nouveau · contrat signé sur la tablette</span>
-              <span className="text-[30px] font-bold leading-tight">Accueil et contrat (DIPC)</span>
-              <span>Fiche remplie une fois, DIPC relu ensemble, points du manuel HAS expliqués et cochés, signatures, PDF à envoyer ou exporter.</span>
+              <span className="text-[30px] font-bold leading-tight">Accueil et contrat (DIPEC)</span>
+              <span>Fiche remplie une fois, DIPEC relu ensemble, points du manuel HAS expliqués et cochés, signatures, PDF à envoyer ou exporter.</span>
               <span className="mt-auto flex h-[60px] items-center justify-center rounded-xl border-2 border-ink text-[20px] font-bold">Essayer avec une personne fictive</span>
             </button>
           </div>
@@ -158,7 +158,7 @@ export function TabletDemo() {
             setContracts((all) => ({ ...all, [record.id]: pdf }));
             setPeople((list) => [
               ...list,
-              { id: record.personId, name: fullName(record.identity), gir: 3, address: "Adresse fictive", hours: "Heures selon le DIPC", since: "aujourd'hui", surveys: { PERSONNE: false, FAMILLE: false }, pap: [], contacts: [], journal: [], receptionSignedOn: "aujourd'hui" },
+              { id: record.personId, name: fullName(record.identity), gir: 3, address: "Adresse fictive", hours: "Heures selon le DIPEC", since: "aujourd'hui", surveys: { PERSONNE: false, FAMILLE: false }, pap: [], contacts: [], journal: [], receptionSignedOn: "aujourd'hui" },
             ]);
             go({ kind: "admission-done", record });
           }}
