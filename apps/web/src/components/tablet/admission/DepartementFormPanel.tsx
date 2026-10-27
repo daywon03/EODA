@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ArrowLeft, Check, Download, FileText, Send } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { fullName, type AdmissionRecord } from "@/lib/services/admission-service";
@@ -46,10 +46,17 @@ const KINDS: { value: DepartementFormKind; label: string; hint: string }[] = [
   { value: "CHANGEMENT", label: "Changement de situation", hint: "Arrêt d'un service, nouveau service, heures" },
 ];
 
-export function DepartementFormPanel({ record, structure, contractPdf, onSaved, onBack }: {
+// D'où vient la signature du formulaire : celle du contrat (par défaut), une nouvelle
+// sur la tablette, ou le papier.
+type SignatureSource = "CONTRAT" | "TABLETTE" | "PAPIER";
+
+export function DepartementFormPanel({ record, structure, contractFiles, contractSignature, onSaved, onBack }: {
   record: AdmissionRecord;
   structure: { name: string; address: string };
-  contractPdf: () => Promise<Blob | null>;
+  // Le contrat qui part avec le formulaire (le Département exige les deux).
+  contractFiles: () => Promise<{ fileName: string; blob: Blob }[]>;
+  // La signature donnée sur le contrat par la personne (ou son tuteur), si la tablette la garde.
+  contractSignature: () => Promise<Blob | null>;
   onSaved: (pdf: Blob, kind: DepartementFormKind) => Promise<boolean>;
   onBack: () => void;
 }) {
@@ -57,8 +64,24 @@ export function DepartementFormPanel({ record, structure, contractPdf, onSaved, 
   const [certifies, setCertifies] = useState(false);
   const [replaces, setReplaces] = useState(false);
   const [accepts, setAccepts] = useState(false);
-  const [onPaper, setOnPaper] = useState(false);
+  const [source, setSource] = useState<SignatureSource>("TABLETTE");
+  const [kept, setKept] = useState<{ blob: Blob; url: string } | null>(null);
   const [signature, setSignature] = useState<string | null>(null);
+  const onPaper = source === "PAPIER";
+
+  // La signature du contrat, reprise d'office quand la tablette l'a gardée.
+  useEffect(() => {
+    let url: string | null = null;
+    void contractSignature().then((blob) => {
+      if (!blob) return;
+      url = URL.createObjectURL(blob);
+      setKept({ blob, url });
+      setSource("CONTRAT");
+    });
+    return () => {
+      if (url) URL.revokeObjectURL(url);
+    };
+  }, [contractSignature]);
   const [stopped, setStopped] = useState<StoppedService[]>([]);
   const [newService, setNewService] = useState<NewServiceMode>("");
   const [hoursChange, setHoursChange] = useState(false);
@@ -81,7 +104,7 @@ export function DepartementFormPanel({ record, structure, contractPdf, onSaved, 
   async function build() {
     const problems = isChange ? changeFormProblems({ stopped, newService, hoursChange, services }) : [];
     if (problems.length > 0) return setMessage(problems.join(" "));
-    if (!onPaper && !signature) return setMessage(`${signer} doit signer dans le cadre, ou choisissez « signer sur papier ».`);
+    if (source === "TABLETTE" && !signature) return setMessage(`${signer} doit signer dans le cadre, ou choisissez « signer sur papier ».`);
     setBusy(true);
     setMessage(null);
     try {
@@ -97,12 +120,12 @@ export function DepartementFormPanel({ record, structure, contractPdf, onSaved, 
         officialSha256: spec.sha256,
         actualSha256: await sha256Hex(official),
         items,
-        signaturePng: onPaper ? null : pngDataUrlToBytes(signature ?? ""),
+        signaturePng: source === "PAPIER" ? null : source === "CONTRAT" && kept ? new Uint8Array(await kept.blob.arrayBuffer()) : pngDataUrlToBytes(signature ?? ""),
       });
       const pdf = new Blob([bytes as BlobPart], { type: "application/pdf" });
       setForm(pdf);
-      const kept = await onSaved(pdf, kind);
-      setMessage(kept ? "Formulaire prêt." : "Formulaire prêt. La tablette n'a pas pu le garder : envoyez-le ou téléchargez-le maintenant.");
+      const stored = await onSaved(pdf, kind);
+      setMessage(stored ? "Formulaire prêt." : "Formulaire prêt. La tablette n'a pas pu le garder : envoyez-le ou téléchargez-le maintenant.");
     } catch (error) {
       setMessage(error instanceof Error && error.name === "OfficialFormMismatchError" ? error.message : "Le formulaire n'a pas pu être fabriqué. Vérifiez la connexion, puis recommencez.");
     } finally {
@@ -112,8 +135,7 @@ export function DepartementFormPanel({ record, structure, contractPdf, onSaved, 
 
   async function send() {
     if (!form) return;
-    const contract = await contractPdf();
-    const files = [{ fileName, blob: form }, ...(contract ? [{ fileName: record.pdfFileName, blob: contract }] : [])];
+    const files = [{ fileName, blob: form }, ...(await contractFiles())];
     const result = await shareFilesOrDownload(files, `${spec.title} — ${fullName(record.identity)}`);
     setMessage(
       result === "shared"
@@ -182,10 +204,19 @@ export function DepartementFormPanel({ record, structure, contractPdf, onSaved, 
           </section>
           <section aria-labelledby="formulaire-signature" className="flex flex-col gap-2.5">
             <h2 id="formulaire-signature" className="text-[24px] font-bold">Signature</h2>
-            <Tick on={onPaper} onToggle={() => setOnPaper(!onPaper)}>
+            {kept && (
+              <Tick on={source === "CONTRAT"} onToggle={() => setSource(source === "CONTRAT" ? "TABLETTE" : "CONTRAT")}>
+                <span className="flex flex-col gap-2">
+                  Reprendre la signature donnée sur le contrat ({signer === "Le tuteur" ? "le tuteur" : "la personne"})
+                  {/* eslint-disable-next-line @next/next/no-img-element -- image locale (blob:), jamais optimisée par le serveur */}
+                  <img src={kept.url} alt={`Signature de ${signer === "Le tuteur" ? "du tuteur" : "la personne"} sur le contrat`} className="h-16 w-auto self-start rounded border border-line bg-white" />
+                </span>
+              </Tick>
+            )}
+            <Tick on={onPaper} onToggle={() => setSource(onPaper ? (kept ? "CONTRAT" : "TABLETTE") : "PAPIER")}>
               Signer sur papier, une fois le formulaire imprimé
             </Tick>
-            {!onPaper && <SignaturePad key={kind} label={`${signer} — formulaire du Département`} onChange={setSignature} />}
+            {source === "TABLETTE" && <SignaturePad key={kind} label={`${signer} — formulaire du Département`} onChange={setSignature} />}
           </section>
           <button type="button" className={TABLET_PRIMARY} onClick={() => void build()} disabled={busy} aria-busy={busy}>
             <FileText className="h-6 w-6" aria-hidden="true" />

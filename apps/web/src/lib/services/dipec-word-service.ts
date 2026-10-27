@@ -1,4 +1,17 @@
-import { AID_KIND_LABELS, frenchDay, mergeDipcText, type AdmissionAid, type AdmissionField } from "./admission-service";
+import {
+  AID_KIND_LABELS,
+  contactLink,
+  frenchDay,
+  mergeDipcText,
+  signerName,
+  SIGNER_LABELS,
+  type AdmissionAid,
+  type AdmissionContact,
+  type AdmissionField,
+  type AdmissionIdentity,
+  type AdmissionSigner,
+} from "./admission-service";
+import type { TrustedPerson } from "./trusted-person-service";
 import { prepareDipcLines, type DipcBlock, type PreparedDipc } from "./dipc-tablet-preparation";
 import { cleanName } from "./survey-roster-service";
 import { buildStoredZip } from "./zip-store";
@@ -281,6 +294,34 @@ function imageParagraph(p: WordParagraph, relId: string, docPrId: number, png: U
 
 export type WordSignature = { caption: string; png: Uint8Array };
 export type WordImage = { relId: string; target: string; data: Uint8Array };
+
+// Qui signe où, dans le Word : la structure dans sa cellule, la personne (et son
+// représentant) dans la sienne, « Lu et approuvé » écrit au-dessus — la mention que
+// le contrat demande. Annexe 3.2 : sous tutelle, le tuteur désigne pour la personne.
+export function wordSignatureSlots(input: {
+  images: Partial<Record<AdmissionSigner, Uint8Array>>;
+  identity: AdmissionIdentity;
+  contact: AdmissionContact | null;
+  staffName: string;
+  trusted: TrustedPerson | null;
+}): Partial<Record<SignatureSlot, WordSignature[]>> {
+  const name = (signer: AdmissionSigner) => signerName(signer, input.identity, input.contact, input.staffName, input.trusted);
+  const one = (signer: AdmissionSigner, caption: string): WordSignature[] => {
+    const png = input.images[signer];
+    return png ? [{ caption, png }] : [];
+  };
+  const representative = contactLink(input.contact) || SIGNER_LABELS.REPRESENTANT;
+  const annexSigner: AdmissionSigner = input.contact?.kind === "TUTEUR" ? "REPRESENTANT" : "PERSONNE";
+  return {
+    STRUCTURE: one("SERVICE", `${SIGNER_LABELS.SERVICE} — ${name("SERVICE")}`),
+    BENEFICIAIRE: [
+      ...one("PERSONNE", `${SIGNER_LABELS.PERSONNE} — ${name("PERSONNE")} — Lu et approuvé`),
+      ...one("REPRESENTANT", `${representative} — ${name("REPRESENTANT")} — Lu et approuvé`),
+    ],
+    ANNEXE_PERSONNE: one(annexSigner, name(annexSigner)),
+    CONFIANCE: one("CONFIANCE", name("CONFIANCE")),
+  };
+}
 
 export type DipecWordFill = {
   documentXml: string;

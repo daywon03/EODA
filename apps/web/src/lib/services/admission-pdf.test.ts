@@ -5,6 +5,7 @@ import { dipcDocumentBlocks, frenchDateTime, planAdmissionDocument, planRefusalD
 import { prepareDipcForTablet } from "./dipc-tablet-preparation";
 import { pngDataUrlToBytes, renderAdmissionPdf, sanitizeForFont, wrapText } from "./admission-pdf";
 import { EMPTY_AID, EMPTY_CONTACT, EMPTY_IDENTITY } from "./admission-service";
+import { EMPTY_TRUSTED_PERSON } from "./trusted-person-service";
 
 // PNG 1 × 1 transparent, valide.
 const PNG_1X1 = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==";
@@ -46,6 +47,20 @@ describe("plan du contrat", () => {
   it("sous curatelle : trois signatures, et la note de preuve porte l'empreinte", () => {
     expect(blocks.filter((b) => b.kind === "signature").map((b) => (b as { signer: string }).signer)).toEqual(["PERSONNE", "REPRESENTANT", "SERVICE"]);
     expect(all).toContain(`Empreinte SHA-256 du texte du DIPEC validé par EODA : ${"f".repeat(64)}`);
+  });
+
+  it("contrat Word : le PDF n'est que l'attestation — il nomme le Word, son empreinte, la personne de confiance qui cosigne", () => {
+    const trusted = { ...EMPTY_TRUSTED_PERSON, presence: "PRESENTE" as const, lastName: "Exemple", firstName: "Jeanne", relation: "Fille", email: "j@exemple.fr" };
+    const attestation = planAdmissionDocument({ ...input, trusted, wordContract: { fileName: "20261026_DIPEC_x.docx", sha256: "c".repeat(64) } });
+    const text = JSON.stringify(attestation);
+    expect(attestation[0]).toEqual({ kind: "title", text: "Remise et signature du document individuel de prise en charge (DIPEC)" });
+    expect(text).toContain("rempli et signé sur la tablette : 20261026_DIPEC_x.docx");
+    expect(text).toContain(`Empreinte SHA-256 du contrat Word signé : ${"c".repeat(64)}`);
+    expect(text).not.toContain("Article 1 — Objet");
+    expect(attestation).toContainEqual({ kind: "field", label: "Nom et prénom", value: "Jeanne EXEMPLE" });
+    expect(attestation.filter((b) => b.kind === "signature").map((b) => (b as { signer: string }).signer)).toEqual(["PERSONNE", "REPRESENTANT", "CONFIANCE", "SERVICE"]);
+    expect(text).toContain("elle a contresigné sa désignation");
+    expect(JSON.stringify(planAdmissionDocument({ ...input, trusted: { ...trusted, presence: "ABSENTE" } }))).toContain("sa cosignature reste à recueillir");
   });
 
   it("aperçu avant signature : « à signer »", () => {

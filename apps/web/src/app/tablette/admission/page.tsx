@@ -31,7 +31,7 @@ export default async function TabletAdmissionPage() {
             structureName={session.establishmentName}
             structureAddress={structureAddress}
             staffName={session.staffDisplayName}
-            dipc={{ versionId: dipc.versionId, versionNumber: dipc.versionNumber, validatedOn: dipc.validatedOn, text: dipc.text }}
+            dipc={{ versionId: dipc.versionId, versionNumber: dipc.versionNumber, validatedOn: dipc.validatedOn, text: dipc.text, hasWord: dipc.hasWord }}
           />
         ) : (
           <div className="flex max-w-[760px] flex-col gap-5">

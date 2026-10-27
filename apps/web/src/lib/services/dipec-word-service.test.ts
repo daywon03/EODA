@@ -16,6 +16,7 @@ import {
   rewriteParagraph,
   rhythmText,
   unescapeXml,
+  wordSignatureSlots,
 } from "./dipec-word-service";
 import { EMPTY_TRUSTED_PERSON } from "./trusted-person-service";
 import { buildStoredZip } from "./zip-store";
@@ -200,6 +201,29 @@ describe("fillDipecWord", () => {
     expect(rhythmText({ ...EMPTY_AID, weekdayHours: "10" }, "")).toBe("Rythme convenu avec le bénéficiaire : 10 h par mois en semaine.");
     const none = fillDipecWord({ documentXml: DOC, plan, values, entries, trustedDesignated: false, rhythm: "", signatures: {} });
     expect(textOf(none.documentXml).some((l) => l.startsWith("Rythme convenu"))).toBe(false);
+  });
+});
+
+describe("wordSignatureSlots — qui signe où", () => {
+  const images = { PERSONNE: PNG, REPRESENTANT: PNG, SERVICE: PNG, CONFIANCE: PNG };
+  const identity = { ...EMPTY_IDENTITY, birthName: "Durand", firstName: "Paulette" };
+
+  it("structure dans sa cellule ; la personne et son curateur dans la leur, « Lu et approuvé » ; la cosignature", () => {
+    const slots = wordSignatureSlots({ images, identity, contact: { ...EMPTY_CONTACT, kind: "CURATEUR", lastName: "Leroy", firstName: "Marc" }, staffName: "Camille", trusted });
+    expect(slots.STRUCTURE?.map((s) => s.caption)).toEqual(["Pour le service — Camille"]);
+    expect(slots.BENEFICIAIRE?.map((s) => s.caption)).toEqual([
+      "La personne accompagnée — DURAND Paulette — Lu et approuvé",
+      "Curateur — LEROY Marc — Lu et approuvé",
+    ]);
+    expect(slots.ANNEXE_PERSONNE?.map((s) => s.caption)).toEqual(["DURAND Paulette"]);
+    expect(slots.CONFIANCE?.map((s) => s.caption)).toEqual(["EXEMPLE Jeanne"]);
+  });
+
+  it("sous tutelle, le tuteur signe l'annexe 3.2 ; une signature absente ne laisse pas d'image vide", () => {
+    const slots = wordSignatureSlots({ images: { REPRESENTANT: PNG, SERVICE: PNG }, identity, contact: { ...EMPTY_CONTACT, kind: "TUTEUR", lastName: "Leroy" }, staffName: "Camille", trusted: null });
+    expect(slots.ANNEXE_PERSONNE?.map((s) => s.caption)).toEqual(["LEROY"]);
+    expect(slots.BENEFICIAIRE?.map((s) => s.caption)).toEqual(["Tuteur — LEROY — Lu et approuvé"]);
+    expect(slots.CONFIANCE).toEqual([]);
   });
 });
 

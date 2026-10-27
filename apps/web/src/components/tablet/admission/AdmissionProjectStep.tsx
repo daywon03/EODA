@@ -3,14 +3,18 @@
 import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { DipcCheckField, DipcDurationChoice, DipcFreeField } from "@/lib/services/dipc-tablet-preparation";
-import type { DipcDuration } from "@/lib/services/admission-service";
+import type { AdmissionAid, DipcDuration } from "@/lib/services/admission-service";
 import { TABLET_CHOICE_OFF, TABLET_CHOICE_ON, TABLET_INPUT } from "../tablet-ui";
+import { AdmissionAidFields } from "./AdmissionAidFields";
 
 // Les zones « [à compléter] », les cases « ☐ » et le choix de durée du DIPEC de la
 // structure, remplis sur la tablette (copie préparée par dipc-tablet-preparation).
 // Une zone de texte laissée vide reste une ligne à compléter à la main ; la durée,
-// elle, se choisit toujours quand le DIPEC en propose une.
-export function AdmissionProjectStep({ freeFields, checkFields, durationChoice, duration, onDuration, texts, checks, onText, onCheck }: {
+// elle, se choisit toujours quand le DIPEC en propose une. L'aide et ses heures se
+// choisissent ici, avec le contrat : elles vont aussi au formulaire du Département.
+export function AdmissionProjectStep({ aid, onAid, freeFields, checkFields, durationChoice, duration, onDuration, texts, checks, onText, onCheck }: {
+  aid: AdmissionAid;
+  onAid: (next: AdmissionAid) => void;
   freeFields: readonly DipcFreeField[];
   checkFields: readonly DipcCheckField[];
   durationChoice: DipcDurationChoice | null;
@@ -23,11 +27,12 @@ export function AdmissionProjectStep({ freeFields, checkFields, durationChoice, 
 }) {
   const filled = freeFields.filter((f) => (texts[f.id] ?? "").trim()).length;
   const chosen = durationChoice?.options.find((o) => o.number === duration.choice);
-  if (freeFields.length === 0 && checkFields.length === 0 && !durationChoice) {
-    return <p className="text-[19px]">Le DIPEC de la structure n&apos;a rien à compléter ici.</p>;
-  }
   return (
     <div className="flex max-w-[860px] flex-col gap-7">
+      <AdmissionAidFields aid={aid} onAid={onAid} />
+      {freeFields.length === 0 && checkFields.length === 0 && !durationChoice && (
+        <p className="text-[19px]">Le DIPEC de la structure n&apos;a rien d&apos;autre à compléter ici.</p>
+      )}
       {durationChoice && (
         <section aria-labelledby="projet-duree" className="flex flex-col gap-2.5">
           <h2 id="projet-duree" className="text-[24px] font-bold">Durée du contrat</h2>
