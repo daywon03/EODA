@@ -13,7 +13,9 @@ import {
   EMPTY_AID,
   EMPTY_CONTACT,
   EMPTY_IDENTITY,
+  defaultDuration,
   dipcEntryValues,
+  durationProblems,
   fullName,
   identityProblems,
   mergeDipcBlocks,
@@ -25,6 +27,7 @@ import {
   SIGNER_LABELS,
   type AdmissionContact,
   type AdmissionRecord,
+  type DipcDuration,
   type AdmissionSigner,
 } from "@/lib/services/admission-service";
 import { TABLET_PRIMARY, TABLET_SECONDARY } from "../tablet-ui";
@@ -70,9 +73,10 @@ export function AdmissionWizard({ structureName, staffName, dipc, person, onSign
   const prepared = useMemo(() => prepareDipcForTablet(dipc.text), [dipc.text]);
   const [texts, setTexts] = useState<Record<string, string>>({});
   const [checks, setChecks] = useState<Record<string, boolean>>({});
+  const [duration, setDuration] = useState<DipcDuration>(() => defaultDuration(prepared.durationChoice));
 
   const linked = contactOrNull(contact);
-  const entries = useMemo(() => dipcEntryValues(prepared, texts, checks), [prepared, texts, checks]);
+  const entries = useMemo(() => dipcEntryValues(prepared, texts, checks, duration), [prepared, texts, checks, duration]);
   const merged = useMemo(
     () => mergeDipcBlocks(prepared.blocks, admissionFieldValues({ structureName, identity, aid, contact: linked, staffName, signedOn: new Date() }), entries),
     [prepared, structureName, identity, aid, linked, staffName, entries]
@@ -83,7 +87,7 @@ export function AdmissionWizard({ structureName, staffName, dipc, person, onSign
   function stepProblems(index: number): string[] {
     const today = new Date();
     if (index === STEP.PERSON) return [...identityProblems(identity, today), ...aidProblems(aid), ...contactProblems(linked)];
-    if (index === STEP.PROJECT) return [];
+    if (index === STEP.PROJECT) return durationProblems(prepared.durationChoice, duration);
     if (index === STEP.CONTRACT) return merged.unknownFields.length > 0 ? [`Le DIPC contient un champ inconnu (${merged.unknownFields.join(", ")}). Prévenez EODA : on ne fait pas signer ce contrat.`] : [];
     if (index === STEP.EXPLAIN) {
       const points = missingExplanations(explained);
@@ -176,6 +180,9 @@ export function AdmissionWizard({ structureName, staffName, dipc, person, onSign
         <AdmissionProjectStep
           freeFields={prepared.freeFields}
           checkFields={prepared.checkFields}
+          durationChoice={prepared.durationChoice}
+          duration={duration}
+          onDuration={setDuration}
           texts={texts}
           checks={checks}
           onText={(id, value) => setTexts((all) => ({ ...all, [id]: value }))}

@@ -85,9 +85,9 @@ export function useAdmissions(establishmentId: string) {
   // Le formulaire du Département rempli pour un contrat : rangé à côté, sous sa propre
   // clé (`formulaire:<id du contrat>`) ; il se refait si on le refabrique.
   const saveForm = useCallback(
-    async (recordId: string, pdf: Blob): Promise<boolean> => {
+    async (recordId: string, pdf: Blob, kind: DepartementFormKind): Promise<boolean> => {
       try {
-        await withStore(name, "readwrite", (store) => store.put({ id: formKey(recordId), record: null, pdf } satisfies StoredRow));
+        await withStore(name, "readwrite", (store) => store.put({ id: formKey(recordId, kind), record: null, pdf } satisfies StoredRow));
         return true;
       } catch {
         return false;
@@ -111,8 +111,12 @@ export function useAdmissions(establishmentId: string) {
   return { records, loaded, storageWorks, save, saveForm, pdfOf };
 }
 
-export function formKey(recordId: string): string {
-  return `formulaire:${recordId}`;
+// Deux formulaires possibles par contrat, chacun sous sa clé : la déclaration
+// initiale garde la clé d'origine (`formulaire:<id>`), déjà utilisée sur les tablettes.
+export type DepartementFormKind = "INITIALE" | "CHANGEMENT";
+
+export function formKey(recordId: string, kind: DepartementFormKind = "INITIALE"): string {
+  return kind === "INITIALE" ? `formulaire:${recordId}` : `changement:${recordId}`;
 }
 
 export async function sha256Hex(data: BufferSource): Promise<string> {

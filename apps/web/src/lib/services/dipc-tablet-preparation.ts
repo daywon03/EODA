@@ -27,10 +27,16 @@ export type DipcBlock = { kind: "heading" | "paragraph" | "bullet"; text: string
 export type DipcFreeField = { id: string; label: string; hint: string };
 export type DipcCheckField = { id: string; label: string };
 
+// « Option n°1 – … durée indéterminée » / « Option n°2 – … du JJ/MM/AAAA au JJ/MM/AAAA »
+// (article « Durée du DIPC ») : un CHOIX sur la tablette, plus une ligne à rayer.
+export type DipcDurationOption = { number: number; label: string; hasDates: boolean };
+export type DipcDurationChoice = { options: DipcDurationOption[] };
+
 export type PreparedDipc = {
   blocks: DipcBlock[];
   freeFields: DipcFreeField[];
   checkFields: DipcCheckField[];
+  durationChoice: DipcDurationChoice | null;
   // Nombre de zones d'identité ou de date remplacées par un champ : l'écran le dit.
   identityZones: number;
 };
@@ -114,6 +120,17 @@ const TO_COMPLETE = /^\[à compléter(?:\s*[—–-]\s*([^\]]*))?\]\s*(.*)$/i;
 // tablette (ex. « Le bénéficiaire était accompagné de (nom, qualité) : »).
 const OPEN_QUESTION = /^(Le bénéficiaire était accompagné de \(nom, qualité\)\s*:)\s*$/;
 const CHECKBOX = /^[☐□]\s*(.+)$/;
+const DURATION_OPTION = /^Option n°\s*(\d)\s*[–-]\s*(.+)$/;
+const DATE_MASK = /JJ\/MM\/AAAA/g;
+
+// Champs du choix de durée (fusionnés comme les autres zones de la copie).
+export const DURATION_FIELDS = { option: (n: number) => `duree.option${n}`, start: "duree.debut", end: "duree.fin" } as const;
+
+function durationOptionText(number: number, label: string): string {
+  let dates = 0;
+  const withDates = label.replace(DATE_MASK, () => `{{${dates++ === 0 ? DURATION_FIELDS.start : DURATION_FIELDS.end}}}`);
+  return `{{${DURATION_FIELDS.option(number)}}} Option n°${number} – ${withDates}`;
+}
 
 function isAnnexHeading(block: DipcBlock): boolean {
   return block.kind === "heading" && /^annexe\b/i.test(block.text);
@@ -124,6 +141,8 @@ export function prepareDipcForTablet(markdown: string): PreparedDipc {
   const blocks: DipcBlock[] = [];
   const freeFields: DipcFreeField[] = [];
   const checkFields: DipcCheckField[] = [];
+  const durationOptions: DipcDurationOption[] = [];
+  const durationOriginals = new Map<number, string>();
   let identityZones = 0;
   let inAnnexes = false;
   let previousReplaced = false;
@@ -138,6 +157,16 @@ export function prepareDipcForTablet(markdown: string): PreparedDipc {
     // Une ligne de pointillés seule, juste après une zone remplie, n'était que la
     // suite de cette zone : elle disparaît avec elle.
     if (previousReplaced && ONLY_BLANK_RE.test(block.text)) continue;
+
+    const option = DURATION_OPTION.exec(block.text);
+    if (option && !durationOptions.some((o) => o.number === Number(option[1]))) {
+      const number = Number(option[1]);
+      durationOptions.push({ number, label: option[2]!.replace(/\[\d+\]$/, "").trim(), hasDates: DATE_MASK.test(option[2]!) });
+      DATE_MASK.lastIndex = 0;
+      durationOriginals.set(number, block.text);
+      blocks.push({ ...block, text: durationOptionText(number, option[2]!) });
+      continue;
+    }
 
     const replaced = applyRules(block.text);
     if (replaced !== null) {
@@ -177,7 +206,15 @@ export function prepareDipcForTablet(markdown: string): PreparedDipc {
     }
     blocks.push(block);
   }
-  return { blocks, freeFields, checkFields, identityZones };
+  // Un choix n'a de sens qu'à deux options au moins ; seule, une « Option n°1 » est
+  // un paragraphe comme un autre et reste telle quelle.
+  if (durationOptions.length === 1) {
+    const single = durationOptions[0]!;
+    const index = blocks.findIndex((b) => b.text.startsWith(`{{${DURATION_FIELDS.option(single.number)}}}`));
+    blocks[index] = { ...blocks[index]!, text: durationOriginals.get(single.number)! };
+  }
+  const durationChoice = durationOptions.length >= 2 ? { options: durationOptions } : null;
+  return { blocks, freeFields, checkFields, durationChoice, identityZones };
 }
 
 // Zones restées vides, pour le compter à l'écran.

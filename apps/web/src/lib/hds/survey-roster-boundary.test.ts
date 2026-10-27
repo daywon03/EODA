@@ -27,6 +27,7 @@ const GUARDED_MODULES = [
   // Formulaire du Département rempli depuis la fiche (27/10/2026).
   "departement-form-service",
   "departement-form-pdf",
+  "departement-change-form-service",
 ];
 const GUARDED = new RegExp(`(?:from\\s+|import\\(\\s*)["'][^"']*\\/(?:${GUARDED_MODULES.join("|")})["']`);
 const OWN = GUARDED_MODULES.map((name) => path.join("lib", "services", `${name}.ts`));

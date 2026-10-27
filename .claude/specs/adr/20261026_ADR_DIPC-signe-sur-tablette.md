@@ -79,10 +79,16 @@ Contraintes :
   tablette était renvoyée vers `/login`. Un test lit désormais toutes les pages de la
   tablette sur le disque.
 
+- **Formulaire « changement de situation »** (même jour) : rempli de la même façon, sur
+  son propre PDF officiel (positions et empreinte propres), choisi sur le même écran que
+  la déclaration initiale.
+- **Durée du contrat** : les options « n°1 / n°2 » du DIPC deviennent un choix sur la
+  tablette ; durée indéterminée proposée d'emblée ; dates exigées pour la durée
+  déterminée.
+
 ## Reste à faire
 
-- **Formulaire « changement de situation »** du Département : pas encore rempli (les
-  positions restent à mesurer de la même façon).
+- Refus de signer à tracer (HAS 1.7.4).
 - Valider avec Sandrine : les points d'explication (dont le délai de rétractation de 14 jours,
   Code conso L221-18, à confirmer pour un SAD), la signature « pour le service » par
   l'intervenant (ou la direction), le format d'import de Ximi.

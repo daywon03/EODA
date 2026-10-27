@@ -7,6 +7,9 @@ import {
   admissionPdfFileName,
   buildAdmissionsCsv,
   contactProblems,
+  defaultDuration,
+  dipcEntryValues,
+  durationProblems,
   EMPTY_AID,
   EMPTY_CONTACT,
   EMPTY_FIELD_MARK,
@@ -195,5 +198,43 @@ describe("parseStoredAdmission (le stockage peut rendre n'importe quoi)", () => 
     expect(parsed?.identity.firstName.length).toBe(120);
     expect(parsed?.identity.civility).toBe("");
     expect(parsed?.signers).toEqual(["PERSONNE"]);
+  });
+});
+
+describe("durée du contrat", () => {
+  const choice = {
+    options: [
+      { number: 1, label: "Le présent contrat est conclu pour une durée indéterminée", hasDates: false },
+      { number: 2, label: "Le présent contrat est conclu pour une durée déterminée du JJ/MM/AAAA au JJ/MM/AAAA", hasDates: true },
+    ],
+  };
+  const prepared = { freeFields: [], checkFields: [], durationChoice: choice };
+
+  it("la durée indéterminée est proposée d'emblée (CASF L347-1) ; un choix est exigé", () => {
+    expect(defaultDuration(choice)).toEqual({ choice: 1, start: "", end: "" });
+    expect(defaultDuration(null)).toEqual({ choice: null, start: "", end: "" });
+    expect(durationProblems(choice, { choice: null, start: "", end: "" })).toEqual(["Choisissez la durée du contrat."]);
+    expect(durationProblems(null, { choice: null, start: "", end: "" })).toEqual([]);
+  });
+
+  it("à durée déterminée : deux dates valides, dans l'ordre", () => {
+    expect(durationProblems(choice, { choice: 2, start: "", end: "" })).toEqual(["Écrivez les dates de début et de fin du contrat."]);
+    expect(durationProblems(choice, { choice: 2, start: "2027-01-01", end: "2026-01-01" })).toEqual(["La date de fin du contrat est avant la date de début."]);
+    expect(durationProblems(choice, { choice: 2, start: "2026-11-02", end: "2027-11-01" })).toEqual([]);
+  });
+
+  it("l'option choisie est cochée, l'autre non ; les dates ne s'écrivent que pour la durée déterminée", () => {
+    expect(dipcEntryValues(prepared, {}, {}, { choice: 1, start: "2026-11-02", end: "2027-11-01" })).toEqual({
+      "duree.option1": "☒",
+      "duree.option2": "☐",
+      "duree.debut": "",
+      "duree.fin": "",
+    });
+    expect(dipcEntryValues(prepared, {}, {}, { choice: 2, start: "2026-11-02", end: "2027-11-01" })).toMatchObject({
+      "duree.option1": "☐",
+      "duree.option2": "☒",
+      "duree.debut": "02/11/2026",
+      "duree.fin": "01/11/2027",
+    });
   });
 });

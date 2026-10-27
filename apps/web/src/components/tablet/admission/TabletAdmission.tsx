@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { CheckCircle2, Download, FileText, FileUp, Search, Send, UserPlus } from "lucide-react";
 import { departementFormFileName } from "@/lib/services/departement-form-service";
+import { changeFormFileName } from "@/lib/services/departement-change-form-service";
 import { DepartementFormPanel } from "./DepartementFormPanel";
 import { cn } from "@/lib/utils";
 import { addPeople, cleanName, describeRosterImport, displayName, searchRoster, type RosterPerson } from "@/lib/services/survey-roster-service";
@@ -96,8 +97,10 @@ export function TabletAdmission({ establishmentId, structureName, structureAddre
     for (const record of records) {
       const pdf = await pdfOf(record.id);
       if (pdf) files.push({ name: record.pdfFileName, data: new Uint8Array(await pdf.arrayBuffer()), modifiedAt: new Date(record.signedAt) });
-      const form = await pdfOf(formKey(record.id));
+      const form = await pdfOf(formKey(record.id, "INITIALE"));
       if (form) files.push({ name: departementFormFileName(structureName, record, new Date(record.signedAt)), data: new Uint8Array(await form.arrayBuffer()), modifiedAt: today });
+      const change = await pdfOf(formKey(record.id, "CHANGEMENT"));
+      if (change) files.push({ name: changeFormFileName(structureName, record, today), data: new Uint8Array(await change.arrayBuffer()), modifiedAt: today });
     }
     files.push({ name: "index-des-contrats.csv", data: new TextEncoder().encode(buildAdmissionsCsv(records)), modifiedAt: today });
     downloadBlob(admissionArchiveFileName(structureName, today), new Blob([buildStoredZip(files) as BlobPart], { type: "application/zip" }));
@@ -113,7 +116,7 @@ export function TabletAdmission({ establishmentId, structureName, structureAddre
         record={record}
         structure={{ name: structureName, address: structureAddress }}
         contractPdf={async () => (back.kind === "signed" && back.record.id === record.id ? lastPdf : null) ?? (await pdfOf(record.id))}
-        onSaved={(pdf) => saveForm(record.id, pdf)}
+        onSaved={(pdf, kind) => saveForm(record.id, pdf, kind)}
         onBack={() => go(back)}
       />
     );
