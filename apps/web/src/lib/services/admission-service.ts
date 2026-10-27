@@ -1,6 +1,6 @@
 import { allAdmissionPoints, ADMISSION_HANDED_DOCUMENTS, type HandedDocumentId } from "@/content/admission/explications";
 import { otherPrecisionError } from "./prospect-contact-service";
-import type { DipcBlock } from "./dipc-tablet-preparation";
+import { DURATION_FIELDS, type DipcBlock, type PreparedDipc } from "./dipc-tablet-preparation";
 import { mergePlaceholders } from "./placeholder-merge";
 import { cleanName, csvCell, dayOf } from "./survey-roster-service";
 
@@ -389,16 +389,50 @@ export function mergeDipcBlocks(blocks: readonly DipcBlock[], values: Record<Adm
   return { blocks: merged, unknownFields: [...unknown], emptyFields: [...empty] };
 }
 
+// La durée choisie sur la tablette : le numéro de l'option, et les dates si l'option
+// est à durée déterminée.
+export type DipcDuration = { choice: number | null; start: string; end: string };
+export const NO_DURATION: DipcDuration = { choice: null, start: "", end: "" };
+
 // Ce que l'intervenant a saisi ou coché sur la tablette, prêt à fusionner.
 export function dipcEntryValues(
-  prepared: { freeFields: readonly { id: string }[]; checkFields: readonly { id: string }[] },
+  prepared: Pick<PreparedDipc, "freeFields" | "checkFields" | "durationChoice">,
   texts: Readonly<Record<string, string>>,
-  checks: Readonly<Record<string, boolean>>
+  checks: Readonly<Record<string, boolean>>,
+  duration: DipcDuration = NO_DURATION
 ): Record<string, string> {
+  const options = prepared.durationChoice?.options ?? [];
+  const chosen = options.find((o) => o.number === duration.choice);
   return {
     ...Object.fromEntries(prepared.freeFields.map((f) => [f.id, (texts[f.id] ?? "").replace(/\s+/g, " ").trim()])),
     ...Object.fromEntries(prepared.checkFields.map((c) => [c.id, checks[c.id] ? CHECKED_MARK : UNCHECKED_MARK])),
+    ...Object.fromEntries(options.map((o) => [DURATION_FIELDS.option(o.number), o.number === duration.choice ? CHECKED_MARK : UNCHECKED_MARK])),
+    ...(options.length > 0
+      ? {
+          [DURATION_FIELDS.start]: chosen?.hasDates ? frenchDay(duration.start) : "",
+          [DURATION_FIELDS.end]: chosen?.hasDates ? frenchDay(duration.end) : "",
+        }
+      : {}),
   };
+}
+
+// Durée du contrat : un choix est exigé dès que le DIPC en propose un ; à durée
+// déterminée, les deux dates, dans l'ordre.
+export function durationProblems(choice: PreparedDipc["durationChoice"], duration: DipcDuration): string[] {
+  if (!choice) return [];
+  const chosen = choice.options.find((o) => o.number === duration.choice);
+  if (!chosen) return ["Choisissez la durée du contrat."];
+  if (!chosen.hasDates) return [];
+  if (!isRealDay(duration.start) || !isRealDay(duration.end)) return ["Écrivez les dates de début et de fin du contrat."];
+  return duration.end < duration.start ? ["La date de fin du contrat est avant la date de début."] : [];
+}
+
+// L'option « durée indéterminée » est proposée d'emblée quand le DIPC en a une : c'est
+// la règle pour un SAD autorisé APA / PCH non habilité à l'aide sociale (CASF L347-1,
+// rappelé en note du DIPC du client pilote) — l'intervenant peut en changer.
+export function defaultDuration(choice: PreparedDipc["durationChoice"]): DipcDuration {
+  const indefinite = choice?.options.find((o) => /indéterminée/i.test(o.label));
+  return { ...NO_DURATION, choice: indefinite?.number ?? null };
 }
 
 // ── Fichiers (convention EODA : AAAAMMJJ_TYPE_CLIENT_OBJET_vXX_Interne|Externe) ──

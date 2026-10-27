@@ -193,7 +193,7 @@ export function TabletDemo() {
           record={screen.record}
           structure={{ name: DEMO_STRUCTURE, address: "1 avenue Fictive – 93000 Ville-Fictive" }}
           contractPdf={async () => contracts[screen.record.id] ?? null}
-          onSaved={async () => true}
+          onSaved={() => Promise.resolve(true)}
           onBack={() => go({ kind: "admission-done", record: screen.record })}
         />
       )}

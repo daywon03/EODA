@@ -235,6 +235,7 @@ export default defineConfig({
         "src/lib/services/dipc-tablet-preparation.ts",
         "src/lib/services/departement-form-service.ts",
         "src/lib/services/departement-form-pdf.ts",
+        "src/lib/services/departement-change-form-service.ts",
         "src/lib/services/placeholder-merge.ts",
         "src/lib/services/zip-store.ts",
         "src/lib/services/survey-roster-service.ts",

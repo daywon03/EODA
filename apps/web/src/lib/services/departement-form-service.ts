@@ -47,39 +47,44 @@ const POSTAL_SLOTS = [110.8, 121.8, 132.8, 143.8, 154.8];
 // 7,1 points à gauche du premier mot (mesuré sur « Allocation », « en », « Mme »).
 const BOX_OFFSET = 7.1;
 
-function slots(digits: string, positions: readonly number[], page: number, y: number): FormItem[] {
+export function slots(digits: string, positions: readonly number[], page: number, y: number): FormItem[] {
   return [...digits].slice(0, positions.length).map((digit, i) => ({ page, kind: "text", x: positions[i]! + 0.6, y, text: digit, maxWidth: 8 }));
 }
 
-function upper(value: string): string {
+export function upper(value: string): string {
   return cleanName(value).toLocaleUpperCase("fr-FR");
 }
 
-function text(page: number, x: number, y: number, value: string, maxWidth: number, maxLines?: number): FormItem[] {
+export function text(page: number, x: number, y: number, value: string, maxWidth: number, maxLines?: number): FormItem[] {
   const clean = cleanName(value);
   return clean ? [{ page, kind: "text", x, y, text: clean, maxWidth, ...(maxLines ? { maxLines } : {}) }] : [];
 }
 
 function check(page: number, wordX: number, y: number, on: boolean): FormItem[] {
-  return on ? [{ page, kind: "check", cx: wordX - BOX_OFFSET, y }] : [];
+  return box(page, wordX - BOX_OFFSET, y, on);
 }
 
-function hoursTotal(weekday: string, sunday: string): string {
+// Une case dont le centre est connu (mesuré directement quand le PDF expose le glyphe).
+export function box(page: number, cx: number, y: number, on: boolean): FormItem[] {
+  return on ? [{ page, kind: "check", cx, y }] : [];
+}
+
+export function hoursTotal(weekday: string, sunday: string): string {
   const parse = (v: string) => (v.trim() ? Number(v.trim().replace(",", ".")) : 0);
   const total = parse(weekday) + parse(sunday);
   if (!Number.isFinite(total) || total <= 0) return "";
   return `${String(Math.round(total * 100) / 100).replace(".", ",")} h`;
 }
 
-function hours(value: string): string {
+export function hours(value: string): string {
   return value.trim() ? `${value.trim()} h` : "";
 }
 
-function personName(record: AdmissionRecord): string {
+export function personName(record: AdmissionRecord): string {
   return [cleanName(record.identity.firstName), upper(record.identity.usedName || record.identity.birthName)].filter(Boolean).join(" ");
 }
 
-function contactName(record: AdmissionRecord): string {
+export function contactName(record: AdmissionRecord): string {
   const c = record.contact;
   return c ? [cleanName(c.firstName), upper(c.lastName)].filter(Boolean).join(" ") : "";
 }

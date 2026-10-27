@@ -149,3 +149,32 @@ describe("remplissage de la copie", () => {
     expect(filled.emptyFields).toContain("saisie.2");
   });
 });
+
+describe("choix de durée du contrat", () => {
+  const twoOptions = [
+    "**Choisir l’une ou l’autre des options suivantes :**",
+    "*   Option n°1 – Le présent contrat est conclu pour une durée indéterminée**[\\[1\\]](#footnote-1)**",
+    "*   Option n°2 – Le présent contrat est conclu pour une durée déterminée du JJ/MM/AAAA au JJ/MM/AAAA",
+  ].join("\n\n");
+
+  it("deux options deviennent un choix ; les dates masquées deviennent des champs", () => {
+    const prepared = prepareDipcForTablet(twoOptions);
+    expect(prepared.durationChoice).toEqual({
+      options: [
+        { number: 1, label: "Le présent contrat est conclu pour une durée indéterminée", hasDates: false },
+        { number: 2, label: "Le présent contrat est conclu pour une durée déterminée du JJ/MM/AAAA au JJ/MM/AAAA", hasDates: true },
+      ],
+    });
+    expect(prepared.blocks.map((b) => b.text)).toEqual([
+      "Choisir l’une ou l’autre des options suivantes :",
+      "{{duree.option1}} Option n°1 – Le présent contrat est conclu pour une durée indéterminée[1]",
+      "{{duree.option2}} Option n°2 – Le présent contrat est conclu pour une durée déterminée du {{duree.debut}} au {{duree.fin}}",
+    ]);
+  });
+
+  it("une option seule n'est pas un choix : la ligne reste telle qu'elle est écrite", () => {
+    const single = prepareDipcForTablet("*   Option n°1 – Durée indéterminée**[\\[1\\]](#footnote-1)**");
+    expect(single.durationChoice).toBeNull();
+    expect(single.blocks).toEqual([{ kind: "bullet", text: "Option n°1 – Durée indéterminée[1]" }]);
+  });
+});
