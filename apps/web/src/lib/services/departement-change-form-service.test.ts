@@ -34,6 +34,8 @@ const record: AdmissionRecord = {
   pdfSha256: "0",
   outcome: "SIGNE",
   refusal: null,
+  trustedPerson: null,
+  word: null,
 };
 const structure = { name: "SAD Fictif", address: "1 avenue Fictive" };
 const today = new Date("2026-10-27T10:00:00Z");

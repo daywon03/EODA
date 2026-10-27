@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { selectTabletDipc, TABLET_DIPC_MAX_CHARS, type TabletDipcVersionFacts } from "./tablet-dipc-service";
+import { selectTabletDipc, TABLET_DIPC_MAX_CHARS, tabletDipecWordUrl, type TabletDipcVersionFacts } from "./tablet-dipc-service";
 
 const day = (d: string) => new Date(`${d}T10:00:00Z`);
 const client = (n: number, at: string, text = "texte du client"): TabletDipcVersionFacts => ({ id: `c${n}`, versionNumber: n, uploadedAt: day(at), producedByCabinet: false, extractedText: text });
@@ -17,7 +17,7 @@ describe("selectTabletDipc", () => {
 
   it("validé : la version d'EODA, même si la structure a redéposé avant la validation", () => {
     const source = selectTabletDipc({ validatedAt: day("2026-10-05"), versions: [client(1, "2026-09-01"), eoda(2, "2026-10-01"), client(3, "2026-10-03")] });
-    expect(source).toEqual({ status: "READY", versionId: "e2", versionNumber: 2, validatedOn: "2026-10-05", text: "DIPEC d'EODA" });
+    expect(source).toEqual({ status: "READY", versionId: "e2", versionNumber: 2, validatedOn: "2026-10-05", text: "DIPEC d'EODA", hasWord: false });
   });
 
   it("une pièce de la structure déposée APRÈS la validation la rend caduque (règle unique)", () => {
@@ -37,5 +37,12 @@ describe("selectTabletDipc", () => {
     expect(selectTabletDipc({ validatedAt: day("2026-10-05"), versions: [eoda(1, "2026-10-01", "  ")] })).toEqual({ status: "NO_TEXT" });
     const long = selectTabletDipc({ validatedAt: day("2026-10-05"), versions: [eoda(1, "2026-10-01", "x".repeat(TABLET_DIPC_MAX_CHARS + 10))] });
     expect(long.status === "READY" && long.text.length).toBe(TABLET_DIPC_MAX_CHARS);
+  });
+
+  it("un DIPEC déposé en Word se remplit tel quel ; son adresse est celle de la route de la tablette", () => {
+    const word = { ...eoda(2, "2026-10-01"), originalFilename: "DIPEC v2.DOCX" };
+    expect(selectTabletDipc({ validatedAt: day("2026-10-05"), versions: [word] })).toMatchObject({ status: "READY", hasWord: true });
+    expect(selectTabletDipc({ validatedAt: day("2026-10-05"), versions: [{ ...word, originalFilename: "DIPEC.pdf" }] })).toMatchObject({ hasWord: false });
+    expect(tabletDipecWordUrl("v 2")).toBe("/api/tablette/dipec/v%202");
   });
 });

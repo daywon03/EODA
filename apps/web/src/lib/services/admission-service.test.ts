@@ -15,6 +15,9 @@ import {
   EMPTY_FIELD_MARK,
   EMPTY_IDENTITY,
   fullName,
+  handedCheckLinks,
+  handedChecks,
+  admissionWordFileName,
   identityProblems,
   isAdmissionDueForReview,
   latestAdmissionFor,
@@ -81,6 +84,8 @@ function record(overrides: Partial<AdmissionRecord> = {}): AdmissionRecord {
     pdfSha256: "b".repeat(64),
     outcome: "SIGNE",
     refusal: null,
+    trustedPerson: null,
+    word: null,
     ...overrides,
   };
 }
@@ -170,7 +175,7 @@ describe("fichiers et export", () => {
   it("index CSV : une ligne par contrat, formules neutralisées, BOM pour Excel", () => {
     const csv = buildAdmissionsCsv([record({ identity: { ...identity, city: "=CMD()" } })]);
     expect(csv.startsWith("﻿Nom de naissance;")).toBe(true);
-    expect(csv).toContain("DURAND;MARTIN;Paulette;12/04/1938;93000;'=CMD();;v3;Signé;26/10/2026;La personne accompagnée + Pour le service;;f.pdf;" + "b".repeat(64));
+    expect(csv).toContain("DURAND;MARTIN;Paulette;12/04/1938;93000;'=CMD();;v3;Signé;26/10/2026;La personne accompagnée + Pour le service;;;;;f.pdf;" + "b".repeat(64));
   });
 
   it("la base de la tablette porte la structure", () => {
@@ -270,7 +275,7 @@ describe("refus de signer (HAS 1.7.3 / 1.7.4)", () => {
 
   it("nom de fichier et index d'export disent le refus", () => {
     expect(admissionPdfFileName("SAD Fictif", identity, today, "REFUS")).toBe("20261026_REFUS-DIPEC_SAD-Fictif_Martin-Paulette_v01_Externe.pdf");
-    expect(buildAdmissionsCsv([refused])).toContain(";v3;Refusé;26/10/2026;;26/11/2026;refus.pdf;");
+    expect(buildAdmissionsCsv([refused])).toContain(";v3;Refusé;26/10/2026;;26/11/2026;;;;refus.pdf;");
   });
 
   it("relecture : un enregistrement d'avant le 27/10 est un contrat signé ; un refus garde motif et date", () => {
@@ -279,5 +284,38 @@ describe("refus de signer (HAS 1.7.3 / 1.7.4)", () => {
     delete legacy.refusal;
     expect(parseStoredAdmission(JSON.parse(JSON.stringify(legacy)))).toMatchObject({ outcome: "SIGNE", refusal: null });
     expect(parseStoredAdmission(JSON.parse(JSON.stringify(refused)))).toEqual(refused);
+  });
+});
+
+describe("cases « Documents remis » du contrat", () => {
+  const fields = [
+    { id: "coche.1", label: "Le présent document individuel de prise en charge et ses annexes" },
+    { id: "coche.2", label: "Le livret d’accueil" },
+    { id: "coche.3", label: "La grille tarifaire en vigueur et le devis (annexe 1)" },
+    { id: "coche.4", label: "La notice d’information sur la personne de confiance (annexe 3)" },
+    { id: "coche.5", label: "Non accompagné(e)" },
+  ];
+  const links = handedCheckLinks(fields);
+
+  it("se cochent depuis « À expliquer » ; le DIPEC lui-même se remet en le signant ; le reste reste à la main", () => {
+    expect([...links.keys()]).toEqual(["coche.1", "coche.2", "coche.4"]);
+    expect(handedChecks(links, {})).toEqual({ "coche.1": true, "coche.2": false, "coche.4": false });
+    expect(handedChecks(links, { livret: "2026-10-27T08:00:00Z", "coupon-confiance": "2026-10-27T08:01:00Z" })).toEqual({ "coche.1": true, "coche.2": true, "coche.4": true });
+  });
+
+  it("le contrat Word porte le nom du DIPEC ; le PDF qui l'accompagne se dit attestation de signature", () => {
+    const at = new Date("2026-10-26T10:00:00Z");
+    expect(admissionWordFileName("SAD Fictif", identity, at)).toBe("20261026_DIPEC_SAD-Fictif_Martin-Paulette_v01_Externe.docx");
+    expect(admissionPdfFileName("SAD Fictif", identity, at, "SIGNE", true)).toBe("20261026_SIGNATURE-DIPEC_SAD-Fictif_Martin-Paulette_v01_Externe.pdf");
+  });
+
+  it("relit la personne de confiance et le contrat Word rangés ; un contrat ancien n'en a pas", () => {
+    const withWord = record({ word: { fileName: "c.docx", sha256: "d".repeat(64) }, trustedPerson: { presence: "ABSENTE", lastName: "Exemple", firstName: "Jeanne", birthDate: "", birthPlace: "", relation: "", address: "", postalCode: "", city: "", phone: "", email: "j@exemple.fr" } });
+    expect(parseStoredAdmission(JSON.parse(JSON.stringify(withWord)))).toEqual(withWord);
+    const legacy: Record<string, unknown> = JSON.parse(JSON.stringify(record()));
+    delete legacy.word;
+    delete legacy.trustedPerson;
+    expect(parseStoredAdmission(legacy)).toMatchObject({ word: null, trustedPerson: null });
+    expect(buildAdmissionsCsv([withWord])).toContain("EXEMPLE Jeanne (cosignature à recueillir);c.docx;");
   });
 });

@@ -20,6 +20,11 @@ describe("classifyPath — refuser par défaut", () => {
     // Accueil et DIPEC signé (26/10/2026) : oublié le 26/10, la tablette tombait sur /login.
     ["/tablette/admission", "ANONYMOUS"],
     ["/tablette/admission/x", "PROTECTED"],
+    // Word d'origine du DIPEC pour la tablette (27/10/2026) : un seul segment.
+    ["/api/tablette/dipec/abc123", "ANONYMOUS"],
+    ["/api/tablette/dipec", "PROTECTED"],
+    ["/api/tablette/dipec/a/b", "PROTECTED"],
+    ["/api/tablette/autre/abc", "PROTECTED"],
     // Formulaires officiels vierges : servis hors middleware (matcher), jamais par classifyPath.
     ["/formulaires/93-designation-sad-declaration-initiale-2026.pdf", "PROTECTED"],
     ["/enquete/abcDEF123_-xyz", "ANONYMOUS"],

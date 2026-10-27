@@ -16,6 +16,7 @@ import {
   type AdmissionSigner,
 } from "./admission-service";
 import { cleanName } from "./survey-roster-service";
+import { isTrustedPersonDesignated, trustedPersonValues, type TrustedPerson } from "./trusted-person-service";
 import type { DipcBlock } from "./dipc-tablet-preparation";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -46,6 +47,10 @@ export type AdmissionDocumentInput = {
   identity: AdmissionIdentity;
   aid: AdmissionAid;
   contact: AdmissionContact | null;
+  trusted?: TrustedPerson | null;
+  // Le contrat est le Word d'EODA rempli (dipec-word-service) : ce document n'en est
+  // alors que l'attestation de remise et de signature, et ne recopie pas son texte.
+  wordContract?: { fileName: string; sha256: string } | null;
   // Le texte d'EODA, préparé pour la tablette et déjà rempli (mergeDipcBlocks).
   dipc: { versionNumber: number; validatedOn: string; sha256: string; blocks: readonly DipcBlock[] };
   explained: Readonly<Record<string, string>>;
@@ -121,6 +126,36 @@ export function dipcDocumentBlocks(blocks: readonly DipcBlock[]): AdmissionBlock
   );
 }
 
+function trustedBlocks(trusted: TrustedPerson | null | undefined): AdmissionBlock[] {
+  if (!isTrustedPersonDesignated(trusted)) return [];
+  const values = trustedPersonValues(trusted, frenchDay);
+  return [
+    { kind: "heading", text: "Personne de confiance désignée (annexe 3.2)" },
+    { kind: "field", label: "Nom et prénom", value: value(values["confiance.nom"]) },
+    { kind: "field", label: "Qualité (lien avec la personne)", value: value(values["confiance.qualite"]) },
+    { kind: "field", label: "E-mail", value: value(values["confiance.email"]) },
+    {
+      kind: "note",
+      text:
+        trusted.presence === "PRESENTE"
+          ? "Présente : elle a contresigné sa désignation sur la tablette."
+          : "Absente : le formulaire de désignation lui est envoyé ; sa cosignature reste à recueillir.",
+    },
+  ];
+}
+
+// Le contrat Word est le document signé ; ici, ce qui permet de le reconnaître.
+function wordContractBlocks(word: { fileName: string; sha256: string }): AdmissionBlock[] {
+  return [
+    { kind: "heading", text: "Le contrat" },
+    {
+      kind: "paragraph",
+      text: `Le contrat signé est le document individuel de prise en charge d'EODA, dans sa mise en page d'origine, rempli et signé sur la tablette : ${word.fileName}.`,
+    },
+    { kind: "note", text: `Empreinte SHA-256 du contrat Word signé : ${word.sha256}.` },
+  ];
+}
+
 function explanationBlocks(explained: Readonly<Record<string, string>>, version: number): AdmissionBlock[] {
   return [
     { kind: "heading", text: "Ce qui a été expliqué à la personne" },
@@ -149,7 +184,7 @@ function handedBlocks(handed: Readonly<Partial<Record<HandedDocumentId, string>>
 }
 
 function signatureBlocks(input: AdmissionDocumentInput): AdmissionBlock[] {
-  const signers = requiredSigners(input.contact);
+  const signers = requiredSigners(input.contact, input.trusted ?? null);
   const when = input.signedAt ? frenchDateTime(input.signedAt) : "à signer";
   return [
     { kind: "heading", text: "Signatures" },
@@ -162,7 +197,7 @@ function signatureBlocks(input: AdmissionDocumentInput): AdmissionBlock[] {
         kind: "signature",
         signer,
         label: SIGNER_LABELS[signer],
-        name: signerName(signer, input.identity, input.contact, input.staffName) || DASH,
+        name: signerName(signer, input.identity, input.contact, input.staffName, input.trusted ?? null) || DASH,
         when,
       })
     ),
@@ -217,7 +252,10 @@ export function planRefusalDocument(input: RefusalDocumentInput): AdmissionBlock
 
 export function planAdmissionDocument(input: AdmissionDocumentInput): AdmissionBlock[] {
   return [
-    { kind: "title", text: "Document individuel de prise en charge (DIPEC)" },
+    {
+      kind: "title",
+      text: input.wordContract ? "Remise et signature du document individuel de prise en charge (DIPEC)" : "Document individuel de prise en charge (DIPEC)",
+    },
     { kind: "subtitle", text: input.structureName },
     { kind: "note", text: `DIPEC version ${input.dipc.versionNumber}, validé par EODA le ${frenchDay(input.dipc.validatedOn) || DASH}.` },
     { kind: "heading", text: "Le service" },
@@ -226,8 +264,8 @@ export function planAdmissionDocument(input: AdmissionDocumentInput): AdmissionB
     ...identityBlocks(input.identity),
     ...aidBlocks(input.aid),
     ...contactBlocks(input.contact),
-    { kind: "heading", text: "Le contrat" },
-    ...dipcDocumentBlocks(input.dipc.blocks),
+    ...trustedBlocks(input.trusted),
+    ...(input.wordContract ? wordContractBlocks(input.wordContract) : [{ kind: "heading" as const, text: "Le contrat" }, ...dipcDocumentBlocks(input.dipc.blocks)]),
     ...explanationBlocks(input.explained, input.explanationsVersion),
     ...handedBlocks(input.handed),
     ...signatureBlocks(input),

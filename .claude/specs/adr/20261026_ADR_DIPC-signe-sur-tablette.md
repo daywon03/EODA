@@ -93,3 +93,22 @@ Contraintes :
   Code conso L221-18, à confirmer pour un SAD), la signature « pour le service » par
   l'intervenant (ou la direction), le format d'import de Ximi.
 - Refus de signer : tracer le refus (HAS 1.7.4) plutôt que d'annuler le parcours.
+
+## Complément du 27/10/2026 (soir) — le Word d'EODA, tel quel
+
+- **Décision** (Damon) : le contrat signé doit être le document qu'EODA a validé, avec sa
+  mise en page (couleurs, tableaux). La copie en texte rendue en PDF ne la gardait pas.
+- **Choix** : la tablette remplit le `.docx` validé lui-même, dans le navigateur — lecture
+  ZIP sans dépendance (`zip-read`, `DecompressionStream`), réécriture des seules zones
+  (`dipec-word-service`), signatures insérées comme images. Écarté : une conversion
+  serveur (Chromium) — elle ferait passer le contrat rempli, donc des données de santé,
+  par le serveur (verrou HDS) ; écarté aussi : un DocuSeal (même raison, déjà écarté le 26/10).
+- **Conséquences** : le contrat remis et exporté est un `.docx` ; le PDF devient
+  l'attestation de remise et de signature, qui porte l'empreinte du Word. Le rythme convenu
+  s'écrit sous l'article 3.4 ; la personne de confiance remplit et cosigne l'annexe 3.2 ;
+  absente, elle reçoit le contrat par la messagerie de la tablette. Le formulaire du
+  Département reprend l'aide, les heures et la signature du contrat.
+- **À valider avec Sandrine** : la phrase ajoutée sous l'article 3.4 (« Rythme convenu avec
+  le bénéficiaire : … ») ; l'envoi de l'annexe 3.2 à une personne de confiance absente
+  (retour papier ou scan) ; un PDF du Word signé, si Ximi ou le Département l'exigent
+  (aujourd'hui : le Word et l'attestation).

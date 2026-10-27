@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { admissionDatabaseName, parseStoredAdmission, type AdmissionRecord } from "@/lib/services/admission-service";
+import { admissionDatabaseName, parseStoredAdmission, type AdmissionRecord, type AdmissionSigner } from "@/lib/services/admission-service";
+import type { AdmissionExtras } from "./AdmissionWizard";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CONTRATS SIGNÉS GARDÉS SUR LA TABLETTE (26/10/2026).
@@ -67,11 +68,19 @@ export function useAdmissions(establishmentId: string) {
   }, [reload]);
 
   // Un contrat signé ne se réécrit jamais : un nouvel enregistrement à chaque
-  // signature (révision annuelle comprise).
+  // signature (révision annuelle comprise). À côté : le contrat Word signé et chaque
+  // signature (reprise par le formulaire du Département), sous leurs propres clés.
   const save = useCallback(
-    async (record: AdmissionRecord, pdf: Blob): Promise<boolean> => {
+    async (record: AdmissionRecord, pdf: Blob, extras: AdmissionExtras = { word: null, signatures: {} }): Promise<boolean> => {
       try {
         await withStore(name, "readwrite", (store) => store.add({ id: record.id, record, pdf } satisfies StoredRow));
+        if (extras.word) {
+          const word = extras.word;
+          await withStore(name, "readwrite", (store) => store.put({ id: wordKey(record.id), record: null, pdf: word } satisfies StoredRow));
+        }
+        for (const [signer, blob] of Object.entries(extras.signatures) as [AdmissionSigner, Blob][]) {
+          await withStore(name, "readwrite", (store) => store.put({ id: signatureKey(record.id, signer), record: null, pdf: blob } satisfies StoredRow));
+        }
         await reload();
         return true;
       } catch {
@@ -117,6 +126,15 @@ export type DepartementFormKind = "INITIALE" | "CHANGEMENT";
 
 export function formKey(recordId: string, kind: DepartementFormKind = "INITIALE"): string {
   return kind === "INITIALE" ? `formulaire:${recordId}` : `changement:${recordId}`;
+}
+
+// Le contrat Word signé, et chaque signature, rangés à côté de la fiche (27/10/2026).
+export function wordKey(recordId: string): string {
+  return `contrat-word:${recordId}`;
+}
+
+export function signatureKey(recordId: string, signer: AdmissionSigner): string {
+  return `signature:${recordId}:${signer}`;
 }
 
 export async function sha256Hex(data: BufferSource): Promise<string> {

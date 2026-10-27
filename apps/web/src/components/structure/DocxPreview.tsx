@@ -25,7 +25,9 @@ import { neutralizeDocxLinks } from "@/lib/services/docx-preview-safety";
 
 type State = "loading" | "ready" | "failed";
 
-export function DocxPreview({ url, title, onFailed }: { url: string; title: string; onFailed: () => void }) {
+// `data` : un Word fabriqué dans le navigateur (le DIPEC rempli sur la tablette, qui ne
+// passe jamais par le serveur) ; sinon il est lu à `url`.
+export function DocxPreview({ url, data, title, onFailed }: { url?: string; data?: Blob; title: string; onFailed: () => void }) {
   const frame = useRef<HTMLDivElement>(null);
   const body = useRef<HTMLDivElement>(null);
   const [state, setState] = useState<State>("loading");
@@ -37,11 +39,16 @@ export function DocxPreview({ url, title, onFailed }: { url: string; title: stri
 
     void (async () => {
       try {
-        const [response, docx] = await Promise.all([fetch(url, { credentials: "same-origin" }), import("docx-preview")]);
-        if (!response.ok) throw new Error(`Aperçu Word indisponible (${response.status})`);
-        const data = await response.blob();
+        const docx = await import("docx-preview");
+        let content = data;
+        if (!content) {
+          if (!url) throw new Error("Aperçu Word sans document");
+          const response = await fetch(url, { credentials: "same-origin" });
+          if (!response.ok) throw new Error(`Aperçu Word indisponible (${response.status})`);
+          content = await response.blob();
+        }
         if (cancelled) return;
-        await docx.renderAsync(data, target, target, {
+        await docx.renderAsync(content, target, target, {
           className: "docx",
           inWrapper: true,
           breakPages: true,
@@ -72,7 +79,7 @@ export function DocxPreview({ url, title, onFailed }: { url: string; title: stri
       cancelled = true;
       target.replaceChildren();
     };
-  }, [url, onFailed]);
+  }, [url, data, onFailed]);
 
   // Mise à la largeur : la page Word garde ses proportions, réduite si le panneau est
   // plus étroit qu'elle, jamais agrandie au-delà de 100 %.
