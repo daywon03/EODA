@@ -10,13 +10,14 @@ import { cn } from "@/lib/utils";
 import { addPeople, cleanName, describeRosterImport, displayName, searchRoster, type RosterPerson } from "@/lib/services/survey-roster-service";
 import {
   admissionArchiveFileName,
+  admissionState,
   buildAdmissionsCsv,
   displayLastName,
   frenchDay,
   fullName,
-  isAdmissionDueForReview,
   latestAdmissionFor,
   type AdmissionRecord,
+  type AdmissionState,
 } from "@/lib/services/admission-service";
 import { buildStoredZip } from "@/lib/services/zip-store";
 import { TABLET_INPUT, TABLET_PRIMARY, TABLET_SECONDARY } from "../tablet-ui";
@@ -41,11 +42,14 @@ type Screen =
   | { kind: "signed"; record: AdmissionRecord; stored: boolean }
   | { kind: "form"; record: AdmissionRecord; back: Screen };
 
-function status(record: AdmissionRecord | null, today: Date): { label: string; tone: string } {
-  if (!record) return { label: "DIPC à faire signer", tone: "border-dashed border-ink2 bg-card" };
-  if (isAdmissionDueForReview(record, today)) return { label: `Signé le ${frenchDay(record.signedAt.slice(0, 10))} · à revoir`, tone: "border-amber-fill bg-highlight" };
-  return { label: `Signé le ${frenchDay(record.signedAt.slice(0, 10))}`, tone: "border-ok-text bg-ok-soft" };
-}
+// L'état se lit dans le service (admissionState) ; ici, seulement sa couleur.
+const STATE_TONES: Record<AdmissionState, string> = {
+  A_FAIRE: "border-dashed border-ink2 bg-card",
+  SIGNE: "border-ok-text bg-ok-soft",
+  A_REVOIR: "border-amber-fill bg-highlight",
+  REFUS: "border-ink2 bg-soft",
+  A_REPROPOSER: "border-amber-fill bg-highlight",
+};
 
 export function TabletAdmission({ establishmentId, structureName, structureAddress, staffName, dipc }: {
   establishmentId: string;
@@ -74,7 +78,8 @@ export function TabletAdmission({ establishmentId, structureName, structureAddre
     window.scrollTo(0, 0);
   }
 
-  async function onSigned(record: AdmissionRecord, pdf: Blob) {
+  // Contrat signé ou refus : la même fiche, rangée de la même façon.
+  async function onRecorded(record: AdmissionRecord, pdf: Blob) {
     // La personne rejoint la liste (enquête comprise) : son nom n'est saisi qu'une fois.
     if (!roster.people.some((p) => p.id === record.personId)) {
       update(addPeople(roster, [{ lastName: displayLastName(record.identity), firstName: cleanName(record.identity.firstName) }], () => record.personId));
@@ -86,10 +91,11 @@ export function TabletAdmission({ establishmentId, structureName, structureAddre
 
   async function openPdf(record: AdmissionRecord, mode: "share" | "download") {
     const pdf = (screen.kind === "signed" && screen.record.id === record.id ? lastPdf : null) ?? (await pdfOf(record.id));
-    if (!pdf) return setFlash("Ce contrat n'est plus sur la tablette. Cherchez-le dans votre export (Ximi ou serveur).");
+    const what = record.outcome === "REFUS" ? "L'attestation de refus" : "Le contrat";
+    if (!pdf) return setFlash(`${what} n'est plus sur la tablette. Cherchez-le dans votre export (Ximi ou serveur).`);
     if (mode === "download") return downloadBlob(record.pdfFileName, pdf);
-    const result = await shareOrDownload(record.pdfFileName, pdf, `Contrat — ${fullName(record.identity)}`);
-    setFlash(result === "shared" ? "Contrat envoyé." : result === "downloaded" ? "Contrat téléchargé sur la tablette." : null);
+    const result = await shareOrDownload(record.pdfFileName, pdf, `${record.outcome === "REFUS" ? "Refus du DIPC" : "Contrat"} — ${fullName(record.identity)}`);
+    setFlash(result === "shared" ? `${what} est envoyé.` : result === "downloaded" ? `${what} est téléchargé sur la tablette.` : null);
   }
 
   async function exportAll() {
@@ -104,7 +110,7 @@ export function TabletAdmission({ establishmentId, structureName, structureAddre
     }
     files.push({ name: "index-des-contrats.csv", data: new TextEncoder().encode(buildAdmissionsCsv(records)), modifiedAt: today });
     downloadBlob(admissionArchiveFileName(structureName, today), new Blob([buildStoredZip(files) as BlobPart], { type: "application/zip" }));
-    setFlash(`${records.length} contrat${records.length > 1 ? "s" : ""} exporté${records.length > 1 ? "s" : ""}, avec les formulaires du Département et l'index. Rangez le fichier dans Ximi ou sur le serveur de la structure.`);
+    setFlash(`${records.length} dossier${records.length > 1 ? "s" : ""} exporté${records.length > 1 ? "s" : ""} (contrats signés, refus, formulaires du Département) avec l'index. Rangez le fichier dans Ximi ou sur le serveur de la structure.`);
   }
 
   if (!loaded || !rosterLoaded || !dipcSha) return <p role="status">Chargement…</p>;
@@ -129,7 +135,7 @@ export function TabletAdmission({ establishmentId, structureName, structureAddre
         staffName={staffName}
         dipc={{ ...dipc, sha256: dipcSha }}
         person={screen.person && { personId: screen.person.id, lastName: screen.person.lastName, firstName: screen.person.firstName }}
-        onSigned={onSigned}
+        onRecorded={onRecorded}
         onCancel={() => go({ kind: "home" })}
       />
     );
@@ -137,6 +143,36 @@ export function TabletAdmission({ establishmentId, structureName, structureAddre
 
   if (screen.kind === "signed") {
     const { record, stored } = screen;
+    if (record.outcome === "REFUS") {
+      return (
+        <section role="status" className="mx-auto mt-6 flex max-w-[760px] flex-col items-center gap-5 text-center">
+          <h1 className="text-[34px] font-bold">Refus enregistré</h1>
+          <p className="text-[20px]">
+            {fullName(record.identity)} ne souhaite pas signer. C&apos;est noté dans son dossier. Le contrat lui sera reproposé le{" "}
+            <span className="font-bold">{frenchDay(record.refusal?.reproposeOn ?? "")}</span>.
+          </p>
+          {!stored && (
+            <p role="alert" className="rounded-xl border-2 border-danger-text px-4 py-3 font-bold text-danger-text">
+              La tablette n&apos;a pas pu garder cette attestation. Téléchargez-la MAINTENANT, sinon elle sera perdue.
+            </p>
+          )}
+          <div className="grid w-full gap-3 sm:grid-cols-2">
+            <button type="button" className={TABLET_PRIMARY} onClick={() => void openPdf(record, "share")}>
+              <Send className="h-6 w-6" aria-hidden="true" />
+              Remettre l&apos;attestation
+            </button>
+            <button type="button" className={TABLET_SECONDARY} onClick={() => void openPdf(record, "download")}>
+              <Download className="h-6 w-6" aria-hidden="true" />
+              Télécharger le PDF
+            </button>
+          </div>
+          {flash && <p className="text-[18px]">{flash}</p>}
+          <button type="button" className={cn(TABLET_SECONDARY, "w-full")} onClick={() => go({ kind: "home" })}>
+            Retour à la liste
+          </button>
+        </section>
+      );
+    }
     return (
       <section role="status" className="mx-auto mt-6 flex max-w-[760px] flex-col items-center gap-5 text-center">
         <CheckCircle2 className="h-24 w-24 text-ok-text" aria-hidden="true" />
@@ -214,23 +250,26 @@ export function TabletAdmission({ establishmentId, structureName, structureAddre
       <ul className="flex flex-col gap-2.5">
         {shown.map((person) => {
           const record = latestAdmissionFor(records, person.id);
-          const state = status(record, today);
+          const state = admissionState(record, today);
+          const tone = STATE_TONES[state.state];
           return (
             <li key={person.id} className="flex flex-wrap items-center gap-3 rounded-2xl border border-line bg-card px-5 py-4">
               <span className="min-w-[12rem] flex-1 text-[21px] font-bold">{displayName(person)}</span>
-              <span className={cn("rounded-full border-2 px-3 py-1 text-[16px] font-bold", state.tone)}>{state.label}</span>
+              <span className={cn("rounded-full border-2 px-3 py-1 text-[16px] font-bold", tone)}>{state.label}</span>
               {record && (
                 <>
                   <button type="button" className={TABLET_SECONDARY} onClick={() => void openPdf(record, "share")}>
                     Envoyer
                   </button>
-                  <button type="button" className={TABLET_SECONDARY} onClick={() => go({ kind: "form", record, back: { kind: "home" } })}>
-                    Formulaire 93
-                  </button>
+                  {record.outcome === "SIGNE" && (
+                    <button type="button" className={TABLET_SECONDARY} onClick={() => go({ kind: "form", record, back: { kind: "home" } })}>
+                      Formulaire 93
+                    </button>
+                  )}
                 </>
               )}
               <button type="button" className={TABLET_SECONDARY} onClick={() => go({ kind: "wizard", person })}>
-                {record ? "Nouveau contrat" : "Faire signer"}
+                {!record ? "Faire signer" : record.outcome === "REFUS" ? "Reproposer le contrat" : "Nouveau contrat"}
               </button>
             </li>
           );

@@ -173,6 +173,48 @@ function signatureBlocks(input: AdmissionDocumentInput): AdmissionBlock[] {
   ];
 }
 
+// ── Attestation de REFUS (HAS 1.7.3 / 1.7.4) ──────────────────────────────────
+//
+// La personne a le droit de ne pas signer. Ce document ne lui fait rien signer : il
+// trace que le DIPC lui a été présenté et expliqué, qu'elle ne souhaite pas le
+// signer, et quand le service le lui reproposera. Le contrat lui-même n'y est pas
+// recopié : il n'a pas été conclu. Son empreinte dit lequel a été présenté.
+export type RefusalDocumentInput = Omit<AdmissionDocumentInput, "dipc" | "signedAt"> & {
+  dipc: { versionNumber: number; validatedOn: string; sha256: string };
+  recordedAt: Date;
+  reason: string;
+  reproposeOn: string;
+};
+
+export function planRefusalDocument(input: RefusalDocumentInput): AdmissionBlock[] {
+  const reason = cleanName(input.reason);
+  return [
+    { kind: "title", text: "Refus de signer le document individuel de prise en charge (DIPC)" },
+    { kind: "subtitle", text: input.structureName },
+    { kind: "note", text: `DIPC présenté : version ${input.dipc.versionNumber}, validé par EODA le ${frenchDay(input.dipc.validatedOn) || DASH}.` },
+    { kind: "heading", text: "Le service" },
+    { kind: "field", label: "Nom", value: value(input.structureName) },
+    { kind: "field", label: "Intervenant présent", value: value(input.staffName) },
+    ...identityBlocks(input.identity),
+    ...contactBlocks(input.contact),
+    { kind: "heading", text: "Ce qui s'est passé" },
+    {
+      kind: "paragraph",
+      // « Présenté » seulement : ce qui a été EXPLIQUÉ se lit point par point plus bas,
+      // avec l'heure — le refus peut venir avant la fin des explications.
+      text: `Le ${frenchDateTime(input.recordedAt)}, le document individuel de prise en charge a été présenté à la personne. Elle ne souhaite pas le signer. Ce refus est respecté ; il est noté ici, dans son dossier.`,
+    },
+    { kind: "field", label: "Motif donné par la personne", value: reason || "Pas de motif donné (la personne n'a pas à se justifier)." },
+    { kind: "field", label: "Le service lui reproposera le contrat le", value: frenchDay(input.reproposeOn) || DASH },
+    ...explanationBlocks(input.explained, input.explanationsVersion),
+    ...handedBlocks(input.handed),
+    {
+      kind: "note",
+      text: `Attestation établie sur la tablette enregistrée de ${input.structureName} par ${input.staffName}. Empreinte SHA-256 du texte du DIPC présenté (validé par EODA) : ${input.dipc.sha256}.`,
+    },
+  ];
+}
+
 export function planAdmissionDocument(input: AdmissionDocumentInput): AdmissionBlock[] {
   return [
     { kind: "title", text: "Document individuel de prise en charge (DIPC)" },
