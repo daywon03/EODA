@@ -16,6 +16,7 @@ import {
   type AdmissionSigner,
 } from "./admission-service";
 import { cleanName } from "./survey-roster-service";
+import type { DipcBlock } from "./dipc-tablet-preparation";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // PLAN DU CONTRAT SIGNÉ (DIPC) — service PUR.
@@ -45,7 +46,8 @@ export type AdmissionDocumentInput = {
   identity: AdmissionIdentity;
   aid: AdmissionAid;
   contact: AdmissionContact | null;
-  dipc: { versionNumber: number; validatedOn: string; sha256: string; text: string };
+  // Le texte d'EODA, préparé pour la tablette et déjà rempli (mergeDipcBlocks).
+  dipc: { versionNumber: number; validatedOn: string; sha256: string; blocks: readonly DipcBlock[] };
   explained: Readonly<Record<string, string>>;
   handed: Readonly<Partial<Record<HandedDocumentId, string>>>;
   explanationsVersion: number;
@@ -112,14 +114,11 @@ function contactBlocks(contact: AdmissionContact | null): AdmissionBlock[] {
   ];
 }
 
-// Le texte du DIPC : un paragraphe par ligne non vide (le texte extrait d'un Word
-// sépare ses paragraphes par des retours à la ligne).
-export function dipcParagraphs(text: string): string[] {
-  return text
-    .replace(/\r\n?/g, "\n")
-    .split(/\n/)
-    .map((line) => line.replace(/[ \t]+/g, " ").trim())
-    .filter((line) => line !== "");
+// Le texte du DIPC garde sa forme : titres, puces, paragraphes.
+export function dipcDocumentBlocks(blocks: readonly DipcBlock[]): AdmissionBlock[] {
+  return blocks.map((block): AdmissionBlock =>
+    block.kind === "heading" ? { kind: "heading", text: block.text } : { kind: "paragraph", text: block.kind === "bullet" ? `• ${block.text}` : block.text }
+  );
 }
 
 function explanationBlocks(explained: Readonly<Record<string, string>>, version: number): AdmissionBlock[] {
@@ -186,7 +185,7 @@ export function planAdmissionDocument(input: AdmissionDocumentInput): AdmissionB
     ...aidBlocks(input.aid),
     ...contactBlocks(input.contact),
     { kind: "heading", text: "Le contrat" },
-    ...dipcParagraphs(input.dipc.text).map((text): AdmissionBlock => ({ kind: "paragraph", text })),
+    ...dipcDocumentBlocks(input.dipc.blocks),
     ...explanationBlocks(input.explained, input.explanationsVersion),
     ...handedBlocks(input.handed),
     ...signatureBlocks(input),

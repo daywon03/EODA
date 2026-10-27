@@ -1,5 +1,6 @@
 import { allAdmissionPoints, ADMISSION_HANDED_DOCUMENTS, type HandedDocumentId } from "@/content/admission/explications";
 import { otherPrecisionError } from "./prospect-contact-service";
+import type { DipcBlock } from "./dipc-tablet-preparation";
 import { mergePlaceholders } from "./placeholder-merge";
 import { cleanName, csvCell, dayOf } from "./survey-roster-service";
 
@@ -279,8 +280,12 @@ export const ADMISSION_FIELDS = [
   "proche.nom",
   "proche.prenom",
   "proche.telephone",
+  "proche.identite",
+  "representant.identite",
+  "signataire.nom",
   "intervenant.nom",
   "date.signature",
+  "date.revision",
 ] as const;
 
 export type AdmissionField = (typeof ADMISSION_FIELDS)[number];
@@ -327,13 +332,73 @@ export function admissionFieldValues(input: {
     "proche.nom": contact?.kind ? cleanName(contact.lastName).toLocaleUpperCase("fr-FR") : "",
     "proche.prenom": contact?.kind ? cleanName(contact.firstName) : "",
     "proche.telephone": contact?.kind ? contact.phone.trim() : "",
+    "proche.identite": contactIdentity(contact, ["PROCHE_AIDANT", "AUTRE"]),
+    "representant.identite": contactIdentity(contact, ["TUTEUR", "CURATEUR"]),
+    "signataire.nom": signatoryName(identity, contact),
     "intervenant.nom": input.staffName,
     "date.signature": frenchDay(dayOf(input.signedOn)),
+    "date.revision": frenchDay(dayOf(oneYearAfter(input.signedOn))),
   };
 }
 
-export function mergeDipcText(dipcText: string, values: Record<AdmissionField, string>) {
-  return mergePlaceholders(dipcText, ADMISSION_FIELDS, values, EMPTY_FIELD_MARK);
+// « Prénom NOM, curateur » si le lien correspond, « sans objet » sinon : le DIPC
+// demande de l'écrire plutôt que de laisser la ligne vide.
+function contactIdentity(contact: AdmissionContact | null, kinds: readonly ContactKind[]): string {
+  if (!contact?.kind || !kinds.includes(contact.kind)) return "sans objet";
+  const name = [cleanName(contact.firstName), cleanName(contact.lastName).toLocaleUpperCase("fr-FR")].filter(Boolean).join(" ");
+  return [name, contactLink(contact).toLocaleLowerCase("fr-FR")].filter(Boolean).join(", ");
+}
+
+// Qui signe pour la personne, écrit en toutes lettres sur la page de signature du DIPC.
+function signatoryName(identity: AdmissionIdentity, contact: AdmissionContact | null): string {
+  const person = fullName(identity);
+  if (contact?.kind === "TUTEUR") return `${contactIdentity(contact, ["TUTEUR"])}, pour ${person}`;
+  if (contact?.kind === "CURATEUR") return `${person}, assisté(e) de ${contactIdentity(contact, ["CURATEUR"])}`;
+  return person;
+}
+
+// Révision au moins annuelle (HAS 1.10.6) : la date prévue par défaut.
+function oneYearAfter(date: Date): Date {
+  const next = new Date(date);
+  next.setFullYear(next.getFullYear() + 1);
+  return next;
+}
+
+// Les zones propres au DIPC de la structure (« [à compléter] », « ☐ ») s'ajoutent
+// aux champs connus : elles ne sont pas inconnues, elles viennent du texte validé.
+export function mergeDipcText(dipcText: string, values: Record<AdmissionField, string>, entries: Readonly<Record<string, string>> = {}) {
+  const fields = [...ADMISSION_FIELDS, ...Object.keys(entries)];
+  return mergePlaceholders(dipcText, fields, { ...values, ...entries } as Record<string, string>, EMPTY_FIELD_MARK);
+}
+
+export const CHECKED_MARK = "☒";
+export const UNCHECKED_MARK = "☐";
+
+// La copie du DIPC préparée pour la tablette (dipc-tablet-preparation), remplie bloc
+// par bloc. Les champs inconnus de tous les blocs sont réunis : un seul suffit à
+// bloquer la signature.
+export function mergeDipcBlocks(blocks: readonly DipcBlock[], values: Record<AdmissionField, string>, entries: Readonly<Record<string, string>>) {
+  const unknown = new Set<string>();
+  const empty = new Set<string>();
+  const merged = blocks.map((block) => {
+    const result = mergeDipcText(block.text, values, entries);
+    result.unknownFields.forEach((f) => unknown.add(f));
+    result.emptyFields.forEach((f) => empty.add(f));
+    return { ...block, text: result.text };
+  });
+  return { blocks: merged, unknownFields: [...unknown], emptyFields: [...empty] };
+}
+
+// Ce que l'intervenant a saisi ou coché sur la tablette, prêt à fusionner.
+export function dipcEntryValues(
+  prepared: { freeFields: readonly { id: string }[]; checkFields: readonly { id: string }[] },
+  texts: Readonly<Record<string, string>>,
+  checks: Readonly<Record<string, boolean>>
+): Record<string, string> {
+  return {
+    ...Object.fromEntries(prepared.freeFields.map((f) => [f.id, (texts[f.id] ?? "").replace(/\s+/g, " ").trim()])),
+    ...Object.fromEntries(prepared.checkFields.map((c) => [c.id, checks[c.id] ? CHECKED_MARK : UNCHECKED_MARK])),
+  };
 }
 
 // ── Fichiers (convention EODA : AAAAMMJJ_TYPE_CLIENT_OBJET_vXX_Interne|Externe) ──

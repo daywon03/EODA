@@ -123,5 +123,10 @@ export const config = {
   // Aucun contenu sensible n'est servi ainsi : les documents clients passent par
   // /api/local-storage (déjà hors matcher, avec son propre contrôle d'accès) ou par
   // une URL signée du bucket.
-  matcher: ["/((?!api|_next/static|_next/image|favicon.ico|.*\\.png$|.*\\.svg$).*)"],
+  //
+  // Les FORMULAIRES OFFICIELS VIERGES (`/formulaires/*.pdf`, ex. la désignation du
+  // SAD du Département 93, 27/10/2026) sont publics par nature : la tablette les
+  // charge pour les remplir dans le navigateur, sans session Auth.js. Exclusion
+  // étroite — ce dossier, des PDF, rien d'autre (routes.test.ts).
+  matcher: ["/((?!api|_next/static|_next/image|favicon.ico|formulaires/[\\w.-]+\\.pdf$|.*\\.png$|.*\\.svg$).*)"],
 };

@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { classifyPath } from "./routes";
@@ -17,6 +17,11 @@ describe("classifyPath — refuser par défaut", () => {
     // Enquête anonyme (21/10/2026) : tablette, et lien à usage unique à un seul segment.
     ["/tablette/enquete", "ANONYMOUS"],
     ["/tablette/enquete/x", "PROTECTED"],
+    // Accueil et DIPC signé (26/10/2026) : oublié le 26/10, la tablette tombait sur /login.
+    ["/tablette/admission", "ANONYMOUS"],
+    ["/tablette/admission/x", "PROTECTED"],
+    // Formulaires officiels vierges : servis hors middleware (matcher), jamais par classifyPath.
+    ["/formulaires/93-designation-sad-declaration-initiale-2026.pdf", "PROTECTED"],
     ["/enquete/abcDEF123_-xyz", "ANONYMOUS"],
     ["/enquete", "PROTECTED"],
     ["/enquete/", "PROTECTED"],
@@ -42,5 +47,26 @@ describe("classifyPath — refuser par défaut", () => {
     expect(middleware).toMatch(/access === "ANONYMOUS"\) return passThroughWithCsp\(/);
     // La page de quiz n'est pas retirée du `matcher` : elle reçoit bien la CSP.
     expect(middleware).not.toMatch(/matcher:[^\]]*quiz/);
+  });
+
+  // Lu sur le DISQUE, pas sur une liste : une page de tablette ajoutée sans être
+  // ouverte ici renverrait la tablette vers /login (c'est arrivé le 26/10/2026).
+  it("chaque page sous app/tablette est ouverte à l'appareil enregistré, sans session du portail", () => {
+    const appDir = path.resolve(__dirname, "../../app/tablette");
+    const routes = (readdirSync(appDir, { recursive: true }) as string[])
+      .filter((file) => file === "page.tsx" || file.endsWith(`${path.sep}page.tsx`))
+      .map((file) => `/tablette${file === "page.tsx" ? "" : `/${path.dirname(file).split(path.sep).join("/")}`}`);
+    expect(routes.length).toBeGreaterThanOrEqual(4);
+    for (const route of routes) expect(classifyPath(route), route).toBe("ANONYMOUS");
+  });
+
+  it("le matcher n'exclut que les formulaires officiels en PDF du dossier /formulaires", () => {
+    const middleware = readFileSync(path.resolve(__dirname, "../../middleware.ts"), "utf8");
+    const matcher = /matcher: \["\/\(\(\?!(.*)\)\.\*\)"\]/.exec(middleware)?.[1] ?? "";
+    const excluded = new RegExp(`^/(?:${matcher.replace(/\\\\/g, "\\")})`);
+    expect(excluded.test("/formulaires/93-designation-sad-declaration-initiale-2026.pdf")).toBe(true);
+    expect(excluded.test("/formulaires/x.docx")).toBe(false);
+    expect(excluded.test("/formulaires/a/b.pdf")).toBe(false);
+    expect(excluded.test("/dashboard/client/doc.pdf")).toBe(false);
   });
 });

@@ -63,12 +63,26 @@ Contraintes :
   `BeneficiaryDataPort.recordSignedDocument` (`BeneficiaryDocumentKind.DIPC`), le PDF dans
   le stockage HDS.
 
+## Complément du 27/10/2026
+
+- **Copie du DIPC pour la tablette** : plutôt qu'une copie rangée (périmée à chaque
+  nouvelle version validée), une préparation DÉRIVÉE du texte validé
+  (`prepareDipcForTablet`) : Markdown nettoyé, champs d'identité posés sur les zones
+  repérées par leur libellé, « [à compléter] » saisis sur la tablette, « ☐ » cochés,
+  annexes intactes. Vérifiée sur le DIPC de l'ASSAD (lecture seule de la base, texte jamais
+  commité).
+- **Formulaire « désignation du SAD — déclaration initiale » (Département 93)** : rempli par
+  écriture sur le PDF officiel, à des positions mesurées sur ce fichier ; son empreinte est
+  figée et tout autre fichier est refusé. Les déclarations sur l'honneur sont cochées par la
+  personne. Il part avec le contrat, par la feuille de partage de la tablette.
+- **Correctif** : `/tablette/admission` n'était pas ouverte dans `classifyPath` — la
+  tablette était renvoyée vers `/login`. Un test lit désormais toutes les pages de la
+  tablette sur le disque.
+
 ## Reste à faire
 
-- **Formulaires du Département (93)** « Désignation du SAD — déclaration initiale » et
-  « changement de situation » : PDF **non remplissables** (aucun champ AcroForm, vérifié le
-  26/10). La fiche saisie porte déjà tous leurs champs ; il reste à écrire par-dessus le PDF
-  officiel, à des coordonnées mesurées.
+- **Formulaire « changement de situation »** du Département : pas encore rempli (les
+  positions restent à mesurer de la même façon).
 - Valider avec Sandrine : les points d'explication (dont le délai de rétractation de 14 jours,
   Code conso L221-18, à confirmer pour un SAD), la signature « pour le service » par
   l'intervenant (ou la direction), le format d'import de Ximi.

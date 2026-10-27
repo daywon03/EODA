@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { resolveTabletSession } from "@/lib/auth/guards";
-import { getTabletDipcSource } from "@/lib/actions/tablet-admission";
+import { getTabletDipcSource, getTabletStructureAddress } from "@/lib/actions/tablet-admission";
 import { TABLET_DIPC_UNAVAILABLE } from "@/lib/services/tablet-dipc-service";
 import { TabletSignOutButton } from "@/components/tablet/TabletSignOutButton";
 import { TabletHeader, TabletMain } from "@/components/tablet/TabletHeader";
@@ -18,8 +18,8 @@ export const metadata: Metadata = { title: "Accueil et contrat", robots: { index
 export default async function TabletAdmissionPage() {
   const session = await resolveTabletSession();
   if (!session) redirect("/tablette");
-  const dipc = await getTabletDipcSource();
-  if (!dipc) redirect("/tablette");
+  const [dipc, structureAddress] = await Promise.all([getTabletDipcSource(), getTabletStructureAddress()]);
+  if (!dipc || structureAddress === null) redirect("/tablette");
 
   return (
     <div className="flex min-h-screen flex-col bg-paper text-ink">
@@ -29,6 +29,7 @@ export default async function TabletAdmissionPage() {
           <TabletAdmission
             establishmentId={session.establishmentId}
             structureName={session.establishmentName}
+            structureAddress={structureAddress}
             staffName={session.staffDisplayName}
             dipc={{ versionId: dipc.versionId, versionNumber: dipc.versionNumber, validatedOn: dipc.validatedOn, text: dipc.text }}
           />
