@@ -16,7 +16,7 @@ import { TABLET_CHOICE_OFF, TABLET_CHOICE_ON, TABLET_INPUT } from "../tablet-ui"
 
 // Fiche de la personne, saisie UNE fois : elle remplit le contrat, la liste de
 // l'enquête et l'index d'export. Seuls le nom de naissance et le prénom sont exigés ;
-// le reste sert le DIPC et le formulaire de désignation du Département.
+// le reste sert le DIPEC et le formulaire de désignation du Département.
 
 const LABEL = "flex flex-col gap-1.5 text-[19px] font-bold";
 const CHOICE = "min-h-[60px] rounded-xl border-2 px-5 text-[19px] font-bold";

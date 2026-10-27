@@ -139,7 +139,7 @@ describe("renderReceptionSheet — fusion de champs, aucune clause inventée", (
     "signataire.qualite": "la personne accompagnée",
     "intervenant.nom": "Intervenant (fictif)",
     "date.remise": "14/10/2026",
-    "documents.remis": "Livret d'accueil, Règlement de fonctionnement et DIPC",
+    "documents.remis": "Livret d'accueil, Règlement de fonctionnement et DIPEC",
   };
 
   it("remplace les champs connus et ne touche pas au texte du gabarit", () => {
@@ -147,7 +147,7 @@ describe("renderReceptionSheet — fusion de champs, aucune clause inventée", (
     const result = renderReceptionSheet(template, VALUES);
     expect(result).toEqual({
       ok: true,
-      text: "Je soussignée Germaine Rousseau (fictif), la personne accompagnée, atteste avoir reçu : Livret d'accueil, Règlement de fonctionnement et DIPC.",
+      text: "Je soussignée Germaine Rousseau (fictif), la personne accompagnée, atteste avoir reçu : Livret d'accueil, Règlement de fonctionnement et DIPEC.",
     });
   });
 
@@ -163,8 +163,8 @@ describe("renderReceptionSheet — fusion de champs, aucune clause inventée", (
 
   it("liste les champs du gabarit et décrit les documents présentés", () => {
     expect(placeholdersIn("{{a}} {{ a }} {{b.c}}")).toEqual(["a", "b.c"]);
-    expect(describePresentedDocuments(ALL_KINDS)).toBe("Livret d'accueil, Règlement de fonctionnement et DIPC");
-    expect(describePresentedDocuments(["DIPC"])).toBe("DIPC");
+    expect(describePresentedDocuments(ALL_KINDS)).toBe("Livret d'accueil, Règlement de fonctionnement et DIPEC");
+    expect(describePresentedDocuments(["DIPC"])).toBe("DIPEC");
     expect(describePresentedDocuments([])).toBe("");
   });
 });

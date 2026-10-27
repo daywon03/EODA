@@ -138,7 +138,7 @@ DocumentType (catalogue de référence, seed depuis context/03-documents-obligat
   category              -- enum: 'LOI_2002_2' | 'FONCTIONNEMENT' | 'QUALITE_RISQUES' | 'RH'
   label
   is_conditional         -- boolean, true pour les documents "si concerné"
-  expected_frequency     -- nullable, ex: "ANNUAL" pour les CR CVS / DIPC révisé
+  expected_frequency     -- nullable, ex: "ANNUAL" pour les CR CVS / DIPEC révisé
 
 DocumentTypeCriterion (table de jointure many-to-many)
   document_type_id      FK → DocumentType

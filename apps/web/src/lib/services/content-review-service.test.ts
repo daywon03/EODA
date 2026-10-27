@@ -61,7 +61,7 @@ describe("buildContentReviewCatalog — tout le contenu provisoire, rien d'oubli
     expect(countReviewItems(family("RECEPTION"))).toBe(RECEPTION_DOCUMENTS.reduce((n, d) => n + d.points.length, 0));
   });
 
-  it("accueil et DIPC : chaque point, avec critères, nature, source et ce qui reste à confirmer", () => {
+  it("accueil et DIPEC : chaque point, avec critères, nature, source et ce qui reste à confirmer", () => {
     expect(countReviewItems(family("ADMISSION"))).toBe(allAdmissionPoints().length);
     const items = family("ADMISSION").groups.flatMap((g) => g.items);
     const trust = items.find((i) => i.id === "personne-confiance")!;

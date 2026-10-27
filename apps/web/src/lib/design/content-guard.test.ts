@@ -3,8 +3,11 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 // RÈGLE ZÉRO pour trois décisions écrites qu'aucun outil ne vérifiait :
-//   1. Sigle DIPC partout, jamais « DIPEC » ni « DPEC » (décision 9 des maquettes v2,
-//      bilan du 08/10 §3.2) — dans l'interface, les contenus ET les tests.
+//   1. Sigle « DIPEC » partout, comme l'écrit Sandrine (décision de Damon du 27/10/2026,
+//      qui renverse la décision 9 des maquettes v2) — dans l'interface, les contenus,
+//      les noms de fichiers ET les tests. Seuls restent les identifiants internes, qui
+//      sont des clés et non des mots : le code de type `L2002_DIPC`, les constantes
+//      (`TABLET_DIPC_…`), et la valeur d'énumération écrite seule entre guillemets.
 //   2. Aucune donnée du client pilote dans le code, les tests, les fixtures, les seeds
 //      (CLAUDE.md §7) : ni son nom, ni sa commune, ni son FINESS. Données fictives
 //      marquées (« SAD Les Glycines (fictif) »).
@@ -43,13 +46,12 @@ const scanned = [...listFiles(WEB_SRC), ...SEEDS];
 
 // Délai élargi : le parcours de tout `src` peut dépasser 5 s quand la suite tourne en parallèle.
 describe("contenus et données — règles vérifiées", { timeout: 30_000 }, () => {
-  it("n'écrit jamais DIPEC ni DPEC", () => {
-    const pattern = new RegExp(["\\bDI", "PEC\\b|\\bDP", "EC\\b"].join(""), "i");
-    // Exception unique : la copie embarquée de la matrice proposée, qui cite le sigle tel
-    // qu'écrit dans sa source ; `sanitizeRemark` le retire à la lecture (testé).
-    expect(
-      offenders(scanned, pattern, [THIS_FILE, "status-vocabulary.test.ts", "content/criteres/matrice-proposition.ts"])
-    ).toEqual([]);
+  it("écrit DIPEC, jamais DIPC ni DPEC", () => {
+    // `\b` ne coupe pas sur `_` : L2002_DIPC et TABLET_DIPC_… ne sont pas des mots.
+    // « DIPC » seul entre guillemets est une valeur d'énumération, jamais affichée.
+    // Sensible à la casse : `dipc-tablet-preparation`, `t-dipc` sont des noms de code.
+    const pattern = new RegExp(["(?<![\"'])\\bDI", "PC\\b|\\bDI", "PC\\b(?![\"'])|\\bDP", "EC\\b"].join(""));
+    expect(offenders(scanned, pattern, [THIS_FILE, "status-vocabulary.test.ts"])).toEqual([]);
   });
 
   it("ne contient aucune donnée du client pilote", () => {

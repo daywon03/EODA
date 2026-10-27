@@ -28,14 +28,14 @@ export type DemoPerson = {
 
 export const DEMO_STRUCTURE = "SAD Les Glycines (fictif)";
 
-// DIPC FICTIF de la démonstration (accueil et contrat, 26/10/2026) : il montre la
+// DIPEC FICTIF de la démonstration (accueil et contrat, 26/10/2026) : il montre la
 // fusion des champs `{{…}}` saisis une fois. Le vrai texte est celui qu'EODA valide
 // pour chaque structure.
 export const DEMO_DIPC = {
   versionId: "demo",
   versionNumber: 1,
   validatedOn: "2026-10-01",
-  // Même FORME que le texte extrait d'un DIPC d'EODA (Markdown du Word, pointillés,
+  // Même FORME que le texte extrait d'un DIPEC d'EODA (Markdown du Word, pointillés,
   // « [à compléter] », cases) : la tablette en dérive sa copie à remplir
   // (dipc-tablet-preparation), exactement comme pour une vraie structure.
   text: [

@@ -1,10 +1,10 @@
 import { isValidationCurrent } from "./document-workflow-service";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// QUEL DIPC LA TABLETTE PRÉSENTE — service PUR (26/10/2026).
+// QUEL DIPEC LA TABLETTE PRÉSENTE — service PUR (26/10/2026).
 //
-// « Prendre la nouvelle version du DIPC fournie par EODA » : la tablette ne montre à
-// signer qu'un DIPC dont la validation est À JOUR (`isValidationCurrent`, la règle
+// « Prendre la nouvelle version du DIPEC fournie par EODA » : la tablette ne montre à
+// signer qu'un DIPEC dont la validation est À JOUR (`isValidationCurrent`, la règle
 // unique de « Validé » / « Relu par EODA » / « prouvé »). Parmi ses versions, celle
 // d'EODA d'abord (le livrable, même règle que `selectDeliverables`) ; à défaut, la
 // pièce de la structure que la consultante a jugée conforme telle quelle.
@@ -58,7 +58,7 @@ export function selectTabletDipc(
 }
 
 export const TABLET_DIPC_UNAVAILABLE: Record<Exclude<TabletDipcSource["status"], "READY">, string> = {
-  ABSENT: "Le DIPC de la structure n'a pas encore été déposé. EODA le prépare avec vous.",
-  NOT_VALIDATED: "Le DIPC n'est pas encore validé par EODA. On ne fait signer qu'un DIPC validé.",
-  NO_TEXT: "Le DIPC validé ne peut pas s'afficher sur la tablette (texte illisible). Prévenez EODA.",
+  ABSENT: "Le DIPEC de la structure n'a pas encore été déposé. EODA le prépare avec vous.",
+  NOT_VALIDATED: "Le DIPEC n'est pas encore validé par EODA. On ne fait signer qu'un DIPEC validé.",
+  NO_TEXT: "Le DIPEC validé ne peut pas s'afficher sur la tablette (texte illisible). Prévenez EODA.",
 };

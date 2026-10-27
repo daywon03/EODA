@@ -56,11 +56,11 @@ export default async function TabletPage() {
               <p>Choisissez la personne dans la liste, posez les questions : la tablette coche « fait ». Les réponses partent sans aucun nom.</p>
               <Link href="/tablette/enquete" className={`${TABLET_PRIMARY} w-fit`}>Faire une enquête</Link>
             </div>
-            {/* Le DIPC se signe dès maintenant : la fiche de la personne, les
+            {/* Le DIPEC se signe dès maintenant : la fiche de la personne, les
                 signatures et le contrat restent dans la tablette (26/10/2026). */}
             <div className="flex max-w-[760px] flex-col gap-3 rounded-2xl border border-line bg-card p-6">
               <h2 className="text-[26px] font-bold">Accueil d&apos;une nouvelle personne</h2>
-              <p>Remplissez sa fiche une fois, relisez le contrat (DIPC) avec elle, expliquez ce que le manuel HAS demande, puis signez sur la tablette.</p>
+              <p>Remplissez sa fiche une fois, relisez le contrat (DIPEC) avec elle, expliquez ce que le manuel HAS demande, puis signez sur la tablette.</p>
               <Link href="/tablette/admission" className={`${TABLET_PRIMARY} w-fit`}>Accueil et contrat</Link>
             </div>
             {getBeneficiaryDataPort().isAvailable ? (

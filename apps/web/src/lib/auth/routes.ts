@@ -49,7 +49,7 @@ export const TABLET_DEMO_PATH = "/tablette/demonstration";
 // Enquête de satisfaction ANONYME sur la tablette (21/10/2026) : même garde que
 // l'accueil (appareil enregistré + code du salarié), vérifiée par la page et l'action.
 export const TABLET_SURVEY_PATH = "/tablette/enquete";
-// Accueil et DIPC signé (26/10/2026) : même garde, vérifiée par la page. Oubliée de
+// Accueil et DIPEC signé (26/10/2026) : même garde, vérifiée par la page. Oubliée de
 // cette liste le 26/10, la page renvoyait la tablette (sans session Auth.js) vers la
 // connexion du portail — corrigé le 27/10, test dans routes.test.ts.
 export const TABLET_ADMISSION_PATH = "/tablette/admission";

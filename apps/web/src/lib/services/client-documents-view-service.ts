@@ -488,12 +488,12 @@ export function describeWorkList(count: number): string {
     : `Il vous reste ${count} documents à créer vous-même.`;
 }
 
-// Le DIPC se réclame en MODÈLE VIERGE, jamais en exemplaire signé : un DIPC signé
+// Le DIPEC se réclame en MODÈLE VIERGE, jamais en exemplaire signé : un DIPEC signé
 // est une donnée de santé nominative (CLAUDE.md §6, HDS) qui ne doit pas atteindre
 // l'hébergement actuel.
 export const DIPC_CODE = "L2002_DIPC";
 export const DIPC_BLANK_MODEL_NOTICE =
-  "Déposez le modèle vierge personnalisé du DIPC, sans nom ni signature. N'envoyez jamais un DIPC signé par une personne accompagnée.";
+  "Déposez le modèle vierge personnalisé du DIPEC, sans nom ni signature. N'envoyez jamais un DIPEC signé par une personne accompagnée.";
 
 // La ligne « Autre forme de participation des usagers » (21/10/2026) ne dit plus
 // « questionnaire vierge » : la règle HDS se dit donc au dépôt — la démarche, jamais

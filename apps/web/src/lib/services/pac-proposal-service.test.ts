@@ -36,8 +36,8 @@ describe("proposePacActions — context/10 §6", () => {
     // Confiée à la structure, sans fonction : personne n'a choisi de pilote, l'écran
     // ne doit donc pas annoncer « Responsable Qualité » (test de bout en bout, 12/10).
     expect(p?.ownerFunction).toBeNull();
-    expect(buildPacTitle("1.2.1", { documentTypeLabel: "DIPC", documentId: "d", deposited: true })).toBe(
-      "Compléter « DIPC » pour le critère 1.2.1"
+    expect(buildPacTitle("1.2.1", { documentTypeLabel: "DIPEC", documentId: "d", deposited: true })).toBe(
+      "Compléter « DIPEC » pour le critère 1.2.1"
     );
     expect(buildPacTitle("1.2.1", null)).toBe("Définir et tracer la preuve du critère 1.2.1");
   });

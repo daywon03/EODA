@@ -247,7 +247,7 @@ describe("les sept groupes de « Mes documents »", () => {
   });
 
   it("le compte décrit ce qui est affiché sous lui, pas le total du groupe", () => {
-    // Sous le filtre « À déposer », le groupe Loi 2002-2 ne montre plus que le DIPC :
+    // Sous le filtre « À déposer », le groupe Loi 2002-2 ne montre plus que le DIPEC :
     // annoncer « 1 relu sur 3 » juste au-dessus d'une ligne serait faux.
     const filtered = groupClientDocuments(rows, "a-deposer", "ACCOMPAGNE");
     expect(filtered.map((g) => g.label)).toEqual(["Loi 2002-2", "Ressources humaines"]);
@@ -337,8 +337,8 @@ describe("filtres, accueil, liste de travail", () => {
   });
 });
 
-describe("DIPC : modèle vierge seulement (HDS)", () => {
-  it("rappelle de ne jamais déposer un DIPC signé", () => {
+describe("DIPEC : modèle vierge seulement (HDS)", () => {
+  it("rappelle de ne jamais déposer un DIPEC signé", () => {
     expect(depositNoticeFor("L2002_DIPC")).toBe(DIPC_BLANK_MODEL_NOTICE);
     expect(DIPC_BLANK_MODEL_NOTICE).toMatch(/modèle vierge/);
     expect(DIPC_BLANK_MODEL_NOTICE).toMatch(/signé/);

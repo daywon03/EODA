@@ -3,11 +3,11 @@ import type { BeneficiaryDocumentKind } from "@/lib/hds/beneficiary-data-port";
 // ─────────────────────────────────────────────────────────────────────────────
 // FEUILLE DE RÉCEPTION — points « à dire » par document présenté (lot C).
 //
-// ⚠️ PROVISOIRES : rédigés d'après context/10 §6 (livret, règlement, DIPC) et la
+// ⚠️ PROVISOIRES : rédigés d'après context/10 §6 (livret, règlement, DIPEC) et la
 // maquette « Tablette terrain », en attente de validation par Sandrine
 // (`PROVISIONAL = true`, affiché à l'écran). Feuille de réception UNIQUE (décision 6
 // des maquettes v2) : les trois documents sont présentés un par un, chaque point est
-// coché avec la personne, puis UNE signature atteste la réception. Le DIPC signé à
+// coché avec la personne, puis UNE signature atteste la réception. Le DIPEC signé à
 // part reste une option de la structure.
 //
 // Corriger un point incrémente `RECEPTION_POINTS_VERSION` : la preuve de signature
@@ -45,7 +45,7 @@ export const RECEPTION_DOCUMENTS: readonly ReceptionDocument[] = [
   },
   {
     kind: "DIPC",
-    label: "DIPC",
+    label: "DIPEC",
     points: [
       { id: "dipc-prestations", label: "Relire ensemble les prestations prévues" },
       { id: "dipc-heures", label: "Confirmer le nombre d'heures par mois" },
@@ -56,6 +56,6 @@ export const RECEPTION_DOCUMENTS: readonly ReceptionDocument[] = [
   },
 ];
 
-// La remise du DIPC se fait au plus tard 15 jours après le début de l'accompagnement
+// La remise du DIPEC se fait au plus tard 15 jours après le début de l'accompagnement
 // (context/10 §6, revu le 22/09) — possible le jour même.
 export const DIPC_DELIVERY_MAX_DAYS = 15;

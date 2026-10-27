@@ -38,7 +38,7 @@ export function ClientUploadDialog({
   establishmentId: string;
   documentTypeId: string;
   documentLabel: string;
-  // Consigne propre au document (le DIPC : modèle vierge seulement).
+  // Consigne propre au document (le DIPEC : modèle vierge seulement).
   notice: string | null;
   onClose: () => void;
 }) {

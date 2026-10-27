@@ -29,7 +29,7 @@ export type ReviewFamilyId = "QUIZ" | "PRATIQUES" | "ENQUETE" | "DECOUVERTE" | "
 export type ReviewFamily = { id: ReviewFamilyId; title: string; description: string; groups: readonly ReviewGroup[] };
 export type ContentReviewCatalog = { status: string; families: readonly ReviewFamily[] };
 
-// Libellés des types de document attendus (« L2002_DIPC » → « DIPC… »), lus en base
+// Libellés des types de document attendus (« L2002_DIPC » → « DIPEC… »), lus en base
 // par l'appelant. Un code sans libellé connu s'affiche tel quel, jamais masqué.
 export type DocumentTypeLabels = ReadonlyMap<string, string>;
 
@@ -179,7 +179,7 @@ function admissionGroups(): ReviewGroup[] {
     id: `admission-${section.id}`,
     title: section.title,
     version: `v${ADMISSION_EXPLANATIONS_VERSION}`,
-    provenance: "Points à expliquer et à cocher avec la personne, avant la signature du DIPC sur la tablette",
+    provenance: "Points à expliquer et à cocher avec la personne, avant la signature du DIPEC sur la tablette",
     items: section.points.map((point, index) => ({
       id: point.id,
       title: `${index + 1}. ${point.label}`,
@@ -230,8 +230,8 @@ export function buildContentReviewCatalog(labels: DocumentTypeLabels = new Map()
       },
       {
         id: "ADMISSION",
-        title: "Accueil et DIPC : ce qu'il faut expliquer",
-        description: "Les points du manuel HAS expliqués à la personne avant la signature du DIPC sur la tablette, avec leurs critères, leur nature et leur source.",
+        title: "Accueil et DIPEC : ce qu'il faut expliquer",
+        description: "Les points du manuel HAS expliqués à la personne avant la signature du DIPEC sur la tablette, avec leurs critères, leur nature et leur source.",
         groups: admissionGroups(),
       },
     ],

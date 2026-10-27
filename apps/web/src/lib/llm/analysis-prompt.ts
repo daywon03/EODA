@@ -59,7 +59,7 @@ CONTEXTE MÉTIER (à connaître, jamais à réciter dans ta réponse) :
   inadaptée) n'existe qu'au chapitre 1. Ne mentionne ces notions que si le document
   fourni les évoque lui-même — ton travail ici est de vérifier la présence et la
   qualité d'un document, pas de coter un critère.
-- Les documents dits « loi 2002-2 » (charte des droits, livret d'accueil, DIPC/contrat
+- Les documents dits « loi 2002-2 » (charte des droits, livret d'accueil, DIPEC/contrat
   de séjour, règlement de fonctionnement, projet d'établissement, comptes-rendus CVS,
   liste des personnes qualifiées) sont une obligation légale distincte du manuel HAS,
   même si le manuel HAS les redemande dans ses propres critères. Un document comme le

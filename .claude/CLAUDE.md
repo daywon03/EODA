@@ -57,8 +57,9 @@ vérifie** — sinon elle n'existe pas.
 | « Commentaire sur ce document » atteint l'analyse et la mise en conformité, et seulement s'il est « pris en compte par l'IA » | `readDocumentComment` lit `Document.missingJustification` si `commentUsedByAi` (oui par défaut), anonymisé, rendu balisé `<commentaire_document>` comme une information, jamais une instruction (balise fermante neutralisée) ; bascule par `setDocumentCommentAiUse` (garde `DOCUMENTS_WRITE`, journal `DOCUMENT_COMMENT_AI_TOGGLED` sans le texte) | `lib/llm/document-comment.test.ts`, `lib/services/document-ingestion-service.test.ts`, `lib/actions/document.test.ts` |
 | L'enquête ANONYME ne peut contenir aucune donnée de personne (hors verrou HDS) | test qui lit le schéma et **échoue** si `AnonymousSurveyResponse` / `AnonymousSurveyAnswer` gagnent un champ hors liste (personne, salarié, texte, horodatage), si `completedOn` n'est plus un `@db.Date`, ou si le lien désigne quelqu'un ; actions : lien à usage unique consommé atomiquement, débit par IP, salarié jamais enregistré, réponse jamais journalisée ; réponses refusées si un texte libre ou une question de contrôle s'y glisse | `lib/hds/anonymous-survey-schema.test.ts`, `lib/actions/anonymous-survey.test.ts`, `lib/services/anonymous-survey-service.test.ts`, `lib/auth/routes.test.ts` |
 | La liste des personnes à enquêter ne quitte jamais la tablette | test qui lit tout `src/` et **échoue** si un fichier sans `"use client"` en tête importe `survey-roster-service` ou `xlsx-rows-reader` (une action, une route ou une page serveur recevrait des noms) ; l'envoi (`submitTabletAnonymousSurvey`) ne reçoit que questionnaire, mode et réponses ; import Excel lu dans le navigateur, colonnes autres que Nom/Prénom jamais gardées ; export CSV fabriqué dans le navigateur, formules neutralisées. **L'export réel de Ximi se lit** (26/10/2026 : balises préfixées `x:` — zéro ligne lue avant —, ligne de titre avant l'en-tête, « NOM, Prénom » dans une seule colonne) | `lib/hds/survey-roster-boundary.test.ts`, `lib/services/survey-roster-service.test.ts`, `lib/services/xlsx-rows-reader.test.ts`, `lib/services/zip-store.test.ts` |
-| Le DIPC signé sur la tablette ne quitte jamais la tablette, et ne se signe que validé, expliqué et par le bon signataire | le même test de frontière refuse qu'un module sans `"use client"` importe `admission-service`, `admission-document-service` ou `admission-pdf` (import **dynamique** compris) ; le serveur ne rend que le DIPC dont la validation est à jour (`selectTabletDipc` → `isValidationCurrent`, version d'EODA d'abord), structure lue depuis l'appareil ; `signingProblems` refuse un point HAS non expliqué, un document non remis, un champ `{{…}}` inconnu, une signature manquante (tutelle : le tuteur ; curatelle : la personne ET le curateur) ; aperçu et PDF rendent le MÊME plan (`planAdmissionDocument`) | `lib/hds/survey-roster-boundary.test.ts`, `lib/services/admission-service.test.ts`, `lib/services/admission-pdf.test.ts`, `lib/services/tablet-dipc-service.test.ts`, `lib/actions/tablet-admission.test.ts` — ADR `specs/adr/20261026_ADR_DIPC-signe-sur-tablette.md` |
-| La copie du DIPC pour la tablette ne remplit que les zones du CORPS, jamais les annexes, et ne réécrit rien de validé | `prepareDipcForTablet` (dérivée à l'affichage, jamais rangée) : Markdown nettoyé, champs d'identité posés sur des zones repérées par leur LIBELLÉ et vides (pointillés, crochets), « [à compléter] » → saisie sur la tablette, « ☐ » → case ; tout ce qui suit le premier titre « ANNEXE » est intact (rétractation, personne de confiance) ; vérifié sur le vrai DIPC de l'ASSAD (15 zones, 15 saisies, 8 cases, zéro pointillé restant dans le corps) | `lib/services/dipc-tablet-preparation.test.ts` (DIPC fictif de même forme) |
+| Le DIPEC signé sur la tablette ne quitte jamais la tablette, et ne se signe que validé, expliqué et par le bon signataire | le même test de frontière refuse qu'un module sans `"use client"` importe `admission-service`, `admission-document-service` ou `admission-pdf` (import **dynamique** compris) ; le serveur ne rend que le DIPEC dont la validation est à jour (`selectTabletDipc` → `isValidationCurrent`, version d'EODA d'abord), structure lue depuis l'appareil ; `signingProblems` refuse un point HAS non expliqué, un document non remis, un champ `{{…}}` inconnu, une signature manquante (tutelle : le tuteur ; curatelle : la personne ET le curateur) ; aperçu et PDF rendent le MÊME plan (`planAdmissionDocument`) | `lib/hds/survey-roster-boundary.test.ts`, `lib/services/admission-service.test.ts`, `lib/services/admission-pdf.test.ts`, `lib/services/tablet-dipc-service.test.ts`, `lib/actions/tablet-admission.test.ts` — ADR `specs/adr/20261026_ADR_DIPC-signe-sur-tablette.md` |
+| Le sigle s'écrit « DIPEC » (décision de Damon du 27/10/2026, comme l'écrit Sandrine — renverse la décision 9 des maquettes v2) | test qui parcourt `src/` et les seeds et **échoue** sur « DIPC » ou « DPEC » écrit comme un mot — interface, contenus, noms de fichiers produits, tests ; seuls passent les identifiants internes, qui sont des clés : `L2002_DIPC`, `TABLET_DIPC_…`, la valeur d'énumération `"DIPC"` seule entre guillemets. Libellé du type en base : migration `20261027100000_dipec_label` | `apps/web/src/lib/design/content-guard.test.ts`, `status-vocabulary.test.ts` |
+| La copie du DIPEC pour la tablette ne remplit que les zones du CORPS, jamais les annexes, et ne réécrit rien de validé | `prepareDipcForTablet` (dérivée à l'affichage, jamais rangée) : Markdown nettoyé, champs d'identité posés sur des zones repérées par leur LIBELLÉ et vides (pointillés, crochets), « [à compléter] » → saisie sur la tablette, « ☐ » → case ; tout ce qui suit le premier titre « ANNEXE » est intact (rétractation, personne de confiance) ; vérifié sur le vrai DIPEC de l'ASSAD (15 zones, 15 saisies, 8 cases, zéro pointillé restant dans le corps) | `lib/services/dipc-tablet-preparation.test.ts` (DIPEC fictif de même forme) |
 | Le formulaire officiel du Département n'est rempli que s'il est celui qu'on a mesuré | positions mesurées sur le PDF officiel (pdfplumber, 27/10/2026), empreinte SHA-256 figée : un autre fichier est REFUSÉ (`OfficialFormMismatchError`) plutôt que d'écrire à côté des cases ; les déclarations sur l'honneur ne se cochent que si la personne les accepte ; sous tutelle, le tuteur déclare pour la personne ; changement de situation : au moins un changement déclaré, et qui / quand dans chaque tableau rempli | `lib/services/departement-form-service.test.ts`, `lib/services/departement-change-form-service.test.ts` |
 | Chaque page de la tablette est ouverte à l'appareil enregistré, sans session du portail | test qui lit `app/tablette/**/page.tsx` SUR LE DISQUE et **échoue** si une page n'est pas `ANONYMOUS` dans `classifyPath` — `/tablette/admission` avait été oubliée le 26/10 et renvoyait la tablette vers `/login` ; le `matcher` n'exclut que `/formulaires/<nom>.pdf` (formulaires officiels vierges) | `lib/auth/routes.test.ts` |
 | Un échec de lancement de Chromium est NOMMÉ, et n'invite pas à réessayer | le lancement enveloppe son erreur (`ChromiumLaunchError`, cause conservée, recours nommé : `PUPPETEER_EXECUTABLE_PATH` en développement) et le message d'aperçu **échoue** s'il dit « Réessayez » sur cet échec-là ; les drapeaux serverless ne sont jamais passés à un Chrome de bureau | `lib/services/headless-chromium-service.test.ts`, `lib/services/document-pdf-response.test.ts` |
@@ -174,7 +175,7 @@ chantier.
 
 | Ordre | Fichier | Contenu |
 |---|---|---|
-| 1 | `context/01-glossaire-essms.md` | Tous les sigles et termes métier (ESSMS, SAD, DIPC, CVS, EI/EIG, PLAC, CREX...) |
+| 1 | `context/01-glossaire-essms.md` | Tous les sigles et termes métier (ESSMS, SAD, DIPEC, CVS, EI/EIG, PLAC, CREX...) |
 | 2 | `context/02-referentiel-has.md` | Système HAS : 157 critères, 16-18 impératifs, cotation 1-4/★/NC/RI, chapitres Synaé |
 | 3 | `context/03-documents-obligatoires.md` | La checklist documentaire loi 2002-2 + HAS, catégorisée — **input direct du module 1** |
 | 4 | `context/04-charte-eoda.md` | Identité visuelle (couleurs, typo, logo, conventions de nommage fichiers) |
@@ -183,7 +184,7 @@ chantier.
 | 7 | `context/07-outil-pilotage-missions.md` | Pipeline commercial (prospects, devis, catalogue, KPI — `/dashboard/cabinet/commercial`, capacité COMMERCIAL : CABINET_ADMIN + CABINET_COMMERCIAL) et suivi de mission (checklist diagnostic 12 items + 4 phases — `/dashboard/cabinet/etablissements/[id]/mission`, lecture des structures : CABINET_ADMIN, CABINET_EVALUATOR, CABINET_READONLY ; montants : CABINET_ADMIN seul) sont tous deux implémentés dans la plateforme. **§12 = refonte des offres décidée au call du 16/08/2026 (prix, périmètres, portails), pas encore implémentée — elle remplace le §4 : lire §12 avant de toucher au catalogue, aux offres ou aux portails.** |
 | 8 | `context/08-offre-commerciale-v10.md` | Plaquette commerciale v10 (modules, méthode, formules, options). Contenu toujours valide ; sa **mise en marché** change (supplément d'un abonnement) — voir 09 §4 |
 | 9 | `context/09-vision-produit.md` | **Vision arrêtée le 30/09/2026** : SaaS + cabinet, marché et concurrence sourcés, proposition de prix, doctrine IA (vue CTO), exigence d'accessibilité, **décision HDS bloquante**, lots A→D |
-| 10 | `context/10-regles-mise-en-conformite.md` | **Cahier de style de la génération** : règles de rédaction dites par Sandrine en séance (01/09 → 07/10), règles de contenu par document (livret, DIPC, règlement…), « paquet » de preuves d'un critère, branchement des documents finaux validés — **à relire avant de toucher un prompt** |
+| 10 | `context/10-regles-mise-en-conformite.md` | **Cahier de style de la génération** : règles de rédaction dites par Sandrine en séance (01/09 → 07/10), règles de contenu par document (livret, DIPEC, règlement…), « paquet » de preuves d'un critère, branchement des documents finaux validés — **à relire avant de toucher un prompt** |
 | 10 bis | `context/11-modes-operatoires-sandrine.md` | **Transcription intégrale** des deux modes opératoires écrits de Sandrine (« Vérification documentaire » : matrice, champs critiques, code couleur, revue en trois temps ; « Guide EODA » : déroulé de la mission pilote, phases, livrables). **Fait foi pour les prompts, à la lettre** ; l'emporte sur `context/10` en cas de contradiction. Notes ⚠️ = points à confirmer avec Sandrine |
 | 11 | `specs/01-mvp-v1.md` | Spécification fonctionnelle détaillée des 3 modules V1 (+ modules suivants en fin de fichier) |
 | 12 | `specs/02-architecture-technique.md` | Stack, schéma BDD, architecture, ADRs |
@@ -312,7 +313,7 @@ Détail complet et état d'avancement : `specs/02-architecture-technique.md` §4
   `theme-contrast.test.ts` prouve que ces teintes sont sous 4.5:1 en clair.
   **Reste dette déclarée** : `eslint-plugin-jsx-a11y` en error, axe-core en CI sur les
   pages client, hiérarchie de titres (h1 unique) non vérifiée mécaniquement.
-- 🏥 **Données de santé (HDS) — décision prise le 08/10/2026 : le backend migre.** Un DIPC
+- 🏥 **Données de santé (HDS) — décision prise le 08/10/2026 : le backend migre.** Un DIPEC
   signé, un PAP, une évaluation des besoins, une enquête de satisfaction **nominative**
   sont des données de santé (CSP L1111-8, référentiel CNIL médico-social) ; Supabase et
   Vercel **ne sont pas certifiés HDS**. Damon a tranché : l'enquête reste **nominative**,
@@ -374,27 +375,27 @@ Détail complet et état d'avancement : `specs/02-architecture-technique.md` §4
   navigateur l'est (réimporter). Ne **jamais** déplacer cette liste vers le serveur
   avant la migration HDS (`survey-roster-boundary.test.ts` échoue), ni y ajouter les
   réponses.
-  **Accueil et DIPC signé sur la tablette — 26/10/2026, demande de Damon** (ADR
+  **Accueil et DIPEC signé sur la tablette — 26/10/2026, demande de Damon** (ADR
   `specs/adr/20261026_ADR_DIPC-signe-sur-tablette.md`, **proposé**) : `/tablette/admission`,
   même garde que l'enquête. Même frontière que la liste : la fiche de la personne (saisie
   UNE fois — nom de naissance, nom d'usage, date de naissance, adresse, aide APA / PCH /
   aide-ménagère, heures semaine / dimanche, proche ou représentant : tout ce que demande
   aussi le formulaire de désignation du Département), les points expliqués, les
   signatures et le PDF restent **dans le navigateur** (IndexedDB, base par structure) ; la
-  personne rejoint la liste de l'enquête. Le serveur ne rend que le **DIPC validé** de la
+  personne rejoint la liste de l'enquête. Le serveur ne rend que le **DIPEC validé** de la
   structure (`getTabletDipcSource`, journalisé sans personne). Les points à expliquer sont
   du CONTENU versionné (`content/admission/explications.ts`, critères HAS relus dans la
   grille Synaé, « obligation » ou « choix de la structure », **provisoires**, visibles dans
   « Contenus à valider »). Signature électronique simple : PNG final par signataire,
-  empreinte du DIPC dans le contrat, empreinte du PDF dans l'index d'export. Envoi à la
+  empreinte du DIPEC dans le contrat, empreinte du PDF dans l'index d'export. Envoi à la
   personne par la **feuille de partage** de la tablette, jamais par l'e-mail du serveur ;
   export PDF ou ZIP de tous les contrats + index CSV pour Ximi / le serveur de la
   structure. **Pas de DocuSeal** (service séparé AGPL, stockage hors HDS). Ne jamais
   envoyer au serveur un nom, un contrat ou une signature avant la migration HDS ; à la
   migration, le contrat rejoint le dossier par `recordSignedDocument` (`DIPC`).
-  **Copie du DIPC pour la tablette (27/10/2026)** : dérivée à l'affichage du DIPC validé
+  **Copie du DIPEC pour la tablette (27/10/2026)** : dérivée à l'affichage du DIPEC validé
   (`prepareDipcForTablet`), jamais rangée — une copie stockée serait périmée à la version
-  suivante. Étape « Le projet » : chaque « [à compléter] » du DIPC (objectifs, prestations,
+  suivante. Étape « Le projet » : chaque « [à compléter] » du DIPEC (objectifs, prestations,
   jours et horaires, risques HAS 2.4.x…) se saisit sur la tablette, chaque « ☐ » se coche ;
   les annexes restent vierges. EODA peut aussi écrire des champs `{{personne.nom}}`… dans le
   Word. **Formulaire du Département 93** (« désignation du SAD, déclaration initiale ») :
@@ -407,8 +408,8 @@ Détail complet et état d'avancement : `specs/02-architecture-technique.md` §4
   nouveau service à la place ou en complément, nombre d'heures ; la structure est
   proposée en première ligne des services ; trois déclarations, dont « annule et
   remplace », cochées par la personne. **Durée du contrat** : les options « n°1 durée
-  indéterminée / n°2 durée déterminée du … au … » du DIPC deviennent un choix sur la
-  tablette (indéterminée proposée d'emblée, CASF L347-1 rappelé en note du DIPC de
+  indéterminée / n°2 durée déterminée du … au … » du DIPEC deviennent un choix sur la
+  tablette (indéterminée proposée d'emblée, CASF L347-1 rappelé en note du DIPEC de
   l'ASSAD), ☒ / ☐ et dates écrits dans le contrat. **Refus de signer (27/10/2026, HAS
   1.7.3 / 1.7.4)** : dès que le contrat a été présenté, « La personne ne souhaite pas
   signer » enregistre le REFUS sur la même fiche (`AdmissionRecord.outcome = "REFUS"`,
@@ -967,7 +968,7 @@ Détail complet et état d'avancement : `specs/02-architecture-technique.md` §4
   critère coté d'un seul côté est `INCOMPARABLE` et jamais un écart de ±4).
 - **Les relances sont un geste, pas un automate — les alertes d'échéance, si.**
   (Distinction actée par Damon le 08/10/2026.) La **relance d'une pièce manquante** reste
-  manuelle. L'**alerte d'échéance** d'un document récurrent (DIPC annuel, projet de
+  manuelle. L'**alerte d'échéance** d'un document récurrent (DIPEC annuel, projet de
   service à 5 ans, retest de quiz à 6 mois — `03-documents-obligatoires.md`, périodicités)
   part **automatiquement** : ce n'est pas une relance, c'est un rappel de calendrier. Pour
   les relances : délais et cadence n'ont jamais été spécifiés (§12.7) : ne pas en inventer. Une pièce déjà justifiée par le client n'est
@@ -987,7 +988,7 @@ Détail complet et état d'avancement : `specs/02-architecture-technique.md` §4
   (`context/10-regles-mise-en-conformite.md` §9). Ils n'entrent **jamais** dans le dépôt
   de code (ni fixture, ni `content/`) — par la bibliothèque de modèles seulement, en
   stade `FINALE` ; ils sont **anonymisés avant dépôt** (`anonymizeText` ne masque
-  qu'e-mails, téléphones et NIR : il ne suffit pas) ; aucune pièce nominative (DIPC
+  qu'e-mails, téléphones et NIR : il ne suffit pas) ; aucune pièce nominative (DIPEC
   signé, PAP) n'en fait partie (HDS) ; ils sont injectés dans le prompt comme **donnée**
   balisée, jamais comme instruction ; et on ne va jamais chercher d'exemple dans les
   `Document` d'un autre établissement. Chaque paire « original → version validée »

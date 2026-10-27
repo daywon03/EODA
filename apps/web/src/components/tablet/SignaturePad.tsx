@@ -14,7 +14,7 @@ import { cn } from "@/lib/utils";
 // ─────────────────────────────────────────────────────────────────────────────
 // L'image remise est TOUJOURS à l'encre noire. À l'écran, le trait prend la couleur
 // du texte ; en thème sombre il est clair, et collé tel quel sur un contrat blanc il
-// devenait presque invisible (mesuré le 26/10/2026 sur le PDF du DIPC). On redessine
+// devenait presque invisible (mesuré le 26/10/2026 sur le PDF du DIPEC). On redessine
 // donc l'image en noir, en gardant sa transparence (`source-in`).
 function inkPng(canvas: HTMLCanvasElement): string {
   const out = document.createElement("canvas");
@@ -30,7 +30,7 @@ function inkPng(canvas: HTMLCanvasElement): string {
 }
 
 // `label` nomme le cadre quand plusieurs signataires signent sur le même écran
-// (DIPC : la personne, son représentant, le service).
+// (DIPEC : la personne, son représentant, le service).
 type Props = { onChange: (pngDataUrl: string | null) => void; label?: string };
 
 export function SignaturePad({ onChange, label = "Signature" }: Props) {

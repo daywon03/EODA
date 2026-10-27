@@ -27,7 +27,7 @@ import { AdmissionWizard, type TabletDipc } from "./AdmissionWizard";
 import { downloadBlob, formKey, sha256Hex, shareOrDownload, useAdmissions } from "./use-admissions";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ACCUEIL ET DIPC SUR LA TABLETTE (26/10/2026).
+// ACCUEIL ET DIPEC SUR LA TABLETTE (26/10/2026).
 //
 // liste des personnes (la MÊME que l'enquête) → accueillir → fiche une fois →
 // contrat relu → points HAS expliqués → signatures → PDF gardé sur la tablette,
@@ -94,7 +94,7 @@ export function TabletAdmission({ establishmentId, structureName, structureAddre
     const what = record.outcome === "REFUS" ? "L'attestation de refus" : "Le contrat";
     if (!pdf) return setFlash(`${what} n'est plus sur la tablette. Cherchez-le dans votre export (Ximi ou serveur).`);
     if (mode === "download") return downloadBlob(record.pdfFileName, pdf);
-    const result = await shareOrDownload(record.pdfFileName, pdf, `${record.outcome === "REFUS" ? "Refus du DIPC" : "Contrat"} — ${fullName(record.identity)}`);
+    const result = await shareOrDownload(record.pdfFileName, pdf, `${record.outcome === "REFUS" ? "Refus du DIPEC" : "Contrat"} — ${fullName(record.identity)}`);
     setFlash(result === "shared" ? `${what} est envoyé.` : result === "downloaded" ? `${what} est téléchargé sur la tablette.` : null);
   }
 
@@ -211,7 +211,7 @@ export function TabletAdmission({ establishmentId, structureName, structureAddre
   const shown = searchRoster(roster, query);
   return (
     <section aria-labelledby="admission-liste" className="mx-auto flex w-full max-w-[860px] flex-col gap-6">
-      <h1 id="admission-liste" className="text-[34px] font-bold leading-tight">Accueil et contrat (DIPC)</h1>
+      <h1 id="admission-liste" className="text-[34px] font-bold leading-tight">Accueil et contrat (DIPEC)</h1>
 
       {(!storageWorks || !rosterWorks) && (
         <p role="alert" className="rounded-xl border-2 border-danger-text px-4 py-3 font-bold text-danger-text">

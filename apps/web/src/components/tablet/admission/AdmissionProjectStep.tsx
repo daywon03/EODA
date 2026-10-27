@@ -6,10 +6,10 @@ import type { DipcCheckField, DipcDurationChoice, DipcFreeField } from "@/lib/se
 import type { DipcDuration } from "@/lib/services/admission-service";
 import { TABLET_CHOICE_OFF, TABLET_CHOICE_ON, TABLET_INPUT } from "../tablet-ui";
 
-// Les zones « [à compléter] », les cases « ☐ » et le choix de durée du DIPC de la
+// Les zones « [à compléter] », les cases « ☐ » et le choix de durée du DIPEC de la
 // structure, remplis sur la tablette (copie préparée par dipc-tablet-preparation).
 // Une zone de texte laissée vide reste une ligne à compléter à la main ; la durée,
-// elle, se choisit toujours quand le DIPC en propose une.
+// elle, se choisit toujours quand le DIPEC en propose une.
 export function AdmissionProjectStep({ freeFields, checkFields, durationChoice, duration, onDuration, texts, checks, onText, onCheck }: {
   freeFields: readonly DipcFreeField[];
   checkFields: readonly DipcCheckField[];
@@ -24,7 +24,7 @@ export function AdmissionProjectStep({ freeFields, checkFields, durationChoice, 
   const filled = freeFields.filter((f) => (texts[f.id] ?? "").trim()).length;
   const chosen = durationChoice?.options.find((o) => o.number === duration.choice);
   if (freeFields.length === 0 && checkFields.length === 0 && !durationChoice) {
-    return <p className="text-[19px]">Le DIPC de la structure n&apos;a rien à compléter ici.</p>;
+    return <p className="text-[19px]">Le DIPEC de la structure n&apos;a rien à compléter ici.</p>;
   }
   return (
     <div className="flex max-w-[860px] flex-col gap-7">

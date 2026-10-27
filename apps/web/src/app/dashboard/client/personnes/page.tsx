@@ -33,7 +33,7 @@ export default async function ClientPeoplePage() {
           <h1 className="text-[30px] font-bold leading-tight">Personnes accompagnées</h1>
           <p className="mt-1 max-w-[65ch] text-ink2">
             Le dossier de chaque personne se crée sur la tablette, à son arrivée : livret d&apos;accueil, règlement de fonctionnement
-            et DIPC présentés, puis une signature.
+            et DIPEC présentés, puis une signature.
           </p>
         </div>
         <Link

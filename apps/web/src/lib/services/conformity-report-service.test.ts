@@ -20,7 +20,7 @@ const ANALYSIS = {
 function item(overrides: Partial<ReportSourceItem> = {}): ReportSourceItem {
   return {
     code: "L2002_DIPC",
-    label: "DIPC / Contrat de séjour",
+    label: "DIPEC / Contrat de séjour",
     category: "LOI_2002_2",
     step: "RELU",
     analysis: ANALYSIS,

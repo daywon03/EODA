@@ -166,7 +166,7 @@ export const DISCOVERY_GRID: DiscoveryGrid = {
         },
         {
           id: "dipc",
-          label: "Contrat de séjour ou DIPC",
+          label: "Contrat de séjour ou DIPEC",
           kind: "CHOICE",
           options: ETAT_DOCUMENT,
           hint: "Décret du 26 novembre 2004.",

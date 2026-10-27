@@ -62,7 +62,7 @@ export function DemoReception({ onCreated, onCancel }: Props) {
     const name = `${first.trim()} ${last.trim()}`;
     const now = new Date();
     onCreated(
-      { id: `n${now.getTime()}`, name, gir: 3, address: "Adresse à compléter", hours: "Heures selon le DIPC", since: "aujourd'hui", surveys: { PERSONNE: false, FAMILLE: false }, pap: [], contacts: [], journal: [], receptionSignedOn: "aujourd'hui" },
+      { id: `n${now.getTime()}`, name, gir: 3, address: "Adresse à compléter", hours: "Heures selon le DIPEC", since: "aujourd'hui", surveys: { PERSONNE: false, FAMILLE: false }, pap: [], contacts: [], journal: [], receptionSignedOn: "aujourd'hui" },
       { signer: signer === "PERSONNE" ? name : representative.trim(), signedAt: now.toLocaleString("fr-FR"), ticked: Object.keys(ticks).length, total: allPoints, copyByEmail: copy }
     );
   }
@@ -137,7 +137,7 @@ export function DemoReception({ onCreated, onCancel }: Props) {
           <h1 id="accueil-titre" className="text-[34px] font-bold">Signature</h1>
           <div className="rounded-xl border border-line bg-card px-5 py-4">
             <p className="font-bold">{signer === "PERSONNE" ? `${first} ${last}` : representative} confirme avoir reçu et compris les 3 documents.</p>
-            <p className="text-[17px] text-ink2">Livret d&apos;accueil · règlement de fonctionnement · DIPC</p>
+            <p className="text-[17px] text-ink2">Livret d&apos;accueil · règlement de fonctionnement · DIPEC</p>
           </div>
           <SignaturePad onChange={setSignature} />
           <label className="flex min-h-14 w-fit cursor-pointer items-center gap-3 rounded-xl border-2 border-line bg-card px-4 text-[18px]">

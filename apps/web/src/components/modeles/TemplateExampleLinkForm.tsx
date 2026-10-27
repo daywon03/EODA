@@ -27,7 +27,7 @@ export function TemplateExampleLinkForm({
       <p className="text-ink2">
         La dernière version <strong>finale</strong> de ce gabarit sert d&apos;exemple à la mise en conformité de ce type
         de document, pour toutes les structures. Elle doit être anonymisée avant dépôt (nom, FINESS, SIRET, adresse,
-        noms de personnes) et ne jamais être une pièce nominative (DIPC signé, projet personnalisé rempli).
+        noms de personnes) et ne jamais être une pièce nominative (DIPEC signé, projet personnalisé rempli).
       </p>
       <label htmlFor={selectId} className="block font-bold text-ink">
         Type de document illustré

@@ -136,12 +136,12 @@ describe("signingProblems", () => {
     expect(signingProblems(draft({ contact: tutor }), today)).toContain("Signature manquante : son représentant légal.");
   });
 
-  it("un champ inconnu dans le DIPC bloque : c'est à EODA de le corriger", () => {
+  it("un champ inconnu dans le DIPEC bloque : c'est à EODA de le corriger", () => {
     expect(signingProblems(draft({ unknownDipcFields: ["personne.nmo"] }), today)[0]).toMatch(/champ inconnu \(personne\.nmo\)/);
   });
 });
 
-describe("champs du DIPC", () => {
+describe("champs du DIPEC", () => {
   const values = admissionFieldValues({ structureName: "SAD Fictif", identity, aid: { ...EMPTY_AID, kinds: ["APA"], weekdayHours: "20" }, contact: tutor, staffName: "Camille", signedOn: today });
 
   it("la fiche saisie une fois remplit les champs", () => {
@@ -163,8 +163,8 @@ describe("champs du DIPC", () => {
 
 describe("fichiers et export", () => {
   it("noms de fichiers à la convention EODA", () => {
-    expect(admissionPdfFileName("SAD Les Glycines", identity, today)).toBe("20261026_DIPC_SAD-Les-Glycines_Martin-Paulette_v01_Externe.pdf");
-    expect(admissionArchiveFileName("SAD Les Glycines", today)).toBe("20261026_DIPC_SAD-Les-Glycines_Contrats-signes_v01_Interne.zip");
+    expect(admissionPdfFileName("SAD Les Glycines", identity, today)).toBe("20261026_DIPEC_SAD-Les-Glycines_Martin-Paulette_v01_Externe.pdf");
+    expect(admissionArchiveFileName("SAD Les Glycines", today)).toBe("20261026_DIPEC_SAD-Les-Glycines_Contrats-signes_v01_Interne.zip");
   });
 
   it("index CSV : une ligne par contrat, formules neutralisées, BOM pour Excel", () => {
@@ -261,7 +261,7 @@ describe("refus de signer (HAS 1.7.3 / 1.7.4)", () => {
   });
 
   it("l'état dit le refus et quand reproposer ; à l'échéance, « maintenant »", () => {
-    expect(admissionState(null, today)).toEqual({ state: "A_FAIRE", label: "DIPC à faire signer" });
+    expect(admissionState(null, today)).toEqual({ state: "A_FAIRE", label: "DIPEC à faire signer" });
     expect(admissionState(record(), today)).toEqual({ state: "SIGNE", label: "Signé le 26/10/2026" });
     expect(admissionState(refused, today)).toEqual({ state: "REFUS", label: "Refus le 26/10/2026 · à reproposer le 26/11/2026" });
     expect(admissionState(refused, new Date("2026-11-26T10:00:00Z")).state).toBe("A_REPROPOSER");
@@ -269,7 +269,7 @@ describe("refus de signer (HAS 1.7.3 / 1.7.4)", () => {
   });
 
   it("nom de fichier et index d'export disent le refus", () => {
-    expect(admissionPdfFileName("SAD Fictif", identity, today, "REFUS")).toBe("20261026_REFUS-DIPC_SAD-Fictif_Martin-Paulette_v01_Externe.pdf");
+    expect(admissionPdfFileName("SAD Fictif", identity, today, "REFUS")).toBe("20261026_REFUS-DIPEC_SAD-Fictif_Martin-Paulette_v01_Externe.pdf");
     expect(buildAdmissionsCsv([refused])).toContain(";v3;Refusé;26/10/2026;;26/11/2026;refus.pdf;");
   });
 

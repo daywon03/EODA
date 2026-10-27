@@ -1,9 +1,9 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// COPIE DU DIPC POUR LA TABLETTE — service PUR (demande de Damon, 27/10/2026 :
-// « une copie spéciale du DIPC, avec les champs {{}}, pour les contrats signés sur
+// COPIE DU DIPEC POUR LA TABLETTE — service PUR (demande de Damon, 27/10/2026 :
+// « une copie spéciale du DIPEC, avec les champs {{}}, pour les contrats signés sur
 // la tablette »).
 //
-// La copie n'est pas rangée : elle se DÉRIVE, à l'affichage, du DIPC que la
+// La copie n'est pas rangée : elle se DÉRIVE, à l'affichage, du DIPEC que la
 // consultante a validé. Une copie stockée serait périmée dès la version suivante ;
 // celle-ci suit toujours le texte validé, et ne le change qu'aux zones à remplir.
 //
@@ -28,7 +28,7 @@ export type DipcFreeField = { id: string; label: string; hint: string };
 export type DipcCheckField = { id: string; label: string };
 
 // « Option n°1 – … durée indéterminée » / « Option n°2 – … du JJ/MM/AAAA au JJ/MM/AAAA »
-// (article « Durée du DIPC ») : un CHOIX sur la tablette, plus une ligne à rayer.
+// (article « Durée du DIPEC ») : un CHOIX sur la tablette, plus une ligne à rayer.
 export type DipcDurationOption = { number: number; label: string; hasDates: boolean };
 export type DipcDurationChoice = { options: DipcDurationOption[] };
 

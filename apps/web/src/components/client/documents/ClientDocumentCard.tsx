@@ -64,7 +64,7 @@ export function ClientDocumentCard({
             mention={version?.clientMention ?? null}
           />
           {item.expiryNotice && <p className="text-base font-bold">{item.expiryNotice}</p>}
-          {/* Le DIPC se réclame en modèle vierge : un exemplaire signé est une donnée
+          {/* Le DIPEC se réclame en modèle vierge : un exemplaire signé est une donnée
               de santé nominative (HDS). Dit à l'écran, pas seulement au dépôt. */}
           {notice && state === "TO_DEPOSIT" && <p className="text-base text-ink2">{notice}</p>}
           {waiting && <p className="text-base text-ink2">{waiting}</p>}

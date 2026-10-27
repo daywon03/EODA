@@ -132,7 +132,7 @@ export const DOCUMENT_ARTICLES: readonly HelpArticle[] = [
       {
         kind: "paragraph",
         text:
-          "Les documents sont rangés en quatre catégories : loi 2002-2 (droits des personnes accompagnées, dont le DIPC et le règlement de fonctionnement), fonctionnement de la structure, démarche qualité et gestion des risques, ressources humaines.",
+          "Les documents sont rangés en quatre catégories : loi 2002-2 (droits des personnes accompagnées, dont le DIPEC et le règlement de fonctionnement), fonctionnement de la structure, démarche qualité et gestion des risques, ressources humaines.",
       },
       {
         kind: "note",
