@@ -2,6 +2,7 @@ import { QUIZ_MODULES, type QuizModule } from "@/content/quiz";
 import { PRACTICE_QUESTIONNAIRE } from "@/content/pratiques/questions";
 import { SURVEY_SCALES, SURVEY_TEMPLATES, type SurveyQuestion, type SurveyTemplate } from "@/content/enquete";
 import { RECEPTION_DOCUMENTS, RECEPTION_POINTS_VERSION } from "@/content/enquete/reception";
+import { ADMISSION_EXPLANATIONS, ADMISSION_EXPLANATIONS_VERSION } from "@/content/admission/explications";
 import { DISCOVERY_GRID } from "@/content/decouverte/grille";
 import type { DiscoveryField } from "@/content/decouverte/types";
 
@@ -24,7 +25,7 @@ export const CONTENT_REVIEW_STATUS = "Provisoire, à valider par Sandrine";
 export type ReviewField = { label: string; value: string };
 export type ReviewItem = { id: string; title: string; fields: readonly ReviewField[] };
 export type ReviewGroup = { id: string; title: string; version: string; provenance: string; items: readonly ReviewItem[] };
-export type ReviewFamilyId = "QUIZ" | "PRATIQUES" | "ENQUETE" | "DECOUVERTE" | "RECEPTION";
+export type ReviewFamilyId = "QUIZ" | "PRATIQUES" | "ENQUETE" | "DECOUVERTE" | "RECEPTION" | "ADMISSION";
 export type ReviewFamily = { id: ReviewFamilyId; title: string; description: string; groups: readonly ReviewGroup[] };
 export type ContentReviewCatalog = { status: string; families: readonly ReviewFamily[] };
 
@@ -171,6 +172,28 @@ function receptionGroups(): ReviewGroup[] {
   }));
 }
 
+const NATURE_LABELS = { OBLIGATION: "Obligation", CHOIX_STRUCTURE: "Choix de la structure" } as const;
+
+function admissionGroups(): ReviewGroup[] {
+  return ADMISSION_EXPLANATIONS.map((section) => ({
+    id: `admission-${section.id}`,
+    title: section.title,
+    version: `v${ADMISSION_EXPLANATIONS_VERSION}`,
+    provenance: "Points à expliquer et à cocher avec la personne, avant la signature du DIPC sur la tablette",
+    items: section.points.map((point, index) => ({
+      id: point.id,
+      title: `${index + 1}. ${point.label}`,
+      fields: fields([
+        ["Aide à dire", point.hint],
+        ["Critères HAS", point.criteria.join(", ") || undefined],
+        ["Nature", NATURE_LABELS[point.nature]],
+        ["Source", point.source],
+        ["À confirmer", point.toConfirm],
+      ]),
+    })),
+  }));
+}
+
 export function buildContentReviewCatalog(labels: DocumentTypeLabels = new Map()): ContentReviewCatalog {
   return {
     status: CONTENT_REVIEW_STATUS,
@@ -204,6 +227,12 @@ export function buildContentReviewCatalog(labels: DocumentTypeLabels = new Map()
         title: "Feuille de réception : points « à dire »",
         description: "Ce que l'intervenant présente pour chaque document, avant la signature unique.",
         groups: receptionGroups(),
+      },
+      {
+        id: "ADMISSION",
+        title: "Accueil et DIPC : ce qu'il faut expliquer",
+        description: "Les points du manuel HAS expliqués à la personne avant la signature du DIPC sur la tablette, avec leurs critères, leur nature et leur source.",
+        groups: admissionGroups(),
       },
     ],
   };

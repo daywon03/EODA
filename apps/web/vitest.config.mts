@@ -220,6 +220,19 @@ export default defineConfig({
         "src/lib/security/tablet-pin.ts",
         "src/lib/security/tablet-session.ts",
         "src/lib/services/survey-answer-parser.ts",
+        // DIPC signé sur la tablette (26/10/2026) : un défaut ici fait signer un DIPC
+        // non validé, sans les explications du manuel HAS, sans le bon signataire
+        // (tutelle, curatelle), ou produit un contrat qui ne dit pas ce qui a été lu.
+        // Plus la liste de la tablette et son lecteur Excel, qui ne lisaient pas
+        // l'export réel de Ximi (balises préfixées, ligne de titre).
+        "src/lib/services/admission-service.ts",
+        "src/lib/services/admission-document-service.ts",
+        "src/lib/services/admission-pdf.ts",
+        "src/lib/services/tablet-dipc-service.ts",
+        "src/lib/services/placeholder-merge.ts",
+        "src/lib/services/zip-store.ts",
+        "src/lib/services/survey-roster-service.ts",
+        "src/lib/services/xlsx-rows-reader.ts",
       ],
       // Le seuil FAIT ÉCHOUER la commande (`vitest run --coverage`). Un seuil qui
       // n'échoue pas n'est pas un garde-fou. À relever au fur et à mesure, jamais à

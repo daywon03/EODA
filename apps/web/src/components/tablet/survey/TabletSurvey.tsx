@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -39,12 +39,16 @@ export function TabletSurvey({
   structureName,
   listedNotice,
   anonymousNotice,
+  initialPersonId = null,
 }: {
   templates: AnonymousSurveyTemplateView[];
   establishmentId: string;
   structureName: string;
   listedNotice: string;
   anonymousNotice: string;
+  // Arrivée depuis le contrat signé d'une personne (26/10/2026) : identifiant de la
+  // liste LOCALE, jamais un nom ; ignoré s'il n'est pas dans la liste.
+  initialPersonId?: string | null;
 }) {
   const { roster, update, loaded, storageWorks } = useSurveyRoster(establishmentId);
   const [step, setStep] = useState<Step>("list");
@@ -70,6 +74,16 @@ export function TabletSurvey({
     setFlash(null);
     go("pick");
   }
+
+  const opened = useRef(false);
+  useEffect(() => {
+    if (!loaded || opened.current || !initialPersonId) return;
+    opened.current = true;
+    const target = roster.people.find((p) => p.id === initialPersonId);
+    if (target) pick(target);
+    // `pick` ne change que l'état local : on n'ouvre qu'une fois, au chargement.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loaded, initialPersonId, roster.people]);
 
   if (!loaded) return <p role="status">Chargement de la liste…</p>;
 
