@@ -12,11 +12,13 @@ import { AdmissionAidFields } from "./AdmissionAidFields";
 // Une zone de texte laissée vide reste une ligne à compléter à la main ; la durée,
 // elle, se choisit toujours quand le DIPEC en propose une. L'aide et ses heures se
 // choisissent ici, avec le contrat : elles vont aussi au formulaire du Département.
-export function AdmissionProjectStep({ aid, onAid, freeFields, checkFields, durationChoice, duration, onDuration, texts, checks, onText, onCheck }: {
+export function AdmissionProjectStep({ aid, onAid, freeFields, checkFields, handedChecksCount = 0, durationChoice, duration, onDuration, texts, checks, onText, onCheck }: {
   aid: AdmissionAid;
   onAid: (next: AdmissionAid) => void;
   freeFields: readonly DipcFreeField[];
   checkFields: readonly DipcCheckField[];
+  // Cases « Documents remis » cochées depuis l'étape « À expliquer » (non répétées ici).
+  handedChecksCount?: number;
   durationChoice: DipcDurationChoice | null;
   duration: DipcDuration;
   onDuration: (next: DipcDuration) => void;
@@ -81,6 +83,11 @@ export function AdmissionProjectStep({ aid, onAid, freeFields, checkFields, dura
           />
         </label>
       ))}
+      {handedChecksCount > 0 && (
+        <p className="text-[18px] text-ink2">
+          Les {handedChecksCount} cases « Documents remis » du contrat se cocheront toutes seules à l&apos;étape « À expliquer », quand vous remettrez chaque document.
+        </p>
+      )}
       {checkFields.length > 0 && (
         <section aria-labelledby="projet-cases" className="flex flex-col gap-2.5">
           <h2 id="projet-cases" className="text-[24px] font-bold">Cases du contrat</h2>

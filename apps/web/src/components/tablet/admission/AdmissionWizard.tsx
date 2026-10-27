@@ -20,6 +20,8 @@ import {
   dipcEntryValues,
   durationProblems,
   fullName,
+  handedCheckLinks,
+  handedChecks,
   identityProblems,
   mergeDipcBlocks,
   missingExplanations,
@@ -105,7 +107,12 @@ export function AdmissionWizard({ structureName, staffName, dipc, word, person, 
 
   const linked = contactOrNull(contact);
   const trusted = isTrustedPersonDesignated(trustedDraft) ? trustedDraft : null;
-  const entries = useMemo(() => dipcEntryValues(prepared, texts, checks, duration), [prepared, texts, checks, duration]);
+  // Les cases « Documents remis » se cochent depuis « À expliquer » ; les autres, à la main.
+  const handedLinks = useMemo(() => handedCheckLinks(prepared.checkFields), [prepared]);
+  const entries = useMemo(
+    () => dipcEntryValues(prepared, texts, { ...checks, ...handedChecks(handedLinks, handed) }, duration),
+    [prepared, texts, checks, handedLinks, handed, duration]
+  );
   const fieldValues = (signedOn: Date) => admissionFieldValues({ structureName, identity, aid, contact: linked, trusted, staffName, signedOn });
   const rhythm = rhythmText(aid, word?.plan.scheduleFieldId ? (texts[word.plan.scheduleFieldId] ?? "") : "");
   const merged = useMemo(
@@ -287,7 +294,8 @@ export function AdmissionWizard({ structureName, staffName, dipc, word, person, 
           aid={aid}
           onAid={setAid}
           freeFields={prepared.freeFields}
-          checkFields={prepared.checkFields}
+          checkFields={prepared.checkFields.filter((field) => !handedLinks.has(field.id))}
+          handedChecksCount={handedLinks.size}
           durationChoice={prepared.durationChoice}
           duration={duration}
           onDuration={setDuration}

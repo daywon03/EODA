@@ -59,6 +59,8 @@ vérifie** — sinon elle n'existe pas.
 | La liste des personnes à enquêter ne quitte jamais la tablette | test qui lit tout `src/` et **échoue** si un fichier sans `"use client"` en tête importe `survey-roster-service` ou `xlsx-rows-reader` (une action, une route ou une page serveur recevrait des noms) ; l'envoi (`submitTabletAnonymousSurvey`) ne reçoit que questionnaire, mode et réponses ; import Excel lu dans le navigateur, colonnes autres que Nom/Prénom jamais gardées ; export CSV fabriqué dans le navigateur, formules neutralisées. **L'export réel de Ximi se lit** (26/10/2026 : balises préfixées `x:` — zéro ligne lue avant —, ligne de titre avant l'en-tête, « NOM, Prénom » dans une seule colonne) | `lib/hds/survey-roster-boundary.test.ts`, `lib/services/survey-roster-service.test.ts`, `lib/services/xlsx-rows-reader.test.ts`, `lib/services/zip-store.test.ts` |
 | Le DIPEC signé sur la tablette ne quitte jamais la tablette, et ne se signe que validé, expliqué et par le bon signataire | le même test de frontière refuse qu'un module sans `"use client"` importe `admission-service`, `admission-document-service` ou `admission-pdf` (import **dynamique** compris) ; le serveur ne rend que le DIPEC dont la validation est à jour (`selectTabletDipc` → `isValidationCurrent`, version d'EODA d'abord), structure lue depuis l'appareil ; `signingProblems` refuse un point HAS non expliqué, un document non remis, un champ `{{…}}` inconnu, une signature manquante (tutelle : le tuteur ; curatelle : la personne ET le curateur) ; aperçu et PDF rendent le MÊME plan (`planAdmissionDocument`) | `lib/hds/survey-roster-boundary.test.ts`, `lib/services/admission-service.test.ts`, `lib/services/admission-pdf.test.ts`, `lib/services/tablet-dipc-service.test.ts`, `lib/actions/tablet-admission.test.ts` — ADR `specs/adr/20261026_ADR_DIPC-signe-sur-tablette.md` |
 | Le sigle s'écrit « DIPEC » (décision de Damon du 27/10/2026, comme l'écrit Sandrine — renverse la décision 9 des maquettes v2) | test qui parcourt `src/` et les seeds et **échoue** sur « DIPC » ou « DPEC » écrit comme un mot — interface, contenus, noms de fichiers produits, tests ; seuls passent les identifiants internes, qui sont des clés : `L2002_DIPC`, `TABLET_DIPC_…`, la valeur d'énumération `"DIPC"` seule entre guillemets. Libellé du type en base : migration `20261027100000_dipec_label` | `apps/web/src/lib/design/content-guard.test.ts`, `status-vocabulary.test.ts` |
+| Le contrat signé sur la tablette est le Word d'EODA, rempli sans rien réécrire d'autre que les zones | `planDipecWord` applique les règles de `prepareDipcLines` paragraphe par paragraphe (sommaire ignoré) ; `rewriteParagraph` ne change que le passage qui diffère, dans le run qui le porte ; signatures par cellule (`wordSignatureSlots`), annexe 3.2 remplie seulement si une personne de confiance est désignée ; le module est derrière la frontière HDS (aucun import serveur) ; la route du Word ne sert que la version annoncée, Word par signature | `lib/services/dipec-word-service.test.ts`, `zip-read.test.ts`, `trusted-person-service.test.ts`, `app/api/tablette/dipec/[versionId]/route.test.ts`, `lib/hds/survey-roster-boundary.test.ts` |
+| Le formulaire du Département reprend ce qui a été choisi avec le contrat, signé par la personne ou son tuteur | aide et heures saisies à « Le projet » (`AdmissionAidFields`), signature du contrat reprise (`departementFormSigner`), jamais celle du service | `lib/services/departement-form-service.test.ts` |
 | La copie du DIPEC pour la tablette ne remplit que les zones du CORPS, jamais les annexes, et ne réécrit rien de validé | `prepareDipcForTablet` (dérivée à l'affichage, jamais rangée) : Markdown nettoyé, champs d'identité posés sur des zones repérées par leur LIBELLÉ et vides (pointillés, crochets), « [à compléter] » → saisie sur la tablette, « ☐ » → case ; tout ce qui suit le premier titre « ANNEXE » est intact (rétractation, personne de confiance) ; vérifié sur le vrai DIPEC de l'ASSAD (15 zones, 15 saisies, 8 cases, zéro pointillé restant dans le corps) | `lib/services/dipc-tablet-preparation.test.ts` (DIPEC fictif de même forme) |
 | Le formulaire officiel du Département n'est rempli que s'il est celui qu'on a mesuré | positions mesurées sur le PDF officiel (pdfplumber, 27/10/2026), empreinte SHA-256 figée : un autre fichier est REFUSÉ (`OfficialFormMismatchError`) plutôt que d'écrire à côté des cases ; les déclarations sur l'honneur ne se cochent que si la personne les accepte ; sous tutelle, le tuteur déclare pour la personne ; changement de situation : au moins un changement déclaré, et qui / quand dans chaque tableau rempli | `lib/services/departement-form-service.test.ts`, `lib/services/departement-change-form-service.test.ts` |
 | Chaque page de la tablette est ouverte à l'appareil enregistré, sans session du portail | test qui lit `app/tablette/**/page.tsx` SUR LE DISQUE et **échoue** si une page n'est pas `ANONYMOUS` dans `classifyPath` — `/tablette/admission` avait été oubliée le 26/10 et renvoyait la tablette vers `/login` ; le `matcher` n'exclut que `/formulaires/<nom>.pdf` (formulaires officiels vierges) | `lib/auth/routes.test.ts` |
@@ -419,6 +421,30 @@ Détail complet et état d'avancement : `specs/02-architecture-technique.md` §4
   qui a été expliqué ; la liste affiche « à reproposer le … », puis « maintenant » à
   l'échéance ; l'index d'export porte l'issue (Signé / Refusé) et la date. Un
   enregistrement antérieur sans `outcome` se relit comme signé.
+  **Le contrat signé EST le Word d'EODA (27/10/2026, demande de Damon : « il faut que ce
+  soit le même que EODA a mis, garde les couleurs, garde la version originale validée »)** :
+  quand le DIPEC validé est un `.docx`, la tablette le reçoit par
+  `/api/tablette/dipec/[versionId]` (même garde et même sélection que la page —
+  `readTabletDipc` —, signature binaire vérifiée, journalisé sans personne) et le
+  REMPLIT dans le navigateur (`dipec-word-service`, décompression par `zip-read`) : mêmes
+  règles de zones que la copie en texte (`prepareDipcLines`, une seule définition),
+  réécriture des seuls caractères qui changent (couleurs, polices, tableaux, numérotation,
+  annexes intacts), signatures posées en images dans le tableau « Remise et signature »
+  (cellule de la structure / du bénéficiaire, « Lu et approuvé » au-dessus) ; l'aperçu
+  « Le contrat » le dessine avec `docx-preview`. Le PDF n'est plus que l'**attestation de
+  remise et de signature** (`SIGNATURE-DIPEC`, explications, remises, empreinte du Word).
+  **Article 3.4** : le rythme convenu (aide, heures semaine / dimanche, début, « Fréquence,
+  jours et horaires » du PAP) s'écrit sous « Les jours et horaires… sont définis avec le
+  bénéficiaire ». **L'aide et ses heures se choisissent à l'étape « Le projet »** et vont
+  au formulaire du Département ; les cases « Documents remis » du contrat se cochent depuis
+  « À expliquer » (`handedCheckLinks`), jamais deux fois. **Personne de confiance**
+  (`trusted-person-service`, annexe 3.2) : aucune / présente (elle cosigne sur la
+  tablette) / absente (e-mail exigé, la tablette lui envoie le contrat par la feuille de
+  partage — jamais par le serveur —, « cosignature à recueillir » dans la liste et
+  l'index). **Formulaire du Département** : signé par la signature DU CONTRAT, reprise
+  (`departementFormSigner` : la personne, ou le tuteur), nouvelle signature ou papier au
+  choix ; il part avec le Word et l'attestation. Sans Word (PDF validé, navigateur sans
+  `DecompressionStream`), la tablette retombe sur la copie en texte.
 
 ## 7. Ce que Claude Code ne doit PAS faire
 

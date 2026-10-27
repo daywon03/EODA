@@ -448,6 +448,36 @@ export function dipcEntryValues(
   };
 }
 
+// Les cases « Documents remis » du DIPEC (« ☐ Le livret d'accueil »…) disent ce que
+// l'étape « À expliquer » trace déjà, document par document, avec l'heure : elles se
+// cochent DE LÀ, jamais une seconde fois à la main (27/10/2026). « Le présent
+// document » se remet en le signant. Une case qui ne correspond à rien reste au
+// choix de l'intervenant, dans « Le projet ».
+const HANDED_IN_CONTRACT: readonly { pattern: RegExp; handed: HandedDocumentId | "SIGNATURE" }[] = [
+  { pattern: /présent document individuel de prise en charge/i, handed: "SIGNATURE" },
+  { pattern: /livret d.accueil/i, handed: "livret" },
+  { pattern: /charte des droits/i, handed: "charte" },
+  { pattern: /règlement de fonctionnement/i, handed: "reglement" },
+  { pattern: /personne de confiance/i, handed: "coupon-confiance" },
+  { pattern: /personnes? qualifiées?/i, handed: "personnes-qualifiees" },
+];
+
+export function handedCheckLinks(checkFields: readonly { id: string; label: string }[]): Map<string, HandedDocumentId | "SIGNATURE"> {
+  const links = new Map<string, HandedDocumentId | "SIGNATURE">();
+  for (const field of checkFields) {
+    const link = HANDED_IN_CONTRACT.find((l) => l.pattern.test(field.label));
+    if (link) links.set(field.id, link.handed);
+  }
+  return links;
+}
+
+export function handedChecks(
+  links: ReadonlyMap<string, HandedDocumentId | "SIGNATURE">,
+  handed: Readonly<Partial<Record<HandedDocumentId, string>>>
+): Record<string, boolean> {
+  return Object.fromEntries([...links].map(([id, doc]) => [id, doc === "SIGNATURE" || Boolean(handed[doc])]));
+}
+
 // Durée du contrat : un choix est exigé dès que le DIPEC en propose un ; à durée
 // déterminée, les deux dates, dans l'ordre.
 export function durationProblems(choice: PreparedDipc["durationChoice"], duration: DipcDuration): string[] {
