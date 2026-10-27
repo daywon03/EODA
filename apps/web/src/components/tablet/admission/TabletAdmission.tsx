@@ -2,7 +2,10 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { CheckCircle2, Download, FileUp, Search, Send, UserPlus } from "lucide-react";
+import { CheckCircle2, Download, FileText, FileUp, Search, Send, UserPlus } from "lucide-react";
+import { departementFormFileName } from "@/lib/services/departement-form-service";
+import { changeFormFileName } from "@/lib/services/departement-change-form-service";
+import { DepartementFormPanel } from "./DepartementFormPanel";
 import { cn } from "@/lib/utils";
 import { addPeople, cleanName, describeRosterImport, displayName, searchRoster, type RosterPerson } from "@/lib/services/survey-roster-service";
 import {
@@ -20,7 +23,7 @@ import { TABLET_INPUT, TABLET_PRIMARY, TABLET_SECONDARY } from "../tablet-ui";
 import { RosterImportPanel } from "../survey/RosterImportPanel";
 import { newPersonId, useSurveyRoster } from "../survey/use-survey-roster";
 import { AdmissionWizard, type TabletDipc } from "./AdmissionWizard";
-import { downloadBlob, sha256Hex, shareOrDownload, useAdmissions } from "./use-admissions";
+import { downloadBlob, formKey, sha256Hex, shareOrDownload, useAdmissions } from "./use-admissions";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ACCUEIL ET DIPC SUR LA TABLETTE (26/10/2026).
@@ -32,7 +35,11 @@ import { downloadBlob, sha256Hex, shareOrDownload, useAdmissions } from "./use-a
 // ─────────────────────────────────────────────────────────────────────────────
 
 type DipcText = Omit<TabletDipc, "sha256">;
-type Screen = { kind: "home" } | { kind: "wizard"; person: RosterPerson | null } | { kind: "signed"; record: AdmissionRecord; stored: boolean };
+type Screen =
+  | { kind: "home" }
+  | { kind: "wizard"; person: RosterPerson | null }
+  | { kind: "signed"; record: AdmissionRecord; stored: boolean }
+  | { kind: "form"; record: AdmissionRecord; back: Screen };
 
 function status(record: AdmissionRecord | null, today: Date): { label: string; tone: string } {
   if (!record) return { label: "DIPC à faire signer", tone: "border-dashed border-ink2 bg-card" };
@@ -40,9 +47,15 @@ function status(record: AdmissionRecord | null, today: Date): { label: string; t
   return { label: `Signé le ${frenchDay(record.signedAt.slice(0, 10))}`, tone: "border-ok-text bg-ok-soft" };
 }
 
-export function TabletAdmission({ establishmentId, structureName, staffName, dipc }: { establishmentId: string; structureName: string; staffName: string; dipc: DipcText }) {
+export function TabletAdmission({ establishmentId, structureName, structureAddress, staffName, dipc }: {
+  establishmentId: string;
+  structureName: string;
+  structureAddress: string;
+  staffName: string;
+  dipc: DipcText;
+}) {
   const { roster, update, loaded: rosterLoaded, storageWorks: rosterWorks } = useSurveyRoster(establishmentId);
-  const { records, loaded, storageWorks, save, pdfOf } = useAdmissions(establishmentId);
+  const { records, loaded, storageWorks, save, saveForm, pdfOf } = useAdmissions(establishmentId);
   const [screen, setScreen] = useState<Screen>({ kind: "home" });
   const [query, setQuery] = useState("");
   const [importing, setImporting] = useState(false);
@@ -84,13 +97,30 @@ export function TabletAdmission({ establishmentId, structureName, staffName, dip
     for (const record of records) {
       const pdf = await pdfOf(record.id);
       if (pdf) files.push({ name: record.pdfFileName, data: new Uint8Array(await pdf.arrayBuffer()), modifiedAt: new Date(record.signedAt) });
+      const form = await pdfOf(formKey(record.id, "INITIALE"));
+      if (form) files.push({ name: departementFormFileName(structureName, record, new Date(record.signedAt)), data: new Uint8Array(await form.arrayBuffer()), modifiedAt: today });
+      const change = await pdfOf(formKey(record.id, "CHANGEMENT"));
+      if (change) files.push({ name: changeFormFileName(structureName, record, today), data: new Uint8Array(await change.arrayBuffer()), modifiedAt: today });
     }
     files.push({ name: "index-des-contrats.csv", data: new TextEncoder().encode(buildAdmissionsCsv(records)), modifiedAt: today });
     downloadBlob(admissionArchiveFileName(structureName, today), new Blob([buildStoredZip(files) as BlobPart], { type: "application/zip" }));
-    setFlash(`${files.length - 1} contrat${files.length > 2 ? "s" : ""} exporté${files.length > 2 ? "s" : ""}, avec leur index. Rangez le fichier dans Ximi ou sur le serveur de la structure.`);
+    setFlash(`${records.length} contrat${records.length > 1 ? "s" : ""} exporté${records.length > 1 ? "s" : ""}, avec les formulaires du Département et l'index. Rangez le fichier dans Ximi ou sur le serveur de la structure.`);
   }
 
   if (!loaded || !rosterLoaded || !dipcSha) return <p role="status">Chargement…</p>;
+
+  if (screen.kind === "form") {
+    const { record, back } = screen;
+    return (
+      <DepartementFormPanel
+        record={record}
+        structure={{ name: structureName, address: structureAddress }}
+        contractPdf={async () => (back.kind === "signed" && back.record.id === record.id ? lastPdf : null) ?? (await pdfOf(record.id))}
+        onSaved={(pdf, kind) => saveForm(record.id, pdf, kind)}
+        onBack={() => go(back)}
+      />
+    );
+  }
 
   if (screen.kind === "wizard") {
     return (
@@ -127,6 +157,10 @@ export function TabletAdmission({ establishmentId, structureName, staffName, dip
             Télécharger le PDF
           </button>
         </div>
+        <button type="button" className={cn(TABLET_SECONDARY, "w-full")} onClick={() => go({ kind: "form", record, back: screen })}>
+          <FileText className="h-6 w-6" aria-hidden="true" />
+          Formulaire du Département (APA, PCH, aide-ménagère)
+        </button>
         <Link href={`/tablette/enquete?personne=${encodeURIComponent(record.personId)}`} className={cn(TABLET_SECONDARY, "w-full")}>
           Plus tard : l&apos;enquête de satisfaction de cette personne
         </Link>
@@ -186,9 +220,14 @@ export function TabletAdmission({ establishmentId, structureName, staffName, dip
               <span className="min-w-[12rem] flex-1 text-[21px] font-bold">{displayName(person)}</span>
               <span className={cn("rounded-full border-2 px-3 py-1 text-[16px] font-bold", state.tone)}>{state.label}</span>
               {record && (
-                <button type="button" className={TABLET_SECONDARY} onClick={() => void openPdf(record, "share")}>
-                  Envoyer
-                </button>
+                <>
+                  <button type="button" className={TABLET_SECONDARY} onClick={() => void openPdf(record, "share")}>
+                    Envoyer
+                  </button>
+                  <button type="button" className={TABLET_SECONDARY} onClick={() => go({ kind: "form", record, back: { kind: "home" } })}>
+                    Formulaire 93
+                  </button>
+                </>
               )}
               <button type="button" className={TABLET_SECONDARY} onClick={() => go({ kind: "wizard", person })}>
                 {record ? "Nouveau contrat" : "Faire signer"}

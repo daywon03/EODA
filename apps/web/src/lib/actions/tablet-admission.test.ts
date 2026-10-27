@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 // DIPC à signer sur la tablette : la seule lecture serveur du parcours. Ce qu'elle lit,
 // pour qui, et ce qu'elle journalise.
 
-const prismaMock = { document: { findFirst: vi.fn() } };
+const prismaMock = { document: { findFirst: vi.fn() }, establishment: { findUnique: vi.fn() } };
 const resolveTabletSession = vi.fn();
 const recordAuditEvent = vi.fn();
 
@@ -11,7 +11,7 @@ vi.mock("@eoda/database", () => ({ prisma: prismaMock }));
 vi.mock("@/lib/auth/guards", () => ({ resolveTabletSession: () => resolveTabletSession() }));
 vi.mock("@/lib/services/audit-log-service", () => ({ recordAuditEvent: (...args: unknown[]) => recordAuditEvent(...args) }));
 
-const { getTabletDipcSource } = await import("./tablet-admission");
+const { getTabletDipcSource, getTabletStructureAddress } = await import("./tablet-admission");
 
 const session = { deviceEnrollmentId: "dev1", tenantId: "t1", establishmentId: "etab1", establishmentName: "SAD Fictif", staffMemberId: "s1", staffDisplayName: "Camille" };
 const day = (d: string) => new Date(`${d}T10:00:00Z`);
@@ -57,5 +57,21 @@ describe("getTabletDipcSource", () => {
     });
     expect(await getTabletDipcSource()).toEqual({ status: "NOT_VALIDATED" });
     expect(recordAuditEvent).not.toHaveBeenCalled();
+  });
+});
+
+describe("getTabletStructureAddress", () => {
+  it("sans session de tablette : rien n'est lu", async () => {
+    resolveTabletSession.mockResolvedValue(null);
+    expect(await getTabletStructureAddress()).toBeNull();
+    expect(prismaMock.establishment.findUnique).not.toHaveBeenCalled();
+  });
+
+  it("l'adresse de la structure de l'APPAREIL ; vide si elle n'est pas saisie", async () => {
+    prismaMock.establishment.findUnique.mockResolvedValue({ address: "1 avenue Fictive" });
+    expect(await getTabletStructureAddress()).toBe("1 avenue Fictive");
+    expect(prismaMock.establishment.findUnique).toHaveBeenCalledWith({ where: { id: "etab1" }, select: { address: true } });
+    prismaMock.establishment.findUnique.mockResolvedValue({ address: null });
+    expect(await getTabletStructureAddress()).toBe("");
   });
 });

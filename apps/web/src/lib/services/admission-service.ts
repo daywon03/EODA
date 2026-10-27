@@ -1,5 +1,6 @@
 import { allAdmissionPoints, ADMISSION_HANDED_DOCUMENTS, type HandedDocumentId } from "@/content/admission/explications";
 import { otherPrecisionError } from "./prospect-contact-service";
+import { DURATION_FIELDS, type DipcBlock, type PreparedDipc } from "./dipc-tablet-preparation";
 import { mergePlaceholders } from "./placeholder-merge";
 import { cleanName, csvCell, dayOf } from "./survey-roster-service";
 
@@ -279,8 +280,12 @@ export const ADMISSION_FIELDS = [
   "proche.nom",
   "proche.prenom",
   "proche.telephone",
+  "proche.identite",
+  "representant.identite",
+  "signataire.nom",
   "intervenant.nom",
   "date.signature",
+  "date.revision",
 ] as const;
 
 export type AdmissionField = (typeof ADMISSION_FIELDS)[number];
@@ -327,13 +332,107 @@ export function admissionFieldValues(input: {
     "proche.nom": contact?.kind ? cleanName(contact.lastName).toLocaleUpperCase("fr-FR") : "",
     "proche.prenom": contact?.kind ? cleanName(contact.firstName) : "",
     "proche.telephone": contact?.kind ? contact.phone.trim() : "",
+    "proche.identite": contactIdentity(contact, ["PROCHE_AIDANT", "AUTRE"]),
+    "representant.identite": contactIdentity(contact, ["TUTEUR", "CURATEUR"]),
+    "signataire.nom": signatoryName(identity, contact),
     "intervenant.nom": input.staffName,
     "date.signature": frenchDay(dayOf(input.signedOn)),
+    "date.revision": frenchDay(dayOf(oneYearAfter(input.signedOn))),
   };
 }
 
-export function mergeDipcText(dipcText: string, values: Record<AdmissionField, string>) {
-  return mergePlaceholders(dipcText, ADMISSION_FIELDS, values, EMPTY_FIELD_MARK);
+// « Prénom NOM, curateur » si le lien correspond, « sans objet » sinon : le DIPC
+// demande de l'écrire plutôt que de laisser la ligne vide.
+function contactIdentity(contact: AdmissionContact | null, kinds: readonly ContactKind[]): string {
+  if (!contact?.kind || !kinds.includes(contact.kind)) return "sans objet";
+  const name = [cleanName(contact.firstName), cleanName(contact.lastName).toLocaleUpperCase("fr-FR")].filter(Boolean).join(" ");
+  return [name, contactLink(contact).toLocaleLowerCase("fr-FR")].filter(Boolean).join(", ");
+}
+
+// Qui signe pour la personne, écrit en toutes lettres sur la page de signature du DIPC.
+function signatoryName(identity: AdmissionIdentity, contact: AdmissionContact | null): string {
+  const person = fullName(identity);
+  if (contact?.kind === "TUTEUR") return `${contactIdentity(contact, ["TUTEUR"])}, pour ${person}`;
+  if (contact?.kind === "CURATEUR") return `${person}, assisté(e) de ${contactIdentity(contact, ["CURATEUR"])}`;
+  return person;
+}
+
+// Révision au moins annuelle (HAS 1.10.6) : la date prévue par défaut.
+function oneYearAfter(date: Date): Date {
+  const next = new Date(date);
+  next.setFullYear(next.getFullYear() + 1);
+  return next;
+}
+
+// Les zones propres au DIPC de la structure (« [à compléter] », « ☐ ») s'ajoutent
+// aux champs connus : elles ne sont pas inconnues, elles viennent du texte validé.
+export function mergeDipcText(dipcText: string, values: Record<AdmissionField, string>, entries: Readonly<Record<string, string>> = {}) {
+  const fields = [...ADMISSION_FIELDS, ...Object.keys(entries)];
+  return mergePlaceholders(dipcText, fields, { ...values, ...entries } as Record<string, string>, EMPTY_FIELD_MARK);
+}
+
+export const CHECKED_MARK = "☒";
+export const UNCHECKED_MARK = "☐";
+
+// La copie du DIPC préparée pour la tablette (dipc-tablet-preparation), remplie bloc
+// par bloc. Les champs inconnus de tous les blocs sont réunis : un seul suffit à
+// bloquer la signature.
+export function mergeDipcBlocks(blocks: readonly DipcBlock[], values: Record<AdmissionField, string>, entries: Readonly<Record<string, string>>) {
+  const unknown = new Set<string>();
+  const empty = new Set<string>();
+  const merged = blocks.map((block) => {
+    const result = mergeDipcText(block.text, values, entries);
+    result.unknownFields.forEach((f) => unknown.add(f));
+    result.emptyFields.forEach((f) => empty.add(f));
+    return { ...block, text: result.text };
+  });
+  return { blocks: merged, unknownFields: [...unknown], emptyFields: [...empty] };
+}
+
+// La durée choisie sur la tablette : le numéro de l'option, et les dates si l'option
+// est à durée déterminée.
+export type DipcDuration = { choice: number | null; start: string; end: string };
+export const NO_DURATION: DipcDuration = { choice: null, start: "", end: "" };
+
+// Ce que l'intervenant a saisi ou coché sur la tablette, prêt à fusionner.
+export function dipcEntryValues(
+  prepared: Pick<PreparedDipc, "freeFields" | "checkFields" | "durationChoice">,
+  texts: Readonly<Record<string, string>>,
+  checks: Readonly<Record<string, boolean>>,
+  duration: DipcDuration = NO_DURATION
+): Record<string, string> {
+  const options = prepared.durationChoice?.options ?? [];
+  const chosen = options.find((o) => o.number === duration.choice);
+  return {
+    ...Object.fromEntries(prepared.freeFields.map((f) => [f.id, (texts[f.id] ?? "").replace(/\s+/g, " ").trim()])),
+    ...Object.fromEntries(prepared.checkFields.map((c) => [c.id, checks[c.id] ? CHECKED_MARK : UNCHECKED_MARK])),
+    ...Object.fromEntries(options.map((o) => [DURATION_FIELDS.option(o.number), o.number === duration.choice ? CHECKED_MARK : UNCHECKED_MARK])),
+    ...(options.length > 0
+      ? {
+          [DURATION_FIELDS.start]: chosen?.hasDates ? frenchDay(duration.start) : "",
+          [DURATION_FIELDS.end]: chosen?.hasDates ? frenchDay(duration.end) : "",
+        }
+      : {}),
+  };
+}
+
+// Durée du contrat : un choix est exigé dès que le DIPC en propose un ; à durée
+// déterminée, les deux dates, dans l'ordre.
+export function durationProblems(choice: PreparedDipc["durationChoice"], duration: DipcDuration): string[] {
+  if (!choice) return [];
+  const chosen = choice.options.find((o) => o.number === duration.choice);
+  if (!chosen) return ["Choisissez la durée du contrat."];
+  if (!chosen.hasDates) return [];
+  if (!isRealDay(duration.start) || !isRealDay(duration.end)) return ["Écrivez les dates de début et de fin du contrat."];
+  return duration.end < duration.start ? ["La date de fin du contrat est avant la date de début."] : [];
+}
+
+// L'option « durée indéterminée » est proposée d'emblée quand le DIPC en a une : c'est
+// la règle pour un SAD autorisé APA / PCH non habilité à l'aide sociale (CASF L347-1,
+// rappelé en note du DIPC du client pilote) — l'intervenant peut en changer.
+export function defaultDuration(choice: PreparedDipc["durationChoice"]): DipcDuration {
+  const indefinite = choice?.options.find((o) => /indéterminée/i.test(o.label));
+  return { ...NO_DURATION, choice: indefinite?.number ?? null };
 }
 
 // ── Fichiers (convention EODA : AAAAMMJJ_TYPE_CLIENT_OBJET_vXX_Interne|Externe) ──

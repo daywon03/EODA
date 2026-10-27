@@ -49,7 +49,11 @@ export const TABLET_DEMO_PATH = "/tablette/demonstration";
 // Enquête de satisfaction ANONYME sur la tablette (21/10/2026) : même garde que
 // l'accueil (appareil enregistré + code du salarié), vérifiée par la page et l'action.
 export const TABLET_SURVEY_PATH = "/tablette/enquete";
-const TABLET_PATHS: readonly string[] = [TABLET_PATH, TABLET_DEMO_PATH, TABLET_SURVEY_PATH];
+// Accueil et DIPC signé (26/10/2026) : même garde, vérifiée par la page. Oubliée de
+// cette liste le 26/10, la page renvoyait la tablette (sans session Auth.js) vers la
+// connexion du portail — corrigé le 27/10, test dans routes.test.ts.
+export const TABLET_ADMISSION_PATH = "/tablette/admission";
+const TABLET_PATHS: readonly string[] = [TABLET_PATH, TABLET_DEMO_PATH, TABLET_SURVEY_PATH, TABLET_ADMISSION_PATH];
 
 // Enquête anonyme par LIEN à usage unique (21/10/2026) : /enquete/<jeton>, un seul
 // segment, comme le quiz. Le jeton n'ouvre qu'UNE enquête, UNE fois.

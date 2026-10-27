@@ -11,6 +11,7 @@ import { DemoReception, type DemoEvidence } from "./DemoReception";
 import { DemoDossier } from "./DemoDossier";
 import { fullName, type AdmissionRecord } from "@/lib/services/admission-service";
 import { AdmissionWizard } from "../admission/AdmissionWizard";
+import { DepartementFormPanel } from "../admission/DepartementFormPanel";
 import { downloadBlob, sha256Hex } from "../admission/use-admissions";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -26,6 +27,7 @@ type Screen =
   | { kind: "reception" }
   | { kind: "admission"; personId: string }
   | { kind: "admission-done"; record: AdmissionRecord }
+  | { kind: "admission-form"; record: AdmissionRecord }
   | { kind: "dossier"; personId: string };
 
 export function TabletDemo() {
@@ -177,10 +179,23 @@ export function TabletDemo() {
           >
             Voir le contrat (PDF)
           </button>
+          <button type="button" className="inline-flex min-h-16 w-full items-center justify-center rounded-2xl border border-ink bg-card px-6 text-[19px]" onClick={() => go({ kind: "admission-form", record: screen.record })}>
+            Formulaire du Département (APA, PCH, aide-ménagère)
+          </button>
           <button type="button" className="inline-flex min-h-16 w-full items-center justify-center rounded-2xl border border-ink bg-card px-6 text-[19px]" onClick={() => go({ kind: "dossier", personId: screen.record.personId })}>
             Ouvrir son dossier
           </button>
         </section>
+      )}
+
+      {screen.kind === "admission-form" && (
+        <DepartementFormPanel
+          record={screen.record}
+          structure={{ name: DEMO_STRUCTURE, address: "1 avenue Fictive – 93000 Ville-Fictive" }}
+          contractPdf={async () => contracts[screen.record.id] ?? null}
+          onSaved={() => Promise.resolve(true)}
+          onBack={() => go({ kind: "admission-done", record: screen.record })}
+        />
       )}
 
       {screen.kind === "dossier" && (() => {

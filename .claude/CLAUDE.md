@@ -58,6 +58,9 @@ vérifie** — sinon elle n'existe pas.
 | L'enquête ANONYME ne peut contenir aucune donnée de personne (hors verrou HDS) | test qui lit le schéma et **échoue** si `AnonymousSurveyResponse` / `AnonymousSurveyAnswer` gagnent un champ hors liste (personne, salarié, texte, horodatage), si `completedOn` n'est plus un `@db.Date`, ou si le lien désigne quelqu'un ; actions : lien à usage unique consommé atomiquement, débit par IP, salarié jamais enregistré, réponse jamais journalisée ; réponses refusées si un texte libre ou une question de contrôle s'y glisse | `lib/hds/anonymous-survey-schema.test.ts`, `lib/actions/anonymous-survey.test.ts`, `lib/services/anonymous-survey-service.test.ts`, `lib/auth/routes.test.ts` |
 | La liste des personnes à enquêter ne quitte jamais la tablette | test qui lit tout `src/` et **échoue** si un fichier sans `"use client"` en tête importe `survey-roster-service` ou `xlsx-rows-reader` (une action, une route ou une page serveur recevrait des noms) ; l'envoi (`submitTabletAnonymousSurvey`) ne reçoit que questionnaire, mode et réponses ; import Excel lu dans le navigateur, colonnes autres que Nom/Prénom jamais gardées ; export CSV fabriqué dans le navigateur, formules neutralisées. **L'export réel de Ximi se lit** (26/10/2026 : balises préfixées `x:` — zéro ligne lue avant —, ligne de titre avant l'en-tête, « NOM, Prénom » dans une seule colonne) | `lib/hds/survey-roster-boundary.test.ts`, `lib/services/survey-roster-service.test.ts`, `lib/services/xlsx-rows-reader.test.ts`, `lib/services/zip-store.test.ts` |
 | Le DIPC signé sur la tablette ne quitte jamais la tablette, et ne se signe que validé, expliqué et par le bon signataire | le même test de frontière refuse qu'un module sans `"use client"` importe `admission-service`, `admission-document-service` ou `admission-pdf` (import **dynamique** compris) ; le serveur ne rend que le DIPC dont la validation est à jour (`selectTabletDipc` → `isValidationCurrent`, version d'EODA d'abord), structure lue depuis l'appareil ; `signingProblems` refuse un point HAS non expliqué, un document non remis, un champ `{{…}}` inconnu, une signature manquante (tutelle : le tuteur ; curatelle : la personne ET le curateur) ; aperçu et PDF rendent le MÊME plan (`planAdmissionDocument`) | `lib/hds/survey-roster-boundary.test.ts`, `lib/services/admission-service.test.ts`, `lib/services/admission-pdf.test.ts`, `lib/services/tablet-dipc-service.test.ts`, `lib/actions/tablet-admission.test.ts` — ADR `specs/adr/20261026_ADR_DIPC-signe-sur-tablette.md` |
+| La copie du DIPC pour la tablette ne remplit que les zones du CORPS, jamais les annexes, et ne réécrit rien de validé | `prepareDipcForTablet` (dérivée à l'affichage, jamais rangée) : Markdown nettoyé, champs d'identité posés sur des zones repérées par leur LIBELLÉ et vides (pointillés, crochets), « [à compléter] » → saisie sur la tablette, « ☐ » → case ; tout ce qui suit le premier titre « ANNEXE » est intact (rétractation, personne de confiance) ; vérifié sur le vrai DIPC de l'ASSAD (15 zones, 15 saisies, 8 cases, zéro pointillé restant dans le corps) | `lib/services/dipc-tablet-preparation.test.ts` (DIPC fictif de même forme) |
+| Le formulaire officiel du Département n'est rempli que s'il est celui qu'on a mesuré | positions mesurées sur le PDF officiel (pdfplumber, 27/10/2026), empreinte SHA-256 figée : un autre fichier est REFUSÉ (`OfficialFormMismatchError`) plutôt que d'écrire à côté des cases ; les déclarations sur l'honneur ne se cochent que si la personne les accepte ; sous tutelle, le tuteur déclare pour la personne ; changement de situation : au moins un changement déclaré, et qui / quand dans chaque tableau rempli | `lib/services/departement-form-service.test.ts`, `lib/services/departement-change-form-service.test.ts` |
+| Chaque page de la tablette est ouverte à l'appareil enregistré, sans session du portail | test qui lit `app/tablette/**/page.tsx` SUR LE DISQUE et **échoue** si une page n'est pas `ANONYMOUS` dans `classifyPath` — `/tablette/admission` avait été oubliée le 26/10 et renvoyait la tablette vers `/login` ; le `matcher` n'exclut que `/formulaires/<nom>.pdf` (formulaires officiels vierges) | `lib/auth/routes.test.ts` |
 | Un échec de lancement de Chromium est NOMMÉ, et n'invite pas à réessayer | le lancement enveloppe son erreur (`ChromiumLaunchError`, cause conservée, recours nommé : `PUPPETEER_EXECUTABLE_PATH` en développement) et le message d'aperçu **échoue** s'il dit « Réessayez » sur cet échec-là ; les drapeaux serverless ne sont jamais passés à un Chrome de bureau | `lib/services/headless-chromium-service.test.ts`, `lib/services/document-pdf-response.test.ts` |
 | Toute fonction qui embarque Chromium embarque son binaire | `pnpm check:chromium` après le build lit les `*.nft.json` et **sort en code 1** si une fonction contient le code de `@sparticuz/chromium` sans `bin/chromium.br` / `al2023.tar.br` (le paquet situe son binaire à l'exécution : le traçage ne le voit pas — l'aperçu des documents répondait **503** en production, 21/10/2026), ou si **aucune** fonction n'est concernée. Réglage : `outputFileTracingIncludes` de `next.config.ts`. Corollaire : le cache du rendu vit dans `document-pdf-cache.ts`, qui n'importe pas Chromium — la suppression d'une version le chargeait dans seize pages | `apps/web/scripts/check-chromium-trace.mjs` + CI |
 | Un envoi « non configuré » n'est jamais compté comme parti | décompte par `countDeliveries` dans toute la couche d'envoi — aucun comptage brut de promesses tenues (il annonçait « Client prévenu (2 personnes) » pour zéro e-mail) | `lib/email/notifications.test.ts` |
@@ -388,9 +391,26 @@ Détail complet et état d'avancement : `specs/02-architecture-technique.md` §4
   export PDF ou ZIP de tous les contrats + index CSV pour Ximi / le serveur de la
   structure. **Pas de DocuSeal** (service séparé AGPL, stockage hors HDS). Ne jamais
   envoyer au serveur un nom, un contrat ou une signature avant la migration HDS ; à la
-  migration, le contrat rejoint le dossier par `recordSignedDocument` (`DIPC`). Reste :
-  formulaires du Département (PDF non remplissables, à écrire par-dessus), refus de signer
-  tracé (HAS 1.7.4).
+  migration, le contrat rejoint le dossier par `recordSignedDocument` (`DIPC`).
+  **Copie du DIPC pour la tablette (27/10/2026)** : dérivée à l'affichage du DIPC validé
+  (`prepareDipcForTablet`), jamais rangée — une copie stockée serait périmée à la version
+  suivante. Étape « Le projet » : chaque « [à compléter] » du DIPC (objectifs, prestations,
+  jours et horaires, risques HAS 2.4.x…) se saisit sur la tablette, chaque « ☐ » se coche ;
+  les annexes restent vierges. EODA peut aussi écrire des champs `{{personne.nom}}`… dans le
+  Word. **Formulaire du Département 93** (« désignation du SAD, déclaration initiale ») :
+  PDF officiel servi par `/formulaires/…pdf` (seule exclusion du `matcher`), rempli dans le
+  navigateur à des positions mesurées, empreinte du fichier vérifiée, déclarations cochées
+  par la personne, signature sur la tablette ou sur papier, envoyé AVEC le contrat
+  (exigence du Département). **Changement de situation** (27/10/2026,
+  `departement-change-form-service`) : second formulaire officiel, mêmes principes
+  (positions mesurées, empreinte figée), choisi sur le même écran — arrêt d'un service,
+  nouveau service à la place ou en complément, nombre d'heures ; la structure est
+  proposée en première ligne des services ; trois déclarations, dont « annule et
+  remplace », cochées par la personne. **Durée du contrat** : les options « n°1 durée
+  indéterminée / n°2 durée déterminée du … au … » du DIPC deviennent un choix sur la
+  tablette (indéterminée proposée d'emblée, CASF L347-1 rappelé en note du DIPC de
+  l'ASSAD), ☒ / ☐ et dates écrits dans le contrat. Reste : refus de signer tracé
+  (HAS 1.7.4).
 
 ## 7. Ce que Claude Code ne doit PAS faire
 
