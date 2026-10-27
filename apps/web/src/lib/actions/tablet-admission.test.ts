@@ -44,7 +44,7 @@ describe("getTabletDipcSource", () => {
         { id: "v2", versionNumber: 2, uploadedAt: day("2026-10-01"), extractedText: "DIPEC d'EODA", uploadedBy: { role: "CABINET_EVALUATOR" } },
       ],
     });
-    expect(await getTabletDipcSource()).toEqual({ status: "READY", versionId: "v2", versionNumber: 2, validatedOn: "2026-10-05", text: "DIPEC d'EODA" });
+    expect(await getTabletDipcSource()).toEqual({ status: "READY", versionId: "v2", versionNumber: 2, validatedOn: "2026-10-05", text: "DIPEC d'EODA", hasWord: false });
     expect(recordAuditEvent).toHaveBeenCalledWith({ action: "DOCUMENT_PREVIEWED", establishmentId: "etab1", targetId: "v2", detail: "tablette · DIPEC à signer" });
   });
 

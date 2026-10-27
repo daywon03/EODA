@@ -23,10 +23,13 @@ export type TabletDipcVersionFacts = {
   uploadedAt: Date;
   producedByCabinet: boolean;
   extractedText: string | null;
+  // Nom d'origine : s'il finit par .docx, la tablette remplit le Word lui-même
+  // (dipec-word-service). La route qui le sert vérifie la signature binaire.
+  originalFilename?: string;
 };
 
 export type TabletDipcSource =
-  | { status: "READY"; versionId: string; versionNumber: number; validatedOn: string; text: string }
+  | { status: "READY"; versionId: string; versionNumber: number; validatedOn: string; text: string; hasWord: boolean }
   | { status: "ABSENT" | "NOT_VALIDATED" | "NO_TEXT" };
 
 function isoDay(date: Date): string {
@@ -54,7 +57,13 @@ export function selectTabletDipc(
     versionNumber: chosen.versionNumber,
     validatedOn: isoDay(document.validatedAt),
     text: text.slice(0, TABLET_DIPC_MAX_CHARS),
+    hasWord: /\.docx$/i.test(chosen.originalFilename ?? ""),
   };
+}
+
+// L'original Word du DIPEC présenté, servi à la tablette appareil par appareil.
+export function tabletDipecWordUrl(versionId: string): string {
+  return `/api/tablette/dipec/${encodeURIComponent(versionId)}`;
 }
 
 export const TABLET_DIPC_UNAVAILABLE: Record<Exclude<TabletDipcSource["status"], "READY">, string> = {

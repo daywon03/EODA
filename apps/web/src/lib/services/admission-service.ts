@@ -3,6 +3,7 @@ import { otherPrecisionError } from "./prospect-contact-service";
 import { DURATION_FIELDS, type DipcBlock, type PreparedDipc } from "./dipc-tablet-preparation";
 import { mergePlaceholders } from "./placeholder-merge";
 import { cleanName, csvCell, dayOf } from "./survey-roster-service";
+import { isTrustedPersonDesignated, parseTrustedPerson, TRUSTED_FIELDS, trustedPersonName, trustedPersonProblems, trustedPersonValues, type TrustedPerson } from "./trusted-person-service";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ACCUEIL D'UNE NOUVELLE PERSONNE ET SIGNATURE DU DIPEC SUR LA TABLETTE — service PUR
@@ -27,7 +28,8 @@ import { cleanName, csvCell, dayOf } from "./survey-roster-service";
 export type Civility = "MADAME" | "MONSIEUR" | "";
 export type AidKind = "APA" | "PCH" | "AIDE_MENAGERE";
 export type ContactKind = "PROCHE_AIDANT" | "TUTEUR" | "CURATEUR" | "AUTRE";
-export type AdmissionSigner = "PERSONNE" | "REPRESENTANT" | "SERVICE";
+// CONFIANCE : la personne de confiance contresigne sa désignation (annexe 3.2 du DIPEC).
+export type AdmissionSigner = "PERSONNE" | "REPRESENTANT" | "SERVICE" | "CONFIANCE";
 
 export const AID_KIND_LABELS: Record<AidKind, string> = {
   APA: "Allocation personnalisée d'autonomie (APA)",
@@ -46,6 +48,7 @@ export const SIGNER_LABELS: Record<AdmissionSigner, string> = {
   PERSONNE: "La personne accompagnée",
   REPRESENTANT: "Son représentant légal",
   SERVICE: "Pour le service",
+  CONFIANCE: "La personne de confiance",
 };
 
 export type AdmissionIdentity = {
@@ -54,6 +57,7 @@ export type AdmissionIdentity = {
   usedName: string;
   firstName: string;
   birthDate: string; // AAAA-MM-JJ ou vide
+  birthPlace: string; // « né(e) le … à … » de l'annexe 3.2
   address: string;
   postalCode: string;
   city: string;
@@ -86,6 +90,7 @@ export const EMPTY_IDENTITY: AdmissionIdentity = {
   usedName: "",
   firstName: "",
   birthDate: "",
+  birthPlace: "",
   address: "",
   postalCode: "",
   city: "",
@@ -134,6 +139,10 @@ export type AdmissionRecord = {
   // n'a pas ce champ : il se relit comme signé.
   outcome: AdmissionOutcome;
   refusal: AdmissionRefusal | null;
+  trustedPerson: TrustedPerson | null;
+  // Le contrat est le Word d'EODA rempli et signé (27/10/2026), rangé à côté du PDF
+  // d'attestation ; null : contrat fait sur la copie en texte (repli, ou avant).
+  word: { fileName: string; sha256: string } | null;
 };
 
 export type AdmissionOutcome = "SIGNE" | "REFUS";
@@ -213,14 +222,18 @@ export function contactProblems(contact: AdmissionContact | null): string[] {
 // Sous tutelle, le tuteur signe à la place de la personne ; sous curatelle, la
 // personne signe, assistée de son curateur, qui signe aussi. Le service signe
 // toujours : le DIPEC engage les deux parties.
-export function requiredSigners(contact: AdmissionContact | null): AdmissionSigner[] {
-  if (contact?.kind === "TUTEUR") return ["REPRESENTANT", "SERVICE"];
-  if (contact?.kind === "CURATEUR") return ["PERSONNE", "REPRESENTANT", "SERVICE"];
-  return ["PERSONNE", "SERVICE"];
+// La personne de confiance PRÉSENTE contresigne sa désignation sur la tablette ;
+// absente, sa cosignature se recueille ensuite (trusted-person-service).
+export function requiredSigners(contact: AdmissionContact | null, trusted: TrustedPerson | null = null): AdmissionSigner[] {
+  const confiance: AdmissionSigner[] = trusted?.presence === "PRESENTE" ? ["CONFIANCE"] : [];
+  if (contact?.kind === "TUTEUR") return ["REPRESENTANT", ...confiance, "SERVICE"];
+  if (contact?.kind === "CURATEUR") return ["PERSONNE", "REPRESENTANT", ...confiance, "SERVICE"];
+  return ["PERSONNE", ...confiance, "SERVICE"];
 }
 
-export function signerName(signer: AdmissionSigner, identity: AdmissionIdentity, contact: AdmissionContact | null, staffName: string): string {
+export function signerName(signer: AdmissionSigner, identity: AdmissionIdentity, contact: AdmissionContact | null, staffName: string, trusted: TrustedPerson | null = null): string {
   if (signer === "PERSONNE") return fullName(identity);
+  if (signer === "CONFIANCE") return trustedPersonName(trusted);
   if (signer === "REPRESENTANT") return contact ? [cleanName(contact.lastName).toLocaleUpperCase("fr-FR"), cleanName(contact.firstName)].filter(Boolean).join(" ") : "";
   return staffName;
 }
@@ -241,6 +254,7 @@ export type SigningDraft = {
   identity: AdmissionIdentity;
   aid: AdmissionAid;
   contact: AdmissionContact | null;
+  trusted?: TrustedPerson | null;
   explained: Readonly<Record<string, string>>;
   handed: Readonly<Partial<Record<HandedDocumentId, string>>>;
   signatures: Readonly<Partial<Record<AdmissionSigner, string>>>;
@@ -250,12 +264,13 @@ export type SigningDraft = {
 export function signingProblems(draft: SigningDraft, today: Date): string[] {
   const missingPoints = missingExplanations(draft.explained);
   const missingDocs = missingHandedDocuments(draft.handed);
-  const missingSigners = requiredSigners(draft.contact).filter((signer) => !draft.signatures[signer]);
+  const missingSigners = requiredSigners(draft.contact, draft.trusted ?? null).filter((signer) => !draft.signatures[signer]);
   const needsRepresentative = draft.contact?.kind === "TUTEUR" || draft.contact?.kind === "CURATEUR";
   return [
     ...identityProblems(draft.identity, today),
     ...aidProblems(draft.aid),
     ...contactProblems(draft.contact),
+    ...trustedPersonProblems(draft.trusted ?? null),
     ...(draft.unknownDipcFields.length > 0
       ? [`Le DIPEC contient un champ inconnu (${draft.unknownDipcFields.join(", ")}) : EODA doit le corriger avant toute signature.`]
       : []),
@@ -279,6 +294,7 @@ export const ADMISSION_FIELDS = [
   "personne.nom_usage",
   "personne.prenom",
   "personne.date_naissance",
+  "personne.lieu_naissance",
   "personne.adresse",
   "personne.code_postal",
   "personne.ville",
@@ -298,6 +314,7 @@ export const ADMISSION_FIELDS = [
   "intervenant.nom",
   "date.signature",
   "date.revision",
+  ...TRUSTED_FIELDS,
 ] as const;
 
 export type AdmissionField = (typeof ADMISSION_FIELDS)[number];
@@ -319,6 +336,7 @@ export function admissionFieldValues(input: {
   identity: AdmissionIdentity;
   aid: AdmissionAid;
   contact: AdmissionContact | null;
+  trusted?: TrustedPerson | null;
   staffName: string;
   signedOn: Date;
 }): Record<AdmissionField, string> {
@@ -331,6 +349,7 @@ export function admissionFieldValues(input: {
     "personne.nom_usage": cleanName(identity.usedName).toLocaleUpperCase("fr-FR"),
     "personne.prenom": cleanName(identity.firstName),
     "personne.date_naissance": frenchDay(identity.birthDate),
+    "personne.lieu_naissance": cleanName(identity.birthPlace),
     "personne.adresse": cleanName(identity.address),
     "personne.code_postal": identity.postalCode.trim(),
     "personne.ville": cleanName(identity.city),
@@ -350,6 +369,7 @@ export function admissionFieldValues(input: {
     "intervenant.nom": input.staffName,
     "date.signature": frenchDay(dayOf(input.signedOn)),
     "date.revision": frenchDay(dayOf(oneYearAfter(input.signedOn))),
+    ...trustedPersonValues(input.trusted ?? null, frenchDay),
   };
 }
 
@@ -461,10 +481,27 @@ function slug(value: string, max: number, fallback: string): string {
 }
 
 // « Externe » : le contrat (ou l'attestation de refus) est remis à la personne.
-export function admissionPdfFileName(structureName: string, identity: AdmissionIdentity, signedAt: Date, outcome: AdmissionOutcome = "SIGNE"): string {
+// Quand le contrat est le Word d'EODA (`withWord`), le PDF n'est plus que
+// l'attestation de remise et de signature : il le dit dans son nom.
+export function admissionPdfFileName(
+  structureName: string,
+  identity: AdmissionIdentity,
+  signedAt: Date,
+  outcome: AdmissionOutcome = "SIGNE",
+  withWord = false
+): string {
+  const type = outcome === "REFUS" ? "REFUS-DIPEC" : withWord ? "SIGNATURE-DIPEC" : "DIPEC";
+  return `${admissionFileStem(structureName, identity, signedAt, type)}.pdf`;
+}
+
+// Le contrat lui-même : le Word d'EODA, rempli et signé sur la tablette.
+export function admissionWordFileName(structureName: string, identity: AdmissionIdentity, signedAt: Date): string {
+  return `${admissionFileStem(structureName, identity, signedAt, "DIPEC")}.docx`;
+}
+
+function admissionFileStem(structureName: string, identity: AdmissionIdentity, signedAt: Date, type: string): string {
   const person = slug(`${displayLastName(identity)} ${cleanName(identity.firstName)}`, 50, "Personne");
-  const type = outcome === "REFUS" ? "REFUS-DIPEC" : "DIPEC";
-  return `${dayOf(signedAt).replace(/-/g, "")}_${type}_${slug(structureName, 40, "Structure")}_${person}_v01_Externe.pdf`;
+  return `${dayOf(signedAt).replace(/-/g, "")}_${type}_${slug(structureName, 40, "Structure")}_${person}_v01_Externe`;
 }
 
 // ── Refus de signer (HAS 1.7.3 / 1.7.4) ──────────────────────────────────────
@@ -519,6 +556,9 @@ export const ADMISSION_EXPORT_HEADER = [
   "Le",
   "Signataires",
   "À reproposer le",
+  "Personne de confiance",
+  "Contrat (Word)",
+  "Empreinte SHA-256 du Word",
   "Fichier",
   "Empreinte SHA-256 du PDF",
 ] as const;
@@ -540,6 +580,9 @@ export function buildAdmissionsCsv(records: readonly AdmissionRecord[]): string 
         frenchDay(r.signedAt.slice(0, 10)),
         r.signers.map((signer) => SIGNER_LABELS[signer]).join(" + "),
         r.refusal ? frenchDay(r.refusal.reproposeOn) : "",
+        trustedPersonColumn(r),
+        r.word?.fileName ?? "",
+        r.word?.sha256 ?? "",
         r.pdfFileName,
         r.pdfSha256,
       ]
@@ -548,6 +591,12 @@ export function buildAdmissionsCsv(records: readonly AdmissionRecord[]): string 
     );
   }
   return `﻿${lines.join("\r\n")}\r\n`;
+}
+
+function trustedPersonColumn(r: AdmissionRecord): string {
+  if (!isTrustedPersonDesignated(r.trustedPerson)) return "";
+  const name = trustedPersonName(r.trustedPerson);
+  return r.signers.includes("CONFIANCE") ? `${name} (cosigné)` : `${name} (cosignature à recueillir)`;
 }
 
 // ── Liste ────────────────────────────────────────────────────────────────────
@@ -591,6 +640,7 @@ function readIdentity(raw: unknown): AdmissionIdentity {
     usedName: str(o.usedName),
     firstName: str(o.firstName),
     birthDate: str(o.birthDate, 10),
+    birthPlace: str(o.birthPlace),
     address: str(o.address),
     postalCode: str(o.postalCode, 10),
     city: str(o.city),
@@ -623,7 +673,7 @@ function readStringMap(raw: unknown): Record<string, string> {
 }
 
 const AID_KINDS: readonly AidKind[] = ["APA", "PCH", "AIDE_MENAGERE"];
-const SIGNERS: readonly AdmissionSigner[] = ["PERSONNE", "REPRESENTANT", "SERVICE"];
+const SIGNERS: readonly AdmissionSigner[] = ["PERSONNE", "REPRESENTANT", "SERVICE", "CONFIANCE"];
 
 export function parseStoredAdmission(raw: unknown): AdmissionRecord | null {
   if (typeof raw !== "object" || raw === null) return null;
@@ -654,7 +704,15 @@ export function parseStoredAdmission(raw: unknown): AdmissionRecord | null {
     pdfFileName: str(o.pdfFileName, 200),
     pdfSha256: o.pdfSha256.slice(0, 64),
     ...readOutcome(o),
+    trustedPerson: parseTrustedPerson(o.trustedPerson),
+    word: readWord(o.word),
   };
+}
+
+function readWord(raw: unknown): AdmissionRecord["word"] {
+  if (typeof raw !== "object" || raw === null) return null;
+  const o = raw as Record<string, unknown>;
+  return typeof o.fileName === "string" && typeof o.sha256 === "string" ? { fileName: o.fileName.slice(0, 200), sha256: o.sha256.slice(0, 64) } : null;
 }
 
 // Sans champ `outcome` (enregistrement antérieur au 27/10/2026) : un contrat signé.

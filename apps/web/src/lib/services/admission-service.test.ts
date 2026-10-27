@@ -81,6 +81,8 @@ function record(overrides: Partial<AdmissionRecord> = {}): AdmissionRecord {
     pdfSha256: "b".repeat(64),
     outcome: "SIGNE",
     refusal: null,
+    trustedPerson: null,
+    word: null,
     ...overrides,
   };
 }
@@ -170,7 +172,7 @@ describe("fichiers et export", () => {
   it("index CSV : une ligne par contrat, formules neutralisées, BOM pour Excel", () => {
     const csv = buildAdmissionsCsv([record({ identity: { ...identity, city: "=CMD()" } })]);
     expect(csv.startsWith("﻿Nom de naissance;")).toBe(true);
-    expect(csv).toContain("DURAND;MARTIN;Paulette;12/04/1938;93000;'=CMD();;v3;Signé;26/10/2026;La personne accompagnée + Pour le service;;f.pdf;" + "b".repeat(64));
+    expect(csv).toContain("DURAND;MARTIN;Paulette;12/04/1938;93000;'=CMD();;v3;Signé;26/10/2026;La personne accompagnée + Pour le service;;;;;f.pdf;" + "b".repeat(64));
   });
 
   it("la base de la tablette porte la structure", () => {
@@ -270,7 +272,7 @@ describe("refus de signer (HAS 1.7.3 / 1.7.4)", () => {
 
   it("nom de fichier et index d'export disent le refus", () => {
     expect(admissionPdfFileName("SAD Fictif", identity, today, "REFUS")).toBe("20261026_REFUS-DIPEC_SAD-Fictif_Martin-Paulette_v01_Externe.pdf");
-    expect(buildAdmissionsCsv([refused])).toContain(";v3;Refusé;26/10/2026;;26/11/2026;refus.pdf;");
+    expect(buildAdmissionsCsv([refused])).toContain(";v3;Refusé;26/10/2026;;26/11/2026;;;;refus.pdf;");
   });
 
   it("relecture : un enregistrement d'avant le 27/10 est un contrat signé ; un refus garde motif et date", () => {

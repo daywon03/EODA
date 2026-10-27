@@ -138,7 +138,17 @@ function isAnnexHeading(block: DipcBlock): boolean {
 
 export function prepareDipcForTablet(markdown: string): PreparedDipc {
   const source = markdown.replace(/\r\n?/g, "\n").split("\n").map(toBlock).filter((b): b is DipcBlock => b !== null);
-  const blocks: DipcBlock[] = [];
+  const { lines, ...rest } = prepareDipcLines(source);
+  return { blocks: lines.filter((b): b is DipcBlock => b !== null), ...rest };
+}
+
+// Mêmes règles, ligne par ligne : `lines[i]` est ce que devient `source[i]` (null :
+// la ligne disparaît). Le texte extrait comme le Word d'origine (dipec-word-service)
+// passent par ici — une seule définition des zones à remplir.
+export type PreparedDipcLines = Omit<PreparedDipc, "blocks"> & { lines: (DipcBlock | null)[] };
+
+export function prepareDipcLines(source: readonly DipcBlock[]): PreparedDipcLines {
+  const lines: (DipcBlock | null)[] = [];
   const freeFields: DipcFreeField[] = [];
   const checkFields: DipcCheckField[] = [];
   const durationOptions: DipcDurationOption[] = [];
@@ -146,17 +156,21 @@ export function prepareDipcForTablet(markdown: string): PreparedDipc {
   let identityZones = 0;
   let inAnnexes = false;
   let previousReplaced = false;
+  const lastKept = (): string => [...lines].reverse().find((b) => b !== null)?.text ?? "";
 
   for (const block of source) {
     if (isAnnexHeading(block)) inAnnexes = true;
     if (inAnnexes || block.kind === "heading") {
-      blocks.push(block);
+      lines.push(block);
       previousReplaced = false;
       continue;
     }
     // Une ligne de pointillés seule, juste après une zone remplie, n'était que la
     // suite de cette zone : elle disparaît avec elle.
-    if (previousReplaced && ONLY_BLANK_RE.test(block.text)) continue;
+    if (previousReplaced && ONLY_BLANK_RE.test(block.text)) {
+      lines.push(null);
+      continue;
+    }
 
     const option = DURATION_OPTION.exec(block.text);
     if (option && !durationOptions.some((o) => o.number === Number(option[1]))) {
@@ -164,14 +178,14 @@ export function prepareDipcForTablet(markdown: string): PreparedDipc {
       durationOptions.push({ number, label: option[2]!.replace(/\[\d+\]$/, "").trim(), hasDates: DATE_MASK.test(option[2]!) });
       DATE_MASK.lastIndex = 0;
       durationOriginals.set(number, block.text);
-      blocks.push({ ...block, text: durationOptionText(number, option[2]!) });
+      lines.push({ ...block, text: durationOptionText(number, option[2]!) });
       continue;
     }
 
     const replaced = applyRules(block.text);
     if (replaced !== null) {
       identityZones += 1;
-      blocks.push({ ...block, text: replaced });
+      lines.push({ ...block, text: replaced });
       previousReplaced = true;
       continue;
     }
@@ -182,10 +196,10 @@ export function prepareDipcForTablet(markdown: string): PreparedDipc {
       const id = `saisie.${freeFields.length + 1}`;
       // Le libellé est la ligne du contrat juste au-dessus (« Objectifs de
       // l'accompagnement ») — sauf si c'est déjà une zone à remplir.
-      const above = blocks[blocks.length - 1]?.text ?? "";
+      const above = lastKept();
       const label = above && !above.startsWith("{{") ? above : "À compléter";
       freeFields.push({ id, label, hint: [toComplete[1], toComplete[2]].filter(Boolean).join(" ").trim() });
-      blocks.push({ ...block, text: `{{${id}}}${toComplete[2] ? ` ${toComplete[2]}` : ""}` });
+      lines.push({ ...block, text: `{{${id}}}${toComplete[2] ? ` ${toComplete[2]}` : ""}` });
       continue;
     }
 
@@ -193,7 +207,7 @@ export function prepareDipcForTablet(markdown: string): PreparedDipc {
     if (open) {
       const id = `saisie.${freeFields.length + 1}`;
       freeFields.push({ id, label: open[1]!.replace(/\s*:$/, ""), hint: "" });
-      blocks.push({ ...block, text: `${open[1]} {{${id}}}` });
+      lines.push({ ...block, text: `${open[1]} {{${id}}}` });
       continue;
     }
 
@@ -201,20 +215,20 @@ export function prepareDipcForTablet(markdown: string): PreparedDipc {
     if (checkbox) {
       const id = `coche.${checkFields.length + 1}`;
       checkFields.push({ id, label: checkbox[1]!.trim() });
-      blocks.push({ ...block, text: `{{${id}}} ${checkbox[1]!.trim()}` });
+      lines.push({ ...block, text: `{{${id}}} ${checkbox[1]!.trim()}` });
       continue;
     }
-    blocks.push(block);
+    lines.push(block);
   }
   // Un choix n'a de sens qu'à deux options au moins ; seule, une « Option n°1 » est
   // un paragraphe comme un autre et reste telle quelle.
   if (durationOptions.length === 1) {
     const single = durationOptions[0]!;
-    const index = blocks.findIndex((b) => b.text.startsWith(`{{${DURATION_FIELDS.option(single.number)}}}`));
-    blocks[index] = { ...blocks[index]!, text: durationOriginals.get(single.number)! };
+    const index = lines.findIndex((b) => b !== null && b.text.startsWith(`{{${DURATION_FIELDS.option(single.number)}}}`));
+    lines[index] = { ...lines[index]!, text: durationOriginals.get(single.number)! };
   }
   const durationChoice = durationOptions.length >= 2 ? { options: durationOptions } : null;
-  return { blocks, freeFields, checkFields, durationChoice, identityZones };
+  return { lines, freeFields, checkFields, durationChoice, identityZones };
 }
 
 // Zones restées vides, pour le compter à l'écran.

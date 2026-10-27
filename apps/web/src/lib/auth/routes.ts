@@ -66,6 +66,9 @@ export function classifyPath(pathname: string): PathAccess {
   if (pathname.startsWith(QUIZ_PUBLIC_PREFIX) && /^\/quiz\/[A-Za-z0-9_-]+$/.test(pathname)) return "ANONYMOUS";
   if (/^\/confirmer-email(?:\/[A-Za-z0-9_-]+)?$/.test(pathname)) return "ANONYMOUS";
   if (TABLET_PATHS.includes(pathname)) return "ANONYMOUS";
+  // Le Word d'origine du DIPEC, pour la tablette (27/10/2026) : même garde que ses
+  // pages (appareil + code), vérifiée par la route ; un seul segment après le préfixe.
+  if (/^\/api\/tablette\/dipec\/[A-Za-z0-9_-]+$/.test(pathname)) return "ANONYMOUS";
   if (/^\/enquete\/[A-Za-z0-9_-]+$/.test(pathname)) return "ANONYMOUS";
   return "PROTECTED";
 }
