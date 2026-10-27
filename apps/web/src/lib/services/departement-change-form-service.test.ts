@@ -32,6 +32,8 @@ const record: AdmissionRecord = {
   dipc: { versionId: "v", versionNumber: 2, validatedOn: "2026-10-07", sha256: "0" },
   pdfFileName: "x.pdf",
   pdfSha256: "0",
+  outcome: "SIGNE",
+  refusal: null,
 };
 const structure = { name: "SAD Fictif", address: "1 avenue Fictive" };
 const today = new Date("2026-10-27T10:00:00Z");

@@ -154,7 +154,7 @@ export function TabletDemo() {
           dipc={{ ...DEMO_DIPC, sha256: demoDipcSha }}
           person={{ personId: screen.personId, lastName: "Rousseau (fictif)", firstName: "Germaine" }}
           onCancel={() => go({ kind: "home" })}
-          onSigned={async (record, pdf) => {
+          onRecorded={async (record, pdf) => {
             setContracts((all) => ({ ...all, [record.id]: pdf }));
             setPeople((list) => [
               ...list,
@@ -167,8 +167,13 @@ export function TabletDemo() {
 
       {screen.kind === "admission-done" && (
         <section role="status" className="mx-auto flex max-w-[760px] flex-col items-center gap-5 text-center">
-          <h1 className="text-[34px] font-bold">Contrat signé (démonstration)</h1>
-          <p className="text-[20px]">{fullName(screen.record.identity)} · rien n&apos;est enregistré. En service réel, le contrat reste sur la tablette, s&apos;envoie à la personne et s&apos;exporte vers Ximi.</p>
+          <h1 className="text-[34px] font-bold">{screen.record.outcome === "REFUS" ? "Refus enregistré (démonstration)" : "Contrat signé (démonstration)"}</h1>
+          <p className="text-[20px]">
+            {fullName(screen.record.identity)} · rien n&apos;est enregistré.{" "}
+            {screen.record.outcome === "REFUS"
+              ? `En service réel, le refus est noté dans son dossier et le contrat lui sera reproposé le ${screen.record.refusal?.reproposeOn.split("-").reverse().join("/") ?? ""}.`
+              : "En service réel, le contrat reste sur la tablette, s'envoie à la personne et s'exporte vers Ximi."}
+          </p>
           <button
             type="button"
             className="inline-flex min-h-16 w-full items-center justify-center rounded-2xl bg-accent-fill px-6 text-[21px] font-bold text-on-accent"
@@ -177,11 +182,13 @@ export function TabletDemo() {
               if (pdf) downloadBlob(screen.record.pdfFileName, pdf);
             }}
           >
-            Voir le contrat (PDF)
+            {screen.record.outcome === "REFUS" ? "Voir l'attestation de refus (PDF)" : "Voir le contrat (PDF)"}
           </button>
-          <button type="button" className="inline-flex min-h-16 w-full items-center justify-center rounded-2xl border border-ink bg-card px-6 text-[19px]" onClick={() => go({ kind: "admission-form", record: screen.record })}>
-            Formulaire du Département (APA, PCH, aide-ménagère)
-          </button>
+          {screen.record.outcome === "SIGNE" && (
+            <button type="button" className="inline-flex min-h-16 w-full items-center justify-center rounded-2xl border border-ink bg-card px-6 text-[19px]" onClick={() => go({ kind: "admission-form", record: screen.record })}>
+              Formulaire du Département (APA, PCH, aide-ménagère)
+            </button>
+          )}
           <button type="button" className="inline-flex min-h-16 w-full items-center justify-center rounded-2xl border border-ink bg-card px-6 text-[19px]" onClick={() => go({ kind: "dossier", personId: screen.record.personId })}>
             Ouvrir son dossier
           </button>

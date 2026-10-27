@@ -409,8 +409,15 @@ Détail complet et état d'avancement : `specs/02-architecture-technique.md` §4
   remplace », cochées par la personne. **Durée du contrat** : les options « n°1 durée
   indéterminée / n°2 durée déterminée du … au … » du DIPC deviennent un choix sur la
   tablette (indéterminée proposée d'emblée, CASF L347-1 rappelé en note du DIPC de
-  l'ASSAD), ☒ / ☐ et dates écrits dans le contrat. Reste : refus de signer tracé
-  (HAS 1.7.4).
+  l'ASSAD), ☒ / ☐ et dates écrits dans le contrat. **Refus de signer (27/10/2026, HAS
+  1.7.3 / 1.7.4)** : dès que le contrat a été présenté, « La personne ne souhaite pas
+  signer » enregistre le REFUS sur la même fiche (`AdmissionRecord.outcome = "REFUS"`,
+  motif facultatif — elle n'a pas à se justifier —, date pour reproposer exigée, non
+  passée, un mois par défaut) et fabrique une attestation (`planRefusalDocument`) qui
+  ne fait rien signer, ne recopie pas le contrat non conclu, et dit point par point ce
+  qui a été expliqué ; la liste affiche « à reproposer le … », puis « maintenant » à
+  l'échéance ; l'index d'export porte l'issue (Signé / Refusé) et la date. Un
+  enregistrement antérieur sans `outcome` se relit comme signé.
 
 ## 7. Ce que Claude Code ne doit PAS faire
 

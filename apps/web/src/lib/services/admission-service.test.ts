@@ -20,6 +20,9 @@ import {
   latestAdmissionFor,
   mergeDipcText,
   parseStoredAdmission,
+  admissionState,
+  defaultReproposeOn,
+  refusalProblems,
   requiredSigners,
   signingProblems,
   type AdmissionContact,
@@ -76,6 +79,8 @@ function record(overrides: Partial<AdmissionRecord> = {}): AdmissionRecord {
     dipc: { versionId: "v1", versionNumber: 3, validatedOn: "2026-10-01", sha256: "a".repeat(64) },
     pdfFileName: "f.pdf",
     pdfSha256: "b".repeat(64),
+    outcome: "SIGNE",
+    refusal: null,
     ...overrides,
   };
 }
@@ -165,7 +170,7 @@ describe("fichiers et export", () => {
   it("index CSV : une ligne par contrat, formules neutralisées, BOM pour Excel", () => {
     const csv = buildAdmissionsCsv([record({ identity: { ...identity, city: "=CMD()" } })]);
     expect(csv.startsWith("﻿Nom de naissance;")).toBe(true);
-    expect(csv).toContain("DURAND;MARTIN;Paulette;12/04/1938;93000;'=CMD();;v3;26/10/2026;La personne accompagnée + Pour le service;f.pdf;" + "b".repeat(64));
+    expect(csv).toContain("DURAND;MARTIN;Paulette;12/04/1938;93000;'=CMD();;v3;Signé;26/10/2026;La personne accompagnée + Pour le service;;f.pdf;" + "b".repeat(64));
   });
 
   it("la base de la tablette porte la structure", () => {
@@ -236,5 +241,43 @@ describe("durée du contrat", () => {
       "duree.debut": "02/11/2026",
       "duree.fin": "01/11/2027",
     });
+  });
+});
+
+describe("refus de signer (HAS 1.7.3 / 1.7.4)", () => {
+  const refused = record({
+    outcome: "REFUS",
+    refusal: { reason: "Veut en parler avec sa fille", reproposeOn: "2026-11-26" },
+    signers: [],
+    pdfFileName: "refus.pdf",
+  });
+
+  it("motif facultatif, date pour reproposer exigée et non passée", () => {
+    expect(refusalProblems({ reason: "", reproposeOn: "2026-11-26" }, today)).toEqual([]);
+    expect(refusalProblems({ reason: "", reproposeOn: "" }, today)).toEqual(["Écrivez la date à laquelle le contrat lui sera reproposé."]);
+    expect(refusalProblems({ reason: "", reproposeOn: "2026-10-01" }, today)).toEqual(["La date pour reproposer le contrat est déjà passée."]);
+    expect(refusalProblems({ reason: "x".repeat(501), reproposeOn: "2026-11-26" }, today)[0]).toMatch(/trop long/);
+    expect(defaultReproposeOn(today)).toBe("2026-11-26");
+  });
+
+  it("l'état dit le refus et quand reproposer ; à l'échéance, « maintenant »", () => {
+    expect(admissionState(null, today)).toEqual({ state: "A_FAIRE", label: "DIPC à faire signer" });
+    expect(admissionState(record(), today)).toEqual({ state: "SIGNE", label: "Signé le 26/10/2026" });
+    expect(admissionState(refused, today)).toEqual({ state: "REFUS", label: "Refus le 26/10/2026 · à reproposer le 26/11/2026" });
+    expect(admissionState(refused, new Date("2026-11-26T10:00:00Z")).state).toBe("A_REPROPOSER");
+    expect(admissionState(record({ signedAt: "2025-09-01T09:00:00.000Z" }), today).state).toBe("A_REVOIR");
+  });
+
+  it("nom de fichier et index d'export disent le refus", () => {
+    expect(admissionPdfFileName("SAD Fictif", identity, today, "REFUS")).toBe("20261026_REFUS-DIPC_SAD-Fictif_Martin-Paulette_v01_Externe.pdf");
+    expect(buildAdmissionsCsv([refused])).toContain(";v3;Refusé;26/10/2026;;26/11/2026;refus.pdf;");
+  });
+
+  it("relecture : un enregistrement d'avant le 27/10 est un contrat signé ; un refus garde motif et date", () => {
+    const legacy: Record<string, unknown> = { ...record() };
+    delete legacy.outcome;
+    delete legacy.refusal;
+    expect(parseStoredAdmission(JSON.parse(JSON.stringify(legacy)))).toMatchObject({ outcome: "SIGNE", refusal: null });
+    expect(parseStoredAdmission(JSON.parse(JSON.stringify(refused)))).toEqual(refused);
   });
 });
