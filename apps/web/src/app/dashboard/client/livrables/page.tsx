@@ -7,7 +7,7 @@ import { DocumentDownloadLink } from "@/components/checklist/DocumentDownloadLin
 import { DocumentPreviewLink } from "@/components/checklist/DocumentPreviewLink";
 import { formatDate } from "@/lib/services/date-format-service";
 import { StatusPill } from "@/components/ui/status-pill";
-import { DELIVERABLE_PILLS } from "@/lib/design/status-vocabulary";
+import { DELIVERABLE_PILLS, DOCUMENT_PILLS } from "@/lib/design/status-vocabulary";
 import {
   countDeliverablesInProgress,
   groupDeliverablesByCategory,
@@ -120,6 +120,9 @@ export default async function ClientDeliverablesPage() {
                         {isNewDeliverable(deliverable, seenAt) && (
                           <StatusPill pill={DELIVERABLE_PILLS.nouveau} />
                         )}
+                        {/* Le geste fait dans « Mes documents » se voit ici aussi
+                            (23/10/2026) — même fait, `clientAccepted`. */}
+                        {deliverable.clientAccepted && <StatusPill pill={DOCUMENT_PILLS.accepteParVous} />}
                       </p>
                       <p className="text-xs text-ink2">
                         {deliverable.filename} · remis le {formatDate(deliverable.remittedOn)}
@@ -148,7 +151,7 @@ export default async function ClientDeliverablesPage() {
                                   </span>
                                 </span>
                                 <span className="flex items-center gap-4">
-                                  <DocumentPreviewLink documentVersionId={version.id} />
+                                  <DocumentPreviewLink documentVersionId={version.id} originalFilename={version.originalFilename} />
                                   <DocumentDownloadLink documentVersionId={version.id} pdfUrl={null} />
                                 </span>
                               </li>
@@ -158,7 +161,7 @@ export default async function ClientDeliverablesPage() {
                       )}
                     </div>
                     <div className="flex flex-shrink-0 items-center gap-4">
-                      <DocumentPreviewLink documentVersionId={deliverable.documentVersionId} />
+                      <DocumentPreviewLink documentVersionId={deliverable.documentVersionId} originalFilename={deliverable.filename} />
                       <DocumentDownloadLink
                         documentVersionId={deliverable.documentVersionId}
                         // Ce dont on sait produire les pages s'exporte aussi en PDF :

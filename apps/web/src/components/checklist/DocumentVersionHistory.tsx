@@ -115,7 +115,11 @@ function VersionRow({
           passage à la ligne, « Réanalyser » partait derrière un défilement horizontal
           (retour du 21/10/2026). */}
       <span className="flex w-full flex-wrap items-center gap-x-3 gap-y-2">
-        <DocumentPreviewLink documentVersionId={version.id} canViewExtractedText={canManageVersions} />
+        <DocumentPreviewLink
+          documentVersionId={version.id}
+          originalFilename={version.originalFilename}
+          canViewExtractedText={canManageVersions}
+        />
         <DocumentDownloadLink
           documentVersionId={version.id}
           // Même prédicat que celui qui décide de l'aperçu paginé : ce dont on sait

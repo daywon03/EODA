@@ -13,8 +13,12 @@ export const metadata: Metadata = { title: "Enquête de satisfaction", robots: {
 // garde que l'accueil : appareil enregistré + salarié connecté avec son code ; sinon
 // retour à l'accueil, qui dit quoi faire. L'action d'envoi revérifie la session. La
 // liste des personnes vit dans le navigateur (TabletSurvey) : la page ne la voit pas.
-export default async function TabletSurveyPage() {
+export default async function TabletSurveyPage({ searchParams }: { searchParams: Promise<{ personne?: string | string[] }> }) {
   const session = await resolveTabletSession();
+  // Identifiant de la liste locale de la tablette (arrivée depuis un contrat signé) :
+  // la page le relaie sans le lire ni le garder.
+  const personne = (await searchParams).personne;
+  const initialPersonId = typeof personne === "string" && /^[\w-]{1,64}$/.test(personne) ? personne : null;
   if (!session) redirect("/tablette");
   const templates = await getTabletAnonymousSurveyTemplates();
   if (!templates) redirect("/tablette");
@@ -29,6 +33,7 @@ export default async function TabletSurveyPage() {
           structureName={session.establishmentName}
           listedNotice={LISTED_SURVEY_NOTICE}
           anonymousNotice={ANONYMOUS_SURVEY_NOTICE}
+          initialPersonId={initialPersonId}
         />
       </TabletMain>
     </div>

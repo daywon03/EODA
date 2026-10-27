@@ -4,6 +4,7 @@ import { PRACTICE_QUESTIONNAIRE } from "@/content/pratiques/questions";
 import { SURVEY_TEMPLATES } from "@/content/enquete";
 import { RECEPTION_DOCUMENTS } from "@/content/enquete/reception";
 import { DISCOVERY_GRID } from "@/content/decouverte/grille";
+import { allAdmissionPoints } from "@/content/admission/explications";
 import { buildContentReviewCatalog, CONTENT_REVIEW_STATUS, countReviewItems } from "./content-review-service";
 
 const catalog = buildContentReviewCatalog(new Map([["L2002_LIVRET_ACCUEIL", "Livret d'accueil"]]));
@@ -11,8 +12,8 @@ const family = (id: string) => catalog.families.find((f) => f.id === id)!;
 const valueOf = (fields: readonly { label: string; value: string }[], label: string) => fields.find((f) => f.label === label)?.value;
 
 describe("buildContentReviewCatalog — tout le contenu provisoire, rien d'oublié", () => {
-  it("les cinq familles, dans l'ordre, et le statut « à valider par Sandrine »", () => {
-    expect(catalog.families.map((f) => f.id)).toEqual(["QUIZ", "PRATIQUES", "ENQUETE", "DECOUVERTE", "RECEPTION"]);
+  it("les six familles, dans l'ordre, et le statut « à valider par Sandrine »", () => {
+    expect(catalog.families.map((f) => f.id)).toEqual(["QUIZ", "PRATIQUES", "ENQUETE", "DECOUVERTE", "RECEPTION", "ADMISSION"]);
     expect(catalog.status).toBe(CONTENT_REVIEW_STATUS);
     expect(CONTENT_REVIEW_STATUS).toMatch(/à valider par Sandrine/);
   });
@@ -58,6 +59,15 @@ describe("buildContentReviewCatalog — tout le contenu provisoire, rien d'oubli
   it("découverte et feuille de réception : chaque champ, chaque point", () => {
     expect(countReviewItems(family("DECOUVERTE"))).toBe(DISCOVERY_GRID.sections.reduce((n, s) => n + s.fields.length, 0));
     expect(countReviewItems(family("RECEPTION"))).toBe(RECEPTION_DOCUMENTS.reduce((n, d) => n + d.points.length, 0));
+  });
+
+  it("accueil et DIPC : chaque point, avec critères, nature, source et ce qui reste à confirmer", () => {
+    expect(countReviewItems(family("ADMISSION"))).toBe(allAdmissionPoints().length);
+    const items = family("ADMISSION").groups.flatMap((g) => g.items);
+    const trust = items.find((i) => i.id === "personne-confiance")!;
+    expect(valueOf(trust.fields, "Critères HAS")).toBe("1.2.3");
+    expect(valueOf(trust.fields, "Nature")).toBe("Obligation");
+    expect(valueOf(items.find((i) => i.id === "retractation")!.fields, "À confirmer")).toMatch(/Sandrine/);
   });
 
   it("n'affiche jamais un champ vide, et garde un code de document inconnu tel quel", () => {

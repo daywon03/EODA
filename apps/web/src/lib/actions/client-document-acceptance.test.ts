@@ -77,6 +77,19 @@ describe("acceptDocument — cas nominal", () => {
     );
   });
 
+  // 23/10/2026 : accepter dans « Mes documents » ne se voyait pas dans « Mes livrables ».
+  it("rafraîchit « Mes livrables » comme « Mes documents » et la fiche cabinet", async () => {
+    const { revalidatePath } = await import("next/cache");
+    givenDocument({ analysisReviewedAt: new Date("2026-10-02") });
+
+    await acceptDocument(ETAB, TYPE);
+
+    const paths = vi.mocked(revalidatePath).mock.calls.map(([path]) => path);
+    expect(paths).toEqual(
+      expect.arrayContaining(["/dashboard/client/documents", "/dashboard/client/livrables", `/dashboard/cabinet/etablissements/${ETAB}`])
+    );
+  });
+
   it("autonomie : accepte l'analyse affichée sous la réserve, même non relue", async () => {
     getEstablishmentSupportMode.mockResolvedValue("AUTONOMIE");
     givenDocument();

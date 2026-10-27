@@ -71,6 +71,38 @@ describe("colonnes", () => {
     expect(splitFullName("Paul Durand")).toEqual({ lastName: "Paul Durand", firstName: "" });
     expect(splitFullName("DURAND")).toEqual({ lastName: "DURAND", firstName: "" });
   });
+
+  it("coupe « NOM, Prénom » sur la virgule (export Clients de Ximi)", () => {
+    expect(splitFullName("DURAND, Paul")).toEqual({ lastName: "DURAND", firstName: "Paul" });
+    expect(splitFullName("DE LA FONTAINE, Anne Marie")).toEqual({ lastName: "DE LA FONTAINE", firstName: "Anne Marie" });
+    expect(splitFullName("Petit,Léa")).toEqual({ lastName: "Petit", firstName: "Léa" });
+  });
+});
+
+describe("planRosterImport — export « Clients » de Ximi (forme mesurée, noms fictifs)", () => {
+  const ximi = [
+    ["Client (Clients (Générale)) - 22/10/2026 16:33 - Prénom EXPORTATEUR"],
+    [],
+    ["Nom", "Stade", "Statut", "Code", "Type", "Entité", "CP", "Besoins", "Secteur", "Equipe principale", "Service"],
+    ["DURAND, Paul", "Client", "Actif", "AB0000000001", "Particulier", "XXXX", "93000", "Aide", "2", "", "SAAD"],
+    ["DE LA FONTAINE, Anne-Marie", "Client", "Actif", "AB0000000002", "Particulier", "XXXX", "93000", "", "3", "", "SAAD"],
+  ];
+
+  it("saute la ligne de titre, trouve l'en-tête en ligne 3, coupe sur la virgule", () => {
+    const plan = planRosterImport(ximi);
+    expect(plan.people).toEqual([
+      { lastName: "DURAND", firstName: "Paul" },
+      { lastName: "DE LA FONTAINE", firstName: "Anne-Marie" },
+    ]);
+    expect(plan.issues).toEqual([]);
+  });
+
+  it("n'importe ni le titre (qui nomme l'exportateur) ni les autres colonnes", () => {
+    const serialized = JSON.stringify(planRosterImport(ximi));
+    expect(serialized).not.toContain("EXPORTATEUR");
+    expect(serialized).not.toContain("93000");
+    expect(serialized).not.toContain("AB0000000001");
+  });
 });
 
 describe("planRosterImport", () => {

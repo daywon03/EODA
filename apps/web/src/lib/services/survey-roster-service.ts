@@ -141,7 +141,11 @@ export function detectRosterColumns(firstRow: readonly string[]): RosterColumns 
 
 // « DUPONT Marie » → nom DUPONT, prénom Marie : les mots en capitales en tête sont le
 // nom. Sans capitales, tout le texte devient le nom — on ne devine pas une coupure.
+// « DUPONT, Marie » (export « Clients » de Ximi, colonne « Nom » seule, mesuré le
+// 26/10/2026) : la virgule EST la coupure, quelle que soit la casse.
 export function splitFullName(value: string): { lastName: string; firstName: string } {
+  const comma = cleanName(value).match(/^([^,]+),\s*(.+)$/);
+  if (comma) return { lastName: cleanName(comma[1]!), firstName: cleanName(comma[2]!) };
   const words = cleanName(value).split(" ").filter(Boolean);
   const isUpper = (w: string) => /\p{L}/u.test(w) && w === w.toLocaleUpperCase("fr-FR") && w.length > 1;
   let cut = 0;
@@ -152,17 +156,33 @@ export function splitFullName(value: string): { lastName: string; firstName: str
 
 // ── Plan d'import ────────────────────────────────────────────────────────────
 
+// Un export de logiciel métier peut précéder son tableau d'une ligne de titre
+// (Ximi : « Client (Clients (Générale)) - date - nom de qui a exporté », puis une
+// ligne vide, puis les en-têtes en ligne 3 — mesuré le 26/10/2026). On cherche donc
+// la ligne d'en-tête parmi les premières lignes ; sans en-tête reconnu, la première
+// ligne non vide est déjà une personne.
+const HEADER_SEARCH_ROWS = 10;
+
+function locateTable(rows: readonly (readonly string[])[]): { start: number; columns: RosterColumns } | null {
+  const filled = rows.map((row, index) => ({ row, index })).filter(({ row }) => row.some((cell) => cleanName(cell) !== ""));
+  if (filled.length === 0) return null;
+  for (const { row, index } of filled.slice(0, HEADER_SEARCH_ROWS)) {
+    const columns = detectRosterColumns(row);
+    if (columns.headerRow) return { start: index + 1, columns };
+  }
+  return { start: filled[0]!.index, columns: detectRosterColumns(filled[0]!.row) };
+}
+
 export function planRosterImport(rows: readonly (readonly string[])[], existing: readonly RosterPerson[] = []): RosterImportPlan {
   const people: RosterImportPlan["people"] = [];
   const issues: RosterImportIssue[] = [];
-  const firstIndex = rows.findIndex((row) => row.some((cell) => cleanName(cell) !== ""));
-  if (firstIndex < 0) return { people, issues };
-  const columns = detectRosterColumns(rows[firstIndex]!);
+  const table = locateTable(rows);
+  if (!table) return { people, issues };
+  const { columns } = table;
   const seen = new Set(existing.map((p) => personKey(p.lastName, p.firstName)));
-  const start = columns.headerRow ? firstIndex + 1 : firstIndex;
   let capacity = ROSTER_MAX_PEOPLE - existing.length;
 
-  for (let index = start; index < rows.length; index += 1) {
+  for (let index = table.start; index < rows.length; index += 1) {
     const row = rows[index]!;
     const line = index + 1;
     if (row.every((cell) => cleanName(cell) === "")) continue;

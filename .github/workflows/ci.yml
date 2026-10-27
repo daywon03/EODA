@@ -3,8 +3,10 @@ name: CI
 on:
   push:
     branches: [main, develop]
+  # `develop` aussi (23/10/2026) : une PR vers develop n'était vérifiée qu'APRÈS sa
+  # fusion — la PR #26 paraissait verte (Vercel seul) et develop est passée au rouge.
   pull_request:
-    branches: [main]
+    branches: [main, develop]
 
 env:
   # CI utilise PostgreSQL local — Prisma Postgres pour dev/prod (voir .env.example)
@@ -17,6 +19,9 @@ jobs:
   ci:
     name: Secrets · Typecheck · Lint · Tests · Build
     runs-on: ubuntu-latest
+    # Un run complet dure ~4-5 min. Sans plafond, une étape bloquée (les migrations sur
+    # main, 22/10/2026) occupait le runner 47 min avant d'échouer sans journal.
+    timeout-minutes: 20
 
     services:
       postgres:
