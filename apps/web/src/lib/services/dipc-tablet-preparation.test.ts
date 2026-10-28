@@ -48,6 +48,43 @@ const prepared = prepareDipcForTablet(DIPEC);
 const texts = prepared.blocks.map((b) => b.text);
 const annexStart = prepared.blocks.findIndex((b) => b.kind === "heading" && b.text.startsWith("ANNEXE"));
 
+describe("mode de paiement (call du 28/10/2026)", () => {
+  const withPayment = prepareDipcForTablet(
+    [
+      "Elle est adressée dans les premiers jours du mois suivant.",
+      "Le client devra régler la facture par :",
+      "*   **Prélèvement automatique**",
+      "*   **Chèque bancaire**",
+      "*   **Virement bancaire**",
+      "Les tarifs des prestations sont susceptibles d’évoluer annuellement.",
+      "☐ Le livret d’accueil",
+    ].join("\n\n")
+  );
+
+  it("chaque mode listé après « régler la facture par » devient une case paiement.N", () => {
+    expect(withPayment.checkFields).toEqual([
+      { id: "paiement.1", label: "Prélèvement automatique" },
+      { id: "paiement.2", label: "Chèque bancaire" },
+      { id: "paiement.3", label: "Virement bancaire" },
+      { id: "coche.4", label: "Le livret d’accueil" },
+    ]);
+    const lines = withPayment.blocks.map((b) => b.text);
+    expect(lines).toContain("Le client devra régler la facture par :");
+    expect(lines).toContain("{{paiement.2}} Chèque bancaire");
+  });
+
+  it("la liste s'arrête à la première vraie phrase", () => {
+    expect(withPayment.blocks.map((b) => b.text)).toContain(
+      "Les tarifs des prestations sont susceptibles d’évoluer annuellement."
+    );
+  });
+
+  it("sans phrase d'annonce, une liste courte reste une liste", () => {
+    const plain = prepareDipcForTablet(["Les aides possibles :", "*   Aide au repas"].join("\n\n"));
+    expect(plain.checkFields).toEqual([]);
+  });
+});
+
 describe("cleanMarkdownText", () => {
   it("retire gras, échappements, liens, renvois de note", () => {
     expect(cleanMarkdownText("**Article 1** – voir \\[ici\\] [la loi](https://x.fr) et [\\[2\\]](#footnote-2)")).toBe("Article 1 – voir [ici] la loi et [2]");

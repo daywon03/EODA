@@ -29,7 +29,9 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const ADMISSION_EXPLANATIONS_PROVISIONAL = true;
-export const ADMISSION_EXPLANATIONS_VERSION = 1;
+// v2 (28/10/2026) : « plainte ou réclamation », section « Sa sécurité et ses données »
+// (EI, maltraitance, crise, RGPD), fiches de sensibilisation remises.
+export const ADMISSION_EXPLANATIONS_VERSION = 2;
 
 export type ExplanationNature = "OBLIGATION" | "CHOIX_STRUCTURE";
 
@@ -123,10 +125,54 @@ export const ADMISSION_EXPLANATIONS: readonly AdmissionExplanationSection[] = [
       },
       {
         id: "reclamation",
-        label: "Expliquer comment faire une réclamation, et à qui s'adresser",
-        criteria: ["1.2.5"],
+        // « plainte ou réclamation » : les deux mots du critère 3.12 (call du 28/10/2026).
+        label: "Expliquer comment faire une plainte ou une réclamation, et à qui s'adresser",
+        hint: "Montrer la fiche de sensibilisation « plainte ou réclamation ».",
+        criteria: ["1.2.5", "3.12.2"],
         nature: "OBLIGATION",
-        source: "HAS 1.2.5 · règlement de fonctionnement",
+        source: "HAS 1.2.5 · 3.12.2 (impératif) · règlement de fonctionnement · fiches de sensibilisation du 19/10",
+      },
+    ],
+  },
+  {
+    // Ajouté le 28/10/2026 (call avec Sandrine) : les fiches de sensibilisation
+    // « personne accompagnée » doivent être montrées et expliquées à l'accueil — la
+    // personne doit pouvoir dire, le jour de l'évaluation, « on me l'a expliqué, on me
+    // l'a montré, je sais où le trouver ». Codes relus dans
+    // `.claude/context/02-referentiel-has.md` §4 (critères impératifs SAD).
+    id: "securite",
+    title: "Sa sécurité et ses données",
+    points: [
+      {
+        id: "evenement-indesirable",
+        label: "Expliquer ce qu'est un événement indésirable, et comment le signaler",
+        hint: "Une chute, un oubli, un incident : la personne ou ses proches peuvent le dire au service.",
+        criteria: ["3.13.2"],
+        nature: "OBLIGATION",
+        source: "HAS 3.13.2 (impératif) · fiches de sensibilisation du 19/10",
+      },
+      {
+        id: "prevention-maltraitance",
+        label: "Expliquer comment le service prévient la maltraitance, et à qui le dire",
+        hint: "Rappeler le 3977 (numéro national contre la maltraitance des personnes âgées et handicapées).",
+        criteria: ["3.11.1"],
+        nature: "OBLIGATION",
+        source: "HAS 3.11.1 (impératif) · fiches de sensibilisation du 19/10",
+      },
+      {
+        id: "gestion-crise",
+        label: "Expliquer ce que fait le service en cas de crise (canicule, grand froid, coupure, épidémie)",
+        criteria: ["3.14.2"],
+        nature: "OBLIGATION",
+        source: "HAS 3.14.2 (impératif) · fiches de sensibilisation du 19/10",
+      },
+      {
+        id: "donnees-personnelles",
+        label: "Expliquer comment ses données personnelles sont protégées (RGPD), et ses droits",
+        hint: "Qui les voit, combien de temps elles sont gardées, comment demander à les voir ou les corriger.",
+        criteria: ["2.2.7"],
+        nature: "OBLIGATION",
+        source: "HAS 2.2.7 (impératif) · RGPD · fiches de sensibilisation du 19/10",
       },
     ],
   },
@@ -214,6 +260,9 @@ export const ADMISSION_HANDED_DOCUMENTS = [
   { id: "reglement", label: "Règlement de fonctionnement" },
   { id: "personnes-qualifiees", label: "Liste des personnes qualifiées" },
   { id: "coupon-confiance", label: "Coupon « personne de confiance »" },
+  // Call du 28/10/2026 : les fiches de sensibilisation « personne accompagnée » vont
+  // dans son dossier, papier et électronique.
+  { id: "fiches-sensibilisation", label: "Fiches de sensibilisation (plainte, événement indésirable, maltraitance, crise, données)" },
 ] as const;
 
 export type HandedDocumentId = (typeof ADMISSION_HANDED_DOCUMENTS)[number]["id"];
