@@ -10,6 +10,7 @@ import {
   buildClientInvitationEmail,
   buildDocumentAvailableEmail,
   buildDocumentReminderEmail,
+  buildNewDocumentTypeEmail,
   buildNewMessageEmail,
   buildOptionRequestEmail,
   buildStructureActivityEmail,
@@ -413,6 +414,51 @@ export async function notifyStructureActivity(input: {
   } catch (error) {
     console.error(
       "Activité de la structure — envoi impossible :",
+      error instanceof Error ? error.message : "erreur inconnue"
+    );
+    return { sent: 0, total: 0 };
+  }
+}
+
+// Nouvelle ligne dans « Documents » → les interlocuteurs d'UNE structure (28/10/2026).
+// L'appelant décide quelles structures sont concernées
+// (`shouldAnnounceNewDocumentType`) ; cette fonction n'envoie qu'à ses comptes actifs
+// (`findClientRecipients`, même filtre que la relance et l'annonce d'un livrable).
+// Ne fait jamais échouer la création : la ligne existe déjà quand l'e-mail part.
+export async function notifyNewDocumentType(input: {
+  establishmentId: string;
+  establishmentName: string;
+  documentLabel: string;
+  requestedFromClient: boolean;
+}): Promise<{ sent: number; total: number }> {
+  try {
+    const recipients = await findClientRecipients(input.establishmentId);
+    if (recipients.length === 0) return { sent: 0, total: 0 };
+
+    const portalUrl = appUrl("/dashboard/client");
+    const port = getEmailPort();
+    const results = await Promise.allSettled(
+      recipients.map((recipient) => {
+        const content = buildNewDocumentTypeEmail({
+          recipientName: recipient.name ?? "Madame, Monsieur",
+          establishmentName: input.establishmentName,
+          documentLabel: input.documentLabel,
+          requestedFromClient: input.requestedFromClient,
+          portalUrl,
+          brand: { logoUrl: appUrl("/logo-eoda.png") },
+        });
+        return port.send({ to: recipient.email, subject: content.subject, html: content.html });
+      })
+    );
+
+    const { sent, failed } = countDeliveries(results);
+    if (failed > 0) {
+      console.error(`Annonce d'un nouveau document — ${failed}/${recipients.length} envoi(s) échoué(s).`);
+    }
+    return { sent, total: recipients.length };
+  } catch (error) {
+    console.error(
+      "Annonce d'un nouveau document — envoi impossible :",
       error instanceof Error ? error.message : "erreur inconnue"
     );
     return { sent: 0, total: 0 };

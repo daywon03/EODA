@@ -329,6 +329,54 @@ export function buildDocumentAvailableEmail(input: {
   };
 }
 
+// ── Nouvelle ligne dans « Documents » (28/10/2026) ───────────────────────────
+//
+// Le cabinet ajoute un document à la liste — une fois, pour toutes les structures.
+// La structure l'apprend, avec la seule chose qui compte pour elle : est-ce à elle
+// de le fournir, ou à EODA de le préparer ? Seul l'INTITULÉ voyage, comme partout.
+export function buildNewDocumentTypeEmail(input: {
+  recipientName: string;
+  establishmentName: string;
+  documentLabel: string;
+  requestedFromClient: boolean;
+  portalUrl: string;
+  brand?: BrandAssets;
+}): EmailContent {
+  const label = escapeHtml(input.documentLabel);
+  const structure = escapeHtml(input.establishmentName);
+
+  const announcement = input.requestedFromClient
+    ? `EODA Conseil ajoute le document <strong>${label}</strong> à la liste de
+       ${structure}. Il vous est demandé : vous pouvez le déposer dans votre espace,
+       rubrique « Mes documents ». Si vous ne l'avez pas, dites-le sur la même ligne.`
+    : `EODA Conseil ajoute le document <strong>${label}</strong> à l'accompagnement de
+       ${structure}. Vous n'avez rien à faire : c'est EODA qui le prépare, et vous serez
+       prévenu dès qu'il sera prêt.`;
+
+  const body = `
+    <p style="color:${BRUN_ANCRE};font-size:15px;line-height:1.6">
+      Bonjour ${escapeHtml(input.recipientName)},
+    </p>
+    <p style="color:${BRUN_ANCRE};font-size:15px;line-height:1.6">${announcement}</p>
+    <p style="margin:24px 0">
+      <a href="${escapeHtml(input.portalUrl)}"
+         style="background:${TERRE};color:#ffffff;text-decoration:none;padding:12px 20px;border-radius:8px;display:inline-block;font-weight:bold">
+        Voir mes documents
+      </a>
+    </p>`;
+
+  return {
+    subject: input.requestedFromClient
+      ? `Nouveau document à déposer — ${input.documentLabel}`
+      : `Nouveau document préparé par EODA — ${input.documentLabel}`,
+    html: layout(
+      input.requestedFromClient ? "Un nouveau document vous est demandé" : "Un nouveau document est en préparation",
+      body,
+      input.brand
+    ),
+  };
+}
+
 // ── Ce que la STRUCTURE vient de faire (16/10/2026) — le pendant cabinet ───────
 //
 // Le symétrique de `buildDocumentAvailableEmail` : jusqu'ici le cabinet informait le

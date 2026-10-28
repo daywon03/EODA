@@ -5,6 +5,7 @@ import { DOCUMENT_CATEGORY_LABELS } from "@/lib/services/structure-documents-ser
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Callout } from "@/components/ui/callout";
 import { DocumentScopeToggle } from "@/components/checklist/DocumentScopeToggle";
+import { NewDocumentTypeForm } from "@/components/checklist/NewDocumentTypeForm";
 import type { DocumentCategory } from "@eoda/database";
 
 export const metadata = { title: "Documents réclamés" };
@@ -38,6 +39,9 @@ export default async function RequestedDocumentsPage() {
         Un document « réclamé » est demandé à chaque structure, sur son portail. Un document « produit par EODA » ne
         lui est pas demandé : c&apos;est le cabinet qui le rédige. Chaque changement est inscrit au journal.
       </Callout>
+
+      {/* Une ligne ajoutée ici vaut pour toutes les structures (createDocumentType). */}
+      <NewDocumentTypeForm />
 
       {scopes.length === 0 && <p className="text-ink2">Aucun type de document n&apos;est chargé.</p>}
 

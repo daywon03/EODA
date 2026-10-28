@@ -4,6 +4,7 @@ import {
   buildClientInvitationEmail,
   buildDocumentAvailableEmail,
   buildDocumentReminderEmail,
+  buildNewDocumentTypeEmail,
   buildOptionRequestEmail,
   buildStructureActivityEmail,
   escapeHtml,
@@ -298,5 +299,29 @@ describe("buildStructureActivityEmail", () => {
     });
     expect(email.html).not.toContain("<img src=x");
     expect(email.html).not.toContain("<script>");
+  });
+});
+
+describe("buildNewDocumentTypeEmail", () => {
+  const base = {
+    recipientName: "Camille Martin",
+    establishmentName: "Structure test",
+    documentLabel: "Plan de continuité <d'activité>",
+    portalUrl: "https://portail.test/dashboard/client",
+  };
+
+  it("dit à la structure si le document lui est demandé ou si EODA le prépare", () => {
+    const requested = buildNewDocumentTypeEmail({ ...base, requestedFromClient: true });
+    const produced = buildNewDocumentTypeEmail({ ...base, requestedFromClient: false });
+    expect(requested.subject).toBe("Nouveau document à déposer — Plan de continuité <d'activité>");
+    expect(requested.html).toContain("Il vous est demandé");
+    expect(produced.subject).toBe("Nouveau document préparé par EODA — Plan de continuité <d'activité>");
+    expect(produced.html).toContain("Vous n'avez rien à faire");
+  });
+
+  it("échappe l'intitulé dans le corps", () => {
+    const { html } = buildNewDocumentTypeEmail({ ...base, requestedFromClient: true });
+    expect(html).toContain("&lt;d&#39;activité&gt;");
+    expect(html).not.toContain("<d'activité>");
   });
 });

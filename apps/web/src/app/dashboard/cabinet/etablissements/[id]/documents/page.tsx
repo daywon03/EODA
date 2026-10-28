@@ -31,6 +31,7 @@ import { Button } from "@/components/ui/button";
 import { DocumentReminderForm } from "@/components/etablissement/DocumentReminderForm";
 import { DocumentWorkspace, type WorkspaceEntry } from "@/components/structure/DocumentWorkspace";
 import { DocumentSheetBody } from "@/components/structure/DocumentSheetBody";
+import { NewDocumentTypeForm } from "@/components/checklist/NewDocumentTypeForm";
 
 export const metadata = { title: "Documents" };
 
@@ -104,6 +105,8 @@ export default async function StructureDocumentsPage({ params, searchParams }: P
 
   const reminderCount = selectReminderLabels(allRows).length;
   const categories = Object.keys(DOCUMENT_CATEGORY_LABELS) as DocumentCategory[];
+  // La liste vaut pour toutes les structures : la compléter est un réglage de cabinet.
+  const canManageList = hasCabinetCapability(role, "CABINET_SETTINGS");
 
   // Ce que la visionneuse doit savoir AVANT la réponse du serveur : un intitulé et la
   // version à afficher. Rien de plus — le détail arrive avec le rendu serveur.
@@ -129,7 +132,7 @@ export default async function StructureDocumentsPage({ params, searchParams }: P
             item={opened}
             categoryLabel={DOCUMENT_CATEGORY_LABELS[opened.category]}
             establishmentId={id}
-            canEditScope={hasCabinetCapability(role, "CABINET_SETTINGS")}
+            canEditScope={canManageList}
           />
         ) : null
       }
@@ -183,6 +186,8 @@ export default async function StructureDocumentsPage({ params, searchParams }: P
           <DocumentReminderForm establishmentId={id} missingCount={reminderCount} />
         </div>
       </div>
+
+      {canManageList && <NewDocumentTypeForm establishmentId={id} documentsPath={basePath} />}
 
       <DataTable
         caption={`Documents — ${DOCUMENT_BUCKET_LABELS[filters.bucket]}`}
