@@ -9,6 +9,7 @@ import { recordAuditEvent } from "@/lib/services/audit-log-service";
 import { canDepositDocuments } from "@/lib/services/mission-access-service";
 import { firstError, requiredEmail, requiredEnum, requiredString } from "@/lib/validation/form-parsers";
 import { generateTemporaryPassword, hashPassword } from "@/lib/security/password-hashing";
+import { consumeThrottledAttempt } from "@/lib/security/attempt-throttle";
 import { sendClientInvitationEmail } from "@/lib/email/notifications";
 import type { InvitationDelivery } from "@/lib/services/email-delivery-service";
 import {
@@ -32,6 +33,9 @@ import {
 
 const SETTINGS_PATH = "/dashboard/client/parametres";
 const CLOSED = "Votre accompagnement est clos : les accès ne se modifient plus ici. Écrivez à EODA.";
+// Créations d'accès par personne et par heure : une équipe se constitue en quelques
+// comptes, pas en dizaines (audit du 28/10/2026).
+const CLIENT_ACCESS_GRANT_RATE_LIMIT = { limit: 10, windowSeconds: 60 * 60 } as const;
 
 export type StructureAccessRow = {
   userId: string;
@@ -112,7 +116,17 @@ export async function grantClientAccess(formData: FormData): Promise<GrantClient
   const accessRole = parseClientAccessRole(formData.get("accessRole"));
   if (!accessRole) return { error: "Choisissez un rôle." };
 
-  // Une seule phrase, quel que soit le compte existant : pas d'oracle d'existence.
+  // Cette réponse DIT qu'une adresse a déjà un compte (sur toute la plateforme) : c'est
+  // nécessaire — on ne peut ni créer ni rattacher ce compte d'ici. Pour qu'elle ne
+  // serve pas à tester des adresses en masse, le geste est limité en débit par
+  // personne (audit du 28/10/2026).
+  const allowed = await consumeThrottledAttempt({
+    key: `client-access-grant:${context.userId}`,
+    policy: CLIENT_ACCESS_GRANT_RATE_LIMIT,
+    auditAction: "CLIENT_ACCESS_RATE_LIMITED",
+    actorUserId: context.userId,
+  });
+  if (!allowed) return { error: "Trop d'accès créés en peu de temps. Réessayez dans une heure." };
   const existing = await prisma.user.findUnique({ where: { email: email.value }, select: { id: true } });
   if (existing) return { error: "Cette adresse e-mail a déjà un compte. Demandez à EODA de la rattacher." };
 

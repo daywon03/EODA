@@ -38,6 +38,8 @@ vi.mock("@/lib/security/password-hashing", () => ({
 vi.mock("@/lib/email/notifications", () => ({
   sendClientInvitationEmail: (...args: unknown[]) => sendClientInvitationEmail(...args),
 }));
+const consumeThrottledAttempt = vi.fn(async (_options: unknown) => true);
+vi.mock("@/lib/security/attempt-throttle", () => ({ consumeThrottledAttempt: (o: unknown) => consumeThrottledAttempt(o) }));
 
 const { changeClientAccessRole, getStructureAccesses, grantClientAccess, revokeClientAccess } = await import(
   "./client-access"
@@ -83,6 +85,14 @@ describe("grantClientAccess", () => {
       data: { userId: "nouveau", establishmentId: "etab-1", roleInEstablishment: "AUTRE", accessRole: "INTERVENANT" },
     });
     expect(recordAuditEvent).toHaveBeenCalledWith(expect.objectContaining({ action: "CLIENT_ACCESS_GRANTED", detail: "INTERVENANT" }));
+  });
+
+  it("limité en débit par personne : on ne teste pas des adresses en masse (audit du 28/10/2026)", async () => {
+    consumeThrottledAttempt.mockResolvedValueOnce(false);
+    const result = await grantClientAccess(form({ name: "X", email: "x@example.org", roleInEstablishment: "AUTRE", accessRole: "INTERVENANT" }));
+    expect(result).toEqual({ error: "Trop d'accès créés en peu de temps. Réessayez dans une heure." });
+    expect(consumeThrottledAttempt).toHaveBeenCalledWith(expect.objectContaining({ key: "client-access-grant:dir-1", auditAction: "CLIENT_ACCESS_RATE_LIMITED" }));
+    expect(tx.establishmentUser.create).not.toHaveBeenCalled();
   });
 
   it("refuse un rôle « EODA » ou inconnu", async () => {

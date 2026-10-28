@@ -2,7 +2,7 @@
 
 import { prisma, EstablishmentUserRole } from "@eoda/database";
 import { revalidatePath } from "next/cache";
-import { requireEstablishmentInTenant } from "@/lib/auth/guards";
+import { requireEstablishmentInTenant, structureScopeWhere } from "@/lib/auth/guards";
 import { recordAuditEvent } from "@/lib/services/audit-log-service";
 import { generateTemporaryPassword, hashPassword } from "@/lib/security/password-hashing";
 import {
@@ -57,8 +57,17 @@ type ResolvedTarget = {
 // jamais l'existence d'un compte avant d'avoir prouvé l'habilitation sur
 // l'établissement. Un compte Cabinet n'est jamais manipulable par cette voie : son
 // cycle de vie n'appartient pas à la fiche d'un établissement.
+// Un compte peut être rattaché à PLUSIEURS structures. Changer son e-mail, son mot de
+// passe ou son activation agit sur le COMPTE, donc sur toutes ses structures : seul un
+// appelant qui les voit toutes peut le faire (audit du 28/10/2026 — une consultante
+// affectée à A réinitialisait le mot de passe d'une directrice aussi rattachée à B,
+// hors de son périmètre, et pouvait ensuite lire le portail de B).
+const SHARED_ACCOUNT_OUTSIDE_SCOPE =
+  "Ce compte est aussi rattaché à une structure que vous ne suivez pas : seul un administrateur du cabinet peut le modifier.";
+
 async function resolveTargetClientUser(
-  formData: FormData
+  formData: FormData,
+  options: { wholeAccount: boolean } = { wholeAccount: true }
 ): Promise<{ error: string } | ResolvedTarget> {
   const establishmentIdRaw = formData.get("establishmentId");
   const userIdRaw = formData.get("userId");
@@ -69,8 +78,8 @@ async function resolveTargetClientUser(
     return { error: "Interlocuteur manquant." };
   }
 
-  const { establishmentId, session, userId: actorUserId } =
-    await requireEstablishmentInTenant(establishmentIdRaw, "WRITE");
+  const context = await requireEstablishmentInTenant(establishmentIdRaw, "WRITE");
+  const { establishmentId, session, userId: actorUserId } = context;
 
   const link = await prisma.establishmentUser.findUnique({
     where: { userId_establishmentId: { userId: userIdRaw, establishmentId } },
@@ -78,6 +87,15 @@ async function resolveTargetClientUser(
   });
   if (!link || link.user.role !== "CLIENT_USER") {
     return { error: NOT_A_CLIENT_OF_THIS_ESTABLISHMENT };
+  }
+
+  if (options.wholeAccount) {
+    // Liens actifs du compte HORS du périmètre de l'appelant (autre tenant compris) :
+    // un seul suffit à refuser.
+    const outside = await prisma.establishmentUser.count({
+      where: { userId: link.user.id, revokedAt: null, NOT: { establishment: structureScopeWhere(context) } },
+    });
+    if (outside > 0) return { error: SHARED_ACCOUNT_OUTSIDE_SCOPE };
   }
 
   return {
@@ -160,7 +178,8 @@ export async function updateClientUser(formData: FormData): Promise<ClientUserAc
 export async function removeClientUserFromEstablishment(
   formData: FormData
 ): Promise<ClientUserActionResult> {
-  const target = await resolveTargetClientUser(formData);
+  // Ne retire que le lien avec CETTE structure : sans effet sur les autres.
+  const target = await resolveTargetClientUser(formData, { wholeAccount: false });
   if ("error" in target) return target;
 
   const deactivated = await prisma.$transaction(async (tx) => {

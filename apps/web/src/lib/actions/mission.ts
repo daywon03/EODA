@@ -14,7 +14,7 @@ import {
   requireEstablishmentInTenant,
 } from "@/lib/auth/guards";
 import { notFound } from "next/navigation";
-import { requiredEnum } from "@/lib/validation/form-parsers";
+import { parseDateValue, requiredEnum } from "@/lib/validation/form-parsers";
 import { revalidatePath } from "next/cache";
 import { recordAuditEvent } from "@/lib/services/audit-log-service";
 import { defaultSupportModeForOffer } from "@/lib/services/support-mode-service";
@@ -331,6 +331,11 @@ export async function updatePhaseDates(
   // ce contrôle, une valeur inconnue produit `fields === undefined` et un accès
   // sur undefined.
   if (!(phase in PHASE_DATE_FIELDS)) return { error: "Phase inconnue." };
+  // Mêmes arguments non fiables : une date qui n'en est pas une faisait une erreur 500
+  // (« Invalid Date » refusée par la base) — refus explicite (audit du 28/10/2026).
+  const start = startDate ? parseDateValue(startDate) : null;
+  const end = endDate ? parseDateValue(endDate) : null;
+  if (start === undefined || end === undefined) return { error: "Date invalide." };
 
   const mission = await prisma.mission.findFirst({ where: { id: missionId, tenantId } });
   if (!mission) notFound();
@@ -340,8 +345,8 @@ export async function updatePhaseDates(
   await prisma.mission.update({
     where: { id: missionId },
     data: {
-      [fields.start]: startDate ? new Date(startDate) : null,
-      [fields.end]: endDate ? new Date(endDate) : null,
+      [fields.start]: start,
+      [fields.end]: end,
     },
   });
 

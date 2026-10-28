@@ -141,6 +141,9 @@ export function validateUploadedFile(
     };
   }
 
+  // La décompression bornée d'une archive Office se fait côté serveur, dans
+  // `validateUploadOnServer` (office-archive-guard) : ce module-ci est aussi chargé
+  // par des composants du navigateur, qui n'ont pas node:zlib.
   return { ok: true, contentType: detected };
 }
 

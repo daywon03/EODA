@@ -33,6 +33,7 @@ vi.mock("@eoda/database", () => ({
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("@/lib/auth/guards", () => ({
   requireEstablishmentInTenant: (...args: [string]) => requireEstablishmentInTenant(...args),
+  structureScopeWhere: (context: { tenantId: string }) => ({ tenantId: context.tenantId, id: { in: ["scope"] } }),
 }));
 vi.mock("@/lib/services/audit-log-service", () => ({
   recordAuditEvent: (...args: unknown[]) => recordAuditEvent(...args),
@@ -93,6 +94,23 @@ beforeEach(() => {
     typeof arg === "function" ? arg(prismaMock) : Promise.all(arg)
   );
   prismaMock.establishmentUser.count.mockResolvedValue(0);
+});
+
+describe("compte rattaché à une structure hors périmètre (audit du 28/10/2026)", () => {
+  it("mot de passe, e-mail, activation : refusés — le compte vaut pour TOUTES ses structures", async () => {
+    givenLink();
+    prismaMock.establishmentUser.count.mockResolvedValue(1);
+    for (const result of [
+      await resetClientUserPassword(targetForm()),
+      await setClientUserActive(form({ establishmentId: ESTABLISHMENT_ID, userId: USER_ID, isActive: "false" })),
+    ]) {
+      expect(result).toEqual({ error: expect.stringContaining("seul un administrateur du cabinet peut le modifier") });
+    }
+    expect(prismaMock.establishmentUser.count).toHaveBeenCalledWith({
+      where: { userId: USER_ID, revokedAt: null, NOT: { establishment: { tenantId: "tenant-1", id: { in: ["scope"] } } } },
+    });
+    expect(prismaMock.user.update).not.toHaveBeenCalled();
+  });
 });
 
 describe("refus", () => {

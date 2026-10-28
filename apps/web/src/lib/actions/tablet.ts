@@ -9,7 +9,8 @@ import { NEED } from "@/lib/auth/capabilities";
 import { getEnv } from "@/lib/config/env";
 import { recordAuditEvent } from "@/lib/services/audit-log-service";
 import { generateOneTimeToken, hashOneTimeToken } from "@/lib/security/one-time-token";
-import { decidePinAttempt, hashPin, pinFormatError, pinMatches, unlockedPinState } from "@/lib/security/tablet-pin";
+import { decidePinAttempt, hashPin, MAX_PIN_FAILURES, pinFormatError, pinMatches, TABLET_PIN_DEVICE_RATE_LIMIT, unlockedPinState } from "@/lib/security/tablet-pin";
+import { consumeThrottledAttempt } from "@/lib/security/attempt-throttle";
 import { createTabletSessionToken, DEVICE_COOKIE, TABLET_SESSION_COOKIE, TABLET_SESSION_MINUTES, tabletSessionExpiry } from "@/lib/security/tablet-session";
 import { requiredString } from "@/lib/validation/form-parsers";
 
@@ -170,13 +171,42 @@ export async function tabletSignIn(formData: FormData): Promise<Result> {
   });
   if (!staff?.pin) return { error: WRONG };
   const now = new Date();
-  const decision = decidePinAttempt(staff.pin, await pinMatches(staff.pin.pinHash, String(formData.get("pin") ?? "")), now);
-  if (decision.outcome !== "ACCEPTED" || staff.pin.failedAttempts !== 0) {
+  const lockedMessage = { error: "Code bloqué après 5 essais. Demandez à la direction de le débloquer." };
+
+  // Débit par APPAREIL, tous salariés confondus (audit du 28/10/2026) : un appareil volé
+  // ne passe pas d'un salarié à l'autre pour multiplier les essais.
+  const deviceAllowed = await consumeThrottledAttempt({
+    key: `tablet-pin:${device.deviceEnrollmentId}`,
+    policy: TABLET_PIN_DEVICE_RATE_LIMIT,
+    auditAction: "TABLET_SIGN_IN_FAILED",
+  });
+  if (!deviceAllowed) return { error: "Trop d'essais sur cette tablette. Réessayez dans quelques minutes." };
+
+  // L'essai est RÉSERVÉ avant la comparaison, par un incrément atomique conditionnel
+  // (audit du 28/10/2026) : lire le compteur, comparer puis réécrire laissait N requêtes
+  // parallèles tester N codes avant que le blocage ne tombe. Ici, au plus 5 comparaisons
+  // passent, quelle que soit la concurrence.
+  const reserved = await prisma.staffPin.updateMany({
+    where: { staffMemberId: staff.id, lockedAt: null, failedAttempts: { lt: MAX_PIN_FAILURES } },
+    data: { failedAttempts: { increment: 1 } },
+  });
+  if (reserved.count === 0) {
+    await prisma.staffPin.updateMany({ where: { staffMemberId: staff.id, lockedAt: null }, data: { lockedAt: now } });
+    await recordAuditEvent({ action: "TABLET_PIN_LOCKED", establishmentId: device.establishmentId, targetId: staff.id });
+    return lockedMessage;
+  }
+  const counted = await prisma.staffPin.findUniqueOrThrow({ where: { staffMemberId: staff.id }, select: { failedAttempts: true } });
+  const match = await pinMatches(staff.pin.pinHash, String(formData.get("pin") ?? ""));
+  // La règle pure, appliquée au compteur tel qu'il était AVANT cet essai réservé.
+  const decision = decidePinAttempt({ failedAttempts: counted.failedAttempts - 1, lockedAt: null }, match, now);
+  if (decision.outcome === "ACCEPTED") {
     await prisma.staffPin.update({ where: { staffMemberId: staff.id }, data: decision.next });
+  } else if (decision.outcome === "LOCKED") {
+    await prisma.staffPin.updateMany({ where: { staffMemberId: staff.id, lockedAt: null }, data: { lockedAt: now } });
   }
   if (decision.outcome === "LOCKED") {
     await recordAuditEvent({ action: "TABLET_PIN_LOCKED", establishmentId: device.establishmentId, targetId: staff.id });
-    return { error: "Code bloqué après 5 essais. Demandez à la direction de le débloquer." };
+    return lockedMessage;
   }
   if (decision.outcome === "REJECTED") {
     await recordAuditEvent({ action: "TABLET_SIGN_IN_FAILED", establishmentId: device.establishmentId, targetId: staff.id });

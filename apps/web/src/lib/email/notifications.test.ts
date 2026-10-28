@@ -281,14 +281,28 @@ describe("notifyNewMessage — on prévient l'AUTRE côté", () => {
     expect(message.html).toContain("/dashboard/client/echanges");
   });
 
-  it("message de la structure : les administrateurs du cabinet, lien vers la fiche", async () => {
-    prismaMock.user.findMany.mockResolvedValue([{ email: "sandrine@eoda.test", isActive: true }]);
+  it("message de la structure : les comptes du cabinet qui la SUIVENT (consultante affectée comprise, commerciale exclue), lien vers la fiche", async () => {
+    prismaMock.user.findMany.mockResolvedValue([
+      givenCabinetUser(),
+      givenCabinetUser({ email: "consultante@eoda.test", role: "CABINET_EVALUATOR", assigned: [ETAB] }),
+      givenCabinetUser({ email: "autre@eoda.test", role: "CABINET_EVALUATOR", assigned: ["etab-autre"] }),
+      givenCabinetUser({ email: "commerciale@eoda.test", role: "CABINET_COMMERCIAL" }),
+    ]);
 
     expect(await notifyNewMessage({ ...fromCabinet, authorSide: "CLIENT" })).toBe(true);
 
-    expect(send.mock.calls[0]?.[0]).toMatchObject({ to: "sandrine@eoda.test" });
+    expect(send.mock.calls.map((call) => (call[0] as { to: string }).to).sort()).toEqual(["consultante@eoda.test", "sandrine@eoda.test"]);
+    expect(prismaMock.user.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ tenantId: "tenant-1" }) }));
     const message = send.mock.calls[0]?.[0] as { html: string };
     expect(message.html).toContain(`/dashboard/cabinet/etablissements/${ETAB}/echanges`);
+  });
+
+  it("une adresse rattachée deux fois ne reçoit qu'un e-mail", async () => {
+    givenClients(["direction@structure.test", "Direction@Structure.test"]);
+
+    await notifyNewMessage({ ...fromCabinet, authorSide: "CABINET" });
+
+    expect(send).toHaveBeenCalledTimes(1);
   });
 
   it("aucun destinataire : rien n'est tenté et l'appelant reçoit false", async () => {

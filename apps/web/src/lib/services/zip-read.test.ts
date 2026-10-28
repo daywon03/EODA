@@ -61,6 +61,13 @@ describe("readZip", () => {
     expect(entry).toEqual({ name: "word/document.xml", data: content });
   });
 
+  it("borne le nombre d'entrées et la taille décompressée", async () => {
+    const many = buildStoredZip([1, 2, 3].map((n) => ({ name: `${n}.xml`, data: text("abcd"), modifiedAt: at })));
+    await expect(readZip(many, inflate, { maxEntries: 2, maxTotalBytes: 100 })).rejects.toThrow(/trop volumineuse/);
+    await expect(readZip(many, inflate, { maxEntries: 10, maxTotalBytes: 10 })).rejects.toThrow(/une fois décompressée/);
+    await expect(readZip(deflatedZip("a.xml", new Uint8Array(5000)), inflate, { maxEntries: 10, maxTotalBytes: 1000 })).rejects.toThrow(/une fois décompressée/);
+  });
+
   it("refuse ce qui n'est pas une archive, ou une archive abîmée", async () => {
     expect(isZip(text("%PDF-1.7"))).toBe(false);
     await expect(readZip(text("pas une archive du tout, vraiment pas"), inflate)).rejects.toBeInstanceOf(ZipReadError);

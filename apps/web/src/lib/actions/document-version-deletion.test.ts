@@ -98,12 +98,10 @@ describe("refus", () => {
     expect(prismaMock.documentVersion.findUnique).not.toHaveBeenCalled();
   });
 
-  it("refuse une version inexistante", async () => {
+  it("version inexistante : même réponse qu'une version d'un autre tenant (notFound), rien n'est touché", async () => {
     prismaMock.documentVersion.findUnique.mockResolvedValue(null);
 
-    const result = await deleteDocumentVersion("inconnue");
-
-    expect(result).toEqual({ error: "Version de document introuvable." });
+    await expect(deleteDocumentVersion("inconnue")).rejects.toThrow();
     expect(storageDelete).not.toHaveBeenCalled();
   });
 

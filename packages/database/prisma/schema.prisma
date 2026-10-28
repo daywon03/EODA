@@ -1796,6 +1796,12 @@ enum AuditAction {
   // « Commentaire sur ce document » remis ou retiré de l'IA (21/10/2026). `targetId` =
   // type de document, `detail` = « oui » / « non », jamais le commentaire.
   DOCUMENT_COMMENT_AI_TOGGLED
+  // Fil d'échange (audit du 28/10/2026) : un message posté, un débit dépassé.
+  // `detail` porte le côté, jamais le texte du message.
+  MISSION_MESSAGE_POSTED
+  MISSION_MESSAGE_RATE_LIMITED
+  // Création d'accès par une structure : débit dépassé (audit du 28/10/2026).
+  CLIENT_ACCESS_RATE_LIMITED
   // Forme de participation des usagers choisie ou changée (21/10/2026). `targetId` =
   // type de document, `detail` = la forme (code), jamais le libellé libre.
   PARTICIPATION_FORM_SET

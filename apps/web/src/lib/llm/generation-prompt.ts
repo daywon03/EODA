@@ -1,5 +1,6 @@
 import type { DocumentGenerationInput } from "./llm-analysis-port";
 import { renderDocumentComment } from "./document-comment";
+import { neutralizePromptBlocks } from "./prompt-blocks";
 import { MAX_DOCUMENT_CHARS, VALIDATED_EXAMPLES_RULE, renderValidatedExamples } from "./analysis-prompt";
 import { renderStyleGuide } from "@/content/regles-redaction";
 
@@ -69,7 +70,8 @@ ${GENERATION_OUTPUT_INSTRUCTION}`;
 
 export function buildGenerationUserMessage(input: DocumentGenerationInput): string {
   const truncated = input.extractedText.length > MAX_DOCUMENT_CHARS;
-  const text = truncated ? input.extractedText.slice(0, MAX_DOCUMENT_CHARS) : input.extractedText;
+  // Écrit par un tiers : ses balises de bloc sont retirées (prompt-blocks).
+  const text = neutralizePromptBlocks(truncated ? input.extractedText.slice(0, MAX_DOCUMENT_CHARS) : input.extractedText);
 
   const criteria =
     input.linkedCriteria.length > 0

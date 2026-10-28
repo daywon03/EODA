@@ -3,6 +3,7 @@
 import { prisma, AuditAction, type Prisma } from "@eoda/database";
 import { requireCabinetSession, requireEstablishmentInTenant, structureScopeWhere } from "@/lib/auth/guards";
 import { isEnumValue } from "@/lib/validation/form-parsers";
+import { hasCabinetCapability } from "@/lib/auth/capabilities";
 import { AUDIT_PAGE_SIZE } from "@/lib/services/pagination-service";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -100,11 +101,21 @@ export async function listAuditLog(query: AuditLogQuery): Promise<AuditLogPage> 
   // refuse un email déjà pris, donc aucun compte n'est rattaché à deux tenants —
   // mais le multi-cabinet prévu en §5 l'activerait, et une fuite de journal se
   // découvre après coup.
+  // Les entrées SANS structure (connexions, devis, changements de rôle, réglages du
+  // cabinet) ne regardent que qui administre le cabinet (audit du 28/10/2026) : une
+  // consultante ou un compte en lecture seule lisait les numéros de devis et les
+  // changements de rôle de toute l'équipe. Les autres ne voient que le journal de
+  // leurs structures.
+  const seesCabinetWideEntries = hasCabinetCapability(context.role, "TEAM_MANAGE");
   const scope: Prisma.AuditLogEntryWhereInput = {
     OR: [
       { establishmentId: { in: establishmentIds } },
-      { establishmentId: null, actorUserId: { in: userIds } },
-      { establishmentId: null, actorUserId: null },
+      ...(seesCabinetWideEntries
+        ? [
+            { establishmentId: null, actorUserId: { in: userIds } },
+            { establishmentId: null, actorUserId: null },
+          ]
+        : []),
     ],
   };
 
