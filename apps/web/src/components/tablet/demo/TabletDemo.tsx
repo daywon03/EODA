@@ -40,6 +40,8 @@ export function TabletDemo() {
   // Contrats signés de la démonstration : en mémoire seulement, jamais rangés.
   const [contracts, setContracts] = useState<Record<string, Blob>>({});
   const [demoSignatures, setDemoSignatures] = useState<Record<string, AdmissionExtras["signatures"]>>({});
+  // Formulaires du Département faits pendant la démonstration (en mémoire seulement).
+  const [demoForms, setDemoForms] = useState<Record<string, Blob>>({});
   const [demoDipcSha, setDemoDipcSha] = useState("");
 
   useEffect(() => {
@@ -208,7 +210,11 @@ export function TabletDemo() {
             return pdf ? [{ fileName: screen.record.pdfFileName, blob: pdf }] : [];
           }}
           contractSignature={async () => demoSignatures[screen.record.id]?.[departementFormSigner(screen.record)] ?? null}
-          onSaved={() => Promise.resolve(true)}
+          onSaved={async (pdf, kind) => {
+            setDemoForms((all) => ({ ...all, [`${screen.record.id}:${kind}`]: pdf }));
+            return true;
+          }}
+          savedForm={async (kind) => demoForms[`${screen.record.id}:${kind}`] ?? null}
           onBack={() => go({ kind: "admission-done", record: screen.record })}
         />
       )}
