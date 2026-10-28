@@ -10,6 +10,8 @@ import { canDepositDocuments } from "@/lib/services/mission-access-service";
 import { firstError, requiredEmail, requiredEnum, requiredString } from "@/lib/validation/form-parsers";
 import { generateTemporaryPassword, hashPassword } from "@/lib/security/password-hashing";
 import { consumeThrottledAttempt } from "@/lib/security/attempt-throttle";
+import { issuePasswordSetupLink } from "@/lib/db/password-setup-tokens";
+import { setupLinkToShow } from "@/lib/services/password-setup-service";
 import { sendClientInvitationEmail } from "@/lib/email/notifications";
 import type { InvitationDelivery } from "@/lib/services/email-delivery-service";
 import {
@@ -100,7 +102,7 @@ async function resolveTarget(establishmentId: string, targetUserId: unknown): Pr
 }
 
 export type GrantClientAccessResult =
-  | { success: true; tempPassword: string; userName: string; userEmail: string; invitationDelivery: InvitationDelivery }
+  | { success: true; setupLink: string | null; userName: string; userEmail: string; invitationDelivery: InvitationDelivery }
   | { error: string };
 
 export async function grantClientAccess(formData: FormData): Promise<GrantClientAccessResult> {
@@ -130,8 +132,9 @@ export async function grantClientAccess(formData: FormData): Promise<GrantClient
   const existing = await prisma.user.findUnique({ where: { email: email.value }, select: { id: true } });
   if (existing) return { error: "Cette adresse e-mail a déjà un compte. Demandez à EODA de la rattacher." };
 
-  const tempPassword = generateTemporaryPassword();
-  const passwordHash = await hashPassword(tempPassword);
+  // Mot de passe aléatoire que personne ne connaît : la personne choisit le sien par
+  // le lien envoyé ci-dessous (audit du 28/10/2026).
+  const passwordHash = await hashPassword(generateTemporaryPassword());
   const created = await prisma.$transaction(async (tx) => {
     const user = await tx.user.create({
       data: { email: email.value, name: name.value, passwordHash, role: "CLIENT_USER", mustChangePassword: true },
@@ -151,13 +154,15 @@ export async function grantClientAccess(formData: FormData): Promise<GrantClient
     targetId: created.id,
     detail: accessRole,
   });
+  const setupUrl = await issuePasswordSetupLink(created.id);
   const invitationDelivery = await sendClientInvitationEmail({
     recipientName: name.value,
     email: email.value,
-    temporaryPassword: tempPassword,
+    setupUrl,
     establishmentName: context.establishment.name,
   });
-  return { success: true, tempPassword, userName: name.value, userEmail: email.value, invitationDelivery };
+  await recordAuditEvent({ action: "PASSWORD_SETUP_LINK_SENT", actorUserId: context.userId, actorRole: "CLIENT_USER", establishmentId: context.establishment.id, targetId: created.id, detail: `invitation · ${invitationDelivery}` });
+  return { success: true, setupLink: setupLinkToShow(invitationDelivery, setupUrl), userName: name.value, userEmail: email.value, invitationDelivery };
 }
 
 export async function changeClientAccessRole(formData: FormData): Promise<{ error: string } | null> {

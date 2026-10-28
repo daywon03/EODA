@@ -10,6 +10,8 @@ import { firstError, requiredEmail, requiredString } from "@/lib/validation/form
 import { generateTemporaryPassword, hashPassword } from "@/lib/security/password-hashing";
 import { sendCabinetInvitationEmail } from "@/lib/email/notifications";
 import type { InvitationDelivery } from "@/lib/services/email-delivery-service";
+import { issuePasswordSetupLink } from "@/lib/db/password-setup-tokens";
+import { setupLinkToShow } from "@/lib/services/password-setup-service";
 import {
   countActiveAdmins,
   decideAccessRemoval,
@@ -119,7 +121,7 @@ async function replaceAssignments(context: CabinetContext, userId: string, estab
 }
 
 export type InviteCabinetMemberResult =
-  | { success: true; tempPassword: string; userName: string; userEmail: string; invitationDelivery: InvitationDelivery }
+  | { success: true; setupLink: string | null; userName: string; userEmail: string; invitationDelivery: InvitationDelivery }
   | { error: string };
 
 export async function inviteCabinetMember(formData: FormData): Promise<InviteCabinetMemberResult> {
@@ -138,8 +140,9 @@ export async function inviteCabinetMember(formData: FormData): Promise<InviteCab
   const existing = await prisma.user.findUnique({ where: { email: email.value }, select: { id: true } });
   if (existing) return { error: "Cette adresse e-mail est déjà utilisée par un compte." };
 
-  const tempPassword = generateTemporaryPassword();
-  const passwordHash = await hashPassword(tempPassword);
+  // Mot de passe aléatoire que personne ne connaît : la personne choisit le sien par
+  // le lien envoyé ci-dessous (audit du 28/10/2026).
+  const passwordHash = await hashPassword(generateTemporaryPassword());
   const created = await prisma.user.create({
     data: {
       email: email.value,
@@ -164,13 +167,15 @@ export async function inviteCabinetMember(formData: FormData): Promise<InviteCab
 
   // Hors transaction et après l'audit : un e-mail qui échoue n'annule pas le compte,
   // et l'écran dit ce qui s'est passé (SENT / NOT_CONFIGURED / FAILED).
+  const setupUrl = await issuePasswordSetupLink(created.id);
   const invitationDelivery = await sendCabinetInvitationEmail({
     recipientName: name.value,
     email: email.value,
-    temporaryPassword: tempPassword,
+    setupUrl,
     roleLabel: CABINET_ROLE_LABELS[parsed.role].label,
   });
-  return { success: true, tempPassword, userName: name.value, userEmail: email.value, invitationDelivery };
+  await recordAuditEvent({ action: "PASSWORD_SETUP_LINK_SENT", actorUserId: context.userId, actorRole: context.role, targetId: created.id, detail: `invitation · ${invitationDelivery}` });
+  return { success: true, setupLink: setupLinkToShow(invitationDelivery, setupUrl), userName: name.value, userEmail: email.value, invitationDelivery };
 }
 
 async function resolveMember(context: CabinetContext, targetId: unknown): Promise<TeamMemberFacts> {

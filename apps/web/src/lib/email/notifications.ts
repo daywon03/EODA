@@ -8,6 +8,7 @@ import {
 import {
   buildCabinetInvitationEmail,
   buildClientInvitationEmail,
+  buildPasswordResetEmail,
   buildDocumentAvailableEmail,
   buildDocumentReminderEmail,
   buildNewMessageEmail,
@@ -42,15 +43,14 @@ import { selectStructureRecipients } from "@/lib/services/cabinet-recipients-ser
 export async function sendClientInvitationEmail(input: {
   recipientName: string;
   email: string;
-  temporaryPassword: string;
+  setupUrl: string;
   establishmentName: string;
 }): Promise<InvitationDelivery> {
   const content = buildClientInvitationEmail({
     recipientName: input.recipientName,
     email: input.email,
-    temporaryPassword: input.temporaryPassword,
+    setupUrl: input.setupUrl,
     establishmentName: input.establishmentName,
-    loginUrl: appUrl("/login"),
     brand: { logoUrl: appUrl("/logo-eoda.png") },
   });
 
@@ -61,9 +61,20 @@ export async function sendClientInvitationEmail(input: {
       html: content.html,
     });
   } catch (error) {
-    // Le mot de passe temporaire n'est JAMAIS journalisé, même en cas d'échec : il
-    // est encore affiché à l'écran, c'est là qu'il doit être lu.
-    console.error("Invitation client — envoi d'e-mail échoué, compte créé malgré tout :", error);
+    // Le lien n'est JAMAIS journalisé, même en cas d'échec : il est alors affiché une
+    // fois à l'écran du cabinet, c'est là qu'il doit être lu.
+    console.error("Invitation client — envoi d'e-mail échoué, compte créé malgré tout :", error instanceof Error ? error.message : "erreur inconnue");
+    return "FAILED";
+  }
+}
+
+// Réinitialisation demandée par le cabinet : le lien part à la personne elle-même.
+export async function sendPasswordResetEmail(input: { recipientName: string; email: string; setupUrl: string }): Promise<InvitationDelivery> {
+  const content = buildPasswordResetEmail({ ...input, brand: { logoUrl: appUrl("/logo-eoda.png") } });
+  try {
+    return await getEmailPort().send({ to: input.email, subject: content.subject, html: content.html });
+  } catch (error) {
+    console.error("Réinitialisation — envoi d'e-mail échoué :", error instanceof Error ? error.message : "erreur inconnue");
     return "FAILED";
   }
 }
@@ -74,12 +85,11 @@ export async function sendClientInvitationEmail(input: {
 export async function sendCabinetInvitationEmail(input: {
   recipientName: string;
   email: string;
-  temporaryPassword: string;
+  setupUrl: string;
   roleLabel: string;
 }): Promise<InvitationDelivery> {
   const content = buildCabinetInvitationEmail({
     ...input,
-    loginUrl: appUrl("/login"),
     brand: { logoUrl: appUrl("/logo-eoda.png") },
   });
   try {

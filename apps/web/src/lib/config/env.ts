@@ -246,6 +246,22 @@ export function getEnv(): AppEnv {
   return cached;
 }
 
+// Origines tierces que la CSP autorise (audit du 28/10/2026 : `https:` entier
+// remplacé par ce qui sert réellement). Lecture légère, sans la validation complète :
+// le middleware (Edge) l'appelle à chaque requête.
+//   - `storage` : l'origine du stockage S3 (URL signées d'aperçu PDF et image) ;
+//   - `vercelPreview` : la barre d'outils des prévisualisations Vercel (vercel.live).
+export function cspExternalOrigins(): { storage: string | null; vercelPreview: boolean } {
+  let storage: string | null = null;
+  try {
+    const endpoint = process.env.S3_ENDPOINT?.trim();
+    storage = endpoint ? new URL(endpoint).origin : null;
+  } catch {
+    storage = null;
+  }
+  return { storage, vercelPreview: process.env.VERCEL_ENV === "preview" };
+}
+
 // Lecture de l'environnement d'exécution sans déclencher la validation complète —
 // utile aux endroits qui ne veulent qu'un garde-fou « pas en production » (route de
 // stockage local de développement) sans exiger toute la configuration.

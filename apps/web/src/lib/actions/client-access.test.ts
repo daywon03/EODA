@@ -17,6 +17,7 @@ const requireClientEstablishment = vi.fn();
 const recordAuditEvent = vi.fn();
 const sendClientInvitationEmail = vi.fn();
 
+vi.mock("@/lib/db/password-setup-tokens", () => ({ issuePasswordSetupLink: async () => "https://portail.test/definir-mot-de-passe/jeton-fictif" }));
 vi.mock("@eoda/database", () => ({
   prisma: prismaMock,
   EstablishmentUserRole: { DIRECTEUR: "DIRECTEUR", COORDINATEUR: "COORDINATEUR", AUTRE: "AUTRE" },

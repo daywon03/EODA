@@ -7,6 +7,8 @@ import { firstError, requiredEmail, requiredEnum, requiredString } from "@/lib/v
 import { generateTemporaryPassword, hashPassword } from "@/lib/security/password-hashing";
 import { sendClientInvitationEmail } from "@/lib/email/notifications";
 import type { InvitationDelivery } from "@/lib/services/email-delivery-service";
+import { issuePasswordSetupLink } from "@/lib/db/password-setup-tokens";
+import { setupLinkToShow } from "@/lib/services/password-setup-service";
 import {
   decideExistingAccount,
   describeExistingAccount,
@@ -17,12 +19,12 @@ import {
 export type InviteClientUserResult =
   | {
       success: true;
-      tempPassword: string;
+      // Lien de création du mot de passe, rendu SEULEMENT si l'e-mail n'est pas parti
+      // (Sandrine le transmet alors elle-même) ; null sinon.
+      setupLink: string | null;
       userName: string;
       userEmail: string;
-      // L'e-mail d'invitation est-il parti ? Rendu à l'écran plutôt que supposé :
-      // si la messagerie n'est pas configurée ou indisponible, Sandrine doit le
-      // SAVOIR et communiquer le mot de passe elle-même.
+      // L'e-mail d'invitation est-il parti ? Rendu à l'écran plutôt que supposé.
       invitationDelivery: InvitationDelivery;
     }
   | { error: string }
@@ -42,6 +44,7 @@ async function loadExistingAccount(email: string): Promise<ExistingAccountFacts 
       establishmentUsers: {
         select: {
           establishmentId: true,
+          revokedAt: true,
           establishment: { select: { name: true, tenantId: true } },
         },
       },
@@ -56,6 +59,7 @@ async function loadExistingAccount(email: string): Promise<ExistingAccountFacts 
       establishmentId: link.establishmentId,
       establishmentName: link.establishment.name,
       tenantId: link.establishment.tenantId,
+      revoked: Boolean(link.revokedAt),
     })),
   };
 }
@@ -105,8 +109,10 @@ export async function inviteClientUser(formData: FormData): Promise<InviteClient
   });
   if (decision.kind !== "NONE") return existingAccountError(decision, email.value);
 
-  const tempPassword = generateTemporaryPassword();
-  const passwordHash = await hashPassword(tempPassword);
+  // Un mot de passe aléatoire que PERSONNE ne connaît (audit du 28/10/2026) : la
+  // personne choisit le sien par le lien envoyé ci-dessous. Rien ne s'affiche ni ne
+  // part par e-mail en clair.
+  const passwordHash = await hashPassword(generateTemporaryPassword());
 
   // Création du compte et du rattachement dans la même transaction : un User
   // CLIENT_USER sans lien EstablishmentUser serait un compte qui peut se connecter
@@ -118,9 +124,8 @@ export async function inviteClientUser(formData: FormData): Promise<InviteClient
         name: name.value,
         passwordHash,
         role: "CLIENT_USER",
-        // Explicite bien que ce soit aussi le défaut du schéma : le mot de passe
-        // ci-dessous est transmis de vive voix ou par messagerie, il ne doit pas
-        // survivre à la première connexion (cf. specs/02-architecture-technique.md §4.10).
+        // Aucun mot de passe utilisable tant que la personne n'a pas choisi le sien
+        // par le lien ; celui-ci lève l'obligation de changement.
         mustChangePassword: true,
         passwordChangedAt: null,
       },
@@ -148,33 +153,24 @@ export async function inviteClientUser(formData: FormData): Promise<InviteClient
 
   // PAS de revalidatePath ici, volontairement — et vérifié en pilotant l'application.
   // La revalidation rejoue le rendu serveur de la fiche et remplace l'arbre : l'état
-  // du composant client est perdu, donc le panneau qui affiche le mot de passe
-  // temporaire. Observé précisément : le compte était créé, et Sandrine ne voyait
-  // jamais le mot de passe — qui n'est affiché qu'une fois et n'est stocké nulle part.
-  //
-  // Le rafraîchissement de la liste des interlocuteurs se fait donc côté composant,
-  // par `router.refresh()`, juste après l'affichage du panneau : contrairement à
-  // `revalidatePath`, il re-rend l'arbre serveur en conservant l'état React du client.
-  // Sans lui, le compte créé n'apparaissait dans la liste qu'après un rechargement
-  // manuel de la page.
+  // du composant client est perdu, donc le panneau qui affiche le résultat. Le
+  // rafraîchissement de la liste se fait côté composant, par `router.refresh()`.
 
-  // Mot de passe temporaire retourné en clair — affiché une seule fois, jamais
-  // stocké ni journalisé (il n'apparaît volontairement pas dans l'audit ci-dessus).
-  // Il ne vaut que pour la première connexion : le compte est créé avec
-  // `mustChangePassword`, la plateforme exige une rotation avant tout autre accès.
-  // Envoi APRÈS l'audit et hors transaction : un e-mail qui échoue ne doit pas
-  // annuler la création du compte. Le mot de passe reste affiché à l'écran dans tous
-  // les cas — c'est le seul endroit où il est lisible.
+  // Le lien de création du mot de passe part par e-mail APRÈS l'audit et hors
+  // transaction : un e-mail qui échoue n'annule pas la création du compte. Il n'est
+  // montré à l'écran que s'il n'est PAS parti (setupLinkToShow), jamais journalisé.
+  const setupUrl = await issuePasswordSetupLink(created.id);
   const invitationDelivery = await sendClientInvitationEmail({
     recipientName: name.value,
     email: email.value,
-    temporaryPassword: tempPassword,
+    setupUrl,
     establishmentName: establishment?.name ?? "votre structure",
   });
+  await recordAuditEvent({ action: "PASSWORD_SETUP_LINK_SENT", actorUserId: userId, establishmentId, targetId: created.id, detail: `invitation · ${invitationDelivery}` });
 
   return {
     success: true,
-    tempPassword,
+    setupLink: setupLinkToShow(invitationDelivery, setupUrl),
     userName: name.value,
     userEmail: email.value,
     invitationDelivery,
@@ -220,8 +216,12 @@ export async function linkExistingClientUser(
   const user = await prisma.user.findUnique({ where: { email: email.value }, select: { id: true } });
   if (!user) return { error: "Aucun compte à rattacher pour cette adresse." };
 
-  await prisma.establishmentUser.create({
-    data: { userId: user.id, establishmentId, roleInEstablishment: roleInEstablishment.value },
+  // Un lien retiré auparavant est RÉTABLI (le retrait ne supprime plus la ligne) ;
+  // sinon il est créé.
+  await prisma.establishmentUser.upsert({
+    where: { userId_establishmentId: { userId: user.id, establishmentId } },
+    create: { userId: user.id, establishmentId, roleInEstablishment: roleInEstablishment.value },
+    update: { revokedAt: null, roleInEstablishment: roleInEstablishment.value },
   });
 
   await recordAuditEvent({

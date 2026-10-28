@@ -11,7 +11,7 @@ import { recordAuditEvent } from "@/lib/services/audit-log-service";
 import { generateOneTimeToken, hashOneTimeToken } from "@/lib/security/one-time-token";
 import { decidePinAttempt, hashPin, MAX_PIN_FAILURES, pinFormatError, pinMatches, TABLET_PIN_DEVICE_RATE_LIMIT, unlockedPinState } from "@/lib/security/tablet-pin";
 import { consumeThrottledAttempt } from "@/lib/security/attempt-throttle";
-import { createTabletSessionToken, DEVICE_COOKIE, TABLET_SESSION_COOKIE, TABLET_SESSION_MINUTES, tabletSessionExpiry } from "@/lib/security/tablet-session";
+import { createTabletSessionToken, DEVICE_COOKIE, pinStamp, TABLET_SESSION_COOKIE, TABLET_SESSION_MINUTES, tabletSessionExpiry } from "@/lib/security/tablet-session";
 import { requiredString } from "@/lib/validation/form-parsers";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -213,7 +213,7 @@ export async function tabletSignIn(formData: FormData): Promise<Result> {
     return { error: `${WRONG} Encore ${decision.remaining} essai${decision.remaining > 1 ? "s" : ""}.` };
   }
   const token = createTabletSessionToken(
-    { staffMemberId: staff.id, deviceEnrollmentId: device.deviceEnrollmentId, expiresAt: tabletSessionExpiry(now) },
+    { staffMemberId: staff.id, deviceEnrollmentId: device.deviceEnrollmentId, expiresAt: tabletSessionExpiry(now), pinStamp: pinStamp(staff.pin.pinHash) },
     getEnv().authSecret
   );
   (await cookies()).set(TABLET_SESSION_COOKIE, token, secureCookie(TABLET_SESSION_MINUTES * 60));

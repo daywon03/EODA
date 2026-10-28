@@ -1,4 +1,4 @@
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SESSION TABLETTE — jeton signé (HMAC-SHA256) porté par un cookie httpOnly.
@@ -16,7 +16,14 @@ export const DEVICE_COOKIE = "eoda_device";
 export const TABLET_SESSION_MINUTES = 30;
 const TOKEN_TYPE = "tablet";
 
-export type TabletSessionClaims = { staffMemberId: string; deviceEnrollmentId: string; expiresAt: number };
+// `pinStamp` : empreinte courte du code du salarié au moment de la connexion (audit du
+// 28/10/2026). Changer ou retirer le code coupe SUR-LE-CHAMP toutes les sessions
+// ouvertes avec l'ancien : la garde compare cette empreinte à celle du code actuel.
+export type TabletSessionClaims = { staffMemberId: string; deviceEnrollmentId: string; expiresAt: number; pinStamp: string };
+
+export function pinStamp(pinHash: string): string {
+  return createHash("sha256").update(`tablet-pin-stamp:${pinHash}`).digest("base64url").slice(0, 22);
+}
 
 function sign(payload: string, secret: string): string {
   return createHmac("sha256", `${secret}:tablet-session`).update(payload).digest("base64url");
@@ -34,7 +41,8 @@ function isClaims(value: unknown): value is TabletSessionClaims & { t: string } 
     v.t === TOKEN_TYPE &&
     typeof v.staffMemberId === "string" &&
     typeof v.deviceEnrollmentId === "string" &&
-    typeof v.expiresAt === "number"
+    typeof v.expiresAt === "number" &&
+    typeof v.pinStamp === "string"
   );
 }
 
@@ -52,7 +60,7 @@ export function readTabletSessionToken(token: string | undefined, secret: string
     return null;
   }
   if (!isClaims(parsed) || parsed.expiresAt <= now.getTime()) return null;
-  return { staffMemberId: parsed.staffMemberId, deviceEnrollmentId: parsed.deviceEnrollmentId, expiresAt: parsed.expiresAt };
+  return { staffMemberId: parsed.staffMemberId, deviceEnrollmentId: parsed.deviceEnrollmentId, expiresAt: parsed.expiresAt, pinStamp: parsed.pinStamp };
 }
 
 export function tabletSessionExpiry(now: Date): number {

@@ -389,6 +389,7 @@ model User {
   quizCampaignsSent           QuizCampaign[]                @relation("QuizCampaignSentBy")
   prospectAccount             ProspectAccount?
   emailVerificationTokens     EmailVerificationToken[]
+  passwordSetupTokens         PasswordSetupToken[]
   prospectPracticeAnswers     ProspectPracticeAnswer[]      @relation("ProspectPracticeAnsweredBy")
   beneficiaryJournalEntries   BeneficiaryJournalEntry[]     @relation("BeneficiaryJournalAuthorUser")
   devicesEnrolled             DeviceEnrollment[]            @relation("DeviceEnrolledBy")
@@ -1213,6 +1214,24 @@ model EmailVerificationToken {
   @@map("email_verification_tokens")
 }
 
+// Lien de CRÉATION du mot de passe (audit de sécurité du 28/10/2026) : remplace le mot
+// de passe temporaire qui voyageait en clair dans l'e-mail d'invitation. Même socle que
+// la confirmation d'adresse : empreinte SHA-256 seule en base, usage unique posé
+// atomiquement, 72 h, un seul lien vivant par compte.
+model PasswordSetupToken {
+  id        String    @id @default(cuid())
+  userId    String    @map("user_id")
+  tokenHash String    @unique @map("token_hash")
+  expiresAt DateTime  @map("expires_at")
+  usedAt    DateTime? @map("used_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("password_setup_tokens")
+}
+
 // Diagnostic DÉCLARATIF d'une structure inscrite seule : réponses aux questions sur
 // les pratiques (content/pratiques), une par critère impératif de son profil. Table
 // DISTINCTE de PracticeAnswer, rattachée à un établissement : la fiche ne naît que
@@ -1802,6 +1821,10 @@ enum AuditAction {
   MISSION_MESSAGE_RATE_LIMITED
   // Création d'accès par une structure : débit dépassé (audit du 28/10/2026).
   CLIENT_ACCESS_RATE_LIMITED
+  // Lien de création du mot de passe (audit du 28/10/2026) : émis, utilisé, débit.
+  PASSWORD_SETUP_LINK_SENT
+  PASSWORD_SET_FROM_LINK
+  PASSWORD_SETUP_RATE_LIMITED
   // Forme de participation des usagers choisie ou changée (21/10/2026). `targetId` =
   // type de document, `detail` = la forme (code), jamais le libellé libre.
   PARTICIPATION_FORM_SET

@@ -21,6 +21,7 @@ const prismaMock = {
 const requireEstablishmentInTenant = vi.fn();
 const recordAuditEvent = vi.fn();
 
+vi.mock("@/lib/db/password-setup-tokens", () => ({ issuePasswordSetupLink: async () => "https://portail.test/definir-mot-de-passe/jeton-fictif" }));
 vi.mock("@eoda/database", () => ({
   prisma: prismaMock,
   EstablishmentUserRole: {
@@ -31,6 +32,8 @@ vi.mock("@eoda/database", () => ({
   },
 }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
+const sendPasswordResetEmail = vi.fn(async (_input: unknown) => "SENT");
+vi.mock("@/lib/email/notifications", () => ({ sendPasswordResetEmail: (input: unknown) => sendPasswordResetEmail(input) }));
 vi.mock("@/lib/auth/guards", () => ({
   requireEstablishmentInTenant: (...args: [string]) => requireEstablishmentInTenant(...args),
   structureScopeWhere: (context: { tenantId: string }) => ({ tenantId: context.tenantId, id: { in: ["scope"] } }),
@@ -186,6 +189,19 @@ describe("refus", () => {
   });
 });
 
+describe("lien déjà retiré", () => {
+  it("n'est plus un rattachement : rien ne s'y modifie", async () => {
+    prismaMock.establishmentUser.findUnique.mockResolvedValue({
+      userId: USER_ID,
+      establishmentId: ESTABLISHMENT_ID,
+      revokedAt: new Date("2026-10-01T00:00:00Z"),
+      user: { id: USER_ID, name: "X", email: "x@example.org", role: "CLIENT_USER", isActive: true },
+    });
+    expect(await resetClientUserPassword(targetForm())).toEqual({ error: "Cet interlocuteur n'existe pas pour cet établissement." });
+    expect(prismaMock.user.update).not.toHaveBeenCalled();
+  });
+});
+
 describe("révocation", () => {
   it("désactive le compte quand le rattachement retiré était le dernier", async () => {
     givenLink();
@@ -194,7 +210,11 @@ describe("révocation", () => {
     const result = await removeClientUserFromEstablishment(targetForm());
 
     expect(result).toEqual({ success: true });
-    expect(prismaMock.establishmentUser.delete).toHaveBeenCalled();
+    expect(prismaMock.establishmentUser.update).toHaveBeenCalledWith({
+      where: { userId_establishmentId: { userId: USER_ID, establishmentId: ESTABLISHMENT_ID } },
+      data: { revokedAt: expect.any(Date) },
+    });
+    expect(prismaMock.establishmentUser.delete).not.toHaveBeenCalled();
     expect(prismaMock.user.update).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { id: USER_ID },
@@ -226,7 +246,10 @@ describe("révocation", () => {
 
     const result = await resetClientUserPassword(targetForm());
 
-    expect(result).toMatchObject({ success: true, tempPassword: "placeholder-jetable-not-a-real-secret" });
+    // Audit du 28/10/2026 : aucun mot de passe rendu — un lien part à la personne, et ne
+    // s'affiche au cabinet que si l'e-mail n'est PAS parti.
+    expect(result).toEqual({ success: true, setupLink: null, delivery: "SENT", userName: "Interlocuteur Test", userEmail: "interlocuteur@example.org" });
+    expect(sendPasswordResetEmail).toHaveBeenCalledWith({ recipientName: "Interlocuteur Test", email: "interlocuteur@example.org", setupUrl: "https://portail.test/definir-mot-de-passe/jeton-fictif" });
     expect(prismaMock.user.update).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
@@ -235,9 +258,13 @@ describe("révocation", () => {
         }),
       })
     );
-    // Le mot de passe temporaire ne doit apparaître dans AUCUN événement d'audit.
+    // Ni mot de passe ni lien dans AUCUN événement d'audit.
     const auditPayloads = JSON.stringify(recordAuditEvent.mock.calls);
     expect(auditPayloads).not.toContain("placeholder-jetable-not-a-real-secret");
+    expect(auditPayloads).not.toContain("jeton-fictif");
+
+    sendPasswordResetEmail.mockResolvedValueOnce("NOT_CONFIGURED");
+    expect(await resetClientUserPassword(targetForm())).toMatchObject({ setupLink: "https://portail.test/definir-mot-de-passe/jeton-fictif", delivery: "NOT_CONFIGURED" });
   });
 });
 
