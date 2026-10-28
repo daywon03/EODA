@@ -6,6 +6,7 @@ import { PageHeader } from "@/components/layout/PageHeader";
 import { Callout } from "@/components/ui/callout";
 import { DocumentScopeToggle } from "@/components/checklist/DocumentScopeToggle";
 import { NewDocumentTypeForm } from "@/components/checklist/NewDocumentTypeForm";
+import { RenameDocumentType } from "@/components/checklist/RenameDocumentType";
 import type { DocumentCategory } from "@eoda/database";
 
 export const metadata = { title: "Documents réclamés" };
@@ -55,7 +56,13 @@ export default async function RequestedDocumentsPage() {
               .filter((s) => s.category === category)
               .map((scope) => (
                 <li key={scope.documentTypeId} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
-                  <span className="min-w-0 text-ink">{scope.label}</span>
+                  <span className="flex min-w-0 flex-wrap items-center gap-x-3">
+                    <span className="text-ink">{scope.label}</span>
+                    {/* La loi 2002-2 garde ses noms légaux (documentTypeRenameError). */}
+                    {category !== "LOI_2002_2" && (
+                      <RenameDocumentType documentTypeId={scope.documentTypeId} label={scope.label} />
+                    )}
+                  </span>
                   <DocumentScopeToggle
                     documentTypeId={scope.documentTypeId}
                     requestedFromClient={scope.requestedFromClient}

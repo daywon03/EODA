@@ -3,7 +3,10 @@ import {
   documentTypeCode,
   documentTypeCreationError,
   documentTypeLabelKey,
+  documentTypeRenameError,
+  normalizeCriterionQuery,
   normalizeDocumentTypeLabel,
+  parseCriterionCodes,
   shouldAnnounceNewDocumentType,
 } from "./document-type-creation-service";
 
@@ -41,6 +44,35 @@ describe("documentTypeCreationError", () => {
     expect(documentTypeCreationError({ ...base, label: "registre des PLAINTES" })).toBe(
       "Ce document existe déjà dans la liste : « Registre des plaintes »."
     );
+  });
+});
+
+describe("documentTypeRenameError", () => {
+  it("accepte un nouveau nom, refuse un doublon d'une AUTRE ligne", () => {
+    expect(documentTypeRenameError({ label: "Gestion de crise", category: "QUALITE_RISQUES", otherLabels: ["Registre"] })).toBeNull();
+    expect(documentTypeRenameError({ label: "registre", category: "QUALITE_RISQUES", otherLabels: ["Registre"] })).toMatch(
+      /existe déjà/
+    );
+  });
+
+  it("les documents de la loi 2002-2 gardent leur nom", () => {
+    expect(documentTypeRenameError({ label: "Autre nom", category: "LOI_2002_2", otherLabels: [] })).toMatch(/loi 2002-2/);
+  });
+
+  it("mêmes règles de forme que la création", () => {
+    expect(documentTypeRenameError({ label: " ", category: "RH", otherLabels: [] })).toMatch(/obligatoire/);
+  });
+});
+
+describe("codes de critères tapés à la main", () => {
+  it("accepte points, tirets et espaces, sépare par virgule ou point-virgule, sans doublon", () => {
+    expect(parseCriterionCodes("3.14.2, 3-14-2 ; 1 2\n2.4.1.")).toEqual(["3.14.2", "1.2", "2.4.1"]);
+    expect(parseCriterionCodes("  ")).toEqual([]);
+  });
+
+  it("une recherche par mot reste un mot", () => {
+    expect(normalizeCriterionQuery("3-14-2")).toBe("3.14.2");
+    expect(normalizeCriterionQuery("  gestion   de crise ")).toBe("gestion de crise");
   });
 });
 

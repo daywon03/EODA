@@ -23,12 +23,14 @@ type Props = {
   establishmentId?: string;
   // Adresse de l'onglet Documents de cette fiche.
   documentsPath?: string;
+  // Critère d'où l'on vient (onglet Critères → « Ajouter un document à ce critère »).
+  initialCriterionCode?: string;
   onClose: () => void;
 };
 
 // Le formulaire « Ajouter un document à la liste » — une fois, pour toutes les
 // structures (createDocumentType). Chargé à la demande par NewDocumentTypeForm.
-export function NewDocumentTypeFields({ establishmentId, documentsPath, onClose }: Props) {
+export function NewDocumentTypeFields({ establishmentId, documentsPath, initialCriterionCode, onClose }: Props) {
   const router = useRouter();
   const [state, formAction, isPending] = useActionState(
     async (_previous: CreateDocumentTypeResult | null, data: FormData) => createDocumentType(data),
@@ -87,6 +89,23 @@ export function NewDocumentTypeFields({ establishmentId, documentsPath, onClose 
         <p className="text-sm text-ink2">La liste de la loi 2002-2 est fixée par la loi : elle ne se complète pas ici.</p>
       </div>
 
+      <div className="space-y-1.5">
+        <Label htmlFor="new-document-type-criteria">Critères HAS qu&apos;il prouve (facultatif)</Label>
+        <Input
+          id="new-document-type-criteria"
+          name="criteria"
+          defaultValue={initialCriterionCode ?? ""}
+          maxLength={300}
+          disabled={isPending}
+          placeholder="Par exemple : 3.14.2, 3.14.1"
+          aria-describedby="new-document-type-criteria-hint"
+        />
+        <p id="new-document-type-criteria-hint" className="text-sm text-ink2">
+          Numéros séparés par des virgules. Le rattachement vaut pour toutes les structures, et se modifie ensuite dans la
+          matrice des critères.
+        </p>
+      </div>
+
       <fieldset className="space-y-2">
         <legend className="text-sm font-bold text-ink">Qui le fournit ?</legend>
         <label className="flex min-h-11 items-center gap-2 text-ink">
@@ -139,6 +158,12 @@ function Success({
         <CheckCircle2 className="h-4 w-4 flex-shrink-0" aria-hidden="true" />
         « {state.label} » est ajouté à la liste de toutes les structures.
       </p>
+      {state.linkedCriteria.length > 0 && (
+        <p>
+          Rattaché {state.linkedCriteria.length > 1 ? "aux critères" : "au critère"} {state.linkedCriteria.join(", ")} : une
+          fois déposé et validé, il comptera comme preuve.
+        </p>
+      )}
       <p>{announcementMessage(state.announced)}</p>
       {state.visibleOnStructure === false && (
         <p>L&apos;offre de cette structure ne couvre pas cette catégorie : la ligne n&apos;apparaît pas sur sa fiche.</p>
@@ -150,7 +175,7 @@ function Success({
           </Link>
         )}
         <Link className="font-bold text-accent-text underline" href="/dashboard/cabinet/criteres">
-          Rattacher ses critères HAS
+          {state.linkedCriteria.length > 0 ? "Voir ou compléter ses critères HAS" : "Rattacher ses critères HAS"}
         </Link>
       </p>
     </div>

@@ -32,6 +32,7 @@ import { DocumentReminderForm } from "@/components/etablissement/DocumentReminde
 import { DocumentWorkspace, type WorkspaceEntry } from "@/components/structure/DocumentWorkspace";
 import { DocumentSheetBody } from "@/components/structure/DocumentSheetBody";
 import { NewDocumentTypeForm } from "@/components/checklist/NewDocumentTypeForm";
+import { normalizeCriterionQuery } from "@/lib/services/document-type-creation-service";
 
 export const metadata = { title: "Documents" };
 
@@ -43,6 +44,8 @@ type Props = {
     cat?: string | string[];
     tri?: string | string[];
     doc?: string | string[];
+    // Venu de l'onglet Critères : « Ajouter un document à ce critère ».
+    critere?: string | string[];
   }>;
 };
 
@@ -100,6 +103,9 @@ export default async function StructureDocumentsPage({ params, searchParams }: P
 
   // Le panneau : cherché dans la checklist de CETTE structure, déjà bornée au tenant.
   const docParam = Array.isArray(raw.doc) ? raw.doc[0] : raw.doc;
+  // Un numéro de critère seulement (« 3.14.2 ») : rien d'autre ne passe dans le formulaire.
+  const criterionParam = normalizeCriterionQuery((Array.isArray(raw.critere) ? raw.critere[0] : raw.critere) ?? "");
+  const initialCriterionCode = /^\d+(\.\d+)*$/.test(criterionParam) ? criterionParam : undefined;
   const opened = docParam === undefined ? null : findDocumentRow(allRows, docParam);
   if (docParam !== undefined && !opened) notFound();
 
@@ -187,7 +193,14 @@ export default async function StructureDocumentsPage({ params, searchParams }: P
         </div>
       </div>
 
-      {canManageList && <NewDocumentTypeForm establishmentId={id} documentsPath={basePath} />}
+      {canManageList && (
+        <NewDocumentTypeForm
+          key={initialCriterionCode ?? "liste"}
+          establishmentId={id}
+          documentsPath={basePath}
+          {...(initialCriterionCode ? { initialCriterionCode } : {})}
+        />
+      )}
 
       <DataTable
         caption={`Documents — ${DOCUMENT_BUCKET_LABELS[filters.bucket]}`}

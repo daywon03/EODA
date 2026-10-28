@@ -75,6 +75,7 @@ const ACTION_LABELS: Record<AuditAction, string> = {
   DOCUMENT_UNVALIDATED: "Validation de document retirée",
   DOCUMENT_TYPE_SCOPE_CHANGED: "Document réclamé au client / produit par EODA",
   DOCUMENT_TYPE_CREATED: "Nouveau document ajouté à la liste",
+  DOCUMENT_TYPE_RENAMED: "Document de la liste renommé",
   EVALUATION_EXPORTED: "Export des cotations d'auto-évaluation",
   EVALUATION_GRID_IMPORTED: "Import d'une grille Synaé cotée",
   AVENANT_SIGNED: "Avenant signé (retour du client)",

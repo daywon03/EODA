@@ -1766,6 +1766,7 @@ enum AuditAction {
   // l'inverse. Politique de cabinet, valable pour tous les clients.
   DOCUMENT_TYPE_SCOPE_CHANGED
   DOCUMENT_TYPE_CREATED
+  DOCUMENT_TYPE_RENAMED
   // Export des cotations d'auto-évaluation (fichier tableur). Un export SORT les
   // données de la plateforme : c'est précisément le genre d'accès dont il faut
   // pouvoir dire qui, quand, et pour quel établissement.

@@ -18,13 +18,16 @@ type Props = {
   establishmentId?: string;
   // Adresse de l'onglet Documents de cette fiche.
   documentsPath?: string;
+  // Venu d'un critère (« Ajouter un document à ce critère ») : formulaire ouvert,
+  // critère prérempli.
+  initialCriterionCode?: string;
 };
 
 // « Ajouter un document à la liste » — une ligne créée une fois, pour toutes les
 // structures (createDocumentType). Replié par défaut : la liste reste l'objet
 // principal de l'écran.
-export function NewDocumentTypeForm({ establishmentId, documentsPath }: Props) {
-  const [open, setOpen] = useState(false);
+export function NewDocumentTypeForm({ establishmentId, documentsPath, initialCriterionCode }: Props) {
+  const [open, setOpen] = useState(initialCriterionCode !== undefined);
 
   if (!open) {
     return (
@@ -39,6 +42,7 @@ export function NewDocumentTypeForm({ establishmentId, documentsPath }: Props) {
     <NewDocumentTypeFields
       {...(establishmentId ? { establishmentId } : {})}
       {...(documentsPath ? { documentsPath } : {})}
+      {...(initialCriterionCode ? { initialCriterionCode } : {})}
       onClose={() => setOpen(false)}
     />
   );

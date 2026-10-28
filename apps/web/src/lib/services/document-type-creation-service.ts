@@ -52,13 +52,10 @@ export function isCreatableCategory(category: string): category is CreatableDocu
   return (CREATABLE_DOCUMENT_CATEGORIES as readonly string[]).includes(category);
 }
 
-// Le doublon est NOMMÉ : la personne doit pouvoir retrouver la ligne existante.
-export function documentTypeCreationError(input: {
-  label: string;
-  category: string;
-  existingLabels: readonly string[];
-}): string | null {
-  const label = normalizeDocumentTypeLabel(input.label);
+// Règle du LIBELLÉ, partagée par la création et le renommage. Le doublon est NOMMÉ :
+// la personne doit pouvoir retrouver la ligne existante.
+function documentTypeLabelError(rawLabel: string, otherLabels: readonly string[]): string | null {
+  const label = normalizeDocumentTypeLabel(rawLabel);
   if (label.length === 0) return "Le nom du document est obligatoire.";
   // Caractères de contrôle : le libellé part dans des e-mails, des exports et le prompt.
   if (/[\u0000-\u001f\u007f]/.test(label)) return "Le nom du document contient des caractères invalides.";
@@ -66,16 +63,57 @@ export function documentTypeCreationError(input: {
   if (label.length > DOCUMENT_TYPE_LABEL_MAX) {
     return `Le nom du document ne peut pas dépasser ${DOCUMENT_TYPE_LABEL_MAX} caractères.`;
   }
-  if (documentTypeLabelKey(label).length === 0) return "Le nom du document doit contenir des lettres ou des chiffres.";
+  const key = documentTypeLabelKey(label);
+  if (key.length === 0) return "Le nom du document doit contenir des lettres ou des chiffres.";
+  const duplicate = otherLabels.find((existing) => documentTypeLabelKey(existing) === key);
+  if (duplicate) return `Ce document existe déjà dans la liste : « ${duplicate} ».`;
+  return null;
+}
+
+export function documentTypeCreationError(input: {
+  label: string;
+  category: string;
+  existingLabels: readonly string[];
+}): string | null {
   if (input.category === "LOI_2002_2") {
     return "La liste de la loi 2002-2 est fixée par la loi : choisissez une autre catégorie.";
   }
   if (!isCreatableCategory(input.category)) return "Catégorie invalide.";
+  return documentTypeLabelError(input.label, input.existingLabels);
+}
 
-  const key = documentTypeLabelKey(label);
-  const duplicate = input.existingLabels.find((existing) => documentTypeLabelKey(existing) === key);
-  if (duplicate) return `Ce document existe déjà dans la liste : « ${duplicate} ».`;
-  return null;
+// RENOMMER une ligne (call du 28/10/2026 : « uniformiser les titres », « qualité-
+// risque » qui devrait s'appeler « gestion de crise »). Le CODE ne change jamais : il
+// est la clé de la matrice, des analyses et du journal ; seul l'intitulé affiché
+// bouge, partout à la fois. Les sept documents de la loi 2002-2 gardent leur nom.
+export function documentTypeRenameError(input: {
+  label: string;
+  category: DocumentCategory;
+  // Les libellés des AUTRES types : se renommer en soi-même n'est pas un doublon.
+  otherLabels: readonly string[];
+}): string | null {
+  if (input.category === "LOI_2002_2") return "Les documents de la loi 2002-2 gardent leur nom légal.";
+  return documentTypeLabelError(input.label, input.otherLabels);
+}
+
+// Codes de critères tapés à la main : « 3.14.2, 3-14-2 ; 1.2 » → ["3.14.2", "1.2"].
+// Le tiret et l'espace sont des séparateurs qu'on tape naturellement (« 3-14-2 »).
+export const MAX_CRITERIA_AT_CREATION = 20;
+
+export function parseCriterionCodes(text: string): string[] {
+  const codes = text
+    .split(/[,;\n]+/)
+    .map((part) => normalizeCriterionQuery(part))
+    .filter((code) => code.length > 0);
+  return [...new Set(codes)];
+}
+
+// « 3-14-2 », « 3 14 2 » ou « 3.14.2 » : la même recherche. Un texte qui n'a pas la
+// forme d'un code est seulement resserré (recherche dans l'intitulé).
+export function normalizeCriterionQuery(query: string): string {
+  const trimmed = query.trim();
+  if (/^\d+([\s.\-]+\d+)*[.\-]?$/.test(trimmed)) return trimmed.replace(/[\s.\-]+/g, ".").replace(/\.$/, "");
+  return trimmed.replace(/\s+/g, " ");
 }
 
 // Code stable, lisible au journal, dérivé du libellé ; suffixé s'il est déjà pris.

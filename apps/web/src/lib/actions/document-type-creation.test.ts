@@ -12,9 +12,14 @@ class KnownError extends Error {
 }
 
 const prismaMock = {
-  documentType: { findMany: vi.fn(), create: vi.fn() },
+  documentType: { findMany: vi.fn(), findUnique: vi.fn(), create: vi.fn(), update: vi.fn() },
+  documentTypeCriterion: { createMany: vi.fn() },
+  criterion: { findMany: vi.fn() },
   establishment: { findFirst: vi.fn(), findMany: vi.fn() },
+  // La transaction rejoue le même client : chaque écriture reste observable.
+  $transaction: vi.fn(async (fn: (tx: unknown) => Promise<unknown>) => fn(prismaMock)),
 };
+const revalidateTag = vi.fn();
 const requireCabinetAdminSession = vi.fn();
 const recordAuditEvent = vi.fn();
 const notifyNewDocumentType = vi.fn();
@@ -23,7 +28,11 @@ vi.mock("@eoda/database", () => ({
   prisma: prismaMock,
   Prisma: { PrismaClientKnownRequestError: KnownError },
 }));
-vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
+vi.mock("next/cache", () => ({
+  revalidatePath: vi.fn(),
+  revalidateTag: (...args: unknown[]) => revalidateTag(...args),
+  unstable_cache: <T,>(fn: T) => fn,
+}));
 vi.mock("next/navigation", () => ({
   notFound: () => {
     throw new Error("NOT_FOUND");
@@ -37,7 +46,7 @@ vi.mock("@/lib/email/notifications", () => ({
   notifyNewDocumentType: (...args: unknown[]) => notifyNewDocumentType(...args),
 }));
 
-const { createDocumentType } = await import("./document-type-creation");
+const { createDocumentType, renameDocumentType } = await import("./document-type-creation");
 
 function form(fields: Record<string, string>): FormData {
   const data = new FormData();
@@ -57,7 +66,94 @@ beforeEach(() => {
   prismaMock.documentType.findMany.mockResolvedValue([{ label: "Registre des plaintes", code: "Q_PLAINTES" }]);
   prismaMock.documentType.create.mockResolvedValue({ id: "dt-new" });
   prismaMock.establishment.findMany.mockResolvedValue([]);
+  prismaMock.criterion.findMany.mockResolvedValue([]);
   notifyNewDocumentType.mockResolvedValue({ sent: 1, total: 1 });
+});
+
+describe("critères rattachés à la création", () => {
+  it("rattache les critères tapés (« 3-14-2 » compris) dans la même transaction, et le journal les cite", async () => {
+    prismaMock.criterion.findMany.mockResolvedValue([
+      { id: "c-3142", code: "3.14.2" },
+      { id: "c-3141", code: "3.14.1" },
+    ]);
+    const result = await createDocumentType(form({ ...valid, criteria: "3-14-2, 3.14.1" }));
+
+    expect(prismaMock.$transaction).toHaveBeenCalledTimes(1);
+    expect(prismaMock.documentTypeCriterion.createMany).toHaveBeenCalledWith({
+      data: [
+        { documentTypeId: "dt-new", criterionId: "c-3142" },
+        { documentTypeId: "dt-new", criterionId: "c-3141" },
+      ],
+      skipDuplicates: true,
+    });
+    expect(recordAuditEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ detail: expect.stringContaining("critères 3.14.2, 3.14.1") })
+    );
+    expect(revalidateTag).toHaveBeenCalledWith("criterion-matrix");
+    expect(result).toEqual(expect.objectContaining({ linkedCriteria: ["3.14.2", "3.14.1"] }));
+  });
+
+  it("un critère inconnu : refusé AVANT de créer la ligne", async () => {
+    prismaMock.criterion.findMany.mockResolvedValue([{ id: "c-3142", code: "3.14.2" }]);
+    expect(await createDocumentType(form({ ...valid, criteria: "3.14.2, 9.99.9" }))).toEqual({
+      error: "Critère inconnu du référentiel : 9.99.9.",
+    });
+    expect(prismaMock.documentType.create).not.toHaveBeenCalled();
+  });
+
+  it("sans critère : aucun rattachement, aucune invalidation de la matrice", async () => {
+    await createDocumentType(form(valid));
+    expect(prismaMock.documentTypeCriterion.createMany).not.toHaveBeenCalled();
+    expect(revalidateTag).not.toHaveBeenCalled();
+  });
+});
+
+describe("renameDocumentType", () => {
+  beforeEach(() => {
+    prismaMock.documentType.findUnique.mockResolvedValue({
+      id: "dt-1",
+      code: "Q_CRISE",
+      label: "Qualité risque",
+      category: "QUALITE_RISQUES",
+    });
+    prismaMock.documentType.findMany.mockResolvedValue([{ label: "Registre des plaintes" }]);
+  });
+
+  it("non-admin : refusé avant toute lecture", async () => {
+    requireCabinetAdminSession.mockRejectedValue(new Error("REDIRECT"));
+    await expect(renameDocumentType("dt-1", "Gestion de crise")).rejects.toThrow("REDIRECT");
+    expect(prismaMock.documentType.findUnique).not.toHaveBeenCalled();
+  });
+
+  it("renomme l'intitulé seul (le code ne bouge pas) et journalise l'ancien et le nouveau nom", async () => {
+    expect(await renameDocumentType("dt-1", "  Gestion  de crise ")).toEqual({ ok: true, label: "Gestion de crise" });
+    expect(prismaMock.documentType.update).toHaveBeenCalledWith({ where: { id: "dt-1" }, data: { label: "Gestion de crise" } });
+    expect(recordAuditEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "DOCUMENT_TYPE_RENAMED",
+        targetId: "dt-1",
+        detail: "Q_CRISE : « Qualité risque » → « Gestion de crise »",
+      })
+    );
+  });
+
+  it("doublon d'une autre ligne, loi 2002-2 : refusés sans écrire", async () => {
+    expect(await renameDocumentType("dt-1", "registre des plaintes")).toEqual({ error: expect.stringMatching(/existe déjà/) });
+    prismaMock.documentType.findUnique.mockResolvedValue({ id: "dt-2", code: "L2002_DIPC", label: "DIPEC", category: "LOI_2002_2" });
+    expect(await renameDocumentType("dt-2", "Contrat")).toEqual({ error: expect.stringMatching(/loi 2002-2/) });
+    expect(prismaMock.documentType.update).not.toHaveBeenCalled();
+  });
+
+  it("type inconnu : notFound", async () => {
+    prismaMock.documentType.findUnique.mockResolvedValue(null);
+    await expect(renameDocumentType("dt-x", "Nom")).rejects.toThrow("NOT_FOUND");
+  });
+
+  it("même nom : rien n'est écrit", async () => {
+    expect(await renameDocumentType("dt-1", "Qualité risque")).toEqual({ ok: true, label: "Qualité risque" });
+    expect(prismaMock.documentType.update).not.toHaveBeenCalled();
+    expect(recordAuditEvent).not.toHaveBeenCalled();
+  });
 });
 
 describe("garde", () => {
