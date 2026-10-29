@@ -5,6 +5,7 @@ import { formatDate } from "@/lib/services/date-format-service";
 import { ChecklistItemDetail } from "@/components/checklist/ChecklistItemDetail";
 import { DocumentUploadButton } from "@/components/checklist/DocumentUploadButton";
 import {
+  AnalysisLabPanel,
   DocumentSettingsPanel,
   ParticipationFormPicker,
   RenameDocumentType,
@@ -68,6 +69,10 @@ export function DocumentSheetBody({
           offerCabinetFinal
         />
       </div>
+
+      {/* Laboratoire d'analyse (29/10/2026) : le prompt envoyé, des essais d'autres
+          versions, le verdict de la consultante — jamais montré à la structure. */}
+      {item.currentVersion && <AnalysisLabPanel documentVersionId={item.currentVersion.id} />}
 
       {/* Ligne « Autre forme de participation des usagers » : la forme choisie
           (enquête, groupe de parole, autre) — 21/10/2026. */}

@@ -47,6 +47,7 @@ import {
 } from "@/lib/services/missing-answer-service";
 import { getFileStoragePort } from "@/lib/storage";
 import { getLLMAnalysisPort, isKnownLlmModelId } from "@/lib/llm";
+import { isAnalysisPromptVariantId } from "@/lib/llm/analysis-prompt-variants";
 import { guidelineReach, validateGuidelineNote } from "@/lib/services/criterion-guideline-service";
 import { compareCriterionCodes } from "@/lib/services/criterion-picker-service";
 import {
@@ -1038,7 +1039,8 @@ export async function setAnalysisReviewed(
 // modèle après coup. Réservé au cabinet, comme setAnalysisReviewed ci-dessus.
 export async function reanalyzeDocument(
   documentVersionId: string,
-  modelId?: string | null
+  modelId?: string | null,
+  promptVariant?: string | null
 ): Promise<{ error: string } | null> {
   const version = await prisma.documentVersion.findUnique({
     where: { id: documentVersionId },
@@ -1050,11 +1052,15 @@ export async function reanalyzeDocument(
   if (access.isClient) notFound();
 
   const validatedModelId = modelId && isKnownLlmModelId(modelId) ? modelId : null;
+  // Version du prompt (laboratoire, 29/10/2026) : une valeur inconnue retombe sur la
+  // version par défaut, jamais sur un texte reçu.
+  const validatedVariant = isAnalysisPromptVariantId(promptVariant) ? promptVariant : undefined;
 
   const result = await reanalyzeDocumentVersion(
     documentVersionId,
     { storage: getFileStoragePort(), llm: getLLMAnalysisPort() },
-    validatedModelId
+    validatedModelId,
+    validatedVariant
   );
 
   if ("error" in result) return { error: result.error };
@@ -1065,7 +1071,7 @@ export async function reanalyzeDocument(
     actorRole: access.session.user.role,
     establishmentId: version.document.establishmentId,
     targetId: documentVersionId,
-    detail: version.document.documentType?.code ?? null,
+    detail: [version.document.documentType?.code, validatedVariant && `prompt ${validatedVariant}`].filter(Boolean).join(" · ") || null,
   });
 
   // Rafraîchi par l'appelant (AnalyzeDocumentButton, use-analysis-run) : cf. uploadDocument.

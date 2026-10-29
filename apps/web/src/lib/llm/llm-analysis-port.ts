@@ -1,3 +1,4 @@
+import type { AnalysisPromptVariantId } from "./analysis-prompt-variants";
 import type { CorrectionProposal } from "./correction-proposal";
 
 // Port d'analyse documentaire par LLM (Dependency Inversion) — le métier ne dépend
@@ -74,7 +75,14 @@ export type DocumentAnalysisInput = {
   // de l'analyse (Document.analysisDirective, si `directiveInAnalysis`) — jamais
   // recopié à la main par un appelant, pour que réanalyser prenne la consigne à jour.
   analysisDirective?: string;
+  // Version du prompt d'analyse (laboratoire, 29/10/2026) ; absente = version par défaut.
+  promptVariant?: AnalysisPromptVariantId;
 };
+
+// L'appel tel qu'il part vers le modèle : fournisseur, modèle, consigne système et
+// message. `analyze` envoie EXACTEMENT ceci — « Voir le prompt » montre ceci, jamais
+// une reconstitution (laboratoire d'analyse, 29/10/2026).
+export type AnalysisCall = { provider: string; model: string; system: string; user: string };
 
 // Un élément retrouvé, avec la citation qui le justifie (demande de Damon,
 // 15/09/2026) : un extrait court, tiré mot pour mot du document, qui confirme la
@@ -160,6 +168,7 @@ export type DocumentGenerationInput = {
 
 export interface LLMAnalysisPort {
   analyze(input: DocumentAnalysisInput): Promise<DocumentAnalysisResult>;
+  describeAnalysisCall(input: DocumentAnalysisInput): AnalysisCall;
   // Rend le document ENTIER sous forme STRUCTURÉE (N8) : les passages repris de
   // l'original et les ajouts proposés, chacun justifié par un critère — cf.
   // correction-proposal.ts (schéma, validation) et generation-prompt.ts (consigne).

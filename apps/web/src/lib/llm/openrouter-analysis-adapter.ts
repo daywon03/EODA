@@ -3,6 +3,7 @@ import type {
   DocumentAnalysisInput,
   DocumentAnalysisResult,
   DocumentGenerationInput,
+  AnalysisCall,
 } from "./llm-analysis-port";
 import {
   normalizeFindings,
@@ -91,8 +92,18 @@ export function stripCodeFence(content: string): string {
 export class OpenRouterAnalysisAdapter implements LLMAnalysisPort {
   constructor(private readonly apiKey: string) {}
 
+  describeAnalysisCall(input: DocumentAnalysisInput): AnalysisCall {
+    return {
+      provider: "OpenRouter",
+      model: resolveOpenRouterSlug(input.modelId ?? DEFAULT_LLM_MODEL_ID),
+      system: `${buildSystemPrompt(input.promptVariant)}\n\n${JSON_SCHEMA_INSTRUCTION}`,
+      user: buildUserMessage(input),
+    };
+  }
+
   async analyze(input: DocumentAnalysisInput): Promise<DocumentAnalysisResult> {
-    const model = resolveOpenRouterSlug(input.modelId ?? DEFAULT_LLM_MODEL_ID);
+    const call = this.describeAnalysisCall(input);
+    const model = call.model;
 
     const response = await fetch(ENDPOINT, {
       method: "POST",
@@ -111,8 +122,8 @@ export class OpenRouterAnalysisAdapter implements LLMAnalysisPort {
         max_tokens: MAX_TOKENS,
         response_format: { type: "json_object" },
         messages: [
-          { role: "system", content: `${buildSystemPrompt()}\n\n${JSON_SCHEMA_INSTRUCTION}` },
-          { role: "user", content: buildUserMessage(input) },
+          { role: "system", content: call.system },
+          { role: "user", content: call.user },
         ],
       }),
     });

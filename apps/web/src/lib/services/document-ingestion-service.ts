@@ -1,6 +1,12 @@
 import { prisma } from "@eoda/database";
 import type { FileStoragePort } from "@/lib/storage";
 import type { LLMAnalysisPort } from "@/lib/llm";
+import type { DocumentAnalysisInput } from "@/lib/llm/llm-analysis-port";
+import {
+  analysisPromptVariant,
+  DEFAULT_ANALYSIS_PROMPT_VARIANT,
+  type AnalysisPromptVariantId,
+} from "@/lib/llm/analysis-prompt-variants";
 import { anonymizeText } from "@/lib/services/anonymization-service";
 import { deriveDocumentStatus } from "@/lib/services/document-status-service";
 import { buildStorageKey, buildDocumentImageStorageKey } from "@/lib/security/upload-validation-service";
@@ -14,6 +20,7 @@ import { readValidatedExamples } from "@/lib/db/read-validated-examples";
 import {
   buildAdditionalCriteriaCatalog,
   validateSuggestedCriteria,
+  type CriterionCatalogSource,
   type ValidatedSuggestion,
 } from "@/lib/services/criterion-suggestion-service";
 
@@ -231,30 +238,12 @@ export async function ingestDocumentVersion(
 export async function reanalyzeDocumentVersion(
   documentVersionId: string,
   ports: IngestionPorts,
-  modelId?: string | null
+  modelId?: string | null,
+  promptVariant?: AnalysisPromptVariantId
 ): Promise<{ ok: true } | { error: string }> {
-  const version = await prisma.documentVersion.findUnique({
-    where: { id: documentVersionId },
-    select: {
-      id: true,
-      fileStorageKey: true,
-      extractedText: true,
-      // Auteur de CETTE version, pas de la personne qui clique « Réanalyser » —
-      // c'est le dépôt d'origine qui détermine l'origine du contenu.
-      uploadedBy: { select: { role: true } },
-      document: {
-        select: {
-          id: true,
-          establishmentId: true,
-          documentTypeId: true,
-          documentType: { select: { label: true } },
-        },
-      },
-    },
-  });
-  if (!version || !version.document.documentTypeId || !version.document.documentType) {
-    return { error: "Document introuvable." };
-  }
+  const loaded = await readAnalysisTarget(documentVersionId);
+  if (!loaded) return { error: "Document introuvable." };
+  const { version } = loaded;
 
   let extractedText = version.extractedText;
   if (!extractedText) {
@@ -287,18 +276,14 @@ export async function reanalyzeDocumentVersion(
     };
   }
 
-  await prisma.document.update({ where: { id: version.document.id }, data: { status: "ANALYZING" } });
+  await prisma.document.update({ where: { id: loaded.target.documentId }, data: { status: "ANALYZING" } });
 
   const succeeded = await analyzeVersion(
     {
-      establishmentId: version.document.establishmentId,
-      documentId: version.document.id,
-      documentVersionId: version.id,
-      documentTypeId: version.document.documentTypeId,
-      documentTypeLabel: version.document.documentType.label,
+      ...loaded.target,
       extractedText,
-      documentOrigin: version.uploadedBy.role === "CLIENT_USER" ? "CLIENT" : "CABINET",
       ...(modelId && { modelId }),
+      ...(promptVariant && { promptVariant }),
     },
     ports.llm
   );
@@ -306,27 +291,73 @@ export async function reanalyzeDocumentVersion(
   return succeeded ? { ok: true } : { error: "L'analyse a échoué. Réessayez dans un instant." };
 }
 
+// Ce que l'analyse d'une version déjà déposée a besoin de connaître — lu ICI pour la
+// réanalyse comme pour le laboratoire (prompt montré, essais), jamais reçu d'un
+// appelant. `null` : version inconnue ou sans type de document.
+export async function readAnalysisTarget(
+  documentVersionId: string
+): Promise<{ target: AnalysisTarget; version: { id: string; fileStorageKey: string; extractedText: string | null } } | null> {
+  const version = await prisma.documentVersion.findUnique({
+    where: { id: documentVersionId },
+    select: {
+      id: true,
+      fileStorageKey: true,
+      extractedText: true,
+      // Auteur de CETTE version, pas de la personne qui clique « Réanalyser » —
+      // c'est le dépôt d'origine qui détermine l'origine du contenu.
+      uploadedBy: { select: { role: true } },
+      document: {
+        select: {
+          id: true,
+          establishmentId: true,
+          documentTypeId: true,
+          documentType: { select: { label: true } },
+        },
+      },
+    },
+  });
+  if (!version || !version.document.documentTypeId || !version.document.documentType) return null;
+  return {
+    version: { id: version.id, fileStorageKey: version.fileStorageKey, extractedText: version.extractedText },
+    target: {
+      establishmentId: version.document.establishmentId,
+      documentId: version.document.id,
+      documentVersionId: version.id,
+      documentTypeId: version.document.documentTypeId,
+      documentTypeLabel: version.document.documentType.label,
+      extractedText: version.extractedText,
+      documentOrigin: version.uploadedBy.role === "CLIENT_USER" ? "CLIENT" : "CABINET",
+    },
+  };
+}
+
 // Analyse IA synchrone (un seul appel LLM par document, cf. roadmap Jalon 3) —
 // jamais bloquante : en cas d'échec, le document reste UPLOADED plutôt que de
 // faire échouer tout le dépôt.
-async function analyzeVersion(
-  params: {
-    establishmentId: string;
-    documentId: string;
-    documentVersionId: string;
-    documentTypeId: string;
-    documentTypeLabel: string;
-    extractedText: string | null;
-    // Optionnel ici (contrairement à IngestDocumentInput) : une ré-analyse porte sur
-    // une version DÉJÀ déposée, dont l'auteur d'origine se relit en base plutôt que
-    // d'être supposé — cf. reanalyzeDocumentVersion, seul appelant qui ne le connaît
-    // pas d'avance.
-    documentOrigin?: "CLIENT" | "CABINET";
-    modelId?: string | null;
-  },
-  llm: LLMAnalysisPort
-): Promise<boolean> {
-  try {
+export type AnalysisTarget = {
+  establishmentId: string;
+  documentId: string;
+  documentVersionId: string;
+  documentTypeId: string;
+  documentTypeLabel: string;
+  extractedText: string | null;
+  // Optionnel ici (contrairement à IngestDocumentInput) : une ré-analyse porte sur
+  // une version DÉJÀ déposée, dont l'auteur d'origine se relit en base plutôt que
+  // d'être supposé — cf. reanalyzeDocumentVersion, seul appelant qui ne le connaît
+  // pas d'avance.
+  documentOrigin?: "CLIENT" | "CABINET";
+  modelId?: string | null;
+  promptVariant?: AnalysisPromptVariantId;
+};
+
+// TOUT ce qui part au modèle pour une version, rassemblé en UN endroit (laboratoire
+// d'analyse, 29/10/2026) : l'analyse officielle, « Voir le prompt » et les essais
+// passent ici, pour que ce que la consultante voit et teste soit exactement ce qui
+// part.
+export async function prepareAnalysisInput(
+  params: AnalysisTarget
+): Promise<{ input: DocumentAnalysisInput; directive: string | undefined; allCriteria: CriterionCatalogSource[] }> {
+  {
     const [linkedCriteria, establishment, allCriteria, documentDirective] = await Promise.all([
       prisma.documentTypeCriterion.findMany({
         where: { documentTypeId: params.documentTypeId },
@@ -386,7 +417,7 @@ async function analyzeVersion(
       directiveInAnalysis: documentDirective?.directiveInAnalysis === true,
     });
 
-    const analysis = await llm.analyze({
+    const input: DocumentAnalysisInput = {
       documentTypeLabel: params.documentTypeLabel,
       // Anonymisation best-effort avant tout envoi vers un service externe
       // (contrainte RGPD, cf. anonymization-service.ts).
@@ -397,12 +428,23 @@ async function analyzeVersion(
       ...(imageDescriptions.length > 0 && { imageDescriptions }),
       ...(params.documentOrigin && { documentOrigin: params.documentOrigin }),
       ...(params.modelId && { modelId: params.modelId }),
+      ...(params.promptVariant && { promptVariant: params.promptVariant }),
       ...(additionalCriteriaCatalog.length > 0 && { additionalCriteriaCatalog }),
       ...(validatedExamples.length > 0 && { validatedExamples }),
       // Même anonymisation best-effort que le texte : un commentaire peut citer quelqu'un.
       ...(documentComment && { documentComment: anonymizeText(documentComment) }),
       ...(directive !== undefined && { analysisDirective: directive }),
-    });
+    };
+    return { input, directive, allCriteria };
+  }
+}
+
+async function analyzeVersion(params: AnalysisTarget, llm: LLMAnalysisPort): Promise<boolean> {
+  try {
+    const { input, directive, allCriteria } = await prepareAnalysisInput(params);
+    const variant = analysisPromptVariant(params.promptVariant ?? DEFAULT_ANALYSIS_PROMPT_VARIANT);
+    const call = llm.describeAnalysisCall(input);
+    const analysis = await llm.analyze(input);
 
     // Best-effort, comme les autres enrichissements de cette fonction : une
     // suggestion perdue ne doit jamais faire échouer l'analyse elle-même.
@@ -419,6 +461,11 @@ async function analyzeVersion(
         // `null` = analyse produite SANS consigne (ou consigne éteinte), pas
         // « consigne vide » : le rendu sait ainsi distinguer les deux cas.
         analysisDirectiveUsed: directive ?? null,
+        // Avec quoi elle a été produite (laboratoire, 29/10/2026).
+        analysisPromptVariant: variant.id,
+        analysisPromptVersion: variant.version,
+        analysisModel: call.model,
+        analyzedAt: new Date(),
       },
     });
     await prisma.document.update({

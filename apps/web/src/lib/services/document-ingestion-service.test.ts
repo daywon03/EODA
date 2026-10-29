@@ -66,7 +66,9 @@ function fakeStorage(overrides: Partial<FileStoragePort> = {}): FileStoragePort 
   } as unknown as FileStoragePort;
 }
 
-const noopLlm = { analyze: vi.fn() } as unknown as LLMAnalysisPort;
+// L'appel décrit au port (laboratoire, 29/10/2026) : fournisseur et modèle factices.
+const describeCall = () => ({ provider: "test", model: "modele-test", system: "", user: "" });
+const noopLlm = { analyze: vi.fn(), describeAnalysisCall: describeCall } as unknown as LLMAnalysisPort;
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -250,7 +252,7 @@ describe("ingestDocumentVersion — matrice type de document ↔ critères", () 
     prismaMock.documentVersion.update.mockResolvedValue({});
 
     const analyze = vi.fn().mockResolvedValue({ criteresSupplementaires: [] });
-    return { analyze, llm: { analyze } as unknown as LLMAnalysisPort };
+    return { analyze, llm: { analyze, describeAnalysisCall: describeCall } as unknown as LLMAnalysisPort };
   }
 
   it("lit la matrice du type de document analysé, et d'aucun autre", async () => {
@@ -327,6 +329,24 @@ describe("ingestDocumentVersion — matrice type de document ↔ critères", () 
     );
   });
 
+  it("enregistre avec quoi l'analyse a été produite : version du prompt, modèle, date (29/10/2026)", async () => {
+    const { llm } = armAnalysis(2);
+    prismaMock.document.findUnique.mockResolvedValue({ analysisDirective: null, directiveInAnalysis: false });
+
+    await ingestDocumentVersion(baseInput({ extractedText: "Contenu." }), { storage: fakeStorage(), llm });
+
+    expect(prismaMock.documentVersion.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          analysisPromptVariant: "actuel",
+          analysisPromptVersion: 1,
+          analysisModel: "modele-test",
+          analyzedAt: expect.any(Date),
+        }),
+      })
+    );
+  });
+
   it("n'envoie rien quand le bouton « prendre en compte » est éteint — le texte reste en base", async () => {
     const { llm, analyze } = armAnalysis(2);
     prismaMock.document.findUnique.mockResolvedValue({
@@ -362,7 +382,7 @@ describe("ingestDocumentVersion — commentaires du cabinet", () => {
     prismaMock.$transaction.mockResolvedValue([]);
     prismaMock.documentVersion.update.mockResolvedValue({});
     const analyze = vi.fn().mockResolvedValue({ criteresSupplementaires: [] });
-    return { analyze, llm: { analyze } as unknown as LLMAnalysisPort };
+    return { analyze, llm: { analyze, describeAnalysisCall: describeCall } as unknown as LLMAnalysisPort };
   }
 
   it("relit les critères du document lui-même, hors critères rejetés", async () => {

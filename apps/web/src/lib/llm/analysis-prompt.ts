@@ -1,6 +1,7 @@
 import type { DocumentAnalysisInput, ValidatedExample } from "./llm-analysis-port";
 import { renderDocumentComment } from "./document-comment";
 import { neutralizePromptBlocks } from "./prompt-blocks";
+import { analysisPromptVariant, DEFAULT_ANALYSIS_PROMPT_VARIANT, type AnalysisPromptVariantId } from "./analysis-prompt-variants";
 
 // Construction du prompt d'analyse documentaire — partagée par tous les
 // adaptateurs LLM (Anthropic direct, OpenRouter) pour qu'ils analysent le même
@@ -44,7 +45,12 @@ export function renderValidatedExamples(examples: readonly ValidatedExample[] | 
   return `\nDocuments finaux validés du même type, à titre d'exemple de forme :\n${blocks}\n`;
 }
 
-export function buildSystemPrompt(): string {
+// La consigne SYSTÈME selon la version de prompt choisie (laboratoire d'analyse,
+// 29/10/2026). Le socle — rôle, sécurité, citations, format — est commun ; une version
+// change la règle des critères supplémentaires et peut ajouter une MÉTHODE. La version
+// « actuel » rend le prompt du 28/10/2026 au caractère près (empreinte figée par test).
+export function buildSystemPrompt(variantId: AnalysisPromptVariantId = DEFAULT_ANALYSIS_PROMPT_VARIANT): string {
+  const variant = analysisPromptVariant(variantId);
   return `Tu analyses des documents fournis par un établissement social/médico-social (ESSMS)
 en préparation à une évaluation qualité HAS, pour le compte du cabinet EODA Conseil qui
 accompagne cette structure.
@@ -136,16 +142,7 @@ Règles d'analyse :
   constaté par ailleurs.
 - Cette analyse est une aide à la décision pour l'évaluatrice, jamais une validation
   finale ni une cotation HAS officielle.
-- Si un catalogue de critères SUPPLÉMENTAIRES t'est transmis entre les balises
-  <catalogue_criteres>, identifie TOUS ceux que ce document évoque réellement — un
-  document peut en concerner plusieurs, parfois jusqu'à dix, ne t'arrête jamais au
-  premier trouvé. Chaque entrée de "criteresSupplementaires" est un objet
-  {"criterionCode", "justification"} : "criterionCode" est copié EXACTEMENT depuis
-  le catalogue (jamais un code inventé, jamais un code hors catalogue), et
-  "justification" est une phrase courte citant ce qui, dans le document, justifie
-  ce rattachement. Un critère déjà couvert par "criteriaCoverage" n'y figure pas —
-  les deux listes sont disjointes. Un document qui n'en évoque aucun rend un
-  tableau vide, jamais un critère forcé pour "remplir".`;
+${variant.catalogueRule}${variant.method ? `\n\n${variant.method}` : ""}`;
 }
 
 export function buildUserMessage(input: DocumentAnalysisInput): string {

@@ -26,6 +26,8 @@ export const STRUCTURES_PATH = `${CABINET_ROOT}/structures`;
 export const REQUESTED_DOCUMENTS_PATH = `${CABINET_ROOT}/documents-reclames`;
 export const TEAM_PATH = `${CABINET_ROOT}/equipe`;
 export const CONTENT_REVIEW_PATH = `${CABINET_ROOT}/contenus`;
+// Laboratoire d'analyse : bilan des essais de prompt et des verdicts (29/10/2026).
+export const ANALYSIS_LAB_PATH = `${CABINET_ROOT}/laboratoire`;
 const COMMERCIAL_ROOT = `${CABINET_ROOT}/commercial`;
 
 export type CabinetNavCounts = {
@@ -82,6 +84,8 @@ function settingsItems(role: UserRole): NavItem[] {
   // revérifie par requireContentReviewSession).
   if (hasCabinetCapability(role, "CONTENT_REVIEW")) {
     items.push({ id: "content-review", href: CONTENT_REVIEW_PATH, label: "Contenus à valider", icon: "content" });
+    // Même public que la relecture des contenus : celles qui jugent les analyses.
+    items.push({ id: "analysis-lab", href: ANALYSIS_LAB_PATH, label: "Laboratoire d'analyse", icon: "content" });
   }
   if (hasCabinetCapability(role, "TEAM_MANAGE")) {
     items.push({ id: "team", href: TEAM_PATH, label: "Équipe EODA", icon: "team" });
