@@ -1,4 +1,22 @@
-import { buildEvaluationExport, recordEvaluationExport } from "@/lib/actions/evaluation-export";
+import { buildEvaluationExport } from "@/lib/actions/evaluation-export";
+import { requireEstablishmentInTenant } from "@/lib/auth/guards";
+import { recordAuditEvent } from "@/lib/services/audit-log-service";
+
+// Journalisation séparée de la construction : la page d'aperçu compte les lignes sans
+// que ça constitue un export, seul le TÉLÉCHARGEMENT en est un. Ici, et non dans le
+// fichier d'actions : une fonction exportée d'un fichier « use server » est appelable
+// directement, et n'importe quel compte cabinet aurait pu inscrire au journal des
+// exports qui n'ont jamais eu lieu (audit du 28/10/2026).
+async function recordEvaluationExport(establishmentId: string): Promise<void> {
+  const { userId, session } = await requireEstablishmentInTenant(establishmentId, "READ");
+  await recordAuditEvent({
+    action: "EVALUATION_EXPORTED",
+    actorUserId: userId,
+    actorRole: session.user.role,
+    establishmentId,
+    detail: "Export CSV des cotations",
+  });
+}
 
 // Téléchargement du fichier de cotations.
 //

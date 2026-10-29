@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Modal } from "@/components/ui/modal";
 import { ConfirmActionButton } from "@/components/ui/confirm-action-button";
-import { TemporaryPasswordPanel } from "@/components/ui/temporary-password-panel";
+import { SetupLinkPanel } from "@/components/ui/temporary-password-panel";
 import { RoleCardPicker } from "@/components/team/RoleCardPicker";
 import { CLIENT_ACCESS_ROLES, CLIENT_ACCESS_ROLE_LABELS, type ClientAccessRole } from "@/lib/auth/capabilities";
 import { FUNCTION_LABELS } from "@/lib/services/action-item-service";
@@ -88,7 +88,7 @@ export function ClientAccessDialog(props: Props) {
           <div className="overflow-y-auto p-5 text-[17px]">
             {granted ? (
               <div className="space-y-4">
-                <TemporaryPasswordPanel {...granted} />
+                <SetupLinkPanel {...granted} />
                 <Button variant="outline" onClick={close}>
                   Fermer
                 </Button>

@@ -69,6 +69,8 @@ vi.mock("@/lib/services/audit-log-service", () => ({
 }));
 vi.mock("@/lib/security/upload-validation-service", () => ({
   validateUploadedFile: () => ({ ok: true, contentType: "application/pdf" }),
+  DOCX_MIME_TYPE: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  XLSX_MIME_TYPE: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
 }));
 vi.mock("@/lib/storage", () => ({ getFileStoragePort: () => ({}) }));
 vi.mock("./correction-proposal", () => ({

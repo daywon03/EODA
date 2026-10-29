@@ -109,4 +109,7 @@ export const EXPECTED_MIGRATIONS: readonly string[] = [
   "20261021140000_participation_form",
   "20261021150000_cvs_label",
   "20261027100000_dipec_label",
+  "20261028120000_document_type_audit",
+  "20261028100000_message_audit",
+  "20261028110000_password_setup_tokens",
 ] as const;

@@ -164,6 +164,7 @@ export function TabletAdmission({ establishmentId, structureName, structureAddre
         contractFiles={() => contractFiles(record)}
         contractSignature={() => pdfOf(signatureKey(record.id, departementFormSigner(record)))}
         onSaved={(pdf, kind) => saveForm(record.id, pdf, kind)}
+        savedForm={(kind) => pdfOf(formKey(record.id, kind))}
         onBack={() => go(back)}
       />
     );

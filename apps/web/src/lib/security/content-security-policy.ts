@@ -32,21 +32,29 @@
 // `'unsafe-inline'` sur les scripts.
 // ─────────────────────────────────────────────────────────────────────────────
 
+// Audit du 28/10/2026 : `https:` (n'importe quel site) est remplacé par l'origine du
+// STOCKAGE, seule source tierce réelle des URL signées ci-dessus. Un script injecté ne
+// peut plus exfiltrer par une image ou une requête vers un domaine quelconque. La barre
+// d'outils Vercel n'est admise que sur une prévisualisation.
 export function buildContentSecurityPolicy(options: {
   nonce: string;
   isProduction: boolean;
+  storageOrigin?: string | null;
+  vercelPreview?: boolean;
 }): string {
   const { nonce, isProduction } = options;
+  const storage = options.storageOrigin && /^https:\/\/[a-z0-9.-]+(?::\d+)?$/i.test(options.storageOrigin) ? ` ${options.storageOrigin}` : "";
+  const vercel = options.vercelPreview ? " https://vercel.live" : "";
 
   return [
     "default-src 'self'",
     // `'self'` est conservé pour les navigateurs qui ignorent `'strict-dynamic'`.
     `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${isProduction ? "" : " 'unsafe-eval'"}`,
     "style-src 'self' 'unsafe-inline'",
-    "img-src 'self' data: blob: https:",
+    `img-src 'self' data: blob:${storage}${vercel}`,
     "font-src 'self' data:",
-    "connect-src 'self' https:",
-    "frame-src 'self' blob: https:",
+    `connect-src 'self'${storage}${vercel}`,
+    `frame-src 'self' blob:${storage}${vercel}`,
     "object-src 'none'",
     "base-uri 'self'",
     "form-action 'self'",

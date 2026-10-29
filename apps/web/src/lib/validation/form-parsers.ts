@@ -158,9 +158,16 @@ export function optionalDate(
 ): ParseResult<Date | null> {
   const value = raw(formData, field);
   if (!value) return ok(null);
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return fail(`${label} n'est pas une date valide.`);
+  const parsed = parseDateValue(value);
+  if (!parsed) return fail(`${label} n'est pas une date valide.`);
   return ok(parsed);
+}
+
+// La même règle pour une date reçue en ARGUMENT d'action (pas dans un FormData) :
+// `undefined` si ce n'est pas une date.
+export function parseDateValue(value: string): Date | undefined {
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? undefined : parsed;
 }
 
 // Validation d'adresse email volontairement permissive sur la forme (pas de

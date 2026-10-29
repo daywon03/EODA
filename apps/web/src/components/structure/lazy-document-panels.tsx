@@ -12,6 +12,11 @@ export const DocumentSettingsPanel = dynamic(() =>
   import("./DocumentSettingsPanel").then((m) => m.DocumentSettingsPanel)
 );
 
+// Renommer la ligne (administration seule, geste rare).
+export const RenameDocumentType = dynamic(() =>
+  import("@/components/checklist/RenameDocumentType").then((m) => m.RenameDocumentType)
+);
+
 export const ParticipationFormPicker = dynamic(() =>
   import("@/components/checklist/ParticipationFormPicker").then((m) => m.ParticipationFormPicker)
 );

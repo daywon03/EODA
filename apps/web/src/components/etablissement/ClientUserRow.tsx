@@ -14,10 +14,10 @@ import { Select } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { FUNCTION_LABELS } from "@/lib/services/action-item-service";
 import { ConfirmActionButton } from "@/components/ui/confirm-action-button";
+import { SetupLinkPanel } from "@/components/ui/temporary-password-panel";
+import type { InvitationDelivery } from "@/lib/services/email-delivery-service";
 import {
   AlertCircle,
-  CheckCircle2,
-  Copy,
   KeyRound,
   Loader2,
   Pencil,
@@ -41,8 +41,8 @@ const ROLE_LABELS: Record<string, string> = FUNCTION_LABELS;
 export function ClientUserRow({ establishmentId, user, roleInEstablishment }: Props) {
   const [isEditing, setEditing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [tempPassword, setTempPassword] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
+  // Résultat d'une réinitialisation : le lien n'est là que si l'e-mail n'est pas parti.
+  const [reset, setReset] = useState<{ setupLink: string | null; delivery: InvitationDelivery; userName: string; userEmail: string } | null>(null);
   const [isPending, startTransition] = useTransition();
 
   function baseFormData(): FormData {
@@ -92,14 +92,8 @@ export function ClientUserRow({ establishmentId, user, roleInEstablishment }: Pr
   async function resetPassword() {
     const result = await resetClientUserPassword(baseFormData());
     if ("error" in result) return result;
-    setTempPassword(result.tempPassword);
+    setReset(result);
     return null;
-  }
-
-  function copyPassword(password: string) {
-    void navigator.clipboard.writeText(password);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
   }
 
   return (
@@ -168,7 +162,7 @@ export function ClientUserRow({ establishmentId, user, roleInEstablishment }: Pr
             tone="neutral"
             label="Réinitialiser le mot de passe"
             icon={KeyRound}
-            question={`Réinitialiser le mot de passe de ${user.name} ? Son mot de passe actuel cessera immédiatement de fonctionner et ses sessions ouvertes seront fermées.`}
+            question={`Réinitialiser le mot de passe de ${user.name} ? Son mot de passe actuel cessera immédiatement de fonctionner et ses sessions ouvertes seront fermées. Un lien lui sera envoyé pour en choisir un nouveau.`}
             confirmLabel="Réinitialiser"
             onConfirm={resetPassword}
             disabled={isPending}
@@ -192,7 +186,7 @@ export function ClientUserRow({ establishmentId, user, roleInEstablishment }: Pr
           <ConfirmActionButton
             label="Retirer l'accès"
             icon={UserMinus}
-            question={`Retirer l'accès de ${user.name} à cet établissement ? S'il ne lui reste aucun autre établissement, son compte sera désactivé. Cette action est irréversible.`}
+            question={`Retirer l'accès de ${user.name} à cet établissement ? S'il ne lui reste aucun autre établissement, son compte sera désactivé. L'accès pourra être rétabli en rattachant à nouveau son adresse.`}
             confirmLabel="Retirer l'accès"
             onConfirm={removeAccess}
             disabled={isPending}
@@ -200,35 +194,14 @@ export function ClientUserRow({ establishmentId, user, roleInEstablishment }: Pr
         </div>
       )}
 
-      {tempPassword && (
-        <div className="bg-ivoire border border-gris-light rounded-lg p-3 space-y-2">
-          <p className="text-xs text-ink2 font-medium uppercase tracking-wide">
-            Nouveau mot de passe temporaire — à communiquer à l&apos;interlocuteur
-          </p>
-          <div className="flex items-center gap-2">
-            <code className="flex-1 bg-surface border border-gris-light rounded px-3 py-2 text-sm font-mono text-brun-ancre tracking-wider">
-              {tempPassword}
-            </code>
-            <Button
-              type="button"
-              variant="outline"
-              size="icon"
-              onClick={() => copyPassword(tempPassword)}
-              aria-label={copied ? "Mot de passe copié" : "Copier le mot de passe"}
-            >
-              {copied ? (
-                <CheckCircle2 className="w-4 h-4 text-ok-text" aria-hidden="true" />
-              ) : (
-                <Copy className="w-4 h-4" aria-hidden="true" />
-              )}
-            </Button>
-          </div>
-          <p className="flex items-center gap-1.5 text-xs text-rouge-imp">
-            <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" aria-hidden="true" />
-            Ce mot de passe ne sera plus affiché. L&apos;interlocuteur devra en changer à sa
-            prochaine connexion.
-          </p>
-        </div>
+      {reset && (
+        <SetupLinkPanel
+          title={`Mot de passe réinitialisé pour ${reset.userName}`}
+          userName={reset.userName}
+          userEmail={reset.userEmail}
+          setupLink={reset.setupLink}
+          invitationDelivery={reset.delivery}
+        />
       )}
 
       {error && (

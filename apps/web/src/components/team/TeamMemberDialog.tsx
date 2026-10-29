@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Modal } from "@/components/ui/modal";
 import { ConfirmActionButton } from "@/components/ui/confirm-action-button";
-import { TemporaryPasswordPanel } from "@/components/ui/temporary-password-panel";
+import { SetupLinkPanel } from "@/components/ui/temporary-password-panel";
 import { CABINET_ROLES, CABINET_ROLE_LABELS, type CabinetRole } from "@/lib/auth/capabilities";
 import {
   inviteCabinetMember,
@@ -95,7 +95,7 @@ export function TeamMemberDialog(props: Props) {
           <div className="overflow-y-auto p-5">
             {invited ? (
               <div className="space-y-4">
-                <TemporaryPasswordPanel {...invited} />
+                <SetupLinkPanel {...invited} />
                 <Button variant="outline" onClick={close}>
                   Fermer
                 </Button>

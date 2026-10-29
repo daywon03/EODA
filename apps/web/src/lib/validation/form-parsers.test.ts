@@ -11,6 +11,7 @@ import {
   requiredEnum,
   requiredInt,
   requiredString,
+  parseDateValue,
 } from "./form-parsers";
 
 const Statut = { NOUVEAU: "NOUVEAU", SIGNE: "SIGNE" } as const;
@@ -168,5 +169,13 @@ describe("parseurs optionnels", () => {
     const data = new FormData();
     data.append("n", new File(["x"], "x.txt"));
     expect(requiredString(data, "n", "Le nom").ok).toBe(false);
+  });
+});
+
+describe("parseDateValue — date reçue en argument d'action (audit du 28/10/2026)", () => {
+  it("rend la date, ou undefined pour ce qui n'en est pas une (au lieu d'une erreur 500)", () => {
+    expect(parseDateValue("2026-11-02")?.toISOString()).toBe("2026-11-02T00:00:00.000Z");
+    expect(parseDateValue("zzz")).toBeUndefined();
+    expect(parseDateValue("2026-13-45")).toBeUndefined();
   });
 });

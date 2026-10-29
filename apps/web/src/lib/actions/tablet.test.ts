@@ -8,8 +8,10 @@ const prismaMock = {
   establishment: { findUniqueOrThrow: vi.fn() },
   deviceEnrollment: { create: vi.fn(), updateMany: vi.fn(), update: vi.fn(), findMany: vi.fn() },
   staffMember: { findFirst: vi.fn(), findMany: vi.fn() },
-  staffPin: { upsert: vi.fn(), updateMany: vi.fn(), update: vi.fn() },
+  staffPin: { upsert: vi.fn(), updateMany: vi.fn(), update: vi.fn(), findUniqueOrThrow: vi.fn() },
 };
+const consumeThrottledAttempt = vi.fn();
+vi.mock("@/lib/security/attempt-throttle", () => ({ consumeThrottledAttempt: (o: unknown) => consumeThrottledAttempt(o) }));
 const cookieSet = vi.fn();
 const cookieDelete = vi.fn();
 const guards = { requireEstablishmentAccess: vi.fn(), resolveTabletDevice: vi.fn() };
@@ -52,6 +54,10 @@ beforeEach(async () => {
   guards.resolveTabletDevice.mockResolvedValue(DEVICE);
   prismaMock.establishment.findUniqueOrThrow.mockResolvedValue({ tenantId: "tenant-1" });
   prismaMock.staffMember.findFirst.mockResolvedValue({ id: "staff-1", pin: { pinHash: PIN_HASH, failedAttempts: 0, lockedAt: null } });
+  consumeThrottledAttempt.mockResolvedValue(true);
+  // L'essai réservé : le compteur vaut 1 après l'incrément.
+  prismaMock.staffPin.updateMany.mockResolvedValue({ count: 1 });
+  prismaMock.staffPin.findUniqueOrThrow.mockResolvedValue({ failedAttempts: 1 });
 });
 
 describe("tabletSignIn", () => {
@@ -70,14 +76,37 @@ describe("tabletSignIn", () => {
     expect(audit).toHaveBeenCalledWith(expect.objectContaining({ action: "TABLET_SIGNED_IN" }));
   });
 
-  it("compte un échec, puis bloque au 5e et le dit", async () => {
+  it("réserve l'essai par un incrément ATOMIQUE avant de comparer, puis bloque au 5e et le dit", async () => {
     expect(await tabletSignIn(form({ staffMemberId: "staff-1", pin: "111112" }))).toEqual({ error: "Code incorrect. Encore 4 essais." });
-    expect(prismaMock.staffPin.update).toHaveBeenCalledWith({ where: { staffMemberId: "staff-1" }, data: { failedAttempts: 1, lockedAt: null } });
-    prismaMock.staffMember.findFirst.mockResolvedValue({ id: "staff-1", pin: { pinHash: PIN_HASH, failedAttempts: 4, lockedAt: null } });
+    expect(prismaMock.staffPin.updateMany).toHaveBeenCalledWith({
+      where: { staffMemberId: "staff-1", lockedAt: null, failedAttempts: { lt: 5 } },
+      data: { failedAttempts: { increment: 1 } },
+    });
+    prismaMock.staffPin.findUniqueOrThrow.mockResolvedValue({ failedAttempts: 5 });
     const fifth = await tabletSignIn(form({ staffMemberId: "staff-1", pin: "111112" }));
     expect(fifth).toEqual({ error: "Code bloqué après 5 essais. Demandez à la direction de le débloquer." });
+    expect(prismaMock.staffPin.updateMany).toHaveBeenLastCalledWith({ where: { staffMemberId: "staff-1", lockedAt: null }, data: { lockedAt: expect.any(Date) } });
     expect(audit).toHaveBeenCalledWith(expect.objectContaining({ action: "TABLET_PIN_LOCKED" }));
     expect(cookieSet).not.toHaveBeenCalled();
+  });
+
+  it("requêtes parallèles : plus aucun essai réservable → bloqué SANS comparer le code", async () => {
+    prismaMock.staffPin.updateMany.mockResolvedValueOnce({ count: 0 }).mockResolvedValueOnce({ count: 1 });
+    expect(await tabletSignIn(form({ staffMemberId: "staff-1", pin: "284719" }))).toEqual({ error: "Code bloqué après 5 essais. Demandez à la direction de le débloquer." });
+    expect(prismaMock.staffPin.findUniqueOrThrow).not.toHaveBeenCalled();
+    expect(cookieSet).not.toHaveBeenCalled();
+  });
+
+  it("débit par appareil, tous salariés confondus : au-delà, plus aucun essai", async () => {
+    consumeThrottledAttempt.mockResolvedValue(false);
+    expect(await tabletSignIn(form({ staffMemberId: "staff-1", pin: "284719" }))).toEqual({ error: "Trop d'essais sur cette tablette. Réessayez dans quelques minutes." });
+    expect(consumeThrottledAttempt).toHaveBeenCalledWith(expect.objectContaining({ key: "tablet-pin:device-1" }));
+    expect(prismaMock.staffPin.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("bon code : le compteur revient à zéro", async () => {
+    expect(await tabletSignIn(form({ staffMemberId: "staff-1", pin: "284719" }))).toEqual({ ok: true });
+    expect(prismaMock.staffPin.update).toHaveBeenCalledWith({ where: { staffMemberId: "staff-1" }, data: { failedAttempts: 0, lockedAt: null } });
   });
 
   it("répond pareil pour un salarié inconnu ou sans code", async () => {

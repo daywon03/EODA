@@ -1,6 +1,7 @@
 import type { Rating } from "@eoda/database";
 import { RATING_LABELS, ratingValue } from "./scoring-service";
 import { buildEodaFileName } from "./document-naming-service";
+import { csvCell } from "./csv-cell";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // EXPORT DES COTATIONS — Jalon 4, dernier trou du module Auto-évaluation.
@@ -63,11 +64,10 @@ export const EVALUATION_EXPORT_HEADERS = [
 
 // Échappement RFC 4180 : guillemets doublés, et mise entre guillemets dès que la
 // valeur contient un séparateur, un guillemet ou un saut de ligne. Un commentaire
-// d'évaluateur contient les trois — c'est le cas normal, pas le cas limite.
+// d'évaluateur contient les trois — c'est le cas normal, pas le cas limite. Et la
+// neutralisation des formules (= + - @ en tête), qui manquait ici (audit du 28/10/2026).
 export function escapeCsvValue(value: string): string {
-  const needsQuotes = /[";\r\n]/.test(value);
-  const escaped = value.replace(/"/g, '""');
-  return needsQuotes ? `"${escaped}"` : escaped;
+  return csvCell(value);
 }
 
 function formatScore(score: number | null): string {

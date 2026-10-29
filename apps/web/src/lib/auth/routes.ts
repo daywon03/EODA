@@ -36,6 +36,9 @@ const PUBLIC_AUTH_PATHS: readonly string[] = [LANDING_PATH, SIGNUP_PATH];
 // profond reste protégé. Le jeton n'ouvre RIEN d'autre que la confirmation, et la
 // page ne la fait qu'au clic (un scanner de liens ne la consomme pas).
 export const EMAIL_CONFIRMATION_PREFIX = "/confirmer-email";
+// Lien de création du mot de passe (audit du 28/10/2026) : ANONYMOUS, un seul segment
+// après le préfixe ; le jeton à usage unique EST l'autorisation.
+export const PASSWORD_SETUP_PREFIX = "/definir-mot-de-passe";
 
 // Espace d'une structure inscrite seule (rôle PROSPECT_USER).
 export const PROSPECT_SPACE_PATH = "/espace";
@@ -65,6 +68,7 @@ export function classifyPath(pathname: string): PathAccess {
   // Un seul segment après /quiz/ : /quiz/<jeton>. /quiz seul ou /quiz/a/b restent protégés.
   if (pathname.startsWith(QUIZ_PUBLIC_PREFIX) && /^\/quiz\/[A-Za-z0-9_-]+$/.test(pathname)) return "ANONYMOUS";
   if (/^\/confirmer-email(?:\/[A-Za-z0-9_-]+)?$/.test(pathname)) return "ANONYMOUS";
+  if (/^\/definir-mot-de-passe\/[A-Za-z0-9_-]+$/.test(pathname)) return "ANONYMOUS";
   if (TABLET_PATHS.includes(pathname)) return "ANONYMOUS";
   // Le Word d'origine du DIPEC, pour la tablette (27/10/2026) : même garde que ses
   // pages (appareil + code), vérifiée par la route ; un seul segment après le préfixe.

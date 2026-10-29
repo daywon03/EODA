@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
   buildCabinetInvitationEmail,
+  buildPasswordResetEmail,
   buildClientInvitationEmail,
   buildDocumentAvailableEmail,
   buildDocumentReminderEmail,
+  buildNewDocumentTypeEmail,
   buildOptionRequestEmail,
   buildStructureActivityEmail,
   escapeHtml,
@@ -23,8 +25,7 @@ describe("buildClientInvitationEmail", () => {
   const invitation = buildClientInvitationEmail({
     recipientName: "Camille Durand",
     email: "camille@structure.fr",
-    temporaryPassword: "Xk7-mots-de-passe",
-    loginUrl: "https://portail.eoda-conseil.com/login",
+    setupUrl: "https://portail.eoda-conseil.com/definir-mot-de-passe/jeton-fictif",
     establishmentName: "SAD Les Glycines (fictif)",
   });
 
@@ -32,24 +33,23 @@ describe("buildClientInvitationEmail", () => {
     expect(invitation.subject).toContain("SAD Les Glycines (fictif)");
   });
 
-  it("donne l'identifiant, le mot de passe temporaire et le lien", () => {
+  it("donne l'identifiant et le LIEN pour choisir son mot de passe — aucun mot de passe (audit du 28/10/2026)", () => {
     expect(invitation.html).toContain("camille@structure.fr");
-    expect(invitation.html).toContain("Xk7-mots-de-passe");
-    expect(invitation.html).toContain("https://portail.eoda-conseil.com/login");
+    expect(invitation.html).toContain("https://portail.eoda-conseil.com/definir-mot-de-passe/jeton-fictif");
+    expect(invitation.html).toContain("Choisir mon mot de passe");
+    expect(invitation.html).not.toMatch(/mot de passe temporaire/i);
   });
 
-  it("annonce que le mot de passe devra être changé", () => {
-    // La plateforme l'impose de toute façon (guards.ts) : le dire évite le ticket
-    // « ça me redemande un mot de passe ».
-    expect(invitation.html).toContain("temporaire");
+  it("dit que le lien est personnel, limité dans le temps et à usage unique", () => {
+    expect(invitation.html).toContain("3 jours");
+    expect(invitation.html).toContain("une fois");
   });
 
   it("échappe le nom de la structure", () => {
     const hostile = buildClientInvitationEmail({
       recipientName: "X",
       email: "x@y.fr",
-      temporaryPassword: "abc",
-      loginUrl: "https://x",
+      setupUrl: "https://x",
       establishmentName: '<img src=x onerror="alert(1)">',
     });
     expect(hostile.html).not.toContain("<img src=x");
@@ -106,8 +106,7 @@ describe("logo dans l'en-tête", () => {
     const withLogo = buildClientInvitationEmail({
       recipientName: "T",
       email: "t@x.fr",
-      temporaryPassword: "abc",
-      loginUrl: "https://x/login",
+      setupUrl: "https://x/definir-mot-de-passe/j",
       establishmentName: "S",
       brand: { logoUrl: "https://portail.eoda-conseil.com/logo-eoda.png" },
     });
@@ -178,17 +177,22 @@ describe("buildCabinetInvitationEmail", () => {
   const invitation = buildCabinetInvitationEmail({
     recipientName: "Consultante <fictive>",
     email: "consultante@example.org",
-    temporaryPassword: "Xk7-mots-de-passe",
-    loginUrl: "https://portail.example.org/login",
+    setupUrl: "https://portail.example.org/definir-mot-de-passe/jeton-fictif",
     roleLabel: "Consultante",
   });
 
-  it("nomme le rôle, donne l'identifiant, le mot de passe temporaire et le lien", () => {
+  it("nomme le rôle, donne l'identifiant et le lien pour choisir son mot de passe", () => {
     expect(invitation.html).toContain("Consultante</strong>");
     expect(invitation.html).toContain("consultante@example.org");
-    expect(invitation.html).toContain("Xk7-mots-de-passe");
-    expect(invitation.html).toContain("https://portail.example.org/login");
-    expect(invitation.html).toContain("Ouvrir le portail");
+    expect(invitation.html).toContain("https://portail.example.org/definir-mot-de-passe/jeton-fictif");
+    expect(invitation.html).toContain("Choisir mon mot de passe");
+  });
+
+  it("réinitialisation : le même lien, l'ancien mot de passe annoncé comme caduc", () => {
+    const reset = buildPasswordResetEmail({ recipientName: "A <b>", email: "a@x.fr", setupUrl: "https://x/definir-mot-de-passe/j" });
+    expect(reset.html).toContain("l'ancien ne fonctionne plus");
+    expect(reset.html).toContain("https://x/definir-mot-de-passe/j");
+    expect(reset.html).toContain("A &lt;b&gt;");
   });
 
   it("échappe le nom saisi", () => {
@@ -298,5 +302,29 @@ describe("buildStructureActivityEmail", () => {
     });
     expect(email.html).not.toContain("<img src=x");
     expect(email.html).not.toContain("<script>");
+  });
+});
+
+describe("buildNewDocumentTypeEmail", () => {
+  const base = {
+    recipientName: "Camille Martin",
+    establishmentName: "Structure test",
+    documentLabel: "Plan de continuité <d'activité>",
+    portalUrl: "https://portail.test/dashboard/client",
+  };
+
+  it("dit à la structure si le document lui est demandé ou si EODA le prépare", () => {
+    const requested = buildNewDocumentTypeEmail({ ...base, requestedFromClient: true });
+    const produced = buildNewDocumentTypeEmail({ ...base, requestedFromClient: false });
+    expect(requested.subject).toBe("Nouveau document à déposer — Plan de continuité <d'activité>");
+    expect(requested.html).toContain("Il vous est demandé");
+    expect(produced.subject).toBe("Nouveau document préparé par EODA — Plan de continuité <d'activité>");
+    expect(produced.html).toContain("Vous n'avez rien à faire");
+  });
+
+  it("échappe l'intitulé dans le corps", () => {
+    const { html } = buildNewDocumentTypeEmail({ ...base, requestedFromClient: true });
+    expect(html).toContain("&lt;d&#39;activité&gt;");
+    expect(html).not.toContain("<d'activité>");
   });
 });

@@ -9,26 +9,24 @@ import {
 // n'envoie rien — et l'écran annonçait « Invitation envoyée ». Un envoi qui n'a pas
 // eu lieu ne s'annonce jamais comme parti.
 describe("invitationDeliveryMessage", () => {
-  it("SENT : l'invitation est partie, on le dit", () => {
+  it("SENT : l'e-mail est parti, avec le lien — aucun mot de passe (audit du 28/10/2026)", () => {
     expect(invitationDeliveryMessage("SENT", "direction@example.org")).toEqual({
       tone: "ok",
-      text: "Invitation envoyée à direction@example.org — identifiant et mot de passe compris.",
+      text: "E-mail envoyé à direction@example.org, avec le lien pour choisir son mot de passe.",
     });
   });
 
-  it("NOT_CONFIGURED : compte créé, e-mail non envoyé en local", () => {
+  it("NOT_CONFIGURED : e-mail non envoyé en local, le lien est à transmettre", () => {
     const message = invitationDeliveryMessage("NOT_CONFIGURED", "direction@example.org");
     expect(message.tone).toBe("warning");
-    expect(message.text).toBe(
-      "Compte créé ; e-mail non envoyé en local — transmettez le mot de passe autrement."
-    );
-    expect(message.text).not.toMatch(/envoyée à/);
+    expect(message.text).toBe("E-mail non envoyé en local — transmettez le lien ci-dessous à la personne.");
+    expect(message.text).not.toMatch(/envoyé à/);
   });
 
-  it("FAILED : compte créé, l'e-mail a échoué", () => {
+  it("FAILED : l'e-mail a échoué, le lien est à transmettre", () => {
     const message = invitationDeliveryMessage("FAILED", "direction@example.org");
     expect(message.tone).toBe("warning");
-    expect(message.text).toMatch(/^Compte créé ; l'e-mail d'invitation n'a pas pu être envoyé/);
+    expect(message.text).toMatch(/^L'e-mail n'a pas pu être envoyé/);
   });
 });
 

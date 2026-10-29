@@ -151,6 +151,9 @@ export async function renderHtmlToPdf(html: string): Promise<Buffer> {
       }
     });
 
+    // Et le SCRIPT est coupé (audit du 28/10/2026) : une page de document n'en a aucun
+    // besoin, et un script échappé au filtre ne s'exécute pas du tout.
+    await page.setJavaScriptEnabled(false);
     await page.setContent(html, { waitUntil: "load" });
     const pdf = await page.pdf({ format: "a4", printBackground: true });
     return Buffer.from(pdf);

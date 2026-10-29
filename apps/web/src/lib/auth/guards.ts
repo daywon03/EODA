@@ -7,7 +7,7 @@ import { cookies } from "next/headers";
 import { PASSWORD_ROTATION_PATH, SIGN_OUT_PATH } from "./routes";
 import { getEnv } from "@/lib/config/env";
 import { hashOneTimeToken, isOneTimeTokenWellFormed } from "@/lib/security/one-time-token";
-import { DEVICE_COOKIE, readTabletSessionToken, TABLET_SESSION_COOKIE } from "@/lib/security/tablet-session";
+import { DEVICE_COOKIE, pinStamp, readTabletSessionToken, TABLET_SESSION_COOKIE } from "@/lib/security/tablet-session";
 import {
   canClientRead,
   deriveMissionAccessState,
@@ -704,8 +704,10 @@ export async function resolveTabletSession(now: Date = new Date()): Promise<Tabl
   if (!claims || claims.deviceEnrollmentId !== device.deviceEnrollmentId) return null;
   const staff = await prisma.staffMember.findFirst({
     where: { id: claims.staffMemberId, establishmentId: device.establishmentId, active: true },
-    select: { id: true, displayName: true, pin: { select: { lockedAt: true } } },
+    select: { id: true, displayName: true, pin: { select: { lockedAt: true, pinHash: true } } },
   });
   if (!staff?.pin || staff.pin.lockedAt) return null;
+  // Code changé ou remplacé depuis la connexion : la session est coupée (audit du 28/10/2026).
+  if (claims.pinStamp !== pinStamp(staff.pin.pinHash)) return null;
   return { ...device, staffMemberId: staff.id, staffDisplayName: staff.displayName };
 }

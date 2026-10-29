@@ -24,7 +24,7 @@ const SECRET = "t".repeat(32);
 const NOW = new Date("2026-10-14T10:00:00Z");
 const { resolveTabletDevice, resolveTabletSession } = await import("./guards");
 const { generateOneTimeToken } = await import("@/lib/security/one-time-token");
-const { createTabletSessionToken, DEVICE_COOKIE, TABLET_SESSION_COOKIE } = await import("@/lib/security/tablet-session");
+const { createTabletSessionToken, DEVICE_COOKIE, pinStamp, TABLET_SESSION_COOKIE } = await import("@/lib/security/tablet-session");
 
 const DEVICE = {
   id: "device-1",
@@ -35,7 +35,7 @@ const DEVICE = {
 };
 
 function session(staffMemberId = "staff-1", deviceEnrollmentId = "device-1", expiresAt = NOW.getTime() + 60_000): void {
-  cookieJar.set(TABLET_SESSION_COOKIE, createTabletSessionToken({ staffMemberId, deviceEnrollmentId, expiresAt }, SECRET));
+  cookieJar.set(TABLET_SESSION_COOKIE, createTabletSessionToken({ staffMemberId, deviceEnrollmentId, expiresAt, pinStamp: pinStamp("hash-du-code") }, SECRET));
 }
 
 beforeEach(() => {
@@ -43,7 +43,7 @@ beforeEach(() => {
   cookieJar.clear();
   cookieJar.set(DEVICE_COOKIE, generateOneTimeToken());
   prismaMock.deviceEnrollment.findUnique.mockResolvedValue(DEVICE);
-  prismaMock.staffMember.findFirst.mockResolvedValue({ id: "staff-1", displayName: "Julien (fictif)", pin: { lockedAt: null } });
+  prismaMock.staffMember.findFirst.mockResolvedValue({ id: "staff-1", displayName: "Julien (fictif)", pin: { lockedAt: null, pinHash: "hash-du-code" } });
 });
 
 describe("resolveTabletDevice", () => {
@@ -70,6 +70,14 @@ describe("resolveTabletDevice", () => {
     expect(await resolveTabletDevice()).toBeNull();
     prismaMock.deviceEnrollment.findUnique.mockResolvedValueOnce({ ...DEVICE, revokedAt: NOW });
     expect(await resolveTabletDevice()).toBeNull();
+  });
+});
+
+describe("resolveTabletSession — code changé (audit du 28/10/2026)", () => {
+  it("un code changé ou remplacé depuis la connexion coupe la session sur-le-champ", async () => {
+    session();
+    prismaMock.staffMember.findFirst.mockResolvedValue({ id: "staff-1", displayName: "Julien (fictif)", pin: { lockedAt: null, pinHash: "nouveau-hash" } });
+    expect(await resolveTabletSession(NOW)).toBeNull();
   });
 });
 

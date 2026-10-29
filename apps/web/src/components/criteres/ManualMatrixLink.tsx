@@ -12,6 +12,7 @@ import { listCriteriaForPicker, type CriterionOption } from "@/lib/actions/docum
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { ConfirmActionButton } from "@/components/ui/confirm-action-button";
+import { documentTypeLabelKey, normalizeCriterionQuery } from "@/lib/services/document-type-creation-service";
 
 // Rattacher À LA MAIN des critères à un type de document (call du 21/10/2026) : la
 // proposition ne citait pas, pour l'enquête de satisfaction, les critères que le
@@ -24,9 +25,17 @@ export function ManualMatrixLink({ documentTypes }: { documentTypes: readonly { 
   const [criteria, setCriteria] = useState<CriterionOption[] | null>(null);
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
   const [filter, setFilter] = useState("");
+  const [typeFilter, setTypeFilter] = useState("");
   const [message, setMessage] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
   const [isPending, startTransition] = useTransition();
   const typeId = useId();
+
+  // Types dans l'ordre alphabétique, filtrables par mot (call du 28/10/2026 : le type
+  // cherché ne se trouvait pas). Accents et casse ignorés.
+  const typeNeedle = documentTypeLabelKey(typeFilter);
+  const sortedTypes = [...documentTypes]
+    .sort((a, b) => a.label.localeCompare(b.label, "fr"))
+    .filter((t) => typeNeedle === "" || t.code === typeCode || documentTypeLabelKey(t.label).includes(typeNeedle));
 
   useEffect(() => {
     let cancelled = false;
@@ -54,7 +63,8 @@ export function ManualMatrixLink({ documentTypes }: { documentTypes: readonly { 
   }, [typeCode]);
 
   const linkedCodes = new Set((links ?? []).map((l) => l.code));
-  const needle = filter.trim().toLowerCase();
+  // « 3-14-2 » ou « 3 14 2 » : la même recherche que « 3.14.2 ».
+  const needle = normalizeCriterionQuery(filter).toLowerCase();
   const visible = (criteria ?? []).filter(
     (c) => !linkedCodes.has(c.code) && (needle === "" || c.code.startsWith(needle) || c.label.toLowerCase().includes(needle))
   );
@@ -96,11 +106,19 @@ export function ManualMatrixLink({ documentTypes }: { documentTypes: readonly { 
 
   return (
     <div className="space-y-4 rounded-xl border border-line bg-card p-5">
+      <input
+        type="search"
+        value={typeFilter}
+        onChange={(e) => setTypeFilter(e.target.value)}
+        placeholder="Chercher un type : « affiche », « crise »…"
+        aria-label="Chercher un type de document"
+        className="h-11 w-full rounded-md border border-line bg-card px-3 text-ink placeholder:text-ink2"
+      />
       <label htmlFor={typeId} className="block space-y-1">
-        <span className="font-bold text-ink">Type de document</span>
+        <span className="font-bold text-ink">Type de document ({sortedTypes.length})</span>
         <Select id={typeId} value={typeCode} onChange={(e) => setTypeCode(e.target.value)} disabled={isPending}>
           <option value="">Choisir un type…</option>
-          {documentTypes.map((t) => (
+          {sortedTypes.map((t) => (
             <option key={t.code} value={t.code}>
               {t.label}
             </option>
@@ -171,7 +189,7 @@ export function ManualMatrixLink({ documentTypes }: { documentTypes: readonly { 
             type="search"
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
-            placeholder="Filtrer : 1.3 ou « participation »"
+            placeholder="Filtrer : 3.14.2, 3-14-2 ou « crise »"
             aria-label="Filtrer les critères"
             className="h-11 w-full rounded-md border border-line bg-card px-3 text-ink placeholder:text-ink2"
           />

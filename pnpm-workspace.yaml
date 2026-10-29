@@ -2,6 +2,13 @@ packages:
   - 'apps/*'
   - 'packages/*'
 
+# Une version publiée depuis moins de 3 jours n'est pas installée (28/10/2026, audit) :
+# les vers npm de 2026 (ChainDrop, Shai-Hulud) publient des versions piégées qui sont
+# repérées et retirées en quelques heures. Pris en compte par pnpm 10.16+ (la CI suit
+# la dernière 10.x) ; un correctif de sécurité urgent se prend en l'ajoutant à
+# `minimumReleaseAgeExclude`, en le disant dans le commit.
+minimumReleaseAge: 4320
+
 onlyBuiltDependencies:
   - '@prisma/client'
   - '@prisma/engines'

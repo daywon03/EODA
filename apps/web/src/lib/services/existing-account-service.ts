@@ -23,7 +23,9 @@ export type ExistingAccountFacts = {
   // comptes clients historiques, créés par invitation sans tenant : seuls leurs
   // rattachements disent alors à quel cabinet ils appartiennent.
   tenantId: string | null;
-  links: ReadonlyArray<{ establishmentId: string; establishmentName: string; tenantId: string }>;
+  // `revoked` : lien retiré. Il dit toujours à quel cabinet le compte appartient (règle
+  // d'opacité inchangée), mais n'est plus un rattachement : on peut le rétablir.
+  links: ReadonlyArray<{ establishmentId: string; establishmentName: string; tenantId: string; revoked?: boolean }>;
 };
 
 export type ExistingAccountDecision =
@@ -53,10 +55,10 @@ export function decideExistingAccount(
       : { kind: "INACTIVE", establishmentNames: [] };
   }
   if (account.links.some((link) => link.tenantId !== target.tenantId)) return { kind: "OPAQUE" };
-  if (account.links.some((link) => link.establishmentId === target.establishmentId)) {
+  if (account.links.some((link) => link.establishmentId === target.establishmentId && !link.revoked)) {
     return { kind: "ALREADY_LINKED" };
   }
-  const establishmentNames = [...new Set(account.links.map((link) => link.establishmentName))].sort(
+  const establishmentNames = [...new Set(account.links.filter((link) => !link.revoked).map((link) => link.establishmentName))].sort(
     (a, b) => a.localeCompare(b, "fr")
   );
   return account.isActive

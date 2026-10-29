@@ -484,6 +484,9 @@ export async function getEstablishment(id: string): Promise<EstablishmentWithUse
     where: { id, tenantId },
     include: {
       establishmentUsers: {
+        // Les liens retirés (par le cabinet ou par la direction) ne sont plus des
+        // interlocuteurs : la fiche ne les montrait pas comme tels qu'en apparence.
+        where: { revokedAt: null },
         include: {
           user: { select: { id: true, name: true, email: true, role: true, isActive: true } },
         },
