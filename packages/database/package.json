@@ -9,7 +9,7 @@
     "./document-types": "./src/document-types.ts"
   },
   "scripts": {
-    "generate": "prisma generate",
+    "generate": "node scripts/generate-migration-manifest.mjs && prisma generate",
     "typecheck": "tsc --noEmit",
     "migrate:dev": "prisma migrate dev",
     "migrate:deploy": "prisma migrate deploy",
