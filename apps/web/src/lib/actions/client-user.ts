@@ -2,9 +2,13 @@
 
 import { prisma, EstablishmentUserRole } from "@eoda/database";
 import { revalidatePath } from "next/cache";
-import { requireEstablishmentInTenant } from "@/lib/auth/guards";
+import { requireEstablishmentInTenant, structureScopeWhere } from "@/lib/auth/guards";
 import { recordAuditEvent } from "@/lib/services/audit-log-service";
 import { generateTemporaryPassword, hashPassword } from "@/lib/security/password-hashing";
+import { issuePasswordSetupLink } from "@/lib/db/password-setup-tokens";
+import { sendPasswordResetEmail } from "@/lib/email/notifications";
+import { setupLinkToShow } from "@/lib/services/password-setup-service";
+import type { InvitationDelivery } from "@/lib/services/email-delivery-service";
 import {
   firstError,
   requiredEmail,
@@ -36,7 +40,7 @@ import {
 export type ClientUserActionResult = { success: true } | { error: string };
 
 export type ResetClientPasswordResult =
-  | { success: true; tempPassword: string; userName: string; userEmail: string }
+  | { success: true; setupLink: string | null; delivery: InvitationDelivery; userName: string; userEmail: string }
   | { error: string };
 
 // Message unique pour tout ce qui n'est pas résolu : compte inexistant, compte d'un
@@ -57,8 +61,17 @@ type ResolvedTarget = {
 // jamais l'existence d'un compte avant d'avoir prouvé l'habilitation sur
 // l'établissement. Un compte Cabinet n'est jamais manipulable par cette voie : son
 // cycle de vie n'appartient pas à la fiche d'un établissement.
+// Un compte peut être rattaché à PLUSIEURS structures. Changer son e-mail, son mot de
+// passe ou son activation agit sur le COMPTE, donc sur toutes ses structures : seul un
+// appelant qui les voit toutes peut le faire (audit du 28/10/2026 — une consultante
+// affectée à A réinitialisait le mot de passe d'une directrice aussi rattachée à B,
+// hors de son périmètre, et pouvait ensuite lire le portail de B).
+const SHARED_ACCOUNT_OUTSIDE_SCOPE =
+  "Ce compte est aussi rattaché à une structure que vous ne suivez pas : seul un administrateur du cabinet peut le modifier.";
+
 async function resolveTargetClientUser(
-  formData: FormData
+  formData: FormData,
+  options: { wholeAccount: boolean } = { wholeAccount: true }
 ): Promise<{ error: string } | ResolvedTarget> {
   const establishmentIdRaw = formData.get("establishmentId");
   const userIdRaw = formData.get("userId");
@@ -69,15 +82,25 @@ async function resolveTargetClientUser(
     return { error: "Interlocuteur manquant." };
   }
 
-  const { establishmentId, session, userId: actorUserId } =
-    await requireEstablishmentInTenant(establishmentIdRaw, "WRITE");
+  const context = await requireEstablishmentInTenant(establishmentIdRaw, "WRITE");
+  const { establishmentId, session, userId: actorUserId } = context;
 
   const link = await prisma.establishmentUser.findUnique({
     where: { userId_establishmentId: { userId: userIdRaw, establishmentId } },
     include: { user: { select: { id: true, name: true, email: true, role: true, isActive: true } } },
   });
-  if (!link || link.user.role !== "CLIENT_USER") {
+  // Un lien retiré n'est plus un rattachement : rien ne s'y modifie.
+  if (!link || link.revokedAt || link.user.role !== "CLIENT_USER") {
     return { error: NOT_A_CLIENT_OF_THIS_ESTABLISHMENT };
+  }
+
+  if (options.wholeAccount) {
+    // Liens actifs du compte HORS du périmètre de l'appelant (autre tenant compris) :
+    // un seul suffit à refuser.
+    const outside = await prisma.establishmentUser.count({
+      where: { userId: link.user.id, revokedAt: null, NOT: { establishment: structureScopeWhere(context) } },
+    });
+    if (outside > 0) return { error: SHARED_ACCOUNT_OUTSIDE_SCOPE };
   }
 
   return {
@@ -154,20 +177,24 @@ export async function updateClientUser(formData: FormData): Promise<ClientUserAc
 }
 
 // ── Retrait de l'accès à un établissement ────────────────────────────────────
-// Supprime le lien, et désactive le compte s'il ne lui reste plus aucun
+// DÉSACTIVE le lien (`revokedAt`), comme le fait la direction de la structure — il
+// ne se supprime plus (audit du 28/10/2026 : l'historique de qui avait accès, et
+// quand, disparaissait). Le compte est désactivé s'il ne lui reste plus aucun
 // établissement : sinon on obtiendrait exactement l'anomalie que cette phase
 // corrige — un compte qui s'authentifie encore sans rien avoir à voir.
 export async function removeClientUserFromEstablishment(
   formData: FormData
 ): Promise<ClientUserActionResult> {
-  const target = await resolveTargetClientUser(formData);
+  // Ne retire que le lien avec CETTE structure : sans effet sur les autres.
+  const target = await resolveTargetClientUser(formData, { wholeAccount: false });
   if ("error" in target) return target;
 
   const deactivated = await prisma.$transaction(async (tx) => {
-    await tx.establishmentUser.delete({
+    await tx.establishmentUser.update({
       where: {
         userId_establishmentId: { userId: target.user.id, establishmentId: target.establishmentId },
       },
+      data: { revokedAt: new Date() },
     });
 
     const remaining = await tx.establishmentUser.count({ where: { userId: target.user.id, revokedAt: null } });
@@ -253,18 +280,18 @@ export async function resetClientUserPassword(
     return { error: "Ce compte est désactivé : réactivez-le avant de réinitialiser son mot de passe." };
   }
 
-  const tempPassword = generateTemporaryPassword();
-
+  // L'ancien mot de passe cesse de fonctionner tout de suite (mot de passe aléatoire que
+  // personne ne connaît) ; la personne choisit le nouveau par le lien qui lui est
+  // envoyé — le cabinet ne le voit jamais (audit du 28/10/2026).
   await prisma.user.update({
     where: { id: target.user.id },
     data: {
-      passwordHash: await hashPassword(tempPassword),
+      passwordHash: await hashPassword(generateTemporaryPassword()),
       mustChangePassword: true,
       passwordChangedAt: new Date(),
     },
   });
 
-  // Le mot de passe temporaire n'apparaît volontairement PAS dans l'événement.
   await recordAuditEvent({
     action: "PASSWORD_RESET_BY_ADMIN",
     actorUserId: target.actorUserId,
@@ -274,11 +301,23 @@ export async function resetClientUserPassword(
     detail: "réinitialisation par le cabinet",
   });
 
+  const setupUrl = await issuePasswordSetupLink(target.user.id);
+  const delivery = await sendPasswordResetEmail({ recipientName: target.user.name, email: target.user.email, setupUrl });
+  await recordAuditEvent({
+    action: "PASSWORD_SETUP_LINK_SENT",
+    actorUserId: target.actorUserId,
+    actorRole: target.actorRole,
+    establishmentId: target.establishmentId,
+    targetId: target.user.id,
+    detail: `réinitialisation · ${delivery}`,
+  });
+
   revalidateEstablishment(target.establishmentId);
 
   return {
     success: true,
-    tempPassword,
+    setupLink: setupLinkToShow(delivery, setupUrl),
+    delivery,
     userName: target.user.name,
     userEmail: target.user.email,
   };

@@ -46,7 +46,7 @@ describe("code tablette", () => {
 });
 
 describe("session tablette", () => {
-  const claims = { staffMemberId: "staff-1", deviceEnrollmentId: "device-1", expiresAt: tabletSessionExpiry(NOW) };
+  const claims = { staffMemberId: "staff-1", deviceEnrollmentId: "device-1", expiresAt: tabletSessionExpiry(NOW), pinStamp: "empreinte-du-code" };
 
   it("relit un jeton valide", () => {
     expect(readTabletSessionToken(createTabletSessionToken(claims, SECRET), SECRET, NOW)).toEqual(claims);

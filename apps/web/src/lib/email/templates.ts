@@ -58,16 +58,14 @@ export function layout(title: string, body: string, brand?: BrandAssets): string
 
 // Invitation d'un interlocuteur client.
 //
-// ⚠️ Le mot de passe temporaire voyage dans ce message. C'est un compromis assumé,
-// demandé en séance le 26/08 : sans lui, Sandrine le recopierait à la main dans un
-// e-mail — même canal, même exposition, plus de travail. Ce qui borne le risque :
-// le compte est créé avec `mustChangePassword`, la plateforme refuse TOUTE autre
-// route tant que le mot de passe n'a pas été changé (guards.ts), et le message le dit.
+// Aucun mot de passe ne voyage dans ce message (audit du 28/10/2026, qui remplace le
+// compromis du 26/08) : un LIEN à usage unique, valable 3 jours, où la personne choisit
+// elle-même son mot de passe. Une boîte lue par un tiers, ou une archive de messagerie,
+// ne donne plus de quoi se connecter une fois le lien utilisé.
 export function buildClientInvitationEmail(input: {
   recipientName: string;
   email: string;
-  temporaryPassword: string;
-  loginUrl: string;
+  setupUrl: string;
   establishmentName: string;
   brand?: BrandAssets;
 }): EmailContent {
@@ -79,7 +77,7 @@ export function buildClientInvitationEmail(input: {
       Votre espace en ligne pour l'accompagnement de ${escapeHtml(input.establishmentName)}
       est ouvert. Vous y déposez les documents attendus et suivez leur avancement.
     </p>
-    ${credentialsBlock(input, "Ouvrir mon espace")}`;
+    ${setupLinkBlock(input)}`;
 
   return {
     subject: `Votre accès à l'espace EODA — ${input.establishmentName}`,
@@ -87,14 +85,13 @@ export function buildClientInvitationEmail(input: {
   };
 }
 
-// Invitation d'une personne dans l'équipe EODA (N9). Même compromis que
-// l'invitation client (mot de passe temporaire + rotation forcée), et le RÔLE est
-// nommé : la personne doit savoir ce qu'elle pourra faire avant d'entrer.
+// Invitation d'une personne dans l'équipe EODA (N9). Même lien que l'invitation
+// client, et le RÔLE est nommé : la personne doit savoir ce qu'elle pourra faire avant
+// d'entrer.
 export function buildCabinetInvitationEmail(input: {
   recipientName: string;
   email: string;
-  temporaryPassword: string;
-  loginUrl: string;
+  setupUrl: string;
   roleLabel: string;
   brand?: BrandAssets;
 }): EmailContent {
@@ -106,7 +103,7 @@ export function buildCabinetInvitationEmail(input: {
       Vous avez désormais un accès au portail du cabinet EODA, avec le rôle
       <strong>${escapeHtml(input.roleLabel)}</strong>.
     </p>
-    ${credentialsBlock(input, "Ouvrir le portail")}`;
+    ${setupLinkBlock(input)}`;
 
   return {
     subject: "Votre accès au portail du cabinet EODA",
@@ -114,25 +111,35 @@ export function buildCabinetInvitationEmail(input: {
   };
 }
 
-function credentialsBlock(
-  input: { email: string; temporaryPassword: string; loginUrl: string },
-  buttonLabel: string
-): string {
+// Mot de passe à redéfinir à la demande du cabinet (« réinitialiser ») : l'ancien ne
+// fonctionne plus, la personne en choisit un nouveau par le même lien.
+export function buildPasswordResetEmail(input: { recipientName: string; email: string; setupUrl: string; brand?: BrandAssets }): EmailContent {
+  const body = `
+    <p style="color:${BRUN_ANCRE};font-size:15px;line-height:1.6">
+      Bonjour ${escapeHtml(input.recipientName)},
+    </p>
+    <p style="color:${BRUN_ANCRE};font-size:15px;line-height:1.6">
+      Votre mot de passe a été réinitialisé : l'ancien ne fonctionne plus. Choisissez-en
+      un nouveau avec le lien ci-dessous.
+    </p>
+    ${setupLinkBlock(input)}`;
+  return { subject: "Choisissez un nouveau mot de passe — EODA", html: layout("Nouveau mot de passe", body, input.brand) };
+}
+
+function setupLinkBlock(input: { email: string; setupUrl: string }): string {
   return `<div style="background:${IVOIRE};border-radius:8px;padding:16px;margin:20px 0">
       <p style="margin:0 0 8px;color:#6B5648;font-size:13px">Identifiant</p>
-      <p style="margin:0 0 14px;color:${BRUN_ANCRE};font-size:15px;font-weight:bold">${escapeHtml(input.email)}</p>
-      <p style="margin:0 0 8px;color:#6B5648;font-size:13px">Mot de passe temporaire</p>
-      <p style="margin:0;color:${BRUN_ANCRE};font-size:16px;font-family:monospace;letter-spacing:.05em">${escapeHtml(input.temporaryPassword)}</p>
+      <p style="margin:0;color:${BRUN_ANCRE};font-size:15px;font-weight:bold">${escapeHtml(input.email)}</p>
     </div>
-    <p style="color:${BRUN_ANCRE};font-size:15px;line-height:1.6">
-      <strong>Ce mot de passe est temporaire.</strong> La plateforme vous demandera d'en
-      choisir un nouveau dès votre première connexion, avant tout autre accès.
-    </p>
     <p style="margin:24px 0">
-      <a href="${escapeHtml(input.loginUrl)}"
+      <a href="${escapeHtml(input.setupUrl)}"
          style="background:${TERRE};color:#ffffff;text-decoration:none;padding:12px 20px;border-radius:8px;display:inline-block;font-weight:bold">
-        ${escapeHtml(buttonLabel)}
+        Choisir mon mot de passe
       </a>
+    </p>
+    <p style="color:${BRUN_ANCRE};font-size:15px;line-height:1.6">
+      Ce lien est personnel, valable <strong>3 jours</strong> et ne sert qu'<strong>une fois</strong>.
+      Aucun mot de passe ne vous est envoyé par e-mail : vous le choisissez vous-même.
     </p>`;
 }
 
@@ -323,6 +330,54 @@ export function buildDocumentAvailableEmail(input: {
       : `Document validé — ${input.documentLabel}`,
     html: layout(
       isDeliverable ? "Un nouveau document vous attend" : "Votre document a été validé",
+      body,
+      input.brand
+    ),
+  };
+}
+
+// ── Nouvelle ligne dans « Documents » (28/10/2026) ───────────────────────────
+//
+// Le cabinet ajoute un document à la liste — une fois, pour toutes les structures.
+// La structure l'apprend, avec la seule chose qui compte pour elle : est-ce à elle
+// de le fournir, ou à EODA de le préparer ? Seul l'INTITULÉ voyage, comme partout.
+export function buildNewDocumentTypeEmail(input: {
+  recipientName: string;
+  establishmentName: string;
+  documentLabel: string;
+  requestedFromClient: boolean;
+  portalUrl: string;
+  brand?: BrandAssets;
+}): EmailContent {
+  const label = escapeHtml(input.documentLabel);
+  const structure = escapeHtml(input.establishmentName);
+
+  const announcement = input.requestedFromClient
+    ? `EODA Conseil ajoute le document <strong>${label}</strong> à la liste de
+       ${structure}. Il vous est demandé : vous pouvez le déposer dans votre espace,
+       rubrique « Mes documents ». Si vous ne l'avez pas, dites-le sur la même ligne.`
+    : `EODA Conseil ajoute le document <strong>${label}</strong> à l'accompagnement de
+       ${structure}. Vous n'avez rien à faire : c'est EODA qui le prépare, et vous serez
+       prévenu dès qu'il sera prêt.`;
+
+  const body = `
+    <p style="color:${BRUN_ANCRE};font-size:15px;line-height:1.6">
+      Bonjour ${escapeHtml(input.recipientName)},
+    </p>
+    <p style="color:${BRUN_ANCRE};font-size:15px;line-height:1.6">${announcement}</p>
+    <p style="margin:24px 0">
+      <a href="${escapeHtml(input.portalUrl)}"
+         style="background:${TERRE};color:#ffffff;text-decoration:none;padding:12px 20px;border-radius:8px;display:inline-block;font-weight:bold">
+        Voir mes documents
+      </a>
+    </p>`;
+
+  return {
+    subject: input.requestedFromClient
+      ? `Nouveau document à déposer — ${input.documentLabel}`
+      : `Nouveau document préparé par EODA — ${input.documentLabel}`,
+    html: layout(
+      input.requestedFromClient ? "Un nouveau document vous est demandé" : "Un nouveau document est en préparation",
       body,
       input.brand
     ),

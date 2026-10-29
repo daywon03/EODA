@@ -6,12 +6,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const prismaMock = {
   establishment: { findUnique: vi.fn() },
   user: { findUnique: vi.fn(), create: vi.fn() },
-  establishmentUser: { create: vi.fn() },
+  establishmentUser: { create: vi.fn(), upsert: vi.fn() },
   $transaction: vi.fn(),
 };
 const requireEstablishmentInTenant = vi.fn();
 const recordAuditEvent = vi.fn();
 
+vi.mock("@/lib/db/password-setup-tokens", () => ({ issuePasswordSetupLink: async () => "https://portail.test/definir-mot-de-passe/jeton-fictif" }));
 vi.mock("@eoda/database", () => ({
   prisma: prismaMock,
   EstablishmentUserRole: { DIRECTEUR: "DIRECTEUR", AUTRE: "AUTRE" },
@@ -106,8 +107,10 @@ describe("linkExistingClientUser", () => {
     const result = await linkExistingClientUser(LINK);
 
     expect(result).toEqual({ success: true });
-    expect(prismaMock.establishmentUser.create).toHaveBeenCalledWith({
-      data: { userId: "user-existant", establishmentId: "etab-cible", roleInEstablishment: "DIRECTEUR" },
+    expect(prismaMock.establishmentUser.upsert).toHaveBeenCalledWith({
+      where: { userId_establishmentId: { userId: "user-existant", establishmentId: "etab-cible" } },
+      create: { userId: "user-existant", establishmentId: "etab-cible", roleInEstablishment: "DIRECTEUR" },
+      update: { revokedAt: null, roleInEstablishment: "DIRECTEUR" },
     });
     expect(recordAuditEvent).toHaveBeenCalledWith(
       expect.objectContaining({ action: "CLIENT_USER_LINKED", targetId: "user-existant" })
@@ -119,7 +122,7 @@ describe("linkExistingClientUser", () => {
     prismaMock.user.findUnique.mockResolvedValue(existingAccount(["t-2"]));
     const result = await linkExistingClientUser(LINK);
     expect(result).toEqual({ error: "Un compte existe déjà pour cette adresse email." });
-    expect(prismaMock.establishmentUser.create).not.toHaveBeenCalled();
+    expect(prismaMock.establishmentUser.upsert).not.toHaveBeenCalled();
   });
 
   // Bug 7b : le compte client du seed (déclaré dans le cabinet, sans structure, puisqu'une
@@ -132,20 +135,31 @@ describe("linkExistingClientUser", () => {
     const result = await linkExistingClientUser(LINK);
 
     expect(result).toEqual({ success: true });
-    expect(prismaMock.establishmentUser.create).toHaveBeenCalledTimes(1);
+    expect(prismaMock.establishmentUser.upsert).toHaveBeenCalledTimes(1);
   });
 
   it("refuse un compte sans structure déclaré dans un autre cabinet", async () => {
     prismaMock.user.findUnique.mockResolvedValue(existingAccount([], { tenantId: "t-2" }));
     const result = await linkExistingClientUser(LINK);
     expect(result).toEqual({ error: "Un compte existe déjà pour cette adresse email." });
-    expect(prismaMock.establishmentUser.create).not.toHaveBeenCalled();
+    expect(prismaMock.establishmentUser.upsert).not.toHaveBeenCalled();
   });
 
   it("refuse quand aucun compte n'existe", async () => {
     prismaMock.user.findUnique.mockResolvedValue(null);
     const result = await linkExistingClientUser(LINK);
     expect(result).toEqual({ error: "Aucun compte à rattacher pour cette adresse." });
+  });
+
+  it("un lien RETIRÉ à cette structure se rétablit (le retrait ne supprime plus la ligne)", async () => {
+    prismaMock.user.findUnique
+      .mockResolvedValueOnce({
+        ...existingAccount([]),
+        establishmentUsers: [{ establishmentId: "etab-cible", revokedAt: new Date(), establishment: { name: "X", tenantId: "t-1" } }],
+      })
+      .mockResolvedValueOnce({ id: "user-existant" });
+    expect(await linkExistingClientUser(LINK)).toEqual({ success: true });
+    expect(prismaMock.establishmentUser.upsert).toHaveBeenCalledWith(expect.objectContaining({ update: { revokedAt: null, roleInEstablishment: "DIRECTEUR" } }));
   });
 
   it("refuse un compte déjà rattaché à la structure", async () => {
@@ -161,7 +175,7 @@ describe("linkExistingClientUser", () => {
     expect(await linkExistingClientUser(form({ email: "a@example.org" }))).toEqual({ error: "Établissement manquant." });
     requireEstablishmentInTenant.mockRejectedValue(new Error("NOT_FOUND"));
     await expect(linkExistingClientUser(LINK)).rejects.toThrow("NOT_FOUND");
-    expect(prismaMock.establishmentUser.create).not.toHaveBeenCalled();
+    expect(prismaMock.establishmentUser.upsert).not.toHaveBeenCalled();
   });
 });
 

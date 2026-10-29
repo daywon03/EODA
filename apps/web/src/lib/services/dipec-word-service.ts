@@ -12,7 +12,7 @@ import {
   type AdmissionSigner,
 } from "./admission-service";
 import type { TrustedPerson } from "./trusted-person-service";
-import { prepareDipcLines, type DipcBlock, type PreparedDipc } from "./dipc-tablet-preparation";
+import { PAYMENT_FIELD_PREFIX, prepareDipcLines, type DipcBlock, type PreparedDipc } from "./dipc-tablet-preparation";
 import { cleanName } from "./survey-roster-service";
 import { buildStoredZip } from "./zip-store";
 import { readZip, type InflateRaw, type ZipEntry } from "./zip-read";
@@ -352,9 +352,11 @@ export function fillDipecWord(input: DipecWordFill): FilledDipecWord {
 
   input.plan.templates.forEach((template, paragraph) => {
     const xml = rewriteParagraph(paragraphs[paragraph]!, template ? merge(template) : "");
-    // Les options de durée sont, dans le Word d'EODA, une liste dont la puce est une
-    // case vide : la case ☒ / ☐ écrite devant la remplace, sinon on en lirait deux.
-    rewritten.set(paragraph, template.startsWith("{{duree.option") ? xml.replace(/<w:numPr>[\s\S]*?<\/w:numPr>/, "") : xml);
+    // Les options de durée et les modes de paiement sont, dans le Word d'EODA, une
+    // liste à puces : la case ☒ / ☐ écrite devant remplace la puce, sinon on en lirait
+    // deux.
+    const choiceLine = template.startsWith("{{duree.option") || template.startsWith(`{{${PAYMENT_FIELD_PREFIX}`);
+    rewritten.set(paragraph, choiceLine ? xml.replace(/<w:numPr>[\s\S]*?<\/w:numPr>/, "") : xml);
   });
   if (input.trustedDesignated) {
     input.plan.trustedTemplates.forEach((template, paragraph) => rewritten.set(paragraph, rewriteParagraph(paragraphs[paragraph]!, merge(template))));

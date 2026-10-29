@@ -15,6 +15,7 @@ const requireTeamManagerSession = vi.fn();
 const recordAuditEvent = vi.fn();
 const sendCabinetInvitationEmail = vi.fn();
 
+vi.mock("@/lib/db/password-setup-tokens", () => ({ issuePasswordSetupLink: async () => "https://portail.test/definir-mot-de-passe/jeton-fictif" }));
 vi.mock("@eoda/database", () => ({ prisma: prismaMock }));
 vi.mock("next/navigation", () => ({
   notFound: () => {

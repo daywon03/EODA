@@ -4,7 +4,11 @@ import { StatusPill } from "@/components/ui/status-pill";
 import { formatDate } from "@/lib/services/date-format-service";
 import { ChecklistItemDetail } from "@/components/checklist/ChecklistItemDetail";
 import { DocumentUploadButton } from "@/components/checklist/DocumentUploadButton";
-import { DocumentSettingsPanel, ParticipationFormPicker } from "@/components/structure/lazy-document-panels";
+import {
+  DocumentSettingsPanel,
+  ParticipationFormPicker,
+  RenameDocumentType,
+} from "@/components/structure/lazy-document-panels";
 import { PARTICIPATION_LINE_CODE } from "@/lib/services/participation-form-service";
 
 // Contenu du panneau latéral d'un document (onglet Documents de la fiche). Il
@@ -27,6 +31,12 @@ export function DocumentSheetBody({
     <div className="space-y-4">
       <div className="space-y-1.5">
         <p className="text-sm text-ink2">{categoryLabel}</p>
+        {/* Renommer vaut pour toutes les structures (renameDocumentType) : la loi
+            2002-2 garde ses noms, et la ligne de participation porte un libellé
+            composé (forme choisie) qui ne se renomme pas. */}
+        {canEditScope && item.category !== "LOI_2002_2" && item.code !== PARTICIPATION_LINE_CODE && (
+          <RenameDocumentType documentTypeId={item.documentTypeId} label={item.label} />
+        )}
         <StatusPill pill={documentRowPill(item)} />
         {item.isConditional && item.status !== "NOT_APPLICABLE" && <p className="text-sm text-ink2">Si concerné</p>}
         {item.expectedFrequency === "ANNUAL" && !item.expiryNotice && (

@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { ArrowLeft, Check, Download, FileText, Send } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { ArrowLeft, Check, Download, FileText, RotateCcw, Send } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { fullName, type AdmissionRecord } from "@/lib/services/admission-service";
 import { DEPARTEMENT_FORM, departementFormFileName, departementFormGaps, planDepartementForm } from "@/lib/services/departement-form-service";
@@ -50,7 +50,7 @@ const KINDS: { value: DepartementFormKind; label: string; hint: string }[] = [
 // sur la tablette, ou le papier.
 type SignatureSource = "CONTRAT" | "TABLETTE" | "PAPIER";
 
-export function DepartementFormPanel({ record, structure, contractFiles, contractSignature, onSaved, onBack }: {
+export function DepartementFormPanel({ record, structure, contractFiles, contractSignature, onSaved, savedForm, onBack }: {
   record: AdmissionRecord;
   structure: { name: string; address: string };
   // Le contrat qui part avec le formulaire (le Département exige les deux).
@@ -58,9 +58,13 @@ export function DepartementFormPanel({ record, structure, contractFiles, contrac
   // La signature donnée sur le contrat par la personne (ou son tuteur), si la tablette la garde.
   contractSignature: () => Promise<Blob | null>;
   onSaved: (pdf: Blob, kind: DepartementFormKind) => Promise<boolean>;
+  // Le formulaire déjà fait et signé pour ce contrat, gardé sur la tablette (null : aucun).
+  savedForm: (kind: DepartementFormKind) => Promise<Blob | null>;
   onBack: () => void;
 }) {
   const [kind, setKind] = useState<DepartementFormKind>("INITIALE");
+  const savedFormRef = useRef(savedForm);
+  savedFormRef.current = savedForm;
   const [certifies, setCertifies] = useState(false);
   const [replaces, setReplaces] = useState(false);
   const [accepts, setAccepts] = useState(false);
@@ -95,8 +99,28 @@ export function DepartementFormPanel({ record, structure, contractFiles, contrac
   const fileName = isChange ? changeFormFileName(structure.name, record, new Date()) : departementFormFileName(structure.name, record, new Date());
   const signer = record.contact?.kind === "TUTEUR" ? "Le tuteur" : "La personne";
 
+  // Un formulaire déjà signé se retrouve en revenant sur l'écran (28/10/2026 : il était
+  // gardé sur la tablette mais plus téléchargeable — il fallait le refaire et le
+  // re-signer). Il se renvoie, se télécharge, ou se refait sur demande.
+  useEffect(() => {
+    let alive = true;
+    void savedFormRef.current(kind).then((blob) => {
+      if (!alive || !blob) return;
+      setForm(blob);
+      setMessage("Ce formulaire est déjà fait et signé : vous pouvez l'envoyer ou le télécharger.");
+    });
+    return () => {
+      alive = false;
+    };
+  }, [kind]);
+
   function chooseKind(next: DepartementFormKind) {
     setKind(next);
+    setForm(null);
+    setMessage(null);
+  }
+
+  function redo() {
     setForm(null);
     setMessage(null);
   }
@@ -234,6 +258,10 @@ export function DepartementFormPanel({ record, structure, contractFiles, contrac
           <button type="button" className={TABLET_SECONDARY} onClick={() => downloadBlob(fileName, form)}>
             <Download className="h-6 w-6" aria-hidden="true" />
             Télécharger le formulaire
+          </button>
+          <button type="button" className={cn(TABLET_SECONDARY, "sm:col-span-2")} onClick={redo}>
+            <RotateCcw className="h-6 w-6" aria-hidden="true" />
+            Refaire le formulaire
           </button>
         </div>
       )}

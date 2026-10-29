@@ -43,10 +43,16 @@ export function isZip(bytes: Uint8Array): boolean {
   return bytes.length >= 4 && bytes[0] === 0x50 && bytes[1] === 0x4b && bytes[2] === 0x03 && bytes[3] === 0x04;
 }
 
-export async function readZip(bytes: Uint8Array, inflateRaw: InflateRaw): Promise<ZipEntry[]> {
+// Bornes (audit du 28/10/2026) : une archive piégée ne fait pas tomber le navigateur
+// de la tablette. Le DIPEC d'EODA (1 Mo, ~25 entrées) en est très loin.
+export const ZIP_READ_LIMITS = { maxEntries: 2000, maxTotalBytes: 100 * 1024 * 1024 } as const;
+
+export async function readZip(bytes: Uint8Array, inflateRaw: InflateRaw, limits: { maxEntries: number; maxTotalBytes: number } = ZIP_READ_LIMITS): Promise<ZipEntry[]> {
   const dv = view(bytes);
   const end = findEndOfCentralDirectory(bytes);
   const count = dv.getUint16(end + 10, true);
+  if (count > limits.maxEntries) throw new ZipReadError("Archive trop volumineuse.");
+  let total = 0;
   let cursor = dv.getUint32(end + 16, true);
   const decoder = new TextDecoder();
   const entries: ZipEntry[] = [];
@@ -68,9 +74,11 @@ export async function readZip(bytes: Uint8Array, inflateRaw: InflateRaw): Promis
     const raw = bytes.subarray(start, start + compressedSize);
     if (raw.length !== compressedSize) throw new ZipReadError("Archive tronquée.");
     if (name.endsWith("/")) continue;
-    if (method === 0) entries.push({ name, data: raw.slice() });
-    else if (method === 8) entries.push({ name, data: await inflateRaw(raw) });
-    else throw new ZipReadError(`Méthode de compression inconnue (${method}).`);
+    if (method !== 0 && method !== 8) throw new ZipReadError(`Méthode de compression inconnue (${method}).`);
+    const data = method === 0 ? raw.slice() : await inflateRaw(raw);
+    total += data.length;
+    if (total > limits.maxTotalBytes) throw new ZipReadError("Archive trop volumineuse une fois décompressée.");
+    entries.push({ name, data });
   }
   return entries;
 }
