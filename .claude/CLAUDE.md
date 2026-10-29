@@ -38,6 +38,7 @@ vérifie** — sinon elle n'existe pas.
 | Une migration écrite à la main vise une table qui existe | test qui lit chaque `migration.sql` (commentaires retirés) et **échoue** sur une table citée (UPDATE, INSERT, ALTER, FROM, JOIN, REFERENCES) absente des `@@map` du schéma et des tables créées par les migrations — le 21/10/2026, `"DocumentType"` au lieu de `"document_types"` a bloqué toutes les migrations suivantes (P3009) sur la base partagée | `apps/web/src/lib/db/migration-table-names.test.ts` |
 | Clés étrangères indexées (convention `P6`) | test qui lit le schéma et **échoue** sur toute relation sans index, liste d'exceptions figée | `apps/web/src/lib/db/foreign-key-indexes.test.ts` |
 | Matrice des rôles cabinet appliquée par les gardes (N9) | matrice testée case par case, chaque garde × chaque rôle testée, commercial gardé export par export | `lib/auth/capabilities.test.ts`, `guards-roles.test.ts`, `commercial-pages-guard.test.ts` |
+| Une consultante ne voit que les structures qui lui sont affectées — par EODA ou par la structure —, aucune sans affectation (29/10/2026) | `resolveStructureScope` : CABINET_EVALUATOR → `ONLY` ses affectations, `ONLY []` sans ; `setStructureConsultant` : garde ACCESS_WRITE (direction), consultante ACTIVE du cabinet de la structure sinon `notFound()`, affectation de CETTE structure seulement, mission close refusée, journalisée | `lib/auth/capabilities.test.ts`, `lib/auth/guards-roles.test.ts`, `lib/actions/structure-consultants.test.ts`, `lib/services/cabinet-recipients-service.test.ts` |
 | La lecture seule n'écrit rien | test qui **échoue** si une action gardée en lecture contient une écriture Prisma | `apps/web/src/lib/auth/read-guards-never-write.test.ts` |
 | CSP à nonce réellement applicable (aucune page pré-rendue) | `pnpm check:csp` après le build, **sort en code 1** si un `<script>` est écrit sans nonce | `apps/web/scripts/check-csp-nonce.mjs` + CI ; le réglage est `export const dynamic = "force-dynamic"` dans `apps/web/src/app/layout.tsx` |
 | Budget de JavaScript par route | `pnpm check:bundle` après le build, **sort en code 1** au-delà du budget | `apps/web/scripts/check-bundle-budget.mjs` + CI |
@@ -563,8 +564,14 @@ Détail complet et état d'avancement : `specs/02-architecture-technique.md` §4
   `STRUCTURE_CONTRACT` : masqués ET refusés côté serveur pour une consultante.
   **Affectation consultante ↔ structures** (`EstablishmentAssignment`) : une consultante
   affectée ne voit QUE ses structures (listes filtrées par `structureScopeWhere`, objet d'une
-  autre structure → `notFound()`) ; **sans aucune affectation elle voit tout** — choix de
-  compatibilité des comptes existants, à ne pas « corriger » en fail-closed sans décision.
+  autre structure → `notFound()`) ; **sans aucune affectation elle ne voit RIEN**
+  (fail-closed, décision de Damon du 29/10/2026 — remplace la compatibilité du 13/10 ;
+  aucun compte consultante n'existait ce jour-là). Une consultante est affectée par EODA
+  (Équipe EODA) **ou par la DIRECTION de la structure** (Paramètres → « Consultantes
+  EODA qui suivent votre structure », `lib/actions/structure-consultants.ts`) : la
+  structure ouvre ou ferme SA structure à une consultante ACTIVE du cabinet, jamais une
+  autre structure, et ne crée jamais de compte de consultante (un compte créé par la
+  structure pourrait marquer « Relu par EODA » ses propres documents).
   Équipe EODA : `/dashboard/cabinet/equipe` (administration seule) ; jamais retirer son propre
   accès ni le dernier administrateur (`cabinet-team-service.ts`).
 - **Rôles d'accès CLIENT (N9).** `EstablishmentUser.accessRole` (`DIRECTION`,

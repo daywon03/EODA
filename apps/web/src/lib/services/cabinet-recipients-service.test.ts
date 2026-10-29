@@ -45,15 +45,13 @@ describe("selectStructureRecipients — qui suit la structure", () => {
     expect(recipients).toEqual([]);
   });
 
-  it("prévient une consultante SANS affectation — elle voit tout le portefeuille", () => {
-    // Choix de compatibilité des comptes existants (`resolveStructureScope`, N9) : une
-    // consultante sans affectation n'est pas cloisonnée. C'est le périmètre réel, et
-    // l'alerte le suit — la « corriger » ici ferait diverger deux règles jumelles.
+  it("ne prévient pas une consultante SANS affectation — elle ne voit aucune structure", () => {
+    // Même périmètre que partout (`resolveStructureScope`, 29/10/2026) : l'alerte le suit.
     const recipients = selectStructureRecipients(
       [candidate({ role: "CABINET_EVALUATOR", assignedEstablishmentIds: [] })],
       ETAB
     );
-    expect(recipients).toHaveLength(1);
+    expect(recipients).toEqual([]);
   });
 
   it("prévient le rôle de lecture seule, qui lit les structures", () => {

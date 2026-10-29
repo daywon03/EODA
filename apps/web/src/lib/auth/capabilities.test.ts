@@ -99,8 +99,8 @@ describe("périmètre des structures (affectation consultante)", () => {
     expect(resolveStructureScope("CABINET_ADMIN", ["e1"])).toEqual({ kind: "ALL" });
   });
 
-  it("une consultante SANS affectation voit tout (compatibilité des comptes existants)", () => {
-    expect(resolveStructureScope("CABINET_EVALUATOR", [])).toEqual({ kind: "ALL" });
+  it("une consultante SANS affectation ne voit RIEN (29/10/2026 — fail-closed)", () => {
+    expect(resolveStructureScope("CABINET_EVALUATOR", [])).toEqual({ kind: "ONLY", establishmentIds: [] });
   });
 
   it("une consultante affectée ne voit que ses structures", () => {
