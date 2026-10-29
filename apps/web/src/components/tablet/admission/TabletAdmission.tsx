@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import type { TabletAwarenessSheet } from "@/lib/services/awareness-sheet-links";
 import Link from "next/link";
 import { CheckCircle2, Download, FileText, FileUp, Search, Send, UserPlus } from "lucide-react";
 import { departementFormFileName, departementFormSigner } from "@/lib/services/departement-form-service";
@@ -53,8 +54,9 @@ const STATE_TONES: Record<AdmissionState, string> = {
   A_REPROPOSER: "border-amber-fill bg-highlight",
 };
 
-export function TabletAdmission({ establishmentId, structureName, structureAddress, staffName, dipc }: {
+export function TabletAdmission({ establishmentId, structureName, structureAddress, staffName, dipc, sheets }: {
   establishmentId: string;
+  sheets: Readonly<Record<string, TabletAwarenessSheet>>;
   structureName: string;
   structureAddress: string;
   staffName: string;
@@ -177,6 +179,7 @@ export function TabletAdmission({ establishmentId, structureName, structureAddre
         staffName={staffName}
         dipc={{ versionId: dipc.versionId, versionNumber: dipc.versionNumber, validatedOn: dipc.validatedOn, text: dipc.text, sha256: dipcSha }}
         word={word}
+        sheets={sheets}
         person={screen.person && { personId: screen.person.id, lastName: screen.person.lastName, firstName: screen.person.firstName }}
         onRecorded={onRecorded}
         onCancel={() => go({ kind: "home" })}

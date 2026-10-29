@@ -25,6 +25,10 @@ describe("classifyPath — refuser par défaut", () => {
     ["/api/tablette/dipec", "PROTECTED"],
     ["/api/tablette/dipec/a/b", "PROTECTED"],
     ["/api/tablette/autre/abc", "PROTECTED"],
+    // Fiches de sensibilisation pour la tablette (29/10/2026) : un seul segment.
+    ["/api/tablette/fiches/abc123", "ANONYMOUS"],
+    ["/api/tablette/fiches", "PROTECTED"],
+    ["/api/tablette/fiches/a/b", "PROTECTED"],
     // Formulaires officiels vierges : servis hors middleware (matcher), jamais par classifyPath.
     ["/formulaires/93-designation-sad-declaration-initiale-2026.pdf", "PROTECTED"],
     ["/enquete/abcDEF123_-xyz", "ANONYMOUS"],

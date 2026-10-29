@@ -5,6 +5,8 @@ import { resolveTabletSession } from "@/lib/auth/guards";
 import { readTabletDipc } from "@/lib/db/read-tablet-dipc";
 import { recordAuditEvent } from "@/lib/services/audit-log-service";
 import type { TabletDipcSource } from "@/lib/services/tablet-dipc-service";
+import { readTabletAwarenessSheets } from "@/lib/db/read-tablet-awareness-sheets";
+import type { TabletAwarenessSheet } from "@/lib/services/awareness-sheet-links";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // DIPEC À FAIRE SIGNER SUR LA TABLETTE (26/10/2026).
@@ -24,6 +26,15 @@ export async function getTabletStructureAddress(): Promise<string | null> {
   if (!session) return null;
   const establishment = await prisma.establishment.findUnique({ where: { id: session.establishmentId }, select: { address: true } });
   return establishment?.address ?? "";
+}
+
+// Les fiches de sensibilisation validées de la structure, par code de ligne (call du
+// 28/10/2026). Liste seule : le fichier part par sa route, qui journalise l'accès.
+export async function getTabletAwarenessSheets(): Promise<Record<string, TabletAwarenessSheet>> {
+  const session = await resolveTabletSession();
+  if (!session) return {};
+  const { sheets } = await readTabletAwarenessSheets(session.establishmentId);
+  return sheets;
 }
 
 export async function getTabletDipcSource(): Promise<TabletDipcSource | null> {
