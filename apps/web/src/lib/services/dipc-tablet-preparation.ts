@@ -122,6 +122,18 @@ const OPEN_QUESTION = /^(Le bénéficiaire était accompagné de \(nom, qualité
 const CHECKBOX = /^[☐□]\s*(.+)$/;
 const DURATION_OPTION = /^Option n°\s*(\d)\s*[–-]\s*(.+)$/;
 const DATE_MASK = /JJ\/MM\/AAAA/g;
+// « Le client devra régler la facture par : » suivi des modes de paiement en liste
+// (call du 28/10/2026 : la case du mode choisi doit être cochée sur la tablette).
+// Chaque mode devient une case `paiement.N` ; la liste s'arrête à la première vraie
+// phrase. Dans le Word, une puce est un paragraphe comme un autre : la règle ne
+// dépend donc pas de la puce, mais de la forme d'un mode (court, sans ponctuation
+// finale).
+const PAYMENT_INTRO = /régler (?:la|les|ses) factures? par\s*:?\s*$/i;
+export const PAYMENT_FIELD_PREFIX = "paiement.";
+
+function isPaymentOption(text: string): boolean {
+  return text.length > 0 && text.length <= 60 && !/[.:;!?]$/.test(text) && !text.startsWith("{{");
+}
 
 // Champs du choix de durée (fusionnés comme les autres zones de la copie).
 export const DURATION_FIELDS = { option: (n: number) => `duree.option${n}`, start: "duree.debut", end: "duree.fin" } as const;
@@ -156,6 +168,8 @@ export function prepareDipcLines(source: readonly DipcBlock[]): PreparedDipcLine
   let identityZones = 0;
   let inAnnexes = false;
   let previousReplaced = false;
+  let inPaymentList = false;
+  let paymentCount = 0;
   const lastKept = (): string => [...lines].reverse().find((b) => b !== null)?.text ?? "";
 
   for (const block of source) {
@@ -163,8 +177,22 @@ export function prepareDipcLines(source: readonly DipcBlock[]): PreparedDipcLine
     if (inAnnexes || block.kind === "heading") {
       lines.push(block);
       previousReplaced = false;
+      inPaymentList = false;
       continue;
     }
+
+    if (inPaymentList) {
+      if (isPaymentOption(block.text)) {
+        paymentCount += 1;
+        const id = `${PAYMENT_FIELD_PREFIX}${paymentCount}`;
+        checkFields.push({ id, label: block.text });
+        lines.push({ ...block, text: `{{${id}}} ${block.text}` });
+        continue;
+      }
+      inPaymentList = false;
+    }
+    // La phrase d'annonce reste telle quelle ; les lignes suivantes sont les modes.
+    if (PAYMENT_INTRO.test(block.text)) inPaymentList = true;
     // Une ligne de pointillés seule, juste après une zone remplie, n'était que la
     // suite de cette zone : elle disparaît avec elle.
     if (previousReplaced && ONLY_BLANK_RE.test(block.text)) {

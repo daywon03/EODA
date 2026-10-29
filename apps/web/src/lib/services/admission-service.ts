@@ -460,6 +460,7 @@ const HANDED_IN_CONTRACT: readonly { pattern: RegExp; handed: HandedDocumentId |
   { pattern: /règlement de fonctionnement/i, handed: "reglement" },
   { pattern: /personne de confiance/i, handed: "coupon-confiance" },
   { pattern: /personnes? qualifiées?/i, handed: "personnes-qualifiees" },
+  { pattern: /fiches? de sensibilisation/i, handed: "fiches-sensibilisation" },
 ];
 
 export function handedCheckLinks(checkFields: readonly { id: string; label: string }[]): Map<string, HandedDocumentId | "SIGNATURE"> {
