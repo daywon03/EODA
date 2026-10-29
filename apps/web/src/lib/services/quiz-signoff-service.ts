@@ -10,6 +10,8 @@
 // formule) : un nom saisi n'exécute rien à l'ouverture.
 // ─────────────────────────────────────────────────────────────────────────────
 
+import { csvCell } from "./csv-cell";
+
 export type SignoffAttempt = {
   displayName: string;
   jobTitle: string;
@@ -23,8 +25,7 @@ export type SignoffAttempt = {
 const HEADER = ["Personne", "Métier", "Quiz", "Version", "Score", "Date"];
 
 export function neutralizeCsvCell(value: string): string {
-  const safe = /^[=+\-@\t\r]/.test(value) ? `'${value}` : value;
-  return /[;"\n\r]/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe;
+  return csvCell(value);
 }
 
 function formatDay(date: Date): string {

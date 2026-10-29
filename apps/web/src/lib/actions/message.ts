@@ -12,10 +12,15 @@ import {
 import {
   canClientPostMessage,
   hasUnansweredMessage,
+  MESSAGE_RATE_LIMIT,
+  shouldNotifyNewMessage,
   sortThread,
+  THREAD_MAX_MESSAGES,
   validateMessageBody,
 } from "@/lib/services/message-thread-service";
 import { notifyNewMessage } from "@/lib/email/notifications";
+import { consumeThrottledAttempt } from "@/lib/security/attempt-throttle";
+import { recordAuditEvent } from "@/lib/services/audit-log-service";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // FIL D'ÉCHANGE MISSION ↔ CLIENT (CDC §5).
@@ -50,10 +55,12 @@ function cabinetPath(establishmentId: string): string {
   return `/dashboard/cabinet/etablissements/${establishmentId}/echanges`;
 }
 
+// Les derniers messages du fil (THREAD_MAX_MESSAGES), remis dans l'ordre de lecture.
 async function readThread(establishmentId: string): Promise<ThreadMessage[]> {
   const messages = await prisma.missionMessage.findMany({
     where: { establishmentId },
-    orderBy: { createdAt: "asc" },
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+    take: THREAD_MAX_MESSAGES,
     select: {
       id: true,
       authorSide: true,
@@ -76,6 +83,73 @@ async function readThread(establishmentId: string): Promise<ThreadMessage[]> {
   );
 }
 
+// ── Écriture : une seule porte pour les deux côtés ───────────────────────────
+//
+// Appelée APRÈS la garde de chaque côté. Audit du 28/10/2026 : débit borné par
+// personne (sinon un compte inonde l'autre côté d'e-mails), message journalisé sans
+// son texte, un seul e-mail par prise de parole.
+async function postMessage(input: {
+  side: MessageAuthorSide;
+  tenantId: string;
+  establishmentId: string;
+  establishmentName: string;
+  userId: string;
+  formData: FormData;
+}): Promise<MessageResult> {
+  const raw = input.formData.get("body");
+  const validation = validateMessageBody(typeof raw === "string" ? raw : null);
+  if (!validation.ok) return { error: validation.error };
+
+  const allowed = await consumeThrottledAttempt({
+    key: `message:${input.userId}`,
+    policy: MESSAGE_RATE_LIMIT,
+    auditAction: "MISSION_MESSAGE_RATE_LIMITED",
+    actorUserId: input.userId,
+  });
+  if (!allowed) return { error: "Vous avez envoyé beaucoup de messages en peu de temps. Réessayez dans quelques minutes." };
+
+  const previous = await prisma.missionMessage.findFirst({
+    where: { establishmentId: input.establishmentId },
+    orderBy: { createdAt: "desc" },
+    select: { authorSide: true, createdAt: true },
+  });
+
+  const message = await prisma.missionMessage.create({
+    data: {
+      tenantId: input.tenantId,
+      establishmentId: input.establishmentId,
+      authorUserId: input.userId,
+      authorSide: input.side,
+      body: validation.body,
+    },
+    select: { id: true },
+  });
+
+  // Le côté, jamais le texte : il peut évoquer une personne accompagnée.
+  await recordAuditEvent({
+    action: "MISSION_MESSAGE_POSTED",
+    actorUserId: input.userId,
+    establishmentId: input.establishmentId,
+    targetId: message.id,
+    detail: input.side,
+  });
+
+  // L'e-mail ne fait jamais échouer l'écriture : le message est enregistré, la
+  // notification est un plus (même règle que l'invitation client).
+  if (shouldNotifyNewMessage(previous, input.side, new Date())) {
+    await notifyNewMessage({
+      tenantId: input.tenantId,
+      establishmentId: input.establishmentId,
+      establishmentName: input.establishmentName,
+      authorSide: input.side,
+    });
+  }
+
+  revalidatePath(cabinetPath(input.establishmentId));
+  revalidatePath(CLIENT_PATH);
+  return { ok: true };
+}
+
 // ── Côté cabinet ─────────────────────────────────────────────────────────────
 
 export async function getCabinetThread(establishmentId: string): Promise<ThreadMessage[]> {
@@ -90,38 +164,13 @@ export async function postCabinetMessage(
 ): Promise<MessageResult> {
   const { tenantId, userId } = await requireEstablishmentInTenant(establishmentId, "WRITE");
 
-  const raw = formData.get("body");
-  const validation = validateMessageBody(typeof raw === "string" ? raw : null);
-  if (!validation.ok) return { error: validation.error };
-
   const establishment = await prisma.establishment.findUnique({
     where: { id: establishmentId },
     select: { name: true },
   });
   if (!establishment) notFound();
 
-  await prisma.missionMessage.create({
-    data: {
-      tenantId,
-      establishmentId,
-      authorUserId: userId,
-      authorSide: "CABINET",
-      body: validation.body,
-    },
-  });
-
-  // L'e-mail ne fait jamais échouer l'écriture : le message est enregistré, la
-  // notification est un plus (même règle que l'invitation client).
-  await notifyNewMessage({
-    tenantId,
-    establishmentId,
-    establishmentName: establishment.name,
-    authorSide: "CABINET",
-  });
-
-  revalidatePath(cabinetPath(establishmentId));
-  revalidatePath(CLIENT_PATH);
-  return { ok: true };
+  return postMessage({ side: "CABINET", tenantId, establishmentId, establishmentName: establishment.name, userId, formData });
 }
 
 // ── Côté client ──────────────────────────────────────────────────────────────
@@ -204,34 +253,11 @@ export async function postClientMessage(
     return { error: "Votre accès ne permet plus d'envoyer de message." };
   }
 
-  const raw = formData.get("body");
-  const validation = validateMessageBody(typeof raw === "string" ? raw : null);
-  if (!validation.ok) return { error: validation.error };
-
   const link = await prisma.establishment.findUnique({
     where: { id: establishment.id },
     select: { tenantId: true, name: true },
   });
   if (!link) notFound();
 
-  await prisma.missionMessage.create({
-    data: {
-      tenantId: link.tenantId,
-      establishmentId: establishment.id,
-      authorUserId: userId,
-      authorSide: "CLIENT",
-      body: validation.body,
-    },
-  });
-
-  await notifyNewMessage({
-    tenantId: link.tenantId,
-    establishmentId: establishment.id,
-    establishmentName: link.name,
-    authorSide: "CLIENT",
-  });
-
-  revalidatePath(CLIENT_PATH);
-  revalidatePath(cabinetPath(establishment.id));
-  return { ok: true };
+  return postMessage({ side: "CLIENT", tenantId: link.tenantId, establishmentId: establishment.id, establishmentName: link.name, userId, formData });
 }

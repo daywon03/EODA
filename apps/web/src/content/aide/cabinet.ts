@@ -35,7 +35,7 @@ const ARTICLES: readonly HelpArticle[] = [
           "Vérifiez l'identité pré-remplie : FINESS, adresse, échéance HAS et type de SAD sont exigés ici. Le type de SAD (aide ou mixte) est toujours demandé, jamais deviné.",
           "Validez : la fiche structure, sa mission et le périmètre de l'offre sont créés en une seule fois.",
           "Sur la fiche, onglet « Réglages », bloc « Inviter un interlocuteur » : saisissez le nom, l'adresse e-mail et la fonction de la personne.",
-          "Le mot de passe temporaire s'affiche une seule fois. Transmettez-le à l'interlocuteur : il devra le changer à sa première connexion.",
+          "L'interlocuteur reçoit par e-mail un lien pour choisir lui-même son mot de passe (valable 3 jours, une seule fois). Si l'e-mail n'a pas pu partir, le lien s'affiche une fois à l'écran : transmettez-le à la personne.",
         ],
       },
       {

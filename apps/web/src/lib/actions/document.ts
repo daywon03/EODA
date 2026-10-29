@@ -35,7 +35,7 @@ import { saveCorrectedDraft } from "@/lib/services/document-generation-service";
 import { generateCorrectionProposal } from "./correction-proposal";
 import { recordAuditEvent } from "@/lib/services/audit-log-service";
 import { parseAnalysisResult } from "@/lib/services/analysis-view-service";
-import { validateUploadedFile } from "@/lib/security/upload-validation-service";
+import { validateUploadOnServer } from "@/lib/security/office-archive-guard";
 import {
   getEstablishmentCoveredCategories,
   isCategoryCoveredForEstablishment,
@@ -116,7 +116,7 @@ export async function uploadDocument(formData: FormData): Promise<UploadDocument
 
   // Le type réel est déterminé par la signature binaire, jamais par `file.type`
   // (valeur fournie par le client, donc falsifiable).
-  const validation = validateUploadedFile(buffer, file.size);
+  const validation = validateUploadOnServer(buffer, file.size);
   if (!validation.ok) return { error: validation.error };
 
   const extraction = await extractMarkdown(buffer, validation.contentType);
@@ -840,7 +840,9 @@ export async function deleteDocumentVersion(
       },
     },
   });
-  if (!version) return { error: "Version de document introuvable." };
+  // Même réponse qu'une version d'un autre tenant (notFound) : un message distinct
+  // dirait qu'un identifiant existe ailleurs (audit du 28/10/2026).
+  if (!version) notFound();
 
   // L'identifiant vient d'une route HTTP publique : l'habilitation porte sur
   // l'établissement PROPRIÉTAIRE de la version, jamais sur un identifiant fourni.

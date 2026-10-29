@@ -115,7 +115,7 @@ export default async function StructureSettingsPage({ params }: Props) {
         <div className="border-t border-line pt-4">
           <h3 className="mb-1 font-bold text-ink">Inviter un interlocuteur</h3>
           <p className="mb-3 text-sm text-ink2">
-            Le mot de passe temporaire généré s&apos;affiche une seule fois — communiquez-le par e-mail.
+            La personne reçoit par e-mail un lien pour choisir elle-même son mot de passe. Aucun mot de passe ne vous est montré.
           </p>
           <InviteClientForm establishmentId={establishment.id} />
         </div>

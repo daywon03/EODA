@@ -58,11 +58,8 @@ export function selectSurveyActionsToCreate(
 // Une ligne par question : jamais une ligne par répondant. Séparateur « ; » et BOM
 // (ouverture correcte dans un tableur français), champs échappés — y compris contre
 // l'injection de formule (=, +, -, @ en tête de cellule).
-export function csvCell(value: string | number | null): string {
-  const text = value === null ? "" : String(value);
-  const safe = /^[=+\-@\t\r]/.test(text) ? `'${text}` : text;
-  return /[";\n\r]/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe;
-}
+import { csvCell } from "./csv-cell";
+export { csvCell };
 
 export function buildSurveyCsv(stats: readonly TemplateStats[]): string {
   const header = ["Questionnaire", "Question", "Réponses", "Comptées", "Taux (%)", "Niveau", "À mettre à jour"];

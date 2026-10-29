@@ -52,13 +52,27 @@ const EVENT_ATTRIBUTE = /\son[a-z]+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi;
 const REMOTE_URL_ATTRIBUTE =
   /\s(?:src|href|background|poster|srcset|action|formaction|data)\s*=\s*(?:"(?!(?:data:|#|mailto:|tel:))[^"]*"|'(?!(?:data:|#|mailto:|tel:))[^']*'|(?!(?:data:|#|mailto:|tel:))[^\s"'>]+)/gi;
 
-export function sanitizeExtractedHtml(html: string): string {
+function sanitizeOnce(html: string): string {
   return html
     .replace(PAIRED_DANGEROUS, "")
     .replace(VOID_DANGEROUS, "")
     .replace(STYLE_ATTRIBUTE, "")
     .replace(EVENT_ATTRIBUTE, "")
     .replace(REMOTE_URL_ATTRIBUTE, "");
+}
+
+// Jusqu'à stabilité (audit du 28/10/2026) : un seul passage laissait
+// « <scr<script></script>ipt> » se recomposer en « <script> » une fois l'intérieur
+// retiré. Borné : un texte ne peut pas faire tourner le filtre indéfiniment.
+export function sanitizeExtractedHtml(html: string): string {
+  let current = html;
+  for (let pass = 0; pass < 10; pass += 1) {
+    const next = sanitizeOnce(current);
+    if (next === current) return next;
+    current = next;
+  }
+  // Toujours instable après dix passes : ce n'est plus un document, c'est un piège.
+  return current.replace(/[<>]/g, "");
 }
 
 // ── Corps de page ────────────────────────────────────────────────────────────

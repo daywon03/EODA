@@ -7,10 +7,26 @@ import {
   hasUnansweredMessage,
   MAX_MESSAGE_LENGTH,
   relativeDayHeading,
+  shouldNotifyNewMessage,
   sortThread,
   startsNewBlock,
   validateMessageBody,
 } from "./message-thread-service";
+
+describe("audit du 28/10/2026", () => {
+  it("retire les caractères invisibles (NUL, inversions bidirectionnelles), garde les retours à la ligne", () => {
+    expect(validateMessageBody("Bon\u0000jour\r\n‮le texte ‬\tfin")).toEqual({ ok: true, body: "Bonjour\nle texte \tfin" });
+    expect(validateMessageBody("\u0000‮ ")).toEqual({ ok: false, error: "Le message est vide." });
+  });
+
+  it("un seul e-mail par prise de parole : même côté depuis moins de 15 min → non", () => {
+    const now = new Date("2026-10-28T10:00:00Z");
+    expect(shouldNotifyNewMessage(null, "CLIENT", now)).toBe(true);
+    expect(shouldNotifyNewMessage({ authorSide: "CABINET", createdAt: new Date("2026-10-28T09:59:00Z") }, "CLIENT", now)).toBe(true);
+    expect(shouldNotifyNewMessage({ authorSide: "CLIENT", createdAt: new Date("2026-10-28T09:50:00Z") }, "CLIENT", now)).toBe(false);
+    expect(shouldNotifyNewMessage({ authorSide: "CLIENT", createdAt: new Date("2026-10-28T09:45:00Z") }, "CLIENT", now)).toBe(true);
+  });
+});
 
 describe("validateMessageBody", () => {
   it("refuse un message vide ou blanc", () => {

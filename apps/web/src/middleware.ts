@@ -17,7 +17,7 @@ import {
 // Seul point de lecture de l'environnement (règle S6). `isProductionRuntime()` ne
 // déclenche pas la validation complète du profil : le middleware tourne en Edge
 // Runtime, où l'on contrôle ce qui est évalué.
-import { isProductionRuntime } from "@/lib/config/env";
+import { cspExternalOrigins, isProductionRuntime } from "@/lib/config/env";
 
 const { auth } = NextAuth(authConfig);
 
@@ -42,7 +42,8 @@ function applyCsp(response: NextResponse, csp: string): NextResponse {
 export default auth((req) => {
   const { nextUrl } = req;
   const nonce = generateCspNonce();
-  const csp = buildContentSecurityPolicy({ nonce, isProduction: isProductionRuntime() });
+  const { storage, vercelPreview } = cspExternalOrigins();
+  const csp = buildContentSecurityPolicy({ nonce, isProduction: isProductionRuntime(), storageOrigin: storage, vercelPreview });
   const session = req.auth;
   const isLoggedIn = !!session;
   const access = classifyPath(nextUrl.pathname);

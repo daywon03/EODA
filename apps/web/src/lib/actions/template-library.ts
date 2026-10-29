@@ -12,7 +12,7 @@ import {
   requiredEnum,
   requiredString,
 } from "@/lib/validation/form-parsers";
-import { validateUploadedFile } from "@/lib/security/upload-validation-service";
+import { validateUploadOnServer } from "@/lib/security/office-archive-guard";
 import { getFileStoragePort } from "@/lib/storage";
 import { recordAuditEvent } from "@/lib/services/audit-log-service";
 import { extractMarkdown } from "@/lib/services/text-extraction-service";
@@ -620,7 +620,7 @@ async function storeVersion(params: {
   const buffer = Buffer.from(await file.arrayBuffer());
   // Type réel déterminé par la SIGNATURE BINAIRE, jamais par `file.type` — valeur
   // fournie par le client, donc falsifiable. Même règle que le dépôt de pièces.
-  const validation = validateUploadedFile(buffer, file.size);
+  const validation = validateUploadOnServer(buffer, file.size);
   if (!validation.ok) return { error: `${file.name} : ${validation.error}` };
 
   const duplicate = await prisma.templateVersion.findFirst({

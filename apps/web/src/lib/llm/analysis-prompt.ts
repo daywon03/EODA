@@ -1,5 +1,6 @@
 import type { DocumentAnalysisInput, ValidatedExample } from "./llm-analysis-port";
 import { renderDocumentComment } from "./document-comment";
+import { neutralizePromptBlocks } from "./prompt-blocks";
 
 // Construction du prompt d'analyse documentaire — partagée par tous les
 // adaptateurs LLM (Anthropic direct, OpenRouter) pour qu'ils analysent le même
@@ -38,7 +39,7 @@ jamais un nom, une adresse, un numéro ou un fait propre à elle.`;
 export function renderValidatedExamples(examples: readonly ValidatedExample[] | undefined): string {
   if (!examples || examples.length === 0) return "";
   const blocks = examples
-    .map((e) => `<exemple_valide titre="${e.title.replace(/"/g, "'")}">\n${e.content}\n</exemple_valide>`)
+    .map((e) => `<exemple_valide titre="${neutralizePromptBlocks(e.title).replace(/["<>]/g, "'")}">\n${neutralizePromptBlocks(e.content)}\n</exemple_valide>`)
     .join("\n");
   return `\nDocuments finaux validés du même type, à titre d'exemple de forme :\n${blocks}\n`;
 }
@@ -149,9 +150,8 @@ Règles d'analyse :
 
 export function buildUserMessage(input: DocumentAnalysisInput): string {
   const truncated = input.extractedText.length > MAX_DOCUMENT_CHARS;
-  const text = truncated
-    ? input.extractedText.slice(0, MAX_DOCUMENT_CHARS)
-    : input.extractedText;
+  // Écrit par un tiers : ses balises de bloc sont retirées (prompt-blocks).
+  const text = neutralizePromptBlocks(truncated ? input.extractedText.slice(0, MAX_DOCUMENT_CHARS) : input.extractedText);
 
   const criteria =
     input.linkedCriteria.length > 0

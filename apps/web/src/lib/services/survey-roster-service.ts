@@ -344,10 +344,8 @@ function frenchDay(day: string | undefined): string {
 
 // Une cellule qui commence par = + - @ serait lue comme une formule par Excel
 // (injection de formule) : on la neutralise.
-export function csvCell(value: string): string {
-  const safe = /^[=+\-@\t\r]/.test(value) ? `'${value}` : value;
-  return /[;"\n\r]/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe;
-}
+import { csvCell } from "./csv-cell";
+export { csvCell };
 
 export const ROSTER_EXPORT_HEADER = ["Nom", "Prénom", "Enquête personne faite le", "Enquête proche faite le"] as const;
 

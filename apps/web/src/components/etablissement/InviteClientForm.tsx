@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { AlertCircle, CheckCircle2, Loader2, UserPlus } from "lucide-react";
 import type { InvitationDelivery } from "@/lib/services/email-delivery-service";
-import { TemporaryPasswordPanel } from "@/components/ui/temporary-password-panel";
+import { SetupLinkPanel } from "@/components/ui/temporary-password-panel";
 
 // `defaultEmail` / `defaultName` : pré-remplissage depuis le contact du prospect à
 // la fin du parcours de conversion. Ce sont des VALEURS PAR DÉFAUT — Sandrine les
@@ -22,7 +22,7 @@ type Props = {
 
 type SuccessResult = {
   success: true;
-  tempPassword: string;
+  setupLink: string | null;
   userName: string;
   userEmail: string;
   invitationDelivery: InvitationDelivery;
@@ -89,10 +89,10 @@ export function InviteClientForm({ establishmentId, defaultEmail, defaultName }:
   if (result && "success" in result) {
     return (
       <div className="space-y-4">
-        <TemporaryPasswordPanel
+        <SetupLinkPanel
           userName={result.userName}
           userEmail={result.userEmail}
-          tempPassword={result.tempPassword}
+          setupLink={result.setupLink}
           invitationDelivery={result.invitationDelivery}
         />
         <Button

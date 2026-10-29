@@ -16,21 +16,23 @@ export function invitationDeliveryMessage(
   delivery: InvitationDelivery,
   email: string
 ): { tone: "ok" | "warning"; text: string } {
+  // Aucun mot de passe n'est transmis (audit du 28/10/2026) : la personne reçoit un
+  // lien pour choisir le sien.
   if (delivery === "SENT") {
     return {
       tone: "ok",
-      text: `Invitation envoyée à ${email} — identifiant et mot de passe compris.`,
+      text: `E-mail envoyé à ${email}, avec le lien pour choisir son mot de passe.`,
     };
   }
   if (delivery === "NOT_CONFIGURED") {
     return {
       tone: "warning",
-      text: "Compte créé ; e-mail non envoyé en local — transmettez le mot de passe autrement.",
+      text: "E-mail non envoyé en local — transmettez le lien ci-dessous à la personne.",
     };
   }
   return {
     tone: "warning",
-    text: "Compte créé ; l'e-mail d'invitation n'a pas pu être envoyé — transmettez le mot de passe autrement.",
+    text: "L'e-mail n'a pas pu être envoyé — transmettez le lien ci-dessous à la personne.",
   };
 }
 
