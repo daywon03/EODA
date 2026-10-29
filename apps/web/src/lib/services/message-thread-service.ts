@@ -25,8 +25,14 @@ export const AUTHOR_SIDE_LABELS: Record<MessageAuthorSide, string> = {
 
 export type MessageValidation = { ok: true; body: string } | { ok: false; error: string };
 
+// Caractères invisibles retirés du texte (audit du 28/10/2026) : contrôles C0/C1 sauf
+// retour à la ligne et tabulation (le NUL faisait échouer l'écriture en base, donc une
+// erreur 500), et caractères de mise en forme bidirectionnelle, qui retournent
+// l'affichage d'un texte (« Trojan Source ») — un message doit se lire comme il est écrit.
+const INVISIBLE = /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f-\u009f‎‏‪-‮⁦-⁩]/g;
+
 export function validateMessageBody(raw: string | null): MessageValidation {
-  const body = (raw ?? "").trim();
+  const body = (raw ?? "").replace(/\r\n?/g, "\n").replace(INVISIBLE, "").trim();
   if (body.length === 0) return { ok: false, error: "Le message est vide." };
   if (body.length > MAX_MESSAGE_LENGTH) {
     return {
@@ -35,6 +41,30 @@ export function validateMessageBody(raw: string | null): MessageValidation {
     };
   }
   return { ok: true, body };
+}
+
+// Débit d'envoi par personne (audit du 28/10/2026) : chaque message prévient l'autre
+// côté par e-mail ; sans plafond, un compte (ou un compte volé) inonderait les boîtes
+// du cabinet ou de la structure et la réputation d'envoi d'EODA. Dix messages en dix
+// minutes laissent largement converser.
+export const MESSAGE_RATE_LIMIT = { limit: 10, windowSeconds: 10 * 60 } as const;
+
+// Le fil affiche ses derniers messages, pas tout l'historique d'un coup : la page
+// reste rapide quel que soit l'âge de la conversation.
+export const THREAD_MAX_MESSAGES = 300;
+
+// Un seul e-mail par prise de parole : si le même côté a déjà écrit il y a moins d'un
+// quart d'heure, l'autre côté a déjà été prévenu de cette conversation — trois
+// messages de suite ne font pas trois e-mails.
+const NOTIFY_GROUP_WINDOW_MS = 15 * 60 * 1000;
+
+export function shouldNotifyNewMessage(
+  previous: { authorSide: MessageAuthorSide; createdAt: Date } | null,
+  side: MessageAuthorSide,
+  now: Date
+): boolean {
+  if (!previous || previous.authorSide !== side) return true;
+  return now.getTime() - previous.createdAt.getTime() >= NOTIFY_GROUP_WINDOW_MS;
 }
 
 // Le client peut-il écrire ? Non quand son accès est révoqué — il ne voit alors plus

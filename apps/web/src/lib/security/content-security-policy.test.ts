@@ -43,13 +43,23 @@ describe("buildContentSecurityPolicy", () => {
     expect(production).toContain("object-src 'none'");
   });
 
-  it("autorise l'aperçu d'un document image depuis l'URL signée du bucket", () => {
-    // Régression du 16/09/2026 : `img-src 'self' data: blob:` sans `https:`
-    // bloquait le chargement d'un document déposé en .jpg/.png depuis l'URL
-    // signée (domaine Supabase Storage) — l'aperçu restait une icône cassée.
-    // Même exception que `frame-src`, pour la même raison (domaine variable
-    // selon la région/le fournisseur de stockage).
-    expect(directive(production, "img-src")).toContain("https:");
+  it("autorise l'aperçu depuis l'URL signée du STOCKAGE, et plus n'importe quel site (audit du 28/10/2026)", () => {
+    // Régression du 16/09/2026 : sans l'origine du stockage, un document déposé en
+    // .jpg/.png ne s'affichait pas (icône cassée). La correction d'alors ouvrait
+    // `https:` entier ; seule l'origine du stockage est désormais admise.
+    const withStorage = buildContentSecurityPolicy({ nonce: "n", isProduction: true, storageOrigin: "https://abc.supabase.co" });
+    for (const name of ["img-src", "frame-src", "connect-src"]) {
+      expect(directive(withStorage, name)).toContain("https://abc.supabase.co");
+      expect(directive(withStorage, name).split(" ")).not.toContain("https:");
+      expect(directive(production, name).split(" ")).not.toContain("https:");
+    }
+  });
+
+  it("refuse une origine de stockage mal formée (rien d'injecté dans la politique), n'admet vercel.live qu'en prévisualisation", () => {
+    const odd = buildContentSecurityPolicy({ nonce: "n", isProduction: true, storageOrigin: "https://x.co; script-src *" });
+    expect(odd).not.toContain("x.co");
+    expect(production).not.toContain("vercel.live");
+    expect(buildContentSecurityPolicy({ nonce: "n", isProduction: true, vercelPreview: true })).toContain("https://vercel.live");
   });
 
   it("garde les styles inline — Tailwind et styled-jsx en produisent", () => {

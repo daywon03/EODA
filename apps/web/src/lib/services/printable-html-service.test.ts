@@ -16,6 +16,14 @@ import {
 //     filtre trop large rendrait l'aperçu inutile, et serait retiré à la première
 //     plainte, sans que personne ne se souvienne de ce qu'il protégeait.
 
+describe("sanitizeExtractedHtml — jusqu'à stabilité (audit du 28/10/2026)", () => {
+  it("un script imbriqué ne se recompose pas après un premier passage", () => {
+    const html = sanitizeExtractedHtml('<p>a</p><scr<script></script>ipt>alert(1)</scr<script></script>ipt><p>b</p>');
+    expect(html).not.toMatch(/<\s*script/i);
+    expect(sanitizeExtractedHtml('<img src="x" o<b onclick="y">nerror="z">')).not.toMatch(/\son[a-z]+\s*=/i);
+  });
+});
+
 describe("sanitizeExtractedHtml", () => {
   it("retire un script, avec son contenu", () => {
     const html = sanitizeExtractedHtml('<p>Avant</p><script>fetch("http://ailleurs")</script><p>Après</p>');

@@ -45,7 +45,7 @@ export const PRISE_EN_MAIN_ARTICLES: readonly HelpArticle[] = [
     slug: "se-connecter-et-changer-son-mot-de-passe",
     title: "Se connecter et changer son mot de passe",
     summary:
-      "Première connexion avec le mot de passe temporaire, changement obligatoire, déconnexion.",
+      "Choisir son mot de passe avec le lien reçu par e-mail, se connecter, le changer, se déconnecter.",
     category: "PRISE_EN_MAIN",
     audiences: AUDIENCE_ALL,
     where: "Page de connexion · page « Changer mon mot de passe »",
@@ -54,10 +54,10 @@ export const PRISE_EN_MAIN_ARTICLES: readonly HelpArticle[] = [
       {
         kind: "steps",
         items: [
-          "Ouvrez la page de connexion et saisissez votre adresse email et le mot de passe qui vous a été communiqué par EODA Conseil.",
-          "À la première connexion, la plateforme vous conduit d'office sur la page « Changer mon mot de passe » : aucun autre écran n'est accessible tant que le mot de passe temporaire n'a pas été remplacé.",
-          "Saisissez le mot de passe actuel, puis deux fois le nouveau. Il doit faire au moins 12 caractères ; une phrase de passe longue protège mieux qu'un mot court compliqué.",
-          "Après validation, vous êtes déconnecté sur cet appareil comme sur les autres. Reconnectez-vous avec le nouveau mot de passe.",
+          "Ouvrez l'e-mail d'invitation et cliquez sur « Choisir mon mot de passe ». Ce lien est personnel, valable 3 jours, et ne sert qu'une fois : aucun mot de passe ne vous est envoyé.",
+          "Choisissez votre mot de passe, deux fois. Il doit faire au moins 12 caractères ; une phrase de passe longue protège mieux qu'un mot court compliqué.",
+          "Ouvrez ensuite la page de connexion et saisissez votre adresse e-mail et ce mot de passe.",
+          "Pour le changer plus tard : page « Changer mon mot de passe ». Après validation, vous êtes déconnecté sur cet appareil comme sur les autres ; reconnectez-vous avec le nouveau.",
         ],
       },
       {
@@ -75,7 +75,7 @@ export const PRISE_EN_MAIN_ARTICLES: readonly HelpArticle[] = [
         kind: "note",
         tone: "warning",
         text:
-          "Le mot de passe temporaire n'est affiché qu'une seule fois, au moment où votre consultant crée le compte. S'il est perdu, il faut en générer un nouveau : écrivez à EODAconseil@outlook.com.",
+          "Lien expiré ou déjà utilisé, ou mot de passe oublié : demandez à EODA de réinitialiser votre mot de passe (EODAconseil@outlook.com). Vous recevrez un nouveau lien ; personne d'autre que vous ne connaîtra votre mot de passe.",
       },
     ],
   },

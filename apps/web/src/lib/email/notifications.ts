@@ -8,6 +8,7 @@ import {
 import {
   buildCabinetInvitationEmail,
   buildClientInvitationEmail,
+  buildPasswordResetEmail,
   buildDocumentAvailableEmail,
   buildDocumentReminderEmail,
   buildNewDocumentTypeEmail,
@@ -43,15 +44,14 @@ import { selectStructureRecipients } from "@/lib/services/cabinet-recipients-ser
 export async function sendClientInvitationEmail(input: {
   recipientName: string;
   email: string;
-  temporaryPassword: string;
+  setupUrl: string;
   establishmentName: string;
 }): Promise<InvitationDelivery> {
   const content = buildClientInvitationEmail({
     recipientName: input.recipientName,
     email: input.email,
-    temporaryPassword: input.temporaryPassword,
+    setupUrl: input.setupUrl,
     establishmentName: input.establishmentName,
-    loginUrl: appUrl("/login"),
     brand: { logoUrl: appUrl("/logo-eoda.png") },
   });
 
@@ -62,9 +62,20 @@ export async function sendClientInvitationEmail(input: {
       html: content.html,
     });
   } catch (error) {
-    // Le mot de passe temporaire n'est JAMAIS journalisé, même en cas d'échec : il
-    // est encore affiché à l'écran, c'est là qu'il doit être lu.
-    console.error("Invitation client — envoi d'e-mail échoué, compte créé malgré tout :", error);
+    // Le lien n'est JAMAIS journalisé, même en cas d'échec : il est alors affiché une
+    // fois à l'écran du cabinet, c'est là qu'il doit être lu.
+    console.error("Invitation client — envoi d'e-mail échoué, compte créé malgré tout :", error instanceof Error ? error.message : "erreur inconnue");
+    return "FAILED";
+  }
+}
+
+// Réinitialisation demandée par le cabinet : le lien part à la personne elle-même.
+export async function sendPasswordResetEmail(input: { recipientName: string; email: string; setupUrl: string }): Promise<InvitationDelivery> {
+  const content = buildPasswordResetEmail({ ...input, brand: { logoUrl: appUrl("/logo-eoda.png") } });
+  try {
+    return await getEmailPort().send({ to: input.email, subject: content.subject, html: content.html });
+  } catch (error) {
+    console.error("Réinitialisation — envoi d'e-mail échoué :", error instanceof Error ? error.message : "erreur inconnue");
     return "FAILED";
   }
 }
@@ -75,12 +86,11 @@ export async function sendClientInvitationEmail(input: {
 export async function sendCabinetInvitationEmail(input: {
   recipientName: string;
   email: string;
-  temporaryPassword: string;
+  setupUrl: string;
   roleLabel: string;
 }): Promise<InvitationDelivery> {
   const content = buildCabinetInvitationEmail({
     ...input,
-    loginUrl: appUrl("/login"),
     brand: { logoUrl: appUrl("/logo-eoda.png") },
   });
   try {
@@ -211,17 +221,16 @@ export async function notifyNewMessage(input: {
 }): Promise<boolean> {
   const fromCabinet = input.authorSide === "CABINET";
 
-  const recipients = fromCabinet
-    ? // Message du cabinet → les interlocuteurs de CET établissement, lus par le lien
-      // EstablishmentUser (jamais une adresse saisie).
-      await findClientRecipients(input.establishmentId)
-    : // Message du client → les comptes CABINET_ADMIN du tenant. Même choix que les
-      // demandes d'option : la personne reçoit les alertes parce qu'elle a un compte,
-      // pas parce qu'on a pensé à modifier une variable d'environnement.
-      await prisma.user.findMany({
-        where: { tenantId: input.tenantId, role: "CABINET_ADMIN", isActive: true },
-        select: { email: true, isActive: true },
-      });
+  const recipients = uniqueByEmail(
+    fromCabinet
+      ? // Message du cabinet → les interlocuteurs de CET établissement, lus par le lien
+        // EstablishmentUser (jamais une adresse saisie).
+        await findClientRecipients(input.establishmentId)
+      : // Message du client → les comptes du cabinet qui SUIVENT la structure (audit du
+        // 28/10/2026 : seuls les administrateurs étaient prévenus, jamais la consultante
+        // affectée — la seule qui suit la structure). Même règle que l'activité.
+        await findStructureCabinetRecipients(input.tenantId, input.establishmentId)
+  );
 
   if (recipients.length === 0) return false;
 
@@ -342,6 +351,50 @@ export async function notifyDocumentAvailable(input: {
 // l'appelant reçoit {sent:0,total:0}. Cela compte d'autant plus ici que le geste vient
 // d'un CLIENT : lui rendre une erreur parce qu'un e-mail n'est pas parti serait
 // absurde.
+// Les comptes du cabinet qui SUIVENT une structure, selon le périmètre en vigueur
+// (`selectStructureRecipients` : rôle, affectation, compte actif, adresses
+// dédoublonnées). Une seule lecture pour l'activité de la structure ET ses messages :
+// une consultante affectée est prévenue, une commerciale jamais.
+async function findStructureCabinetRecipients(tenantId: string, establishmentId: string): Promise<{ name: string | null; email: string }[]> {
+  const candidates = await prisma.user.findMany({
+    where: {
+      tenantId,
+      isActive: true,
+      // Les rôles cabinet seulement : un compte client du même tenant (il n'en
+      // existe pas aujourd'hui, il en existera) ne reçoit pas l'activité des autres.
+      role: { in: [...CABINET_ROLES] },
+    },
+    select: {
+      name: true,
+      email: true,
+      role: true,
+      isActive: true,
+      establishmentAssignments: { select: { establishmentId: true } },
+    },
+  });
+  return selectStructureRecipients(
+    candidates.map((candidate) => ({
+      name: candidate.name,
+      email: candidate.email,
+      role: candidate.role,
+      isActive: candidate.isActive,
+      assignedEstablishmentIds: candidate.establishmentAssignments.map((assignment) => assignment.establishmentId),
+    })),
+    establishmentId
+  );
+}
+
+// Une adresse rattachée deux fois ne reçoit qu'un e-mail.
+function uniqueByEmail<T extends { email: string }>(recipients: readonly T[]): T[] {
+  const seen = new Set<string>();
+  return recipients.filter((r) => {
+    const key = r.email.trim().toLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 export async function notifyStructureActivity(input: {
   establishmentId: string;
   documentLabel: string;
@@ -356,35 +409,7 @@ export async function notifyStructureActivity(input: {
     });
     if (!establishment) return { sent: 0, total: 0 };
 
-    const candidates = await prisma.user.findMany({
-      where: {
-        tenantId: establishment.tenantId,
-        isActive: true,
-        // Les rôles cabinet seulement : un compte client du même tenant (il n'en
-        // existe pas aujourd'hui, il en existera) ne reçoit pas l'activité des autres.
-        role: { in: [...CABINET_ROLES] },
-      },
-      select: {
-        name: true,
-        email: true,
-        role: true,
-        isActive: true,
-        establishmentAssignments: { select: { establishmentId: true } },
-      },
-    });
-
-    const recipients = selectStructureRecipients(
-      candidates.map((candidate) => ({
-        name: candidate.name,
-        email: candidate.email,
-        role: candidate.role,
-        isActive: candidate.isActive,
-        assignedEstablishmentIds: candidate.establishmentAssignments.map(
-          (assignment) => assignment.establishmentId
-        ),
-      })),
-      input.establishmentId
-    );
+    const recipients = await findStructureCabinetRecipients(establishment.tenantId, input.establishmentId);
     if (recipients.length === 0) return { sent: 0, total: 0 };
 
     const structureUrl = appUrl(`/dashboard/cabinet/etablissements/${input.establishmentId}`);

@@ -31,6 +31,10 @@ describe("classifyPath — refuser par défaut", () => {
     ["/enquete", "PROTECTED"],
     ["/enquete/", "PROTECTED"],
     ["/enquete/a/b", "PROTECTED"],
+    // Lien de création du mot de passe (audit du 28/10/2026) : un seul segment.
+    ["/definir-mot-de-passe/abcDEF123_-xyz", "ANONYMOUS"],
+    ["/definir-mot-de-passe", "PROTECTED"],
+    ["/definir-mot-de-passe/a/b", "PROTECTED"],
     ["/enquetes/abc", "PROTECTED"],
     ["/login", "AUTH"],
     ["/login/oubli", "AUTH"],

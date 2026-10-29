@@ -8,7 +8,7 @@ import { getKnowledgeRetrievalPort } from "@/lib/knowledge";
 import { MAX_GUIDELINES_INJECTED, guidelineReach } from "@/lib/services/criterion-guideline-service";
 import { directiveForAnalysis } from "@/lib/services/analysis-directive-service";
 import { extractMarkdown, type ExtractedImage } from "@/lib/services/text-extraction-service";
-import { validateUploadedFile } from "@/lib/security/upload-validation-service";
+import { validateUploadOnServer } from "@/lib/security/office-archive-guard";
 import { describeImage } from "@/lib/services/image-vision-service";
 import { readValidatedExamples } from "@/lib/db/read-validated-examples";
 import {
@@ -267,7 +267,7 @@ export async function reanalyzeDocumentVersion(
       const buffer = Buffer.from(await response.arrayBuffer());
       // Type réel déterminé par la signature binaire, jamais par l'extension du nom
       // de fichier d'origine — même règle qu'au dépôt initial.
-      const validation = validateUploadedFile(buffer, buffer.length);
+      const validation = validateUploadOnServer(buffer, buffer.length);
       if (validation.ok) {
         const extraction = await extractMarkdown(buffer, validation.contentType);
         extractedText = extraction ? extraction.markdown : null;

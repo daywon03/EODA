@@ -16,6 +16,8 @@ const scrypt = promisify(scryptCallback) as (password: string, salt: Buffer, key
 
 export const PIN_LENGTH = 6;
 export const MAX_PIN_FAILURES = 5;
+// Essais de code par APPAREIL enregistré, tous salariés confondus (audit du 28/10/2026).
+export const TABLET_PIN_DEVICE_RATE_LIMIT = { limit: 20, windowSeconds: 15 * 60 } as const;
 const KEY_LENGTH = 32;
 const PIN_PATTERN = /^\d{6}$/;
 

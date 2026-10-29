@@ -4,7 +4,6 @@ import { requireEstablishmentInTenant } from "@/lib/auth/guards";
 import { prisma } from "@eoda/database";
 import { notFound } from "next/navigation";
 import { getEvaluationChapter, listChapters } from "./evaluation-chapter";
-import { recordAuditEvent } from "@/lib/services/audit-log-service";
 import {
   buildEvaluationCsv,
   buildEvaluationExportFileName,
@@ -89,17 +88,3 @@ export async function buildEvaluationExport(
   };
 }
 
-// Journalisation séparée de la construction : la page d'aperçu compte les lignes sans
-// que ça constitue un export, seul le TÉLÉCHARGEMENT en est un. Confondre les deux
-// remplirait le journal d'exports qui n'ont jamais quitté l'écran.
-export async function recordEvaluationExport(establishmentId: string): Promise<void> {
-  const { userId, session } = await requireEstablishmentInTenant(establishmentId, "READ");
-
-  await recordAuditEvent({
-    action: "EVALUATION_EXPORTED",
-    actorUserId: userId,
-    actorRole: session.user.role,
-    establishmentId,
-    detail: "Export CSV des cotations",
-  });
-}
