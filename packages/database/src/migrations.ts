@@ -7,20 +7,19 @@
 // un utilisateur le découvrir par une erreur Prisma au milieu d'un dépôt de
 // document.
 //
-// Pourquoi une constante plutôt qu'une lecture du dossier `prisma/migrations` à
-// l'exécution : l'application déployée est un artefact Next.js « standalone » qui
-// ne contient que les fichiers tracés par le bundler — le dossier de migrations
-// n'en fait pas partie. Une lecture disque marcherait en développement et
-// renverrait « aucune migration attendue » en production, c'est-à-dire exactement
-// le contraire de ce qu'on veut.
+// La liste n'est PLUS écrite à la main (29/10/2026) : elle est générée depuis
+// prisma/migrations par scripts/generate-migration-manifest.mjs, à chaque
+// `pnpm db:generate` (installation, CI, build Vercel). Ajouter une migration = créer
+// son dossier, rien d'autre — l'ancienne liste manuelle faisait entrer en conflit
+// toutes les PR qui ajoutaient une migration.
 //
-// La duplication avec le dossier réel est tenue MÉCANIQUEMENT par le test
-// `apps/web/src/lib/db/migration-manifest.test.ts`, qui compare cette liste au
-// contenu de `prisma/migrations` et fait échouer la CI en cas d'écart (règle zéro
-// des conventions d'ingénierie : une règle que rien ne vérifie n'est qu'un
-// souhait). Ajouter une migration = ajouter sa ligne ici, sinon le test rougit.
+// Pourquoi pas une lecture du dossier à l'exécution : l'application déployée est un
+// artefact Next.js qui ne contient pas prisma/migrations — la liste est figée au
+// build. `apps/web/src/lib/db/migration-manifest.test.ts` vérifie toujours qu'elle
+// correspond au dossier (un fichier généré oublié en local fait échouer le test).
 // ─────────────────────────────────────────────────────────────────────────────
 
+export { EXPECTED_MIGRATIONS } from "./migrations.generated";
 export const EXPECTED_MIGRATIONS: readonly string[] = [
   "20260706225218_init",
   "20260707102512_document_unique_per_type",

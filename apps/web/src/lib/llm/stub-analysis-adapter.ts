@@ -3,7 +3,9 @@ import type {
   DocumentAnalysisInput,
   DocumentAnalysisResult,
   DocumentGenerationInput,
+  AnalysisCall,
 } from "./llm-analysis-port";
+import { buildSystemPrompt, buildUserMessage } from "./analysis-prompt";
 import { validateCorrectionProposal, type CorrectionProposal } from "./correction-proposal";
 
 // Pourquoi l'adaptateur de repli est actif : getLLMAnalysisPort() ne le choisit que
@@ -15,6 +17,16 @@ export const STUB_ANALYSIS_REASON =
 // appel LLM, renvoie un résultat neutre pour ne pas bloquer le flux d'upload. Jamais
 // utilisé en production (getLLMAnalysisPort() refuse de démarrer sans clé).
 export class StubAnalysisAdapter implements LLMAnalysisPort {
+  // Rien ne part : le prompt est montré tel qu'il partirait, sans modèle.
+  describeAnalysisCall(input: DocumentAnalysisInput): AnalysisCall {
+    return {
+      provider: `aucun (${STUB_ANALYSIS_REASON})`,
+      model: "aucun",
+      system: buildSystemPrompt(input.promptVariant),
+      user: buildUserMessage(input),
+    };
+  }
+
   async analyze(input: DocumentAnalysisInput): Promise<DocumentAnalysisResult> {
     console.warn(
       `[StubAnalysisAdapter] Analyse non exécutée : ${STUB_ANALYSIS_REASON}, pour « ${input.documentTypeLabel} ».`

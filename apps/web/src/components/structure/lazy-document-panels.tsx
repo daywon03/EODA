@@ -17,6 +17,9 @@ export const RenameDocumentType = dynamic(() =>
   import("@/components/checklist/RenameDocumentType").then((m) => m.RenameDocumentType)
 );
 
+// Laboratoire d'analyse (cabinet, replié par défaut) : prompt montré, essais, verdicts.
+export const AnalysisLabPanel = dynamic(() => import("./AnalysisLabPanel").then((m) => m.AnalysisLabPanel));
+
 export const ParticipationFormPicker = dynamic(() =>
   import("@/components/checklist/ParticipationFormPicker").then((m) => m.ParticipationFormPicker)
 );

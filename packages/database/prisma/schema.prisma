@@ -323,6 +323,7 @@ model Tenant {
   deviceEnrollments        DeviceEnrollment[]
   anonymousSurveyInvites   AnonymousSurveyInvite[]
   anonymousSurveyResponses AnonymousSurveyResponse[]
+  analysisTrials           AnalysisTrial[]
 
   @@map("tenants")
 }
@@ -396,6 +397,8 @@ model User {
   devicesRevoked              DeviceEnrollment[]            @relation("DeviceRevokedBy")
   staffPinsSet                StaffPin[]                    @relation("StaffPinSetBy")
   anonymousSurveyInvites      AnonymousSurveyInvite[]       @relation("AnonymousSurveyInviteCreatedBy")
+  analysisTrialsCreated       AnalysisTrial[]               @relation("AnalysisTrialCreatedBy")
+  analysisTrialsJudged        AnalysisTrial[]               @relation("AnalysisTrialJudgedBy")
 
   @@index([tenantId])
   @@map("users")
@@ -794,19 +797,19 @@ model TemplateDocumentCriterion {
 }
 
 model Document {
-  id                     String         @id @default(cuid())
-  establishmentId        String         @map("establishment_id")
-  documentTypeId         String?        @map("document_type_id")
-  currentVersionId       String?        @unique @map("current_version_id")
-  status                 DocumentStatus @default(MISSING)
-  statusOverriddenByUser Boolean        @default(false) @map("status_overridden_by_user")
+  id                      String             @id @default(cuid())
+  establishmentId         String             @map("establishment_id")
+  documentTypeId          String?            @map("document_type_id")
+  currentVersionId        String?            @unique @map("current_version_id")
+  status                  DocumentStatus     @default(MISSING)
+  statusOverriddenByUser  Boolean            @default(false) @map("status_overridden_by_user")
   // Réponse Oui/Non + commentaire libre quand le document n'est pas encore déposé —
   // utilisable comme élément de preuve pour la cotation (Module 3). cf. plan Phase 0.
-  missingJustification   String?        @map("missing_justification")
+  missingJustification    String?            @map("missing_justification")
   // Ce commentaire est-il remis à l'IA (analyse et mise en conformité) ? Demande de
   // Damon du 21/10/2026 : « pouvoir oui ou non le faire prendre en compte ». Oui par
   // défaut ; la bascule se journalise (DOCUMENT_COMMENT_AI_TOGGLED).
-  commentUsedByAi        Boolean        @default(true) @map("comment_used_by_ai")
+  commentUsedByAi         Boolean            @default(true) @map("comment_used_by_ai")
   // FORME de participation des usagers retenue par la structure (21/10/2026), sur la
   // seule ligne « Autre forme de participation des usagers » (QUALITE_ENQUETE_QUESTIONNAIRE).
   // Un fait de la structure, pas un second type de document : le CVS et l'autre forme
@@ -823,8 +826,8 @@ model Document {
   // un nouveau dépôt. `directiveInAnalysis` est le bouton : elle est conservée
   // même quand elle n'entre pas dans l'analyse, pour qu'on puisse la désactiver
   // sans la perdre.
-  analysisDirective   String?  @map("analysis_directive")
-  directiveInAnalysis Boolean  @default(false) @map("directive_in_analysis")
+  analysisDirective   String? @map("analysis_directive")
+  directiveInAnalysis Boolean @default(false) @map("directive_in_analysis")
 
   // VALIDATION — dernière étape du parcours documentaire décrit par Sandrine le
   // 26/08 : déposé → analysé → mis en conformité → restitué → VALIDÉ.
@@ -888,6 +891,14 @@ model DocumentVersion {
   // fait et non un manque : l'écran ne doit donc pas afficher « consigne inconnue ».
   analysisDirectiveUsed String? @map("analysis_directive_used")
 
+  // AVEC QUOI L'ANALYSE A ÉTÉ PRODUITE (laboratoire d'analyse, 29/10/2026) : version
+  // du prompt, modèle, date. Une analyse relue plus tard doit pouvoir dire d'où elle
+  // vient — sinon on ne peut ni comparer ni affiner. `null` = analyse antérieure.
+  analysisPromptVariant String?   @map("analysis_prompt_variant")
+  analysisPromptVersion Int?      @map("analysis_prompt_version")
+  analysisModel         String?   @map("analysis_model")
+  analyzedAt            DateTime? @map("analyzed_at")
+
   // REVUE HUMAINE DE L'ANALYSE — exigence du cahier des charges (§5 et §7 du CDC
   // du 20/08/2026, écrite deux fois) : « aucune analyse de conformité automatisée
   // ne doit être présentée au client sans revue préalable de la consultante ».
@@ -927,9 +938,55 @@ model DocumentVersion {
   criterionSuggestions   DocumentCriterionSuggestion[]
   correctionProposals    CorrectionProposal[]          @relation("ProposalSource")
   proposalApplied        CorrectionProposal?           @relation("ProposalResult")
+  analysisTrials         AnalysisTrial[]
 
   @@index([documentId])
   @@map("document_versions")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ESSAIS D'ANALYSE — le laboratoire des prompts (demande de Damon, 29/10/2026 :
+// « voir quel prompt est envoyé, tester différents prompts, que Sandrine puisse dire
+// si oui ou non c'est bon, comme ça on affine l'analyse »).
+//
+// Un essai lance une version du prompt sur une version de document SANS toucher à
+// son analyse officielle : il ne change ni le statut, ni les suggestions de critères,
+// ni ce que la structure voit (jamais montré au client). Il garde la version exacte
+// du prompt, le modèle et le résultat ; le VERDICT de la consultante (bon / à revoir +
+// note) en fait le jeu d'évaluation qui manquait (bilan du 08/10, §6.3).
+// Append-only pour le résultat ; seul le verdict se pose (et se corrige) ensuite.
+// ─────────────────────────────────────────────────────────────────────────────
+model AnalysisTrial {
+  id                String           @id @default(cuid())
+  tenantId          String           @map("tenant_id")
+  documentVersionId String           @map("document_version_id")
+  promptVariant     String           @map("prompt_variant")
+  promptVersion     Int              @map("prompt_version")
+  model             String
+  resultJson        Json             @map("result_json")
+  createdByUserId   String?          @map("created_by_user_id")
+  createdAt         DateTime         @default(now()) @map("created_at")
+  verdict           AnalysisVerdict?
+  verdictNote       String?          @map("verdict_note")
+  judgedByUserId    String?          @map("judged_by_user_id")
+  judgedAt          DateTime?        @map("judged_at")
+
+  tenant          Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  // Cascade : un essai n'existe que par la version qu'il a analysée.
+  documentVersion DocumentVersion @relation(fields: [documentVersionId], references: [id], onDelete: Cascade)
+  createdBy       User?           @relation("AnalysisTrialCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  judgedBy        User?           @relation("AnalysisTrialJudgedBy", fields: [judgedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId])
+  @@index([documentVersionId])
+  @@index([createdByUserId])
+  @@index([judgedByUserId])
+  @@map("analysis_trials")
+}
+
+enum AnalysisVerdict {
+  BON
+  A_REVOIR
 }
 
 // Une image extraite d'un document déposé (photo d'un panneau affiché,
@@ -1928,6 +1985,9 @@ enum AuditAction {
   TABLET_PIN_LOCKED
   TABLET_SIGNED_IN
   SURVEY_RESULTS_EXPORTED
+  ANALYSIS_PROMPT_VIEWED
+  ANALYSIS_TRIAL_RUN
+  ANALYSIS_TRIAL_JUDGED
 }
 
 model AuditLogEntry {

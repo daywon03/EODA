@@ -58,3 +58,6 @@ context2/
 # Le motif `.env.local` ne couvre PAS `.env.local.bak` ni `.env.local.old`. Une copie
 # de sauvegarde du fichier de secrets serait donc committable. Fermé explicitement.
 .env.local.*
+
+# Manifeste des migrations, généré depuis prisma/migrations (pnpm db:generate)
+packages/database/src/migrations.generated.ts
