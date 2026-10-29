@@ -115,9 +115,19 @@ function CriterionDetails({
             </ul>
           )}
           {canEditMatrix && (
-            <Link href="/dashboard/cabinet/criteres" className="mt-2 inline-flex min-h-11 items-center font-bold text-accent-text hover:underline">
-              Modifier les preuves attendues (matrice — vaut pour toutes les structures) →
-            </Link>
+            <span className="mt-2 flex flex-wrap gap-x-6">
+              {/* Déposer DEPUIS le critère (call du 28/10/2026) : une nouvelle ligne de
+                  Documents, déjà rattachée à ce critère, puis le dépôt sur cette ligne. */}
+              <Link
+                href={`${documentsPath}?critere=${encodeURIComponent(row.code)}`}
+                className="inline-flex min-h-11 items-center font-bold text-accent-text hover:underline"
+              >
+                + Ajouter un document à ce critère
+              </Link>
+              <Link href="/dashboard/cabinet/criteres" className="inline-flex min-h-11 items-center font-bold text-accent-text hover:underline">
+                Modifier les preuves attendues (matrice — vaut pour toutes les structures) →
+              </Link>
+            </span>
           )}
         </div>
         {elements.length > 0 && (
