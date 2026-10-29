@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isSafeDocxHref, neutralizeDocxLinks } from "./docx-preview-safety";
+import { isBrowserUnreadableImage, isSafeDocxHref, neutralizeDocxLinks } from "./docx-preview-safety";
 
 // Un Word déposé par un tiers est dessiné sur notre domaine : ses liens sont une
 // entrée hostile.
@@ -17,6 +17,21 @@ describe("isSafeDocxHref", () => {
     expect(isSafeDocxHref("data:text/html,<script>alert(1)</script>")).toBe(false);
     expect(isSafeDocxHref("vbscript:x")).toBe(false);
     expect(isSafeDocxHref("pas une adresse")).toBe(false);
+  });
+});
+
+describe("isBrowserUnreadableImage", () => {
+  it("repère les EMF / WMF de Windows, que ni navigateur ni tablette n'affichent", () => {
+    expect(isBrowserUnreadableImage("data:image/x-emf;base64,AAAA")).toBe(true);
+    expect(isBrowserUnreadableImage("data:image/emf;base64,AAAA")).toBe(true);
+    expect(isBrowserUnreadableImage("data:image/x-wmf;base64,AAAA")).toBe(true);
+    expect(isBrowserUnreadableImage("data:application/x-msmetafile;base64,AAAA")).toBe(true);
+  });
+
+  it("laisse les images lisibles", () => {
+    expect(isBrowserUnreadableImage("data:image/png;base64,AAAA")).toBe(false);
+    expect(isBrowserUnreadableImage("data:image/jpeg;base64,AAAA")).toBe(false);
+    expect(isBrowserUnreadableImage(null)).toBe(false);
   });
 });
 

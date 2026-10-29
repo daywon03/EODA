@@ -73,6 +73,8 @@ export function classifyPath(pathname: string): PathAccess {
   // Le Word d'origine du DIPEC, pour la tablette (27/10/2026) : même garde que ses
   // pages (appareil + code), vérifiée par la route ; un seul segment après le préfixe.
   if (/^\/api\/tablette\/dipec\/[A-Za-z0-9_-]+$/.test(pathname)) return "ANONYMOUS";
+  // Les fiches de sensibilisation, pour la tablette (29/10/2026) : même garde, même forme.
+  if (/^\/api\/tablette\/fiches\/[A-Za-z0-9_-]+$/.test(pathname)) return "ANONYMOUS";
   if (/^\/enquete\/[A-Za-z0-9_-]+$/.test(pathname)) return "ANONYMOUS";
   return "PROTECTED";
 }

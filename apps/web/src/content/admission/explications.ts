@@ -46,6 +46,9 @@ export type AdmissionExplanation = {
   source: string;
   // Un point qu'EODA doit encore confirmer avant d'en faire une règle.
   toConfirm?: string;
+  // La fiche de sensibilisation à montrer : code de la ligne de documents
+  // (`PA_FICHE_P1…P5`), servie par la tablette si la structure l'a, validée.
+  sheet?: string;
 };
 
 export type AdmissionExplanationSection = {
@@ -131,6 +134,7 @@ export const ADMISSION_EXPLANATIONS: readonly AdmissionExplanationSection[] = [
         criteria: ["1.2.5", "3.12.2"],
         nature: "OBLIGATION",
         source: "HAS 1.2.5 · 3.12.2 (impératif) · règlement de fonctionnement · fiches de sensibilisation du 19/10",
+        sheet: "PA_FICHE_P1_PLAINTES",
       },
     ],
   },
@@ -150,6 +154,7 @@ export const ADMISSION_EXPLANATIONS: readonly AdmissionExplanationSection[] = [
         criteria: ["3.13.2"],
         nature: "OBLIGATION",
         source: "HAS 3.13.2 (impératif) · fiches de sensibilisation du 19/10",
+        sheet: "PA_FICHE_P2_EVENEMENTS_INDESIRABLES",
       },
       {
         id: "prevention-maltraitance",
@@ -158,6 +163,7 @@ export const ADMISSION_EXPLANATIONS: readonly AdmissionExplanationSection[] = [
         criteria: ["3.11.1"],
         nature: "OBLIGATION",
         source: "HAS 3.11.1 (impératif) · fiches de sensibilisation du 19/10",
+        sheet: "PA_FICHE_P3_MALTRAITANCE",
       },
       {
         id: "gestion-crise",
@@ -165,6 +171,7 @@ export const ADMISSION_EXPLANATIONS: readonly AdmissionExplanationSection[] = [
         criteria: ["3.14.2"],
         nature: "OBLIGATION",
         source: "HAS 3.14.2 (impératif) · fiches de sensibilisation du 19/10",
+        sheet: "PA_FICHE_P4_GESTION_CRISE",
       },
       {
         id: "donnees-personnelles",
@@ -173,6 +180,7 @@ export const ADMISSION_EXPLANATIONS: readonly AdmissionExplanationSection[] = [
         criteria: ["2.2.7"],
         nature: "OBLIGATION",
         source: "HAS 2.2.7 (impératif) · RGPD · fiches de sensibilisation du 19/10",
+        sheet: "PA_FICHE_P5_DONNEES",
       },
     ],
   },

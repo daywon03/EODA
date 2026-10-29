@@ -57,7 +57,10 @@ describe("officeArchiveProblem — bombe de décompression", () => {
     expect(officeArchiveProblem(odd)).toMatch(/abîmé ou piégé/);
   });
 
-  it("le dépôt d'un .docx piégé est refusé avant toute analyse", () => {
+  // Le plafond RÉEL (200 Mo) est éprouvé : compresser puis décompresser 201 Mo prend
+  // plusieurs secondes sous la mesure de couverture, d'où un délai explicite — il
+  // dépassait les 5 s par défaut quand toute la suite tourne en parallèle (29/10/2026).
+  it("le dépôt d'un .docx piégé est refusé avant toute analyse", { timeout: 60_000 }, () => {
     const bomb = deflatedZip("word/document.xml", new Uint8Array(201 * 1024 * 1024), 10);
     expect(bomb.length).toBeLessThan(1024 * 1024);
     expect(validateUploadOnServer(bomb, bomb.length)).toEqual({ ok: false, error: expect.stringMatching(/trop volumineux une fois décompressé/) });

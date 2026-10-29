@@ -391,5 +391,24 @@ export const PILOT_DOCUMENT_TYPES: readonly DocTypeSeed[] = [
   { code: "RH_REGLEMENT_INTERIEUR", category: "RH", label: "Règlement intérieur (droit du travail — distinct du règlement de fonctionnement)" },
 ];
 
-// Les 67 types upsertés par le seed, dans l'ordre d'affichage.
-export const DOCUMENT_TYPE_SEEDS: readonly DocTypeSeed[] = [...BASE_DOCUMENT_TYPES, ...PILOT_DOCUMENT_TYPES];
+// FICHES DE SENSIBILISATION « PERSONNE ACCOMPAGNÉE » (call du 28/10/2026) — une par
+// procédure P1 à P5 (fiches remises par EODA à la structure pilote le 19/10, nommées
+// P1…P5 comme les procédures). Elles se MONTRENT à l'accueil, sur la tablette, à côté
+// de la ligne « À expliquer » correspondante, et vont dans le dossier de la personne.
+// Produites par EODA, jamais réclamées ; aucun rattachement aux critères ici (la
+// matrice ne s'écrit que par l'écran). Insérées en base par
+// 20261029100000_awareness_sheet_types (même liste, test de concordance).
+export const AWARENESS_SHEET_DOCUMENT_TYPES: readonly DocTypeSeed[] = [
+  { code: "PA_FICHE_P1_PLAINTES", category: "QUALITE_RISQUES", label: "Fiche de sensibilisation personne accompagnée — P1 Plaintes et réclamations" },
+  { code: "PA_FICHE_P2_EVENEMENTS_INDESIRABLES", category: "QUALITE_RISQUES", label: "Fiche de sensibilisation personne accompagnée — P2 Événements indésirables" },
+  { code: "PA_FICHE_P3_MALTRAITANCE", category: "QUALITE_RISQUES", label: "Fiche de sensibilisation personne accompagnée — P3 Prévention de la maltraitance" },
+  { code: "PA_FICHE_P4_GESTION_CRISE", category: "QUALITE_RISQUES", label: "Fiche de sensibilisation personne accompagnée — P4 Gestion de crise" },
+  { code: "PA_FICHE_P5_DONNEES", category: "QUALITE_RISQUES", label: "Fiche de sensibilisation personne accompagnée — P5 Mes informations protégées" },
+];
+
+// Les 72 types upsertés par le seed, dans l'ordre d'affichage.
+export const DOCUMENT_TYPE_SEEDS: readonly DocTypeSeed[] = [
+  ...BASE_DOCUMENT_TYPES,
+  ...PILOT_DOCUMENT_TYPES,
+  ...AWARENESS_SHEET_DOCUMENT_TYPES,
+];

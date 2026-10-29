@@ -36,9 +36,16 @@ function isoDay(date: Date): string {
   return date.toISOString().slice(0, 10);
 }
 
-export function selectTabletDipc(
-  document: { validatedAt: Date | null; versions: readonly TabletDipcVersionFacts[] } | null
-): TabletDipcSource {
+// La version qu'un appareil peut montrer d'un document de la structure : validation À
+// JOUR, version d'EODA d'abord. UNE règle pour le DIPEC et les fiches de
+// sensibilisation (awareness-sheet-service).
+export type ValidatedVersionPick<V> =
+  | { status: "READY"; chosen: V; validatedAt: Date }
+  | { status: "ABSENT" | "NOT_VALIDATED" };
+
+export function pickValidatedVersion<V extends Pick<TabletDipcVersionFacts, "versionNumber" | "uploadedAt" | "producedByCabinet">>(
+  document: { validatedAt: Date | null; versions: readonly V[] } | null
+): ValidatedVersionPick<V> {
   if (!document || document.versions.length === 0) return { status: "ABSENT" };
   const byNumber = [...document.versions].sort((a, b) => b.versionNumber - a.versionNumber);
   const current = byNumber[0]!;
@@ -48,14 +55,22 @@ export function selectTabletDipc(
     versionByCabinet: current.producedByCabinet,
   });
   if (!validated || !document.validatedAt) return { status: "NOT_VALIDATED" };
-  const chosen = byNumber.find((v) => v.producedByCabinet) ?? current;
+  return { status: "READY", chosen: byNumber.find((v) => v.producedByCabinet) ?? current, validatedAt: document.validatedAt };
+}
+
+export function selectTabletDipc(
+  document: { validatedAt: Date | null; versions: readonly TabletDipcVersionFacts[] } | null
+): TabletDipcSource {
+  const pick = pickValidatedVersion(document);
+  if (pick.status !== "READY") return { status: pick.status };
+  const { chosen } = pick;
   const text = chosen.extractedText?.trim() ?? "";
   if (!text) return { status: "NO_TEXT" };
   return {
     status: "READY",
     versionId: chosen.id,
     versionNumber: chosen.versionNumber,
-    validatedOn: isoDay(document.validatedAt),
+    validatedOn: isoDay(pick.validatedAt),
     text: text.slice(0, TABLET_DIPC_MAX_CHARS),
     hasWord: /\.docx$/i.test(chosen.originalFilename ?? ""),
   };

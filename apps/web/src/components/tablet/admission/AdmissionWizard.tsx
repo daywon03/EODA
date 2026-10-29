@@ -44,6 +44,7 @@ import { DocxPreview } from "@/components/structure/DocxPreview";
 import { TABLET_PRIMARY, TABLET_SECONDARY } from "../tablet-ui";
 import { SignaturePad } from "../SignaturePad";
 import { AdmissionExplainStep } from "./AdmissionExplainStep";
+import type { TabletAwarenessSheet } from "@/lib/services/awareness-sheet-links";
 import { AdmissionIdentityStep } from "./AdmissionIdentityStep";
 import { AdmissionPreview } from "./AdmissionPreview";
 import { AdmissionProjectStep } from "./AdmissionProjectStep";
@@ -70,13 +71,15 @@ function dataUrlToBlob(dataUrl: string | undefined): Blob | null {
   return match ? new Blob([Uint8Array.from(atob(match[1]!), (c) => c.charCodeAt(0))], { type: "image/png" }) : null;
 }
 
-export function AdmissionWizard({ structureName, staffName, dipc, word, person, onRecorded, onCancel }: {
+export function AdmissionWizard({ structureName, staffName, dipc, word, sheets = {}, person, onRecorded, onCancel }: {
   structureName: string;
   staffName: string;
   dipc: TabletDipc;
   // Le Word d'origine du DIPEC, s'il existe et s'ouvre : le contrat signé est alors
   // CE document, rempli ; sinon, la copie en texte.
   word: TabletDipecWord | null;
+  // Fiches de sensibilisation validées de la structure, par code (vide en démonstration).
+  sheets?: Readonly<Record<string, TabletAwarenessSheet>>;
   person: { personId: string; lastName: string; firstName: string } | null;
   onRecorded: (record: AdmissionRecord, pdf: Blob, extras: AdmissionExtras) => Promise<void>;
   onCancel: () => void;
@@ -326,7 +329,7 @@ export function AdmissionWizard({ structureName, staffName, dipc, word, person, 
         </div>
       )}
 
-      {step === STEP.EXPLAIN && <AdmissionExplainStep explained={explained} handed={handed} onExplained={setExplained} onHanded={setHanded} />}
+      {step === STEP.EXPLAIN && <AdmissionExplainStep explained={explained} handed={handed} sheets={sheets} onExplained={setExplained} onHanded={setHanded} />}
 
       {step === STEP.SIGN && (
         <div className="flex max-w-[860px] flex-col gap-6">

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { resolveTabletSession } from "@/lib/auth/guards";
-import { getTabletDipcSource, getTabletStructureAddress } from "@/lib/actions/tablet-admission";
+import { getTabletAwarenessSheets, getTabletDipcSource, getTabletStructureAddress } from "@/lib/actions/tablet-admission";
 import { TABLET_DIPC_UNAVAILABLE } from "@/lib/services/tablet-dipc-service";
 import { TabletSignOutButton } from "@/components/tablet/TabletSignOutButton";
 import { TabletHeader, TabletMain } from "@/components/tablet/TabletHeader";
@@ -18,7 +18,7 @@ export const metadata: Metadata = { title: "Accueil et contrat", robots: { index
 export default async function TabletAdmissionPage() {
   const session = await resolveTabletSession();
   if (!session) redirect("/tablette");
-  const [dipc, structureAddress] = await Promise.all([getTabletDipcSource(), getTabletStructureAddress()]);
+  const [dipc, structureAddress, sheets] = await Promise.all([getTabletDipcSource(), getTabletStructureAddress(), getTabletAwarenessSheets()]);
   if (!dipc || structureAddress === null) redirect("/tablette");
 
   return (
@@ -31,6 +31,7 @@ export default async function TabletAdmissionPage() {
             structureName={session.establishmentName}
             structureAddress={structureAddress}
             staffName={session.staffDisplayName}
+            sheets={sheets}
             dipc={{ versionId: dipc.versionId, versionNumber: dipc.versionNumber, validatedOn: dipc.validatedOn, text: dipc.text, hasWord: dipc.hasWord }}
           />
         ) : (
