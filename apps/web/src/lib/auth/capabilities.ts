@@ -135,16 +135,19 @@ export function prospectSpaceExitPath(currentRole: UserRole, sessionRole: UserRo
 // ── Périmètre des structures (affectation consultante) ─────────────────────────
 //
 // `ALL` : toutes les structures du tenant. `ONLY` : la liste des structures
-// affectées. Seul CABINET_EVALUATOR est filtré, et seulement s'il a AU MOINS une
-// affectation — sans affectation, il garde tout le portefeuille (compatibilité des
-// comptes existants, décision documentée dans schema.prisma). Un rôle sans
+// affectées. CABINET_EVALUATOR (consultante) ne voit QUE ses structures affectées —
+// par EODA (Équipe EODA) ou par la structure elle-même (Paramètres de la structure).
+// SANS affectation, elle ne voit RIEN (décision de Damon du 29/10/2026 : « la
+// structure ou le cabinet doit pouvoir assigner la consultante » — l'ancienne règle
+// « sans affectation, tout le portefeuille » aurait ouvert TOUTES les structures à une
+// consultante dont la dernière affectation venait d'être retirée ; aucun compte
+// consultante n'existait en base ce jour-là, rien n'est cassé). Un rôle sans
 // STRUCTURES_READ reçoit `ONLY []` : fail-closed, jamais « tout ».
 export type StructureScope = { kind: "ALL" } | { kind: "ONLY"; establishmentIds: readonly string[] };
 
 export function resolveStructureScope(role: UserRole, assignedEstablishmentIds: readonly string[]): StructureScope {
   if (!hasCabinetCapability(role, "STRUCTURES_READ")) return { kind: "ONLY", establishmentIds: [] };
   if (role !== "CABINET_EVALUATOR") return { kind: "ALL" };
-  if (assignedEstablishmentIds.length === 0) return { kind: "ALL" };
   return { kind: "ONLY", establishmentIds: [...assignedEstablishmentIds] };
 }
 
