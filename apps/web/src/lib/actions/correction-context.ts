@@ -1,11 +1,12 @@
 import { prisma, type SupportMode } from "@eoda/database";
 import { notFound } from "next/navigation";
+import { readStoredAnalysis } from "@/lib/services/stored-analysis-service";
 import { NEED } from "@/lib/auth/capabilities";
 import { requireEstablishmentAccess, type EstablishmentAccessContext } from "@/lib/auth/guards";
 import { findMissionOffer, type MissionOffer } from "@/lib/services/establishment-offer-service";
 import { resolveSupportMode } from "@/lib/services/support-mode-service";
 import { correctionRight, type CorrectionRight } from "@/lib/services/offer-scope-service";
-import { analysisVisibleTo, parseAnalysisResult } from "@/lib/services/analysis-view-service";
+import { analysisVisibleTo } from "@/lib/services/analysis-view-service";
 import { canUseComplianceWorkspace } from "@/lib/services/correction-proposal-service";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -68,7 +69,7 @@ export async function openCorrectionContext(versionId: unknown): Promise<Correct
   const right = correctionRight(offer, documentType.category);
 
   if (!canUseComplianceWorkspace({ isClient: access.isClient, mode, rightIncluded: right.included })) notFound();
-  const analysis = parseAnalysisResult(version.analysisResultJson);
+  const analysis = readStoredAnalysis(version.analysisResultJson);
   // La structure ne travaille que sur ce qu'on lui montre (même barrière que l'écran
   // « Mes documents »).
   if (access.isClient && analysisVisibleTo("CLIENT", { analysis, reviewedAt: version.analysisReviewedAt }, mode) === null) {

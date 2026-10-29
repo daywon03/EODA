@@ -1,3 +1,5 @@
+import { markForeignScriptDeep } from "./script-guard";
+
 // ─────────────────────────────────────────────────────────────────────────────
 // SORTIE STRUCTURÉE DE LA MISE EN CONFORMITÉ (N8) — le contrat entre le modèle et
 // l'écran côte à côte.
@@ -187,7 +189,8 @@ export function sanitizeProposal(
 // Lecture défensive d'une proposition stockée (colonne Json).
 export function readStoredProposal(value: unknown): CorrectionProposal | null {
   try {
-    return validateCorrectionProposal(value);
+    // Même marquage qu'à l'affichage d'une analyse (script-guard, 29/10/2026).
+    return markForeignScriptDeep(validateCorrectionProposal(value));
   } catch {
     return null;
   }
