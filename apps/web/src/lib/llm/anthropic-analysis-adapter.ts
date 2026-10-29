@@ -4,6 +4,7 @@ import type {
   DocumentAnalysisInput,
   DocumentAnalysisResult,
   DocumentGenerationInput,
+  AnalysisCall,
 } from "./llm-analysis-port";
 import {
   normalizeFindings,
@@ -119,12 +120,23 @@ export class AnthropicAnalysisAdapter implements LLMAnalysisPort {
     this.model = options.model ?? DEFAULT_MODEL;
   }
 
+  // Le format de sortie part ici en schéma d'API (`output_config`), pas dans la consigne.
+  describeAnalysisCall(input: DocumentAnalysisInput): AnalysisCall {
+    return {
+      provider: "Anthropic (direct)",
+      model: this.model,
+      system: buildSystemPrompt(input.promptVariant),
+      user: buildUserMessage(input),
+    };
+  }
+
   async analyze(input: DocumentAnalysisInput): Promise<DocumentAnalysisResult> {
+    const call = this.describeAnalysisCall(input);
     const response = await this.client.messages.create({
       model: this.model,
       max_tokens: MAX_TOKENS,
-      system: buildSystemPrompt(),
-      messages: [{ role: "user", content: buildUserMessage(input) }],
+      system: call.system,
+      messages: [{ role: "user", content: call.user }],
       output_config: { format: { type: "json_schema", schema: ANALYSIS_SCHEMA } },
     });
 

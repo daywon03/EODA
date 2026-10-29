@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Loader2 } from "lucide-react";
-import { neutralizeDocxLinks } from "@/lib/services/docx-preview-safety";
+import { isBrowserUnreadableImage, neutralizeDocxLinks } from "@/lib/services/docx-preview-safety";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // APERÇU D'UN WORD AVEC SA MISE EN PAGE (demande de Damon, 21/10/2026 : « quand on
@@ -25,12 +25,29 @@ import { neutralizeDocxLinks } from "@/lib/services/docx-preview-safety";
 
 type State = "loading" | "ready" | "failed";
 
+// Une image EMF / WMF devient un encadré de même taille qui dit ce qu'il cache.
+function replaceUnreadableImages(root: HTMLElement): number {
+  let count = 0;
+  for (const image of Array.from(root.querySelectorAll("img"))) {
+    if (!isBrowserUnreadableImage(image.getAttribute("src"))) continue;
+    const box = document.createElement("div");
+    box.setAttribute("role", "img");
+    box.setAttribute("aria-label", "Image au format Windows (EMF ou WMF), non affichable dans l'aperçu");
+    box.textContent = "Image au format Windows (EMF ou WMF) : elle est dans le document Word, mais l'aperçu ne peut pas la dessiner.";
+    box.style.cssText = `${image.style.cssText};display:flex;align-items:center;justify-content:center;padding:12px;border:2px dashed currentColor;font-size:14px;text-align:center;min-height:80px;`;
+    image.replaceWith(box);
+    count++;
+  }
+  return count;
+}
+
 // `data` : un Word fabriqué dans le navigateur (le DIPEC rempli sur la tablette, qui ne
 // passe jamais par le serveur) ; sinon il est lu à `url`.
 export function DocxPreview({ url, data, title, onFailed }: { url?: string; data?: Blob; title: string; onFailed: () => void }) {
   const frame = useRef<HTMLDivElement>(null);
   const body = useRef<HTMLDivElement>(null);
   const [state, setState] = useState<State>("loading");
+  const [unreadableImages, setUnreadableImages] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -66,6 +83,7 @@ export function DocxPreview({ url, data, title, onFailed }: { url?: string; data
         });
         if (cancelled) return;
         neutralizeDocxLinks(target);
+        setUnreadableImages(replaceUnreadableImages(target));
         setState("ready");
       } catch (error) {
         if (cancelled) return;
@@ -106,6 +124,14 @@ export function DocxPreview({ url, data, title, onFailed }: { url?: string; data
         <p role="status" className="absolute inset-x-0 top-0 flex items-center gap-2 px-5 py-3 text-sm text-ink2">
           <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
           Mise en page du document…
+        </p>
+      )}
+      {unreadableImages > 0 && (
+        <p role="note" className="m-4 mb-0 rounded-xl border border-line bg-highlight px-4 py-3 text-sm text-ink">
+          {unreadableImages > 1 ? `${unreadableImages} images de ce document sont` : "Une image de ce document est"} au format
+          EMF ou WMF (Windows) : ni les navigateurs ni les tablettes ne savent l&apos;afficher. Elle est bien dans le
+          fichier Word. Pour qu&apos;elle se voie partout, remplacez-la dans Word par une image PNG (clic droit sur
+          l&apos;image › « Enregistrer en tant qu&apos;image » › PNG, puis Insérer › Images).
         </p>
       )}
       {/* Le fond gris par défaut de docx-preview laisse place au fond de la visionneuse. */}

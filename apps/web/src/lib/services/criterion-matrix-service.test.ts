@@ -49,7 +49,7 @@ describe("copie embarquée de la matrice proposée", () => {
     expect(PILOT_DOCUMENT_TYPES.filter((t) => !proposed.has(t.code))).toEqual([]);
   });
 
-  it("laisse 12 types du seed sans aucune proposition — aucun n'est un type du pilote", () => {
+  it("laisse 17 types du seed sans aucune proposition — aucun n'est un type du pilote", () => {
     // Mesuré le 15/10/2026 : ces types sont muets, donc indécidables depuis l'écran
     // « Matrice » — c'est cette liste que la page affiche pour qu'ils ne disparaissent
     // pas en silence. Le chiffre vit ici : le commentaire d'en-tête a déjà dérivé une fois.
@@ -75,6 +75,14 @@ describe("copie embarquée de la matrice proposée", () => {
       "P13_SIGNALEMENT_ARS",
       "P14_DATE_REVISION",
       "P14_PREUVE_SIMULATION",
+      // 29/10/2026 : les fiches de sensibilisation « personne accompagnée » arrivent
+      // après la proposition du 08/10 ; leurs critères se rattachent à la main (écran
+      // Matrice), jamais par migration.
+      "PA_FICHE_P1_PLAINTES",
+      "PA_FICHE_P2_EVENEMENTS_INDESIRABLES",
+      "PA_FICHE_P3_MALTRAITANCE",
+      "PA_FICHE_P4_GESTION_CRISE",
+      "PA_FICHE_P5_DONNEES",
       // 20/10/2026 : PLAC entre au catalogue (context/11 §6.2) mais la feuille de suivi
       // du pilote ne porte pas de ligne « PLAC » — aucune proposition ne s'invente.
       "QUALITE_PLAC",

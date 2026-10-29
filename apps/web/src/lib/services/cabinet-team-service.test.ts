@@ -89,7 +89,7 @@ describe("structures suivies", () => {
   });
 
   it("décrit ce que la personne suit", () => {
-    expect(describeFollowedStructures("CABINET_EVALUATOR", [])).toBe("Toutes");
+    expect(describeFollowedStructures("CABINET_EVALUATOR", [])).toBe("Aucune pour l'instant (à affecter)");
     expect(describeFollowedStructures("CABINET_EVALUATOR", ["SAD A (fictif)", "SAD B (fictif)"])).toBe(
       "SAD A (fictif), SAD B (fictif)"
     );
@@ -108,10 +108,10 @@ describe("parseCabinetRole — pas de cast d'enum sur une entrée", () => {
 });
 
 describe("assignmentScopeNotice — consultante sans structure cochée", () => {
-  it("avertit explicitement qu'elle suivra toutes les structures", () => {
+  it("avertit explicitement qu'elle ne verra aucune structure (29/10/2026)", () => {
     const notice = assignmentScopeNotice("CABINET_EVALUATOR", 0);
     expect(notice?.tone).toBe("warning");
-    expect(notice?.text).toContain("suivra toutes les structures");
+    expect(notice?.text).toContain("ne verra aucune structure");
   });
 
   it("dit la portée quand des structures sont cochées", () => {

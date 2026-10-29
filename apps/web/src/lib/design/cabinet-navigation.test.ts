@@ -32,6 +32,7 @@ describe("visibilité par rôle", () => {
       "library",
       "journal",
       "content-review",
+      "analysis-lab",
     ]);
   });
 
@@ -92,13 +93,14 @@ describe("section Réglages", () => {
       "criteria",
       "requested-documents",
       "content-review",
+      "analysis-lab",
       "team",
     ]);
   });
 
   it("ne retient que ce que le rôle a le droit d'y régler", () => {
     // La consultante ne règle rien du cabinet ; elle relit le contenu provisoire.
-    expect(reglages("CABINET_EVALUATOR")?.items.map((i) => i.id)).toEqual(["content-review"]);
+    expect(reglages("CABINET_EVALUATOR")?.items.map((i) => i.id)).toEqual(["content-review", "analysis-lab"]);
   });
 
   it("absente quand il n'y a rien à y mettre", () => {
