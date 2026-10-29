@@ -75,18 +75,19 @@ export function parseCabinetRole(value: unknown): CabinetRole | null {
     : null;
 }
 
-// « Structures : … » d'une ligne de l'écran. Sans affectation, une consultante suit
-// toutes les structures — l'écran le dit plutôt que d'afficher une liste vide.
+// « Structures : … » d'une ligne de l'écran. Une consultante ne suit que ses
+// structures affectées (29/10/2026) : sans affectation, l'écran dit qu'elle n'en voit
+// aucune, plutôt qu'une liste vide.
 export function describeFollowedStructures(role: UserRole, structureNames: readonly string[]): string {
   if (role === "CABINET_COMMERCIAL") return "Aucune (commercial)";
-  if (role !== "CABINET_EVALUATOR" || structureNames.length === 0) return "Toutes";
+  if (role !== "CABINET_EVALUATOR") return "Toutes";
+  if (structureNames.length === 0) return "Aucune pour l'instant (à affecter)";
   return structureNames.join(", ");
 }
 
-// Avertissement du formulaire d'invitation / de modification (recette du 14/10) :
-// une consultante sans structure cochée suit TOUT le portefeuille, y compris les
-// structures signées plus tard — choix de compatibilité (CLAUDE.md §7), qui doit se
-// voir au moment de valider, pas se découvrir après.
+// Avertissement du formulaire d'invitation / de modification (recette du 14/10) : ce
+// que la consultante verra doit se lire au moment de valider. Sans structure cochée,
+// elle ne voit rien tant qu'EODA ou une structure ne la lui affecte pas (29/10/2026).
 export type AssignmentNotice = { tone: "warning" | "info"; text: string };
 
 export function assignmentScopeNotice(role: UserRole, checkedCount: number): AssignmentNotice | null {
@@ -94,7 +95,7 @@ export function assignmentScopeNotice(role: UserRole, checkedCount: number): Ass
   if (checkedCount === 0) {
     return {
       tone: "warning",
-      text: "Aucune structure cochée : elle suivra toutes les structures du cabinet, y compris celles signées plus tard. Cochez ses structures pour limiter son accès.",
+      text: "Aucune structure cochée : elle ne verra aucune structure tant qu'EODA ou une structure ne la lui affecte pas.",
     };
   }
   return {

@@ -10,7 +10,7 @@ import { isInStructureScope, resolveStructureScope } from "@/lib/auth/capabiliti
 //
 // Ce qui décide n'est donc pas un rôle écrit ici, mais le PÉRIMÈTRE déjà en vigueur
 // partout ailleurs : `resolveStructureScope` (une consultante ne voit que ses
-// structures affectées ; sans affectation elle voit tout ; un rôle sans
+// structures affectées, aucune sans affectation ; un rôle sans
 // `STRUCTURES_READ` ne voit rien). Réutiliser cette règle plutôt que d'en écrire une
 // seconde est le seul moyen qu'une alerte ne finisse pas par annoncer à une
 // commerciale l'activité documentaire d'une structure qu'elle n'a pas le droit

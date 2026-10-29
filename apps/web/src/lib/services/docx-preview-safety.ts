@@ -21,6 +21,16 @@ export function isSafeDocxHref(href: string): boolean {
   }
 }
 
+// IMAGES QU'UN NAVIGATEUR NE SAIT PAS DESSINER (29/10/2026) : EMF et WMF, les formats
+// vectoriels de Windows (un schéma ou un SmartArt collé dans Word — l'annexe 6
+// « À qui m'adresser ? » du DIPEC du pilote). docx-preview les met en `data:` avec
+// leur type ; aucun navigateur ni tablette ne les affiche, la page montrait un trou.
+// L'aperçu les remplace par un encadré qui le DIT, au lieu de se taire.
+export function isBrowserUnreadableImage(src: string | null): boolean {
+  if (!src) return false;
+  return /^data:image\/(?:x-)?(?:emf|wmf)\b/i.test(src) || /^data:application\/(?:x-)?msmetafile\b/i.test(src);
+}
+
 export function neutralizeDocxLinks(root: ParentNode): number {
   let removed = 0;
   for (const link of Array.from(root.querySelectorAll("a[href]"))) {

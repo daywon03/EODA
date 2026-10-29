@@ -55,7 +55,9 @@ beforeEach(() => {
   prismaMock.establishment.findFirst.mockResolvedValue({ id: "etab-1", type: "SAD_AIDE" });
   prismaMock.establishmentUser.findUnique.mockResolvedValue({ establishmentId: "etab-1", accessRole: "DIRECTION", revokedAt: null });
   prismaMock.mission.findUnique.mockResolvedValue(null);
-  prismaMock.establishmentAssignment.findMany.mockResolvedValue([]);
+  // La consultante de la matrice ci-dessous est AFFECTÉE à la structure testée : sans
+  // affectation, elle ne voit rien (29/10/2026 — cas testé à part plus bas).
+  prismaMock.establishmentAssignment.findMany.mockResolvedValue([{ establishmentId: "etab-1" }]);
 });
 
 const PASS = "PASS";
@@ -168,11 +170,13 @@ describe("affectation consultante ↔ structures", () => {
     });
   });
 
-  it("sans aucune affectation, la consultante garde tout le portefeuille (compatibilité)", async () => {
+  it("sans aucune affectation, la consultante ne voit aucune structure (29/10/2026)", async () => {
     asRole("CABINET_EVALUATOR");
+    prismaMock.establishmentAssignment.findMany.mockResolvedValue([]);
     await expect(guards.requireCabinetSession("STRUCTURES_READ")).resolves.toMatchObject({
-      structureScope: { kind: "ALL" },
+      structureScope: { kind: "ONLY", establishmentIds: [] },
     });
+    await expect(outcome(() => guards.requireEstablishmentInTenant("etab-1", "READ"))).resolves.toBe("NOT_FOUND");
   });
 
   it("l'administration n'est jamais filtrée — les affectations ne sont même pas lues", async () => {

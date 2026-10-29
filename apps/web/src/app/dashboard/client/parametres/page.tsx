@@ -1,4 +1,6 @@
 import { getStructureAccesses } from "@/lib/actions/client-access";
+import { getStructureConsultants } from "@/lib/actions/structure-consultants";
+import { StructureConsultantToggle } from "@/components/client/settings/StructureConsultantToggle";
 import {
   CLIENT_ACCESS_ROLE_LABELS,
   CLIENT_LEVEL_LABELS,
@@ -20,10 +22,12 @@ export const metadata = { title: "Paramètres" };
 // l'a) ; un autre rôle qui tape l'adresse est renvoyé à l'accueil par la garde. On y
 // voit qui a accès, avec quel rôle, et la matrice rôle × module — la même que celle
 // qu'appliquent les gardes (capabilities.ts), jamais une copie rédigée à la main.
-// EODA n'y figure pas : le cabinet n'est pas un rôle de la structure.
+// EODA n'y figure pas comme rôle : le cabinet n'est pas un rôle de la structure. La
+// direction choisit en revanche quelles consultantes d'EODA suivent sa structure
+// (29/10/2026, structure-consultants.ts).
 // ─────────────────────────────────────────────────────────────────────────────
 export default async function ClientSettingsPage() {
-  const data = await getStructureAccesses();
+  const [data, consultants] = await Promise.all([getStructureAccesses(), getStructureConsultants()]);
   if (!data) {
     return (
       <div className="space-y-3">
@@ -85,6 +89,43 @@ export default async function ClientSettingsPage() {
           ))}
         </ul>
       </section>
+
+      {consultants && (
+        <section aria-labelledby="consultantes" className="flex flex-col gap-3">
+          <div>
+            <h2 id="consultantes" className="text-[22px] font-bold">
+              Consultantes EODA qui suivent votre structure
+            </h2>
+            <p className="mt-1 max-w-[70ch] text-ink2">
+              Une consultante qui suit votre structure voit et travaille vos documents, votre diagnostic et vos tâches,
+              comme EODA — jamais les montants de votre contrat. Vous pouvez l&apos;ajouter ou la retirer à tout moment ;
+              EODA le peut aussi.
+            </p>
+          </div>
+          {consultants.rows.length === 0 ? (
+            <p className="text-ink2">EODA n&apos;a pas encore de consultante à proposer.</p>
+          ) : (
+            <ul className="divide-y divide-line rounded-[14px] border border-line bg-card">
+              {consultants.rows.map((row) => (
+                <li key={row.userId} className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3.5 sm:px-5">
+                  <span aria-hidden="true" className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full bg-soft font-bold">
+                    {initialsOf(row.name)}
+                  </span>
+                  <span className="flex min-w-[12rem] flex-1 flex-col">
+                    <span className="font-bold">{row.name}</span>
+                    <span className="break-all text-ink2">Consultante EODA · {row.email}</span>
+                  </span>
+                  {consultants.canEdit ? (
+                    <StructureConsultantToggle userId={row.userId} name={row.name} assigned={row.assigned} />
+                  ) : (
+                    <span className="font-bold">{row.assigned ? "Suit votre structure" : "Ne suit pas votre structure"}</span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      )}
 
       <section aria-labelledby="droits" className="flex flex-col gap-3">
         <div>
