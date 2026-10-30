@@ -357,6 +357,14 @@ export function TabletAdmission({ establishmentId, structureName, structureAddre
         )}
       </div>
 
+      {/* 30/10/2026 : un intervenant ne revoit pas les contrats déjà faits (rôle tablette).
+          On le DIT, plutôt que de laisser des boutons disparaître sans explication. */}
+      {!canPast && records.length > 0 && (
+        <p className="rounded-xl bg-soft px-4 py-3 text-[18px]">
+          Les contrats déjà signés (dossier, envoi, formulaire du Département) s&apos;ouvrent avec un code <span className="font-bold">Administrateur</span>. La direction donne ce rôle dans le portail : Personnes, puis Tablettes et codes des intervenants.
+        </p>
+      )}
+
       {canExport && (
       <div className="flex flex-col gap-3 rounded-2xl border border-line bg-card p-5">
         <p className="text-[19px]">
