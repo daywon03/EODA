@@ -416,7 +416,13 @@ export function TabletAdmission({ establishmentId, structureName, structureAddre
             </li>
           );
         })}
-        {roster.people.length === 0 && <li className="text-[19px] text-ink2">Aucune personne sur cette tablette. Importez la liste ou accueillez une nouvelle personne.</li>}
+        {roster.people.length === 0 && (
+          <li className="text-[19px] text-ink2">
+            {canRoster
+              ? "Aucune personne sur cette tablette. Importez la liste ou accueillez une nouvelle personne."
+              : "Aucune personne sur cette tablette. La liste (Ximi, Excel, CSV) s'importe avec un code Administrateur, que la direction donne dans le portail : Personnes, puis Tablettes et codes des intervenants. Vous pouvez accueillir une nouvelle personne."}
+          </li>
+        )}
       </ul>
 
       {importing && (
