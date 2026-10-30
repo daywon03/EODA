@@ -37,7 +37,11 @@ export function RosterHome({
   onAdd,
   onOpenImport,
   onClear,
+  canManage,
 }: {
+  // Importer, exporter, effacer la liste : l'administrateur de la tablette seulement
+  // (30/10/2026). L'intervenant choisit une personne et passe l'enquête.
+  canManage: boolean;
   roster: Roster;
   structureName: string;
   storageWorks: boolean;
@@ -70,12 +74,18 @@ export function RosterHome({
       {roster.people.length === 0 ? (
         <div className="flex flex-col gap-4 rounded-2xl border border-line bg-card p-6">
           <h2 className="text-[26px] font-bold">Ajoutez d&apos;abord vos personnes</h2>
-          <p>Importez le fichier de vos personnes accompagnées (Excel ou CSV, par exemple exporté de Ximi), ou ajoutez-les une par une.</p>
+          <p>
+            {canManage
+              ? "Importez le fichier de vos personnes accompagnées (Excel ou CSV, par exemple exporté de Ximi), ou ajoutez-les une par une."
+              : "La liste n'est pas encore sur cette tablette : un administrateur l'importe. Vous pouvez ajouter la personne que vous voyez."}
+          </p>
           <div className="grid gap-3 sm:grid-cols-2">
-            <button type="button" className={TABLET_PRIMARY} onClick={onOpenImport}>
-              <FileUp className="h-6 w-6" aria-hidden="true" />
-              Importer la liste
-            </button>
+            {canManage && (
+              <button type="button" className={TABLET_PRIMARY} onClick={onOpenImport}>
+                <FileUp className="h-6 w-6" aria-hidden="true" />
+                Importer la liste
+              </button>
+            )}
             <button type="button" className={TABLET_SECONDARY} onClick={() => setAdding(true)}>
               <UserPlus className="h-6 w-6" aria-hidden="true" />
               Ajouter une personne
@@ -143,23 +153,27 @@ export function RosterHome({
             </ul>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-3">
+          <div className={cn("grid gap-3", canManage ? "sm:grid-cols-3" : "sm:grid-cols-1")}>
             <button type="button" className={TABLET_SECONDARY} onClick={() => setAdding(true)}>
               <UserPlus className="h-6 w-6" aria-hidden="true" />
               Ajouter
             </button>
-            <button type="button" className={TABLET_SECONDARY} onClick={onOpenImport}>
-              <FileUp className="h-6 w-6" aria-hidden="true" />
-              Importer
-            </button>
-            <button
-              type="button"
-              className={TABLET_SECONDARY}
-              onClick={() => downloadText(rosterExportFileName(structureName, new Date()), buildRosterCsv(roster), "text/csv;charset=utf-8")}
-            >
-              <Download className="h-6 w-6" aria-hidden="true" />
-              Exporter (Ximi)
-            </button>
+            {canManage && (
+              <>
+                <button type="button" className={TABLET_SECONDARY} onClick={onOpenImport}>
+                  <FileUp className="h-6 w-6" aria-hidden="true" />
+                  Importer
+                </button>
+                <button
+                  type="button"
+                  className={TABLET_SECONDARY}
+                  onClick={() => downloadText(rosterExportFileName(structureName, new Date()), buildRosterCsv(roster), "text/csv;charset=utf-8")}
+                >
+                  <Download className="h-6 w-6" aria-hidden="true" />
+                  Exporter (Ximi)
+                </button>
+              </>
+            )}
           </div>
         </>
       )}
@@ -170,7 +184,8 @@ export function RosterHome({
 
       <div className="flex flex-col gap-2 border-t border-line pt-4 text-[17px] text-ink2">
         <p>Cette liste reste sur cette tablette. Elle n&apos;est jamais envoyée à EODA. Les réponses, elles, partent sans aucun nom.</p>
-        {roster.people.length > 0 &&
+        {canManage &&
+          roster.people.length > 0 &&
           (confirmClear ? (
             <div className="flex flex-wrap items-center gap-3">
               <span className="font-bold text-ink">Effacer les {roster.people.length} personnes de cette tablette ?</span>

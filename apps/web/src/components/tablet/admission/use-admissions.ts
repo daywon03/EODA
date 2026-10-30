@@ -71,12 +71,20 @@ export function useAdmissions(establishmentId: string) {
   // signature (révision annuelle comprise). À côté : le contrat Word signé et chaque
   // signature (reprise par le formulaire du Département), sous leurs propres clés.
   const save = useCallback(
-    async (record: AdmissionRecord, pdf: Blob, extras: AdmissionExtras = { word: null, signatures: {} }): Promise<boolean> => {
+    async (record: AdmissionRecord, pdf: Blob, extras: AdmissionExtras = { word: null, signatures: {}, devis: null, recap: null }): Promise<boolean> => {
       try {
         await withStore(name, "readwrite", (store) => store.add({ id: record.id, record, pdf } satisfies StoredRow));
         if (extras.word) {
           const word = extras.word;
           await withStore(name, "readwrite", (store) => store.put({ id: wordKey(record.id), record: null, pdf: word } satisfies StoredRow));
+        }
+        if (extras.devis) {
+          const devis = extras.devis;
+          await withStore(name, "readwrite", (store) => store.put({ id: devisKey(record.id), record: null, pdf: devis } satisfies StoredRow));
+        }
+        if (extras.recap) {
+          const recap = extras.recap;
+          await withStore(name, "readwrite", (store) => store.put({ id: recapKey(record.id), record: null, pdf: recap } satisfies StoredRow));
         }
         for (const [signer, blob] of Object.entries(extras.signatures) as [AdmissionSigner, Blob][]) {
           await withStore(name, "readwrite", (store) => store.put({ id: signatureKey(record.id, signer), record: null, pdf: blob } satisfies StoredRow));
@@ -129,6 +137,16 @@ export function formKey(recordId: string, kind: DepartementFormKind = "INITIALE"
 }
 
 // Le contrat Word signé, et chaque signature, rangés à côté de la fiche (27/10/2026).
+// Le devis d'origine, importé avant le contrat (30/10/2026).
+export function devisKey(recordId: string): string {
+  return `devis:${recordId}`;
+}
+
+// Le contrat récapitulatif signé, envoyé au Département (30/10/2026).
+export function recapKey(recordId: string): string {
+  return `recap:${recordId}`;
+}
+
 export function wordKey(recordId: string): string {
   return `contrat-word:${recordId}`;
 }

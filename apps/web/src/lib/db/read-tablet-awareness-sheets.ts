@@ -1,17 +1,18 @@
 import { prisma } from "@eoda/database";
-import { AWARENESS_SHEET_CODES, selectAwarenessSheets } from "@/lib/services/awareness-sheet-service";
+import { selectTabletStructureDocuments, TABLET_STRUCTURE_DOCUMENT_CODES } from "@/lib/services/awareness-sheet-service";
 import type { TabletAwarenessSheet } from "@/lib/services/awareness-sheet-links";
 
-// Les fiches de sensibilisation que la tablette peut montrer, et où les trouver dans le
-// stockage. UNE lecture pour la page et pour la route qui sert le fichier : les deux
-// appliquent la même règle (`selectAwarenessSheets`). L'établissement vient TOUJOURS de
+// Les documents de la structure que la tablette peut montrer — fiches de sensibilisation,
+// tampon et contrat récapitulatif du Département — et où les trouver dans le stockage.
+// UNE lecture pour la page et pour la route qui sert le fichier : les deux appliquent la
+// même règle (`selectTabletStructureDocuments`). L'établissement vient TOUJOURS de
 // l'appareil enregistré, jamais d'un identifiant reçu.
 export async function readTabletAwarenessSheets(establishmentId: string): Promise<{
   sheets: Record<string, TabletAwarenessSheet>;
   storage: ReadonlyMap<string, { fileStorageKey: string; originalFilename: string }>;
 }> {
   const documents = await prisma.document.findMany({
-    where: { establishmentId, documentType: { code: { in: [...AWARENESS_SHEET_CODES] } } },
+    where: { establishmentId, documentType: { code: { in: [...TABLET_STRUCTURE_DOCUMENT_CODES] } } },
     select: {
       validatedAt: true,
       documentType: { select: { code: true } },
@@ -28,7 +29,7 @@ export async function readTabletAwarenessSheets(establishmentId: string): Promis
     },
   });
 
-  const sheets = selectAwarenessSheets(
+  const sheets = selectTabletStructureDocuments(
     documents.flatMap((document) =>
       document.documentType
         ? [

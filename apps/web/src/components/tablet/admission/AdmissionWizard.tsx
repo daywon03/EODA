@@ -8,6 +8,8 @@ import { planAdmissionDocument, planRefusalDocument } from "@/lib/services/admis
 import {
   admissionFieldValues,
   admissionPdfFileName,
+  admissionDevisFileName,
+  admissionRecapFileName,
   admissionWordFileName,
   aidProblems,
   contactProblems,
@@ -19,6 +21,7 @@ import {
   refusalProblems,
   dipcEntryValues,
   durationProblems,
+  frenchDay,
   fullName,
   handedCheckLinks,
   handedChecks,
@@ -39,28 +42,42 @@ import {
 } from "@/lib/services/admission-service";
 import { rhythmText, wordSignatureSlots } from "@/lib/services/dipec-word-service";
 import { prepareDipcForTablet } from "@/lib/services/dipc-tablet-preparation";
-import { EMPTY_TRUSTED_PERSON, isTrustedPersonDesignated, trustedPersonProblems, type TrustedPerson } from "@/lib/services/trusted-person-service";
+import { EMPTY_TRUSTED_PERSON, isTrustedPersonDesignated, trustedPersonName, trustedPersonProblems, type TrustedPerson } from "@/lib/services/trusted-person-service";
+import { recapCompanion, type RecapContractFill, type RecapTariffs } from "@/lib/services/recap-contract-word-service";
 import { DocxPreview } from "@/components/structure/DocxPreview";
 import { TABLET_PRIMARY, TABLET_SECONDARY } from "../tablet-ui";
 import { SignaturePad } from "../SignaturePad";
 import { AdmissionExplainStep } from "./AdmissionExplainStep";
+import { DevisImportSection } from "./DevisImportSection";
+import type { ImportedDevis } from "./devis-client";
+import { DEVIS_MAX_PAGES, devisCaption, devisExtension } from "@/lib/services/devis-service";
 import type { TabletAwarenessSheet } from "@/lib/services/awareness-sheet-links";
 import { AdmissionIdentityStep } from "./AdmissionIdentityStep";
 import { AdmissionPreview } from "./AdmissionPreview";
 import { AdmissionProjectStep } from "./AdmissionProjectStep";
 import { AdmissionRefusalPanel } from "./AdmissionRefusalPanel";
-import { buildContractWord, type TabletDipecWord } from "./dipec-word-client";
+import { buildContractWord, buildRecapWord, type TabletDipecWord, type TabletRecapWord } from "./dipec-word-client";
+import { RecapTariffSection } from "./RecapTariffSection";
 import { sha256Hex } from "./use-admissions";
 
 export type TabletDipc = { versionId: string; versionNumber: number; validatedOn: string; text: string; sha256: string };
 
 // Ce qui se range à côté de la fiche : le contrat Word signé (quand le DIPEC d'EODA
 // est un Word) et chaque signature, reprise par le formulaire du Département.
-export type AdmissionExtras = { word: Blob | null; signatures: Partial<Record<AdmissionSigner, Blob>> };
+// Le contrat récapitulatif pour le Département (30/10/2026), quand la structure en a un.
+export type AdmissionExtras = { word: Blob | null; signatures: Partial<Record<AdmissionSigner, Blob>>; devis: Blob | null; recap: Blob | null };
+export const NO_EXTRAS: AdmissionExtras = { word: null, signatures: {}, devis: null, recap: null };
 
 const STEPS = ["La personne", "Le projet", "Le contrat", "À expliquer", "Signatures"] as const;
 const STEP = { PERSON: 0, PROJECT: 1, CONTRACT: 2, EXPLAIN: 3, SIGN: 4 } as const;
 const STEP_TITLES = ["Qui accueillons-nous ?", "Ce que prévoit le contrat", "Relisez le contrat ensemble", "À expliquer à la personne", "Signatures"];
+
+// Ce que le Word reçoit du devis : la légende et les premières pages.
+function devisForWord(devis: ImportedDevis | null, at: Date): { caption: string; pages: Uint8Array[] } | null {
+  if (!devis) return null;
+  const pages = devis.pages.slice(0, DEVIS_MAX_PAGES);
+  return { caption: devisCaption({ importedAt: at, pageCount: devis.pageCount, shownPages: pages.length }), pages };
+}
 
 function contactOrNull(contact: AdmissionContact): AdmissionContact | null {
   return contact.kind ? contact : null;
@@ -71,13 +88,16 @@ function dataUrlToBlob(dataUrl: string | undefined): Blob | null {
   return match ? new Blob([Uint8Array.from(atob(match[1]!), (c) => c.charCodeAt(0))], { type: "image/png" }) : null;
 }
 
-export function AdmissionWizard({ structureName, staffName, dipc, word, sheets = {}, person, onRecorded, onCancel }: {
+export function AdmissionWizard({ structureName, staffName, dipc, word, recap = null, sheets = {}, person, onRecorded, onCancel }: {
   structureName: string;
   staffName: string;
   dipc: TabletDipc;
   // Le Word d'origine du DIPEC, s'il existe et s'ouvre : le contrat signé est alors
   // CE document, rempli ; sinon, la copie en texte.
   word: TabletDipecWord | null;
+  // Le contrat récapitulatif de la structure (30/10/2026), signé en même temps que le
+  // DIPEC : c'est lui qui part au Département avec le formulaire. Null : aucun.
+  recap?: TabletRecapWord | null;
   // Fiches de sensibilisation validées de la structure, par code (vide en démonstration).
   sheets?: Readonly<Record<string, TabletAwarenessSheet>>;
   person: { personId: string; lastName: string; firstName: string } | null;
@@ -95,6 +115,9 @@ export function AdmissionWizard({ structureName, staffName, dipc, word, sheets =
   const [explained, setExplained] = useState<Record<string, string>>({});
   const [handed, setHanded] = useState<Partial<Record<HandedDocumentId, string>>>({});
   const [signatures, setSignatures] = useState<Partial<Record<AdmissionSigner, string>>>({});
+  // Le devis importé avant le contrat (30/10/2026) : posé dans l'annexe 1 du Word.
+  const [devis, setDevis] = useState<ImportedDevis | null>(null);
+  const [tariffs, setTariffs] = useState<RecapTariffs>({ weekdayRate: "", sundayRate: "" });
   // Les manques ne s'affichent qu'après un premier essai, puis se recalculent à
   // chaque geste : un message qui reste affiché après correction fait douter.
   const [checked, setChecked] = useState(false);
@@ -127,8 +150,8 @@ export function AdmissionWizard({ structureName, staffName, dipc, word, sheets =
   const wordDraft = useMemo(() => {
     if (!word || step < STEP.CONTRACT) return null;
     const values = admissionFieldValues({ structureName, identity, aid, contact: linked, trusted, staffName, signedOn: new Date() });
-    return buildContractWord(word, { values, entries, trustedDesignated: trusted !== null, rhythm, signatures: {} }, new Date());
-  }, [word, step, structureName, identity, aid, linked, trusted, staffName, entries, rhythm]);
+    return buildContractWord(word, { values, entries, trustedDesignated: trusted !== null, rhythm, signatures: {}, devis: devisForWord(devis, new Date()) }, new Date());
+  }, [word, step, structureName, identity, aid, linked, trusted, staffName, entries, rhythm, devis]);
   const unknownFields = wordDraft?.unknownFields ?? merged.unknownFields;
   const emptyFields = wordDraft?.emptyFields ?? merged.emptyFields;
   const docInput = { structureName, identity, aid, contact: linked, trusted, dipc: { ...dipc, blocks: merged.blocks }, explained, handed, explanationsVersion: ADMISSION_EXPLANATIONS_VERSION, staffName };
@@ -182,7 +205,7 @@ export function AdmissionWizard({ structureName, staffName, dipc, word, sheets =
       let wordContract: { fileName: string; sha256: string } | null = null;
       if (word) {
         const slots = wordSignatureSlots({ images, identity, contact: linked, staffName, trusted });
-        wordBlob = buildContractWord(word, { values: fieldValues(signedAt), entries, trustedDesignated: trusted !== null, rhythm, signatures: slots }, signedAt).blob;
+        wordBlob = buildContractWord(word, { values: fieldValues(signedAt), entries, trustedDesignated: trusted !== null, rhythm, signatures: slots, devis: devisForWord(devis, signedAt) }, signedAt).blob;
         wordContract = { fileName: admissionWordFileName(structureName, identity, signedAt), sha256: await sha256Hex(await wordBlob.arrayBuffer()) };
       }
 
@@ -196,13 +219,29 @@ export function AdmissionWizard({ structureName, staffName, dipc, word, sheets =
         const blob = dataUrlToBlob(signatures[signer]);
         if (blob) signatureBlobs[signer] = blob;
       }
-      const record = await recordOf(signedAt, "SIGNE", null, signers, pdf, wordContract);
-      await onRecorded(record, pdf, { word: wordBlob, signatures: signatureBlobs });
+      // Le contrat récapitulatif (30/10/2026) : mêmes signatures, même date.
+      const recapBlob = recap ? buildRecapWord(recap, recapInput(fieldValues(signedAt), wordSignatureSlots({ images, identity, contact: linked, staffName, trusted })), signedAt) : null;
+      const recapContract = recapBlob ? { fileName: admissionRecapFileName(structureName, identity, signedAt), sha256: await sha256Hex(await recapBlob.arrayBuffer()) } : null;
+
+      const record = await recordOf(signedAt, "SIGNE", null, signers, pdf, wordContract, recapContract);
+      await onRecorded(record, pdf, { word: wordBlob, signatures: signatureBlobs, devis: devis?.file ?? null, recap: recapBlob });
     } catch {
       setSignError("Le contrat n'a pas pu être fabriqué. Vérifiez les signatures, puis recommencez la signature.");
     } finally {
       setBusy(false);
     }
+  }
+
+  // Ce que reçoit le contrat récapitulatif : la fiche, la durée choisie, les tarifs.
+  function recapInput(values: RecapContractFill["values"], slots: ReturnType<typeof wordSignatureSlots>): Omit<RecapContractFill, "documentXml" | "plan"> {
+    const option = prepared.durationChoice?.options.find((o) => o.number === duration.choice);
+    return {
+      values,
+      companion: recapCompanion(trustedPersonName(trusted), [values["proche.prenom"], values["proche.nom"]].filter(Boolean).join(" ")),
+      duration: option ? { fixed: option.hasDates, start: frenchDay(duration.start), end: frenchDay(duration.end) } : null,
+      tariffs,
+      signatures: { beneficiary: slots.BENEFICIAIRE ?? [], structure: slots.STRUCTURE ?? [] },
+    };
   }
 
   // Ce que la tablette garde, contrat signé ou refus : la même fiche, la même trace.
@@ -212,7 +251,8 @@ export function AdmissionWizard({ structureName, staffName, dipc, word, sheets =
     refusalData: AdmissionRefusal | null,
     recordSigners: AdmissionSigner[],
     pdf: Blob,
-    wordContract: AdmissionRecord["word"] = null
+    wordContract: AdmissionRecord["word"] = null,
+    recapContract: AdmissionRecord["recap"] = null
   ): Promise<AdmissionRecord> {
     return {
       version: 1,
@@ -235,6 +275,16 @@ export function AdmissionWizard({ structureName, staffName, dipc, word, sheets =
       refusal: refusalData,
       trustedPerson: trusted,
       word: wordContract,
+      // Le devis accompagne le contrat signé ; un refus n'a pas de contrat, donc pas de devis.
+      devis:
+        outcome === "SIGNE" && devis
+          ? {
+              fileName: admissionDevisFileName(structureName, identity, at, devisExtension(devis.kind)),
+              sha256: await sha256Hex(await devis.file.arrayBuffer()),
+              pageCount: devis.pageCount,
+            }
+          : null,
+      recap: recapContract,
     };
   }
 
@@ -252,7 +302,7 @@ export function AdmissionWizard({ structureName, staffName, dipc, word, sheets =
       const name = fullName(identity);
       const bytes = await renderAdmissionPdf({ blocks, signatures: {}, footer: `Refus du DIPEC — ${structureName} — ${name}`, title: `Refus du DIPEC — ${name}`, signedAt: recordedAt });
       const pdf = new Blob([bytes as BlobPart], { type: "application/pdf" });
-      await onRecorded(await recordOf(recordedAt, "REFUS", { reason: refusal.reason.trim(), reproposeOn: refusal.reproposeOn }, [], pdf), pdf, { word: null, signatures: {} });
+      await onRecorded(await recordOf(recordedAt, "REFUS", { reason: refusal.reason.trim(), reproposeOn: refusal.reproposeOn }, [], pdf), pdf, NO_EXTRAS);
     } catch {
       setRefusalError("L'attestation n'a pas pu être fabriquée. Recommencez.");
     } finally {
@@ -308,6 +358,8 @@ export function AdmissionWizard({ structureName, staffName, dipc, word, sheets =
           onCheck={(id, value) => setChecks((all) => ({ ...all, [id]: value }))}
         />
       )}
+      {step === STEP.PROJECT && <DevisImportSection devis={devis} onDevis={setDevis} hasDevisAnnex={word?.plan.devisAfter !== null && word !== null} />}
+      {step === STEP.PROJECT && recap && recap.plan.tariffCells.length === 5 && <RecapTariffSection tariffs={tariffs} onTariffs={setTariffs} aid={aid} />}
 
       {step === STEP.CONTRACT && (
         <div className="flex max-w-[900px] flex-col gap-3">

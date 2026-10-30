@@ -2,6 +2,7 @@ import type { LLMAnalysisPort } from "./llm-analysis-port";
 import { AnthropicAnalysisAdapter } from "./anthropic-analysis-adapter";
 import { OpenRouterAnalysisAdapter } from "./openrouter-analysis-adapter";
 import { StubAnalysisAdapter } from "./stub-analysis-adapter";
+import { withScriptGuard } from "./script-guard";
 import { getEnv } from "@/lib/config/env";
 
 let cached: LLMAnalysisPort | null = null;
@@ -18,16 +19,20 @@ export function getLLMAnalysisPort(): LLMAnalysisPort {
 
   const env = getEnv();
 
+  // Toute sortie du modèle passe par le garde d'écriture (script-guard.ts) : aucun
+  // mot chinois, cyrillique… n'atteint la base (29/10/2026).
   if (env.openrouter) {
-    cached = new OpenRouterAnalysisAdapter(env.openrouter.apiKey);
+    cached = withScriptGuard(new OpenRouterAnalysisAdapter(env.openrouter.apiKey));
     return cached;
   }
 
   if (env.anthropic) {
-    cached = new AnthropicAnalysisAdapter({
-      apiKey: env.anthropic.apiKey,
-      ...(env.anthropic.model && { model: env.anthropic.model }),
-    });
+    cached = withScriptGuard(
+      new AnthropicAnalysisAdapter({
+        apiKey: env.anthropic.apiKey,
+        ...(env.anthropic.model && { model: env.anthropic.model }),
+      })
+    );
     return cached;
   }
 

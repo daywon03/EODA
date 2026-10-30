@@ -55,6 +55,7 @@ const ACTION_LABELS: Record<AuditAction, string> = {
   DEVICE_REVOKED: "Tablette retirée",
   STAFF_PIN_SET: "Code tablette d'un salarié posé",
   STAFF_PIN_UNLOCKED: "Code tablette débloqué",
+  STAFF_TABLET_ROLE_SET: "Rôle sur la tablette changé",
   TABLET_SIGN_IN_FAILED: "Code tablette refusé",
   TABLET_PIN_LOCKED: "Code tablette bloqué après 5 échecs",
   TABLET_SIGNED_IN: "Connexion sur la tablette",

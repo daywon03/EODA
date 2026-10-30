@@ -1,9 +1,9 @@
 import { prisma } from "@eoda/database";
 import type { LLMAnalysisPort } from "@/lib/llm";
+import { readStoredAnalysis } from "@/lib/services/stored-analysis-service";
 import type { FileStoragePort } from "@/lib/storage";
 import type { BrandedDocxImageInput } from "@/lib/services/markdown-to-docx-service";
 import { anonymizeText } from "@/lib/services/anonymization-service";
-import { parseAnalysisResult } from "@/lib/services/analysis-view-service";
 import { fetchKnowledgeExcerpts, fetchCriterionGuidelines, readDocumentComment } from "@/lib/services/document-ingestion-service";
 import { readValidatedExamples } from "@/lib/db/read-validated-examples";
 import { sanitizeProposal, type CorrectionProposal } from "@/lib/llm/correction-proposal";
@@ -65,7 +65,7 @@ export async function generateCorrectedDraft(
     };
   }
 
-  const analysis = parseAnalysisResult(version.analysisResultJson);
+  const analysis = readStoredAnalysis(version.analysisResultJson);
   if (!analysis) {
     return {
       error: "Ce document doit d'abord être analysé — la génération s'appuie sur les manques et suggestions identifiés.",

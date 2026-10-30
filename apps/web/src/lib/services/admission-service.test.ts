@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import { ADMISSION_HANDED_DOCUMENTS, allAdmissionPoints } from "@/content/admission/explications";
 import {
   admissionArchiveFileName,
+  admissionExportPath,
+  admissionFolders,
   admissionDatabaseName,
   admissionFieldValues,
   admissionPdfFileName,
@@ -32,6 +34,8 @@ import {
   type AdmissionIdentity,
   type AdmissionRecord,
   type SigningDraft,
+  admissionRecapFileName,
+  ADMISSION_EXPORT_HEADER,
 } from "./admission-service";
 
 // Personnes FICTIVES (CLAUDE.md : jamais de vraie personne dans un test).
@@ -86,6 +90,8 @@ function record(overrides: Partial<AdmissionRecord> = {}): AdmissionRecord {
     refusal: null,
     trustedPerson: null,
     word: null,
+    devis: null,
+  recap: null,
     ...overrides,
   };
 }
@@ -317,5 +323,44 @@ describe("cases « Documents remis » du contrat", () => {
     delete legacy.trustedPerson;
     expect(parseStoredAdmission(legacy)).toMatchObject({ word: null, trustedPerson: null });
     expect(buildAdmissionsCsv([withWord])).toContain("EXEMPLE Jeanne (cosignature à recueillir);c.docx;");
+  });
+});
+
+describe("un dossier par personne dans l'export (30/10/2026)", () => {
+  it("tous les contrats d'une même personne vont dans SON dossier ; deux homonymes ont deux dossiers", () => {
+    const first = record({ id: "r1", personId: "p1", signedAt: "2026-01-10T09:00:00.000Z" });
+    const second = record({ id: "r2", personId: "p1", signedAt: "2026-10-10T09:00:00.000Z" });
+    const homonym = record({ id: "r3", personId: "p2", signedAt: "2026-10-20T09:00:00.000Z" });
+    const folders = admissionFolders([first, second, homonym]);
+    expect(folders.size).toBe(2);
+    expect(folders.get("p1")).not.toBe(folders.get("p2"));
+    expect(folders.get("p2")).toBe(`${folders.get("p1")}-2`);
+    expect(admissionExportPath(folders.get("p1")!, "contrat.docx")).toBe(`DIPEC/${folders.get("p1")}/contrat.docx`);
+  });
+
+  it("le nom du dossier n'a ni accent ni caractère spécial (partage Windows, Ximi)", () => {
+    const folder = admissionFolders([record({ identity: { ...identity, birthName: "Lefèvre-D'Aubigné", firstName: "Hélène" } })]).get("p1")!;
+    expect(folder).toMatch(/^[A-Za-z0-9-]+$/);
+  });
+});
+
+describe("devis joint (30/10/2026)", () => {
+  it("relu depuis le stockage, cité dans l'index d'export", () => {
+    const withDevis = record({ devis: { fileName: "20261030_DEVIS_x.pdf", sha256: "c".repeat(64), pageCount: 2 } });
+    expect(parseStoredAdmission(JSON.parse(JSON.stringify(withDevis)))?.devis).toEqual(withDevis.devis);
+    expect(parseStoredAdmission(JSON.parse(JSON.stringify(record())))?.devis).toBeNull();
+    expect(buildAdmissionsCsv([withDevis]).trimEnd().endsWith(";20261030_DEVIS_x.pdf;")).toBe(true);
+  });
+});
+
+describe("contrat récapitulatif pour le Département (30/10/2026)", () => {
+  it("relu depuis le stockage, nommé à la convention, cité dans l'index d'export", () => {
+    const fileName = admissionRecapFileName("SAD Fictif", identity, new Date("2026-10-30T10:00:00Z"));
+    expect(fileName).toMatch(/^20261030_CONTRAT-RECAPITULATIF_SAD-Fictif_.+_v01_Externe\.docx$/);
+    const withRecap = record({ recap: { fileName, sha256: "d".repeat(64) } });
+    expect(parseStoredAdmission(JSON.parse(JSON.stringify(withRecap)))?.recap).toEqual(withRecap.recap);
+    expect(parseStoredAdmission(JSON.parse(JSON.stringify(record())))?.recap).toBeNull();
+    expect(buildAdmissionsCsv([withRecap]).trimEnd().endsWith(`;${fileName}`)).toBe(true);
+    expect(ADMISSION_EXPORT_HEADER.at(-1)).toBe("Contrat récapitulatif (Département)");
   });
 });

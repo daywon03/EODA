@@ -73,7 +73,10 @@ peut en concerner plusieurs, parfois jusqu'à dix, ne t'arrête jamais au premie
 "natureObservee" est TOUJOURS présent : {"correspondAuType", "commentaire"}. Mets
 correspondAuType à false dès que le document est visiblement d'une autre nature que le
 type annoncé, et dis dans "commentaire" ce qu'il est réellement — le type annoncé est
-l'indice de classement de la consultante, pas une vérité.`;
+l'indice de classement de la consultante, pas une vérité.
+Écris UNIQUEMENT en français, avec l'alphabet latin : jamais un mot ni un caractère
+chinois, japonais, coréen, cyrillique, arabe ou d'une autre écriture, jamais de
+ponctuation pleine chasse (« ， »). Une réponse qui en contient est rejetée.`;
 
 // Constaté à l'usage (15/09/2026, MiniMax M2.7) : malgré `response_format:
 // json_object` ET une consigne "sans texte ni balise autour", un modèle peut quand

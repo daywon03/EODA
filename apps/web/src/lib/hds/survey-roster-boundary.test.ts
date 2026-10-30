@@ -31,6 +31,8 @@ const GUARDED_MODULES = [
   // 27/10/2026 : le Word d'EODA rempli et signé, et la personne de confiance.
   "dipec-word-service",
   "trusted-person-service",
+  // 30/10/2026 : le contrat récapitulatif envoyé au Département, rempli et signé.
+  "recap-contract-word-service",
 ];
 const GUARDED = new RegExp(`(?:from\\s+|import\\(\\s*)["'][^"']*\\/(?:${GUARDED_MODULES.join("|")})["']`);
 const OWN = GUARDED_MODULES.map((name) => path.join("lib", "services", `${name}.ts`));

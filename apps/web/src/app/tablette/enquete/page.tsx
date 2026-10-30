@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { resolveTabletSession } from "@/lib/auth/guards";
+import { tabletCan } from "@/lib/services/tablet-role-service";
 import { getTabletAnonymousSurveyTemplates } from "@/lib/actions/anonymous-survey";
 import { ANONYMOUS_SURVEY_NOTICE, LISTED_SURVEY_NOTICE } from "@/lib/services/anonymous-survey-service";
 import { TabletSignOutButton } from "@/components/tablet/TabletSignOutButton";
@@ -34,6 +35,7 @@ export default async function TabletSurveyPage({ searchParams }: { searchParams:
           listedNotice={LISTED_SURVEY_NOTICE}
           anonymousNotice={ANONYMOUS_SURVEY_NOTICE}
           initialPersonId={initialPersonId}
+          canManage={tabletCan(session.tabletRole, "ROSTER")}
         />
       </TabletMain>
     </div>

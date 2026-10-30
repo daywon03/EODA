@@ -1,10 +1,10 @@
 "use server";
 
 import { prisma, Prisma } from "@eoda/database";
+import { readStoredAnalysis } from "@/lib/services/stored-analysis-service";
 import { notFound } from "next/navigation";
 import { requireCabinetSession, requireEstablishmentInTenant, structureScopeWhere } from "@/lib/auth/guards";
 import type { ReviewSummary } from "@/lib/services/structure-sheet-service";
-import { parseAnalysisResult } from "@/lib/services/analysis-view-service";
 import { isCriterionImperativeForEstablishment } from "@/lib/services/criterion-imperativeness-service";
 import {
   buildReviewProposals,
@@ -14,6 +14,7 @@ import {
   type ReviewProposals,
   type ReviewQueueItem,
 } from "@/lib/services/review-queue-service";
+import { markForeignScript } from "@/lib/llm/script-guard";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // FILE « À RELIRE » — lecture côté cabinet (règles : review-queue-service.ts).
@@ -123,7 +124,7 @@ export async function listDocumentsAwaitingReview(): Promise<{
       establishmentId: row.document.establishment.id,
       establishmentName: row.document.establishment.name,
       proposalCount: countProposals(
-        parseAnalysisResult(row.analysisResultJson),
+        readStoredAnalysis(row.analysisResultJson),
         row._count.criterionSuggestions
       ),
     })
@@ -187,7 +188,7 @@ export async function getReviewQueueEntry(versionId: string): Promise<ReviewQueu
   if (!version) notFound();
 
   const { establishment } = version.document;
-  const analysis = parseAnalysisResult(version.analysisResultJson);
+  const analysis = readStoredAnalysis(version.analysisResultJson);
   return {
     versionId: version.id,
     establishmentId: establishment.id,
@@ -212,7 +213,7 @@ export async function getReviewQueueEntry(versionId: string): Promise<ReviewQueu
           { code: s.criterion.code, requirementLevel: s.criterion.requirementLevel },
           establishment.type
         ),
-        justification: s.justification,
+        justification: markForeignScript(s.justification),
       })),
     }),
   };

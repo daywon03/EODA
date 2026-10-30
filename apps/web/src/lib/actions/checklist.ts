@@ -1,6 +1,7 @@
 "use server";
 
 import type { ParticipationForm } from "@eoda/database";
+import { readStoredAnalysis } from "@/lib/services/stored-analysis-service";
 import { participationLineLabel } from "@/lib/services/participation-form-service";
 
 import { NEED } from "@/lib/auth/capabilities";
@@ -30,13 +31,13 @@ import type { DocumentAnalysisResult } from "@/lib/llm";
 import {
   analysisVisibleTo,
   isAnalysisAwaitingReview,
-  parseAnalysisResult,
   type AnalysisAudience,
 } from "@/lib/services/analysis-view-service";
 import {
   isLibraryUpdateAlertDue,
   type MissionAccessState,
 } from "@/lib/services/mission-access-service";
+import { markForeignScript } from "@/lib/llm/script-guard";
 
 export type ChecklistItem = {
   documentTypeId: string;
@@ -386,7 +387,7 @@ function toChecklistVersion(
   establishmentType: EstablishmentType
 ): NonNullable<ChecklistItem["currentVersion"]> {
   const reviewable = {
-    analysis: parseAnalysisResult(version.analysisResultJson),
+    analysis: readStoredAnalysis(version.analysisResultJson),
     reviewedAt: version.analysisReviewedAt,
   };
   const reviewedByEoda = isReviewedByEoda({
@@ -419,7 +420,7 @@ function toChecklistVersion(
         { code: s.criterion.code, requirementLevel: s.criterion.requirementLevel },
         establishmentType
       ),
-      justification: s.justification,
+      justification: markForeignScript(s.justification),
     })),
   };
 }

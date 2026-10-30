@@ -126,6 +126,12 @@ export type DipecWordPlan = {
   anchors: readonly SignatureAnchor[];
   rhythmAfter: number | null;
   scheduleFieldId: string | null;
+  // Titre « ANNEXE 1 – DEVIS » : le devis importé y est posé, page par page (30/10/2026).
+  devisAfter: number | null;
+  // Les lignes VIDES qui suivent ce titre (la place laissée pour agrafer le devis
+  // papier) : retirées quand le devis est posé, sinon elles ajoutent une page blanche.
+  // Une ligne qui porte un saut de page ou de section n'en fait jamais partie.
+  devisBlankParagraphs: readonly number[];
 };
 
 const SIGNATURE_PLACEHOLDER = /voir « Signatures », en fin de document\.$/;
@@ -184,6 +190,16 @@ export function planDipecWord(documentXml: string): DipecWordPlan {
   }
 
   const rhythm = source.find((s) => /^Les jours et horaires d.intervention sont définis/i.test(s.block.text));
+  // Le TITRE de l'annexe (pas sa ligne de sommaire, déjà écartée, ni les renvois du corps).
+  const devisAnnex = source.find((s) => s.block.kind === "heading" && /^annexe\s*1\b.*devis/i.test(s.block.text));
+  const devisBlankParagraphs: number[] = [];
+  if (devisAnnex) {
+    for (let i = devisAnnex.paragraph + 1; i < paragraphs.length; i += 1) {
+      const q = paragraphs[i]!;
+      if (normalizeWithMap(q.raw).text || /<w:br\b[^>]*w:type="page"|<w:sectPr\b|<w:drawing\b|<w:pict\b/.test(q.xml)) break;
+      devisBlankParagraphs.push(i);
+    }
+  }
   return {
     prepared: { blocks: lines.filter((b): b is DipcBlock => b !== null), ...fields },
     templates,
@@ -191,6 +207,8 @@ export function planDipecWord(documentXml: string): DipecWordPlan {
     anchors,
     rhythmAfter: rhythm?.paragraph ?? null,
     scheduleFieldId: fields.freeFields.find((f) => /^Fréquence, jours et horaires/i.test(f.label))?.id ?? null,
+    devisAfter: devisAnnex?.paragraph ?? null,
+    devisBlankParagraphs,
   };
 }
 
@@ -275,10 +293,12 @@ export function pngSize(png: Uint8Array): { width: number; height: number } | nu
 
 const EMU_PER_CM = 360000;
 const SIGNATURE_MAX = { width: 4.5 * EMU_PER_CM, height: 1.6 * EMU_PER_CM };
+// Une page de devis tient dans la zone de texte d'une page A4 (marges comprises).
+const DEVIS_PAGE_MAX = { width: 16 * EMU_PER_CM, height: 22.5 * EMU_PER_CM };
 
-function imageParagraph(p: WordParagraph, relId: string, docPrId: number, png: Uint8Array): string {
+export function imageParagraph(p: WordParagraph, relId: string, docPrId: number, png: Uint8Array, max = SIGNATURE_MAX): string {
   const size = pngSize(png) ?? { width: 600, height: 200 };
-  const scale = Math.min(SIGNATURE_MAX.width / size.width, SIGNATURE_MAX.height / size.height);
+  const scale = Math.min(max.width / size.width, max.height / size.height);
   const cx = Math.round(size.width * scale);
   const cy = Math.round(size.height * scale);
   return (
@@ -331,6 +351,9 @@ export type DipecWordFill = {
   trustedDesignated: boolean;
   rhythm: string;
   signatures: Partial<Record<SignatureSlot, readonly WordSignature[]>>;
+  // Le devis importé avant le contrat, en images PNG (une par page) : posé sous le
+  // titre de l'annexe 1 (30/10/2026). Absent : l'annexe reste telle qu'EODA l'a écrite.
+  devis?: { caption: string; pages: readonly Uint8Array[] } | null;
 };
 
 export type FilledDipecWord = { documentXml: string; images: WordImage[]; unknownFields: string[]; emptyFields: string[] };
@@ -377,6 +400,24 @@ export function fillDipecWord(input: DipecWordFill): FilledDipecWord {
       append(anchor.paragraph, imageParagraph(p, relId, docPrId, signature.png));
       docPrId += 1;
     }
+  }
+
+  if (input.devis && input.devis.pages.length > 0 && input.plan.devisAfter !== null) {
+    const p = paragraphs[input.plan.devisAfter]!;
+    // Le titre de l'annexe a son style de titre : la légende et les pages prennent
+    // celui du paragraphe ordinaire qui le suit, s'il existe.
+    const body = paragraphs[input.plan.devisAfter + 1] ?? p;
+    append(input.plan.devisAfter, textParagraphLike(body, input.devis.caption));
+    input.devis.pages.forEach((page, index) => {
+      const relId = `rIdEodaDevis${index + 1}`;
+      images.push({ relId, target: `media/eoda-devis-${index + 1}.png`, data: page });
+      append(input.plan.devisAfter!, imageParagraph(body, relId, docPrId, page, DEVIS_PAGE_MAX));
+      docPrId += 1;
+    });
+    // Les lignes vides poussaient l'annexe suivante sur une nouvelle page : un saut de
+    // page explicite les remplace, l'annexe 2 garde sa page.
+    for (const blank of input.plan.devisBlankParagraphs) rewritten.set(blank, "");
+    if (input.plan.devisBlankParagraphs.length > 0) append(input.plan.devisAfter, '<w:p><w:r><w:br w:type="page"/></w:r></w:p>');
   }
 
   let xml = input.documentXml;

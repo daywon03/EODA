@@ -40,7 +40,10 @@ export const GENERATION_OUTPUT_INSTRUCTION = `FORMAT DE RÉPONSE — réponds UN
 - Un ajout est court et autonome : un paragraphe, une ligne de tableau, une rubrique.
 - Information propre à la structure absente de l'original : écris [À compléter : ce qu'il
   faut], jamais une valeur inventée.
-- Markdown simple dans "text" : titres #, ##, listes -, gras **.`;
+- Markdown simple dans "text" : titres #, ##, listes -, gras **.
+- Écris UNIQUEMENT en français, avec l'alphabet latin : jamais un mot ni un caractère
+  chinois, japonais, coréen, cyrillique, arabe ou d'une autre écriture, jamais de
+  ponctuation pleine chasse (« ， »). Une réponse qui en contient est rejetée.`;
 
 export function buildGenerationSystemPrompt(): string {
   return `Tu es l'adjoint du responsable qualité d'un service d'aide à domicile (ESSMS), avec une

@@ -36,6 +36,8 @@ const record: AdmissionRecord = {
   refusal: null,
   trustedPerson: null,
   word: null,
+  devis: null,
+  recap: null,
 };
 const structure = { name: "SAD Fictif", address: "1 avenue Fictive" };
 const today = new Date("2026-10-27T10:00:00Z");
@@ -50,6 +52,8 @@ const base: ChangeFormInput = {
   acceptsTransmission: false,
   signedOn: today,
   withSignature: true,
+  withStamp: false,
+  structureName: structure.name,
 };
 
 const texts = (items: FormItem[], page: number) => items.filter((i): i is Extract<FormItem, { kind: "text" }> => i.kind === "text" && i.page === page).map((i) => i.text);
@@ -93,6 +97,19 @@ describe("changeFormProblems", () => {
     expect(changeFormProblems({ ...base, services: [{ name: "Y", address: "", date: "", weekdayHours: "3", sundayHours: "" }] })).toContain(
       "Pour chaque service qui intervient, écrivez son nom et la date de début ou d'effet."
     );
+  });
+
+  it("le tampon va dans la ligne de LA structure, à droite d'une adresse resserrée — jamais dans celle d'un autre service", () => {
+    const services = [{ name: "Autre service", address: "3 rue Y", date: "2026-11-01", weekdayHours: "", sundayHours: "" }, ...defaultActiveServices(record, structure, today)];
+    const items = planChangeForm({ ...base, services, withStamp: true });
+    const stamps = items.filter((i): i is Extract<FormItem, { kind: "image" }> => i.kind === "image" && i.source === "stamp");
+    // Deuxième rangée (adresse à y 233,2), dans la cellule (x 96,5 → 328, bas 205,8).
+    expect(stamps).toEqual([{ page: 1, kind: "image", source: "stamp", x: 240, y: 233.2 - 25.4, maxWidth: 86, maxHeight: 40, center: true }]);
+    expect(stamps[0]!.y).toBeGreaterThan(205.8);
+    expect(stamps[0]!.y + stamps[0]!.maxHeight).toBeLessThan(252.2);
+    const addresses = items.filter((i): i is Extract<FormItem, { kind: "text" }> => i.kind === "text" && i.page === 1 && i.x === 136);
+    expect(addresses.map((a) => a.maxWidth)).toEqual([188, 100]);
+    expect(planChangeForm({ ...base, withStamp: false }).some((i) => i.kind === "image" && i.source === "stamp")).toBe(false);
   });
 
   it("la structure est proposée en première ligne, avec les heures de la fiche", () => {

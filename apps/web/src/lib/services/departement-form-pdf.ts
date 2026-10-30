@@ -27,6 +27,8 @@ export type FillFormInput = {
   actualSha256: string;
   items: readonly FormItem[];
   signaturePng: Uint8Array | null;
+  // Le tampon de la structure, détouré (fond transparent) — 30/10/2026.
+  stampPng?: Uint8Array | null;
 };
 
 export async function fillOfficialForm(input: FillFormInput): Promise<Uint8Array> {
@@ -37,7 +39,10 @@ export async function fillOfficialForm(input: FillFormInput): Promise<Uint8Array
   const font = await doc.embedFont(StandardFonts.Helvetica);
   const bold = await doc.embedFont(StandardFonts.HelveticaBold);
   const supported = new Set(font.getCharacterSet());
-  const signature = input.signaturePng ? await doc.embedPng(input.signaturePng) : null;
+  const images = {
+    signature: input.signaturePng ? await doc.embedPng(input.signaturePng) : null,
+    stamp: input.stampPng ? await doc.embedPng(input.stampPng) : null,
+  };
   const pages = doc.getPages();
 
   for (const item of input.items) {
@@ -48,9 +53,14 @@ export async function fillOfficialForm(input: FillFormInput): Promise<Uint8Array
       continue;
     }
     if (item.kind === "image") {
-      if (!signature) continue;
-      const scale = Math.min(item.maxWidth / signature.width, item.maxHeight / signature.height, 1);
-      page.drawImage(signature, { x: item.x, y: item.y, width: signature.width * scale, height: signature.height * scale });
+      const image = images[item.source];
+      if (!image) continue;
+      const scale = Math.min(item.maxWidth / image.width, item.maxHeight / image.height, 1);
+      const width = image.width * scale;
+      const height = image.height * scale;
+      const x = item.center ? item.x + (item.maxWidth - width) / 2 : item.x;
+      const y = item.center ? item.y + (item.maxHeight - height) / 2 : item.y;
+      page.drawImage(image, { x, y, width, height });
       continue;
     }
     const value = sanitizeForFont(item.text, supported);

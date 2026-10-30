@@ -1,6 +1,7 @@
 "use server";
 
 import { prisma } from "@eoda/database";
+import { readStoredAnalysis } from "@/lib/services/stored-analysis-service";
 import { notFound } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { requireCabinetSession, requireEstablishmentAccess, structureScopeWhere } from "@/lib/auth/guards";
@@ -16,7 +17,6 @@ import {
   type AnalysisPromptVariantId,
 } from "@/lib/llm/analysis-prompt-variants";
 import { prepareAnalysisInput, readAnalysisTarget } from "@/lib/services/document-ingestion-service";
-import { parseAnalysisResult } from "@/lib/services/analysis-view-service";
 import {
   normalizeVerdictNote,
   parseVerdict,
@@ -203,7 +203,7 @@ export async function listAnalysisTrials(
       },
     }),
   ]);
-  const officialAnalysis = parseAnalysisResult(version?.analysisResultJson ?? null);
+  const officialAnalysis = readStoredAnalysis(version?.analysisResultJson ?? null);
   return {
     official: {
       promptLabel: describeAnalysisPrompt(version?.analysisPromptVariant ?? null, version?.analysisPromptVersion ?? null),
@@ -212,7 +212,7 @@ export async function listAnalysisTrials(
       summary: officialAnalysis && summarizeAnalysis(officialAnalysis),
     },
     trials: trials.map((trial) => {
-      const analysis = parseAnalysisResult(trial.resultJson);
+      const analysis = readStoredAnalysis(trial.resultJson);
       return {
         id: trial.id,
         promptLabel: describeAnalysisPrompt(trial.promptVariant, trial.promptVersion),

@@ -49,7 +49,7 @@ describe("copie embarquée de la matrice proposée", () => {
     expect(PILOT_DOCUMENT_TYPES.filter((t) => !proposed.has(t.code))).toEqual([]);
   });
 
-  it("laisse 17 types du seed sans aucune proposition — aucun n'est un type du pilote", () => {
+  it("laisse 19 types du seed sans aucune proposition — aucun n'est un type du pilote", () => {
     // Mesuré le 15/10/2026 : ces types sont muets, donc indécidables depuis l'écran
     // « Matrice » — c'est cette liste que la page affiche pour qu'ils ne disparaissent
     // pas en silence. Le chiffre vit ici : le commentaire d'en-tête a déjà dérivé une fois.
@@ -64,6 +64,10 @@ describe("copie embarquée de la matrice proposée", () => {
       linkedPairs: new Set<string>(),
     });
     expect(view.typesWithoutProposal.map((t) => t.code)).toEqual([
+      // 30/10/2026 : le tampon et le contrat récapitulatif du Département ne prouvent
+      // aucun critère par eux-mêmes ; ils servent le formulaire de désignation.
+      "DEPARTEMENT_CONTRAT_RECAPITULATIF",
+      "DEPARTEMENT_TAMPON",
       "FONCT_CPOM",
       "FONCT_CR_COMMISSIONS",
       "FONCT_ORGANIGRAMME",

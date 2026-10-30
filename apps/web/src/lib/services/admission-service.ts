@@ -143,6 +143,13 @@ export type AdmissionRecord = {
   // Le contrat est le Word d'EODA rempli et signé (27/10/2026), rangé à côté du PDF
   // d'attestation ; null : contrat fait sur la copie en texte (repli, ou avant).
   word: { fileName: string; sha256: string } | null;
+  // Le devis importé avant le contrat (30/10/2026), posé dans l'annexe 1 du Word et
+  // gardé entier à côté. Absent sur un enregistrement antérieur.
+  devis: { fileName: string; sha256: string; pageCount: number } | null;
+  // Le contrat récapitulatif de la structure (30/10/2026), rempli et signé en même
+  // temps : c'est lui qui part au Département avec le formulaire. Null : la structure
+  // n'en a pas de validé (le Word du DIPEC part à sa place), ou enregistrement antérieur.
+  recap: { fileName: string; sha256: string } | null;
 };
 
 export type AdmissionOutcome = "SIGNE" | "REFUS";
@@ -525,6 +532,16 @@ export function admissionPdfFileName(
   return `${admissionFileStem(structureName, identity, signedAt, type)}.pdf`;
 }
 
+// Le devis d'origine, rangé avec le contrat (même convention de nommage).
+export function admissionDevisFileName(structureName: string, identity: AdmissionIdentity, signedAt: Date, extension: string): string {
+  return `${admissionFileStem(structureName, identity, signedAt, "DEVIS")}.${extension}`;
+}
+
+// Le contrat récapitulatif envoyé au Département (même convention de nommage).
+export function admissionRecapFileName(structureName: string, identity: AdmissionIdentity, signedAt: Date): string {
+  return `${admissionFileStem(structureName, identity, signedAt, "CONTRAT-RECAPITULATIF")}.docx`;
+}
+
 // Le contrat lui-même : le Word d'EODA, rempli et signé sur la tablette.
 export function admissionWordFileName(structureName: string, identity: AdmissionIdentity, signedAt: Date): string {
   return `${admissionFileStem(structureName, identity, signedAt, "DIPEC")}.docx`;
@@ -568,6 +585,35 @@ export function admissionState(record: AdmissionRecord | null, today: Date): { s
   return { state: "SIGNE", label: `Signé le ${on}` };
 }
 
+// ── Un dossier par personne (30/10/2026) ─────────────────────────────────────
+//
+// « Dans l'export, un dossier par client, si un client a plusieurs fichiers le
+// concernant. » Tous les fichiers d'une personne (contrats successifs, refus,
+// formulaires du Département, devis) vont sous DIPEC/<NOM-Prenom>/. Le dossier suit
+// la PERSONNE (son identifiant), pas l'enregistrement : un nouveau contrat rejoint le
+// même dossier. Deux personnes homonymes ont deux dossiers (suffixe -2, -3…).
+export const ADMISSION_EXPORT_ROOT = "DIPEC";
+
+export function admissionFolders(records: readonly AdmissionRecord[]): Map<string, string> {
+  const byPerson = new Map<string, string>();
+  const taken = new Set<string>();
+  // Par ordre de première signature : une personne garde son dossier, l'homonyme
+  // arrivé ensuite prend le suffixe.
+  for (const record of [...records].sort((a, b) => a.signedAt.localeCompare(b.signedAt))) {
+    if (byPerson.has(record.personId)) continue;
+    const base = slug(`${displayLastName(record.identity).toLocaleUpperCase("fr-FR")} ${cleanName(record.identity.firstName)}`, 50, "Personne");
+    let folder = base;
+    for (let n = 2; taken.has(folder); n += 1) folder = `${base}-${n}`;
+    taken.add(folder);
+    byPerson.set(record.personId, folder);
+  }
+  return byPerson;
+}
+
+export function admissionExportPath(folder: string, fileName: string): string {
+  return `${ADMISSION_EXPORT_ROOT}/${folder}/${fileName}`;
+}
+
 export function admissionArchiveFileName(structureName: string, today: Date): string {
   return `${dayOf(today).replace(/-/g, "")}_DIPEC_${slug(structureName, 40, "Structure")}_Contrats-signes_v01_Interne.zip`;
 }
@@ -592,6 +638,8 @@ export const ADMISSION_EXPORT_HEADER = [
   "Empreinte SHA-256 du Word",
   "Fichier",
   "Empreinte SHA-256 du PDF",
+  "Devis (annexe 1)",
+  "Contrat récapitulatif (Département)",
 ] as const;
 
 export function buildAdmissionsCsv(records: readonly AdmissionRecord[]): string {
@@ -616,6 +664,8 @@ export function buildAdmissionsCsv(records: readonly AdmissionRecord[]): string 
         r.word?.sha256 ?? "",
         r.pdfFileName,
         r.pdfSha256,
+        r.devis?.fileName ?? "",
+        r.recap?.fileName ?? "",
       ]
         .map(csvCell)
         .join(";")
@@ -737,7 +787,18 @@ export function parseStoredAdmission(raw: unknown): AdmissionRecord | null {
     ...readOutcome(o),
     trustedPerson: parseTrustedPerson(o.trustedPerson),
     word: readWord(o.word),
+    devis: readDevis(o.devis),
+    recap: readWord(o.recap),
   };
+}
+
+// Le devis joint (30/10/2026) — absent des enregistrements antérieurs.
+function readDevis(raw: unknown): AdmissionRecord["devis"] {
+  if (typeof raw !== "object" || raw === null) return null;
+  const o = raw as Record<string, unknown>;
+  if (typeof o.fileName !== "string" || typeof o.sha256 !== "string") return null;
+  const pageCount = typeof o.pageCount === "number" && Number.isInteger(o.pageCount) && o.pageCount > 0 ? o.pageCount : 1;
+  return { fileName: o.fileName.slice(0, 200), sha256: o.sha256.slice(0, 64), pageCount };
 }
 
 function readWord(raw: unknown): AdmissionRecord["word"] {

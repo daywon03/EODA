@@ -65,7 +65,7 @@ describe("GET /api/tablette/fiches/[versionId]", () => {
       action: "DOCUMENT_PREVIEWED",
       establishmentId: "etab1",
       targetId: "f1",
-      detail: "tablette · fiche de sensibilisation",
+      detail: "tablette · document de la structure",
     });
   });
 });
