@@ -1,4 +1,5 @@
 import { cache } from "react";
+import { effectiveTabletRole } from "@/lib/services/tablet-role-service";
 import { prisma, type CommercialTier, type EstablishmentType, type TabletRole, type UserRole } from "@eoda/database";
 import type { Session } from "next-auth";
 import { auth } from "@/auth";
@@ -706,10 +707,11 @@ export async function resolveTabletSession(now: Date = new Date()): Promise<Tabl
   if (!claims || claims.deviceEnrollmentId !== device.deviceEnrollmentId) return null;
   const staff = await prisma.staffMember.findFirst({
     where: { id: claims.staffMemberId, establishmentId: device.establishmentId, active: true },
-    select: { id: true, displayName: true, tabletRole: true, pin: { select: { lockedAt: true, pinHash: true } } },
+    select: { id: true, displayName: true, jobTitle: true, tabletRole: true, pin: { select: { lockedAt: true, pinHash: true } } },
   });
   if (!staff?.pin || staff.pin.lockedAt) return null;
   // Code changé ou remplacé depuis la connexion : la session est coupée (audit du 28/10/2026).
   if (claims.pinStamp !== pinStamp(staff.pin.pinHash)) return null;
-  return { ...device, staffMemberId: staff.id, staffDisplayName: staff.displayName, tabletRole: staff.tabletRole };
+  // La direction est toujours administrateur (`effectiveTabletRole`, 30/10/2026).
+  return { ...device, staffMemberId: staff.id, staffDisplayName: staff.displayName, tabletRole: effectiveTabletRole(staff) };
 }

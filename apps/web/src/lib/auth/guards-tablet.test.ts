@@ -43,7 +43,7 @@ beforeEach(() => {
   cookieJar.clear();
   cookieJar.set(DEVICE_COOKIE, generateOneTimeToken());
   prismaMock.deviceEnrollment.findUnique.mockResolvedValue(DEVICE);
-  prismaMock.staffMember.findFirst.mockResolvedValue({ id: "staff-1", displayName: "Julien (fictif)", pin: { lockedAt: null, pinHash: "hash-du-code" } });
+  prismaMock.staffMember.findFirst.mockResolvedValue({ id: "staff-1", displayName: "Julien (fictif)", jobTitle: "Aide à domicile", tabletRole: "INTERVENANT", pin: { lockedAt: null, pinHash: "hash-du-code" } });
 });
 
 describe("resolveTabletDevice", () => {
@@ -86,6 +86,14 @@ describe("resolveTabletSession", () => {
     session();
     expect(await resolveTabletSession(NOW)).toMatchObject({ staffMemberId: "staff-1", staffDisplayName: "Julien (fictif)", establishmentId: "etab-1" });
     expect(prismaMock.staffMember.findFirst.mock.calls[0]![0].where).toEqual({ id: "staff-1", establishmentId: "etab-1", active: true });
+  });
+
+  it("le rôle est relu en base ; la direction est toujours administrateur (30/10/2026)", async () => {
+    session();
+    expect(await resolveTabletSession(NOW)).toMatchObject({ tabletRole: "INTERVENANT" });
+    session();
+    prismaMock.staffMember.findFirst.mockResolvedValue({ id: "staff-1", displayName: "Julien (fictif)", jobTitle: "Directrice", tabletRole: "INTERVENANT", pin: { lockedAt: null, pinHash: "hash-du-code" } });
+    expect(await resolveTabletSession(NOW)).toMatchObject({ tabletRole: "ADMINISTRATEUR" });
   });
 
   it("jamais un code seul : sans appareil enregistré, la session ne vaut rien", async () => {
