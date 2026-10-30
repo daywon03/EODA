@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ArrowLeft, Check, Download, FileText, RotateCcw, Send } from "lucide-react";
+import { ArrowLeft, Check, Download, FileText, RotateCcw, RotateCw, Send } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { fullName, type AdmissionRecord } from "@/lib/services/admission-service";
 import { DEPARTEMENT_FORM, departementFormFileName, departementFormGaps, planDepartementForm } from "@/lib/services/departement-form-service";
@@ -50,11 +50,15 @@ const KINDS: { value: DepartementFormKind; label: string; hint: string }[] = [
 // sur la tablette, ou le papier.
 type SignatureSource = "CONTRAT" | "TABLETTE" | "PAPIER";
 
-export function DepartementFormPanel({ record, structure, contractFiles, contractSignature, onSaved, savedForm, onBack }: {
+export function DepartementFormPanel({ record, structure, contractFiles, withRecap = false, stampVersionId = null, contractSignature, onSaved, savedForm, onBack }: {
   record: AdmissionRecord;
   structure: { name: string; address: string };
-  // Le contrat qui part avec le formulaire (le Département exige les deux).
+  // Le contrat qui part avec le formulaire (le Département exige les deux) : le contrat
+  // récapitulatif de la structure s'il existe (`withRecap`), sinon le contrat signé.
   contractFiles: () => Promise<{ fileName: string; blob: Blob }[]>;
+  withRecap?: boolean;
+  // Le tampon de la structure, validé (30/10/2026) : posé dans la case « SAD ».
+  stampVersionId?: string | null;
   // La signature donnée sur le contrat par la personne (ou son tuteur), si la tablette la garde.
   contractSignature: () => Promise<Blob | null>;
   onSaved: (pdf: Blob, kind: DepartementFormKind) => Promise<boolean>;
@@ -92,6 +96,10 @@ export function DepartementFormPanel({ record, structure, contractFiles, contrac
   const [services, setServices] = useState<ActiveService[]>(() => defaultActiveServices(record, structure, new Date()));
   const [form, setForm] = useState<Blob | null>(null);
   const [busy, setBusy] = useState(false);
+  const stamp = useStamp(stampVersionId);
+  const [withStamp, setWithStamp] = useState(true);
+  const stamped = withStamp && stamp.prepared !== null;
+  const contractLabel = withRecap ? "le contrat récapitulatif" : "le contrat";
   const [message, setMessage] = useState<string | null>(null);
   const isChange = kind === "CHANGEMENT";
   const spec = isChange ? CHANGE_FORM : DEPARTEMENT_FORM;
@@ -135,9 +143,9 @@ export function DepartementFormPanel({ record, structure, contractFiles, contrac
       const official = new Uint8Array(await (await fetch(spec.path)).arrayBuffer());
       const { fillOfficialForm } = await import("@/lib/services/departement-form-pdf");
       const { pngDataUrlToBytes } = await import("@/lib/services/admission-pdf");
-      const common = { record, certifies, acceptsTransmission: accepts, signedOn: new Date(), withSignature: !onPaper };
+      const common = { record, certifies, acceptsTransmission: accepts, signedOn: new Date(), withSignature: !onPaper, withStamp: stamped };
       const items = isChange
-        ? planChangeForm({ ...common, stopped, newService, hoursChange, services: newService || hoursChange ? services : [], replacesPrevious: replaces })
+        ? planChangeForm({ ...common, stopped, newService, hoursChange, services: newService || hoursChange ? services : [], replacesPrevious: replaces, structureName: structure.name })
         : planDepartementForm({ ...common, structure });
       const bytes = await fillOfficialForm({
         officialPdf: official,
@@ -145,6 +153,7 @@ export function DepartementFormPanel({ record, structure, contractFiles, contrac
         actualSha256: await sha256Hex(official),
         items,
         signaturePng: source === "PAPIER" ? null : source === "CONTRAT" && kept ? new Uint8Array(await kept.blob.arrayBuffer()) : pngDataUrlToBytes(signature ?? ""),
+        stampPng: stamped ? stamp.prepared!.png : null,
       });
       const pdf = new Blob([bytes as BlobPart], { type: "application/pdf" });
       setForm(pdf);
@@ -165,7 +174,7 @@ export function DepartementFormPanel({ record, structure, contractFiles, contrac
       result === "shared"
         ? `Envoyé. Le Département attend les deux pièces à ${DEPARTEMENT_FORM.sendTo}.`
         : result === "downloaded"
-          ? `Téléchargé. À envoyer avec le contrat à ${DEPARTEMENT_FORM.sendTo}.`
+          ? `Téléchargé. À envoyer avec ${contractLabel} à ${DEPARTEMENT_FORM.sendTo}.`
           : null
     );
   }
@@ -189,7 +198,7 @@ export function DepartementFormPanel({ record, structure, contractFiles, contrac
         ))}
       </div>
       <p className="text-[19px]">
-        Rempli avec la fiche de la personne. Il part au Département <span className="font-bold">avec le contrat</span>, à {DEPARTEMENT_FORM.sendTo}.
+        Rempli avec la fiche de la personne. Il part au Département <span className="font-bold">avec {contractLabel}</span>, à {DEPARTEMENT_FORM.sendTo}.
       </p>
       {gaps.length > 0 && (
         <p className="rounded-xl bg-soft px-4 py-3 text-[18px]">
@@ -242,6 +251,28 @@ export function DepartementFormPanel({ record, structure, contractFiles, contrac
             </Tick>
             {source === "TABLETTE" && <SignaturePad key={kind} label={`${signer} — formulaire du Département`} onChange={setSignature} />}
           </section>
+          {stampVersionId && (
+            <section aria-labelledby="formulaire-tampon" className="flex flex-col gap-2.5">
+              <h2 id="formulaire-tampon" className="text-[24px] font-bold">Tampon de la structure</h2>
+              {stamp.prepared ? (
+                <>
+                  <Tick on={withStamp} onToggle={() => setWithStamp(!withStamp)}>
+                    <span className="flex flex-col gap-2">
+                      Poser le tampon dans la case « SAD » du formulaire
+                      {/* eslint-disable-next-line @next/next/no-img-element -- image locale (blob:), jamais optimisée par le serveur */}
+                      <img src={stamp.prepared.url} alt="Tampon de la structure" className="h-20 w-auto self-start rounded border border-line bg-white p-1" />
+                    </span>
+                  </Tick>
+                  <button type="button" className={cn(TABLET_SECONDARY, "w-fit")} onClick={() => void stamp.turn()}>
+                    <RotateCw className="h-5 w-5" aria-hidden="true" />
+                    Tourner le tampon
+                  </button>
+                </>
+              ) : (
+                <p className="text-[18px]">{stamp.failed ? "Le tampon n'a pas pu être lu : apposez-le à la main sur le formulaire imprimé." : "Préparation du tampon…"}</p>
+              )}
+            </section>
+          )}
           <button type="button" className={TABLET_PRIMARY} onClick={() => void build()} disabled={busy} aria-busy={busy}>
             <FileText className="h-6 w-6" aria-hidden="true" />
             {busy ? "Fabrication du formulaire…" : "Fabriquer le formulaire"}
@@ -253,7 +284,7 @@ export function DepartementFormPanel({ record, structure, contractFiles, contrac
         <div className="grid gap-3 sm:grid-cols-2">
           <button type="button" className={TABLET_PRIMARY} onClick={() => void send()}>
             <Send className="h-6 w-6" aria-hidden="true" />
-            Envoyer (formulaire + contrat)
+            Envoyer (formulaire + {withRecap ? "contrat récapitulatif" : "contrat"})
           </button>
           <button type="button" className={TABLET_SECONDARY} onClick={() => downloadBlob(fileName, form)}>
             <Download className="h-6 w-6" aria-hidden="true" />
@@ -268,4 +299,48 @@ export function DepartementFormPanel({ record, structure, contractFiles, contrac
       {message && <p role="status" className="text-[19px] font-bold">{message}</p>}
     </section>
   );
+}
+
+// Le tampon de la structure : lu une fois, détouré et redressé dans le navigateur
+// (stamp-client, chargé à la demande — pdf.js n'alourdit pas l'ouverture de l'écran).
+// « Tourner » refait le redressement d'un quart de tour et s'en souvient sur la tablette.
+function useStamp(versionId: string | null) {
+  const [source, setSource] = useState<HTMLCanvasElement | null>(null);
+  const [prepared, setPrepared] = useState<{ png: Uint8Array; turns: number; url: string } | null>(null);
+  const [failed, setFailed] = useState(false);
+
+  async function prepare(canvas: HTMLCanvasElement, turns: number | null) {
+    const client = await import("./stamp-client");
+    const result = await client.prepareStamp(canvas, turns);
+    if (!result) return setFailed(true);
+    const url = URL.createObjectURL(new Blob([result.png as BlobPart], { type: "image/png" }));
+    setPrepared((previous) => {
+      if (previous) URL.revokeObjectURL(previous.url);
+      return { ...result, url };
+    });
+  }
+
+  useEffect(() => {
+    if (!versionId) return;
+    let alive = true;
+    void import("./stamp-client").then(async (client) => {
+      const canvas = await client.loadStampSource(versionId);
+      if (!alive) return;
+      if (!canvas) return setFailed(true);
+      setSource(canvas);
+      await prepare(canvas, client.storedStampTurns(versionId));
+    });
+    return () => {
+      alive = false;
+    };
+  }, [versionId]);
+
+  async function turn() {
+    if (!source || !prepared || !versionId) return;
+    const next = (prepared.turns + 1) % 4;
+    (await import("./stamp-client")).storeStampTurns(versionId, next);
+    await prepare(source, next);
+  }
+
+  return { prepared, failed, turn };
 }

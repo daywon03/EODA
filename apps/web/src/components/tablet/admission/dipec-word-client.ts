@@ -1,6 +1,8 @@
 "use client";
 
 import { buildFilledDocx, fillDipecWord, openDocx, planDipecWord, type DipecWordFill, type DipecWordPlan, type DocxPackage } from "@/lib/services/dipec-word-service";
+import { tabletAwarenessSheetUrl } from "@/lib/services/awareness-sheet-links";
+import { fillRecapContract, planRecapContract, type RecapContractFill, type RecapContractPlan } from "@/lib/services/recap-contract-word-service";
 import { tabletDipecWordUrl } from "@/lib/services/tablet-dipc-service";
 import { browserInflateRaw } from "@/lib/services/zip-read";
 import { sha256Hex } from "./use-admissions";
@@ -13,18 +15,36 @@ export const DOCX_TYPE = "application/vnd.openxmlformats-officedocument.wordproc
 
 export type TabletDipecWord = { pkg: DocxPackage; plan: DipecWordPlan; sha256: string };
 
-export async function loadTabletDipecWord(versionId: string): Promise<TabletDipecWord | null> {
+async function loadDocx(url: string): Promise<{ pkg: DocxPackage; sha256: string } | null> {
   const inflate = browserInflateRaw();
   if (!inflate) return null;
   try {
-    const response = await fetch(tabletDipecWordUrl(versionId), { credentials: "same-origin", cache: "no-store" });
+    const response = await fetch(url, { credentials: "same-origin", cache: "no-store" });
     if (!response.ok) return null;
     const bytes = new Uint8Array(await response.arrayBuffer());
-    const pkg = await openDocx(bytes, inflate);
-    return { pkg, plan: planDipecWord(pkg.documentXml), sha256: await sha256Hex(bytes) };
+    return { pkg: await openDocx(bytes, inflate), sha256: await sha256Hex(bytes) };
   } catch {
     return null;
   }
+}
+
+export async function loadTabletDipecWord(versionId: string): Promise<TabletDipecWord | null> {
+  const loaded = await loadDocx(tabletDipecWordUrl(versionId));
+  return loaded && { ...loaded, plan: planDipecWord(loaded.pkg.documentXml) };
+}
+
+// Le contrat récapitulatif de la structure, pour le Département (30/10/2026) : même
+// lecture, autre plan. `null` : pas un Word, ou un navigateur qui ne sait pas l'ouvrir.
+export type TabletRecapWord = { pkg: DocxPackage; plan: RecapContractPlan; sha256: string };
+
+export async function loadTabletRecapWord(versionId: string): Promise<TabletRecapWord | null> {
+  const loaded = await loadDocx(tabletAwarenessSheetUrl(versionId));
+  return loaded && { ...loaded, plan: planRecapContract(loaded.pkg.documentXml) };
+}
+
+export function buildRecapWord(recap: TabletRecapWord, input: Omit<RecapContractFill, "documentXml" | "plan">, at: Date): Blob {
+  const filled = fillRecapContract({ ...input, documentXml: recap.pkg.documentXml, plan: recap.plan });
+  return new Blob([buildFilledDocx(recap.pkg, { ...filled, unknownFields: [], emptyFields: [] }, at) as BlobPart], { type: DOCX_TYPE });
 }
 
 export function buildContractWord(word: TabletDipecWord, input: Omit<DipecWordFill, "documentXml" | "plan">, at: Date) {

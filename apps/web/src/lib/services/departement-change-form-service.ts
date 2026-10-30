@@ -1,5 +1,5 @@
 import { frenchDay, type AdmissionRecord } from "./admission-service";
-import { box, contactName, hours, personName, slots, text, upper, type FormItem } from "./departement-form-service";
+import { box, contactName, hours, personName, slots, stamp, text, upper, type FormItem } from "./departement-form-service";
 import { cleanName, dayOf } from "./survey-roster-service";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -39,6 +39,9 @@ export type ChangeFormInput = {
   acceptsTransmission: boolean;
   signedOn: Date;
   withSignature: boolean;
+  // Le tampon de la structure dans SA ligne du tableau des services (30/10/2026).
+  withStamp: boolean;
+  structureName: string;
 };
 
 // Positions mesurées (x de début des « _ », centres des cases).
@@ -101,14 +104,25 @@ function changeItems(input: ChangeFormInput): FormItem[] {
     ...box(1, INDENTED_BOX, 471.5, input.newService === "A_LA_PLACE"),
     ...box(1, INDENTED_BOX, 451.9, input.newService === "EN_COMPLEMENT"),
     ...box(1, LEFT_BOX, 432.5, input.hoursChange),
-    ...services.flatMap((s, i) => [
+    ...services.flatMap((s, i) => {
+      // Le tampon va dans la ligne de LA structure (30/10/2026), à droite de l'adresse,
+      // qui se resserre pour lui laisser la place (bas de la rangée : adresse − 27,4).
+      const stamped = input.withStamp && sameService(s.name, input.structureName);
+      return [
       ...text(1, 119, ACTIVE_ROWS[i]!.name, s.name, 205),
-      ...text(1, 136, ACTIVE_ROWS[i]!.address, s.address, 188, 2),
+      ...text(1, 136, ACTIVE_ROWS[i]!.address, s.address, stamped ? 100 : 188, 2),
+      ...stamp(1, 240, ACTIVE_ROWS[i]!.address - 25.4, 86, 40, stamped),
       ...text(1, 334, ACTIVE_ROWS[i]!.date, day(s.date), 115),
       ...text(1, 526, ACTIVE_ROWS[i]!.weekday, hoursOnly(s.weekdayHours), 30),
       ...text(1, 531, ACTIVE_ROWS[i]!.sunday, hoursOnly(s.sundayHours), 26),
-    ]),
+      ];
+    }),
   ];
+}
+
+function sameService(a: string, b: string): boolean {
+  const key = (v: string) => cleanName(v).toLocaleLowerCase("fr-FR");
+  return key(a) !== "" && key(a) === key(b);
 }
 
 // Page 3 — le proche, puis la déclaration (trois engagements, dont « annule et remplace »).
@@ -154,7 +168,7 @@ function contactAndDeclarationItems(input: ChangeFormInput): FormItem[] {
     ...text(2, 70, 376.9, frenchDay(dayOf(input.signedOn)), 150),
     // À droite de « Signature du bénéficiaire ou de son représentant légal », DANS le
     // cadre (bas du cadre mesuré à y ≈ 315 sur le rendu du 27/10).
-    ...(input.withSignature ? [{ page: 2, kind: "image" as const, x: 205, y: 319, maxWidth: 300, maxHeight: 40 }] : []),
+    ...(input.withSignature ? [{ page: 2, kind: "image" as const, source: "signature" as const, x: 205, y: 319, maxWidth: 300, maxHeight: 40 }] : []),
   ];
 }
 

@@ -34,6 +34,8 @@ import {
   type AdmissionIdentity,
   type AdmissionRecord,
   type SigningDraft,
+  admissionRecapFileName,
+  ADMISSION_EXPORT_HEADER,
 } from "./admission-service";
 
 // Personnes FICTIVES (CLAUDE.md : jamais de vraie personne dans un test).
@@ -89,6 +91,7 @@ function record(overrides: Partial<AdmissionRecord> = {}): AdmissionRecord {
     trustedPerson: null,
     word: null,
     devis: null,
+  recap: null,
     ...overrides,
   };
 }
@@ -346,6 +349,18 @@ describe("devis joint (30/10/2026)", () => {
     const withDevis = record({ devis: { fileName: "20261030_DEVIS_x.pdf", sha256: "c".repeat(64), pageCount: 2 } });
     expect(parseStoredAdmission(JSON.parse(JSON.stringify(withDevis)))?.devis).toEqual(withDevis.devis);
     expect(parseStoredAdmission(JSON.parse(JSON.stringify(record())))?.devis).toBeNull();
-    expect(buildAdmissionsCsv([withDevis]).trimEnd().endsWith(";20261030_DEVIS_x.pdf")).toBe(true);
+    expect(buildAdmissionsCsv([withDevis]).trimEnd().endsWith(";20261030_DEVIS_x.pdf;")).toBe(true);
+  });
+});
+
+describe("contrat récapitulatif pour le Département (30/10/2026)", () => {
+  it("relu depuis le stockage, nommé à la convention, cité dans l'index d'export", () => {
+    const fileName = admissionRecapFileName("SAD Fictif", identity, new Date("2026-10-30T10:00:00Z"));
+    expect(fileName).toMatch(/^20261030_CONTRAT-RECAPITULATIF_SAD-Fictif_.+_v01_Externe\.docx$/);
+    const withRecap = record({ recap: { fileName, sha256: "d".repeat(64) } });
+    expect(parseStoredAdmission(JSON.parse(JSON.stringify(withRecap)))?.recap).toEqual(withRecap.recap);
+    expect(parseStoredAdmission(JSON.parse(JSON.stringify(record())))?.recap).toBeNull();
+    expect(buildAdmissionsCsv([withRecap]).trimEnd().endsWith(`;${fileName}`)).toBe(true);
+    expect(ADMISSION_EXPORT_HEADER.at(-1)).toBe("Contrat récapitulatif (Département)");
   });
 });

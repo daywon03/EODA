@@ -7,7 +7,7 @@ import {
   SEED_CLIENT_USER,
   SEED_TENANT_ID,
 } from "@eoda/database/seed-data";
-import { AWARENESS_SHEET_DOCUMENT_TYPES, DOCUMENT_TYPE_SEEDS, PILOT_DOCUMENT_TYPES } from "@eoda/database/document-types";
+import { AWARENESS_SHEET_DOCUMENT_TYPES, DEPARTEMENT_DOCUMENT_TYPES, DOCUMENT_TYPE_SEEDS, PILOT_DOCUMENT_TYPES } from "@eoda/database/document-types";
 
 // RÈGLE ZÉRO (bug 7 du test de bout en bout, 12/10/2026) : sur une base NEUVE, les
 // migrations s'exécutent AVANT le seed. Les mises à jour de données qu'elles portent
@@ -145,6 +145,28 @@ describe("seed — fiches de sensibilisation « personne accompagnée » (29/10/
   });
 });
 
+describe("seed — pièces de la structure pour le Département (30/10/2026)", () => {
+  const sql = migrationSql("20261030110000_departement_document_types");
+  const inserted = insertedDocumentTypesIn(sql);
+
+  it("la migration insère exactement la liste du seed", () => {
+    expect(inserted).toHaveLength(2);
+    expect(DEPARTEMENT_DOCUMENT_TYPES.map(({ code, category, label }) => ({ code, category, label }))).toEqual(
+      inserted.map(({ code, category, label }) => ({ code, category, label }))
+    );
+  });
+
+  it("idempotente, identifiants stables, déposés par EODA, hors loi 2002-2", () => {
+    expect(sql).toMatch(/ON CONFLICT \("code"\) DO NOTHING;\s*$/);
+    expect(sql).not.toMatch(/\b(UPDATE|DELETE|DROP|ALTER)\b/);
+    for (const row of inserted) expect(row.id).toBe(`doctype-${row.code!.toLowerCase().replace(/_/g, "-")}`);
+    for (const type of DEPARTEMENT_DOCUMENT_TYPES) {
+      expect(REQUESTED_FROM_CLIENT_DOCUMENT_CODES).not.toContain(type.code);
+      expect(type.category).not.toBe("LOI_2002_2");
+    }
+  });
+});
+
 describe("seed — types de document du référentiel du pilote", () => {
   const sql = migrationSql("20261014120000_pilot_document_types");
   const inserted = insertedDocumentTypesIn(sql);
@@ -200,10 +222,10 @@ describe("seed — types de document du référentiel du pilote", () => {
     }
   });
 
-  it("aucun code en double dans la liste complète du seed (72 types)", () => {
+  it("aucun code en double dans la liste complète du seed (74 types)", () => {
     const codes = DOCUMENT_TYPE_SEEDS.map((t) => t.code);
     expect(new Set(codes).size).toBe(codes.length);
-    expect(codes).toHaveLength(72);
+    expect(codes).toHaveLength(74);
   });
 
   it("QUALITE_PLAC (PLAC, sigle de context/11) est produit par EODA et rangé hors loi 2002-2", () => {

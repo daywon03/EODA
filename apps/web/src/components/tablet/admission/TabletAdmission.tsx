@@ -1,12 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { TabletAwarenessSheet } from "@/lib/services/awareness-sheet-links";
+import { awarenessSheetIsWord, DEPARTEMENT_CONTRAT_CODE, DEPARTEMENT_TAMPON_CODE, type TabletAwarenessSheet } from "@/lib/services/awareness-sheet-links";
 import Link from "next/link";
 import { CheckCircle2, Download, FileText, FileUp, FolderOpen, Search, Send, UserPlus } from "lucide-react";
 import { departementFormFileName, departementFormSigner } from "@/lib/services/departement-form-service";
 import { trustedPersonName } from "@/lib/services/trusted-person-service";
-import { loadTabletDipecWord, type TabletDipecWord } from "./dipec-word-client";
+import { loadTabletDipecWord, loadTabletRecapWord, type TabletDipecWord, type TabletRecapWord } from "./dipec-word-client";
 import { changeFormFileName } from "@/lib/services/departement-change-form-service";
 import { DepartementFormPanel } from "./DepartementFormPanel";
 import { cn } from "@/lib/utils";
@@ -31,7 +31,7 @@ import { TABLET_INPUT, TABLET_PRIMARY, TABLET_SECONDARY } from "../tablet-ui";
 import { RosterImportPanel } from "../survey/RosterImportPanel";
 import { newPersonId, useSurveyRoster } from "../survey/use-survey-roster";
 import { AdmissionWizard, type AdmissionExtras, type TabletDipc } from "./AdmissionWizard";
-import { devisKey, downloadBlob, formKey, sha256Hex, shareFilesOrDownload, signatureKey, useAdmissions, wordKey } from "./use-admissions";
+import { devisKey, downloadBlob, formKey, recapKey, sha256Hex, shareFilesOrDownload, signatureKey, useAdmissions, wordKey } from "./use-admissions";
 import { PersonDossier } from "./PersonDossier";
 import { tabletCan } from "@/lib/services/tablet-role-service";
 import type { TabletRole } from "@eoda/database";
@@ -80,7 +80,7 @@ export function TabletAdmission({ establishmentId, structureName, structureAddre
   const [query, setQuery] = useState("");
   const [importing, setImporting] = useState(false);
   const [flash, setFlash] = useState<string | null>(null);
-  const [last, setLast] = useState<{ id: string; pdf: Blob; word: Blob | null } | null>(null);
+  const [last, setLast] = useState<{ id: string; pdf: Blob; word: Blob | null; recap: Blob | null } | null>(null);
   const [dipcSha, setDipcSha] = useState<string | null>(null);
   // Le Word d'origine du DIPEC (27/10/2026) : le contrat signé sera CE document,
   // rempli. `undefined` : en cours de chargement ; `null` : copie en texte.
@@ -94,6 +94,15 @@ export function TabletAdmission({ establishmentId, structureName, structureAddre
     if (!dipc.hasWord) return;
     void loadTabletDipecWord(dipc.versionId).then(setWord);
   }, [dipc.hasWord, dipc.versionId]);
+
+  // Le contrat récapitulatif pour le Département (30/10/2026), s'il est validé et Word.
+  const recapSheet = sheets[DEPARTEMENT_CONTRAT_CODE];
+  const recapVersionId = recapSheet && awarenessSheetIsWord(recapSheet.originalFilename) ? recapSheet.versionId : null;
+  const [recap, setRecap] = useState<TabletRecapWord | null>(null);
+  useEffect(() => {
+    if (!recapVersionId) return;
+    void loadTabletRecapWord(recapVersionId).then(setRecap);
+  }, [recapVersionId]);
 
   // L'empreinte du DIPEC présenté : celle du Word d'EODA, sinon celle du texte.
   useEffect(() => {
@@ -114,7 +123,7 @@ export function TabletAdmission({ establishmentId, structureName, structureAddre
     if (!roster.people.some((p) => p.id === record.personId)) {
       update(addPeople(roster, [{ lastName: displayLastName(record.identity), firstName: cleanName(record.identity.firstName) }], () => record.personId));
     }
-    setLast({ id: record.id, pdf, word: extras.word });
+    setLast({ id: record.id, pdf, word: extras.word, recap: extras.recap });
     const stored = await save(record, pdf, extras);
     go({ kind: "signed", record, stored });
   }
@@ -127,6 +136,19 @@ export function TabletAdmission({ establishmentId, structureName, structureAddre
     const pdf = fresh?.pdf ?? (await pdfOf(record.id));
     const wordBlob = record.word ? (fresh?.word ?? (await pdfOf(wordKey(record.id)))) : null;
     return [...(record.word && wordBlob ? [{ fileName: record.word.fileName, blob: wordBlob }] : []), ...(pdf ? [{ fileName: record.pdfFileName, blob: pdf }] : [])];
+  }
+
+  // Ce qui part au Département avec le formulaire : le contrat récapitulatif signé
+  // (30/10/2026) quand la structure en a un, sinon le contrat (Word + attestation).
+  async function recapFile(record: AdmissionRecord): Promise<{ fileName: string; blob: Blob } | null> {
+    if (!record.recap) return null;
+    const blob = (last?.id === record.id ? last.recap : null) ?? (await pdfOf(recapKey(record.id)));
+    return blob ? { fileName: record.recap.fileName, blob } : null;
+  }
+
+  async function departementFiles(record: AdmissionRecord): Promise<{ fileName: string; blob: Blob }[]> {
+    const recapContract = await recapFile(record);
+    return recapContract ? [recapContract] : contractFiles(record);
   }
 
   async function openPdf(record: AdmissionRecord, mode: "share" | "download") {
@@ -154,10 +176,13 @@ export function TabletAdmission({ establishmentId, structureName, structureAddre
     );
   }
 
-  // TOUS les fichiers d'un enregistrement : contrat (Word + attestation), formulaires
-  // du Département, devis d'origine (30/10/2026) — ce que range le dossier de la personne.
+  // TOUS les fichiers d'un enregistrement : contrat (Word + attestation), contrat
+  // récapitulatif, formulaires du Département, devis d'origine (30/10/2026) — ce que
+  // range le dossier de la personne.
   async function recordFiles(record: AdmissionRecord): Promise<{ fileName: string; blob: Blob }[]> {
     const files = await contractFiles(record);
+    const recapContract = await recapFile(record);
+    if (recapContract) files.push(recapContract);
     const form = await pdfOf(formKey(record.id, "INITIALE"));
     if (form) files.push({ fileName: departementFormFileName(structureName, record, new Date(record.signedAt)), blob: form });
     const change = await pdfOf(formKey(record.id, "CHANGEMENT"));
@@ -208,7 +233,9 @@ export function TabletAdmission({ establishmentId, structureName, structureAddre
       <DepartementFormPanel
         record={record}
         structure={{ name: structureName, address: structureAddress }}
-        contractFiles={() => contractFiles(record)}
+        contractFiles={() => departementFiles(record)}
+        withRecap={record.recap !== null}
+        stampVersionId={sheets[DEPARTEMENT_TAMPON_CODE]?.versionId ?? null}
         contractSignature={() => pdfOf(signatureKey(record.id, departementFormSigner(record)))}
         onSaved={(pdf, kind) => saveForm(record.id, pdf, kind)}
         savedForm={(kind) => pdfOf(formKey(record.id, kind))}
@@ -224,6 +251,7 @@ export function TabletAdmission({ establishmentId, structureName, structureAddre
         staffName={staffName}
         dipc={{ versionId: dipc.versionId, versionNumber: dipc.versionNumber, validatedOn: dipc.validatedOn, text: dipc.text, sha256: dipcSha }}
         word={word}
+        recap={recap}
         sheets={sheets}
         person={screen.person && { personId: screen.person.id, lastName: screen.person.lastName, firstName: screen.person.firstName }}
         onRecorded={onRecorded}

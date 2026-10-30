@@ -296,7 +296,7 @@ const SIGNATURE_MAX = { width: 4.5 * EMU_PER_CM, height: 1.6 * EMU_PER_CM };
 // Une page de devis tient dans la zone de texte d'une page A4 (marges comprises).
 const DEVIS_PAGE_MAX = { width: 16 * EMU_PER_CM, height: 22.5 * EMU_PER_CM };
 
-function imageParagraph(p: WordParagraph, relId: string, docPrId: number, png: Uint8Array, max = SIGNATURE_MAX): string {
+export function imageParagraph(p: WordParagraph, relId: string, docPrId: number, png: Uint8Array, max = SIGNATURE_MAX): string {
   const size = pngSize(png) ?? { width: 600, height: 200 };
   const scale = Math.min(max.width / size.width, max.height / size.height);
   const cx = Math.round(size.width * scale);
