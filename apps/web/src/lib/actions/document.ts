@@ -48,6 +48,7 @@ import {
 import { getFileStoragePort } from "@/lib/storage";
 import { getLLMAnalysisPort, isKnownLlmModelId } from "@/lib/llm";
 import { isAnalysisPromptVariantId } from "@/lib/llm/analysis-prompt-variants";
+import { markForeignScript } from "@/lib/llm/script-guard";
 import { guidelineReach, validateGuidelineNote } from "@/lib/services/criterion-guideline-service";
 import { compareCriterionCodes } from "@/lib/services/criterion-picker-service";
 import {
@@ -1460,7 +1461,7 @@ export async function getCorrectedDraft(documentVersionId: string): Promise<Corr
   if (!access || access.isClient) return undefined;
 
   if (!version.correctedDraftMarkdown || !version.correctedDraftGeneratedAt) return null;
-  return { markdown: version.correctedDraftMarkdown, generatedAt: version.correctedDraftGeneratedAt };
+  return { markdown: markForeignScript(version.correctedDraftMarkdown), generatedAt: version.correctedDraftGeneratedAt };
 }
 
 // Délègue à la mise en conformité structurée (N8, lib/actions/correction-proposal.ts) :
