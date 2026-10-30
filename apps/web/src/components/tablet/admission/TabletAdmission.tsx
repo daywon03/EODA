@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import type { TabletAwarenessSheet } from "@/lib/services/awareness-sheet-links";
 import Link from "next/link";
-import { CheckCircle2, Download, FileText, FileUp, Search, Send, UserPlus } from "lucide-react";
+import { CheckCircle2, Download, FileText, FileUp, FolderOpen, Search, Send, UserPlus } from "lucide-react";
 import { departementFormFileName, departementFormSigner } from "@/lib/services/departement-form-service";
 import { trustedPersonName } from "@/lib/services/trusted-person-service";
 import { loadTabletDipecWord, type TabletDipecWord } from "./dipec-word-client";
@@ -12,9 +12,13 @@ import { DepartementFormPanel } from "./DepartementFormPanel";
 import { cn } from "@/lib/utils";
 import { addPeople, cleanName, describeRosterImport, displayName, searchRoster, type RosterPerson } from "@/lib/services/survey-roster-service";
 import {
+  ADMISSION_EXPORT_ROOT,
   admissionArchiveFileName,
+  admissionExportPath,
+  admissionFolders,
   admissionState,
   buildAdmissionsCsv,
+  sortAdmissions,
   displayLastName,
   frenchDay,
   fullName,
@@ -27,7 +31,10 @@ import { TABLET_INPUT, TABLET_PRIMARY, TABLET_SECONDARY } from "../tablet-ui";
 import { RosterImportPanel } from "../survey/RosterImportPanel";
 import { newPersonId, useSurveyRoster } from "../survey/use-survey-roster";
 import { AdmissionWizard, type AdmissionExtras, type TabletDipc } from "./AdmissionWizard";
-import { downloadBlob, formKey, sha256Hex, shareFilesOrDownload, signatureKey, useAdmissions, wordKey } from "./use-admissions";
+import { devisKey, downloadBlob, formKey, sha256Hex, shareFilesOrDownload, signatureKey, useAdmissions, wordKey } from "./use-admissions";
+import { PersonDossier } from "./PersonDossier";
+import { tabletCan } from "@/lib/services/tablet-role-service";
+import type { TabletRole } from "@eoda/database";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ACCUEIL ET DIPEC SUR LA TABLETTE (26/10/2026).
@@ -43,7 +50,9 @@ type Screen =
   | { kind: "home" }
   | { kind: "wizard"; person: RosterPerson | null }
   | { kind: "signed"; record: AdmissionRecord; stored: boolean }
-  | { kind: "form"; record: AdmissionRecord; back: Screen };
+  | { kind: "form"; record: AdmissionRecord; back: Screen }
+  // Le dossier d'une personne (administrateur) : tous ses fichiers, rangés (30/10/2026).
+  | { kind: "dossier"; personId: string; name: string };
 
 // L'état se lit dans le service (admissionState) ; ici, seulement sa couleur.
 const STATE_TONES: Record<AdmissionState, string> = {
@@ -54,8 +63,11 @@ const STATE_TONES: Record<AdmissionState, string> = {
   A_REPROPOSER: "border-amber-fill bg-highlight",
 };
 
-export function TabletAdmission({ establishmentId, structureName, structureAddress, staffName, dipc, sheets }: {
+export function TabletAdmission({ establishmentId, structureName, structureAddress, staffName, dipc, sheets, tabletRole }: {
   establishmentId: string;
+  // Ce que ce salarié peut faire (30/10/2026) : l'intervenant accueille et fait signer ;
+  // l'administrateur voit aussi les contrats déjà faits, les dossiers, exporte.
+  tabletRole: TabletRole;
   sheets: Readonly<Record<string, TabletAwarenessSheet>>;
   structureName: string;
   structureAddress: string;
@@ -74,6 +86,9 @@ export function TabletAdmission({ establishmentId, structureName, structureAddre
   // rempli. `undefined` : en cours de chargement ; `null` : copie en texte.
   const [word, setWord] = useState<TabletDipecWord | null | undefined>(dipc.hasWord ? undefined : null);
   const today = new Date();
+  const canPast = tabletCan(tabletRole, "PAST_CONTRACTS");
+  const canExport = tabletCan(tabletRole, "EXPORT");
+  const canRoster = tabletCan(tabletRole, "ROSTER");
 
   useEffect(() => {
     if (!dipc.hasWord) return;
@@ -139,23 +154,53 @@ export function TabletAdmission({ establishmentId, structureName, structureAddre
     );
   }
 
-  async function exportAll() {
+  // TOUS les fichiers d'un enregistrement : contrat (Word + attestation), formulaires
+  // du Département, devis d'origine (30/10/2026) — ce que range le dossier de la personne.
+  async function recordFiles(record: AdmissionRecord): Promise<{ fileName: string; blob: Blob }[]> {
+    const files = await contractFiles(record);
+    const form = await pdfOf(formKey(record.id, "INITIALE"));
+    if (form) files.push({ fileName: departementFormFileName(structureName, record, new Date(record.signedAt)), blob: form });
+    const change = await pdfOf(formKey(record.id, "CHANGEMENT"));
+    if (change) files.push({ fileName: changeFormFileName(structureName, record, new Date(record.signedAt)), blob: change });
+    const devisFile = record.devis ? await pdfOf(devisKey(record.id)) : null;
+    if (record.devis && devisFile) files.push({ fileName: record.devis.fileName, blob: devisFile });
+    return files;
+  }
+
+  // Un dossier par personne (30/10/2026) : DIPEC/<NOM-Prenom>/…, l'index à la racine.
+  async function zipOf(selection: readonly AdmissionRecord[], withIndex: boolean): Promise<Blob> {
+    const folders = admissionFolders(records);
     const files: { name: string; data: Uint8Array; modifiedAt: Date }[] = [];
-    for (const record of records) {
-      for (const file of await contractFiles(record)) {
-        files.push({ name: file.fileName, data: new Uint8Array(await file.blob.arrayBuffer()), modifiedAt: new Date(record.signedAt) });
+    for (const record of selection) {
+      const folder = folders.get(record.personId) ?? "Personne";
+      for (const file of await recordFiles(record)) {
+        files.push({ name: admissionExportPath(folder, file.fileName), data: new Uint8Array(await file.blob.arrayBuffer()), modifiedAt: new Date(record.signedAt) });
       }
-      const form = await pdfOf(formKey(record.id, "INITIALE"));
-      if (form) files.push({ name: departementFormFileName(structureName, record, new Date(record.signedAt)), data: new Uint8Array(await form.arrayBuffer()), modifiedAt: today });
-      const change = await pdfOf(formKey(record.id, "CHANGEMENT"));
-      if (change) files.push({ name: changeFormFileName(structureName, record, today), data: new Uint8Array(await change.arrayBuffer()), modifiedAt: today });
     }
-    files.push({ name: "index-des-contrats.csv", data: new TextEncoder().encode(buildAdmissionsCsv(records)), modifiedAt: today });
-    downloadBlob(admissionArchiveFileName(structureName, today), new Blob([buildStoredZip(files) as BlobPart], { type: "application/zip" }));
-    setFlash(`${records.length} dossier${records.length > 1 ? "s" : ""} exporté${records.length > 1 ? "s" : ""} (contrats signés, refus, formulaires du Département) avec l'index. Rangez le fichier dans Ximi ou sur le serveur de la structure.`);
+    if (withIndex) files.push({ name: `${ADMISSION_EXPORT_ROOT}/index-des-contrats.csv`, data: new TextEncoder().encode(buildAdmissionsCsv(selection)), modifiedAt: today });
+    return new Blob([buildStoredZip(files) as BlobPart], { type: "application/zip" });
+  }
+
+  async function exportAll() {
+    downloadBlob(admissionArchiveFileName(structureName, today), await zipOf(records, true));
+    const people = admissionFolders(records).size;
+    setFlash(`${people} dossier${people > 1 ? "s" : ""} exporté${people > 1 ? "s" : ""}, un par personne (contrats, refus, formulaires, devis), avec l'index. Rangez le fichier dans Ximi ou sur le serveur de la structure.`);
   }
 
   if (!loaded || !rosterLoaded || !dipcSha || word === undefined) return <p role="status">Chargement du contrat…</p>;
+
+  if (screen.kind === "dossier") {
+    return (
+      <PersonDossier
+        name={screen.name}
+        records={sortAdmissions(records.filter((r) => r.personId === screen.personId))}
+        recordFiles={recordFiles}
+        zip={(selection) => zipOf(selection, false)}
+        zipName={`${admissionFolders(records).get(screen.personId) ?? "Personne"}.zip`}
+        onBack={() => go({ kind: "home" })}
+      />
+    );
+  }
 
   if (screen.kind === "form") {
     const { record, back } = screen;
@@ -276,12 +321,15 @@ export function TabletAdmission({ establishmentId, structureName, structureAddre
           <UserPlus className="h-6 w-6" aria-hidden="true" />
           Accueillir une nouvelle personne
         </button>
-        <button type="button" className={TABLET_SECONDARY} onClick={() => setImporting(true)}>
-          <FileUp className="h-6 w-6" aria-hidden="true" />
-          Importer la liste (Ximi, Excel)
-        </button>
+        {canRoster && (
+          <button type="button" className={TABLET_SECONDARY} onClick={() => setImporting(true)}>
+            <FileUp className="h-6 w-6" aria-hidden="true" />
+            Importer la liste (Ximi, Excel)
+          </button>
+        )}
       </div>
 
+      {canExport && (
       <div className="flex flex-col gap-3 rounded-2xl border border-line bg-card p-5">
         <p className="text-[19px]">
           <span className="font-bold">{records.length} contrat{records.length > 1 ? "s" : ""}</span> signé{records.length > 1 ? "s" : ""} sur cette tablette.
@@ -289,10 +337,11 @@ export function TabletAdmission({ establishmentId, structureName, structureAddre
         </p>
         <button type="button" className={cn(TABLET_SECONDARY, "w-fit")} onClick={() => void exportAll()} disabled={records.length === 0}>
           <Download className="h-6 w-6" aria-hidden="true" />
-          Exporter tous les contrats
+          Exporter tous les contrats (un dossier par personne)
         </button>
         {flash && <p className="text-[18px]">{flash}</p>}
       </div>
+      )}
 
       <label className="relative flex items-center">
         <Search className="pointer-events-none absolute left-4 h-6 w-6 text-ink2" aria-hidden="true" />
@@ -309,8 +358,12 @@ export function TabletAdmission({ establishmentId, structureName, structureAddre
               <span className="min-w-[12rem] flex-1 text-[21px] font-bold">{displayName(person)}</span>
               <span className={cn("rounded-full border-2 px-3 py-1 text-[16px] font-bold", tone)}>{state.label}</span>
               {record?.trustedPerson?.presence === "ABSENTE" && <span className="text-[16px] text-ink2">Personne de confiance : cosignature à recueillir</span>}
-              {record && (
+              {record && canPast && (
                 <>
+                  <button type="button" className={TABLET_SECONDARY} onClick={() => go({ kind: "dossier", personId: person.id, name: displayName(person) })}>
+                    <FolderOpen className="h-5 w-5" aria-hidden="true" />
+                    Dossier
+                  </button>
                   <button type="button" className={TABLET_SECONDARY} onClick={() => void openPdf(record, "share")}>
                     Envoyer
                   </button>

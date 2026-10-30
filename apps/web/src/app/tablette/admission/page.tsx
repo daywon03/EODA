@@ -32,6 +32,7 @@ export default async function TabletAdmissionPage() {
             structureAddress={structureAddress}
             staffName={session.staffDisplayName}
             sheets={sheets}
+            tabletRole={session.tabletRole}
             dipc={{ versionId: dipc.versionId, versionNumber: dipc.versionNumber, validatedOn: dipc.validatedOn, text: dipc.text, hasWord: dipc.hasWord }}
           />
         ) : (

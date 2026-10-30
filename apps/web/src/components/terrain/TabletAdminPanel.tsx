@@ -7,7 +7,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ConfirmActionButton } from "@/components/ui/confirm-action-button";
 import { submitWithoutReset } from "@/lib/forms/submit-without-reset";
-import { enrollThisDevice, revokeDevice, setStaffPin, unlockStaffPin, type TabletAdminView } from "@/lib/actions/tablet";
+import { enrollThisDevice, revokeDevice, setStaffPin, setStaffTabletRole, unlockStaffPin, type TabletAdminView } from "@/lib/actions/tablet";
+import { TABLET_ROLE_LABELS, TABLET_ROLES } from "@/lib/services/tablet-role-service";
+import type { TabletRole } from "@eoda/database";
 import { formatDate } from "@/lib/services/date-format-service";
 
 // Tablettes et codes des intervenants (décision 7) : la direction enregistre CET
@@ -50,6 +52,45 @@ function PinForm({ establishmentId, staffId, name }: { establishmentId: string; 
 }
 
 const PIN_LABEL = { AUCUN: "Pas de code", ACTIF: "Code actif", BLOQUE: "Code bloqué" } as const;
+
+// Ce que ce salarié peut faire sur la tablette (30/10/2026) : l'intervenant fait
+// signer et passe les enquêtes ; l'administrateur voit aussi les dossiers et exporte.
+function TabletRoleSelect({ establishmentId, staffId, name, role }: { establishmentId: string; staffId: string; name: string; role: TabletRole }) {
+  const router = useRouter();
+  const [error, setError] = useState<string | null>(null);
+  const [pending, setPending] = useState(false);
+  return (
+    <span className="flex flex-col gap-1">
+      <select
+        value={role}
+        disabled={pending}
+        aria-label={`Rôle de ${name} sur la tablette`}
+        title={TABLET_ROLE_LABELS[role].description}
+        className="h-11 rounded-md border border-line bg-card px-2 text-ink"
+        onChange={(e) => {
+          setError(null);
+          setPending(true);
+          const data = new FormData();
+          data.set("establishmentId", establishmentId);
+          data.set("staffMemberId", staffId);
+          data.set("tabletRole", e.target.value);
+          void setStaffTabletRole(data).then((result) => {
+            setPending(false);
+            if ("error" in result) setError(result.error);
+            else router.refresh();
+          });
+        }}
+      >
+        {TABLET_ROLES.map((value) => (
+          <option key={value} value={value}>
+            {TABLET_ROLE_LABELS[value].label}
+          </option>
+        ))}
+      </select>
+      {error && <span role="alert" className="text-sm font-bold text-danger-text">{error}</span>}
+    </span>
+  );
+}
 
 export function TabletAdminPanel({ establishmentId, view }: { establishmentId: string; view: TabletAdminView }) {
   const [enrollState, enrollAction, enrolling] = useFormAction(enrollThisDevice);
@@ -115,7 +156,11 @@ export function TabletAdminPanel({ establishmentId, view }: { establishmentId: s
       </div>
 
       <div className="flex flex-col gap-2">
-        <h3 className="text-lg font-bold">Codes des intervenants</h3>
+        <h3 className="text-lg font-bold">Codes et rôles des salariés</h3>
+        <p className="max-w-[70ch] text-ink2">
+          <strong>Intervenant</strong> : {TABLET_ROLE_LABELS.INTERVENANT.description} <strong>Administrateur</strong> :{" "}
+          {TABLET_ROLE_LABELS.ADMINISTRATEUR.description}
+        </p>
         {view.staff.length === 0 ? (
           <p className="text-ink2">Ajoutez d&apos;abord l&apos;équipe dans « Mon équipe ».</p>
         ) : (
@@ -126,6 +171,7 @@ export function TabletAdminPanel({ establishmentId, view }: { establishmentId: s
                   <span className="min-w-[10rem] flex-1">
                     <span className="font-bold">{member.displayName}</span> <span className="text-ink2">· {member.jobTitle}</span>
                   </span>
+                  <TabletRoleSelect establishmentId={establishmentId} staffId={member.id} name={member.displayName} role={member.tabletRole} />
                   <span className={member.pin === "BLOQUE" ? "font-bold text-danger-text" : "text-ink2"}>{PIN_LABEL[member.pin]}</span>
                   {member.pin === "BLOQUE" && (
                     <ConfirmActionButton

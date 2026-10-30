@@ -28,6 +28,7 @@ const record: AdmissionRecord = {
   refusal: null,
   trustedPerson: null,
   word: null,
+  devis: null,
 };
 const structure = { name: "SAD Fictif", address: "1 avenue Fictive – 93000 Ville" };
 const base = { record, structure, certifies: true, acceptsTransmission: true, signedOn: new Date("2026-10-27T10:00:00Z"), withSignature: true };

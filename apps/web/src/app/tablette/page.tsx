@@ -9,6 +9,7 @@ import { HdsLockedNotice } from "@/components/terrain/HdsLockedNotice";
 import { TabletHeader, TabletMain } from "@/components/tablet/TabletHeader";
 import { TabletSignIn } from "@/components/tablet/TabletSignIn";
 import { TABLET_PRIMARY, TABLET_SECONDARY } from "@/components/tablet/tablet-ui";
+import { TABLET_ROLE_LABELS } from "@/lib/services/tablet-role-service";
 
 export const metadata: Metadata = { title: "Tablette terrain", robots: { index: false, follow: false } };
 
@@ -48,6 +49,11 @@ export default async function TabletPage() {
         {session && (
           <div className="flex flex-col gap-6">
             <h1 className="text-[36px] font-bold">Bonjour {firstNameOf(session.staffDisplayName) ?? session.staffDisplayName}.</h1>
+            {/* Le rôle posé par la direction (30/10/2026) : chacun sait ce qu'il peut faire. */}
+            <p className="text-[19px] text-ink2">
+              Vous êtes <span className="font-bold text-ink">{TABLET_ROLE_LABELS[session.tabletRole].label}</span> sur cette tablette :{" "}
+              {TABLET_ROLE_LABELS[session.tabletRole].description.charAt(0).toLowerCase() + TABLET_ROLE_LABELS[session.tabletRole].description.slice(1)}
+            </p>
             {/* L'enquête fonctionne dès maintenant : le serveur ne garde aucune donnée
                 de personne (21/10/2026) ; la liste des noms reste dans la tablette
                 (22/10/2026). */}
