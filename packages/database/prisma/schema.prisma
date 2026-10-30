@@ -1981,6 +1981,7 @@ enum AuditAction {
   DEVICE_REVOKED
   STAFF_PIN_SET
   STAFF_PIN_UNLOCKED
+  STAFF_TABLET_ROLE_SET
   TABLET_SIGN_IN_FAILED
   TABLET_PIN_LOCKED
   TABLET_SIGNED_IN
@@ -2492,6 +2493,10 @@ model StaffMember {
   establishmentId String    @map("establishment_id")
   displayName     String    @map("display_name")
   jobTitle        String    @map("job_title")
+  // Ce que ce salarié peut faire sur la TABLETTE (30/10/2026) : l'intervenant fait
+  // signer les nouveaux contrats et passe les enquêtes, rien d'autre ; l'administrateur
+  // voit aussi les contrats déjà faits, exporte, importe la liste. Posé par la direction.
+  tabletRole      TabletRole @default(INTERVENANT) @map("tablet_role")
   email           String?
   phone           String?
   userId          String?   @map("user_id")
@@ -2986,4 +2991,10 @@ model StaffPin {
 
   @@index([setByUserId])
   @@map("staff_pins")
+}
+
+// Rôle d'un salarié sur la tablette (30/10/2026) — voir StaffMember.tabletRole.
+enum TabletRole {
+  ADMINISTRATEUR
+  INTERVENANT
 }

@@ -260,3 +260,62 @@ describe("archive .docx", () => {
     expect(pngSize(enc("pas un png, pas du tout"))).toBeNull();
   });
 });
+
+describe("devis dans l'annexe 1 (30/10/2026)", () => {
+  // Forme du vrai DIPEC : le titre « ANNEXE 1 – DEVIS CI-JOINT » suivi directement de
+  // l'annexe 2 ; la même ligne existe au sommaire (style TM1), qui ne compte pas.
+  const withAnnex = [
+    '<?xml version="1.0"?><w:document xmlns:w="w" xmlns:wp="wp" xmlns:r="r" xmlns:w14="w14"><w:body>',
+    p(run("ANNEXE 1 – DEVIS CI-JOINT 11"), style("TM1")),
+    p(run("Les conditions financières sont fixées conformément au devis annexé (annexe 1).")),
+    p(run("ANNEXE 1 – DEVIS CI-JOINT"), style("Titre1")),
+    // La place laissée pour agrafer le devis papier : des lignes vides.
+    p(""),
+    p(""),
+    p('<w:r><w:br w:type="page"/></w:r>'),
+    p(run("ANNEXE 2 - INFORMATION ET FORMULAIRE DE RETRACTATION"), style("Titre1")),
+    p(run("Vous avez le droit de vous rétracter.")),
+    "</w:body></w:document>",
+  ].join("");
+  const annexPlan = planDipecWord(withAnnex);
+  const base = { documentXml: withAnnex, plan: annexPlan, values, entries: {}, trustedDesignated: false, rhythm: "", signatures: {} };
+
+  it("repère le TITRE de l'annexe, ni la ligne du sommaire ni le renvoi du corps", () => {
+    expect(annexPlan.devisAfter).toBe(2);
+  });
+
+  it("les lignes vides laissées pour le papier sont repérées ; un saut de page n'en fait jamais partie", () => {
+    expect(annexPlan.devisBlankParagraphs).toEqual([3, 4]);
+  });
+
+  it("devis posé : les lignes vides partent, un saut de page garde l'annexe 2 sur sa page", () => {
+    const filled = fillDipecWord({ ...base, devis: { caption: "Devis.", pages: [PNG] } });
+    const paragraphs = readParagraphs(filled.documentXml);
+    const title = paragraphs.findIndex((q) => q.raw === "ANNEXE 1 – DEVIS CI-JOINT");
+    // titre, légende, page, saut de page ajouté, saut de page d'origine, annexe 2
+    expect(paragraphs.slice(title, title + 6).map((q) => (q.raw ? q.raw : /w:type="page"/.test(q.xml) ? "[saut]" : /rIdEodaDevis/.test(q.xml) ? "[page]" : "[vide]"))).toEqual([
+      "ANNEXE 1 – DEVIS CI-JOINT",
+      "Devis.",
+      "[page]",
+      "[saut]",
+      "[saut]",
+      "ANNEXE 2 - INFORMATION ET FORMULAIRE DE RETRACTATION",
+    ]);
+  });
+
+  it("pose la légende puis chaque page sous le titre, avant l'annexe 2", () => {
+    const filled = fillDipecWord({ ...base, devis: { caption: "Devis remis à la personne, joint le 30/10/2026 — 2 pages.", pages: [PNG, PNG] } });
+    expect(filled.images.map((i) => i.relId)).toEqual(["rIdEodaDevis1", "rIdEodaDevis2"]);
+    const texts = textOf(filled.documentXml);
+    const title = texts.indexOf("ANNEXE 1 – DEVIS CI-JOINT");
+    expect(texts[title + 1]).toBe("Devis remis à la personne, joint le 30/10/2026 — 2 pages.");
+    expect(filled.documentXml.indexOf('r:embed="rIdEodaDevis2"')).toBeLessThan(filled.documentXml.indexOf("ANNEXE 2 - INFORMATION"));
+  });
+
+  it("sans devis, ou sans annexe 1 dans le Word, rien n'est ajouté", () => {
+    expect(fillDipecWord(base).images).toEqual([]);
+    expect(fillDipecWord({ ...base, devis: null }).documentXml).toBe(withAnnex);
+    const noAnnex = fillDipecWord({ documentXml: DOC, plan, values, entries, trustedDesignated: false, rhythm: "", signatures: {}, devis: { caption: "x", pages: [PNG] } });
+    expect(noAnnex.images).toEqual([]);
+  });
+});

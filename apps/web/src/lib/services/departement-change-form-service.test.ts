@@ -36,6 +36,7 @@ const record: AdmissionRecord = {
   refusal: null,
   trustedPerson: null,
   word: null,
+  devis: null,
 };
 const structure = { name: "SAD Fictif", address: "1 avenue Fictive" };
 const today = new Date("2026-10-27T10:00:00Z");

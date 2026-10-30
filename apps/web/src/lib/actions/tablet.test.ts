@@ -7,7 +7,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const prismaMock = {
   establishment: { findUniqueOrThrow: vi.fn() },
   deviceEnrollment: { create: vi.fn(), updateMany: vi.fn(), update: vi.fn(), findMany: vi.fn() },
-  staffMember: { findFirst: vi.fn(), findMany: vi.fn() },
+  staffMember: { findFirst: vi.fn(), findMany: vi.fn(), update: vi.fn() },
   staffPin: { upsert: vi.fn(), updateMany: vi.fn(), update: vi.fn(), findUniqueOrThrow: vi.fn() },
 };
 const consumeThrottledAttempt = vi.fn();
@@ -33,7 +33,7 @@ vi.mock("@/lib/config/env", async (importOriginal) => ({
   getEnv: () => ({ authSecret: "a".repeat(32), isProduction: true }),
 }));
 
-const { enrollThisDevice, getTabletAdmin, revokeDevice, setStaffPin, tabletSignIn, tabletSignOut, unlockStaffPin } = await import("./tablet");
+const { enrollThisDevice, getTabletAdmin, revokeDevice, setStaffPin, setStaffTabletRole, tabletSignIn, tabletSignOut, unlockStaffPin } = await import("./tablet");
 const { hashPin } = await import("@/lib/security/tablet-pin");
 const { DEVICE_COOKIE, TABLET_SESSION_COOKIE } = await import("@/lib/security/tablet-session");
 
@@ -153,6 +153,19 @@ describe("appareils et codes — côté structure", () => {
     expect(upsert.update).toMatchObject({ failedAttempts: 0, lockedAt: null });
     prismaMock.staffMember.findFirst.mockResolvedValue(null);
     expect(await setStaffPin(form({ establishmentId: "etab-1", staffMemberId: "autre", pin: "284719" }))).toEqual({ error: "Salarié introuvable." });
+  });
+
+  it("rôle sur la tablette (30/10/2026) : posé par la structure, pour SON salarié, rôle connu seulement, journalisé", async () => {
+    prismaMock.staffMember.update.mockResolvedValue({});
+    expect(await setStaffTabletRole(form({ establishmentId: "etab-1", staffMemberId: "staff-1", tabletRole: "ADMINISTRATEUR" }))).toEqual({ ok: true });
+    expect(prismaMock.staffMember.findFirst.mock.calls[0]![0].where).toEqual({ id: "staff-1", establishmentId: "etab-1", active: true });
+    expect(prismaMock.staffMember.update).toHaveBeenCalledWith({ where: { id: "staff-1" }, data: { tabletRole: "ADMINISTRATEUR" } });
+    expect(audit).toHaveBeenCalledWith(expect.objectContaining({ action: "STAFF_TABLET_ROLE_SET", targetId: "staff-1", detail: "ADMINISTRATEUR" }));
+    expect(await setStaffTabletRole(form({ establishmentId: "etab-1", staffMemberId: "staff-1", tabletRole: "SUPER_ADMIN" }))).toEqual({ error: "Rôle inconnu." });
+    prismaMock.staffMember.findFirst.mockResolvedValue(null);
+    expect(await setStaffTabletRole(form({ establishmentId: "etab-1", staffMemberId: "autre", tabletRole: "INTERVENANT" }))).toEqual({ error: "Salarié introuvable." });
+    guards.requireEstablishmentAccess.mockResolvedValue({ ...CLIENT_ACCESS, isClient: false });
+    await expect(setStaffTabletRole(form({ establishmentId: "etab-1", staffMemberId: "staff-1", tabletRole: "INTERVENANT" }))).rejects.toBeInstanceOf(NotFoundError);
   });
 
   it("débloque un code, retire un appareil — dans le périmètre seulement", async () => {

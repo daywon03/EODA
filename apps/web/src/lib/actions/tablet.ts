@@ -13,6 +13,8 @@ import { decidePinAttempt, hashPin, MAX_PIN_FAILURES, pinFormatError, pinMatches
 import { consumeThrottledAttempt } from "@/lib/security/attempt-throttle";
 import { createTabletSessionToken, DEVICE_COOKIE, pinStamp, TABLET_SESSION_COOKIE, TABLET_SESSION_MINUTES, tabletSessionExpiry } from "@/lib/security/tablet-session";
 import { requiredString } from "@/lib/validation/form-parsers";
+import { isTabletRole } from "@/lib/services/tablet-role-service";
+import type { TabletRole } from "@eoda/database";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TABLETTE — appareils, codes, connexion (lot C, décision 7). Données de SALARIÉS,
@@ -48,7 +50,7 @@ function secureCookie(maxAgeSeconds: number) {
 
 export type TabletAdminView = {
   devices: { id: string; label: string; enrolledAt: Date; isThisDevice: boolean }[];
-  staff: { id: string; displayName: string; jobTitle: string; pin: "AUCUN" | "ACTIF" | "BLOQUE" }[];
+  staff: { id: string; displayName: string; jobTitle: string; pin: "AUCUN" | "ACTIF" | "BLOQUE"; tabletRole: TabletRole }[];
 };
 
 export async function getTabletAdmin(establishmentId: string): Promise<TabletAdminView> {
@@ -62,7 +64,7 @@ export async function getTabletAdmin(establishmentId: string): Promise<TabletAdm
     }),
     prisma.staffMember.findMany({
       where: { establishmentId: access.establishmentId, active: true },
-      select: { id: true, displayName: true, jobTitle: true, pin: { select: { lockedAt: true } } },
+      select: { id: true, displayName: true, jobTitle: true, tabletRole: true, pin: { select: { lockedAt: true } } },
       orderBy: { displayName: "asc" },
     }),
   ]);
@@ -73,6 +75,7 @@ export async function getTabletAdmin(establishmentId: string): Promise<TabletAdm
       displayName: s.displayName,
       jobTitle: s.jobTitle,
       pin: !s.pin ? "AUCUN" : s.pin.lockedAt ? "BLOQUE" : "ACTIF",
+      tabletRole: s.tabletRole,
     })),
   };
 }
@@ -141,6 +144,20 @@ export async function unlockStaffPin(formData: FormData): Promise<Result> {
   const updated = await prisma.staffPin.updateMany({ where: { staffMemberId: staff.id }, data: unlockedPinState() });
   if (updated.count === 0) return { error: "Ce salarié n'a pas encore de code." };
   await recordAuditEvent({ action: "STAFF_PIN_UNLOCKED", actorUserId: access.userId, actorRole: access.session.user.role, establishmentId: access.establishmentId, targetId: staff.id });
+  revalidateTablet();
+  return { ok: true };
+}
+
+// Rôle d'un salarié sur la tablette (30/10/2026) : posé par la direction (ou la
+// responsable qualité), qui gère les tablettes. Le rôle reçu est une entrée non fiable.
+export async function setStaffTabletRole(formData: FormData): Promise<Result> {
+  const access = await requireTerrainWriter(formData.get("establishmentId"));
+  const staff = await staffOf(access, formData.get("staffMemberId"));
+  if (!staff) return { error: "Salarié introuvable." };
+  const role = formData.get("tabletRole");
+  if (!isTabletRole(role)) return { error: "Rôle inconnu." };
+  await prisma.staffMember.update({ where: { id: staff.id }, data: { tabletRole: role } });
+  await recordAuditEvent({ action: "STAFF_TABLET_ROLE_SET", actorUserId: access.userId, actorRole: access.session.user.role, establishmentId: access.establishmentId, targetId: staff.id, detail: role });
   revalidateTablet();
   return { ok: true };
 }

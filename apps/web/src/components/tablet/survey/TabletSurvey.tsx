@@ -40,7 +40,10 @@ export function TabletSurvey({
   listedNotice,
   anonymousNotice,
   initialPersonId = null,
+  canManage,
 }: {
+  // Administrateur de la tablette : importe, exporte, efface la liste (30/10/2026).
+  canManage: boolean;
   templates: AnonymousSurveyTemplateView[];
   establishmentId: string;
   structureName: string;
@@ -208,6 +211,7 @@ export function TabletSurvey({
         </p>
       )}
       <RosterHome
+        canManage={canManage}
         roster={roster}
         structureName={structureName}
         storageWorks={storageWorks}
