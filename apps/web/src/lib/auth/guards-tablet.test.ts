@@ -6,11 +6,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const prismaMock = {
   deviceEnrollment: { findUnique: vi.fn() },
   staffMember: { findFirst: vi.fn() },
+  establishmentUser: { findMany: vi.fn() },
 };
+const authMock = vi.fn();
 const cookieJar = new Map<string, string>();
 
 vi.mock("@eoda/database", () => ({ prisma: prismaMock }));
-vi.mock("@/auth", () => ({ auth: vi.fn() }));
+vi.mock("@/auth", () => ({ auth: authMock }));
 vi.mock("next/navigation", () => ({ redirect: vi.fn(), notFound: vi.fn() }));
 vi.mock("next/headers", () => ({
   cookies: async () => ({ get: (name: string) => (cookieJar.has(name) ? { value: cookieJar.get(name) } : undefined) }),
@@ -94,6 +96,38 @@ describe("resolveTabletSession", () => {
     session();
     prismaMock.staffMember.findFirst.mockResolvedValue({ id: "staff-1", displayName: "Julien (fictif)", jobTitle: "Directrice", tabletRole: "INTERVENANT", pin: { lockedAt: null, pinHash: "hash-du-code" } });
     expect(await resolveTabletSession(NOW)).toMatchObject({ tabletRole: "ADMINISTRATEUR" });
+  });
+
+  it("la direction et la responsable qualité connectées au portail sur ce navigateur sont administrateur — relu en base, structure de l'appareil", async () => {
+    session();
+    prismaMock.establishmentUser.findMany.mockResolvedValue([]);
+    authMock.mockResolvedValue({ user: { id: "user-direction" } });
+    expect(await resolveTabletSession(NOW)).toMatchObject({ tabletRole: "INTERVENANT" });
+
+    for (const [accessRole, expected] of [["DIRECTION", "ADMINISTRATEUR"], ["RESPONSABLE_QUALITE", "ADMINISTRATEUR"], ["ADMINISTRATIF", "INTERVENANT"], ["INTERVENANT", "INTERVENANT"]] as const) {
+      session();
+      prismaMock.establishmentUser.findMany.mockResolvedValue([{ accessRole }]);
+      expect(await resolveTabletSession(NOW)).toMatchObject({ tabletRole: expected });
+    }
+    const where = prismaMock.establishmentUser.findMany.mock.calls.at(-1)![0].where;
+    expect(where).toEqual({ establishmentId: "etab-1", userId: { in: ["user-direction"] }, revokedAt: null, user: { isActive: true, role: "CLIENT_USER" } });
+  });
+
+  it("un salarié rattaché à un compte de direction est administrateur, même sans session du portail", async () => {
+    session();
+    authMock.mockResolvedValue(null);
+    prismaMock.staffMember.findFirst.mockResolvedValue({ id: "staff-1", displayName: "Julien (fictif)", jobTitle: "Coordinateur", tabletRole: "INTERVENANT", userId: "user-rq", pin: { lockedAt: null, pinHash: "hash-du-code" } });
+    prismaMock.establishmentUser.findMany.mockResolvedValue([{ accessRole: "RESPONSABLE_QUALITE" }]);
+    expect(await resolveTabletSession(NOW)).toMatchObject({ tabletRole: "ADMINISTRATEUR" });
+    expect(prismaMock.establishmentUser.findMany.mock.calls.at(-1)![0].where.userId).toEqual({ in: ["user-rq"] });
+  });
+
+  it("sans compte ni session du portail, aucune lecture des liens", async () => {
+    session();
+    authMock.mockResolvedValue(null);
+    prismaMock.establishmentUser.findMany.mockClear();
+    expect(await resolveTabletSession(NOW)).toMatchObject({ tabletRole: "INTERVENANT" });
+    expect(prismaMock.establishmentUser.findMany).not.toHaveBeenCalled();
   });
 
   it("jamais un code seul : sans appareil enregistré, la session ne vaut rien", async () => {
