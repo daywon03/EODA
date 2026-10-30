@@ -406,9 +406,20 @@ export const AWARENESS_SHEET_DOCUMENT_TYPES: readonly DocTypeSeed[] = [
   { code: "PA_FICHE_P5_DONNEES", category: "QUALITE_RISQUES", label: "Fiche de sensibilisation personne accompagnée — P5 Mes informations protégées" },
 ];
 
-// Les 72 types upsertés par le seed, dans l'ordre d'affichage.
+// PIÈCES DE LA STRUCTURE POUR LE DÉPARTEMENT (demande de Damon, 30/10/2026) : le
+// formulaire de désignation du SAD part avec un contrat RÉCAPITULATIF de quatre pages,
+// et porte le tampon de la structure dans la case « SAD ». Documents de la structure,
+// déposés par EODA sur sa liste, retrouvés par la tablette par leur code. Insérés en
+// base par 20261030110000_departement_document_types (même liste, test de concordance).
+export const DEPARTEMENT_DOCUMENT_TYPES: readonly DocTypeSeed[] = [
+  { code: "DEPARTEMENT_TAMPON", category: "FONCTIONNEMENT", label: "Tampon de la structure — posé sur le formulaire du Département" },
+  { code: "DEPARTEMENT_CONTRAT_RECAPITULATIF", category: "FONCTIONNEMENT", label: "Contrat récapitulatif — envoyé au Département avec le formulaire" },
+];
+
+// Les 74 types upsertés par le seed, dans l'ordre d'affichage.
 export const DOCUMENT_TYPE_SEEDS: readonly DocTypeSeed[] = [
   ...BASE_DOCUMENT_TYPES,
   ...PILOT_DOCUMENT_TYPES,
   ...AWARENESS_SHEET_DOCUMENT_TYPES,
+  ...DEPARTEMENT_DOCUMENT_TYPES,
 ];

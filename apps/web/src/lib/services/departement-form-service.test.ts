@@ -29,9 +29,12 @@ const record: AdmissionRecord = {
   trustedPerson: null,
   word: null,
   devis: null,
+  recap: null,
 };
 const structure = { name: "SAD Fictif", address: "1 avenue Fictive – 93000 Ville" };
-const base = { record, structure, certifies: true, acceptsTransmission: true, signedOn: new Date("2026-10-27T10:00:00Z"), withSignature: true };
+const base = { record, structure, certifies: true, acceptsTransmission: true, signedOn: new Date("2026-10-27T10:00:00Z"), withSignature: true, withStamp: false };
+const PNG_1X1 = Uint8Array.from(Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==", "base64"));
+
 
 const texts = (items: FormItem[], page: number) => items.filter((i): i is Extract<FormItem, { kind: "text" }> => i.kind === "text" && i.page === page).map((i) => i.text);
 const checks = (items: FormItem[], page: number) => items.filter((i) => i.kind === "check" && i.page === page).length;
@@ -55,6 +58,19 @@ describe("planDepartementForm", () => {
     expect(texts(items, 1)).toEqual(expect.arrayContaining(["SAD Fictif", "1 avenue Fictive – 93000 Ville", "02/11/2026", "22,5 h", "20 h", "2,5 h", "EXEMPLE", "Luc"]));
     expect(texts(items, 1).filter((t) => /^\d$/.test(t)).join("")).toBe("93150");
     expect(checks(items, 1)).toBe(1);
+  });
+
+  it("le tampon de la structure va dans la case « SAD 1 », sous l'adresse, centré — seulement s'il y en a un", () => {
+    expect(items.some((i) => i.kind === "image" && i.source === "stamp")).toBe(false);
+    const stamped = planDepartementForm({ ...base, withStamp: true }).filter((i) => i.kind === "image" && i.source === "stamp");
+    expect(stamped).toEqual([{ page: 1, kind: "image", source: "stamp", x: 86, y: 565, maxWidth: 186, maxHeight: 48, center: true }]);
+    // Dans la cellule mesurée (x 82 → 275, y 562,5 → 694,3), sous la troisième ligne
+    // d'adresse (y 643,9 − 2 × 12 ≈ 620, jambages compris ≈ 617).
+    const [s] = stamped as Extract<FormItem, { kind: "image" }>[];
+    expect(s!.x).toBeGreaterThan(82);
+    expect(s!.x + s!.maxWidth).toBeLessThan(275);
+    expect(s!.y).toBeGreaterThan(562.5);
+    expect(s!.y + s!.maxHeight).toBeLessThan(617);
   });
 
   it("hors APA, ni semaine ni dimanche (« Pour l'APA, préciser »)", () => {
@@ -101,6 +117,19 @@ describe("fillOfficialForm", () => {
   it("remplit les trois pages du formulaire officiel", async () => {
     const bytes = await fillOfficialForm({ officialPdf: official, officialSha256: DEPARTEMENT_FORM.sha256, actualSha256: sha, items: planDepartementForm({ ...base, withSignature: false }), signaturePng: null });
     expect((await PDFDocument.load(bytes)).getPageCount()).toBe(3);
+  });
+
+  it("pose la signature et le tampon quand ils sont fournis", async () => {
+    const bytes = await fillOfficialForm({
+      officialPdf: official,
+      officialSha256: DEPARTEMENT_FORM.sha256,
+      actualSha256: sha,
+      items: planDepartementForm({ ...base, withStamp: true }),
+      signaturePng: PNG_1X1,
+      stampPng: PNG_1X1,
+    });
+    const blank = await fillOfficialForm({ officialPdf: official, officialSha256: DEPARTEMENT_FORM.sha256, actualSha256: sha, items: planDepartementForm(base), signaturePng: null });
+    expect(bytes.length).toBeGreaterThan(blank.length);
   });
 
   it("refuse un autre formulaire que celui mesuré : il écrirait à côté des cases", async () => {

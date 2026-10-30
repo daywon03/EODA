@@ -146,6 +146,10 @@ export type AdmissionRecord = {
   // Le devis importé avant le contrat (30/10/2026), posé dans l'annexe 1 du Word et
   // gardé entier à côté. Absent sur un enregistrement antérieur.
   devis: { fileName: string; sha256: string; pageCount: number } | null;
+  // Le contrat récapitulatif de la structure (30/10/2026), rempli et signé en même
+  // temps : c'est lui qui part au Département avec le formulaire. Null : la structure
+  // n'en a pas de validé (le Word du DIPEC part à sa place), ou enregistrement antérieur.
+  recap: { fileName: string; sha256: string } | null;
 };
 
 export type AdmissionOutcome = "SIGNE" | "REFUS";
@@ -533,6 +537,11 @@ export function admissionDevisFileName(structureName: string, identity: Admissio
   return `${admissionFileStem(structureName, identity, signedAt, "DEVIS")}.${extension}`;
 }
 
+// Le contrat récapitulatif envoyé au Département (même convention de nommage).
+export function admissionRecapFileName(structureName: string, identity: AdmissionIdentity, signedAt: Date): string {
+  return `${admissionFileStem(structureName, identity, signedAt, "CONTRAT-RECAPITULATIF")}.docx`;
+}
+
 // Le contrat lui-même : le Word d'EODA, rempli et signé sur la tablette.
 export function admissionWordFileName(structureName: string, identity: AdmissionIdentity, signedAt: Date): string {
   return `${admissionFileStem(structureName, identity, signedAt, "DIPEC")}.docx`;
@@ -630,6 +639,7 @@ export const ADMISSION_EXPORT_HEADER = [
   "Fichier",
   "Empreinte SHA-256 du PDF",
   "Devis (annexe 1)",
+  "Contrat récapitulatif (Département)",
 ] as const;
 
 export function buildAdmissionsCsv(records: readonly AdmissionRecord[]): string {
@@ -655,6 +665,7 @@ export function buildAdmissionsCsv(records: readonly AdmissionRecord[]): string 
         r.pdfFileName,
         r.pdfSha256,
         r.devis?.fileName ?? "",
+        r.recap?.fileName ?? "",
       ]
         .map(csvCell)
         .join(";")
@@ -777,6 +788,7 @@ export function parseStoredAdmission(raw: unknown): AdmissionRecord | null {
     trustedPerson: parseTrustedPerson(o.trustedPerson),
     word: readWord(o.word),
     devis: readDevis(o.devis),
+    recap: readWord(o.recap),
   };
 }
 

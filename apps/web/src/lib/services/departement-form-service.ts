@@ -28,7 +28,9 @@ export const DEPARTEMENT_FORM = {
 export type FormItem =
   | { page: number; kind: "text"; x: number; y: number; text: string; maxWidth: number; maxLines?: number }
   | { page: number; kind: "check"; cx: number; y: number }
-  | { page: number; kind: "image"; x: number; y: number; maxWidth: number; maxHeight: number };
+  // Une image dans un cadre (origine en bas à gauche) : la signature, ou le tampon de
+  // la structure (30/10/2026), centré dans sa case.
+  | { page: number; kind: "image"; source: "signature" | "stamp"; x: number; y: number; maxWidth: number; maxHeight: number; center?: boolean };
 
 export type DepartementFormInput = {
   record: AdmissionRecord;
@@ -38,6 +40,9 @@ export type DepartementFormInput = {
   acceptsTransmission: boolean;
   signedOn: Date;
   withSignature: boolean;
+  // Le tampon de la structure dans la case « SAD » (30/10/2026) : seulement si la
+  // structure en a un, validé, et qu'on ne l'a pas retiré à l'écran.
+  withStamp: boolean;
 };
 
 // Positions des petites cases « _ » des dates et du code postal (x de début).
@@ -67,6 +72,10 @@ function check(page: number, wordX: number, y: number, on: boolean): FormItem[] 
 // Une case dont le centre est connu (mesuré directement quand le PDF expose le glyphe).
 export function box(page: number, cx: number, y: number, on: boolean): FormItem[] {
   return on ? [{ page, kind: "check", cx, y }] : [];
+}
+
+export function stamp(page: number, x: number, y: number, maxWidth: number, maxHeight: number, on: boolean): FormItem[] {
+  return on ? [{ page, kind: "image", source: "stamp", x, y, maxWidth, maxHeight, center: true }] : [];
 }
 
 export function hoursTotal(weekday: string, sunday: string): string {
@@ -109,13 +118,16 @@ function identityItems(r: AdmissionRecord): FormItem[] {
   ];
 }
 
-// Page 2 — le SAD désigné (la structure) et le proche à contacter.
-function serviceAndContactItems(r: AdmissionRecord, structure: DepartementFormInput["structure"]): FormItem[] {
+// Page 2 — le SAD désigné (la structure) et le proche à contacter. La cellule « SAD 1 »
+// va de y 562,5 à 694,3 (x 82 à 275) : le nom et l'adresse en haut, le tampon dans le
+// bas resté libre (sous la troisième ligne d'adresse, y ≈ 617).
+function serviceAndContactItems(r: AdmissionRecord, structure: DepartementFormInput["structure"], withStamp: boolean): FormItem[] {
   const c = r.contact;
   const apa = r.aid.kinds.includes("APA");
   return [
     ...text(1, 118, 681.6, structure.name, 155, 2),
     ...text(1, 131, 643.9, structure.address, 142, 3),
+    ...stamp(1, 86, 565, 186, 48, withStamp),
     ...text(1, 284, 655, r.aid.startDate ? frenchDay(r.aid.startDate) : "", 88),
     ...text(1, 382, 662.6, hoursTotal(r.aid.weekdayHours, r.aid.sundayHours), 165),
     // « Pour l'APA, préciser » : semaine et dimanche ne s'écrivent que pour l'APA.
@@ -165,7 +177,7 @@ function declarationItems(input: DepartementFormInput): FormItem[] {
     ...check(2, 47.6, 652.4, input.acceptsTransmission),
     ...text(2, 68, 598.3, frenchDay(dayOf(input.signedOn)), 150),
     // À droite du libellé, entre le bas du cadre (y ≈ 552) et la ligne « Date ».
-    ...(input.withSignature ? [{ page: 2, kind: "image" as const, x: 302, y: 556, maxWidth: 230, maxHeight: 36 }] : []),
+    ...(input.withSignature ? [{ page: 2, kind: "image" as const, source: "signature" as const, x: 302, y: 556, maxWidth: 230, maxHeight: 36 }] : []),
   ];
 }
 
@@ -178,7 +190,7 @@ export function departementFormSigner(record: Pick<AdmissionRecord, "contact">):
 }
 
 export function planDepartementForm(input: DepartementFormInput): FormItem[] {
-  return [...identityItems(input.record), ...serviceAndContactItems(input.record, input.structure), ...declarationItems(input)];
+  return [...identityItems(input.record), ...serviceAndContactItems(input.record, input.structure, input.withStamp), ...declarationItems(input)];
 }
 
 // Ce qui manque au formulaire, dit avant de le fabriquer (rien n'est bloquant :

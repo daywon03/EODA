@@ -1,4 +1,4 @@
-import { AWARENESS_SHEET_DOCUMENT_TYPES } from "@eoda/database/document-types";
+import { AWARENESS_SHEET_DOCUMENT_TYPES, DEPARTEMENT_DOCUMENT_TYPES } from "@eoda/database/document-types";
 import { pickValidatedVersion, type TabletDipcVersionFacts } from "./tablet-dipc-service";
 import type { TabletAwarenessSheet } from "./awareness-sheet-links";
 
@@ -15,18 +15,22 @@ import type { TabletAwarenessSheet } from "./awareness-sheet-links";
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const AWARENESS_SHEET_CODES: readonly string[] = AWARENESS_SHEET_DOCUMENT_TYPES.map((t) => t.code);
+// Le tampon et le contrat récapitulatif du Département (30/10/2026) suivent la MÊME
+// règle et passent par la même route : documents institutionnels de la structure.
+export const DEPARTEMENT_DOCUMENT_CODES: readonly string[] = DEPARTEMENT_DOCUMENT_TYPES.map((t) => t.code);
+export const TABLET_STRUCTURE_DOCUMENT_CODES: readonly string[] = [...AWARENESS_SHEET_CODES, ...DEPARTEMENT_DOCUMENT_CODES];
 
 export type AwarenessSheetVersionFacts = Pick<TabletDipcVersionFacts, "id" | "versionNumber" | "uploadedAt" | "producedByCabinet"> & {
   originalFilename: string;
 };
 
-// Fiche montrable par code de type ; un code absent = pas de fiche validée.
-export function selectAwarenessSheets(
+// Document montrable par code de type ; un code absent = pas de document validé.
+export function selectTabletStructureDocuments(
   documents: readonly { code: string; validatedAt: Date | null; versions: readonly AwarenessSheetVersionFacts[] }[]
 ): Record<string, TabletAwarenessSheet> {
   const sheets: Record<string, TabletAwarenessSheet> = {};
   for (const document of documents) {
-    if (!AWARENESS_SHEET_CODES.includes(document.code)) continue;
+    if (!TABLET_STRUCTURE_DOCUMENT_CODES.includes(document.code)) continue;
     const pick = pickValidatedVersion(document);
     if (pick.status === "READY") {
       sheets[document.code] = { versionId: pick.chosen.id, originalFilename: pick.chosen.originalFilename };

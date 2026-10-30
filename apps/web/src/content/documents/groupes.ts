@@ -94,6 +94,9 @@ export const DOCUMENT_GROUP_CODES: Readonly<Record<DocumentGroupId, readonly str
     "PA_FICHE_P3_MALTRAITANCE",
     "PA_FICHE_P4_GESTION_CRISE",
     "PA_FICHE_P5_DONNEES",
+    // Pièces de la structure pour le formulaire du Département (30/10/2026).
+    "DEPARTEMENT_CONTRAT_RECAPITULATIF",
+    "DEPARTEMENT_TAMPON",
   ],
   REGISTRES: ["P12_REGISTRE", "P13_TABLEAU_SUIVI", "P11_SIGNALEMENTS_TRACES", "P22_REGISTRE_TRAITEMENTS"],
   RESSOURCES_HUMAINES: [
