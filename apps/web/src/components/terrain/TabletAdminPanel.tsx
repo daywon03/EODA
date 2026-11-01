@@ -171,7 +171,11 @@ export function TabletAdminPanel({ establishmentId, view }: { establishmentId: s
                   <span className="min-w-[10rem] flex-1">
                     <span className="font-bold">{member.displayName}</span> <span className="text-ink2">· {member.jobTitle}</span>
                   </span>
-                  <TabletRoleSelect establishmentId={establishmentId} staffId={member.id} name={member.displayName} role={member.tabletRole} />
+                  {member.byDirection ? (
+                    <span className="font-bold" title="La direction est toujours administrateur sur la tablette.">Administrateur (direction)</span>
+                  ) : (
+                    <TabletRoleSelect establishmentId={establishmentId} staffId={member.id} name={member.displayName} role={member.tabletRole} />
+                  )}
                   <span className={member.pin === "BLOQUE" ? "font-bold text-danger-text" : "text-ink2"}>{PIN_LABEL[member.pin]}</span>
                   {member.pin === "BLOQUE" && (
                     <ConfirmActionButton

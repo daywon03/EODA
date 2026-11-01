@@ -13,7 +13,7 @@ import { decidePinAttempt, hashPin, MAX_PIN_FAILURES, pinFormatError, pinMatches
 import { consumeThrottledAttempt } from "@/lib/security/attempt-throttle";
 import { createTabletSessionToken, DEVICE_COOKIE, pinStamp, TABLET_SESSION_COOKIE, TABLET_SESSION_MINUTES, tabletSessionExpiry } from "@/lib/security/tablet-session";
 import { requiredString } from "@/lib/validation/form-parsers";
-import { isTabletRole } from "@/lib/services/tablet-role-service";
+import { effectiveTabletRole, isDirectionJobTitle, isTabletRole } from "@/lib/services/tablet-role-service";
 import type { TabletRole } from "@eoda/database";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -50,7 +50,8 @@ function secureCookie(maxAgeSeconds: number) {
 
 export type TabletAdminView = {
   devices: { id: string; label: string; enrolledAt: Date; isThisDevice: boolean }[];
-  staff: { id: string; displayName: string; jobTitle: string; pin: "AUCUN" | "ACTIF" | "BLOQUE"; tabletRole: TabletRole }[];
+  // `byDirection` : directrice ou directeur, administrateur d'office (rôle non modifiable).
+  staff: { id: string; displayName: string; jobTitle: string; pin: "AUCUN" | "ACTIF" | "BLOQUE"; tabletRole: TabletRole; byDirection: boolean }[];
 };
 
 export async function getTabletAdmin(establishmentId: string): Promise<TabletAdminView> {
@@ -75,7 +76,8 @@ export async function getTabletAdmin(establishmentId: string): Promise<TabletAdm
       displayName: s.displayName,
       jobTitle: s.jobTitle,
       pin: !s.pin ? "AUCUN" : s.pin.lockedAt ? "BLOQUE" : "ACTIF",
-      tabletRole: s.tabletRole,
+      tabletRole: effectiveTabletRole(s),
+      byDirection: isDirectionJobTitle(s.jobTitle),
     })),
   };
 }

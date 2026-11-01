@@ -44,3 +44,18 @@ export const TABLET_ROLE_LABELS: Record<TabletRole, { label: string; description
   },
   INTERVENANT: { label: "Intervenant", description: "Fait signer les nouveaux contrats et passe les enquêtes, rien d'autre." },
 };
+
+// La DIRECTION est toujours administrateur sur la tablette (demande de Damon,
+// 30/10/2026 : « il faut que les directeurs soient admin »). Le salarié de la tablette
+// n'a pas de compte du portail : on le reconnaît à son MÉTIER (« Mon équipe ») —
+// directeur, directrice, direction, adjoint compris. Le rôle se DÉRIVE à chaque
+// requête : il ne peut pas être retiré par erreur, ni oublié à l'arrivée d'une
+// nouvelle directrice.
+export function isDirectionJobTitle(jobTitle: string): boolean {
+  const plain = jobTitle.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+  return /\bdirect(?:eur|rice|ion)\b/.test(plain);
+}
+
+export function effectiveTabletRole(staff: { tabletRole: TabletRole; jobTitle: string }): TabletRole {
+  return isDirectionJobTitle(staff.jobTitle) ? "ADMINISTRATEUR" : staff.tabletRole;
+}

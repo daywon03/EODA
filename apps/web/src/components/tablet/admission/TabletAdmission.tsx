@@ -357,6 +357,14 @@ export function TabletAdmission({ establishmentId, structureName, structureAddre
         )}
       </div>
 
+      {/* 30/10/2026 : un intervenant ne revoit pas les contrats déjà faits (rôle tablette).
+          On le DIT, plutôt que de laisser des boutons disparaître sans explication. */}
+      {!canPast && records.length > 0 && (
+        <p className="rounded-xl bg-soft px-4 py-3 text-[18px]">
+          Les contrats déjà signés (dossier, envoi, formulaire du Département) s&apos;ouvrent pour un <span className="font-bold">administrateur</span> : la direction ou la responsable qualité connectée au portail sur cette tablette, ou un salarié à qui la direction donne ce rôle (Personnes, puis Tablettes et codes des intervenants).
+        </p>
+      )}
+
       {canExport && (
       <div className="flex flex-col gap-3 rounded-2xl border border-line bg-card p-5">
         <p className="text-[19px]">
@@ -408,7 +416,13 @@ export function TabletAdmission({ establishmentId, structureName, structureAddre
             </li>
           );
         })}
-        {roster.people.length === 0 && <li className="text-[19px] text-ink2">Aucune personne sur cette tablette. Importez la liste ou accueillez une nouvelle personne.</li>}
+        {roster.people.length === 0 && (
+          <li className="text-[19px] text-ink2">
+            {canRoster
+              ? "Aucune personne sur cette tablette. Importez la liste ou accueillez une nouvelle personne."
+              : "Aucune personne sur cette tablette. La liste (Ximi, Excel, CSV) s'importe par un administrateur : la direction ou la responsable qualité connectée au portail sur cette tablette, ou un salarié à qui la direction donne ce rôle (Personnes, puis Tablettes et codes des intervenants). Vous pouvez accueillir une nouvelle personne."}
+          </li>
+        )}
       </ul>
 
       {importing && (

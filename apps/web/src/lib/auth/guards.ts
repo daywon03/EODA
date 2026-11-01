@@ -1,4 +1,5 @@
 import { cache } from "react";
+import { effectiveTabletRole } from "@/lib/services/tablet-role-service";
 import { prisma, type CommercialTier, type EstablishmentType, type TabletRole, type UserRole } from "@eoda/database";
 import type { Session } from "next-auth";
 import { auth } from "@/auth";
@@ -20,6 +21,7 @@ import {
   type ClientAccessRole,
   cabinetCapabilityFor,
   cabinetLandingPath,
+  clientAccessLevel,
   hasCabinetCapability,
   isCabinetRole,
   prospectSpaceExitPath,
@@ -706,10 +708,35 @@ export async function resolveTabletSession(now: Date = new Date()): Promise<Tabl
   if (!claims || claims.deviceEnrollmentId !== device.deviceEnrollmentId) return null;
   const staff = await prisma.staffMember.findFirst({
     where: { id: claims.staffMemberId, establishmentId: device.establishmentId, active: true },
-    select: { id: true, displayName: true, tabletRole: true, pin: { select: { lockedAt: true, pinHash: true } } },
+    select: { id: true, displayName: true, jobTitle: true, tabletRole: true, userId: true, pin: { select: { lockedAt: true, pinHash: true } } },
   });
   if (!staff?.pin || staff.pin.lockedAt) return null;
   // Code changé ou remplacé depuis la connexion : la session est coupée (audit du 28/10/2026).
   if (claims.pinStamp !== pinStamp(staff.pin.pinHash)) return null;
-  return { ...device, staffMemberId: staff.id, staffDisplayName: staff.displayName, tabletRole: staff.tabletRole };
+  // La direction est toujours administrateur (`effectiveTabletRole`, 30/10/2026) — reconnue à
+  // son métier, ou à son compte du portail (`managesTerrainOnPortal`).
+  const role = effectiveTabletRole(staff) === "ADMINISTRATEUR" || (await managesTerrainOnPortal(device.establishmentId, staff.userId)) ? "ADMINISTRATEUR" : "INTERVENANT";
+  return { ...device, staffMemberId: staff.id, staffDisplayName: staff.displayName, tabletRole: role };
+}
+
+// La DIRECTION et la RESPONSABLE QUALITÉ gèrent la tablette dans le portail (module
+// TERRAIN en écriture) : sur la tablette, elles sont administrateur (demande de Damon,
+// 30/10/2026). Deux façons de le savoir, toutes deux relues EN BASE (lien actif, compte
+// actif, structure de L'APPAREIL) : le salarié est rattaché à un tel compte, ou ce
+// navigateur a une session du portail ouverte sur un tel compte. Jamais un compte du
+// cabinet : les appareils et les codes sont l'affaire de la structure.
+async function managesTerrainOnPortal(establishmentId: string, staffUserId: string | null): Promise<boolean> {
+  let portalUserId: string | null = null;
+  try {
+    portalUserId = (await auth())?.user?.id ?? null;
+  } catch {
+    // session du portail illisible : la tablette n'en dépend pas
+  }
+  const userIds = [...new Set([staffUserId, portalUserId].filter((id): id is string => typeof id === "string" && id.length > 0))];
+  if (userIds.length === 0) return false;
+  const links = await prisma.establishmentUser.findMany({
+    where: { establishmentId, userId: { in: userIds }, revokedAt: null, user: { isActive: true, role: "CLIENT_USER" } },
+    select: { accessRole: true },
+  });
+  return links.some((link) => clientAccessLevel(link.accessRole, "TERRAIN") === "FULL");
 }
