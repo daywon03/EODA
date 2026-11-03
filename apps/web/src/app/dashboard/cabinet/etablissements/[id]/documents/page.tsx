@@ -41,7 +41,7 @@ import { NewDocumentTypeForm } from "@/components/checklist/NewDocumentTypeForm"
 import { normalizeCriterionQuery } from "@/lib/services/document-type-creation-service";
 import { groupRowsByFolder } from "@/lib/services/document-folder-service";
 import { listDocumentFolders } from "@/lib/actions/document-folder";
-import { DocumentFolderManager } from "@/components/checklist/DocumentFolderManager";
+import { DocumentFolderManager } from "@/components/structure/lazy-document-panels";
 import { Folder } from "lucide-react";
 
 export const metadata = { title: "Documents" };
