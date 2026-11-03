@@ -36,8 +36,9 @@ const EXPECTED_HEADER = [
 ];
 const CRITERION_CODE = /^\d+\.\d+\.\d+$/;
 
-// CSV RFC 4180 minimal : virgule, champs entre guillemets, guillemets doublés.
-export function parseCsv(text: string): string[][] {
+// CSV RFC 4180 minimal : séparateur (virgule par défaut ; point-virgule pour un export
+// d'Excel en français), champs entre guillemets, guillemets doublés.
+export function parseCsv(text: string, delimiter: "," | ";" = ","): string[][] {
   const rows: string[][] = [];
   let row: string[] = [];
   let field = "";
@@ -51,7 +52,7 @@ export function parseCsv(text: string): string[][] {
       } else if (ch === '"') quoted = false;
       else field += ch;
     } else if (ch === '"') quoted = true;
-    else if (ch === ",") {
+    else if (ch === delimiter) {
       row.push(field);
       field = "";
     } else if (ch === "\n" || ch === "\r") {

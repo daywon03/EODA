@@ -68,6 +68,13 @@ export async function createDocumentType(formData: FormData): Promise<CreateDocu
     : null;
   if (establishmentId && !origin) notFound();
 
+  // Dossier où ranger la ligne (call du 29/10/2026) — facultatif, entrée non fiable.
+  const folderValue = formData.get("folder");
+  const folderId = typeof folderValue === "string" && folderValue ? folderValue : null;
+  if (folderId && !(await prisma.documentFolder.findUnique({ where: { id: folderId }, select: { id: true } }))) {
+    notFound();
+  }
+
   const existing = await prisma.documentType.findMany({ select: { label: true, code: true } });
   const problem = documentTypeCreationError({
     label,
@@ -103,7 +110,7 @@ export async function createDocumentType(formData: FormData): Promise<CreateDocu
   try {
     created = await prisma.$transaction(async (tx) => {
       const documentType = await tx.documentType.create({
-        data: { code, category: documentCategory, label, requestedFromClient },
+        data: { code, category: documentCategory, label, requestedFromClient, folderId },
         select: { id: true },
       });
       if (plan.toCreate.length > 0) {

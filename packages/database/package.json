@@ -6,7 +6,8 @@
     ".": "./src/index.ts",
     "./seed-data": "./src/seed-data.ts",
     "./seed-steps": "./src/seed-steps.ts",
-    "./document-types": "./src/document-types.ts"
+    "./document-types": "./src/document-types.ts",
+    "./document-folders": "./src/document-folders.ts"
   },
   "scripts": {
     "generate": "node scripts/generate-migration-manifest.mjs && prisma generate",

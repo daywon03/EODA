@@ -7,6 +7,7 @@ import {
   SEED_CLIENT_USER,
   SEED_TENANT_ID,
 } from "@eoda/database/seed-data";
+import { DOCUMENT_FOLDER_SEEDS } from "@eoda/database/document-folders";
 import { AWARENESS_SHEET_DOCUMENT_TYPES, DEPARTEMENT_DOCUMENT_TYPES, DOCUMENT_TYPE_SEEDS, PILOT_DOCUMENT_TYPES } from "@eoda/database/document-types";
 
 // RÈGLE ZÉRO (bug 7 du test de bout en bout, 12/10/2026) : sur une base NEUVE, les
@@ -142,6 +143,35 @@ describe("seed — fiches de sensibilisation « personne accompagnée » (29/10/
       expect(REQUESTED_FROM_CLIENT_DOCUMENT_CODES).not.toContain(type.code);
       expect(type.category).not.toBe("LOI_2002_2");
     }
+  });
+});
+
+describe("seed — dossiers de la liste « Documents » (call du 29/10/2026)", () => {
+  const sql = migrationSql("20261103100000_document_folders");
+  const knownCodes = new Set(DOCUMENT_TYPE_SEEDS.map((type) => type.code));
+
+  it("la migration insère exactement les dossiers du seed", () => {
+    const inserted = [...sql.matchAll(/\('(docfolder-[a-z-]+)', '((?:[^']|'')*)', (\d+), CURRENT_TIMESTAMP\)/g)].map((m) => ({
+      id: m[1],
+      label: m[2]!.replace(/''/g, "'"),
+      position: Number(m[3]),
+    }));
+    expect(inserted).toEqual(DOCUMENT_FOLDER_SEEDS.map(({ id, label, position }) => ({ id, label, position })));
+  });
+
+  it("range d'office les mêmes lignes que le seed, sans défaire un rangement du cabinet", () => {
+    const placed = new Map<string, string[]>();
+    for (const m of sql.matchAll(/SET "folder_id" = '(docfolder-[a-z-]+)'\s+WHERE "folder_id" IS NULL AND "code" IN \(([^)]*)\)/g)) {
+      placed.set(m[1]!, [...m[2]!.matchAll(/'([A-Z0-9_]+)'/g)].map((c) => c[1]!));
+    }
+    for (const folder of DOCUMENT_FOLDER_SEEDS) expect(placed.get(folder.id) ?? []).toEqual([...folder.codes]);
+    expect(sql).not.toMatch(/\bDELETE FROM\b|\bDROP\b/);
+  });
+
+  it("chaque ligne rangée existe dans le référentiel, et une seule fois", () => {
+    const codes = DOCUMENT_FOLDER_SEEDS.flatMap((folder) => folder.codes);
+    expect(new Set(codes).size).toBe(codes.length);
+    for (const code of codes) expect(knownCodes.has(code)).toBe(true);
   });
 });
 

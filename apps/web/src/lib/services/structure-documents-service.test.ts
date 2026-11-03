@@ -12,6 +12,9 @@ import {
   flattenChecklist,
   parseDocumentFilters,
   sortDocumentRows,
+  documentColumnOptions,
+  documentColumnValue,
+  filterDocumentColumns,
   rowsInBucket,
   type DocumentFacts,
 } from "./structure-documents-service";
@@ -216,5 +219,50 @@ describe("tri alphabétique (21/10/2026)", () => {
     expect(sortDocumentRows(rows, null)).toEqual(rows);
     expect(parseDocumentFilters({ tri: "nom" }).sort).toBe("nom");
     expect(parseDocumentFilters({ tri: "autre" }).sort).toBeUndefined();
+  });
+});
+
+describe("menus de colonne façon Excel (call du 29/10/2026)", () => {
+  const version = (n: number, day: number) => ({
+    id: `v${n}-${day}`,
+    uploadedAt: new Date(2026, 9, day),
+    analysisAwaitingReview: false,
+    versionNumber: n,
+  });
+  const row = (label: string, current: ReturnType<typeof version> | null, extra: Partial<{ requestedFromClient: boolean }> = {}) => ({
+    documentTypeId: label,
+    label,
+    status: current ? ("PROVIDED" as const) : ("MISSING" as const),
+    step: current ? ("DEPOSE" as const) : ("MANQUANT" as const),
+    currentVersion: current,
+    missingOwner: current ? null : ("EODA" as const),
+    requestedFromClient: extra.requestedFromClient ?? false,
+    versions: current ? [{ id: current.id, producedByCabinet: true, originalFilename: `${label}.docx` }] : [],
+  });
+  const rows = [row("Bientraitance", version(5, 20)), row("Affiche", null), row("Crise", version(2, 28))];
+
+  it("trie par date et par version dans les deux sens, les lignes sans dépôt toujours à la fin", () => {
+    expect(sortDocumentRows(rows, "date-desc").map((r) => r.label)).toEqual(["Crise", "Bientraitance", "Affiche"]);
+    expect(sortDocumentRows(rows, "date").map((r) => r.label)).toEqual(["Bientraitance", "Crise", "Affiche"]);
+    expect(sortDocumentRows(rows, "version-desc").map((r) => r.label)).toEqual(["Bientraitance", "Crise", "Affiche"]);
+    expect(sortDocumentRows(rows, "nom-desc").map((r) => r.label)).toEqual(["Crise", "Bientraitance", "Affiche"]);
+  });
+
+  it("filtre par le texte même de la cellule, et propose les valeurs présentes", () => {
+    expect(documentColumnValue(rows[1]!, "statut")).toBe(DOCUMENT_PILLS.aRedigerEoda.label);
+    expect(documentColumnOptions(rows, "version")).toEqual(["v2", "v5", "—"]);
+    expect(documentColumnOptions(rows, "fourni")).toEqual(["À produire par EODA", "EODA"]);
+    expect(filterDocumentColumns(rows, { version: "v5" }).map((r) => r.label)).toEqual(["Bientraitance"]);
+    expect(filterDocumentColumns(rows, { statut: DOCUMENT_PILLS.aRedigerEoda.label, fourni: "À produire par EODA" }).map((r) => r.label)).toEqual(["Affiche"]);
+  });
+
+  it("l'adresse garde tri et filtres de colonne, et l'entrée est bornée", () => {
+    const parsed = parseDocumentFilters({ tri: "date-desc", statut: "À rédiger · EODA", version: ["v2", "v3"], fourni: "  " });
+    expect(parsed.sort).toBe("date-desc");
+    expect(parsed.columns).toEqual({ statut: "À rédiger · EODA", version: "v2" });
+    expect(parseDocumentFilters({ statut: "x".repeat(500) }).columns?.statut).toHaveLength(80);
+    expect(documentsHref("/f/documents", { bucket: "todo", sort: "date-desc", columns: { statut: "Manquant" } })).toBe(
+      "/f/documents?tri=date-desc&statut=Manquant"
+    );
   });
 });

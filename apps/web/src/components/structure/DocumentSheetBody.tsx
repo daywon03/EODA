@@ -11,6 +11,7 @@ import {
   RenameDocumentType,
 } from "@/components/structure/lazy-document-panels";
 import { PARTICIPATION_LINE_CODE } from "@/lib/services/participation-form-service";
+import { DocumentFolderPicker } from "@/components/checklist/DocumentFolderPicker";
 
 // Contenu du panneau latéral d'un document (onglet Documents de la fiche). Il
 // RECOMPOSE l'existant — historique et aperçu, parcours et validation
@@ -22,11 +23,14 @@ export function DocumentSheetBody({
   categoryLabel,
   establishmentId,
   canEditScope,
+  folders = [],
 }: {
   item: ChecklistItem;
   categoryLabel: string;
   establishmentId: string;
   canEditScope: boolean;
+  // Dossiers de la liste, pour ranger la ligne (call du 29/10/2026).
+  folders?: readonly { id: string; label: string }[];
 }) {
   return (
     <div className="space-y-4">
@@ -37,6 +41,9 @@ export function DocumentSheetBody({
             composé (forme choisie) qui ne se renomme pas. */}
         {canEditScope && item.category !== "LOI_2002_2" && item.code !== PARTICIPATION_LINE_CODE && (
           <RenameDocumentType documentTypeId={item.documentTypeId} label={item.label} />
+        )}
+        {canEditScope && folders.length > 0 && (
+          <DocumentFolderPicker documentTypeId={item.documentTypeId} folderId={item.folder?.id ?? null} folders={folders} />
         )}
         <StatusPill pill={documentRowPill(item)} />
         {item.isConditional && item.status !== "NOT_APPLICABLE" && <p className="text-sm text-ink2">Si concerné</p>}

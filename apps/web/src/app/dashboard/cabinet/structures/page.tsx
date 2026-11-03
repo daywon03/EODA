@@ -11,7 +11,9 @@ import {
   type StructureFacts,
 } from "@/lib/services/structures-overview-service";
 import { canSeeCommercial } from "@/lib/design/cabinet-navigation";
-import { DataTable, type DataTableColumn } from "@/components/ui/data-table";
+import { DataTable, type DataTableColumn, type DataTableColumnMenu } from "@/components/ui/data-table";
+import { distinctValues, filterMenuFor, sortMenuFor } from "@/components/ui/data-table-menus";
+import { pillForFunnelStage } from "@/lib/design/status-vocabulary";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ProgressBar } from "@/components/ui/progress-bar";
 import { Button } from "@/components/ui/button";
@@ -21,12 +23,63 @@ import { establishmentLogoUrl } from "@/lib/services/logo-response-service";
 
 export const metadata = { title: "Structures" };
 
-function columns(now: Date): DataTableColumn<StructureFacts>[] {
+const BASE_PATH = "/dashboard/cabinet/structures";
+
+// Menus de colonne façon Excel (call du 29/10/2026) : type, étape, tri par nom ou par
+// échéance HAS. Par défaut, l'ordre reste « la plus urgente d'abord ».
+type StructuresSort = "nom" | "nom-desc" | "evaluation" | "evaluation-desc";
+const STRUCTURES_SORTS: readonly StructuresSort[] = ["nom", "nom-desc", "evaluation", "evaluation-desc"];
+type StructuresView = { type: string | undefined; etape: string | undefined; tri: StructuresSort | undefined };
+
+const typeLabel = (row: StructureFacts) => ESTABLISHMENT_TYPE_LABELS[row.type];
+const stageLabel = (row: StructureFacts) => (row.stage ? pillForFunnelStage(row.stage).label : "—");
+
+function first(raw: string | string[] | undefined): string | undefined {
+  const value = Array.isArray(raw) ? raw[0] : raw;
+  return value ? value.slice(0, 80) : undefined;
+}
+
+function structuresHref(view: StructuresView): string {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(view)) if (value) params.set(key, value);
+  const query = params.toString();
+  return query ? `${BASE_PATH}?${query}` : BASE_PATH;
+}
+
+function sortStructures(rows: readonly StructureFacts[], sort: StructuresSort | undefined, now: Date): StructureFacts[] {
+  if (!sort) return sortByUrgency(rows, now);
+  const byName = (a: StructureFacts, b: StructureFacts) => a.name.localeCompare(b.name, "fr", { sensitivity: "base" });
+  if (sort === "nom") return [...rows].sort(byName);
+  if (sort === "nom-desc") return [...rows].sort((a, b) => byName(b, a));
+  const direction = sort === "evaluation" ? 1 : -1;
+  // Échéance non fixée : en fin de liste dans les deux sens.
+  return [...rows].sort((a, b) => {
+    const left = a.hasEvaluationTargetDate?.getTime();
+    const right = b.hasEvaluationTargetDate?.getTime();
+    if (left === undefined || right === undefined) return left === right ? byName(a, b) : left === undefined ? 1 : -1;
+    return (left - right) * direction;
+  });
+}
+
+function structuresMenus(view: StructuresView, rows: readonly StructureFacts[]): Record<"name" | "type" | "stage" | "evaluation", DataTableColumnMenu> {
+  const href = (patch: Partial<StructuresView>) => structuresHref({ ...view, ...patch });
+  return {
+    name: { sort: sortMenuFor(view.tri, { asc: "nom", desc: "nom-desc", ascLabel: "De A à Z", descLabel: "De Z à A" }, (tri) => href({ tri })) },
+    type: { filter: filterMenuFor(distinctValues(rows.map(typeLabel)), view.type, (type) => href({ type })) },
+    stage: { filter: filterMenuFor(distinctValues(rows.map(stageLabel)), view.etape, (etape) => href({ etape })) },
+    evaluation: {
+      sort: sortMenuFor(view.tri, { asc: "evaluation", desc: "evaluation-desc", ascLabel: "La plus proche d'abord", descLabel: "La plus lointaine d'abord" }, (tri) => href({ tri })),
+    },
+  };
+}
+
+function columns(now: Date, menus: ReturnType<typeof structuresMenus>): DataTableColumn<StructureFacts>[] {
   return [
     {
       id: "name",
       header: "Structure",
       isRowHeader: true,
+      menu: menus.name,
       // Le logo devant le nom : on reconnaît un client d'un coup d'œil (call du
       // 18/10/2026). Sans logo, une pastille à l'initiale garde l'alignement.
       cell: (row) => (
@@ -53,8 +106,8 @@ function columns(now: Date): DataTableColumn<StructureFacts>[] {
         </span>
       ),
     },
-    { id: "type", header: "Type", cell: (row) => ESTABLISHMENT_TYPE_LABELS[row.type] },
-    { id: "stage", header: "Étape", cell: (row) => <StageBadge stage={row.stage} beta={row.isBeta} /> },
+    { id: "type", header: "Type", menu: menus.type, cell: typeLabel },
+    { id: "stage", header: "Étape", menu: menus.stage, cell: (row) => <StageBadge stage={row.stage} beta={row.isBeta} /> },
     {
       // Couverture loi 2002-2 — des types DÉPOSÉS, pas des documents conformes.
       id: "loi2002",
@@ -88,6 +141,7 @@ function columns(now: Date): DataTableColumn<StructureFacts>[] {
     {
       id: "evaluation",
       header: "Évaluation HAS",
+      menu: menus.evaluation,
       cell: (row) =>
         row.hasEvaluationTargetDate ? (
           <span className="whitespace-nowrap tabular-nums">{formatDaysUntil(row.hasEvaluationTargetDate, now)}</span>
@@ -116,10 +170,21 @@ function columns(now: Date): DataTableColumn<StructureFacts>[] {
 // la plus urgente à la moins urgente. Pas de « Nouvelle structure » : une fiche ne
 // naît que de la signature d'un devis (CLAUDE.md §7). Pas de filtre par mode
 // (seul / accompagné) tant que le mode n'est pas modélisé (tranche N1).
-export default async function StructuresPage() {
+export default async function StructuresPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ type?: string | string[]; etape?: string | string[]; tri?: string | string[] }>;
+}) {
   const { role } = await requireCabinetSession("STRUCTURES_READ");
-  const { rows } = await getStructuresOverview();
+  const [{ rows }, raw] = await Promise.all([getStructuresOverview(), searchParams]);
   const now = new Date();
+  const tri = first(raw.tri);
+  const view: StructuresView = { type: first(raw.type), etape: first(raw.etape), tri: STRUCTURES_SORTS.find((sort) => sort === tri) };
+  const shown = sortStructures(
+    rows.filter((row) => (!view.type || typeLabel(row) === view.type) && (!view.etape || stageLabel(row) === view.etape)),
+    view.tri,
+    now
+  );
 
   return (
     <div className="space-y-4">
@@ -144,8 +209,9 @@ export default async function StructuresPage() {
       ) : (
         <DataTable
           caption="Structures accompagnées, de la plus urgente à la moins urgente"
-          columns={columns(now)}
-          rows={sortByUrgency(rows, now)}
+          columns={columns(now, structuresMenus(view, rows))}
+          rows={shown}
+          emptyMessage="Aucune structure ne correspond à ce filtre."
           getRowKey={(row) => row.id}
           rowHref={(row) => `/dashboard/cabinet/etablissements/${row.id}`}
         />
