@@ -6,12 +6,12 @@ import { ChecklistItemDetail } from "@/components/checklist/ChecklistItemDetail"
 import { DocumentUploadButton } from "@/components/checklist/DocumentUploadButton";
 import {
   AnalysisLabPanel,
+  DocumentFolderPicker,
   DocumentSettingsPanel,
   ParticipationFormPicker,
   RenameDocumentType,
 } from "@/components/structure/lazy-document-panels";
 import { PARTICIPATION_LINE_CODE } from "@/lib/services/participation-form-service";
-import { DocumentFolderPicker } from "@/components/checklist/DocumentFolderPicker";
 
 // Contenu du panneau latéral d'un document (onglet Documents de la fiche). Il
 // RECOMPOSE l'existant — historique et aperçu, parcours et validation
