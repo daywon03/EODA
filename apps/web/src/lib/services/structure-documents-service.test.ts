@@ -232,7 +232,7 @@ describe("menus de colonne façon Excel (call du 29/10/2026)", () => {
   const row = (label: string, current: ReturnType<typeof version> | null, extra: Partial<{ requestedFromClient: boolean }> = {}) => ({
     documentTypeId: label,
     label,
-    status: current ? ("PROVIDED" as const) : ("MISSING" as const),
+    status: current ? ("UPLOADED" as const) : ("MISSING" as const),
     step: current ? ("DEPOSE" as const) : ("ATTENDU" as const),
     currentVersion: current,
     missingOwner: current ? null : ("EODA" as const),
