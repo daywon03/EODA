@@ -1,6 +1,20 @@
 import Link from "next/link";
 import type { MouseEvent, ReactNode } from "react";
+import { Check, ChevronDown, Filter } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+// Menu d'une colonne, façon Excel (call du 29/10/2026 : « des flèches sur la colonne,
+// comme si on était sur Excel, et je peux filtrer »). Ce sont des LIENS : l'état vit
+// dans l'adresse, la page serveur filtre et trie — partageable, et sans JavaScript.
+export type DataTableSortMenu = {
+  ascHref: string;
+  descHref: string;
+  ascLabel: string;
+  descLabel: string;
+  active: "asc" | "desc" | null;
+};
+export type DataTableFilterMenu = { options: readonly { label: string; href: string; active: boolean }[]; clearHref: string };
+export type DataTableColumnMenu = { sort?: DataTableSortMenu; filter?: DataTableFilterMenu };
 
 export type DataTableColumn<Row> = {
   id: string;
@@ -10,6 +24,7 @@ export type DataTableColumn<Row> = {
   // La colonne qui NOMME la ligne (« Livret d'accueil ») : rendue en <th scope="row">,
   // et c'est elle qui porte le lien quand la ligne est cliquable.
   isRowHeader?: boolean;
+  menu?: DataTableColumnMenu;
 };
 
 type Props<Row> = {
@@ -55,7 +70,13 @@ export function DataTable<Row>({
       role="region"
       aria-label={caption}
       tabIndex={0}
-      className={cn("relative overflow-x-auto rounded-xl border border-line bg-card", className)}
+      // Un menu de colonne déborde sous l'en-tête : sur grand écran, la région ne
+      // rogne plus (le tableau y tient en largeur) ; sur téléphone, elle défile.
+      className={cn(
+        "relative overflow-x-auto rounded-xl border border-line bg-card",
+        columns.some((col) => col.menu) && "lg:overflow-visible",
+        className
+      )}
     >
       <table className="w-full border-collapse text-left text-base">
         <caption className={showCaption ? "px-4 py-3 text-left font-bold text-ink" : "sr-only"}>{caption}</caption>
@@ -70,7 +91,7 @@ export function DataTable<Row>({
                   col.align === "end" && "text-right"
                 )}
               >
-                {col.header}
+                {col.menu ? <ColumnMenu header={col.header} menu={col.menu} /> : col.header}
               </th>
             ))}
           </tr>
@@ -144,4 +165,58 @@ export function DataTable<Row>({
       </table>
     </div>
   );
+}
+
+function ColumnMenu({ header, menu }: { header: string; menu: DataTableColumnMenu }) {
+  const filtered = menu.filter?.options.some((option) => option.active) ?? false;
+  const sorted = menu.sort?.active ?? null;
+  // La clé change avec l'état : après un clic, le menu se referme (nouveau rendu).
+  const stateKey = `${sorted ?? ""}|${menu.filter?.options.find((option) => option.active)?.label ?? ""}`;
+  const linkClass = "flex min-h-11 items-center gap-2 rounded-md px-3 text-base font-normal text-ink hover:bg-soft";
+  return (
+    <details key={stateKey} className="relative inline-block">
+      <summary
+        className={cn(
+          "inline-flex min-h-11 cursor-pointer list-none items-center gap-1 rounded-md px-1 hover:bg-card [&::-webkit-details-marker]:hidden",
+          (filtered || sorted) && "text-accent-text"
+        )}
+        aria-label={`${header} — trier ou filtrer${filtered ? " (filtre actif)" : ""}`}
+      >
+        {header}
+        {filtered ? <Filter className="h-3.5 w-3.5" aria-hidden="true" /> : <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />}
+      </summary>
+      <div className="absolute left-0 top-full z-30 mt-1 w-64 space-y-1 rounded-xl border border-line bg-card p-2 shadow-lg">
+        {menu.sort && (
+          <>
+            <Link href={menu.sort.ascHref} className={linkClass} aria-current={sorted === "asc" ? "true" : undefined}>
+              <MenuCheck on={sorted === "asc"} />
+              {menu.sort.ascLabel}
+            </Link>
+            <Link href={menu.sort.descHref} className={linkClass} aria-current={sorted === "desc" ? "true" : undefined}>
+              <MenuCheck on={sorted === "desc"} />
+              {menu.sort.descLabel}
+            </Link>
+          </>
+        )}
+        {menu.filter && (
+          <div className={cn(menu.sort && "border-t border-line pt-1")}>
+            <Link href={menu.filter.clearHref} className={linkClass} aria-current={!filtered ? "true" : undefined}>
+              <MenuCheck on={!filtered} />
+              Tout afficher
+            </Link>
+            {menu.filter.options.map((option) => (
+              <Link key={option.label} href={option.href} className={linkClass} aria-current={option.active ? "true" : undefined}>
+                <MenuCheck on={option.active} />
+                {option.label}
+              </Link>
+            ))}
+          </div>
+        )}
+      </div>
+    </details>
+  );
+}
+
+function MenuCheck({ on }: { on: boolean }) {
+  return <Check className={cn("h-4 w-4 flex-shrink-0", on ? "text-accent-text" : "invisible")} aria-hidden="true" />;
 }

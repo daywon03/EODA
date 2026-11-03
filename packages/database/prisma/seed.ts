@@ -10,6 +10,7 @@ import bcrypt from "bcryptjs";
 import { seedHasReferential } from "./seed-has-referential";
 import { SEED_TENANT_ID } from "../src/seed-data";
 import { DOCUMENT_TYPE_SEEDS } from "../src/document-types";
+import { DOCUMENT_FOLDER_SEEDS } from "../src/document-folders";
 import { seedClientUserUpsertArgs, withRequestedFromClient } from "../src/seed-steps";
 
 const prisma = new PrismaClient();
@@ -237,6 +238,17 @@ async function main() {
 
   // Seed des 66 DocumentType — liste unique : src/document-types.ts (47 de
   // context/03-documents-obligatoires.md + 19 du référentiel documentaire du pilote).
+  // Dossiers d'abord : les types s'y rangent juste après. Sur une base existante, la
+  // migration 20261103100000_document_folders les a déjà posés ; ensuite ils
+  // appartiennent au cabinet — le seed ne renomme rien et ne range que l'inrangé.
+  for (const folder of DOCUMENT_FOLDER_SEEDS) {
+    await prisma.documentFolder.upsert({
+      where: { id: folder.id },
+      update: {},
+      create: { id: folder.id, label: folder.label, position: folder.position },
+    });
+  }
+
   console.log(`Seeding ${DOCUMENT_TYPE_SEEDS.length} DocumentType…`);
   for (const dt of DOCUMENT_TYPE_SEEDS) {
     await prisma.documentType.upsert({
@@ -257,6 +269,13 @@ async function main() {
         isConditional: dt.isConditional ?? false,
         expectedFrequency: dt.expectedFrequency ?? null,
       }),
+    });
+  }
+  for (const folder of DOCUMENT_FOLDER_SEEDS) {
+    if (folder.codes.length === 0) continue;
+    await prisma.documentType.updateMany({
+      where: { code: { in: [...folder.codes] }, folderId: null },
+      data: { folderId: folder.id },
     });
   }
 

@@ -710,13 +710,39 @@ model DocumentType {
   // sa bibliothèque.
   requestedFromClient Boolean @default(false) @map("requested_from_client")
 
+  // DOSSIER où la ligne se range (call du 29/10/2026 : « un gros pavé Sensibilisation
+  // pro, et les 23 fiches en dessous »). Facultatif : une ligne sans dossier reste à
+  // plat dans la liste. Un dossier supprimé ne supprime jamais ses lignes.
+  folderId String?         @map("folder_id")
+  folder   DocumentFolder? @relation(fields: [folderId], references: [id], onDelete: SetNull)
+
   documents         DocumentTypeCriterion[]
   Document          Document[]
   // Gabarits de la bibliothèque rattachés à ce type (N8) : leurs versions FINALE
   // servent d'exemples validés à la génération et à l'analyse de ce type.
   templateDocuments TemplateDocument[]
 
+  @@index([folderId])
   @@map("document_types")
+}
+
+// DOSSIER de la liste « Documents » (call du 29/10/2026) : Sensibilisation des
+// professionnels, Sensibilisation des personnes accompagnées, Stratégie, Pilotage
+// qualité, Notes de service, Process HAS, Process de la structure. Comme
+// `DocumentType`, il n'appartient à aucune structure : créé une fois par le cabinet, il
+// range la liste de TOUTES. Classement d'affichage seulement — il ne remplace ni la
+// catégorie légale (`DocumentCategory`) ni les critères.
+model DocumentFolder {
+  id        String   @id @default(cuid())
+  label     String
+  // Ordre décidé à la main (mêmes raisons que `TemplateCategory.position`).
+  position  Int
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  documentTypes DocumentType[]
+
+  @@map("document_folders")
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1843,6 +1869,13 @@ enum AuditAction {
   DOCUMENT_TYPE_SCOPE_CHANGED
   DOCUMENT_TYPE_CREATED
   DOCUMENT_TYPE_RENAMED
+  // Dossiers de la liste « Documents » (03/11/2026) : création, renommage, ligne
+  // rangée dans un dossier ou sortie, lignes créées en nombre depuis un tableur.
+  // Intitulés de cabinet seulement, jamais une donnée de personne.
+  DOCUMENT_FOLDER_CREATED
+  DOCUMENT_FOLDER_RENAMED
+  DOCUMENT_TYPE_FOLDER_CHANGED
+  DOCUMENT_TYPES_IMPORTED
   // Export des cotations d'auto-évaluation (fichier tableur). Un export SORT les
   // données de la plateforme : c'est précisément le genre d'accès dont il faut
   // pouvoir dire qui, quand, et pour quel établissement.

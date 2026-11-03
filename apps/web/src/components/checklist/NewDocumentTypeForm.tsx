@@ -21,12 +21,16 @@ type Props = {
   // Venu d'un critère (« Ajouter un document à ce critère ») : formulaire ouvert,
   // critère prérempli.
   initialCriterionCode?: string;
+  // Dossiers où ranger la ligne (call du 29/10/2026).
+  folders?: readonly { id: string; label: string }[];
+  // Dossier présélectionné (bouton « Ajouter une ligne » d'un dossier).
+  initialFolderId?: string;
 };
 
 // « Ajouter un document à la liste » — une ligne créée une fois, pour toutes les
 // structures (createDocumentType). Replié par défaut : la liste reste l'objet
 // principal de l'écran.
-export function NewDocumentTypeForm({ establishmentId, documentsPath, initialCriterionCode }: Props) {
+export function NewDocumentTypeForm({ establishmentId, documentsPath, initialCriterionCode, folders = [], initialFolderId }: Props) {
   const [open, setOpen] = useState(initialCriterionCode !== undefined);
 
   if (!open) {
@@ -43,6 +47,8 @@ export function NewDocumentTypeForm({ establishmentId, documentsPath, initialCri
       {...(establishmentId ? { establishmentId } : {})}
       {...(documentsPath ? { documentsPath } : {})}
       {...(initialCriterionCode ? { initialCriterionCode } : {})}
+      {...(initialFolderId ? { initialFolderId } : {})}
+      folders={folders}
       onClose={() => setOpen(false)}
     />
   );
