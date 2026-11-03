@@ -233,7 +233,7 @@ describe("menus de colonne façon Excel (call du 29/10/2026)", () => {
     documentTypeId: label,
     label,
     status: current ? ("PROVIDED" as const) : ("MISSING" as const),
-    step: current ? ("DEPOSE" as const) : ("MANQUANT" as const),
+    step: current ? ("DEPOSE" as const) : ("ATTENDU" as const),
     currentVersion: current,
     missingOwner: current ? null : ("EODA" as const),
     requestedFromClient: extra.requestedFromClient ?? false,
