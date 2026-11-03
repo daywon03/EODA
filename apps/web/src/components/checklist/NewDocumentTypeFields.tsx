@@ -25,12 +25,21 @@ type Props = {
   documentsPath?: string;
   // Critère d'où l'on vient (onglet Critères → « Ajouter un document à ce critère »).
   initialCriterionCode?: string;
+  folders: readonly { id: string; label: string }[];
+  initialFolderId?: string;
   onClose: () => void;
 };
 
 // Le formulaire « Ajouter un document à la liste » — une fois, pour toutes les
 // structures (createDocumentType). Chargé à la demande par NewDocumentTypeForm.
-export function NewDocumentTypeFields({ establishmentId, documentsPath, initialCriterionCode, onClose }: Props) {
+export function NewDocumentTypeFields({
+  establishmentId,
+  documentsPath,
+  initialCriterionCode,
+  folders,
+  initialFolderId,
+  onClose,
+}: Props) {
   const router = useRouter();
   const [state, formAction, isPending] = useActionState(
     async (_previous: CreateDocumentTypeResult | null, data: FormData) => createDocumentType(data),
@@ -88,6 +97,20 @@ export function NewDocumentTypeFields({ establishmentId, documentsPath, initialC
         </Select>
         <p className="text-sm text-ink2">La liste de la loi 2002-2 est fixée par la loi : elle ne se complète pas ici.</p>
       </div>
+
+      {folders.length > 0 && (
+        <div className="space-y-1.5">
+          <Label htmlFor="new-document-type-folder">Dossier (facultatif)</Label>
+          <Select id="new-document-type-folder" name="folder" disabled={isPending} defaultValue={initialFolderId ?? ""}>
+            <option value="">Aucun — la ligne reste dans la liste</option>
+            {folders.map((folder) => (
+              <option key={folder.id} value={folder.id}>
+                {folder.label}
+              </option>
+            ))}
+          </Select>
+        </div>
+      )}
 
       <div className="space-y-1.5">
         <Label htmlFor="new-document-type-criteria">Critères HAS qu&apos;il prouve (facultatif)</Label>

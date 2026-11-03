@@ -23,3 +23,13 @@ export const AnalysisLabPanel = dynamic(() => import("./AnalysisLabPanel").then(
 export const ParticipationFormPicker = dynamic(() =>
   import("@/components/checklist/ParticipationFormPicker").then((m) => m.ParticipationFormPicker)
 );
+
+// Dossier de la ligne (administration seule, geste rare — call du 29/10/2026).
+export const DocumentFolderPicker = dynamic(() =>
+  import("@/components/checklist/DocumentFolderPicker").then((m) => m.DocumentFolderPicker)
+);
+
+// « Gérer les dossiers » / « Importer un tableur » (administration seule, gestes rares).
+export const DocumentFolderManager = dynamic(() =>
+  import("@/components/checklist/DocumentFolderManager").then((m) => m.DocumentFolderManager)
+);

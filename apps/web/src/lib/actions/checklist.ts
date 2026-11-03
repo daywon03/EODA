@@ -51,6 +51,9 @@ export type ChecklistItem = {
   // Réclamé à la structure, ou produit par EODA (§ call du 26/08). Le portail client
   // n'affiche que les types réclamés — plus ceux dont un document existe déjà.
   requestedFromClient: boolean;
+  // Dossier de la liste « Documents » où la ligne se range (call du 29/10/2026), ou
+  // null : la ligne reste à plat.
+  folder: { id: string; label: string; position: number } | null;
   // Phrase d'explication quand la version courante a dépassé sa fréquence attendue.
   // Null tant que le document est à jour.
   expiryNotice: string | null;
@@ -168,6 +171,7 @@ async function buildChecklist(
   const allTypes = await prisma.documentType.findMany({
     where: covered ? { category: { in: [...covered] } } : {},
     orderBy: [{ category: "asc" }, { code: "asc" }],
+    include: { folder: { select: { id: true, label: true, position: true } } },
   });
 
   // Documents existants pour cet établissement, avec la version courante
@@ -283,6 +287,7 @@ async function buildChecklist(
       isConditional: dt.isConditional,
       expectedFrequency: dt.expectedFrequency,
       requestedFromClient: dt.requestedFromClient,
+      folder: dt.folder,
       expiryNotice: describeExpiry(expiryFacts, now),
       status,
       documentId: doc?.id ?? null,

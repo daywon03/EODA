@@ -136,19 +136,76 @@ export function flattenChecklist<T extends DocumentFacts>(
 
 // Tri (21/10/2026, « trier par ordre alphabétique pour faciliter la recherche ») :
 // absent = l'ordre de la checklist ; « nom » = alphabétique, sans tenir compte des
-// accents ni des majuscules.
-export type DocumentSort = "nom";
+// accents ni des majuscules. Flèches de colonne façon Excel (call du 29/10/2026) :
+// nom, date et version, dans les deux sens.
+export const DOCUMENT_SORTS = ["nom", "nom-desc", "date", "date-desc", "version", "version-desc"] as const;
+export type DocumentSort = (typeof DOCUMENT_SORTS)[number];
+
+// Filtres de COLONNE (call du 29/10/2026 : « des flèches sur la colonne, comme sur
+// Excel » — filtrer par statut « À rédiger », par « Fourni par », par version). La
+// valeur est le texte même de la cellule : ce qu'on voit est ce qu'on filtre.
+export const DOCUMENT_COLUMN_FILTERS = ["statut", "fourni", "version"] as const;
+export type DocumentColumnFilter = (typeof DOCUMENT_COLUMN_FILTERS)[number];
 
 export type DocumentFilters = {
   bucket: DocumentBucket;
   query: string;
   category: DocumentCategory | null;
   sort?: DocumentSort | null;
+  columns?: Partial<Record<DocumentColumnFilter, string>>;
 };
 
-export function sortDocumentRows<T extends { label: string }>(rows: readonly T[], sort: DocumentSort | null | undefined): T[] {
-  if (sort !== "nom") return [...rows];
-  return [...rows].sort((a, b) => a.label.localeCompare(b.label, "fr", { sensitivity: "base" }));
+type SortableRow = { label: string; currentVersion?: { uploadedAt: Date; versionNumber?: number } | null };
+
+export function sortDocumentRows<T extends SortableRow>(rows: readonly T[], sort: DocumentSort | null | undefined): T[] {
+  if (!sort) return [...rows];
+  const direction = sort.endsWith("-desc") ? -1 : 1;
+  const byName = (a: T, b: T) => a.label.localeCompare(b.label, "fr", { sensitivity: "base" });
+  // Sans dépôt : toujours en fin de liste, quel que soit le sens.
+  const byNumber = (pick: (row: T) => number | null) => (a: T, b: T) => {
+    const left = pick(a);
+    const right = pick(b);
+    if (left === null || right === null) return left === right ? byName(a, b) : left === null ? 1 : -1;
+    return (left - right) * direction || byName(a, b);
+  };
+  if (sort.startsWith("date")) return [...rows].sort(byNumber((row) => row.currentVersion?.uploadedAt.getTime() ?? null));
+  if (sort.startsWith("version")) return [...rows].sort(byNumber((row) => row.currentVersion?.versionNumber ?? null));
+  return [...rows].sort((a, b) => byName(a, b) * direction);
+}
+
+// Texte de la cellule d'une ligne pour une colonne filtrable — le même que l'écran.
+export type ColumnRow = Omit<DocumentFacts, "currentVersion" | "versions"> & {
+  requestedFromClient: boolean;
+  currentVersion: { id: string; uploadedAt: Date; analysisAwaitingReview: boolean; versionNumber: number } | null;
+  versions: readonly { id: string; producedByCabinet: boolean; originalFilename: string }[];
+};
+
+export function documentColumnValue(row: ColumnRow, column: DocumentColumnFilter): string {
+  if (column === "statut") return documentRowPill(row).label;
+  if (column === "version") return row.currentVersion ? `v${row.currentVersion.versionNumber}` : "—";
+  return documentProviderLabel(row);
+}
+
+// Valeurs proposées dans le menu d'une colonne : celles présentes, triées.
+export function documentColumnOptions<T extends ColumnRow>(
+  rows: readonly T[],
+  column: DocumentColumnFilter
+): string[] {
+  const values = [...new Set(rows.map((row) => documentColumnValue(row, column)))];
+  return values.sort((a, b) =>
+    column === "version"
+      ? (Number(a.slice(1)) || Infinity) - (Number(b.slice(1)) || Infinity)
+      : a.localeCompare(b, "fr", { sensitivity: "base" })
+  );
+}
+
+export function filterDocumentColumns<T extends ColumnRow>(
+  rows: readonly T[],
+  columns: Partial<Record<DocumentColumnFilter, string>> | undefined
+): T[] {
+  const active = Object.entries(columns ?? {}) as [DocumentColumnFilter, string][];
+  if (active.length === 0) return [...rows];
+  return rows.filter((row) => active.every(([column, value]) => documentColumnValue(row, column) === value));
 }
 
 const MAX_QUERY_LENGTH = 100;
@@ -157,16 +214,28 @@ function single(raw: string | string[] | undefined): string | undefined {
   return Array.isArray(raw) ? raw[0] : raw;
 }
 
+const MAX_COLUMN_VALUE_LENGTH = 80;
+
 export function parseDocumentFilters(params: {
   tab?: string | string[];
   q?: string | string[];
   cat?: string | string[];
   tri?: string | string[];
+  statut?: string | string[];
+  fourni?: string | string[];
+  version?: string | string[];
 }): DocumentFilters {
   const tab = single(params.tab);
   const cat = single(params.cat);
+  const tri = single(params.tri);
+  const columns: Partial<Record<DocumentColumnFilter, string>> = {};
+  for (const column of DOCUMENT_COLUMN_FILTERS) {
+    const value = single(params[column])?.trim().slice(0, MAX_COLUMN_VALUE_LENGTH);
+    if (value) columns[column] = value;
+  }
   return {
-    ...(single(params.tri) === "nom" && { sort: "nom" as const }),
+    ...((DOCUMENT_SORTS as readonly string[]).includes(tri ?? "") && { sort: tri as DocumentSort }),
+    ...(Object.keys(columns).length > 0 && { columns }),
     bucket: (DOCUMENT_BUCKETS as readonly string[]).includes(tab ?? "") ? (tab as DocumentBucket) : "todo",
     query: (single(params.q) ?? "").trim().slice(0, MAX_QUERY_LENGTH),
     // `Object.hasOwn` et non `in` : « toString » est « dans » tout objet.
@@ -207,8 +276,12 @@ export function documentsHref(
   const params = new URLSearchParams();
   if (filters.bucket && filters.bucket !== "todo") params.set("tab", filters.bucket);
   if (filters.query) params.set("q", filters.query);
-  if (filters.sort === "nom") params.set("tri", "nom");
+  if (filters.sort) params.set("tri", filters.sort);
   if (filters.category) params.set("cat", filters.category);
+  for (const column of DOCUMENT_COLUMN_FILTERS) {
+    const value = filters.columns?.[column];
+    if (value) params.set(column, value);
+  }
   if (filters.doc) params.set("doc", filters.doc);
   const query = params.toString();
   return query ? `${basePath}?${query}` : basePath;

@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { Folder } from "lucide-react";
+import { foldersOfRows, groupRowsByFolder } from "@/lib/services/document-folder-service";
 import { getClientChecklist } from "@/lib/actions/checklist";
 import { flattenChecklist } from "@/lib/services/structure-documents-service";
 import {
@@ -208,7 +210,11 @@ export default async function ClientDocumentsPage({ searchParams }: Props) {
             </h2>
             <p className="text-[17px] text-ink2">{group.progress}</p>
           </div>
-          {group.rows.map((row) => (
+          {(() => {
+            // Dossiers (call du 29/10/2026) : « un repère clair et balisé, pour nous et
+            // pour le client » — un pavé par dossier, ses documents dedans.
+            const foldered = groupRowsByFolder(group.rows, foldersOfRows(group.rows));
+            const renderCard = (row: (typeof group.rows)[number]) => (
             <ClientDocumentCard
               key={row.documentTypeId}
               item={row}
@@ -225,7 +231,25 @@ export default async function ClientDocumentsPage({ searchParams }: Props) {
                   : null
               }
             />
-          ))}
+            );
+            return (
+              <>
+                {foldered.folders.map((folder) => (
+                  <details key={folder.id} open={query !== ""} className="rounded-xl border border-line bg-soft">
+                    <summary className="flex min-h-11 cursor-pointer items-center gap-2 px-5 py-3 text-xl font-bold">
+                      <Folder className="h-5 w-5 flex-shrink-0 text-accent-text" aria-hidden="true" />
+                      {folder.label}
+                      <span className="text-[17px] font-normal text-ink2">
+                        · {folder.rows.length} document{folder.rows.length > 1 ? "s" : ""}
+                      </span>
+                    </summary>
+                    <div className="flex flex-col gap-2.5 px-3 pb-3">{folder.rows.map(renderCard)}</div>
+                  </details>
+                ))}
+                {foldered.loose.map(renderCard)}
+              </>
+            );
+          })()}
         </section>
       ))}
 

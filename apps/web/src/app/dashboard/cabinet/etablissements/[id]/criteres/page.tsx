@@ -13,7 +13,8 @@ import {
   type CriterionProofRow,
 } from "@/lib/services/criteria-proof-service";
 import { structureHref } from "@/lib/design/structure-tabs";
-import { DataTable, type DataTableColumn } from "@/components/ui/data-table";
+import { DataTable, type DataTableColumn, type DataTableColumnMenu } from "@/components/ui/data-table";
+import { distinctValues, filterMenuFor, sortMenuFor } from "@/components/ui/data-table-menus";
 import { StatusPill } from "@/components/ui/status-pill";
 import { TabsNav } from "@/components/ui/tabs-nav";
 
@@ -21,16 +22,66 @@ export const metadata = { title: "Critères et preuves" };
 
 type Props = {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ filtre?: string | string[] }>;
+  searchParams: Promise<{
+    filtre?: string | string[];
+    // Menus de colonne façon Excel (call du 29/10/2026).
+    etat?: string | string[];
+    chap?: string | string[];
+    tri?: string | string[];
+  }>;
 };
+
+// État de l'adresse des menus de colonne : filtre d'onglet, état, chapitre, tri.
+type CriteriaView = { filtre: string | undefined; etat: string | undefined; chap: string | undefined; tri: CriteriaSort | undefined };
+type CriteriaSort = "code" | "code-desc" | "preuves" | "preuves-desc";
+const CRITERIA_SORTS: readonly CriteriaSort[] = ["code", "code-desc", "preuves", "preuves-desc"];
+
+function first(raw: string | string[] | undefined): string | undefined {
+  const value = Array.isArray(raw) ? raw[0] : raw;
+  return value ? value.slice(0, 80) : undefined;
+}
+
+function criteriaHref(base: string, view: CriteriaView): string {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(view)) if (value) params.set(key, value);
+  const query = params.toString();
+  return query ? `${base}?${query}` : base;
+}
+
+const chapterLabel = (row: CriterionProofRow) => `Chapitre ${row.chapterNumber}`;
+
+// Numéro de critère dans l'ordre naturel (« 3.2.1 » avant « 3.10.1 »).
+const byCode = (a: CriterionProofRow, b: CriterionProofRow) => a.code.localeCompare(b.code, "fr", { numeric: true });
+
+function sortCriteria(rows: readonly CriterionProofRow[], sort: CriteriaSort | undefined): CriterionProofRow[] {
+  if (!sort) return [...rows];
+  if (sort === "code") return [...rows].sort(byCode);
+  if (sort === "code-desc") return [...rows].sort((a, b) => byCode(b, a));
+  const ratio = (row: CriterionProofRow) => (row.expected === 0 ? -1 : row.proven / row.expected);
+  const direction = sort === "preuves" ? 1 : -1;
+  return [...rows].sort((a, b) => (ratio(a) - ratio(b)) * direction || byCode(a, b));
+}
+
+function criteriaMenus(base: string, view: CriteriaView, rows: readonly CriterionProofRow[]): Record<"code" | "proofs" | "chapter" | "status", DataTableColumnMenu> {
+  const href = (patch: Partial<CriteriaView>) => criteriaHref(base, { ...view, ...patch });
+  return {
+    code: { sort: sortMenuFor(view.tri, { asc: "code", desc: "code-desc", ascLabel: "Du plus petit numéro", descLabel: "Du plus grand numéro" }, (tri) => href({ tri })) },
+    proofs: {
+      sort: sortMenuFor(view.tri, { asc: "preuves", desc: "preuves-desc", ascLabel: "Les moins prouvés d'abord", descLabel: "Les plus prouvés d'abord" }, (tri) => href({ tri })),
+    },
+    chapter: { filter: filterMenuFor(distinctValues(rows.map(chapterLabel)), view.chap, (chap) => href({ chap })) },
+    status: { filter: filterMenuFor(distinctValues(rows.map((row) => PROOF_PILLS[row.status].label)), view.etat, (etat) => href({ etat })) },
+  };
+}
 
 function columns(
   evidence: Record<string, CriterionEvidence>,
   documentsPath: string,
-  canEditMatrix: boolean
+  canEditMatrix: boolean,
+  menus: ReturnType<typeof criteriaMenus>
 ): DataTableColumn<CriterionProofRow>[] {
   return [
-    { id: "code", header: "Critère", cell: (r) => <span className="font-bold tabular-nums">{r.code}</span>, isRowHeader: true },
+    { id: "code", header: "Critère", menu: menus.code, cell: (r) => <span className="font-bold tabular-nums">{r.code}</span>, isRowHeader: true },
     {
       id: "label",
       header: "Intitulé",
@@ -54,6 +105,7 @@ function columns(
     {
       id: "proofs",
       header: "Preuves",
+      menu: menus.proofs,
       cell: (r) =>
         r.expected === 0 ? (
           "—"
@@ -64,8 +116,8 @@ function columns(
           </span>
         ),
     },
-    { id: "chapter", header: "Chapitre", cell: (r) => `Chapitre ${r.chapterNumber}` },
-    { id: "status", header: "État", cell: (r) => <StatusPill pill={PROOF_PILLS[r.status]} /> },
+    { id: "chapter", header: "Chapitre", menu: menus.chapter, cell: chapterLabel },
+    { id: "status", header: "État", menu: menus.status, cell: (r) => <StatusPill pill={PROOF_PILLS[r.status]} /> },
   ];
 }
 
@@ -149,15 +201,30 @@ function CriterionDetails({
 // documents de la structure et de la matrice validée (criteria-proof-service).
 export default async function StructureCriteriaPage({ params, searchParams }: Props) {
   const { id } = await params;
-  const filter = parseProofFilter((await searchParams).filtre);
+  const raw = await searchParams;
+  const filter = parseProofFilter(raw.filtre);
+  const tri = first(raw.tri);
+  const view: CriteriaView = {
+    filtre: filter === "TOUS" ? undefined : filter,
+    etat: first(raw.etat),
+    chap: first(raw.chap),
+    tri: CRITERIA_SORTS.find((sort) => sort === tri),
+  };
   const [proof, evidence, { role }] = await Promise.all([
     getStructureCriteriaProof(id),
     getStructureCriteriaEvidence(id),
     requireCabinetSession("STRUCTURES_READ"),
   ]);
   const canEditMatrix = hasCabinetCapability(role, "CABINET_SETTINGS");
-  const rows = filterProofRows(proof.rows, filter);
   const base = structureHref(id, "criteres");
+  const tabRows = filterProofRows(proof.rows, filter);
+  const rows = sortCriteria(
+    tabRows.filter(
+      (row) => (!view.etat || PROOF_PILLS[row.status].label === view.etat) && (!view.chap || chapterLabel(row) === view.chap)
+    ),
+    view.tri
+  );
+  const menus = criteriaMenus(base, view, tabRows);
   const unlinked = proof.rows.filter((r) => r.status === "NON_RATTACHE").length;
 
   return (
@@ -201,7 +268,7 @@ export default async function StructureCriteriaPage({ params, searchParams }: Pr
       )}
       <DataTable
         caption="Critères HAS et preuves documentaires de la structure"
-        columns={columns(evidence, structureHref(id, "documents"), canEditMatrix)}
+        columns={columns(evidence, structureHref(id, "documents"), canEditMatrix, menus)}
         rows={rows}
         getRowKey={(r) => r.id}
         emptyMessage="Aucun critère à afficher."

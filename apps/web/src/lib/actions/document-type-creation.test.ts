@@ -15,6 +15,7 @@ const prismaMock = {
   documentType: { findMany: vi.fn(), findUnique: vi.fn(), create: vi.fn(), update: vi.fn() },
   documentTypeCriterion: { createMany: vi.fn() },
   criterion: { findMany: vi.fn() },
+  documentFolder: { findUnique: vi.fn() },
   establishment: { findFirst: vi.fn(), findMany: vi.fn() },
   // La transaction rejoue le même client : chaque écriture reste observable.
   $transaction: vi.fn(async (fn: (tx: unknown) => Promise<unknown>) => fn(prismaMock)),
@@ -203,6 +204,7 @@ describe("création", () => {
         category: "QUALITE_RISQUES",
         label: "Plan de continuité d'activité",
         requestedFromClient: true,
+        folderId: null,
       },
       select: { id: true },
     });
@@ -263,5 +265,22 @@ describe("annonce", () => {
     expect(prismaMock.establishment.findMany).not.toHaveBeenCalled();
     expect(notifyNewDocumentType).not.toHaveBeenCalled();
     expect(result).toEqual(expect.objectContaining({ announced: null }));
+  });
+});
+
+describe("dossier choisi à la création (call du 29/10/2026)", () => {
+  it("range la ligne dans le dossier choisi", async () => {
+    prismaMock.documentFolder.findUnique.mockResolvedValue({ id: "f-1" });
+    const result = await createDocumentType(form({ ...valid, folder: "f-1" }));
+    expect(result).toMatchObject({ ok: true });
+    expect(prismaMock.documentType.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ folderId: "f-1" }) })
+    );
+  });
+
+  it("un dossier inconnu répond notFound, rien n'est créé", async () => {
+    prismaMock.documentFolder.findUnique.mockResolvedValue(null);
+    await expect(createDocumentType(form({ ...valid, folder: "f-autre" }))).rejects.toThrow("NOT_FOUND");
+    expect(prismaMock.documentType.create).not.toHaveBeenCalled();
   });
 });

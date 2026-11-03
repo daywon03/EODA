@@ -144,6 +144,22 @@ describe("getSurveyBoard et export — statistiques", () => {
     );
   });
 
+  // QA du 30/10/2026 : l'écran annonçait « 3 questionnaires personne » au-dessus de
+  // « 1 réponse » — le compteur prenait aussi les réponses à une ancienne version.
+  it("compte les questionnaires comme les statistiques : version courante seulement", async () => {
+    guards.requireEstablishmentAccess.mockResolvedValue(CABINET_ACCESS);
+    const current = surveyTemplateFor("PERSONNE").version;
+    port.listSurveyResponses.mockResolvedValue([
+      { ...WITH_TEXTS[0], templateVersion: current - 1 },
+      { ...WITH_TEXTS[0], templateVersion: current - 1 },
+      WITH_TEXTS[0],
+    ]);
+    const board = await getSurveyBoard("etab-1");
+    const personne = board.surveyStats.find((s) => s.templateCode === "PERSONNE");
+    expect(personne?.responses).toBe(1);
+    expect(board.coverage.personne).toBe(personne?.responses);
+  });
+
   it("le cabinet ne reçoit AUCUN commentaire libre (minimisation, 14/10/2026)", async () => {
     guards.requireEstablishmentAccess.mockResolvedValue(CABINET_ACCESS);
     port.listSurveyResponses.mockResolvedValue(WITH_TEXTS);

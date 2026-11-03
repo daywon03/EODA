@@ -158,6 +158,9 @@ export async function getSurveyBoard(establishmentId: string): Promise<TerrainSu
   const active = timelines.filter((b) => isActiveOn(b, now));
   const computed = SURVEY_TEMPLATES.map((template) => computeTemplateStats(template, responses));
   const surveyStats = access.isClient ? computed : computed.map(withoutFreeTexts);
+  // Même compte que les statistiques (version courante seulement) : deux chiffres
+  // différents sur le même écran pour la même chose (QA du 30/10/2026).
+  const answeredWith = (code: string) => computed.find((s) => s.templateCode === code)?.responses ?? 0;
 
   return {
     hdsAvailable: port.isAvailable,
@@ -167,8 +170,8 @@ export async function getSurveyBoard(establishmentId: string): Promise<TerrainSu
     coverage: {
       done: active.filter((b) => surveyed.has(b.id)).length,
       total: active.length,
-      personne: responses.filter((r) => r.templateCode === "PERSONNE").length,
-      famille: responses.filter((r) => r.templateCode === "FAMILLE").length,
+      personne: answeredWith("PERSONNE"),
+      famille: answeredWith("FAMILLE"),
     },
   };
 }
