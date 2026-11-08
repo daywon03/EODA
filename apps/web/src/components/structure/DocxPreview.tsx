@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { isBrowserUnreadableImage, neutralizeDocxLinks } from "@/lib/services/docx-preview-safety";
+import { DOCX_RENDER_OPTIONS } from "./docx-render-options";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // APERÇU D'UN WORD AVEC SA MISE EN PAGE (demande de Damon, 21/10/2026 : « quand on
@@ -65,22 +66,7 @@ export function DocxPreview({ url, data, title, onFailed }: { url?: string; data
           content = await response.blob();
         }
         if (cancelled) return;
-        await docx.renderAsync(content, target, target, {
-          className: "docx",
-          inWrapper: true,
-          breakPages: true,
-          renderHeaders: true,
-          renderFooters: true,
-          renderFootnotes: true,
-          renderEndnotes: true,
-          ignoreFonts: false,
-          ignoreWidth: false,
-          ignoreHeight: false,
-          useBase64URL: true,
-          renderChanges: false,
-          renderComments: false,
-          experimental: false,
-        });
+        await docx.renderAsync(content, target, target, DOCX_RENDER_OPTIONS);
         if (cancelled) return;
         neutralizeDocxLinks(target);
         setUnreadableImages(replaceUnreadableImages(target));

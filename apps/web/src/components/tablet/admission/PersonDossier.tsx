@@ -5,7 +5,8 @@ import { Download, FolderOpen, Send } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { frenchDay, type AdmissionRecord } from "@/lib/services/admission-service";
 import { TABLET_PRIMARY, TABLET_SECONDARY } from "../tablet-ui";
-import { downloadBlob, shareFilesOrDownload } from "./use-admissions";
+import { downloadBlob } from "./use-admissions";
+import { describeShare, shareFiles } from "./share-files";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // LE DOSSIER D'UNE PERSONNE SUR LA TABLETTE (30/10/2026) — administrateur seulement.
@@ -68,8 +69,8 @@ export function PersonDossier({ name, records, recordFiles, zip, zipName, onBack
               className={TABLET_SECONDARY}
               disabled={all.length === 0}
               onClick={() =>
-                void shareFilesOrDownload(all, `Dossier — ${name}`).then((result) =>
-                  setFlash(result === "shared" ? "Le dossier est envoyé." : result === "downloaded" ? "Le dossier est téléchargé sur la tablette." : null)
+                void shareFiles(all, `Dossier — ${name}`, (f) => downloadBlob(f.fileName, f.blob)).then((result) =>
+                  setFlash(describeShare(result, "Le dossier est envoyé.", "Cette tablette ne sait pas envoyer : le dossier est téléchargé."))
                 )
               }
             >

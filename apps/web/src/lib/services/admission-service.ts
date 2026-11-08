@@ -542,6 +542,13 @@ export function admissionRecapFileName(structureName: string, identity: Admissio
   return `${admissionFileStem(structureName, identity, signedAt, "CONTRAT-RECAPITULATIF")}.docx`;
 }
 
+// La copie PDF d'un Word signé (08/11/2026) : même nom, pour lire et imprimer le
+// contrat tel qu'il a été signé — et l'envoyer d'une tablette qui ne partage pas un
+// Word. Le Word reste le contrat ; ce n'est pas l'attestation (SIGNATURE-DIPEC).
+export function pdfCopyFileName(wordFileName: string): string {
+  return wordFileName.replace(/\.docx$/i, "") + ".pdf";
+}
+
 // Le contrat lui-même : le Word d'EODA, rempli et signé sur la tablette.
 export function admissionWordFileName(structureName: string, identity: AdmissionIdentity, signedAt: Date): string {
   return `${admissionFileStem(structureName, identity, signedAt, "DIPEC")}.docx`;
