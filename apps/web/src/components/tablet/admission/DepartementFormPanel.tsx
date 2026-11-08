@@ -18,7 +18,8 @@ import {
 import { TABLET_CHOICE_OFF, TABLET_CHOICE_ON, TABLET_PRIMARY, TABLET_SECONDARY } from "../tablet-ui";
 import { SignaturePad } from "../SignaturePad";
 import { ChangeSituationFields } from "./ChangeSituationFields";
-import { downloadBlob, sha256Hex, shareFilesOrDownload, type DepartementFormKind } from "./use-admissions";
+import { downloadBlob, sha256Hex, type DepartementFormKind } from "./use-admissions";
+import { describeShare, shareFiles } from "./share-files";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // FORMULAIRES DU DÉPARTEMENT (93) remplis depuis la fiche (27/10/2026) :
@@ -169,13 +170,9 @@ export function DepartementFormPanel({ record, structure, contractFiles, withRec
   async function send() {
     if (!form) return;
     const files = [{ fileName, blob: form }, ...(await contractFiles())];
-    const result = await shareFilesOrDownload(files, `${spec.title} — ${fullName(record.identity)}`);
+    const result = await shareFiles(files, `${spec.title} — ${fullName(record.identity)}`, (f) => downloadBlob(f.fileName, f.blob));
     setMessage(
-      result === "shared"
-        ? `Envoyé. Le Département attend les deux pièces à ${DEPARTEMENT_FORM.sendTo}.`
-        : result === "downloaded"
-          ? `Téléchargé. À envoyer avec ${contractLabel} à ${DEPARTEMENT_FORM.sendTo}.`
-          : null
+      describeShare(result, `Envoyé. Le Département attend les deux pièces à ${DEPARTEMENT_FORM.sendTo}.`, `Téléchargé. À envoyer avec ${contractLabel} à ${DEPARTEMENT_FORM.sendTo}.`)
     );
   }
 
