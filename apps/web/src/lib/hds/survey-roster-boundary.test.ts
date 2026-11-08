@@ -33,6 +33,8 @@ const GUARDED_MODULES = [
   "trusted-person-service",
   // 30/10/2026 : le contrat récapitulatif envoyé au Département, rempli et signé.
   "recap-contract-word-service",
+  // 08/11/2026 : les cases du DIPEC cochées sur la tablette (paiement, accompagnant).
+  "dipc-contract-checks",
 ];
 const GUARDED = new RegExp(`(?:from\\s+|import\\(\\s*)["'][^"']*\\/(?:${GUARDED_MODULES.join("|")})["']`);
 const OWN = GUARDED_MODULES.map((name) => path.join("lib", "services", `${name}.ts`));

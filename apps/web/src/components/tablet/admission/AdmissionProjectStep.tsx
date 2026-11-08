@@ -2,10 +2,11 @@
 
 import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { PAYMENT_FIELD_PREFIX, type DipcCheckField, type DipcDurationChoice, type DipcFreeField } from "@/lib/services/dipc-tablet-preparation";
+import { type DipcCheckField, type DipcDurationChoice, type DipcFreeField } from "@/lib/services/dipc-tablet-preparation";
 import type { AdmissionAid, DipcDuration } from "@/lib/services/admission-service";
 import { TABLET_CHOICE_OFF, TABLET_CHOICE_ON, TABLET_INPUT } from "../tablet-ui";
 import { AdmissionAidFields } from "./AdmissionAidFields";
+import { contractCheckGroups } from "@/lib/services/dipc-contract-checks";
 
 // Les zones « [à compléter] », les cases « ☐ » et le choix de durée du DIPEC de la
 // structure, remplis sur la tablette (copie préparée par dipc-tablet-preparation).
@@ -28,8 +29,7 @@ export function AdmissionProjectStep({ aid, onAid, freeFields, checkFields, hand
   onCheck: (id: string, value: boolean) => void;
 }) {
   const filled = freeFields.filter((f) => (texts[f.id] ?? "").trim()).length;
-  const paymentFields = checkFields.filter((f) => f.id.startsWith(PAYMENT_FIELD_PREFIX));
-  const otherFields = checkFields.filter((f) => !f.id.startsWith(PAYMENT_FIELD_PREFIX));
+  const groups = contractCheckGroups(checkFields);
   const chosen = durationChoice?.options.find((o) => o.number === duration.choice);
   return (
     <div className="flex max-w-[860px] flex-col gap-7">
@@ -90,33 +90,27 @@ export function AdmissionProjectStep({ aid, onAid, freeFields, checkFields, hand
           Les {handedChecksCount} cases « Documents remis » du contrat se cocheront toutes seules à l&apos;étape « À expliquer », quand vous remettrez chaque document.
         </p>
       )}
-      {/* « Le client devra régler la facture par : » — le mode choisi se coche ici
-          (call du 28/10/2026), il est écrit ☒ / ☐ dans le contrat. */}
-      {paymentFields.length > 0 && (
-        <section aria-labelledby="projet-paiement" className="flex flex-col gap-2.5">
-          <h2 id="projet-paiement" className="text-[24px] font-bold">Mode de paiement</h2>
-          <p className="text-[18px] text-ink2">Cochez comment la personne réglera ses factures.</p>
-          {paymentFields.map((field) => (
-            <ContractCheck key={field.id} field={field} on={Boolean(checks[field.id])} onCheck={onCheck} />
-          ))}
+      {/* Chaque groupe de cases dit comment il se coche : le mode de paiement est un
+          choix unique (☒ / ☐ dans le contrat), les autres cases sont indépendantes. */}
+      {groups.map((group) => (
+        <section key={group.kind} aria-labelledby={`projet-cases-${group.kind}`} className="flex flex-col gap-2.5">
+          <h2 id={`projet-cases-${group.kind}`} className="text-[24px] font-bold">{group.title}</h2>
+          <p className="text-[18px] text-ink2">{group.hint}</p>
+          <div role={group.kind === "PAYMENT" ? "radiogroup" : undefined} aria-labelledby={`projet-cases-${group.kind}`} className="flex flex-col gap-2.5">
+            {group.fields.map((field) => (
+              <ContractCheck key={field.id} field={field} on={Boolean(checks[field.id])} single={group.kind === "PAYMENT"} onCheck={onCheck} />
+            ))}
+          </div>
         </section>
-      )}
-      {otherFields.length > 0 && (
-        <section aria-labelledby="projet-cases" className="flex flex-col gap-2.5">
-          <h2 id="projet-cases" className="text-[24px] font-bold">Cases du contrat</h2>
-          {otherFields.map((field) => (
-            <ContractCheck key={field.id} field={field} on={Boolean(checks[field.id])} onCheck={onCheck} />
-          ))}
-        </section>
-      )}
+      ))}
     </div>
   );
 }
 
-function ContractCheck({ field, on, onCheck }: { field: DipcCheckField; on: boolean; onCheck: (id: string, value: boolean) => void }) {
+function ContractCheck({ field, on, single, onCheck }: { field: DipcCheckField; on: boolean; single: boolean; onCheck: (id: string, value: boolean) => void }) {
   return (
-    <button type="button" role="checkbox" aria-checked={on} onClick={() => onCheck(field.id, !on)} className={cn("flex min-h-[64px] w-full items-center gap-3.5 rounded-xl border-2 px-3.5 py-2 text-left text-[19px]", on ? "border-ok-text bg-ok-soft" : "border-line bg-card")}>
-      <span className={cn("flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg border-2", on ? "border-ok-text bg-green-fill" : "border-muted bg-card")}>
+    <button type="button" role={single ? "radio" : "checkbox"} aria-checked={on} onClick={() => onCheck(field.id, !on)} className={cn("flex min-h-[64px] w-full items-center gap-3.5 rounded-xl border-2 px-3.5 py-2 text-left text-[19px]", on ? "border-ok-text bg-ok-soft" : "border-line bg-card")}>
+      <span className={cn("flex h-9 w-9 flex-shrink-0 items-center justify-center border-2", single ? "rounded-full" : "rounded-lg", on ? "border-ok-text bg-green-fill" : "border-muted bg-card")}>
         {on && <Check className="h-5 w-5" aria-hidden="true" />}
       </span>
       {field.label}

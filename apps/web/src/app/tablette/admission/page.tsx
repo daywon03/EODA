@@ -23,7 +23,7 @@ export default async function TabletAdmissionPage() {
 
   return (
     <div className="flex min-h-screen flex-col bg-paper text-ink">
-      <TabletHeader structureName={session.establishmentName} aside={<TabletSignOutButton name={session.staffDisplayName} />} />
+      <TabletHeader structureName={session.establishmentName} backToHome aside={<TabletSignOutButton name={session.staffDisplayName} />} />
       <TabletMain>
         {dipc.status === "READY" ? (
           <TabletAdmission
