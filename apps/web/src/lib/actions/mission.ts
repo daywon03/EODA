@@ -32,7 +32,10 @@ import {
   isOptionContractuallyLocked,
   type MissionOptionLine,
 } from "@/lib/services/avenant-service";
-import { readMissionDocumentCounters } from "@/lib/db/read-mission-document-counters";
+import {
+  readMissionComplianceDocuments,
+  readMissionDocumentCounters,
+} from "@/lib/db/read-mission-document-counters";
 import type { MissionDocumentCounters } from "@/lib/services/mission-document-counters-service";
 
 // Plus de résolution de tenant locale : requireCabinetSession() la fait déjà et
@@ -521,9 +524,13 @@ export async function getMission(establishmentId: string): Promise<MissionWithPr
   });
   if (!mission) return null;
 
-  const catalogItems = await prisma.missionChecklistItem.findMany({
-    orderBy: [{ scope: "asc" }, { order: "asc" }],
-  });
+  // Le catalogue des cases et les documents prouvés ne dépendent pas l'un de l'autre.
+  const [catalogItems, complianceDocuments] = await Promise.all([
+    prisma.missionChecklistItem.findMany({
+      orderBy: [{ scope: "asc" }, { order: "asc" }],
+    }),
+    readMissionComplianceDocuments(establishmentId, mission.formule, mission.gratuit, mission.supportMode),
+  ]);
 
   const completedByItemId = new Map(mission.itemStatuses.map((s) => [s.itemId, s.completed]));
 
@@ -545,7 +552,8 @@ export async function getMission(establishmentId: string): Promise<MissionWithPr
       completed: completedByItemId.get(ci.id) ?? false,
     })),
     mission.formule,
-    mission.gratuit
+    mission.gratuit,
+    complianceDocuments
   );
 
   return {

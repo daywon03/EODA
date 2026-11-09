@@ -1,5 +1,6 @@
-import type { DocumentStatus, SupportMode } from "@eoda/database";
+import type { DocumentCategory, DocumentStatus, SupportMode } from "@eoda/database";
 import { isDocumentProven } from "./criteria-proof-service";
+import { normaliseMissingState } from "./missing-answer-service";
 
 // Les quatre compteurs du portail interne de suivi de mission, tels que dictés au
 // call du 16/08/2026 : documents déposés / analysés par l'IA / modifiés / conformes
@@ -65,6 +66,72 @@ export function computeMissionDocumentCounters(
         )
     ).length,
   };
+}
+
+// ── Documents attendus prouvés (étape « Mise en conformité ») ────────────────
+//
+// Retour de Sandrine (call du 09/11/2026) : « ce qui doit refléter l'avancement, ce
+// sont les documents validés / prouvés, pas des cases cochées ». L'étape « Mise en
+// conformité » du suivi de mission se mesure donc ici : chaque TYPE de document
+// attendu par l'offre de la mission (getCoveredDocumentCategories, lu par l'appelant)
+// est une ligne, qu'un document existe ou non.
+//
+// Attendu = tout type du périmètre, sauf ce qui se lit « Non concerné » — un type
+// conditionnel sans document, ou la réponse « ne nous concerne pas » quand elle est
+// permise. La relecture d'un ancien « Non » de la loi 2002-2 est celle du portail
+// (normaliseMissingState) : il reste dû. Prouvé = isDocumentProven, la règle unique
+// de « validé » (CLAUDE.md §0).
+export type ExpectedDocumentFacts = {
+  category: DocumentCategory;
+  code: string;
+  isConditional: boolean;
+  // null = aucune ligne Document pour ce type (jamais déposé, jamais répondu).
+  document: {
+    status: DocumentStatus;
+    statusOverriddenByUser: boolean;
+    validatedAt: Date | null;
+    clientAcceptedAt: Date | null;
+    currentVersionUploadedAt: Date | null;
+    currentVersionByCabinet: boolean;
+  } | null;
+};
+
+export type ComplianceDocuments = { proven: number; expected: number; mode: SupportMode };
+
+export function countComplianceDocuments(
+  rows: readonly ExpectedDocumentFacts[],
+  mode: SupportMode
+): ComplianceDocuments {
+  let proven = 0;
+  let expected = 0;
+  for (const row of rows) {
+    const doc = row.document;
+    const rawStatus: DocumentStatus = doc ? doc.status : row.isConditional ? "NOT_APPLICABLE" : "MISSING";
+    const { status } = normaliseMissingState({
+      category: row.category,
+      code: row.code,
+      status: rawStatus,
+      statusOverriddenByUser: doc?.statusOverriddenByUser ?? false,
+      hasVersion: doc?.currentVersionUploadedAt != null,
+    });
+    if (status === "NOT_APPLICABLE") continue;
+    expected += 1;
+    if (
+      doc &&
+      isDocumentProven(
+        {
+          versionUploadedAt: doc.currentVersionUploadedAt,
+          validatedAt: doc.validatedAt,
+          clientAcceptedAt: doc.clientAcceptedAt,
+          versionByCabinet: doc.currentVersionByCabinet,
+        },
+        mode
+      )
+    ) {
+      proven += 1;
+    }
+  }
+  return { proven, expected, mode };
 }
 
 // Libellé du quatrième compteur, une seule source pour les deux portails : il dit QUI
