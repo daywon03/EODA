@@ -134,8 +134,11 @@ describe("analysisVisibleTo — structure ACCOMPAGNÉE : revue humaine obligatoi
     expect(analysisVisibleTo("CLIENT", pending, "ACCOMPAGNE")).toBeNull();
   });
 
-  it("montre l'analyse au client une fois la revue faite", () => {
-    expect(analysisVisibleTo("CLIENT", reviewed, "ACCOMPAGNE")).toEqual(COMPLETE);
+  it("ne montre RIEN au client même une fois la revue faite (Sandrine, 08/11/2026)", () => {
+    // Ce qu'EODA restitue à une structure accompagnée, c'est sa relecture (« Relu par
+    // EODA ») et le document validé — jamais la sortie brute du modèle, qui affichait
+    // par exemple « 7 éléments attendus n'ont pas été retrouvés » sur une fiche validée.
+    expect(analysisVisibleTo("CLIENT", reviewed, "ACCOMPAGNE")).toBeNull();
   });
 
   it("montre tout au cabinet, revue ou non — c'est son travail de relire", () => {

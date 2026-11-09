@@ -54,7 +54,11 @@ export function isDocumentDeposited(doc: ProofDocumentFacts): boolean {
   return doc.versionUploadedAt !== null;
 }
 
-export function isDocumentProven(doc: ProofDocumentFacts, mode: SupportMode): boolean {
+// Réutilisée par les compteurs de documents (mission-document-counters-service,
+// client-contract-service) : un seul sens de « validé » dans toute l'application.
+export type ProvenFacts = Pick<ProofDocumentFacts, "versionUploadedAt" | "validatedAt" | "clientAcceptedAt" | "versionByCabinet">;
+
+export function isDocumentProven(doc: ProvenFacts, mode: SupportMode): boolean {
   const uploadedAt = doc.versionUploadedAt;
   if (uploadedAt === null) return false;
   // Accompagné : la MÊME règle que le panneau du document (« Validé »), une seule

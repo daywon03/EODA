@@ -642,7 +642,7 @@ export async function getMissionDocumentCounters(
   // Lecture partagée avec le portail client (« Mon suivi ») — les deux
   // portails affichent les MÊMES compteurs, ils ne peuvent pas les calculer
   // séparément sans finir par diverger (D1).
-  return readMissionDocumentCounters(establishmentId, mission.formule, mission.gratuit);
+  return readMissionDocumentCounters(establishmentId, mission.formule, mission.gratuit, mission.supportMode);
 }
 
 // ── Signature de l'avenant ───────────────────────────────────────────────────

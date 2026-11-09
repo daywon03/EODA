@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireEstablishmentInTenant } from "@/lib/auth/guards";
 import { hasCabinetCapability } from "@/lib/auth/capabilities";
@@ -13,6 +14,8 @@ import {
   documentRowPill,
   documentsHref,
   filterDocumentRows,
+  foldersForTab,
+  describeElsewhere,
   findDocumentRow,
   flattenChecklist,
   parseDocumentFilters,
@@ -39,7 +42,6 @@ import { DocumentWorkspace, type WorkspaceEntry } from "@/components/structure/D
 import { DocumentSheetBody } from "@/components/structure/DocumentSheetBody";
 import { NewDocumentTypeForm } from "@/components/checklist/NewDocumentTypeForm";
 import { normalizeCriterionQuery } from "@/lib/services/document-type-creation-service";
-import { groupRowsByFolder } from "@/lib/services/document-folder-service";
 import { listDocumentFolders } from "@/lib/actions/document-folder";
 import { DocumentFolderManager } from "@/components/structure/lazy-document-panels";
 import { Folder } from "lucide-react";
@@ -150,7 +152,8 @@ export default async function StructureDocumentsPage({ params, searchParams }: P
   const menuContext: MenuContext = { basePath, filters, rows: bucketRows };
   // Dossiers (call du 29/10/2026) : un pavé par dossier, ses lignes en dessous ; le
   // reste à plat. Mêmes lignes, mêmes filtres — seul le rangement change.
-  const foldered = groupRowsByFolder(rows, folders);
+  // Un dossier dit aussi combien des siens sont dans les AUTRES onglets (08/11/2026).
+  const foldered = foldersForTab(rows, filterDocumentColumns(searched, filters.columns), folders, filters.bucket);
 
   // Le panneau : cherché dans la checklist de CETTE structure, déjà bornée au tenant.
   const docParam = Array.isArray(raw.doc) ? raw.doc[0] : raw.doc;
@@ -267,18 +270,34 @@ export default async function StructureDocumentsPage({ params, searchParams }: P
             <Folder className="h-4 w-4 flex-shrink-0 text-accent-text" aria-hidden="true" />
             {folder.label}
             <span className="font-normal text-ink2">
-              · {folder.rows.length} document{folder.rows.length > 1 ? "s" : ""}
+              · {folder.rows.length} document{folder.rows.length > 1 ? "s" : ""} ici
+              {folder.elsewhere.length > 0 && ` · ${describeElsewhere(folder.elsewhere)}`}
             </span>
           </summary>}
         >
-          <DataTable
-            caption={`${folder.label} — ${DOCUMENT_BUCKET_LABELS[filters.bucket]}`}
-            columns={columns(menuContext)}
-            rows={folder.rows}
-            getRowKey={(row) => row.documentTypeId}
-            rowHref={(row) => documentsHref(basePath, { ...filters, doc: row.documentTypeId })}
-            className="rounded-t-none border-x-0 border-b-0"
-          />
+          {folder.elsewhere.length > 0 && (
+            <p className="flex flex-wrap gap-x-4 gap-y-1 border-t border-line px-4 py-2 text-ink2">
+              {folder.elsewhere.map(({ bucket, count }) => (
+                <Link
+                  key={bucket}
+                  href={documentsHref(basePath, { ...filters, bucket })}
+                  className="inline-flex min-h-11 items-center font-bold text-accent-text hover:underline"
+                >
+                  Voir {count === 1 ? "le document" : `les ${count} documents`} de ce dossier dans « {DOCUMENT_BUCKET_LABELS[bucket]} » →
+                </Link>
+              ))}
+            </p>
+          )}
+          {folder.rows.length > 0 && (
+            <DataTable
+              caption={`${folder.label} — ${DOCUMENT_BUCKET_LABELS[filters.bucket]}`}
+              columns={columns(menuContext)}
+              rows={folder.rows}
+              getRowKey={(row) => row.documentTypeId}
+              rowHref={(row) => documentsHref(basePath, { ...filters, doc: row.documentTypeId })}
+              className="rounded-t-none border-x-0 border-b-0"
+            />
+          )}
         </FolderDetails>
       ))}
 

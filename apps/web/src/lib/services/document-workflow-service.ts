@@ -15,8 +15,9 @@
 // Quatre étapes sur cinq se DÉRIVENT de faits déjà en base. La cinquième, la
 // validation, est une décision et se stocke (`Document.validatedAt`) — même règle que
 // la clôture d'une mission. « Relu » n'est pas une sixième décision : c'est le fait
-// `DocumentVersion.analysisReviewedAt`, celui-là même qui ouvre l'analyse au client
-// (analysis-view-service). Relire et restituer sont le même geste.
+// `DocumentVersion.analysisReviewedAt`, qui fait dire « Relu par EODA » à la
+// structure. Il n'ouvre plus l'analyse elle-même à une structure accompagnée
+// (analysis-view-service, 08/11/2026) : on restitue la relecture, pas la sortie du modèle.
 //
 // Règles PURES : ni Prisma, ni React.
 // ─────────────────────────────────────────────────────────────────────────────
@@ -48,7 +49,7 @@ export type DocumentWorkflowFacts = {
   // Une version produite par le cabinet à partir de celle du client — c'est ce qui
   // distingue « mis en conformité » de « simplement analysé ».
   hasCabinetVersion: boolean;
-  // L'analyse a été relue et rendue visible au client (analysisReviewedAt).
+  // L'analyse a été relue par EODA (analysisReviewedAt).
   analysisReviewed: boolean;
   validatedAt: Date | null;
   // La version COURANTE : la validation vaut-elle encore pour elle ? (isValidationCurrent)

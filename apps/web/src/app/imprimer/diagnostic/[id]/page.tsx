@@ -1,4 +1,5 @@
 import { getDiagnosticForPrint } from "@/lib/actions/diagnostic";
+import { describeChaptersScope } from "@/lib/services/diagnostic-service";
 import { DIAGNOSTIC_DISCLAIMER } from "@/lib/services/diagnostic-service";
 import { buildEodaFileName } from "@/lib/services/document-naming-service";
 import { formatDate } from "@/lib/services/date-format-service";
@@ -53,7 +54,11 @@ export default async function ImprimerDiagnosticPage({ params, searchParams }: P
         </p>
         <DiagnosticCounters summary={data.summary} expectedImperatives={data.expectedImperatives} />
         <PriorityActions priorities={data.priorities} depositHref={null} />
-        <DiagnosticChapters chapters={data.chapters} printable />
+        <DiagnosticChapters
+          chapters={data.chapters}
+          printable
+          scopeNote={describeChaptersScope(data.scopeAll, data.summary.imperatives.total)}
+        />
         <footer className="border-t border-line pt-4 text-base text-ink2">{DIAGNOSTIC_DISCLAIMER}</footer>
       </article>
     </div>

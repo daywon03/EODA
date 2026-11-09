@@ -145,61 +145,94 @@ describe("isOptionSubscribed — refus d'une demande sur une option déjà payé
 });
 
 describe("summariseDocumentObligations — « ce que je dois donner »", () => {
+  const upload = new Date("2026-10-01T10:00:00Z");
+  const after = new Date("2026-10-05T10:00:00Z");
+
   function item(
     status: DocumentObligation["status"],
-    missingJustification: string | null = null
+    missingJustification: string | null = null,
+    proof: Partial<DocumentObligation> = {}
   ): DocumentObligation {
-    return { status, missingJustification };
+    return {
+      status,
+      missingJustification,
+      versionUploadedAt: status === "MISSING" ? null : upload,
+      validatedAt: null,
+      clientAcceptedAt: null,
+      versionByCabinet: false,
+      ...proof,
+    };
   }
 
   it("compte zéro partout sur une checklist vide", () => {
-    expect(summariseDocumentObligations([])).toEqual({
+    expect(summariseDocumentObligations([], "ACCOMPAGNE")).toEqual({
       total: 0,
       toDeposit: 0,
       justified: 0,
       inReview: 0,
-      compliant: 0,
+      validated: 0,
       notApplicable: 0,
     });
   });
 
   it("sépare la pièce manquante muette de la pièce manquante commentée", () => {
-    const summary = summariseDocumentObligations([
-      item("MISSING"),
-      item("MISSING", "Pas de CVS, nous avons une autre instance."),
-    ]);
+    const summary = summariseDocumentObligations(
+      [item("MISSING"), item("MISSING", "Pas de CVS, nous avons une autre instance.")],
+      "ACCOMPAGNE"
+    );
     expect(summary.toDeposit).toBe(1);
     expect(summary.justified).toBe(1);
   });
 
-  it("regroupe en revue tout ce qui est déposé mais pas encore conforme", () => {
-    const summary = summariseDocumentObligations([
-      item("UPLOADED"),
-      item("ANALYZING"),
-      item("INCOMPLETE"),
-      item("EXPIRED"),
-      item("COMPLIANT"),
-      item("NOT_APPLICABLE"),
-    ]);
-    expect(summary.inReview).toBe(4);
-    expect(summary.compliant).toBe(1);
+  // 08/11/2026 — Sandrine : « 0 Conformes » sur des documents validés. Le statut
+  // COMPLIANT est posé par l'IA (aucun manque trouvé) : il ne dit rien d'EODA.
+  it("regroupe en revue tout ce qui est déposé et pas encore validé, COMPLIANT compris", () => {
+    const summary = summariseDocumentObligations(
+      [
+        item("UPLOADED"),
+        item("ANALYZING"),
+        item("INCOMPLETE"),
+        item("EXPIRED"),
+        item("COMPLIANT"),
+        item("INCOMPLETE", null, { validatedAt: after }),
+        item("NOT_APPLICABLE"),
+      ],
+      "ACCOMPAGNE"
+    );
+    expect(summary.inReview).toBe(5);
+    expect(summary.validated).toBe(1);
     expect(summary.notApplicable).toBe(1);
-    expect(summary.total).toBe(6);
+    expect(summary.total).toBe(7);
+  });
+
+  it("en autonomie, compte ce que la structure a accepté", () => {
+    const summary = summariseDocumentObligations(
+      [item("UPLOADED", null, { clientAcceptedAt: after }), item("UPLOADED", null, { validatedAt: after })],
+      "AUTONOMIE"
+    );
+    expect(summary.validated).toBe(1);
+    expect(summary.inReview).toBe(1);
   });
 });
 
 describe("documentProgressPercent", () => {
   it("vaut 0 sans aucune pièce attendue (jamais une division par zéro)", () => {
-    expect(documentProgressPercent(summariseDocumentObligations([]))).toBe(0);
+    expect(documentProgressPercent(summariseDocumentObligations([], "ACCOMPAGNE"))).toBe(0);
   });
 
-  it("rapporte les conformes au total affiché, non applicables compris", () => {
-    const summary = summariseDocumentObligations([
-      { status: "COMPLIANT", missingJustification: null },
-      { status: "MISSING", missingJustification: null },
-      { status: "NOT_APPLICABLE", missingJustification: null },
-      { status: "COMPLIANT", missingJustification: null },
-    ]);
+  it("rapporte les validées au total affiché, non applicables compris", () => {
+    const upload = new Date("2026-10-01T10:00:00Z");
+    const validated = new Date("2026-10-05T10:00:00Z");
+    const deposited = { versionUploadedAt: upload, validatedAt: validated, clientAcceptedAt: null };
+    const summary = summariseDocumentObligations(
+      [
+        { status: "INCOMPLETE", missingJustification: null, ...deposited },
+        { status: "MISSING", missingJustification: null },
+        { status: "NOT_APPLICABLE", missingJustification: null },
+        { status: "UPLOADED", missingJustification: null, ...deposited },
+      ],
+      "ACCOMPAGNE"
+    );
     expect(documentProgressPercent(summary)).toBe(50);
   });
 });
@@ -249,7 +282,7 @@ describe("resolveSubscribedOptions", () => {
 });
 
 describe("describeClientNextStep", () => {
-  const empty = { total: 10, toDeposit: 0, justified: 0, inReview: 0, compliant: 10, notApplicable: 0 };
+  const empty = { total: 10, toDeposit: 0, justified: 0, inReview: 0, validated: 10, notApplicable: 0 };
 
   it("ne demande rien quand les dépôts sont fermés", () => {
     // La bibliothèque affiche déjà le message de fin d'accompagnement ; réclamer une
@@ -302,10 +335,13 @@ describe("describeClientNextStep", () => {
 
 describe("summariseDocumentObligations — « Je ne l'ai pas » (N3)", () => {
   it("ne compte pas un document déclaré absent comme une pièce à déposer", () => {
-    const summary = summariseDocumentObligations([
-      { status: "MISSING", missingJustification: null, declaredMissing: true },
-      { status: "MISSING", missingJustification: null },
-    ]);
+    const summary = summariseDocumentObligations(
+      [
+        { status: "MISSING", missingJustification: null, declaredMissing: true },
+        { status: "MISSING", missingJustification: null },
+      ],
+      "ACCOMPAGNE"
+    );
     expect(summary.toDeposit).toBe(1);
     expect(summary.justified).toBe(1);
   });

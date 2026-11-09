@@ -16,6 +16,8 @@ import {
   documentColumnValue,
   filterDocumentColumns,
   rowsInBucket,
+  foldersForTab,
+  describeElsewhere,
   type DocumentFacts,
 } from "./structure-documents-service";
 
@@ -264,5 +266,58 @@ describe("menus de colonne façon Excel (call du 29/10/2026)", () => {
     expect(documentsHref("/f/documents", { bucket: "todo", sort: "date-desc", columns: { statut: "Manquant" } })).toBe(
       "/f/documents?tri=date-desc&statut=Manquant"
     );
+  });
+});
+
+// Retour de Sandrine (08/11/2026, deux fois) : un document rangé dans « Pilotage
+// qualité » n'apparaissait pas — il était VALIDÉ, donc dans l'onglet « Validé », et le
+// dossier n'affichait que l'onglet ouvert (« 2 documents »). Le dossier dit
+// désormais combien de ses documents sont dans les autres onglets, et reste affiché
+// même quand l'onglet ouvert n'en contient aucun.
+describe("foldersForTab — un dossier dit ce qu'il contient ailleurs", () => {
+  const pilotage = { id: "f1", label: "Pilotage qualité", position: 1 };
+  const sensib = { id: "f2", label: "Sensibilisation", position: 0 };
+  const validated = { step: "VALIDE" as const };
+  const inFolder = (folder: typeof pilotage | null, over: Partial<DocumentFacts>) => ({ ...doc(over), folder });
+  const rows = [
+    inFolder(pilotage, { documentTypeId: "a" }),
+    inFolder(pilotage, { documentTypeId: "b" }),
+    inFolder(pilotage, { documentTypeId: "c", ...validated }),
+    inFolder(sensib, { documentTypeId: "d", ...validated }),
+    inFolder(null, { documentTypeId: "e" }),
+  ];
+  const todo = rows.filter((r) => documentBucket(r) === "todo");
+
+  it("compte, par dossier, les documents des autres onglets", () => {
+    const view = foldersForTab(todo, rows, [pilotage, sensib], "todo");
+    const p = view.folders.find((f) => f.id === "f1");
+    expect(p?.rows.map((r) => r.documentTypeId)).toEqual(["a", "b"]);
+    expect(p?.elsewhere).toEqual([{ bucket: "validated", count: 1 }]);
+  });
+
+  it("garde un dossier dont tous les documents sont dans un autre onglet", () => {
+    const view = foldersForTab(todo, rows, [pilotage, sensib], "todo");
+    const s = view.folders.find((f) => f.id === "f2");
+    expect(s?.rows).toEqual([]);
+    expect(s?.elsewhere).toEqual([{ bucket: "validated", count: 1 }]);
+  });
+
+  it("range les dossiers dans leur ordre, et laisse à plat les lignes sans dossier", () => {
+    const view = foldersForTab(todo, rows, [pilotage, sensib], "todo");
+    expect(view.folders.map((f) => f.id)).toEqual(["f2", "f1"]);
+    expect(view.loose.map((r) => r.documentTypeId)).toEqual(["e"]);
+  });
+
+  it("n'affiche pas un dossier vide partout", () => {
+    const empty = { id: "f3", label: "Vide", position: 2 };
+    expect(foldersForTab(todo, rows, [pilotage, sensib, empty], "todo").folders.map((f) => f.id)).not.toContain("f3");
+  });
+
+  it("dit l'onglet en clair, au singulier et au pluriel", () => {
+    expect(describeElsewhere([{ bucket: "validated", count: 1 }])).toBe("1 autre dans « Validé »");
+    expect(describeElsewhere([{ bucket: "validated", count: 2 }, { bucket: "review", count: 1 }])).toBe(
+      "2 autres dans « Validé », 1 autre dans « À relire »"
+    );
+    expect(describeElsewhere([])).toBe("");
   });
 });

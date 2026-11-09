@@ -1,4 +1,5 @@
 import type { DevisStatus, DocumentStatus, PricingUnit, SupportMode } from "@eoda/database";
+import { isDocumentProven } from "./criteria-proof-service";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CONTRAT VU DU CLIENT — « ce que j'ai payé » / « ce que je dois fournir »
@@ -180,7 +181,36 @@ export type DocumentObligation = {
   // « Je ne l'ai pas » (N3, missing-answer-service) : la pièce reste due, mais elle
   // est à PRODUIRE — ce n'est plus un dépôt attendu de la structure.
   declaredMissing?: boolean;
+  // Faits de validation de la version courante (isDocumentProven). Absents = non déposé.
+  versionUploadedAt?: Date | null;
+  validatedAt?: Date | null;
+  clientAcceptedAt?: Date | null;
+  versionByCabinet?: boolean;
 };
+
+// Une ligne de checklist (lib/actions/checklist.ts) vue comme une obligation : une
+// seule traduction, partagée par « Mon suivi » et l'accueil du portail — sans elle,
+// l'un oublierait les faits de validation et compterait tout « en revue ».
+export function toDocumentObligation(item: {
+  status: DocumentStatus;
+  missingJustification: string | null;
+  declaredMissing: boolean;
+  validatedAt: Date | null;
+  clientAcceptedAt: Date | null;
+  currentVersion: { uploadedAt: Date } | null;
+  versions: readonly { producedByCabinet: boolean }[];
+}): DocumentObligation {
+  return {
+    status: item.status,
+    missingJustification: item.missingJustification,
+    declaredMissing: item.declaredMissing,
+    versionUploadedAt: item.currentVersion?.uploadedAt ?? null,
+    validatedAt: item.validatedAt,
+    clientAcceptedAt: item.clientAcceptedAt,
+    // Versions de la plus récente à la plus ancienne : la première est la courante.
+    versionByCabinet: item.versions[0]?.producedByCabinet ?? false,
+  };
+}
 
 export type DocumentObligationSummary = {
   total: number;
@@ -190,15 +220,29 @@ export type DocumentObligationSummary = {
   // Non déposé mais commenté (« nous n'avons pas de CVS, voici pourquoi ») — la
   // pièce reste due, mais la balle est côté cabinet pour arbitrer.
   justified: number;
-  // Déposé, en cours d'analyse ou à corriger.
+  // Déposé, pas encore validé (ou accepté, en autonomie).
   inReview: number;
-  compliant: number;
+  // Validé par EODA (accompagné) ou accepté par la structure (autonomie) — la règle
+  // de isDocumentProven. Jamais le statut COMPLIANT, posé par l'IA (08/11/2026).
+  validated: number;
   notApplicable: number;
 };
 
 export function summariseDocumentObligations(
-  items: readonly DocumentObligation[]
+  items: readonly DocumentObligation[],
+  mode: SupportMode
 ): DocumentObligationSummary {
+  const isValidated = (item: DocumentObligation): boolean =>
+    isDocumentProven(
+      {
+        versionUploadedAt: item.versionUploadedAt ?? null,
+        validatedAt: item.validatedAt ?? null,
+        clientAcceptedAt: item.clientAcceptedAt ?? null,
+        versionByCabinet: item.versionByCabinet ?? false,
+      },
+      mode
+    );
+  const deposited = items.filter((item) => item.status !== "MISSING" && item.status !== "NOT_APPLICABLE");
   const missing = items.filter((item) => item.status === "MISSING");
   const isAnswered = (item: DocumentObligation): boolean =>
     item.missingJustification !== null || item.declaredMissing === true;
@@ -207,24 +251,18 @@ export function summariseDocumentObligations(
     total: items.length,
     toDeposit: missing.filter((item) => !isAnswered(item)).length,
     justified: missing.filter(isAnswered).length,
-    inReview: items.filter(
-      (item) =>
-        item.status === "UPLOADED" ||
-        item.status === "ANALYZING" ||
-        item.status === "INCOMPLETE" ||
-        item.status === "EXPIRED"
-    ).length,
-    compliant: items.filter((item) => item.status === "COMPLIANT").length,
+    inReview: deposited.filter((item) => !isValidated(item)).length,
+    validated: deposited.filter(isValidated).length,
     notApplicable: items.filter((item) => item.status === "NOT_APPLICABLE").length,
   };
 }
 
-// Part de pièces conformes, sur le total attendu. Les pièces non applicables
+// Part de pièces validées, sur le total attendu. Les pièces non applicables
 // restent au dénominateur : c'est le total de la checklist affichée au client, et
 // une progression qui bouge quand on répond « non concerné » serait trompeuse.
 export function documentProgressPercent(summary: DocumentObligationSummary): number {
   if (summary.total === 0) return 0;
-  return Math.round((summary.compliant / summary.total) * 100);
+  return Math.round((summary.validated / summary.total) * 100);
 }
 
 // Ce que le client doit faire MAINTENANT, en une phrase.

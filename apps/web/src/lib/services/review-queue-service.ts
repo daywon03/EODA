@@ -4,8 +4,9 @@ import { structureHref } from "@/lib/design/structure-tabs";
 // ─────────────────────────────────────────────────────────────────────────────
 // FILE « À RELIRE » — règles pures.
 //
-// Une analyse automatique n'atteint jamais le client sans revue humaine
-// (analysisVisibleTo, CLAUDE.md §7). La file est donc la liste des analyses que le
+// Une analyse automatique n'atteint jamais une structure accompagnée (analysisVisibleTo,
+// CLAUDE.md §7) : c'est la relecture d'EODA qu'on lui restitue. La file est donc la
+// liste des analyses que le
 // cabinet n'a pas encore relues — un ÉTAT DÉRIVÉ de deux faits stockés
 // (`analysisResultJson` posé, `analysisReviewedAt` vide), jamais un statut de plus.
 //

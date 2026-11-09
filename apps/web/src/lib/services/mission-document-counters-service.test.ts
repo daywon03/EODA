@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   computeMissionDocumentCounters,
+  validatedCounterLabel,
   type MissionDocumentSnapshot,
 } from "./mission-document-counters-service";
 
@@ -13,67 +14,153 @@ function doc(overrides: Partial<MissionDocumentSnapshot> = {}): MissionDocumentS
     versionCount: 0,
     hasAnalyzedVersion: false,
     hasRegeneratedVersion: false,
+    validatedAt: null,
+    clientAcceptedAt: null,
+    currentVersionUploadedAt: null,
+    currentVersionByCabinet: false,
     ...overrides,
   };
 }
 
 describe("computeMissionDocumentCounters — §12.4", () => {
   it("renvoie quatre zéros sur un établissement sans aucun document", () => {
-    expect(computeMissionDocumentCounters([])).toEqual({
+    expect(computeMissionDocumentCounters([], "ACCOMPAGNE")).toEqual({
       deposited: 0,
       analyzed: 0,
       modified: 0,
-      compliant: 0,
+      validated: 0,
     });
   });
 
   it("ne compte comme déposé qu'un document qui porte au moins une version", () => {
-    const counters = computeMissionDocumentCounters([
-      doc({ versionCount: 1, status: "UPLOADED" }),
-      doc({ versionCount: 0, status: "MISSING" }),
-    ]);
+    const counters = computeMissionDocumentCounters(
+      [
+        doc({ versionCount: 1, status: "UPLOADED" }),
+        doc({ versionCount: 0, status: "MISSING" }),
+      ],
+      "ACCOMPAGNE"
+    );
     expect(counters.deposited).toBe(1);
   });
 
   it("compte comme analysé le document dont une version porte un résultat d'analyse", () => {
-    const counters = computeMissionDocumentCounters([
-      doc({ versionCount: 1, hasAnalyzedVersion: true, status: "INCOMPLETE" }),
-      doc({ versionCount: 1, hasAnalyzedVersion: false, status: "UPLOADED" }),
-    ]);
+    const counters = computeMissionDocumentCounters(
+      [
+        doc({ versionCount: 1, hasAnalyzedVersion: true, status: "INCOMPLETE" }),
+        doc({ versionCount: 1, hasAnalyzedVersion: false, status: "UPLOADED" }),
+      ],
+      "ACCOMPAGNE"
+    );
     expect(counters.analyzed).toBe(1);
   });
 
   it("compte comme modifié un redépôt (2 versions) comme une régénération", () => {
-    const counters = computeMissionDocumentCounters([
-      doc({ versionCount: 2, status: "UPLOADED" }),
-      doc({ versionCount: 1, hasRegeneratedVersion: true, status: "UPLOADED" }),
-      doc({ versionCount: 1, status: "UPLOADED" }),
-    ]);
+    const counters = computeMissionDocumentCounters(
+      [
+        doc({ versionCount: 2, status: "UPLOADED" }),
+        doc({ versionCount: 1, hasRegeneratedVersion: true, status: "UPLOADED" }),
+        doc({ versionCount: 1, status: "UPLOADED" }),
+      ],
+      "ACCOMPAGNE"
+    );
     expect(counters.modified).toBe(2);
   });
 
-  it("compte comme conforme le seul statut COMPLIANT", () => {
-    const counters = computeMissionDocumentCounters([
-      doc({ versionCount: 1, status: "COMPLIANT" }),
-      doc({ versionCount: 1, status: "EXPIRED" }),
-      doc({ versionCount: 1, status: "ANALYZING" }),
-    ]);
-    expect(counters.compliant).toBe(1);
+  // 08/11/2026 — Sandrine : « 0 Conformes » sur une structure aux documents validés.
+  // Le compteur lisait le statut COMPLIANT, que pose l'IA quand elle ne trouve aucun
+  // manque — presque jamais. Il compte désormais ce qu'EODA a VALIDÉ (accompagné) ou
+  // ce que la structure a ACCEPTÉ (autonomie) : la règle de isDocumentProven.
+  const upload = new Date("2026-10-01T10:00:00Z");
+  const after = new Date("2026-10-05T10:00:00Z");
+  const before = new Date("2026-09-20T10:00:00Z");
+
+  it("compte comme validé un document validé par EODA après sa version courante, quel que soit le statut", () => {
+    const counters = computeMissionDocumentCounters(
+      [
+        doc({ versionCount: 1, status: "INCOMPLETE", currentVersionUploadedAt: upload, validatedAt: after }),
+        doc({ versionCount: 1, status: "UPLOADED", currentVersionUploadedAt: upload }),
+      ],
+      "ACCOMPAGNE"
+    );
+    expect(counters.validated).toBe(1);
   });
 
-  it("refuse de compter conforme ou analysé un document jamais déposé", () => {
-    // Cas de refus : un statut résiduel en base ne doit pas gonfler les compteurs
-    // d'un document que le client n'a jamais fourni.
-    const counters = computeMissionDocumentCounters([
-      doc({ versionCount: 0, status: "COMPLIANT", hasAnalyzedVersion: true }),
-    ]);
-    expect(counters).toEqual({ deposited: 0, analyzed: 0, modified: 0, compliant: 0 });
+  it("ne compte plus jamais le statut COMPLIANT posé par l'IA", () => {
+    const counters = computeMissionDocumentCounters(
+      [doc({ versionCount: 1, status: "COMPLIANT", currentVersionUploadedAt: upload })],
+      "ACCOMPAGNE"
+    );
+    expect(counters.validated).toBe(0);
   });
 
-  it("ne compte jamais NOT_APPLICABLE comme conforme", () => {
-    const counters = computeMissionDocumentCounters([
-      doc({ versionCount: 1, status: "NOT_APPLICABLE" }),
-    ]);
-    expect(counters).toMatchObject({ deposited: 1, compliant: 0 });
+  it("ne compte pas une validation antérieure à un redépôt de la structure", () => {
+    const counters = computeMissionDocumentCounters(
+      [doc({ versionCount: 2, status: "UPLOADED", currentVersionUploadedAt: upload, validatedAt: before })],
+      "ACCOMPAGNE"
+    );
+    expect(counters.validated).toBe(0);
+  });
+
+  it("compte une version déposée par EODA sur un document déjà validé (livrable sur-le-champ)", () => {
+    const counters = computeMissionDocumentCounters(
+      [
+        doc({
+          versionCount: 2,
+          status: "UPLOADED",
+          currentVersionUploadedAt: upload,
+          validatedAt: before,
+          currentVersionByCabinet: true,
+        }),
+      ],
+      "ACCOMPAGNE"
+    );
+    expect(counters.validated).toBe(1);
+  });
+
+  it("en autonomie, compte ce que la structure a accepté, pas une validation d'EODA", () => {
+    const counters = computeMissionDocumentCounters(
+      [
+        doc({ versionCount: 1, status: "UPLOADED", currentVersionUploadedAt: upload, clientAcceptedAt: after }),
+        doc({ versionCount: 1, status: "UPLOADED", currentVersionUploadedAt: upload, validatedAt: after }),
+      ],
+      "AUTONOMIE"
+    );
+    expect(counters.validated).toBe(1);
+  });
+
+  it("refuse de compter validé ou analysé un document jamais déposé", () => {
+    const counters = computeMissionDocumentCounters(
+      [doc({ versionCount: 0, status: "COMPLIANT", hasAnalyzedVersion: true, validatedAt: after })],
+      "ACCOMPAGNE"
+    );
+    expect(counters).toEqual({ deposited: 0, analyzed: 0, modified: 0, validated: 0 });
+  });
+
+  it("ne compte jamais NOT_APPLICABLE comme validé", () => {
+    const counters = computeMissionDocumentCounters(
+      [doc({ versionCount: 1, status: "NOT_APPLICABLE", currentVersionUploadedAt: upload, validatedAt: after })],
+      "ACCOMPAGNE"
+    );
+    expect(counters).toMatchObject({ deposited: 1, validated: 0 });
+  });
+});
+
+describe("validatedCounterLabel — jamais « conforme »", () => {
+  it("dit qui a validé, selon le mode", () => {
+    expect(validatedCounterLabel("ACCOMPAGNE")).toBe("Validés par EODA");
+    expect(validatedCounterLabel("AUTONOMIE")).toBe("Acceptés par la structure");
+  });
+
+  it("parle à la structure à la deuxième personne", () => {
+    expect(validatedCounterLabel("AUTONOMIE", "CLIENT")).toBe("Acceptés par vous");
+    expect(validatedCounterLabel("ACCOMPAGNE", "CLIENT")).toBe("Validés par EODA");
+  });
+
+  it("n'emploie jamais le mot « conforme » (CLAUDE.md §7)", () => {
+    for (const mode of ["ACCOMPAGNE", "AUTONOMIE"] as const) {
+      for (const audience of ["CABINET", "CLIENT"] as const) {
+        expect(validatedCounterLabel(mode, audience).toLowerCase()).not.toContain("conforme");
+      }
+    }
   });
 });

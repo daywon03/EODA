@@ -2,7 +2,7 @@ import Link from "next/link";
 import { acceptDiagnostic, getClientDiagnostic } from "@/lib/actions/diagnostic";
 import { getClientPractices } from "@/lib/actions/practice";
 import { getClientCriteriaEvidence } from "@/lib/actions/criteria-proof";
-import { DIAGNOSTIC_DISCLAIMER } from "@/lib/services/diagnostic-service";
+import { DIAGNOSTIC_DISCLAIMER, describeChaptersScope } from "@/lib/services/diagnostic-service";
 import { CLIENT_DOCUMENTS_PATH, CLIENT_PRACTICES_PATH } from "@/lib/design/client-navigation";
 import { DiagnosticChapters, DiagnosticCounters, PriorityActions } from "@/components/diagnostic/DiagnosticSections";
 import { DiagnosticValidationBanner } from "@/components/diagnostic/DiagnosticValidationBanner";
@@ -78,6 +78,7 @@ export default async function ClientDiagnosticPage() {
 
       <DiagnosticChapters
         chapters={data.chapters}
+        scopeNote={describeChaptersScope(data.scopeAll, data.summary.imperatives.total)}
         details={
           evidence
             ? {

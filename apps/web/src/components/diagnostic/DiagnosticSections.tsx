@@ -201,13 +201,17 @@ export function DiagnosticChapters({
   chapters,
   printable = false,
   details,
+  scopeNote,
 }: {
   chapters: DiagnosticChapter[];
   printable?: boolean;
   details?: DiagnosticEvidenceView | undefined;
+  // Ce que montre la liste et ce que comptent les cartes (describeChaptersScope).
+  scopeNote?: string | undefined;
 }) {
   return (
     <div className="space-y-3">
+      {scopeNote && <p className="text-base text-ink2">{scopeNote}</p>}
       {chapters.map((chapter) =>
         printable ? (
           <section key={chapter.number} className="rounded-xl border border-line bg-card">

@@ -15,6 +15,7 @@ import {
   type MissionPhaseDates,
   type MissionProgress,
   type MissionStep,
+  type MissionStepId,
 } from "./mission-progress-service";
 import { isReminderCandidate } from "./reminder-service";
 import { reviewItemHref } from "./review-queue-service";
@@ -175,17 +176,47 @@ function stepPeriod(mission: TimelineMission, step: MissionStep): string | undef
 
 // Frise en QUATRE ÉTAPES (MISSION_STEPS) : la checklist de diagnostic, puis les
 // phases datées regroupées. Une étape hors formule n'a pas d'avancement.
-export function toTimelinePhases(mission: TimelineMission, now: Date): TimelinePhase[] {
+// Avec `establishmentId`, chaque étape porte ses liens (missionStepLinks).
+export function toTimelinePhases(mission: TimelineMission, now: Date, establishmentId?: string): TimelinePhase[] {
   return MISSION_STEPS.map((step) => {
     const percent = stepPercent(step, mission.progress);
     return {
       id: step.id,
       label: step.label,
       state: stepState(mission, step, now),
+      ...(establishmentId !== undefined && { links: missionStepLinks(establishmentId, step.id) }),
       ...(percent !== undefined && { percent }),
       ...periodOf(percent === undefined ? "Hors formule" : stepPeriod(mission, step)),
     };
   });
+}
+
+// Où se travaille chaque étape (retour de Sandrine, 08/11/2026 : « si je clique
+// "Diagnostic" je devrais tomber sur l'auto-évaluation et le rapport »). La checklist
+// de l'étape, dans l'onglet Mission, ferme toujours la liste.
+export type StepLink = { label: string; href: string };
+
+export function missionStepLinks(establishmentId: string, step: MissionStepId): StepLink[] {
+  const checklist = { label: "Checklist de l'étape", href: `${structureHref(establishmentId, "mission")}#etape-${step}` };
+  const evaluation = { label: "Auto-évaluation", href: structureHref(establishmentId, "evaluation") };
+  switch (step) {
+    case "DIAGNOSTIC":
+      return [
+        evaluation,
+        { label: "Rapport de diagnostic", href: `/imprimer/diagnostic/${encodeURIComponent(establishmentId)}` },
+        checklist,
+      ];
+    case "MISE_EN_CONFORMITE":
+      return [
+        { label: "Documents", href: structureHref(establishmentId, "documents") },
+        { label: "Critères", href: structureHref(establishmentId, "criteres") },
+        checklist,
+      ];
+    case "SUIVI":
+      return [{ label: "Plan d'action", href: structureHref(establishmentId, "plan-action") }, checklist];
+    case "PREPARATION_FINALE":
+      return [evaluation, checklist];
+  }
 }
 
 // ── Les prochaines actions ───────────────────────────────────────────────────

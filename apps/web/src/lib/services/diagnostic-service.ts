@@ -155,9 +155,29 @@ export function groupDiagnosticChapters(
             ? scopeAll
               ? "aucun critère"
               : "aucun critère impératif"
-            : `${proven} prouvé${proven > 1 ? "s" : ""} sur ${chapterRows.length}`,
+            : provenOf(proven, chapterRows.length) + (scopeAll ? imperativesPart(chapterRows) : ""),
       };
     });
+}
+
+function provenOf(proven: number, total: number): string {
+  return `${proven} prouvé${proven > 1 ? "s" : ""} sur ${total}`;
+}
+
+// Liste complète : les impératifs du chapitre, à part (retour de Sandrine, 08/11/2026 —
+// les cartes du haut ne comptent qu'eux, la liste montre tout le périmètre).
+function imperativesPart(chapterRows: readonly CriterionProofRow[]): string {
+  const imperatives = chapterRows.filter((r) => r.isImperative);
+  // Aucun impératif, ou rien d'autre : la précision n'apprendrait rien.
+  if (imperatives.length === 0 || imperatives.length === chapterRows.length) return "";
+  return ` · impératifs : ${provenOf(imperatives.filter((r) => r.status === "PROUVE").length, imperatives.length)}`;
+}
+
+// Ce que montre la liste des chapitres, et ce que comptent les cartes du haut.
+export function describeChaptersScope(scopeAll: boolean, imperativesTotal: number): string {
+  return scopeAll
+    ? `La liste montre tous les critères de votre périmètre. Les cartes du haut ne comptent que les ${imperativesTotal} critères impératifs, marqués ▲ Impératif.`
+    : `La liste montre vos ${imperativesTotal} critères impératifs, les mêmes que les cartes du haut.`;
 }
 
 // ── La photo figée par un geste de validation ────────────────────────────────
