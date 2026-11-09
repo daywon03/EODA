@@ -32,7 +32,7 @@ const {
   validateMatrixForDocumentType,
   promoteCriterionSuggestion,
   addManualMatrixLinks,
-  removeManualMatrixLink,
+  unlinkCriterionFromDocumentType,
 } = await import("./criterion-matrix");
 
 function form(fields: Record<string, string | string[]>): FormData {
@@ -211,28 +211,53 @@ describe("addManualMatrixLinks", () => {
     await expect(addManualMatrixLinks("INCONNU", ["1.3.1"])).rejects.toThrow("NOT_FOUND");
     requireCabinetAdminSession.mockRejectedValue(new Error("REDIRECT"));
     await expect(addManualMatrixLinks("QUALITE_ENQUETE_QUESTIONNAIRE", ["1.3.1"])).rejects.toThrow("REDIRECT");
-    await expect(removeManualMatrixLink("QUALITE_ENQUETE_QUESTIONNAIRE", "1.3.1")).rejects.toThrow("REDIRECT");
+    await expect(unlinkCriterionFromDocumentType("QUALITE_ENQUETE_QUESTIONNAIRE", "1.3.1")).rejects.toThrow("REDIRECT");
+    expect(prismaMock.documentTypeCriterion.delete).not.toHaveBeenCalled();
   });
 });
 
-describe("removeManualMatrixLink", () => {
+describe("unlinkCriterionFromDocumentType — décocher depuis n'importe quel menu", () => {
   beforeEach(() => {
-    prismaMock.documentType.findUnique.mockResolvedValue({ id: "dt-enquete" });
+    prismaMock.documentType.findUnique.mockResolvedValue({ id: "dt-enquete", archivedAt: null });
     prismaMock.criterion.findUnique.mockResolvedValue({ id: "c-131" });
     prismaMock.documentTypeCriterion.findUnique.mockResolvedValue({ criterionId: "c-131" });
   });
 
-  it("retire un rattachement fait à la main, et le journalise", async () => {
-    expect(await removeManualMatrixLink("QUALITE_ENQUETE_QUESTIONNAIRE", "1.3.1")).toBeNull();
+  it("retire un rattachement fait à la main, et le journalise sans libellé", async () => {
+    expect(await unlinkCriterionFromDocumentType("QUALITE_ENQUETE_QUESTIONNAIRE", "1.3.1")).toBeNull();
     expect(prismaMock.documentTypeCriterion.delete).toHaveBeenCalled();
-    expect(recordAuditEvent).toHaveBeenCalledWith(expect.objectContaining({ detail: expect.stringContaining("retrait manuel 1.3.1") }));
+    expect(recordAuditEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ action: "DOCUMENT_TYPE_CRITERIA_UPDATED", detail: "QUALITE_ENQUETE_QUESTIONNAIRE · retrait manuel 1.3.1" })
+    );
   });
 
-  it("refuse de retirer un rattachement de la PROPOSITION (il se décoche sur la carte du type)", async () => {
+  it("décocher un critère PROPOSÉ le refuse — même écriture que la carte du type", async () => {
     // 3.14.2 est proposé pour l'enquête dans la proposition embarquée.
-    expect(await removeManualMatrixLink("QUALITE_ENQUETE_QUESTIONNAIRE", "3.14.2")).toMatchObject({
-      error: expect.stringContaining("proposition"),
+    expect(await unlinkCriterionFromDocumentType("QUALITE_ENQUETE_QUESTIONNAIRE", "3.14.2")).toBeNull();
+    expect(prismaMock.documentTypeCriterion.delete).toHaveBeenCalledWith({
+      where: { documentTypeId_criterionId: { documentTypeId: "dt-enquete", criterionId: "c-131" } },
     });
+    expect(recordAuditEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ detail: "QUALITE_ENQUETE_QUESTIONNAIRE · proposition refusée 3.14.2" })
+    );
+  });
+
+  it("refuse ce qui n'est pas rattaché, sans rien écrire", async () => {
+    prismaMock.documentTypeCriterion.findUnique.mockResolvedValue(null);
+    expect(await unlinkCriterionFromDocumentType("QUALITE_ENQUETE_QUESTIONNAIRE", "1.3.1")).toMatchObject({
+      error: expect.stringContaining("pas rattaché"),
+    });
+    expect(prismaMock.documentTypeCriterion.delete).not.toHaveBeenCalled();
+  });
+
+  it("type inconnu, archivé ou critère inconnu : notFound", async () => {
+    prismaMock.documentType.findUnique.mockResolvedValue({ id: "dt-x", archivedAt: new Date() });
+    await expect(unlinkCriterionFromDocumentType("EODA_X", "1.3.1")).rejects.toThrow("NOT_FOUND");
+    prismaMock.documentType.findUnique.mockResolvedValue(null);
+    await expect(unlinkCriterionFromDocumentType("INCONNU", "1.3.1")).rejects.toThrow("NOT_FOUND");
+    prismaMock.documentType.findUnique.mockResolvedValue({ id: "dt-enquete", archivedAt: null });
+    prismaMock.criterion.findUnique.mockResolvedValue(null);
+    await expect(unlinkCriterionFromDocumentType("QUALITE_ENQUETE_QUESTIONNAIRE", "9.9.9")).rejects.toThrow("NOT_FOUND");
     expect(prismaMock.documentTypeCriterion.delete).not.toHaveBeenCalled();
   });
 });
