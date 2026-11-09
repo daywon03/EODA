@@ -189,6 +189,9 @@ export function primaryCardAction(
   facts: { canAct: boolean; hasViewable: boolean }
 ): PrimaryCardAction | null {
   if (facts.canAct && (state === "TO_DEPOSIT" || state === "RENEW")) return "DEPOSIT";
+  // On ne demande pas d'accepter une pièce qu'on ne peut pas ouvrir (QA du 09/11/2026 :
+  // analyse relue sur une version d'EODA pas encore validée, donc invisible ici).
+  if (!facts.hasViewable) return null;
   if (facts.canAct && state === "TO_CHECK") return "ACCEPT";
-  return facts.hasViewable ? "VIEW" : null;
+  return "VIEW";
 }

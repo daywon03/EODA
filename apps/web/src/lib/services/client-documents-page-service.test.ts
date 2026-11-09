@@ -209,6 +209,12 @@ describe("primaryCardAction — UN geste principal par carte", () => {
     expect(primaryCardAction("TO_CHECK", { canAct: true, hasViewable: true })).toBe("ACCEPT");
   });
 
+  it("on ne demande pas d'accepter une pièce qu'on ne peut pas ouvrir (QA du 09/11/2026)", () => {
+    // Analyse relue par EODA sur une version d'EODA pas encore validée : la pièce
+    // n'est pas visible côté structure, « Je l'accepte » ne se propose pas.
+    expect(primaryCardAction("TO_CHECK", { canAct: true, hasViewable: false })).toBeNull();
+  });
+
   it("sinon voir le document, s'il y en a un", () => {
     expect(primaryCardAction("ACCEPTED", { canAct: true, hasViewable: true })).toBe("VIEW");
     expect(primaryCardAction("IN_PROGRESS", { canAct: true, hasViewable: true })).toBe("VIEW");
