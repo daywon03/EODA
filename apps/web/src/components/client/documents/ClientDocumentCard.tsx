@@ -11,12 +11,10 @@ import {
 import { ClientDocumentViewer } from "./ClientDocumentViewer";
 import { primaryCardAction } from "@/lib/services/client-documents-page-service";
 import { clientWaitingLine } from "@/lib/services/client-document-waiting-service";
-import { canRenderDocumentPages } from "@/lib/services/file-type-service";
 import { StatusPill } from "@/components/ui/status-pill";
 import { DocumentAnalysisPanel } from "@/components/checklist/DocumentAnalysisPanel";
 import { ParticipationFormPicker } from "@/components/checklist/ParticipationFormPicker";
 import { PARTICIPATION_LINE_CODE } from "@/lib/services/participation-form-service";
-import { DocumentDownloadLink } from "@/components/checklist/DocumentDownloadLink";
 import { ClientDocumentActions } from "./ClientDocumentActions";
 
 // Une carte de « Mes documents » : le nom, la pastille (mot + glyphe), un geste
@@ -56,19 +54,29 @@ export function ClientDocumentCard({
   const visibleVersions = versionsVisibleToClient(item.versions, item.validatedAt);
   // UN geste principal (09/11/2026) : déposer, accepter, sinon voir. Le reste est
   // secondaire — lien ou contour, jamais un second aplat.
-  const primary = primaryCardAction(state, { canAct, hasViewable: visibleVersions.length > 0 });
+  const primary = primaryCardAction(state, { canAct, hasViewable: viewable !== null });
+  // Toute carte qui a une pièce visible montre « Voir le document », au même endroit.
+  const viewer = viewable ? (
+    <ClientDocumentViewer
+      label={item.label}
+      versions={visibleVersions}
+      mention={version?.clientMention ?? null}
+      emphasis={primary === "VIEW" ? "primary" : "secondary"}
+    />
+  ) : null;
 
+  // Même gabarit pour toutes les cartes (QA du 09/11/2026) : titre et pastille, les
+  // lignes d'information (dont « Relu par EODA, le … »), puis UNE rangée d'actions où
+  // le geste principal vient en premier.
   return (
     <article className="flex flex-col gap-3 rounded-xl border border-line bg-card px-5 py-4">
-      <div className="flex flex-wrap items-center gap-4">
-        <div className="flex min-w-[240px] flex-1 flex-col gap-1">
-          {/* Le nom ouvre le document (ses dépôts, et ceux d'EODA une fois validés). */}
-          <ClientDocumentViewer
-            label={item.label}
-            versions={visibleVersions}
-            mention={version?.clientMention ?? null}
-            emphasis={primary === "VIEW" ? "primary" : "secondary"}
-          />
+      <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
+        <h3 className="min-w-0 flex-1 basis-[240px] text-[19px] font-bold leading-snug">{item.label}</h3>
+        <StatusPill pill={clientDocumentPill(state, mode, { reviewedByEoda: version?.reviewedByEoda ?? false })} className="text-base" />
+      </div>
+
+      <div className="flex flex-col gap-1">
+          {!version?.analysis && version?.clientMention && <p className="text-base font-bold">{version.clientMention}</p>}
           {item.expiryNotice && <p className="text-base font-bold">{item.expiryNotice}</p>}
           {/* Le DIPEC se réclame en modèle vierge : un exemplaire signé est une donnée
               de santé nominative (HDS). Dit à l'écran, pas seulement au dépôt. */}
@@ -91,32 +99,10 @@ export function ClientDocumentCard({
               {viewable.versionNumber}
             </p>
           )}
-        </div>
-        <StatusPill pill={clientDocumentPill(state, mode, { reviewedByEoda: version?.reviewedByEoda ?? false })} className="text-base" />
-        {viewable && (
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-            {/* « Voir » est porté par le nom du document (ClientDocumentViewer) : un
-                second bouton identique ici serait un doublon. */}
-            <DocumentDownloadLink
-              documentVersionId={viewable.id}
-              // Le PDF existe là où le format se convertit ; ailleurs, le lien natif
-              // suffit (document-pdf-service décide par SIGNATURE, pas par extension).
-              pdfUrl={
-                canRenderDocumentPages(viewable.filename)
-                  ? `/api/documents/${viewable.id}/pdf?download=1`
-                  : null
-              }
-            />
-          </div>
-        )}
-        {complianceHref && (
-          <Link
-            href={complianceHref}
-            className="inline-flex min-h-12 items-center font-bold text-accent-text underline underline-offset-4"
-          >
-            Mettre en conformité
-          </Link>
-        )}
+      </div>
+
+      <div className="flex flex-wrap items-start gap-3">
+        {primary === "VIEW" && viewer}
         {canAct && (
           <ClientDocumentActions
             establishmentId={establishmentId}
@@ -126,15 +112,21 @@ export function ClientDocumentCard({
             code={item.code}
             state={state}
             depositNotice={notice}
+            canAccept={primary === "ACCEPT"}
           />
+        )}
+        {primary !== "VIEW" && viewer}
+        {complianceHref && (
+          <Link
+            href={complianceHref}
+            className="inline-flex min-h-12 items-center font-bold text-accent-text underline underline-offset-4"
+          >
+            Mettre en conformité
+          </Link>
         )}
       </div>
 
-      {version?.analysis ? (
-        <DocumentAnalysisPanel analysis={version.analysis} clientMention={version.clientMention} />
-      ) : (
-        version?.clientMention && <p className="text-base font-bold">{version.clientMention}</p>
-      )}
+      {version?.analysis && <DocumentAnalysisPanel analysis={version.analysis} clientMention={version.clientMention} />}
     </article>
   );
 }

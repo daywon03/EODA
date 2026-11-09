@@ -261,10 +261,18 @@ export default async function ClientDocumentsPage({ searchParams }: Props) {
                     forceOpen={query !== ""}
                     className="rounded-xl border border-line bg-soft"
                     summary={
-                      <summary className="flex min-h-12 cursor-pointer items-center gap-2 px-5 py-3 text-xl font-bold">
-                        <Folder className="h-5 w-5 flex-shrink-0 text-accent-text" aria-hidden="true" />
-                        {folder.label}
-                        <span className="font-normal text-ink2">· {documentCount(folder.rows.length)}</span>
+                      // Le compte passe SOUS le titre sur petit écran (QA du 09/11/2026 : à
+                      // 375 px il prenait une colonne et le titre se coupait sur 3 lignes).
+                      // Ce résumé est propre au portail : FolderDetails ne fait que l'accueillir.
+                      <summary className="flex min-h-12 cursor-pointer items-start gap-2 px-5 py-3 text-xl font-bold sm:items-center">
+                        <Folder className="mt-1 h-5 w-5 flex-shrink-0 text-accent-text sm:mt-0" aria-hidden="true" />
+                        <span className="flex min-w-0 flex-col sm:flex-row sm:items-baseline sm:gap-2">
+                          <span>{folder.label}</span>
+                          <span className="text-lg font-normal text-ink2">
+                            <span className="hidden sm:inline" aria-hidden="true">· </span>
+                            {documentCount(folder.rows.length)}
+                          </span>
+                        </span>
                       </summary>
                     }
                   >
