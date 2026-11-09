@@ -29,10 +29,14 @@ export function ClientDocumentViewer({
   label,
   versions,
   mention,
+  emphasis = "secondary",
 }: {
   label: string;
   versions: ClientViewerVersion[];
   mention: string | null;
+  // « Voir » est le geste PRINCIPAL de la carte quand il n'y a rien à déposer ni à
+  // accepter (primaryCardAction) : bouton plein. Sinon, lien secondaire.
+  emphasis?: "primary" | "secondary";
 }) {
   const [open, setOpen] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(versions[0]?.id ?? null);
@@ -56,7 +60,12 @@ export function ClientDocumentViewer({
         type="button"
         onClick={() => setOpen(true)}
         aria-haspopup="dialog"
-        className="inline-flex min-h-12 w-fit items-center gap-2 text-base font-bold text-accent-text underline"
+        className={cn(
+          "inline-flex min-h-12 w-fit items-center gap-2 font-bold",
+          emphasis === "primary"
+            ? "rounded-[10px] bg-ink-fill px-5 text-lg text-on-ink hover:bg-ink-fill/90"
+            : "text-base text-accent-text underline"
+        )}
       >
         <Eye className="h-5 w-5" aria-hidden="true" />
         Voir le document

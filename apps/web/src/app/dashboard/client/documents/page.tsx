@@ -1,26 +1,27 @@
 import Link from "next/link";
-import { Folder } from "lucide-react";
+import { ChevronDown, CircleCheck, Folder, Hourglass, ListTodo, type LucideIcon } from "lucide-react";
 import { FolderDetails } from "@/components/structure/FolderDetails";
 import { foldersOfRows, groupRowsByFolder } from "@/lib/services/document-folder-service";
 import { getClientChecklist } from "@/lib/actions/checklist";
 import { flattenChecklist } from "@/lib/services/structure-documents-service";
 import {
-  CLIENT_DOCUMENT_FILTER_LABELS,
-  CLIENT_DOCUMENT_FILTERS,
-  buildClientWorkList,
-  countClientFilters,
-  countClientGroups,
-  matchesClientSearch,
   clientSearchableFilenames,
-  parseClientGroupFilter,
+  matchesClientSearch,
   parseClientSearch,
-  type ClientGroupFilter,
-  describeWorkList,
-  groupClientDocuments,
-  parseClientDocumentFilter,
   toClientDocumentRow,
-  type ClientDocumentFilter,
 } from "@/lib/services/client-documents-view-service";
+import {
+  CLIENT_DOCUMENT_VIEWS,
+  countClientViews,
+  describeClientTodo,
+  describeClientView,
+  describeEmptyView,
+  groupClientDocumentsForView,
+  parseClientDocumentView,
+  resolveClientView,
+  type ClientDocumentView,
+  type ClientViewIcon,
+} from "@/lib/services/client-documents-page-service";
 import { canDepositDocuments } from "@/lib/services/mission-access-service";
 import { correctionRight } from "@/lib/services/offer-scope-service";
 import { CLIENT_DOCUMENTS_PATH } from "@/lib/design/client-navigation";
@@ -29,41 +30,57 @@ import { ClientDocumentCard } from "@/components/client/documents/ClientDocument
 
 export const metadata = { title: "Mes documents" };
 
+// `filtre=` (anciens liens, traduit en onglet), `groupe=` et `tri=` (anciens boutons)
+// sont encore acceptés : ils ne cassent rien, `groupe` et `tri` n'ont simplement plus
+// d'effet — les rubriques sont toutes affichées, dans l'ordre alphabétique.
 type Props = {
-  searchParams: Promise<{ filtre?: string | string[]; groupe?: string | string[]; q?: string | string[]; tri?: string | string[] }>;
+  searchParams: Promise<{
+    vue?: string | string[];
+    filtre?: string | string[];
+    groupe?: string | string[];
+    q?: string | string[];
+    tri?: string | string[];
+  }>;
 };
 
-// Les trois filtres se combinent dans l'adresse : partageable, utilisable sans
-// JavaScript, et le bouton « précédent » du navigateur les défait un à un.
-type ClientFilters = {
-  filter: ClientDocumentFilter | null;
-  group: ClientGroupFilter | null;
-  query: string;
-  sort: "nom" | null;
-};
+const VIEW_ICONS: Record<ClientViewIcon, LucideIcon> = { todo: ListTodo, waiting: Hourglass, done: CircleCheck };
 
-function filtersHref({ filter, group, query, sort }: ClientFilters): string {
-  const params = new URLSearchParams();
-  if (filter) params.set("filtre", filter);
-  if (group) params.set("groupe", group);
+// L'onglet et la recherche vivent dans l'adresse : partageable, utilisable sans
+// JavaScript, et « précédent » ramène à l'onglet d'avant.
+function viewHref(view: ClientDocumentView, query: string): string {
+  const params = new URLSearchParams({ vue: view });
   if (query) params.set("q", query);
-  if (sort) params.set("tri", sort);
-  const search = params.toString();
-  return search ? `${CLIENT_DOCUMENTS_PATH}?${search}` : CLIENT_DOCUMENTS_PATH;
+  return `${CLIENT_DOCUMENTS_PATH}?${params.toString()}`;
 }
 
-const CHIP = "inline-flex h-12 items-center gap-2 rounded-full border-2 px-4 text-[17px] font-bold";
-const CHIP_ON = "border-ink bg-ink-fill text-on-ink";
-const CHIP_OFF = "border-line bg-card text-ink hover:border-ink2";
+const rubricAnchor = (id: string) => `rubrique-${id}`;
+const documentCount = (n: number) => `${n} document${n > 1 ? "s" : ""}`;
 
-// « Mes documents » (maquette Portail Client v2, R6), rangé dans les SEPT groupes de
-// l'espace de la structure — Loi 2002-2 · Processus · Gestion des risques · Personne
-// accompagnée · Registres · Ressources humaines · Qualité — et non par catégorie
-// réglementaire : c'est le vocabulaire de Sandrine, pas celui de la loi (contenu, pas
-// schéma : content/documents/groupes.ts). Des filtres d'adresse (partageables, sans
-// JavaScript), un intertitre « X relus par EODA sur N » par groupe, une carte par
-// document avec UN geste principal. L'état de chaque document est dérivé
-// (client-documents-view-service).
+function RubricLinks({ groups }: { groups: readonly { id: string; label: string; rows: readonly unknown[] }[] }) {
+  return (
+    <ul className="flex flex-col gap-1 lg:flex-row lg:flex-wrap lg:gap-x-6">
+      {groups.map((group) => (
+        <li key={group.id}>
+          <a
+            href={`#${rubricAnchor(group.id)}`}
+            className="inline-flex min-h-12 items-center gap-2 font-bold text-accent-text underline underline-offset-4"
+          >
+            {group.label}
+            <span className="font-normal text-ink2 tabular-nums">({group.rows.length})</span>
+          </a>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+// « Mes documents » (refonte du 09/11/2026, retours de la directrice du pilote et de
+// Sandrine) : une phrase qui dit quoi faire, TROIS onglets (« À faire par vous »,
+// « EODA s'en occupe », « C'est fait ») à la place des cinq bulles d'état, les sept
+// rubriques en titres de section avec un sommaire d'ancres à la place des huit bulles,
+// une recherche. L'état de chaque document est dérivé (client-documents-view-service),
+// son onglet aussi (client-documents-page-service) ; rien ne change de ce que la
+// structure a le droit de voir.
 export default async function ClientDocumentsPage({ searchParams }: Props) {
   const [{ establishment, checklist, missionAccess, supportMode, offer }, params] = await Promise.all([
     getClientChecklist(),
@@ -83,25 +100,22 @@ export default async function ClientDocumentsPage({ searchParams }: Props) {
     ...toClientDocumentRow(item, supportMode),
     searchableFilenames: clientSearchableFilenames(item),
   }));
-  const filter = parseClientDocumentFilter(params.filtre);
-  const group = parseClientGroupFilter(params.groupe);
   const query = parseClientSearch(params.q);
-  const sort = (Array.isArray(params.tri) ? params.tri[0] : params.tri) === "nom" ? "nom" : null;
-  const current: ClientFilters = { filter, group, query, sort };
-  // Les compteurs d'état tiennent compte de la recherche : ils annoncent ce qu'on obtient.
-  const counts = countClientFilters(rows.filter((row) => matchesClientSearch(row, query)));
-  const groupCounts = countClientGroups(rows, filter, query, supportMode);
-  const groups = groupClientDocuments(rows, filter, supportMode, { group, query, sort });
-  const workList = buildClientWorkList(rows);
+  // Les nombres des onglets tiennent compte de la recherche : ils annoncent ce qu'on obtient.
+  const counts = countClientViews(
+    rows.filter((row) => matchesClientSearch(row, query)),
+    supportMode
+  );
+  const view = resolveClientView(parseClientDocumentView(params, supportMode), counts, query);
+  const current = describeClientView(view, supportMode);
+  const groups = groupClientDocumentsForView(rows, view, supportMode, query);
   const canAct = canDepositDocuments(missionAccess);
 
   return (
     <div className="flex flex-col gap-6">
       <div>
         <h1 className="text-[34px] font-bold leading-tight">Mes documents</h1>
-        <p className="mt-1.5">
-          {counts.accepte} accepté{counts.accepte > 1 ? "s" : ""}. {counts["a-deposer"]} à déposer.
-        </p>
+        <p className="mt-2 max-w-[60ch] text-[21px]">{describeClientTodo(rows, supportMode)}</p>
       </div>
 
       {!canAct && (
@@ -110,141 +124,150 @@ export default async function ClientDocumentsPage({ searchParams }: Props) {
         </p>
       )}
 
-      {/* Recherche par nom : un formulaire GET, sans JavaScript ; l'état et la
-          rubrique choisis sont gardés. */}
-      <form action={CLIENT_DOCUMENTS_PATH} method="get" role="search" className="flex flex-wrap items-end gap-2">
-        {filter && <input type="hidden" name="filtre" value={filter} />}
-        {group && <input type="hidden" name="groupe" value={group} />}
-        {sort && <input type="hidden" name="tri" value={sort} />}
-        <label className="flex min-w-[240px] flex-1 flex-col gap-1.5">
-          <span className="text-[17px] font-bold">Chercher un document</span>
+      {/* Trois onglets : des liens, l'onglet courant porte aria-current. Pictogramme +
+          mot + nombre — jamais la couleur seule. */}
+      <div className="flex flex-col gap-3">
+        <nav aria-label="Listes de documents">
+          <ul className="grid grid-cols-3 gap-2">
+            {CLIENT_DOCUMENT_VIEWS.map((key) => {
+              const active = key === view;
+              const { label, icon } = describeClientView(key, supportMode);
+              const Icon = VIEW_ICONS[icon];
+              return (
+                <li key={key} className="flex">
+                  <Link
+                    href={viewHref(key, query)}
+                    aria-current={active ? "page" : undefined}
+                    className={cn(
+                      "flex min-h-16 w-full flex-col items-center justify-center gap-1 rounded-xl border-2 px-2 py-2 text-center text-[17px] font-bold leading-tight sm:flex-row sm:gap-2.5 sm:px-4",
+                      active ? "border-ink bg-ink-fill text-on-ink" : "border-line bg-card text-ink hover:border-ink2"
+                    )}
+                  >
+                    <Icon className="h-6 w-6 flex-shrink-0" aria-hidden="true" />
+                    <span>{label}</span>
+                    <span className="tabular-nums">
+                      {counts[key]}
+                      <span className="sr-only"> {counts[key] > 1 ? "documents" : "document"}</span>
+                    </span>
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        </nav>
+        <p className="max-w-[65ch]">{current.sentence}</p>
+      </div>
+
+      {/* Recherche : un champ, un bouton, un formulaire GET sans JavaScript. Elle
+          porte sur les trois onglets ; l'onglet qui a des résultats s'ouvre. */}
+      <form action={CLIENT_DOCUMENTS_PATH} method="get" role="search" className="flex flex-wrap items-end gap-x-3 gap-y-2">
+        <label className="flex min-w-[220px] flex-1 flex-col gap-1.5">
+          <span className="font-bold">Chercher un document</span>
           <input
             type="search"
             name="q"
             defaultValue={query}
             placeholder="Par exemple : livret, règlement, plaintes…"
-            className="h-12 rounded-xl border-2 border-line bg-card px-4 text-[17px] text-ink placeholder:text-ink2"
+            className="h-12 rounded-xl border-2 border-line bg-card px-4 text-ink placeholder:text-ink2"
           />
         </label>
-        <button type="submit" className={cn(CHIP, "rounded-xl", CHIP_OFF)}>
+        <button
+          type="submit"
+          className="inline-flex h-12 items-center rounded-xl border-2 border-line bg-card px-5 font-bold text-ink hover:border-ink2"
+        >
           Chercher
         </button>
         {query && (
-          <Link href={filtersHref({ ...current, query: "" })} className={cn(CHIP, "rounded-xl", CHIP_OFF)}>
+          <Link
+            href={viewHref(view, "")}
+            className="inline-flex min-h-12 items-center font-bold text-accent-text underline underline-offset-4"
+          >
             Effacer la recherche
           </Link>
         )}
-        {/* Tri alphabétique (21/10/2026) : un interrupteur, l'ordre par défaut met en
-            tête ce qui demande un geste. */}
-        <Link
-          href={filtersHref({ ...current, sort: sort ? null : "nom" })}
-          aria-pressed={sort === "nom"}
-          className={cn(CHIP, "rounded-xl", sort ? CHIP_ON : CHIP_OFF)}
-        >
-          {sort && <span aria-hidden="true">✓</span>}
-          Trier de A à Z
-        </Link>
       </form>
 
-      <nav aria-label="Filtrer par état" className="flex flex-wrap gap-2">
-        {[null, ...CLIENT_DOCUMENT_FILTERS].map((key) => {
-          const active = key === filter;
-          return (
-            <Link
-              key={key ?? "tout"}
-              href={filtersHref({ ...current, filter: key })}
-              aria-current={active ? "page" : undefined}
-              className={cn(CHIP, active ? CHIP_ON : CHIP_OFF)}
-            >
-              {active && <span aria-hidden="true">✓</span>}
-              {key ? CLIENT_DOCUMENT_FILTER_LABELS[key] : "Tout"}
-              <span className="tabular-nums">
-                {key ? counts[key] : rows.filter((row) => matchesClientSearch(row, query)).length}
-              </span>
-            </Link>
-          );
-        })}
-      </nav>
-
-      {/* Rubriques (21/10/2026) : aller droit à « Processus » ou « Registres » sans
-          descendre toute la page. */}
-      <nav aria-label="Filtrer par rubrique" className="flex flex-wrap gap-2">
-        <Link
-          href={filtersHref({ ...current, group: null })}
-          aria-current={group === null ? "page" : undefined}
-          className={cn(CHIP, "h-11 text-base", group === null ? CHIP_ON : CHIP_OFF)}
-        >
-          {group === null && <span aria-hidden="true">✓</span>}
-          Toutes les rubriques
-        </Link>
-        {groupCounts.map((entry) => {
-          const active = entry.id === group;
-          return (
-            <Link
-              key={entry.id}
-              href={filtersHref({ ...current, group: entry.id })}
-              aria-current={active ? "page" : undefined}
-              className={cn(CHIP, "h-11 text-base", active ? CHIP_ON : CHIP_OFF)}
-            >
-              {active && <span aria-hidden="true">✓</span>}
-              {entry.label}
-              <span className="tabular-nums">{entry.count}</span>
-            </Link>
-          );
-        })}
-      </nav>
+      {/* Sommaire des rubriques de CET onglet : des ancres, sans JavaScript. En ligne
+          sur grand écran ; replié (<details> natif) sur petit écran. */}
+      {groups.length > 1 && (
+        <>
+          <nav aria-label="Aller à une rubrique" className="hidden rounded-xl border border-line bg-soft px-5 py-3 lg:block">
+            <p className="font-bold">Aller à une rubrique</p>
+            <RubricLinks groups={groups} />
+          </nav>
+          <details className="group rounded-xl border border-line bg-soft lg:hidden">
+            <summary className="flex min-h-12 cursor-pointer items-center justify-between gap-2 px-5 py-2 font-bold">
+              Aller à une rubrique
+              <ChevronDown className="h-5 w-5 flex-shrink-0 group-open:rotate-180" aria-hidden="true" />
+            </summary>
+            <nav aria-label="Aller à une rubrique" className="px-5 pb-3">
+              <RubricLinks groups={groups} />
+            </nav>
+          </details>
+        </>
+      )}
 
       {groups.length === 0 && (
-        <p className="rounded-xl border border-line bg-card px-5 py-6 text-center">
-          Aucun document ne correspond.{" "}
-          <Link href={CLIENT_DOCUMENTS_PATH} className="font-bold text-accent-text underline underline-offset-4">
-            Tout afficher
-          </Link>
-        </p>
+        <div className="flex flex-col items-center gap-2 rounded-xl border border-line bg-card px-5 py-8 text-center">
+          <p className="text-[21px] font-bold">{describeEmptyView(view, supportMode, query)}</p>
+          {query && (
+            <Link href={viewHref(view, "")} className="inline-flex min-h-12 items-center font-bold text-accent-text underline underline-offset-4">
+              Effacer la recherche
+            </Link>
+          )}
+        </div>
       )}
 
       {groups.map((group) => (
-        <section key={group.id} aria-labelledby={`groupe-${group.id}`} className="flex flex-col gap-2.5">
+        <section
+          key={group.id}
+          id={rubricAnchor(group.id)}
+          aria-labelledby={`titre-${rubricAnchor(group.id)}`}
+          className="flex scroll-mt-24 flex-col gap-2.5"
+        >
           <div>
-            <h2 id={`groupe-${group.id}`} className="text-2xl font-bold">
+            <h2 id={`titre-${rubricAnchor(group.id)}`} className="text-2xl font-bold">
               {group.label}
             </h2>
-            <p className="text-[17px] text-ink2">{group.progress}</p>
+            <p className="text-ink2">{documentCount(group.rows.length)}</p>
           </div>
           {(() => {
             // Dossiers (call du 29/10/2026) : « un repère clair et balisé, pour nous et
             // pour le client » — un pavé par dossier, ses documents dedans.
             const foldered = groupRowsByFolder(group.rows, foldersOfRows(group.rows));
             const renderCard = (row: (typeof group.rows)[number]) => (
-            <ClientDocumentCard
-              key={row.documentTypeId}
-              item={row}
-              state={row.state}
-              mode={supportMode}
-              establishmentId={establishment.id}
-              canAct={canAct}
-              complianceHref={
-                canAct &&
-                supportMode === "AUTONOMIE" &&
-                row.currentVersion?.analysis &&
-                correctionRight(offer, row.category).included
-                  ? `${CLIENT_DOCUMENTS_PATH}/conformite/${row.currentVersion.id}`
-                  : null
-              }
-            />
+              <ClientDocumentCard
+                key={row.documentTypeId}
+                item={row}
+                state={row.state}
+                mode={supportMode}
+                establishmentId={establishment.id}
+                canAct={canAct}
+                complianceHref={
+                  canAct &&
+                  supportMode === "AUTONOMIE" &&
+                  row.currentVersion?.analysis &&
+                  correctionRight(offer, row.category).included
+                    ? `${CLIENT_DOCUMENTS_PATH}/conformite/${row.currentVersion.id}`
+                    : null
+                }
+              />
             );
             return (
               <>
                 {foldered.folders.map((folder) => (
-                  <FolderDetails key={folder.id} forceOpen={query !== ""} className="rounded-xl border border-line bg-soft" summary={
-                    <summary className="flex min-h-11 cursor-pointer items-center gap-2 px-5 py-3 text-xl font-bold">
-                      <Folder className="h-5 w-5 flex-shrink-0 text-accent-text" aria-hidden="true" />
-                      {folder.label}
-                      <span className="text-[17px] font-normal text-ink2">
-                        · {folder.rows.length} document{folder.rows.length > 1 ? "s" : ""}
-                      </span>
-                    </summary>
-                  }>
+                  <FolderDetails
+                    key={folder.id}
+                    forceOpen={query !== ""}
+                    className="rounded-xl border border-line bg-soft"
+                    summary={
+                      <summary className="flex min-h-12 cursor-pointer items-center gap-2 px-5 py-3 text-xl font-bold">
+                        <Folder className="h-5 w-5 flex-shrink-0 text-accent-text" aria-hidden="true" />
+                        {folder.label}
+                        <span className="font-normal text-ink2">· {documentCount(folder.rows.length)}</span>
+                      </summary>
+                    }
+                  >
                     <div className="flex flex-col gap-2.5 px-3 pb-3">{folder.rows.map(renderCard)}</div>
                   </FolderDetails>
                 ))}
@@ -254,26 +277,6 @@ export default async function ClientDocumentsPage({ searchParams }: Props) {
           })()}
         </section>
       ))}
-
-      {/* Liste de travail (N3) : ce que la structure a déclaré ne pas avoir. En
-          autonomie, c'est à elle de les créer ; accompagnée, EODA les produit. */}
-      {workList.length > 0 && (
-        <section id="travail" aria-labelledby="liste-travail" className="flex flex-col gap-2 rounded-xl bg-soft px-5 py-4">
-          <h2 id="liste-travail" className="text-2xl font-bold">
-            {supportMode === "AUTONOMIE" ? "Ma liste de travail" : "Documents à produire"}
-          </h2>
-          <p>
-            {supportMode === "AUTONOMIE"
-              ? describeWorkList(workList.length)
-              : "Vous ne les avez pas. EODA le voit dans votre dossier."}
-          </p>
-          <ul className="list-disc pl-6">
-            {workList.map((row) => (
-              <li key={row.documentTypeId}>{row.label}</li>
-            ))}
-          </ul>
-        </section>
-      )}
     </div>
   );
 }
