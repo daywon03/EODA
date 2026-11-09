@@ -45,6 +45,7 @@ import { normalizeCriterionQuery } from "@/lib/services/document-type-creation-s
 import { listDocumentFolders } from "@/lib/actions/document-folder";
 import { DocumentFolderManager } from "@/components/structure/lazy-document-panels";
 import { Folder } from "lucide-react";
+import { FolderDetails } from "@/components/structure/FolderDetails";
 
 export const metadata = { title: "Documents" };
 
@@ -259,13 +260,13 @@ export default async function StructureDocumentsPage({ params, searchParams }: P
       )}
 
       {foldered.folders.map((folder) => (
-        // Fermé par défaut ; ouvert quand on cherche, ou quand le document ouvert y est.
-        <details
+        // Fermé par défaut ; ouvert quand on cherche, ou quand le document ouvert y est —
+        // et il reste ouvert à la sortie du document (FolderDetails garde l'état).
+        <FolderDetails
           key={folder.id}
-          open={filters.query !== "" || folder.rows.some((row) => row.documentTypeId === opened?.documentTypeId)}
+          forceOpen={filters.query !== "" || folder.rows.some((row) => row.documentTypeId === opened?.documentTypeId)}
           className="group rounded-xl border border-line bg-card"
-        >
-          <summary className="flex min-h-11 cursor-pointer items-center gap-2 px-4 py-3 text-base font-bold text-ink hover:bg-soft">
+          summary={<summary className="flex min-h-11 cursor-pointer items-center gap-2 px-4 py-3 text-base font-bold text-ink hover:bg-soft">
             <Folder className="h-4 w-4 flex-shrink-0 text-accent-text" aria-hidden="true" />
             {folder.label}
             <span className="font-normal text-ink2">
@@ -297,6 +298,17 @@ export default async function StructureDocumentsPage({ params, searchParams }: P
             />
           )}
         </details>
+          </summary>}
+        >
+          <DataTable
+            caption={`${folder.label} — ${DOCUMENT_BUCKET_LABELS[filters.bucket]}`}
+            columns={columns(menuContext)}
+            rows={folder.rows}
+            getRowKey={(row) => row.documentTypeId}
+            rowHref={(row) => documentsHref(basePath, { ...filters, doc: row.documentTypeId })}
+            className="rounded-t-none border-x-0 border-b-0"
+          />
+        </FolderDetails>
       ))}
 
       {(foldered.loose.length > 0 || foldered.folders.length === 0) && (

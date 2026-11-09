@@ -71,7 +71,7 @@ export function useAdmissions(establishmentId: string) {
   // signature (révision annuelle comprise). À côté : le contrat Word signé et chaque
   // signature (reprise par le formulaire du Département), sous leurs propres clés.
   const save = useCallback(
-    async (record: AdmissionRecord, pdf: Blob, extras: AdmissionExtras = { word: null, signatures: {}, devis: null, recap: null }): Promise<boolean> => {
+    async (record: AdmissionRecord, pdf: Blob, extras: AdmissionExtras = { word: null, wordPdf: null, signatures: {}, devis: null, recap: null, recapPdf: null }): Promise<boolean> => {
       try {
         await withStore(name, "readwrite", (store) => store.add({ id: record.id, record, pdf } satisfies StoredRow));
         if (extras.word) {
@@ -85,6 +85,9 @@ export function useAdmissions(establishmentId: string) {
         if (extras.recap) {
           const recap = extras.recap;
           await withStore(name, "readwrite", (store) => store.put({ id: recapKey(record.id), record: null, pdf: recap } satisfies StoredRow));
+        }
+        for (const [key, copy] of [[wordPdfKey(record.id), extras.wordPdf], [recapPdfKey(record.id), extras.recapPdf]] as const) {
+          if (copy) await withStore(name, "readwrite", (store) => store.put({ id: key, record: null, pdf: copy } satisfies StoredRow));
         }
         for (const [signer, blob] of Object.entries(extras.signatures) as [AdmissionSigner, Blob][]) {
           await withStore(name, "readwrite", (store) => store.put({ id: signatureKey(record.id, signer), record: null, pdf: blob } satisfies StoredRow));
@@ -147,6 +150,15 @@ export function recapKey(recordId: string): string {
   return `recap:${recordId}`;
 }
 
+// Les copies PDF du contrat Word et du contrat récapitulatif signés (08/11/2026).
+export function wordPdfKey(recordId: string): string {
+  return `contrat-pdf:${recordId}`;
+}
+
+export function recapPdfKey(recordId: string): string {
+  return `recap-pdf:${recordId}`;
+}
+
 export function wordKey(recordId: string): string {
   return `contrat-word:${recordId}`;
 }
@@ -171,25 +183,3 @@ export function downloadBlob(fileName: string, blob: Blob): void {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-// « Envoyer à la personne » : la feuille de partage de la tablette (messagerie,
-// AirDrop, impression…). Le fichier ne passe pas par le serveur d'EODA. Sans
-// partage possible, on télécharge.
-export async function shareOrDownload(fileName: string, blob: Blob, title: string): Promise<"shared" | "downloaded" | "cancelled"> {
-  return shareFilesOrDownload([{ fileName, blob }], title);
-}
-
-// Plusieurs fichiers d'un coup (le formulaire du Département ET le contrat, que le
-// Département exige ensemble). Sans partage possible : un téléchargement par fichier.
-export async function shareFilesOrDownload(files: readonly { fileName: string; blob: Blob }[], title: string): Promise<"shared" | "downloaded" | "cancelled"> {
-  const asFiles = files.map((f) => new File([f.blob], f.fileName, { type: f.blob.type || "application/pdf" }));
-  if (typeof navigator.canShare === "function" && navigator.canShare({ files: asFiles })) {
-    try {
-      await navigator.share({ files: asFiles, title });
-      return "shared";
-    } catch (error) {
-      if (error instanceof DOMException && error.name === "AbortError") return "cancelled";
-    }
-  }
-  files.forEach((f) => downloadBlob(f.fileName, f.blob));
-  return "downloaded";
-}

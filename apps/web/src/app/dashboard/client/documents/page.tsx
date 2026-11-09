@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Folder } from "lucide-react";
+import { FolderDetails } from "@/components/structure/FolderDetails";
 import { foldersOfRows, groupRowsByFolder } from "@/lib/services/document-folder-service";
 import { getClientChecklist } from "@/lib/actions/checklist";
 import { flattenChecklist } from "@/lib/services/structure-documents-service";
@@ -235,7 +236,7 @@ export default async function ClientDocumentsPage({ searchParams }: Props) {
             return (
               <>
                 {foldered.folders.map((folder) => (
-                  <details key={folder.id} open={query !== ""} className="rounded-xl border border-line bg-soft">
+                  <FolderDetails key={folder.id} forceOpen={query !== ""} className="rounded-xl border border-line bg-soft" summary={
                     <summary className="flex min-h-11 cursor-pointer items-center gap-2 px-5 py-3 text-xl font-bold">
                       <Folder className="h-5 w-5 flex-shrink-0 text-accent-text" aria-hidden="true" />
                       {folder.label}
@@ -243,8 +244,9 @@ export default async function ClientDocumentsPage({ searchParams }: Props) {
                         · {folder.rows.length} document{folder.rows.length > 1 ? "s" : ""}
                       </span>
                     </summary>
+                  }>
                     <div className="flex flex-col gap-2.5 px-3 pb-3">{folder.rows.map(renderCard)}</div>
-                  </details>
+                  </FolderDetails>
                 ))}
                 {foldered.loose.map(renderCard)}
               </>

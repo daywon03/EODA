@@ -23,6 +23,7 @@ import {
   frenchDay,
   fullName,
   latestAdmissionFor,
+  pdfCopyFileName,
   type AdmissionRecord,
   type AdmissionState,
 } from "@/lib/services/admission-service";
@@ -31,7 +32,10 @@ import { TABLET_INPUT, TABLET_PRIMARY, TABLET_SECONDARY } from "../tablet-ui";
 import { RosterImportPanel } from "../survey/RosterImportPanel";
 import { newPersonId, useSurveyRoster } from "../survey/use-survey-roster";
 import { AdmissionWizard, type AdmissionExtras, type TabletDipc } from "./AdmissionWizard";
-import { devisKey, downloadBlob, formKey, recapKey, sha256Hex, shareFilesOrDownload, signatureKey, useAdmissions, wordKey } from "./use-admissions";
+import { devisKey, downloadBlob, formKey, recapKey, recapPdfKey, sha256Hex, signatureKey, useAdmissions, wordKey, wordPdfKey } from "./use-admissions";
+import { describeShare, shareFiles, type SharedFile } from "./share-files";
+
+const saveFile = (file: SharedFile): void => downloadBlob(file.fileName, file.blob);
 import { PersonDossier } from "./PersonDossier";
 import { tabletCan } from "@/lib/services/tablet-role-service";
 import type { TabletRole } from "@eoda/database";
@@ -80,7 +84,7 @@ export function TabletAdmission({ establishmentId, structureName, structureAddre
   const [query, setQuery] = useState("");
   const [importing, setImporting] = useState(false);
   const [flash, setFlash] = useState<string | null>(null);
-  const [last, setLast] = useState<{ id: string; pdf: Blob; word: Blob | null; recap: Blob | null } | null>(null);
+  const [last, setLast] = useState<{ id: string; pdf: Blob; word: Blob | null; wordPdf: Blob | null; recap: Blob | null; recapPdf: Blob | null } | null>(null);
   const [dipcSha, setDipcSha] = useState<string | null>(null);
   // Le Word d'origine du DIPEC (27/10/2026) : le contrat signé sera CE document,
   // rempli. `undefined` : en cours de chargement ; `null` : copie en texte.
@@ -123,7 +127,7 @@ export function TabletAdmission({ establishmentId, structureName, structureAddre
     if (!roster.people.some((p) => p.id === record.personId)) {
       update(addPeople(roster, [{ lastName: displayLastName(record.identity), firstName: cleanName(record.identity.firstName) }], () => record.personId));
     }
-    setLast({ id: record.id, pdf, word: extras.word, recap: extras.recap });
+    setLast({ id: record.id, pdf, word: extras.word, wordPdf: extras.wordPdf, recap: extras.recap, recapPdf: extras.recapPdf });
     const stored = await save(record, pdf, extras);
     go({ kind: "signed", record, stored });
   }
@@ -135,20 +139,28 @@ export function TabletAdmission({ establishmentId, structureName, structureAddre
     const fresh = last?.id === record.id ? last : null;
     const pdf = fresh?.pdf ?? (await pdfOf(record.id));
     const wordBlob = record.word ? (fresh?.word ?? (await pdfOf(wordKey(record.id)))) : null;
-    return [...(record.word && wordBlob ? [{ fileName: record.word.fileName, blob: wordBlob }] : []), ...(pdf ? [{ fileName: record.pdfFileName, blob: pdf }] : [])];
+    const wordPdf = record.word ? (fresh?.wordPdf ?? (await pdfOf(wordPdfKey(record.id)))) : null;
+    return [
+      ...(record.word && wordBlob ? [{ fileName: record.word.fileName, blob: wordBlob }] : []),
+      ...(record.word && wordPdf ? [{ fileName: pdfCopyFileName(record.word.fileName), blob: wordPdf }] : []),
+      ...(pdf ? [{ fileName: record.pdfFileName, blob: pdf }] : []),
+    ];
   }
 
   // Ce qui part au Département avec le formulaire : le contrat récapitulatif signé
   // (30/10/2026) quand la structure en a un, sinon le contrat (Word + attestation).
-  async function recapFile(record: AdmissionRecord): Promise<{ fileName: string; blob: Blob } | null> {
-    if (!record.recap) return null;
-    const blob = (last?.id === record.id ? last.recap : null) ?? (await pdfOf(recapKey(record.id)));
-    return blob ? { fileName: record.recap.fileName, blob } : null;
+  // Le Word et sa copie PDF (celle-ci part d'une tablette qui ne partage pas un Word).
+  async function recapFiles(record: AdmissionRecord): Promise<{ fileName: string; blob: Blob }[]> {
+    if (!record.recap) return [];
+    const fresh = last?.id === record.id ? last : null;
+    const blob = fresh?.recap ?? (await pdfOf(recapKey(record.id)));
+    const copy = fresh?.recapPdf ?? (await pdfOf(recapPdfKey(record.id)));
+    return [...(blob ? [{ fileName: record.recap.fileName, blob }] : []), ...(copy ? [{ fileName: pdfCopyFileName(record.recap.fileName), blob: copy }] : [])];
   }
 
   async function departementFiles(record: AdmissionRecord): Promise<{ fileName: string; blob: Blob }[]> {
-    const recapContract = await recapFile(record);
-    return recapContract ? [recapContract] : contractFiles(record);
+    const recapContract = await recapFiles(record);
+    return recapContract.length > 0 ? recapContract : contractFiles(record);
   }
 
   async function openPdf(record: AdmissionRecord, mode: "share" | "download") {
@@ -156,8 +168,8 @@ export function TabletAdmission({ establishmentId, structureName, structureAddre
     const what = record.outcome === "REFUS" ? "L'attestation de refus" : "Le contrat";
     if (files.length === 0) return setFlash(`${what} n'est plus sur la tablette. Cherchez-le dans votre export (Ximi ou serveur).`);
     if (mode === "download") return files.forEach((f) => downloadBlob(f.fileName, f.blob));
-    const result = await shareFilesOrDownload(files, `${record.outcome === "REFUS" ? "Refus du DIPEC" : "Contrat"} — ${fullName(record.identity)}`);
-    setFlash(result === "shared" ? `${what} est envoyé.` : result === "downloaded" ? `${what} est téléchargé sur la tablette.` : null);
+    const result = await shareFiles(files, `${record.outcome === "REFUS" ? "Refus du DIPEC" : "Contrat"} — ${fullName(record.identity)}`, saveFile);
+    setFlash(describeShare(result, `${what} est envoyé.`, `Cette tablette ne sait pas envoyer : ${what.toLocaleLowerCase("fr-FR")} est téléchargé.`));
   }
 
   // Personne de confiance absente : la tablette lui envoie le contrat (annexe 3.2 à
@@ -166,13 +178,13 @@ export function TabletAdmission({ establishmentId, structureName, structureAddre
     const files = await contractFiles(record);
     if (files.length === 0) return setFlash("Le contrat n'est plus sur la tablette. Cherchez-le dans votre export (Ximi ou serveur).");
     const email = record.trustedPerson?.email ?? "";
-    const result = await shareFilesOrDownload(files, `Désignation de la personne de confiance — à cosigner (annexe 3.2) — ${fullName(record.identity)}`);
+    const result = await shareFiles(files, `Désignation de la personne de confiance — à cosigner (annexe 3.2) — ${fullName(record.identity)}`, saveFile);
     setFlash(
-      result === "shared"
-        ? `Envoyé. Adresse de ${trustedPersonName(record.trustedPerson)} : ${email}. Elle cosigne l'annexe 3.2 et vous la renvoie.`
-        : result === "downloaded"
-          ? `Téléchargé. À envoyer à ${email} : elle cosigne l'annexe 3.2 et vous la renvoie.`
-          : null
+      describeShare(
+        result,
+        `Envoyé. Adresse de ${trustedPersonName(record.trustedPerson)} : ${email}. Elle cosigne l'annexe 3.2 et vous la renvoie.`,
+        `Téléchargé. À envoyer à ${email} : elle cosigne l'annexe 3.2 et vous la renvoie.`
+      )
     );
   }
 
@@ -181,8 +193,7 @@ export function TabletAdmission({ establishmentId, structureName, structureAddre
   // range le dossier de la personne.
   async function recordFiles(record: AdmissionRecord): Promise<{ fileName: string; blob: Blob }[]> {
     const files = await contractFiles(record);
-    const recapContract = await recapFile(record);
-    if (recapContract) files.push(recapContract);
+    files.push(...(await recapFiles(record)));
     const form = await pdfOf(formKey(record.id, "INITIALE"));
     if (form) files.push({ fileName: departementFormFileName(structureName, record, new Date(record.signedAt)), blob: form });
     const change = await pdfOf(formKey(record.id, "CHANGEMENT"));

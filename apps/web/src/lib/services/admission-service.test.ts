@@ -20,6 +20,7 @@ import {
   handedCheckLinks,
   handedChecks,
   admissionWordFileName,
+  pdfCopyFileName,
   identityProblems,
   isAdmissionDueForReview,
   latestAdmissionFor,
@@ -313,6 +314,14 @@ describe("cases « Documents remis » du contrat", () => {
     const at = new Date("2026-10-26T10:00:00Z");
     expect(admissionWordFileName("SAD Fictif", identity, at)).toBe("20261026_DIPEC_SAD-Fictif_Martin-Paulette_v01_Externe.docx");
     expect(admissionPdfFileName("SAD Fictif", identity, at, "SIGNE", true)).toBe("20261026_SIGNATURE-DIPEC_SAD-Fictif_Martin-Paulette_v01_Externe.pdf");
+  });
+
+  it("la copie PDF du Word signé garde son nom et ne se confond pas avec l'attestation", () => {
+    const at = new Date("2026-10-26T10:00:00Z");
+    const copy = pdfCopyFileName(admissionWordFileName("SAD Fictif", identity, at));
+    expect(copy).toBe("20261026_DIPEC_SAD-Fictif_Martin-Paulette_v01_Externe.pdf");
+    expect(copy).not.toBe(admissionPdfFileName("SAD Fictif", identity, at, "SIGNE", true));
+    expect(pdfCopyFileName("contrat.DOCX")).toBe("contrat.pdf");
   });
 
   it("relit la personne de confiance et le contrat Word rangés ; un contrat ancien n'en a pas", () => {

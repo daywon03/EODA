@@ -42,6 +42,7 @@ import {
 } from "@/lib/services/admission-service";
 import { rhythmText, wordSignatureSlots } from "@/lib/services/dipec-word-service";
 import { prepareDipcForTablet } from "@/lib/services/dipc-tablet-preparation";
+import { effectiveContractChecks, isAccompanied, toggleContractCheck, visibleContractChecks } from "@/lib/services/dipc-contract-checks";
 import { EMPTY_TRUSTED_PERSON, isTrustedPersonDesignated, trustedPersonName, trustedPersonProblems, type TrustedPerson } from "@/lib/services/trusted-person-service";
 import { recapCompanion, type RecapContractFill, type RecapTariffs } from "@/lib/services/recap-contract-word-service";
 import { DocxPreview } from "@/components/structure/DocxPreview";
@@ -58,6 +59,7 @@ import { AdmissionProjectStep } from "./AdmissionProjectStep";
 import { AdmissionRefusalPanel } from "./AdmissionRefusalPanel";
 import { buildContractWord, buildRecapWord, type TabletDipecWord, type TabletRecapWord } from "./dipec-word-client";
 import { RecapTariffSection } from "./RecapTariffSection";
+import { wordToPdf } from "./word-pdf-client";
 import { sha256Hex } from "./use-admissions";
 
 export type TabletDipc = { versionId: string; versionNumber: number; validatedOn: string; text: string; sha256: string };
@@ -65,8 +67,27 @@ export type TabletDipc = { versionId: string; versionNumber: number; validatedOn
 // Ce qui se range à côté de la fiche : le contrat Word signé (quand le DIPEC d'EODA
 // est un Word) et chaque signature, reprise par le formulaire du Département.
 // Le contrat récapitulatif pour le Département (30/10/2026), quand la structure en a un.
-export type AdmissionExtras = { word: Blob | null; signatures: Partial<Record<AdmissionSigner, Blob>>; devis: Blob | null; recap: Blob | null };
-export const NO_EXTRAS: AdmissionExtras = { word: null, signatures: {}, devis: null, recap: null };
+// Leurs copies PDF (08/11/2026), fabriquées sur la tablette pour lire et envoyer.
+export type AdmissionExtras = {
+  word: Blob | null;
+  wordPdf: Blob | null;
+  signatures: Partial<Record<AdmissionSigner, Blob>>;
+  devis: Blob | null;
+  recap: Blob | null;
+  recapPdf: Blob | null;
+};
+export const NO_EXTRAS: AdmissionExtras = { word: null, wordPdf: null, signatures: {}, devis: null, recap: null, recapPdf: null };
+
+// Une copie PDF manquée ne bloque pas la signature : le Word signé est le contrat.
+async function pdfCopyOrNull(word: Blob | null): Promise<Blob | null> {
+  if (!word) return null;
+  try {
+    return await wordToPdf(word);
+  } catch (error) {
+    console.error("Copie PDF du contrat — fabrication échouée :", error);
+    return null;
+  }
+}
 
 const STEPS = ["La personne", "Le projet", "Le contrat", "À expliquer", "Signatures"] as const;
 const STEP = { PERSON: 0, PROJECT: 1, CONTRACT: 2, EXPLAIN: 3, SIGN: 4 } as const;
@@ -133,11 +154,14 @@ export function AdmissionWizard({ structureName, staffName, dipc, word, recap = 
 
   const linked = contactOrNull(contact);
   const trusted = isTrustedPersonDesignated(trustedDraft) ? trustedDraft : null;
+  const signers = requiredSigners(linked, trusted);
+  // Un accompagnant connu (noté, ou présent pour signer) retire « Non accompagné(e) ».
+  const accompanied = isAccompanied(prepared.freeFields, texts, signers);
   // Les cases « Documents remis » se cochent depuis « À expliquer » ; les autres, à la main.
   const handedLinks = useMemo(() => handedCheckLinks(prepared.checkFields), [prepared]);
   const entries = useMemo(
-    () => dipcEntryValues(prepared, texts, { ...checks, ...handedChecks(handedLinks, handed) }, duration),
-    [prepared, texts, checks, handedLinks, handed, duration]
+    () => dipcEntryValues(prepared, texts, effectiveContractChecks({ ...checks, ...handedChecks(handedLinks, handed) }, prepared.checkFields, accompanied), duration),
+    [prepared, texts, checks, handedLinks, handed, duration, accompanied]
   );
   const fieldValues = (signedOn: Date) => admissionFieldValues({ structureName, identity, aid, contact: linked, trusted, staffName, signedOn });
   const rhythm = rhythmText(aid, word?.plan.scheduleFieldId ? (texts[word.plan.scheduleFieldId] ?? "") : "");
@@ -155,7 +179,6 @@ export function AdmissionWizard({ structureName, staffName, dipc, word, recap = 
   const unknownFields = wordDraft?.unknownFields ?? merged.unknownFields;
   const emptyFields = wordDraft?.emptyFields ?? merged.emptyFields;
   const docInput = { structureName, identity, aid, contact: linked, trusted, dipc: { ...dipc, blocks: merged.blocks }, explained, handed, explanationsVersion: ADMISSION_EXPLANATIONS_VERSION, staffName };
-  const signers = requiredSigners(linked, trusted);
 
   function stepProblems(index: number): string[] {
     const today = new Date();
@@ -224,7 +247,8 @@ export function AdmissionWizard({ structureName, staffName, dipc, word, recap = 
       const recapContract = recapBlob ? { fileName: admissionRecapFileName(structureName, identity, signedAt), sha256: await sha256Hex(await recapBlob.arrayBuffer()) } : null;
 
       const record = await recordOf(signedAt, "SIGNE", null, signers, pdf, wordContract, recapContract);
-      await onRecorded(record, pdf, { word: wordBlob, signatures: signatureBlobs, devis: devis?.file ?? null, recap: recapBlob });
+      const [wordPdf, recapPdf] = [await pdfCopyOrNull(wordBlob), await pdfCopyOrNull(recapBlob)];
+      await onRecorded(record, pdf, { word: wordBlob, wordPdf, signatures: signatureBlobs, devis: devis?.file ?? null, recap: recapBlob, recapPdf });
     } catch {
       setSignError("Le contrat n'a pas pu être fabriqué. Vérifiez les signatures, puis recommencez la signature.");
     } finally {
@@ -347,7 +371,7 @@ export function AdmissionWizard({ structureName, staffName, dipc, word, recap = 
           aid={aid}
           onAid={setAid}
           freeFields={prepared.freeFields}
-          checkFields={prepared.checkFields.filter((field) => !handedLinks.has(field.id))}
+          checkFields={visibleContractChecks(prepared.checkFields.filter((field) => !handedLinks.has(field.id)), accompanied)}
           handedChecksCount={handedLinks.size}
           durationChoice={prepared.durationChoice}
           duration={duration}
@@ -355,7 +379,7 @@ export function AdmissionWizard({ structureName, staffName, dipc, word, recap = 
           texts={texts}
           checks={checks}
           onText={(id, value) => setTexts((all) => ({ ...all, [id]: value }))}
-          onCheck={(id, value) => setChecks((all) => ({ ...all, [id]: value }))}
+          onCheck={(id, value) => setChecks((all) => toggleContractCheck(all, prepared.checkFields, id, value))}
         />
       )}
       {step === STEP.PROJECT && <DevisImportSection devis={devis} onDevis={setDevis} hasDevisAnnex={word?.plan.devisAfter !== null && word !== null} />}
