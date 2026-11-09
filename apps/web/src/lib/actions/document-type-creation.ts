@@ -13,6 +13,8 @@ import { deriveMissionAccessState } from "@/lib/services/mission-access-service"
 import { getCoveredDocumentCategories } from "@/lib/services/offer-scope-service";
 import { notifyNewDocumentType } from "@/lib/email/notifications";
 import {
+  CREATABLE_DOCUMENT_CATEGORIES,
+  type CreatableDocumentCategory,
   documentTypeCode,
   documentTypeCreationError,
   documentTypeRenameError,
@@ -163,30 +165,55 @@ export async function createDocumentType(formData: FormData): Promise<CreateDocu
   };
 }
 
+// Les structures du cabinet, avec ce qu'il faut pour décider de l'annonce. UNE lecture,
+// partagée par l'envoi et par la liste nommée dans le formulaire : les deux ne peuvent
+// pas diverger.
+async function loadAnnouncementCandidates(tenantId: string) {
+  const establishments = await prisma.establishment.findMany({
+    where: { tenantId },
+    select: {
+      id: true,
+      name: true,
+      mission: { select: { formule: true, gratuit: true, closedAt: true, clientAccessRevokedAt: true } },
+    },
+    orderBy: { name: "asc" },
+  });
+  return establishments.map((establishment) => ({
+    id: establishment.id,
+    name: establishment.name,
+    access: deriveMissionAccessState(establishment.mission),
+    coveredCategories: establishment.mission
+      ? getCoveredDocumentCategories(establishment.mission.formule, establishment.mission.gratuit)
+      : null,
+  }));
+}
+
+type AnnouncementCandidate = Awaited<ReturnType<typeof loadAnnouncementCandidates>>[number];
+
+function concernedBy(candidates: readonly AnnouncementCandidate[], category: DocumentCategory): AnnouncementCandidate[] {
+  return candidates.filter((candidate) =>
+    shouldAnnounceNewDocumentType({ access: candidate.access, coveredCategories: candidate.coveredCategories, category })
+  );
+}
+
+// Qui recevrait l'annonce, par catégorie ouverte à la création (retour du 09/11/2026,
+// #7) : le formulaire NOMME ces structures avant l'envoi. Noms de structures du
+// cabinet, lus par CABINET_ADMIN seul — la même garde que la création.
+export async function listDocumentTypeAnnouncementTargets(): Promise<Record<CreatableDocumentCategory, string[]>> {
+  const { tenantId } = await requireCabinetAdminSession();
+  const candidates = await loadAnnouncementCandidates(tenantId);
+  return Object.fromEntries(
+    CREATABLE_DOCUMENT_CATEGORIES.map((category) => [category, concernedBy(candidates, category).map((c) => c.name)])
+  ) as Record<CreatableDocumentCategory, string[]>;
+}
+
 async function announceToStructures(input: {
   tenantId: string;
   label: string;
   category: DocumentCategory;
   requestedFromClient: boolean;
 }): Promise<{ structures: number; sent: number; recipients: number }> {
-  const establishments = await prisma.establishment.findMany({
-    where: { tenantId: input.tenantId },
-    select: {
-      id: true,
-      name: true,
-      mission: { select: { formule: true, gratuit: true, closedAt: true, clientAccessRevokedAt: true } },
-    },
-  });
-
-  const concerned = establishments.filter((establishment) =>
-    shouldAnnounceNewDocumentType({
-      access: deriveMissionAccessState(establishment.mission),
-      coveredCategories: establishment.mission
-        ? getCoveredDocumentCategories(establishment.mission.formule, establishment.mission.gratuit)
-        : null,
-      category: input.category,
-    })
-  );
+  const concerned = concernedBy(await loadAnnouncementCandidates(input.tenantId), input.category);
 
   let sent = 0;
   let recipients = 0;
