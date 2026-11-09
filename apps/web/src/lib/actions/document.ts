@@ -135,7 +135,7 @@ export async function uploadDocument(formData: FormData): Promise<UploadDocument
     // Restreint au périmètre de l'offre : sans ce filtre, la liste de candidats
     // renvoyée à l'UI énumérerait des types de documents que l'offre exclut.
     const allTypes = await prisma.documentType.findMany({
-      where: coveredCategories ? { category: { in: [...coveredCategories] } } : {},
+      where: { archivedAt: null, ...(coveredCategories ? { category: { in: [...coveredCategories] } } : {}) },
       select: { id: true, code: true, label: true, category: true },
     });
     const suggestion = suggestDocumentType(allTypes, file.name, extractedText);
@@ -661,7 +661,7 @@ export async function listDocumentTypeOptions(
 
   const categories = await getEstablishmentCoveredCategories(establishmentId);
   return prisma.documentType.findMany({
-    where: categories ? { category: { in: [...categories] } } : {},
+    where: { archivedAt: null, ...(categories ? { category: { in: [...categories] } } : {}) },
     select: { id: true, label: true, category: true },
     orderBy: [{ category: "asc" }, { label: "asc" }],
   });

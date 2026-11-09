@@ -11,6 +11,7 @@ import {
   buildPasswordResetEmail,
   buildDocumentAvailableEmail,
   buildDocumentReminderEmail,
+  buildInformationRequestEmail,
   buildNewDocumentTypeEmail,
   buildNewMessageEmail,
   buildOptionRequestEmail,
@@ -325,6 +326,39 @@ export async function notifyDocumentAvailable(input: {
     console.error(
       `Annonce de document validé — ${failed}/${recipients.length} envoi(s) échoué(s).`
     );
+  }
+  return { sent, total: recipients.length };
+}
+
+// « Demander à la structure » (09/11/2026) : une tâche vient d'être confiée à la
+// structure depuis un élément manquant de l'analyse. Mêmes destinataires que
+// l'annonce d'un document (findClientRecipients) ; l'e-mail porte l'INTITULÉ du type
+// et « une information est attendue », jamais le texte de la demande. Ne fait jamais
+// échouer la demande : la tâche est déjà créée quand l'e-mail part.
+export async function notifyInformationRequested(input: {
+  establishmentId: string;
+  establishmentName: string;
+  documentLabel: string;
+}): Promise<{ sent: number; total: number }> {
+  const recipients = await findClientRecipients(input.establishmentId);
+  if (recipients.length === 0) return { sent: 0, total: 0 };
+
+  const port = getEmailPort();
+  const results = await Promise.allSettled(
+    recipients.map((recipient) => {
+      const content = buildInformationRequestEmail({
+        recipientName: recipient.name ?? "Madame, Monsieur",
+        establishmentName: input.establishmentName,
+        documentLabel: input.documentLabel,
+        tasksUrl: appUrl("/dashboard/client/taches"),
+        brand: { logoUrl: appUrl("/logo-eoda.png") },
+      });
+      return port.send({ to: recipient.email, subject: content.subject, html: content.html });
+    })
+  );
+  const { sent, failed } = countDeliveries(results);
+  if (failed > 0) {
+    console.error(`Demande d'information — ${failed}/${recipients.length} envoi(s) échoué(s).`);
   }
   return { sent, total: recipients.length };
 }

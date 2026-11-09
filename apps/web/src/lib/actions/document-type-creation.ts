@@ -75,11 +75,14 @@ export async function createDocumentType(formData: FormData): Promise<CreateDocu
     notFound();
   }
 
-  const existing = await prisma.documentType.findMany({ select: { label: true, code: true } });
+  // Les CODES de toutes les lignes, archivées comprises (un code ne se réutilise pas) ;
+  // les INTITULÉS des lignes en service seulement : une ligne retirée ne bloque pas
+  // la création d'une nouvelle sous le même nom.
+  const existing = await prisma.documentType.findMany({ select: { label: true, code: true, archivedAt: true } });
   const problem = documentTypeCreationError({
     label,
     category,
-    existingLabels: existing.map((t) => t.label),
+    existingLabels: existing.filter((t) => !t.archivedAt).map((t) => t.label),
   });
   if (problem) return { error: problem };
   // Après la règle pure : la catégorie est l'une des trois ouvertes.
@@ -225,7 +228,7 @@ export async function renameDocumentType(
   if (documentType.label === label) return { ok: true, label };
 
   const others = await prisma.documentType.findMany({
-    where: { id: { not: documentType.id } },
+    where: { id: { not: documentType.id }, archivedAt: null },
     select: { label: true },
   });
   const problem = documentTypeRenameError({

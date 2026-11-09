@@ -335,7 +335,7 @@ describe("uploadDocument — périmètre de l'offre", () => {
     const result = await uploadDocument(formData);
 
     expect(prismaMock.documentType.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { category: { in: ["LOI_2002_2"] } } })
+      expect.objectContaining({ where: { archivedAt: null, category: { in: ["LOI_2002_2"] } } })
     );
     expect(result).toMatchObject({ needsManualType: true, candidates: [expect.anything()] });
   });

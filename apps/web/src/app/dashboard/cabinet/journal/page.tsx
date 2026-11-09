@@ -80,6 +80,8 @@ const ACTION_LABELS: Record<AuditAction, string> = {
   DOCUMENT_TYPE_SCOPE_CHANGED: "Document réclamé au client / produit par EODA",
   DOCUMENT_TYPE_CREATED: "Nouveau document ajouté à la liste",
   DOCUMENT_TYPE_RENAMED: "Document de la liste renommé",
+  DOCUMENT_TYPE_ARCHIVED: "Document retiré de la liste (archivé, historique gardé)",
+  DOCUMENT_TYPE_DELETED: "Document retiré de la liste (supprimé, jamais utilisé)",
   DOCUMENT_FOLDER_CREATED: "Dossier de la liste créé",
   DOCUMENT_FOLDER_RENAMED: "Dossier de la liste renommé",
   DOCUMENT_TYPE_FOLDER_CHANGED: "Document rangé dans un dossier",
