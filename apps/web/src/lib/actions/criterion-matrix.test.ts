@@ -22,7 +22,11 @@ vi.mock("next/navigation", () => ({
     throw new Error("NOT_FOUND");
   },
 }));
-vi.mock("@/lib/auth/guards", () => ({ requireCabinetAdminSession: () => requireCabinetAdminSession() }));
+const requireCabinetSession = vi.fn();
+vi.mock("@/lib/auth/guards", () => ({
+  requireCabinetAdminSession: () => requireCabinetAdminSession(),
+  requireCabinetSession: (need: string) => requireCabinetSession(need),
+}));
 vi.mock("@/lib/services/audit-log-service", () => ({
   recordAuditEvent: (...args: unknown[]) => recordAuditEvent(...args),
 }));
@@ -33,6 +37,8 @@ const {
   promoteCriterionSuggestion,
   addManualMatrixLinks,
   unlinkCriterionFromDocumentType,
+  getDocumentTypeLinks,
+  listLinkableDocumentTypes,
 } = await import("./criterion-matrix");
 
 function form(fields: Record<string, string | string[]>): FormData {
@@ -259,5 +265,44 @@ describe("unlinkCriterionFromDocumentType — décocher depuis n'importe quel me
     prismaMock.criterion.findUnique.mockResolvedValue(null);
     await expect(unlinkCriterionFromDocumentType("QUALITE_ENQUETE_QUESTIONNAIRE", "9.9.9")).rejects.toThrow("NOT_FOUND");
     expect(prismaMock.documentTypeCriterion.delete).not.toHaveBeenCalled();
+  });
+});
+
+describe("lectures de la fiche document et de la page Critères (09/11/2026)", () => {
+  it("getDocumentTypeLinks : lisible par tout le cabinet qui lit les structures, avec la provenance", async () => {
+    requireCabinetSession.mockResolvedValue({ userId: "u-eval", tenantId: "t-1", role: "CABINET_EVALUATOR" });
+    prismaMock.documentType.findUnique.mockResolvedValue({ id: "dt-enquete", archivedAt: null });
+    prismaMock.documentTypeCriterion.findMany.mockResolvedValue([
+      { criterion: { code: "3.14.2", label: "Crise" } },
+      { criterion: { code: "1.3.1", label: "Participation" } },
+    ]);
+    expect(await getDocumentTypeLinks("QUALITE_ENQUETE_QUESTIONNAIRE")).toEqual([
+      { code: "1.3.1", label: "Participation", proposed: false },
+      { code: "3.14.2", label: "Crise", proposed: true },
+    ]);
+    expect(requireCabinetSession).toHaveBeenCalledWith("STRUCTURES_READ");
+  });
+
+  it("getDocumentTypeLinks : commerciale ou non connecté refusés avant toute lecture ; type archivé = notFound", async () => {
+    requireCabinetSession.mockRejectedValue(new Error("REDIRECT"));
+    await expect(getDocumentTypeLinks("QUALITE_ENQUETE_QUESTIONNAIRE")).rejects.toThrow("REDIRECT");
+    expect(prismaMock.documentType.findUnique).not.toHaveBeenCalled();
+    requireCabinetSession.mockResolvedValue({ userId: "u-eval", tenantId: "t-1", role: "CABINET_EVALUATOR" });
+    prismaMock.documentType.findUnique.mockResolvedValue({ id: "dt-x", archivedAt: new Date() });
+    await expect(getDocumentTypeLinks("EODA_X")).rejects.toThrow("NOT_FOUND");
+  });
+
+  it("listLinkableDocumentTypes : administration seule, lignes en service seulement, par intitulé", async () => {
+    prismaMock.documentType.findMany.mockResolvedValue([
+      { id: "dt-b", code: "B", label: "Registre des plaintes" },
+      { id: "dt-a", code: "A", label: "Affichage obligatoire" },
+    ]);
+    expect(await listLinkableDocumentTypes()).toEqual([
+      { id: "dt-a", code: "A", label: "Affichage obligatoire" },
+      { id: "dt-b", code: "B", label: "Registre des plaintes" },
+    ]);
+    expect(prismaMock.documentType.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { archivedAt: null } }));
+    requireCabinetAdminSession.mockRejectedValue(new Error("REDIRECT"));
+    await expect(listLinkableDocumentTypes()).rejects.toThrow("REDIRECT");
   });
 });

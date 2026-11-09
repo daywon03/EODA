@@ -18,7 +18,7 @@ type Props = {
   establishmentId?: string;
   // Adresse de l'onglet Documents de cette fiche.
   documentsPath?: string;
-  // Venu d'un critère (« Ajouter un document à ce critère ») : formulaire ouvert,
+  // Venu d'un critère (« Créer un nouveau document pour ce critère ») : formulaire ouvert,
   // critère prérempli.
   initialCriterionCode?: string;
   // Dossiers où ranger la ligne (call du 29/10/2026).

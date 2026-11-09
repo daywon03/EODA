@@ -24,6 +24,8 @@ import { Button } from "@/components/ui/button";
 const CriterionSuggestionsList = dynamic(() =>
   import("./CriterionSuggestionsList").then((m) => m.CriterionSuggestionsList)
 );
+// « Demander à la structure » (09/11/2026) : cabinet seulement, panneau ouvert.
+const RequestFromStructure = dynamic(() => import("./RequestFromStructure").then((m) => m.RequestFromStructure));
 const AnalysisGuidelines = dynamic(() => import("./AnalysisGuidelines").then((m) => m.AnalysisGuidelines), {
   loading: () => <p className="border-t border-gris-light pt-2 text-xs text-ink2">Chargement…</p>,
 });
@@ -48,6 +50,10 @@ type Props = {
   // que pour confirmer/rejeter, donc absent si canReview l'est aussi.
   establishmentId?: string;
   criterionSuggestions?: CriterionSuggestionItem[];
+  // Ouvert d'emblée (onglet « Analyse » de la fiche document, 09/11/2026).
+  defaultOpen?: boolean;
+  // Cabinet seulement : chaque élément manquant propose « Demander à la structure ».
+  requestContext?: { establishmentId: string; documentTypeId: string; documentLabel: string };
 };
 
 export function DocumentAnalysisPanel({
@@ -58,8 +64,10 @@ export function DocumentAnalysisPanel({
   canReview = false,
   establishmentId,
   criterionSuggestions = [],
+  defaultOpen = false,
+  requestContext,
 }: Props) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(defaultOpen);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const summary = summariseAnalysis(analysis);
@@ -182,6 +190,11 @@ export function DocumentAnalysisPanel({
               icon={<AlertCircle className="w-3.5 h-3.5 text-rouge-imp" aria-hidden="true" />}
               title="Éléments attendus non retrouvés"
               entries={analysis.elementsManquants}
+              renderAction={
+                canReview && requestContext
+                  ? (entry) => <RequestFromStructure {...requestContext} missingElement={entry} />
+                  : undefined
+              }
             />
           )}
 
@@ -251,10 +264,12 @@ function Section({
   icon,
   title,
   entries,
+  renderAction,
 }: {
   icon: React.ReactNode;
   title: string;
   entries: string[];
+  renderAction?: ((entry: string) => React.ReactNode) | undefined;
 }) {
   return (
     <div>
@@ -266,6 +281,7 @@ function Section({
         {entries.map((entry) => (
           <li key={entry} className="text-xs text-ink2 list-disc marker:text-gris-light">
             {entry}
+            {renderAction && <div>{renderAction(entry)}</div>}
           </li>
         ))}
       </ul>

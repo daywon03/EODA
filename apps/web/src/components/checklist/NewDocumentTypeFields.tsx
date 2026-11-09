@@ -23,7 +23,7 @@ type Props = {
   establishmentId?: string;
   // Adresse de l'onglet Documents de cette fiche.
   documentsPath?: string;
-  // Critère d'où l'on vient (onglet Critères → « Ajouter un document à ce critère »).
+  // Critère d'où l'on vient (onglet Critères → « Créer un nouveau document pour ce critère »).
   initialCriterionCode?: string;
   folders: readonly { id: string; label: string }[];
   initialFolderId?: string;

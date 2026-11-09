@@ -46,6 +46,7 @@ import { listDocumentFolders } from "@/lib/actions/document-folder";
 import { DocumentFolderManager } from "@/components/structure/lazy-document-panels";
 import { Folder } from "lucide-react";
 import { FolderDetails } from "@/components/structure/FolderDetails";
+import { parseSheetTab } from "@/lib/services/document-sheet-tabs-service";
 
 export const metadata = { title: "Documents" };
 
@@ -60,8 +61,10 @@ type Props = {
     fourni?: string | string[];
     version?: string | string[];
     doc?: string | string[];
-    // Venu de l'onglet Critères : « Ajouter un document à ce critère ».
+    // Venu de l'onglet Critères : « Créer un nouveau document pour ce critère ».
     critere?: string | string[];
+    // Onglet du panneau d'un document (« Le document », « Critères HAS », « Analyse »).
+    onglet?: string | string[];
   }>;
 };
 
@@ -189,11 +192,16 @@ export default async function StructureDocumentsPage({ params, searchParams }: P
       panel={
         opened ? (
           <DocumentSheetBody
+            // Un autre document repart sur son onglet demandé, pas sur celui du précédent.
+            key={opened.documentTypeId}
             item={opened}
             categoryLabel={DOCUMENT_CATEGORY_LABELS[opened.category]}
             establishmentId={id}
             canEditScope={canManageList}
             folders={folders}
+            tab={parseSheetTab(raw.onglet)}
+            panelHref={documentsHref(basePath, { ...filters, doc: opened.documentTypeId })}
+            closeHref={documentsHref(basePath, filters)}
           />
         ) : null
       }

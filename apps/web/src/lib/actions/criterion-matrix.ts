@@ -4,7 +4,7 @@ import { prisma } from "@eoda/database";
 import { revalidatePath, revalidateTag } from "next/cache";
 import { CRITERION_MATRIX_TAG } from "@/lib/db/referential-cache";
 import { notFound } from "next/navigation";
-import { requireCabinetAdminSession } from "@/lib/auth/guards";
+import { requireCabinetAdminSession, requireCabinetSession } from "@/lib/auth/guards";
 import { recordAuditEvent } from "@/lib/services/audit-log-service";
 import { PROPOSED_MATRIX_CSV } from "@/content/criteres/matrice-proposition";
 import {
@@ -267,8 +267,11 @@ function proposedCodesFor(typeCode: string): Set<string> {
 }
 
 // Les critères rattachés à UN type, dans l'ordre numérique, avec leur provenance.
+// Lisible par tout le cabinet qui lit les structures (onglet « Critères HAS » de la
+// fiche document, 09/11/2026) : la matrice est une configuration du cabinet, sans
+// donnée de structure. L'écrire reste réservé à l'administration.
 export async function getDocumentTypeLinks(typeCode: string): Promise<DocumentTypeLink[]> {
-  await requireCabinetAdminSession();
+  await requireCabinetSession("STRUCTURES_READ");
   const documentType = await findActiveDocumentType(typeCode);
   if (!documentType) notFound();
   const links = await prisma.documentTypeCriterion.findMany({
@@ -279,6 +282,16 @@ export async function getDocumentTypeLinks(typeCode: string): Promise<DocumentTy
   return links
     .map((l) => ({ code: l.criterion.code, label: l.criterion.label, proposed: proposed.has(l.criterion.code) }))
     .sort((a, b) => compareCriterionCodes(a.code, b.code));
+}
+
+// Les lignes de « Documents » auxquelles rattacher un critère, par intitulé (page
+// Critères d'une structure : « Rattacher un document existant à ce critère »).
+export async function listLinkableDocumentTypes(): Promise<{ id: string; code: string; label: string }[]> {
+  await requireCabinetAdminSession();
+  const types = await prisma.documentType.findMany({ where: { archivedAt: null }, select: { id: true, code: true, label: true } });
+  return types
+    .map((t) => ({ id: t.id, code: t.code, label: t.label }))
+    .sort((a, b) => a.label.localeCompare(b.label, "fr", { sensitivity: "base" }));
 }
 
 export async function addManualMatrixLinks(
