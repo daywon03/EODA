@@ -37,8 +37,10 @@ export function AutonomyHomeCard({
             : "Rien à créer pour l'instant. EODA peut vous accompagner pour la suite."}
         </span>
       </div>
+      {/* En autonomie, les documents à créer sont dans l'onglet « À faire par vous »
+          de « Mes documents » (refonte du 09/11/2026 : plus de section « liste de travail »). */}
       {hasWork && (
-        <Link href={`${CLIENT_DOCUMENTS_PATH}#travail`} className={LINK_BUTTON}>
+        <Link href={`${CLIENT_DOCUMENTS_PATH}?vue=a-faire`} className={LINK_BUTTON}>
           Voir ma liste de travail
         </Link>
       )}

@@ -9,6 +9,7 @@ import {
   type ClientDocumentState,
 } from "@/lib/services/client-documents-view-service";
 import { ClientDocumentViewer } from "./ClientDocumentViewer";
+import { primaryCardAction } from "@/lib/services/client-documents-page-service";
 import { clientWaitingLine } from "@/lib/services/client-document-waiting-service";
 import { canRenderDocumentPages } from "@/lib/services/file-type-service";
 import { StatusPill } from "@/components/ui/status-pill";
@@ -52,6 +53,10 @@ export function ClientDocumentCard({
   // brouillon par-dessus le dépôt du client, on montre le dépôt du client (règle 1
   // de `viewableVersionFor`).
   const viewable = viewableVersionFor(item);
+  const visibleVersions = versionsVisibleToClient(item.versions, item.validatedAt);
+  // UN geste principal (09/11/2026) : déposer, accepter, sinon voir. Le reste est
+  // secondaire — lien ou contour, jamais un second aplat.
+  const primary = primaryCardAction(state, { canAct, hasViewable: visibleVersions.length > 0 });
 
   return (
     <article className="flex flex-col gap-3 rounded-xl border border-line bg-card px-5 py-4">
@@ -60,8 +65,9 @@ export function ClientDocumentCard({
           {/* Le nom ouvre le document (ses dépôts, et ceux d'EODA une fois validés). */}
           <ClientDocumentViewer
             label={item.label}
-            versions={versionsVisibleToClient(item.versions, item.validatedAt)}
+            versions={visibleVersions}
             mention={version?.clientMention ?? null}
+            emphasis={primary === "VIEW" ? "primary" : "secondary"}
           />
           {item.expiryNotice && <p className="text-base font-bold">{item.expiryNotice}</p>}
           {/* Le DIPEC se réclame en modèle vierge : un exemplaire signé est une donnée
@@ -106,7 +112,7 @@ export function ClientDocumentCard({
         {complianceHref && (
           <Link
             href={complianceHref}
-            className="inline-flex min-h-12 items-center rounded-[10px] border-2 border-accent-text bg-card px-4 text-[17px] font-bold text-ink hover:bg-soft"
+            className="inline-flex min-h-12 items-center font-bold text-accent-text underline underline-offset-4"
           >
             Mettre en conformité
           </Link>
