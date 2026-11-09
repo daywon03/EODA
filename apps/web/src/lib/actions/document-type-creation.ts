@@ -3,6 +3,7 @@
 import { revalidatePath, revalidateTag } from "next/cache";
 import { CRITERION_MATRIX_TAG } from "@/lib/db/referential-cache";
 import { planManualLinks } from "@/lib/services/criterion-matrix-service";
+import { unknownCriteriaMessage } from "@/lib/services/criterion-code-message";
 import { notFound } from "next/navigation";
 import { Prisma, prisma, type DocumentCategory } from "@eoda/database";
 import { requireCabinetAdminSession } from "@/lib/auth/guards";
@@ -103,7 +104,7 @@ export async function createDocumentType(formData: FormData): Promise<CreateDocu
     knownCriterionCodes: new Set(criteria.map((c) => c.code)),
     linkedCriterionCodes: new Set(),
   });
-  if (plan.unknown.length > 0) return { error: `Critère inconnu du référentiel : ${plan.unknown.join(", ")}.` };
+  if (plan.unknown.length > 0) return { error: unknownCriteriaMessage(plan.unknown) };
   const idByCode = new Map(criteria.map((c) => [c.code, c.id]));
 
   let created: { id: string };

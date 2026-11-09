@@ -21,6 +21,7 @@ import {
   type MatrixView,
 } from "@/lib/services/criterion-matrix-service";
 import { compareCriterionCodes } from "@/lib/services/criterion-picker-service";
+import { unknownCriteriaMessage } from "@/lib/services/criterion-code-message";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // MATRICE TYPE DE DOCUMENT → CRITÈRE — écran d'administration (tranche N4, spec 04).
@@ -296,7 +297,7 @@ export async function addManualMatrixLinks(
     knownCriterionCodes: new Set(criteria.map((c) => c.code)),
     linkedCriterionCodes: new Set(linked.map((l) => l.criterion.code)),
   });
-  if (plan.unknown.length > 0) return { error: `Critère inconnu du référentiel : ${plan.unknown.join(", ")}.` };
+  if (plan.unknown.length > 0) return { error: unknownCriteriaMessage(plan.unknown) };
 
   const idByCode = new Map(criteria.map((c) => [c.code, c.id]));
   const created =
