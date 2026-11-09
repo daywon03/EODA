@@ -70,6 +70,25 @@ describe("retrait", () => {
     expect(revalidateTag).toHaveBeenCalled();
   });
 
+  it("un dépôt arrivé entre le décompte et la suppression : on archive au lieu d'échouer (P2003)", async () => {
+    prismaMock.$transaction
+      .mockRejectedValueOnce(Object.assign(new Error("Foreign key constraint failed"), { code: "P2003" }))
+      .mockImplementationOnce(async (ops: unknown[]) => ops);
+
+    expect(await removeDocumentType("dt-1")).toEqual({ ok: true, outcome: "ARCHIVED" });
+    expect(prismaMock.documentType.update).toHaveBeenCalledWith({
+      where: { id: "dt-1" },
+      data: { archivedAt: expect.any(Date) },
+    });
+    expect(recordAuditEvent).toHaveBeenCalledWith(expect.objectContaining({ action: "DOCUMENT_TYPE_ARCHIVED" }));
+  });
+
+  it("une autre erreur de base n'est pas avalée", async () => {
+    prismaMock.$transaction.mockRejectedValueOnce(Object.assign(new Error("boom"), { code: "P1001" }));
+    await expect(removeDocumentType("dt-1")).rejects.toThrow("boom");
+    expect(recordAuditEvent).not.toHaveBeenCalled();
+  });
+
   it("utilisée dans une structure : archivée, jamais supprimée ; ses critères ne sont plus attendus", async () => {
     prismaMock.document.count.mockResolvedValue(2);
     expect(await removeDocumentType("dt-1")).toEqual({ ok: true, outcome: "ARCHIVED" });

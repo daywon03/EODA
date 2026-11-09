@@ -40,18 +40,30 @@ export async function removeDocumentType(documentTypeId: string): Promise<Remove
   const plan = planDocumentTypeRemoval(documentType, { documents, templates });
   if (plan.kind === "REFUSED") return { error: plan.error };
 
-  const unlink = prisma.documentTypeCriterion.deleteMany({ where: { documentTypeId: documentType.id } });
-  if (plan.kind === "DELETE") {
-    await prisma.$transaction([unlink, prisma.documentType.delete({ where: { id: documentType.id } })]);
-  } else {
-    await prisma.$transaction([
-      unlink,
+  const unlink = () => prisma.documentTypeCriterion.deleteMany({ where: { documentTypeId: documentType.id } });
+  const archive = () =>
+    prisma.$transaction([
+      unlink(),
       prisma.documentType.update({ where: { id: documentType.id }, data: { archivedAt: new Date() } }),
     ]);
+
+  let outcome: "DELETED" | "ARCHIVED" = plan.kind === "DELETE" ? "DELETED" : "ARCHIVED";
+  if (plan.kind === "DELETE") {
+    try {
+      await prisma.$transaction([unlink(), prisma.documentType.delete({ where: { id: documentType.id } })]);
+    } catch (error) {
+      // Un dépôt arrivé entre le décompte et la suppression : la clé étrangère refuse
+      // (P2003). La ligne est devenue « utilisée » — on archive, comme la règle le veut.
+      if (!isForeignKeyViolation(error)) throw error;
+      await archive();
+      outcome = "ARCHIVED";
+    }
+  } else {
+    await archive();
   }
 
   await recordAuditEvent({
-    action: plan.kind === "DELETE" ? "DOCUMENT_TYPE_DELETED" : "DOCUMENT_TYPE_ARCHIVED",
+    action: outcome === "DELETED" ? "DOCUMENT_TYPE_DELETED" : "DOCUMENT_TYPE_ARCHIVED",
     actorUserId: userId,
     actorRole: session.user.role,
     targetId: documentType.id,
@@ -61,5 +73,9 @@ export async function removeDocumentType(documentTypeId: string): Promise<Remove
   revalidateTag(CRITERION_MATRIX_TAG);
   revalidatePath("/dashboard/cabinet", "layout");
   revalidatePath("/dashboard/client", "layout");
-  return { ok: true, outcome: plan.kind === "DELETE" ? "DELETED" : "ARCHIVED" };
+  return { ok: true, outcome };
+}
+
+function isForeignKeyViolation(error: unknown): boolean {
+  return typeof error === "object" && error !== null && "code" in error && error.code === "P2003";
 }

@@ -25,11 +25,12 @@ export async function readMissionComplianceDocuments(
   const categories = [...getCoveredDocumentCategories(formule, gratuit)];
   const [types, documents] = await Promise.all([
     prisma.documentType.findMany({
-      where: { category: { in: categories } },
+      // Une ligne archivée a quitté toutes les listes : elle ne peut pas rester « attendue ».
+      where: { category: { in: categories }, archivedAt: null },
       select: { id: true, category: true, code: true, isConditional: true },
     }),
     prisma.document.findMany({
-      where: { establishmentId, documentType: { category: { in: categories } } },
+      where: { establishmentId, documentType: { category: { in: categories }, archivedAt: null } },
       select: {
         documentTypeId: true,
         status: true,
@@ -89,6 +90,7 @@ export async function readMissionDocumentCounters(
       establishmentId,
       documentType: {
         category: { in: [...getCoveredDocumentCategories(formule, gratuit)] },
+        archivedAt: null,
       },
     },
     select: {

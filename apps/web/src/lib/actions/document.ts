@@ -150,7 +150,8 @@ export async function uploadDocument(formData: FormData): Promise<UploadDocument
   }
 
   const documentType = await prisma.documentType.findUnique({ where: { id: documentTypeId } });
-  if (!documentType) return { error: "Type de document invalide." };
+  // Une ligne archivée a quitté toutes les listes : une page restée ouverte n'y dépose rien.
+  if (!documentType || documentType.archivedAt) return { error: "Type de document invalide." };
 
   // Refus AVANT ingestion : rien n'est stocké, aucune analyse n'est déclenchée.
   // `documentTypeId` peut venir du formulaire (entrée non fiable) : le contrôle
@@ -280,7 +281,7 @@ export async function respondToMissingDocument(
   if (!answer) return { error: "Réponse invalide." };
 
   const documentType = await prisma.documentType.findUnique({ where: { id: documentTypeId } });
-  if (!documentType) return { error: "Type de document invalide." };
+  if (!documentType || documentType.archivedAt) return { error: "Type de document invalide." };
 
   // Même arbitrage que pour le dépôt : un document hors offre n'a pas à recevoir de
   // réponse, il n'est pas attendu. Sans mission, on ne bloque pas (avant-vente).
@@ -413,7 +414,7 @@ export async function updateMissingJustification(
   if (!canDepositDocuments(access.missionAccess)) return { error: DEPOSIT_CLOSED_MESSAGE };
 
   const documentType = await prisma.documentType.findUnique({ where: { id: documentTypeId } });
-  if (!documentType) return { error: "Type de document invalide." };
+  if (!documentType || documentType.archivedAt) return { error: "Type de document invalide." };
 
   if (!(await isCategoryCoveredForEstablishment(establishmentId, documentType.category))) {
     return { error: OUT_OF_OFFER_ERROR };

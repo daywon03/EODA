@@ -657,8 +657,9 @@ Détail complet et état d'avancement : `specs/02-architecture-technique.md` §4
   Préparation finale. Elles ne correspondent PAS une à une aux phases stockées (le
   renommage du 09/10 appelait `FONDATIONS` « Diagnostic », en double avec la checklist) :
   étape 1 Diagnostic = la checklist `DIAGNOSTIC` (12 items, sans dates) ; étape 2 Mise en
-  conformité = `FONDATIONS` + `DEPLOIEMENT` regroupées (début de la première, fin de la
-  seconde) ; étape 3 Suivi = `CONSOLIDATION` ; étape 4 = `PREPARATION_FINALE`. Chaque
+  conformité = ses **dates** viennent de `FONDATIONS` (début) et `DEPLOIEMENT` (fin), dont
+  les cases restent des **jalons datés, jamais la mesure** de l'étape (voir « Avancement »
+  ci-dessous) ; étape 3 Suivi = `CONSOLIDATION` ; étape 4 = `PREPARATION_FINALE`. Chaque
   phase stockée reste éditable sous son étape (« Mise en conformité — fondations » /
   « — déploiement »). **Avancement (call du 09/11/2026, Sandrine : « ce qui doit refléter
   l'avancement, ce sont les documents validés / prouvés, pas des cases cochées »)** :
