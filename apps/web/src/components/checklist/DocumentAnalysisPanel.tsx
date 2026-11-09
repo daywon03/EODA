@@ -93,9 +93,9 @@ export function DocumentAnalysisPanel({
           {describeAnalysis(summary)}
         </span>
       </button>
-      {/* Côté client, l'analyse est là parce qu'elle a été relue, ou parce que la
-          structure est en autonomie (analysisVisibleTo) : on dit laquelle, avec la
-          phrase unique de review-mention-service. */}
+      {/* Côté client, l'analyse n'est là que si la structure est en autonomie
+          (analysisVisibleTo — une structure accompagnée ne la voit jamais, 08/11/2026) :
+          on le dit avec la phrase unique de review-mention-service. */}
       {!canReview && clientMention && (
         <p className="px-3 pb-2 text-sm font-bold text-ink">{clientMention}</p>
       )}

@@ -1,12 +1,13 @@
 "use server";
 
-import { prisma, type CommercialTier } from "@eoda/database";
+import { prisma, type CommercialTier, type SupportMode } from "@eoda/database";
 import { revalidatePath } from "next/cache";
 import { requireClientEstablishment } from "@/lib/auth/guards";
 import { notifyOptionRequest } from "@/lib/email/notifications";
 import { getClientChecklist } from "@/lib/actions/checklist";
 import { recordAuditEvent } from "@/lib/services/audit-log-service";
 import { readMissionDocumentCounters } from "@/lib/db/read-mission-document-counters";
+import { STRICT_SUPPORT_MODE } from "@/lib/services/support-mode-service";
 import { firstError, optionalString, requiredString } from "@/lib/validation/form-parsers";
 import { NO_FORMULE_LABEL } from "@/components/mission/formule-labels";
 import type { MissionDocumentCounters } from "@/lib/services/mission-document-counters-service";
@@ -18,6 +19,7 @@ import {
   resolveSubscribedOptions,
   toFirmSubscribedOption,
   summariseDocumentObligations,
+  toDocumentObligation,
   type AvailableOption,
   type ContractResolution,
   type DocumentObligationSummary,
@@ -62,6 +64,8 @@ export type ClientContractView = {
   documents: DocumentObligationSummary;
   documentProgressPercent: number;
   counters: MissionDocumentCounters | null;
+  // Mode d'accompagnement : dit QUI valide (« Validés par EODA » / « Acceptés »).
+  supportMode: SupportMode;
 };
 
 const EMPTY_DOCUMENTS: DocumentObligationSummary = {
@@ -69,7 +73,7 @@ const EMPTY_DOCUMENTS: DocumentObligationSummary = {
   toDeposit: 0,
   justified: 0,
   inReview: 0,
-  compliant: 0,
+  validated: 0,
   notApplicable: 0,
 };
 
@@ -83,6 +87,7 @@ function emptyView(): ClientContractView {
     documents: EMPTY_DOCUMENTS,
     documentProgressPercent: 0,
     counters: null,
+    supportMode: STRICT_SUPPORT_MODE,
   };
 }
 
@@ -191,10 +196,10 @@ export async function getClientContract(): Promise<ClientContractView> {
 
   const { establishment, tenantId, contract, subscribedOptions } = context;
 
-  const [mission, catalogue, pendingRequests, { checklist }] = await Promise.all([
+  const [mission, catalogue, pendingRequests, { checklist, supportMode }] = await Promise.all([
     prisma.mission.findUnique({
       where: { establishmentId: establishment.id },
-      select: { formule: true, gratuit: true },
+      select: { formule: true, gratuit: true, supportMode: true },
     }),
     // Catalogue d'options du tenant, actives uniquement. Ce n'est PAS le catalogue
     // comme surface de gestion (pas de prix d'achat, pas de marge, pas d'édition) :
@@ -225,7 +230,11 @@ export async function getClientContract(): Promise<ClientContractView> {
     ? await resolveOfferLabel(tenantId, mission.formule, mission.gratuit)
     : null;
 
-  const documents = summariseDocumentObligations(Object.values(checklist).flat());
+  // « Validé » suit isDocumentProven, la même règle que critères et diagnostic.
+  const documents = summariseDocumentObligations(
+    Object.values(checklist).flat().map(toDocumentObligation),
+    supportMode
+  );
 
   return {
     establishment,
@@ -240,8 +249,9 @@ export async function getClientContract(): Promise<ClientContractView> {
     documents,
     documentProgressPercent: documentProgressPercent(documents),
     counters: mission
-      ? await readMissionDocumentCounters(establishment.id, mission.formule, mission.gratuit)
+      ? await readMissionDocumentCounters(establishment.id, mission.formule, mission.gratuit, mission.supportMode)
       : null,
+    supportMode,
   };
 }
 

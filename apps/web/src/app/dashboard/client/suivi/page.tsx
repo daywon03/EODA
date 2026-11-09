@@ -7,6 +7,7 @@ import { ProgressBar } from "@/components/ui/progress-bar";
 import { Button } from "@/components/ui/button";
 import { MissionProgressSummary } from "@/components/mission/MissionProgressSummary";
 import { MISSION_STEPS, stepPercent, stepTitle } from "@/lib/services/mission-progress-service";
+import { validatedCounterLabel } from "@/lib/services/mission-document-counters-service";
 
 export const metadata = { title: "Mon suivi" };
 
@@ -17,7 +18,7 @@ export const metadata = { title: "Mon suivi" };
 // client jusqu'ici : la progression de mission (jusque-là cabinet uniquement) et
 // la contrepartie documentaire (déménagée depuis « Mon contrat »).
 export default async function ClientSuiviPage() {
-  const [progressView, { establishment, documents, documentProgressPercent, counters }] =
+  const [progressView, { establishment, documents, documentProgressPercent, counters, supportMode }] =
     await Promise.all([getClientMissionProgress(), getClientContract()]);
 
   if (!establishment) {
@@ -37,6 +38,11 @@ export default async function ClientSuiviPage() {
     );
   }
 
+  // Jamais « conformes » (CLAUDE.md §7) : ce qu'EODA a validé, ou ce que la
+  // structure a accepté en autonomie — la règle de isDocumentProven (08/11/2026).
+  const validatedLabel = validatedCounterLabel(supportMode, "CLIENT");
+  // En milieu de phrase : minuscule à l'initiale seulement (« validés par EODA »).
+  const validatedInline = validatedLabel.charAt(0).toLowerCase() + validatedLabel.slice(1);
   const obligations = [
     {
       label: "À déposer",
@@ -57,8 +63,8 @@ export default async function ClientSuiviPage() {
       color: "text-brun-moyen bg-gris-light",
     },
     {
-      label: "Conformes",
-      value: documents.compliant,
+      label: validatedLabel,
+      value: documents.validated,
       icon: CheckCircle2,
       color: "text-ok-text bg-vert-ok/10",
     },
@@ -75,11 +81,7 @@ export default async function ClientSuiviPage() {
 
       {progressView.hasMission ? (
         <section className="space-y-4">
-          <MissionProgressSummary
-            diagnosticPct={progressView.progress.diagnosticPct}
-            phasesPct={progressView.progress.phasesPct}
-            globalPct={progressView.progress.globalPct}
-          />
+          <MissionProgressSummary progress={progressView.progress} />
 
           <div className="bg-surface border border-gris-light rounded-xl p-5 space-y-3">
             <h2 className="text-base font-semibold text-brun-ancre">Détail des étapes</h2>
@@ -118,13 +120,13 @@ export default async function ClientSuiviPage() {
         <div className="flex items-center justify-between text-sm">
           <span className="font-medium text-brun-ancre">Progression documentaire</span>
           <span className="text-ink2 tabular-nums">
-            {documents.compliant} / {documents.total} pièces conformes
+            {documents.validated} / {documents.total} · {validatedInline}
           </span>
         </div>
         <ProgressBar
           value={documentProgressPercent}
           label="Progression documentaire"
-          valueText={`${documents.compliant} sur ${documents.total} pièces conformes`}
+          valueText={`${documents.validated} sur ${documents.total} : ${validatedInline}`}
           colorClassName="bg-vert-ok"
         />
 
@@ -147,7 +149,7 @@ export default async function ClientSuiviPage() {
             Traitement EODA sur vos dépôts : {counters.deposited} document
             {counters.deposited > 1 ? "s" : ""} déposé{counters.deposited > 1 ? "s" : ""} ·{" "}
             {counters.analyzed} analysé{counters.analyzed > 1 ? "s" : ""} · {counters.modified} mis
-            à jour · {counters.compliant} conforme{counters.compliant > 1 ? "s" : ""}.
+            à jour · {counters.validated} {validatedInline}.
           </p>
         )}
 

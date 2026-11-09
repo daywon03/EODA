@@ -35,6 +35,7 @@ vérifie** — sinon elle n'existe pas.
 | Hooks installés par le dépôt | `git config core.hooksPath .githooks` posé par le `postinstall` | `package.json` |
 | Manifeste de migrations à jour | **généré** depuis `prisma/migrations` à chaque `pnpm db:generate` (installation, CI, build Vercel) par `packages/database/scripts/generate-migration-manifest.mjs`, dans `src/migrations.generated.ts` non versionné — plus de liste écrite à la main (elle faisait entrer en conflit toutes les PR qui ajoutaient une migration, 29/10/2026) ; test qui compare `EXPECTED_MIGRATIONS` au dossier | `apps/web/src/lib/db/migration-manifest.test.ts` |
 | « Validé » (cabinet), « Relu par EODA » (portail) et « prouvé » (critères, diagnostic) suivent UNE règle | `isValidationCurrent` (`document-workflow-service.ts`) : validation postérieure à la version courante, OU version courante déposée par EODA sur un document validé (livrable sur-le-champ) ; une version de la structure déposée après la validation est à relire. Appelée par `deriveDocumentStep`, `isDocumentProven`, `isReviewedByEoda` — le 21/10/2026 le livret du pilote était « Validé », « Reçu, en cours » et « pas encore relu » selon l'écran | `lib/services/document-workflow-service.test.ts`, `criteria-proof-service.test.ts`, `client-documents-view-service.test.ts` |
+| Le compteur de documents « validés » compte ce qu'EODA a validé, jamais un statut posé par l'IA, et ne dit jamais « conforme » (retour de Sandrine, 08/11/2026 : « 0 Conformes » sur des documents validés) | `computeMissionDocumentCounters` (suivi de mission) et `summariseDocumentObligations` (« Mon suivi », accueil client) comptent par `isDocumentProven` — validé par EODA en accompagné, accepté par la structure en autonomie — et non plus le statut `COMPLIANT` ; libellé unique `validatedCounterLabel` (« Validés par EODA » / « Acceptés par la structure » / « par vous ») ; une ligne de checklist devient une obligation par `toDocumentObligation` seulement | `lib/services/mission-document-counters-service.test.ts`, `lib/services/client-contract-service.test.ts` |
 | Une migration écrite à la main vise une table qui existe | test qui lit chaque `migration.sql` (commentaires retirés) et **échoue** sur une table citée (UPDATE, INSERT, ALTER, FROM, JOIN, REFERENCES) absente des `@@map` du schéma et des tables créées par les migrations — le 21/10/2026, `"DocumentType"` au lieu de `"document_types"` a bloqué toutes les migrations suivantes (P3009) sur la base partagée | `apps/web/src/lib/db/migration-table-names.test.ts` |
 | Clés étrangères indexées (convention `P6`) | test qui lit le schéma et **échoue** sur toute relation sans index, liste d'exceptions figée | `apps/web/src/lib/db/foreign-key-indexes.test.ts` |
 | Matrice des rôles cabinet appliquée par les gardes (N9) | matrice testée case par case, chaque garde × chaque rôle testée, commercial gardé export par export | `lib/auth/capabilities.test.ts`, `guards-roles.test.ts`, `commercial-pages-guard.test.ts` |
@@ -900,8 +901,11 @@ Détail complet et état d'avancement : `specs/02-architecture-technique.md` §4
   **Jamais déduit de `commercialTier`.** Sans mission : règle stricte
   (`STRICT_SUPPORT_MODE`). `analysisVisibleTo(audience, version, mode)` prend le mode en
   paramètre **obligatoire** et reste appliqué une seule fois dans `lib/actions/checklist.ts` :
-  accompagné = règle stricte ci-dessus, inchangée ; autonomie = la structure voit l'analyse
-  non relue, **toujours** sous la réserve. Les mentions viennent d'**un seul** service,
+  accompagné = la structure ne voit **jamais** l'analyse, même relue (demande de Sandrine,
+  08/11/2026 : « 7 éléments attendus n'ont pas été retrouvés » s'affichait sur une fiche
+  validée) — elle reçoit la relecture (« Relu par EODA, le JJ/MM ») et le document
+  validé, `analysisReviewedAt` ne lui ouvre plus rien d'autre ; autonomie = la structure
+  voit l'analyse non relue, **toujours** sous la réserve. Les mentions viennent d'**un seul** service,
   `lib/services/review-mention-service.ts` (`AUTONOMY_RESERVE` : « Non revérifié par un
   humain : peut comporter des erreurs. À relire absolument. » ; `describeReviewMention` :
   « Relu par EODA, le JJ/MM ») — à l'écran (`ChecklistItem.currentVersion.clientMention`),

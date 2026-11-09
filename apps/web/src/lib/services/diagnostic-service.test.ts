@@ -8,6 +8,7 @@ import {
   describePriorityProves,
   diagnosticFingerprint,
   groupDiagnosticChapters,
+  describeChaptersScope,
   parseDiagnosticSnapshot,
 } from "./diagnostic-service";
 
@@ -157,5 +158,35 @@ describe("photo et empreinte du diagnostic", () => {
     { version: 1, takenAt: "x", rows: "pas un tableau", imperatives: { proven: 0, total: 0 } },
   ])("une photo illisible vaut « pas de photo » (%#)", (value) => {
     expect(parseDiagnosticSnapshot(value)).toBeNull();
+  });
+});
+
+// Retour de Sandrine (08/11/2026) : « 0 impératif prouvé, 16 en partie, 0 sans
+// preuve » en tête du rapport, puis des critères « Prouvé » et « Sans preuve » dans
+// la liste — incohérent à la lecture. Les cartes comptent les IMPÉRATIFS ; la liste
+// montre tout le périmètre. Le rapport le dit, et chaque chapitre donne les deux.
+describe("rapport : impératifs et périmètre complet, distingués", () => {
+  const chapters = [{ number: 1, name: "La personne" }];
+  const rows = [
+    row("1.1.1", "EN_PARTIE", { imperative: true, chapter: 1 }),
+    row("1.2.1", "PROUVE", { imperative: false, chapter: 1 }),
+    row("1.7.2", "SANS_PREUVE", { imperative: false, chapter: 1 }),
+  ];
+
+  it("le résumé d'un chapitre complet donne aussi les impératifs", () => {
+    expect(groupDiagnosticChapters(rows, chapters, true)[0]!.summary).toBe(
+      "1 prouvé sur 3 · impératifs : 0 prouvé sur 1"
+    );
+  });
+
+  it("le résumé reste inchangé quand seuls les impératifs sont listés", () => {
+    expect(groupDiagnosticChapters(rows, chapters, false)[0]!.summary).toBe("0 prouvé sur 1");
+  });
+
+  it("dit ce que montre la liste, et ce que comptent les cartes", () => {
+    expect(describeChaptersScope(true, 16)).toBe(
+      "La liste montre tous les critères de votre périmètre. Les cartes du haut ne comptent que les 16 critères impératifs, marqués ▲ Impératif."
+    );
+    expect(describeChaptersScope(false, 16)).toBe("La liste montre vos 16 critères impératifs, les mêmes que les cartes du haut.");
   });
 });

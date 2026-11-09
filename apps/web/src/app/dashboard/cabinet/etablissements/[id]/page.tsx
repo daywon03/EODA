@@ -21,6 +21,7 @@ import { countImperativesInProgress } from "@/lib/services/criteria-proof-servic
 import { structureHref } from "@/lib/design/structure-tabs";
 import { MeasureCard } from "@/components/ui/measure-card";
 import { PhaseTimeline } from "@/components/ui/phase-timeline";
+import { MISSION_PROGRESS_NOTE } from "@/lib/services/mission-progress-service";
 import { StatusPill } from "@/components/ui/status-pill";
 import { RowsSkeleton, Skeleton } from "@/components/ui/skeleton";
 import { AppointmentForm } from "@/components/agenda/AppointmentForm";
@@ -180,7 +181,10 @@ async function DiagnosticSection({ id }: { id: string }) {
 async function MissionSection({ id }: { id: string }) {
   const mission = await loadMission(id);
   return mission ? (
-    <PhaseTimeline label="Phases de la mission" phases={toTimelinePhases(mission, new Date())} />
+    <div className="space-y-2">
+      <PhaseTimeline label="Phases de la mission" phases={toTimelinePhases(mission, new Date(), id)} />
+      <p className="text-sm text-ink2">{MISSION_PROGRESS_NOTE}</p>
+    </div>
   ) : (
     <p className="rounded-xl border border-line bg-card p-5 text-ink2">
       Aucune mission pour l&apos;instant. Elle se crée depuis l&apos;onglet Mission.
