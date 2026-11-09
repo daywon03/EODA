@@ -6,6 +6,7 @@ import { actionPill, describeOwner, sortActionItems, type ActionItemFacts } from
 import { selectUpcoming, type CalendarAppointment } from "./calendar-service";
 import { chapterLabel } from "./chapter-label-service";
 import { formatDate, formatDateTime } from "./date-format-service";
+import { documentTypeLabelKey } from "./document-type-creation-service";
 import { formatDaysUntil } from "./elapsed-time-service";
 import {
   MISSION_STEPS,
@@ -126,7 +127,7 @@ export function describeLoi2002Measure(
 // ── Frise de mission ─────────────────────────────────────────────────────────
 
 export type TimelineMission = MissionPhaseDates & {
-  progress: Pick<MissionProgress, "diagnosticPct" | "phasePcts">;
+  progress: Pick<MissionProgress, "phasePcts" | "stepPcts">;
 };
 
 function period(start: Date | null, end: Date | null): string | undefined {
@@ -153,10 +154,24 @@ function phaseState(mission: TimelineMission, phase: MissionPhase, now: Date): P
 // État d'une étape : celui de ses phases APPLICABLES (une phase hors formule n'a
 // pas d'avancement et ne retient pas l'étape). Terminée si toutes le sont, en cours
 // dès que l'une a commencé. Le diagnostic n'a pas de dates : son avancement seul.
+//
+// La MISE EN CONFORMITÉ ne se termine qu'à 100 % des documents prouvés (call du
+// 09/11/2026) : ni ses jalons cochés ni une date de fin passée ne la ferment — elle
+// affichait « Terminée » sur une structure dont les documents restaient à valider.
 function stepState(mission: TimelineMission, step: MissionStep, now: Date): PhaseState {
+  const percent = stepPercent(step, mission.progress) ?? 0;
   if (step.phases.length === 0) {
-    const pct = mission.progress.diagnosticPct;
-    return pct === 100 ? "done" : pct > 0 ? "current" : "upcoming";
+    return percent === 100 ? "done" : percent > 0 ? "current" : "upcoming";
+  }
+  if (step.id === "MISE_EN_CONFORMITE") {
+    if (percent === 100) return "done";
+    const started =
+      percent > 0 ||
+      step.phases.some((phase) => {
+        const start = mission[PHASE_DATE_FIELDS[phase].start];
+        return (start !== null && start <= now) || (mission.progress.phasePcts[phase] ?? 0) > 0;
+      });
+    return started ? "current" : "upcoming";
   }
   const states = step.phases
     .filter((phase) => mission.progress.phasePcts[phase] !== undefined)
@@ -176,15 +191,22 @@ function stepPeriod(mission: TimelineMission, step: MissionStep): string | undef
 
 // Frise en QUATRE ÉTAPES (MISSION_STEPS) : la checklist de diagnostic, puis les
 // phases datées regroupées. Une étape hors formule n'a pas d'avancement.
-// Avec `establishmentId`, chaque étape porte ses liens (missionStepLinks).
-export function toTimelinePhases(mission: TimelineMission, now: Date, establishmentId?: string): TimelinePhase[] {
+// Avec `establishmentId`, chaque étape est un lien (son premier écran de travail,
+// call du 09/11/2026) et porte ses autres liens (missionStepLinks).
+export function toTimelinePhases(
+  mission: TimelineMission,
+  now: Date,
+  establishmentId?: string,
+  extras: StepLinkExtras = {}
+): TimelinePhase[] {
   return MISSION_STEPS.map((step) => {
     const percent = stepPercent(step, mission.progress);
+    const links = establishmentId === undefined ? undefined : missionStepLinks(establishmentId, step.id, extras);
     return {
       id: step.id,
       label: step.label,
       state: stepState(mission, step, now),
-      ...(establishmentId !== undefined && { links: missionStepLinks(establishmentId, step.id) }),
+      ...(links?.[0] !== undefined && { links, href: links[0].href }),
       ...(percent !== undefined && { percent }),
       ...periodOf(percent === undefined ? "Hors formule" : stepPeriod(mission, step)),
     };
@@ -194,9 +216,15 @@ export function toTimelinePhases(mission: TimelineMission, now: Date, establishm
 // Où se travaille chaque étape (retour de Sandrine, 08/11/2026 : « si je clique
 // "Diagnostic" je devrais tomber sur l'auto-évaluation et le rapport »). La checklist
 // de l'étape, dans l'onglet Mission, ferme toujours la liste.
+// Le PREMIER lien est la destination de l'étape elle-même (son titre dans la frise).
 export type StepLink = { label: string; href: string };
 
-export function missionStepLinks(establishmentId: string, step: MissionStepId): StepLink[] {
+// Liens qui dépendent de faits lus ailleurs. `depositedReportHref` : le rapport de
+// diagnostic Word déposé dans les documents de la structure, s'il existe
+// (depositedDiagnosticReportHref).
+export type StepLinkExtras = { depositedReportHref?: string | null };
+
+export function missionStepLinks(establishmentId: string, step: MissionStepId, extras: StepLinkExtras = {}): StepLink[] {
   const checklist = { label: "Checklist de l'étape", href: `${structureHref(establishmentId, "mission")}#etape-${step}` };
   const evaluation = { label: "Auto-évaluation", href: structureHref(establishmentId, "evaluation") };
   switch (step) {
@@ -204,6 +232,7 @@ export function missionStepLinks(establishmentId: string, step: MissionStepId): 
       return [
         evaluation,
         { label: "Rapport de diagnostic", href: `/imprimer/diagnostic/${encodeURIComponent(establishmentId)}` },
+        ...(extras.depositedReportHref ? [{ label: "Rapport déposé (Word)", href: extras.depositedReportHref }] : []),
         checklist,
       ];
     case "MISE_EN_CONFORMITE":
@@ -215,8 +244,26 @@ export function missionStepLinks(establishmentId: string, step: MissionStepId): 
     case "SUIVI":
       return [{ label: "Plan d'action", href: structureHref(establishmentId, "plan-action") }, checklist];
     case "PREPARATION_FINALE":
-      return [evaluation, checklist];
+      return [checklist, evaluation];
   }
+}
+
+// Le rapport de diagnostic Word que le cabinet dépose dans « Documents » (dossier
+// Pilotage qualité, call du 09/11/2026). C'est une ligne créée par le cabinet
+// (DocumentType global, code EODA_… généré) : aucun code ne la désigne, on la
+// reconnaît à son INTITULÉ, comparé sans accents ni casse (documentTypeLabelKey,
+// la clé des doublons). Ce n'est qu'un raccourci de navigation : sans dépôt, aucun
+// lien — on ne renvoie jamais vers un document qui n'existe pas.
+const DIAGNOSTIC_REPORT_KEY = documentTypeLabelKey("Rapport de diagnostic");
+
+export function depositedDiagnosticReportHref(
+  establishmentId: string,
+  rows: readonly { documentTypeId: string; label: string; currentVersion: unknown }[]
+): string | null {
+  const report = rows.find(
+    (row) => row.currentVersion !== null && documentTypeLabelKey(row.label).includes(DIAGNOSTIC_REPORT_KEY)
+  );
+  return report ? documentsHref(structureHref(establishmentId, "documents"), { doc: report.documentTypeId }) : null;
 }
 
 // ── Les prochaines actions ───────────────────────────────────────────────────

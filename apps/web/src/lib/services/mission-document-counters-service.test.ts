@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   computeMissionDocumentCounters,
+  countComplianceDocuments,
   validatedCounterLabel,
+  type ExpectedDocumentFacts,
   type MissionDocumentSnapshot,
 } from "./mission-document-counters-service";
 
@@ -162,5 +164,63 @@ describe("validatedCounterLabel — jamais « conforme »", () => {
         expect(validatedCounterLabel(mode, audience).toLowerCase()).not.toContain("conforme");
       }
     }
+  });
+});
+
+// Retour de Sandrine (call du 09/11/2026) : « ce qui doit refléter l'avancement, ce
+// sont les documents validés / prouvés, pas des cases cochées ». L'étape « Mise en
+// conformité » compte les documents ATTENDUS par l'offre qui sont PROUVÉS.
+describe("countComplianceDocuments — documents attendus prouvés", () => {
+  const validated = {
+    status: "UPLOADED" as const,
+    statusOverriddenByUser: false,
+    validatedAt: new Date("2026-10-02"),
+    clientAcceptedAt: null,
+    currentVersionUploadedAt: new Date("2026-10-01"),
+    currentVersionByCabinet: false,
+  };
+  const notConcerned = { ...validated, status: "NOT_APPLICABLE" as const, currentVersionUploadedAt: null, validatedAt: null };
+  const row = (over: Partial<ExpectedDocumentFacts> = {}): ExpectedDocumentFacts => ({
+    category: "QUALITE_RISQUES",
+    code: "PROCEDURE_X",
+    isConditional: false,
+    document: null,
+    ...over,
+  });
+
+  it("un type sans document est attendu, non prouvé", () => {
+    expect(countComplianceDocuments([row()], "ACCOMPAGNE")).toEqual({ proven: 0, expected: 1, mode: "ACCOMPAGNE" });
+  });
+
+  it("prouvé = isDocumentProven : validé par EODA après la version courante", () => {
+    const result = countComplianceDocuments(
+      [row({ document: validated }), row({ document: { ...validated, validatedAt: new Date("2026-09-30") } }), row()],
+      "ACCOMPAGNE"
+    );
+    expect(result).toMatchObject({ proven: 1, expected: 3 });
+  });
+
+  it("en autonomie, prouvé = accepté par la structure", () => {
+    const accepted = { ...validated, validatedAt: null, clientAcceptedAt: new Date("2026-10-03") };
+    expect(countComplianceDocuments([row({ document: accepted }), row({ document: validated })], "AUTONOMIE")).toMatchObject({
+      proven: 1,
+      expected: 2,
+    });
+  });
+
+  it("« Non concerné » et un type conditionnel sans document sortent du total", () => {
+    const result = countComplianceDocuments(
+      [row({ isConditional: true }), row({ document: notConcerned }), row()],
+      "ACCOMPAGNE"
+    );
+    expect(result).toMatchObject({ proven: 0, expected: 1 });
+  });
+
+  it("un ancien « Non » sur la loi 2002-2 se relit « je ne l'ai pas » : il reste attendu", () => {
+    const result = countComplianceDocuments(
+      [row({ category: "LOI_2002_2", code: "L2002_LIVRET_ACCUEIL", document: notConcerned })],
+      "ACCOMPAGNE"
+    );
+    expect(result).toMatchObject({ proven: 0, expected: 1 });
   });
 });

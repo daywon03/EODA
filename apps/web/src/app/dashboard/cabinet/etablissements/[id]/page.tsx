@@ -11,6 +11,7 @@ import { getStructureDiagnostic } from "@/lib/actions/diagnostic";
 import { DiagnosticReviewCard } from "@/components/diagnostic/DiagnosticReviewCard";
 import {
   deriveNextActions,
+  depositedDiagnosticReportHref,
   describeChapterMeasure,
   describeImperativesMeasure,
   describeLoi2002Measure,
@@ -179,10 +180,11 @@ async function DiagnosticSection({ id }: { id: string }) {
 }
 
 async function MissionSection({ id }: { id: string }) {
-  const mission = await loadMission(id);
+  const [mission, checklist] = await Promise.all([loadMission(id), loadChecklist(id)]);
+  const depositedReportHref = depositedDiagnosticReportHref(id, flattenChecklist(checklist));
   return mission ? (
     <div className="space-y-2">
-      <PhaseTimeline label="Phases de la mission" phases={toTimelinePhases(mission, new Date(), id)} />
+      <PhaseTimeline label="Phases de la mission" phases={toTimelinePhases(mission, new Date(), id, { depositedReportHref })} />
       <p className="text-sm text-ink2">{MISSION_PROGRESS_NOTE}</p>
     </div>
   ) : (

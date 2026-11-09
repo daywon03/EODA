@@ -36,6 +36,7 @@ vérifie** — sinon elle n'existe pas.
 | Manifeste de migrations à jour | **généré** depuis `prisma/migrations` à chaque `pnpm db:generate` (installation, CI, build Vercel) par `packages/database/scripts/generate-migration-manifest.mjs`, dans `src/migrations.generated.ts` non versionné — plus de liste écrite à la main (elle faisait entrer en conflit toutes les PR qui ajoutaient une migration, 29/10/2026) ; test qui compare `EXPECTED_MIGRATIONS` au dossier | `apps/web/src/lib/db/migration-manifest.test.ts` |
 | « Validé » (cabinet), « Relu par EODA » (portail) et « prouvé » (critères, diagnostic) suivent UNE règle | `isValidationCurrent` (`document-workflow-service.ts`) : validation postérieure à la version courante, OU version courante déposée par EODA sur un document validé (livrable sur-le-champ) ; une version de la structure déposée après la validation est à relire. Appelée par `deriveDocumentStep`, `isDocumentProven`, `isReviewedByEoda` — le 21/10/2026 le livret du pilote était « Validé », « Reçu, en cours » et « pas encore relu » selon l'écran | `lib/services/document-workflow-service.test.ts`, `criteria-proof-service.test.ts`, `client-documents-view-service.test.ts` |
 | Le compteur de documents « validés » compte ce qu'EODA a validé, jamais un statut posé par l'IA, et ne dit jamais « conforme » (retour de Sandrine, 08/11/2026 : « 0 Conformes » sur des documents validés) | `computeMissionDocumentCounters` (suivi de mission) et `summariseDocumentObligations` (« Mon suivi », accueil client) comptent par `isDocumentProven` — validé par EODA en accompagné, accepté par la structure en autonomie — et non plus le statut `COMPLIANT` ; libellé unique `validatedCounterLabel` (« Validés par EODA » / « Acceptés par la structure » / « par vous ») ; une ligne de checklist devient une obligation par `toDocumentObligation` seulement | `lib/services/mission-document-counters-service.test.ts`, `lib/services/client-contract-service.test.ts` |
+| « Mise en conformité » avance par les documents PROUVÉS, pas par des cases cochées, et le rapport de diagnostic suit l'offre (call du 09/11/2026 — « Mise en conformité 100 % » sur des documents à valider) | `countComplianceDocuments` (documents attendus par l'offre, « Non concerné » retiré, prouvé = `isDocumentProven`) → `computeMissionProgress` (`stepPcts`, global = moyenne des étapes applicables, jamais 100 % avant 100 %) ; frise « Terminée » à 100 % des documents seulement ; `buildDiagnosticSummary(rows, scopeAll)` : cartes et liste sur le même périmètre (Essentiel = impératifs) | `lib/services/mission-progress-service.test.ts`, `mission-document-counters-service.test.ts`, `structure-sheet-service.test.ts`, `diagnostic-service.test.ts` |
 | Une migration écrite à la main vise une table qui existe | test qui lit chaque `migration.sql` (commentaires retirés) et **échoue** sur une table citée (UPDATE, INSERT, ALTER, FROM, JOIN, REFERENCES) absente des `@@map` du schéma et des tables créées par les migrations — le 21/10/2026, `"DocumentType"` au lieu de `"document_types"` a bloqué toutes les migrations suivantes (P3009) sur la base partagée | `apps/web/src/lib/db/migration-table-names.test.ts` |
 | Clés étrangères indexées (convention `P6`) | test qui lit le schéma et **échoue** sur toute relation sans index, liste d'exceptions figée | `apps/web/src/lib/db/foreign-key-indexes.test.ts` |
 | Matrice des rôles cabinet appliquée par les gardes (N9) | matrice testée case par case, chaque garde × chaque rôle testée, commercial gardé export par export | `lib/auth/capabilities.test.ts`, `guards-roles.test.ts`, `commercial-pages-guard.test.ts` |
@@ -654,9 +655,27 @@ Détail complet et état d'avancement : `specs/02-architecture-technique.md` §4
   renommage du 09/10 appelait `FONDATIONS` « Diagnostic », en double avec la checklist) :
   étape 1 Diagnostic = la checklist `DIAGNOSTIC` (12 items, sans dates) ; étape 2 Mise en
   conformité = `FONDATIONS` + `DEPLOIEMENT` regroupées (début de la première, fin de la
-  seconde, état dérivé des deux) ; étape 3 Suivi = `CONSOLIDATION` ; étape 4 =
-  `PREPARATION_FINALE`. Chaque phase stockée reste éditable sous son étape (« Mise en
-  conformité — fondations » / « — déploiement »). Sources uniques : `MISSION_STEPS`,
+  seconde) ; étape 3 Suivi = `CONSOLIDATION` ; étape 4 = `PREPARATION_FINALE`. Chaque
+  phase stockée reste éditable sous son étape (« Mise en conformité — fondations » /
+  « — déploiement »). **Avancement (call du 09/11/2026, Sandrine : « ce qui doit refléter
+  l'avancement, ce sont les documents validés / prouvés, pas des cases cochées »)** :
+  Diagnostic, Suivi, Préparation finale = cases cochées de leur checklist ; **Mise en
+  conformité = documents attendus PROUVÉS ÷ documents attendus** — types du périmètre de
+  l'offre de la MISSION (`getCoveredDocumentCategories`), « Non concerné » retiré, ancien
+  « Non » de la loi 2002-2 compté dû (`normaliseMissingState`), prouvé = `isDocumentProven`
+  (`countComplianceDocuments`, lu par `readMissionComplianceDocuments` pour le cabinet ET
+  « Mon suivi ») ; ses cases sont des **jalons** affichés, jamais comptés ; elle n'est
+  « Terminée » dans la frise qu'à 100 % des documents prouvés (ni date de fin passée, ni
+  jalons cochés). 199 sur 200 s'affiche 99 %, jamais 100 %. **Global = moyenne simple des
+  étapes applicables** (une étape hors formule est retirée, pas comptée 0) ; le calcul
+  s'écrit avec les vrais nombres (`explainMissionProgress` : « 41 documents prouvés sur 76
+  attendus par l'offre »). Ancienne formule (moitié diagnostic, moitié moyenne des phases
+  cochées) retirée : elle affichait « Mise en conformité 100 % » sur des documents à
+  valider. Chaque étape de la frise est un **lien** (`missionStepLinks`, premier lien =
+  destination du titre) : Diagnostic → auto-évaluation (+ rapport imprimable, + rapport
+  Word déposé s'il existe, reconnu à son intitulé — `depositedDiagnosticReportHref`) ;
+  Mise en conformité → Documents ; Suivi → Plan d'action ; Préparation finale → checklist
+  de la phase. Sources uniques : `MISSION_STEPS`, `computeMissionProgress` (`stepPcts`),
   `stepPercent` et `PHASE_LABELS` (`mission-progress-service.ts`) ; frise dans
   `structure-sheet-service.ts`. Ne jamais renommer l'enum ni les colonnes
   `fondationsStartDate`… : ce serait une migration destructive pour un mot.
@@ -1104,6 +1123,15 @@ Détail complet et état d'avancement : `specs/02-architecture-technique.md` §4
   accompagné seulement) puis « accepté » (structure) ; en autonomie, la structure
   accepte seule sous la réserve. Une photo dont l'empreinte ne correspond plus au
   diagnostic courant n'est plus « à jour » — dérivé, aucune remise à zéro.
+  **Filtré PAR OFFRE de la mission (call du 09/11/2026)** : Essentiel (et sans offre,
+  sans mission) = les impératifs seuls ; Performance, Excellence, bêta-test = tout le
+  périmètre applicable — les cartes ET la liste comptent le même périmètre
+  (`buildDiagnosticSummary(rows, scopeAll)`, `scopeAll` de `getOfferScope(Mission.formule)`,
+  jamais de `commercialTier`) ; le titre nomme l'offre (`describeDiagnosticOffer`) ; la
+  phrase « Aucun critère impératif n'est sans preuve » est retirée (sans action
+  prioritaire, la section ne s'affiche pas). L'empreinte de la photo porte toujours sur
+  toutes les lignes (une photo existante reste « à jour »). `/imprimer/diagnostic/[id]` a
+  un « Retour à la fiche » `print:hidden`.
 - **Les questions sur les pratiques sont un CONTENU** (`content/pratiques/`, N7), une
   par impératif, versionnées question par question ; **provisoires tant que Sandrine
   ne les a pas validées**. `PracticeAnswer` est append-only, la version relue côté
