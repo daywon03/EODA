@@ -8,6 +8,7 @@ import {
   derivePrimaryAction,
   describeEvaluationCountdown,
   toTimelinePhases,
+  missionStepLinks,
   type NextActionDocument,
   type TimelineMission,
 } from "./structure-sheet-service";
@@ -201,5 +202,35 @@ describe("cadres de mesure", () => {
         { currentVersion: null, step: "ATTENDU", status: "NOT_APPLICABLE" },
       ]).value
     ).toBe("1 / 1");
+  });
+});
+
+// Retour de Sandrine (08/11/2026) : « si je clique "Diagnostic" je devrais tomber sur
+// l'auto-évaluation et le rapport de diagnostic ». Chaque étape de la frise mène aux
+// écrans où elle se travaille ; la checklist de l'étape, toujours en dernier.
+describe("missionStepLinks — où se travaille chaque étape", () => {
+  it("Diagnostic : auto-évaluation, rapport de diagnostic, checklist", () => {
+    expect(missionStepLinks("e1", "DIAGNOSTIC")).toEqual([
+      { label: "Auto-évaluation", href: "/dashboard/cabinet/etablissements/e1/evaluation" },
+      { label: "Rapport de diagnostic", href: "/imprimer/diagnostic/e1" },
+      { label: "Checklist de l'étape", href: "/dashboard/cabinet/etablissements/e1/mission#etape-DIAGNOSTIC" },
+    ]);
+  });
+
+  it("Mise en conformité : documents et critères", () => {
+    expect(missionStepLinks("e1", "MISE_EN_CONFORMITE").map((l) => l.label)).toEqual([
+      "Documents",
+      "Critères",
+      "Checklist de l'étape",
+    ]);
+  });
+
+  it("Suivi : plan d'action ; Préparation finale : auto-évaluation", () => {
+    expect(missionStepLinks("e1", "SUIVI")[0]?.label).toBe("Plan d'action");
+    expect(missionStepLinks("e1", "PREPARATION_FINALE")[0]?.label).toBe("Auto-évaluation");
+  });
+
+  it("encode l'identifiant dans l'adresse", () => {
+    expect(missionStepLinks("a b", "SUIVI").at(-1)?.href).toContain("a%20b");
   });
 });

@@ -1,6 +1,7 @@
 import type { DocumentCategory, DocumentStatus, SupportMode } from "@eoda/database";
 import { DOCUMENT_PILLS, type PillSpec } from "@/lib/design/status-vocabulary";
 import type { DocumentStep } from "./document-workflow-service";
+import type { FolderRef } from "./document-folder-service";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ONGLET « DOCUMENTS » DE LA FICHE STRUCTURE — règles pures.
@@ -265,6 +266,52 @@ export function filterDocumentRows<T extends DocumentFacts>(
 
 export function rowsInBucket<T extends DocumentFacts>(rows: readonly T[], bucket: DocumentBucket): T[] {
   return rows.filter((row) => documentBucket(row) === bucket);
+}
+
+// ── Dossiers × onglets (retour de Sandrine, 08/11/2026) ─────────────────────
+// Un dossier n'affichait que les documents de l'onglet ouvert : un document validé,
+// rangé dans « Pilotage qualité », semblait absent du dossier (« 2 documents »). Le
+// dossier montre toujours les lignes de l'onglet, et DIT combien des siennes sont
+// ailleurs ; il reste affiché tant qu'il contient un document dans n'importe quel
+// onglet. `allRows` : mêmes recherche et filtres de colonne, tous onglets confondus.
+export type ElsewhereCount = { bucket: DocumentBucket; count: number };
+export type FolderTabView<T> = { id: string; label: string; rows: T[]; elsewhere: ElsewhereCount[] };
+
+export function foldersForTab<T extends DocumentFacts & { folder: { id: string } | null }>(
+  tabRows: readonly T[],
+  allRows: readonly T[],
+  folders: readonly FolderRef[],
+  bucket: DocumentBucket
+): { folders: FolderTabView<T>[]; loose: T[] } {
+  const ordered = [...folders].sort((a, b) => a.position - b.position || a.label.localeCompare(b.label, "fr"));
+  const known = new Set(ordered.map((folder) => folder.id));
+  const views = ordered.map((folder) => {
+    const counts = new Map<DocumentBucket, number>();
+    for (const row of allRows) {
+      if (row.folder?.id !== folder.id) continue;
+      const rowBucket = documentBucket(row);
+      if (rowBucket !== bucket) counts.set(rowBucket, (counts.get(rowBucket) ?? 0) + 1);
+    }
+    return {
+      id: folder.id,
+      label: folder.label,
+      rows: tabRows.filter((row) => row.folder?.id === folder.id),
+      elsewhere: DOCUMENT_BUCKETS.flatMap((b) => {
+        const count = counts.get(b);
+        return count ? [{ bucket: b, count }] : [];
+      }),
+    };
+  });
+  return {
+    folders: views.filter((view) => view.rows.length > 0 || view.elsewhere.length > 0),
+    loose: tabRows.filter((row) => !row.folder || !known.has(row.folder.id)),
+  };
+}
+
+export function describeElsewhere(elsewhere: readonly ElsewhereCount[]): string {
+  return elsewhere
+    .map(({ bucket, count }) => `${count} autre${count > 1 ? "s" : ""} dans « ${DOCUMENT_BUCKET_LABELS[bucket]} »`)
+    .join(", ");
 }
 
 // Adresse d'un état de l'onglet Documents. Seuls les paramètres non vides sont

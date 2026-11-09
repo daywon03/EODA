@@ -1,19 +1,26 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Upload, Sparkles, PencilLine, CheckCircle2 } from "lucide-react";
-import type { MissionDocumentCounters as Counters } from "@/lib/services/mission-document-counters-service";
+import type { SupportMode } from "@eoda/database";
+import {
+  validatedCounterLabel,
+  type MissionDocumentCounters as Counters,
+} from "@/lib/services/mission-document-counters-service";
 
-type Props = { counters: Counters };
+type Props = { counters: Counters; mode: SupportMode };
 
 // Reflet en lecture seule du portail client — §12.4. Aucun contrôle de dépôt ici :
 // le dépôt vit dans le portail client opérationnel, jamais dans le portail de suivi.
-const CELLS: { key: keyof Counters; label: string; icon: typeof Upload; color: string }[] = [
-  { key: "deposited", label: "Déposés", icon: Upload, color: "text-accent-text bg-terre/10" },
-  { key: "analyzed", label: "Analysés par l'IA", icon: Sparkles, color: "text-amber-text bg-ambre/10" },
-  { key: "modified", label: "Modifiés", icon: PencilLine, color: "text-brun-ancre bg-brun-ancre/10" },
-  { key: "compliant", label: "Conformes", icon: CheckCircle2, color: "text-ok-text bg-vert-ok/10" },
-];
+function cells(mode: SupportMode): { key: keyof Counters; label: string; icon: typeof Upload; color: string }[] {
+  return [
+    { key: "deposited", label: "Déposés", icon: Upload, color: "text-accent-text bg-terre/10" },
+    { key: "analyzed", label: "Analysés par l'IA", icon: Sparkles, color: "text-amber-text bg-ambre/10" },
+    { key: "modified", label: "Modifiés", icon: PencilLine, color: "text-brun-ancre bg-brun-ancre/10" },
+    // Jamais « Conformes » : il compte ce qu'EODA a validé (ou la structure accepté).
+    { key: "validated", label: validatedCounterLabel(mode), icon: CheckCircle2, color: "text-ok-text bg-vert-ok/10" },
+  ];
+}
 
-export function MissionDocumentCounters({ counters }: Props) {
+export function MissionDocumentCounters({ counters, mode }: Props) {
   return (
     <Card>
       <CardHeader>
@@ -25,7 +32,7 @@ export function MissionDocumentCounters({ counters }: Props) {
       </CardHeader>
       <CardContent>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          {CELLS.map(({ key, label, icon: Icon, color }) => (
+          {cells(mode).map(({ key, label, icon: Icon, color }) => (
             <div key={key} className="flex items-center gap-2.5">
               <span
                 className={`flex items-center justify-center w-8 h-8 rounded-lg flex-shrink-0 ${color}`}

@@ -70,6 +70,8 @@ export type MissionItemProgress = {
 };
 
 export type MissionProgress = {
+  // Cases cochées / cases applicables, par périmètre (absent = périmètre hors formule).
+  counts: Partial<Record<MissionChecklistScope, { done: number; total: number }>>;
   diagnosticPct: number;
   phasePcts: Partial<Record<MissionChecklistScope, number>>;
   phasesPct: number;
@@ -127,7 +129,39 @@ export function computeMissionProgress(
 
   const globalPct = Math.round((diagnosticPct + phasesPct) / 2);
 
-  return { diagnosticPct, phasePcts, phasesPct, globalPct };
+  const counts: MissionProgress["counts"] = {};
+  for (const scope of ["DIAGNOSTIC", ...PHASE_SCOPES] as const) {
+    const scopeItems = applicable.filter((i) => i.scope === scope);
+    if (scopeItems.length > 0) counts[scope] = { done: scopeItems.filter((i) => i.completed).length, total: scopeItems.length };
+  }
+
+  return { counts, diagnosticPct, phasePcts, phasesPct, globalPct };
+}
+
+// Le calcul ÉCRIT sous chaque pourcentage (retour de Sandrine, 08/11/2026 : « comment
+// est-ce calculé ? »). Mêmes nombres que computeMissionProgress, jamais recalculés.
+export const MISSION_PROGRESS_NOTE =
+  "Ces pourcentages comptent les cases cochées par EODA dans le suivi de mission, pas les documents validés.";
+
+export type MissionProgressExplanation = { diagnostic: string; phases: string; global: string; note: string };
+
+export function explainMissionProgress(progress: MissionProgress): MissionProgressExplanation {
+  const diag = progress.counts.DIAGNOSTIC;
+  const phases = PHASE_ORDER.flatMap((phase) => {
+    const pct = progress.phasePcts[phase];
+    return pct === undefined ? [] : [`${PHASE_LABELS[phase]} ${pct} %`];
+  });
+  return {
+    diagnostic: diag
+      ? `${diag.done} case${diag.done > 1 ? "s" : ""} cochée${diag.done > 1 ? "s" : ""} sur ${diag.total} dans la checklist de diagnostic.`
+      : "Aucune case de diagnostic dans cette formule.",
+    phases:
+      phases.length === 0
+        ? "Aucune phase dans cette formule."
+        : `Moyenne ${phases.length > 1 ? `des ${phases.length} phases` : "de 1 phase"} : ${phases.join(", ")}.`,
+    global: `Moitié diagnostic, moitié phases : (${progress.diagnosticPct} + ${progress.phasesPct}) ÷ 2 = ${progress.globalPct} %.`,
+    note: MISSION_PROGRESS_NOTE,
+  };
 }
 
 // ── Étapes affichées (regroupement des phases stockées) ─────────────────────

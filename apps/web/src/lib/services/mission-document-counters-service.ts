@@ -1,8 +1,16 @@
-import type { DocumentStatus } from "@eoda/database";
+import type { DocumentStatus, SupportMode } from "@eoda/database";
+import { isDocumentProven } from "./criteria-proof-service";
 
 // Les quatre compteurs du portail interne de suivi de mission, tels que dictés au
 // call du 16/08/2026 : documents déposés / analysés par l'IA / modifiés / conformes
 // (context/07-outil-pilotage-missions.md §12.4).
+//
+// Le quatrième s'appelle désormais « Validés par EODA » (08/11/2026, retour de
+// Sandrine : « 0 Conformes » sur une structure aux documents validés). Il lisait le
+// statut COMPLIANT, que l'IA pose quand elle ne trouve AUCUN manque — presque jamais,
+// et sans rien dire d'EODA. Il compte maintenant ce qui est prouvé au sens de
+// isDocumentProven : validé par EODA (accompagné), accepté par la structure
+// (autonomie). Le mot « conforme » n'apparaît plus (CLAUDE.md §7).
 //
 // Le portail de suivi est un REFLET en lecture seule du portail client : il ne
 // porte aucun contrôle de dépôt. Ce service est pur — il ne connaît ni Prisma ni la
@@ -16,17 +24,23 @@ export type MissionDocumentSnapshot = {
   hasAnalyzedVersion: boolean;
   // Au moins une version a été produite par régénération d'une version antérieure.
   hasRegeneratedVersion: boolean;
+  // Faits de validation de la version COURANTE (isDocumentProven).
+  validatedAt: Date | null;
+  clientAcceptedAt: Date | null;
+  currentVersionUploadedAt: Date | null;
+  currentVersionByCabinet: boolean;
 };
 
 export type MissionDocumentCounters = {
   deposited: number;
   analyzed: number;
   modified: number;
-  compliant: number;
+  validated: number;
 };
 
 export function computeMissionDocumentCounters(
-  documents: MissionDocumentSnapshot[]
+  documents: MissionDocumentSnapshot[],
+  mode: SupportMode
 ): MissionDocumentCounters {
   const deposited = documents.filter((d) => d.versionCount > 0);
 
@@ -36,8 +50,26 @@ export function computeMissionDocumentCounters(
     // « Modifié » = le document a évolué après son premier dépôt, que la nouvelle
     // version vienne de la régénération assistée ou d'un redépôt manuel du client.
     modified: deposited.filter((d) => d.hasRegeneratedVersion || d.versionCount > 1).length,
-    // Un document non déposé n'est jamais conforme, quelle qu'ait été la valeur du
-    // statut en base : le compteur reste un reflet du dépôt.
-    compliant: deposited.filter((d) => d.status === "COMPLIANT").length,
+    // Un document non déposé ou « non concerné » n'est jamais compté validé.
+    validated: deposited.filter(
+      (d) =>
+        d.status !== "NOT_APPLICABLE" &&
+        isDocumentProven(
+          {
+            versionUploadedAt: d.currentVersionUploadedAt,
+            validatedAt: d.validatedAt,
+            clientAcceptedAt: d.clientAcceptedAt,
+            versionByCabinet: d.currentVersionByCabinet,
+          },
+          mode
+        )
+    ).length,
   };
+}
+
+// Libellé du quatrième compteur, une seule source pour les deux portails : il dit QUI
+// a validé. La structure lit « par vous » là où le cabinet lit « par la structure ».
+export function validatedCounterLabel(mode: SupportMode, audience: "CABINET" | "CLIENT" = "CABINET"): string {
+  if (mode === "ACCOMPAGNE") return "Validés par EODA";
+  return audience === "CLIENT" ? "Acceptés par vous" : "Acceptés par la structure";
 }

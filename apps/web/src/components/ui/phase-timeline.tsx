@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { cn } from "@/lib/utils";
 
 export type PhaseState = "done" | "current" | "upcoming";
@@ -9,6 +10,8 @@ export type TimelinePhase = {
   period?: string;
   percent?: number;
   state: PhaseState;
+  // Écrans où l'étape se travaille (retour de Sandrine, 08/11/2026).
+  links?: readonly { label: string; href: string }[];
 };
 
 // L'état se lit par le glyphe ET le mot, pas par la couleur seule.
@@ -48,6 +51,20 @@ export function PhaseTimeline({ label, phases, className }: { label: string; pha
                 {phase.percent !== undefined && ` · ${phase.percent} %`}
               </p>
               {phase.period && <p className="text-sm tabular-nums text-ink2">{phase.period}</p>}
+              {phase.links && phase.links.length > 0 && (
+                <ul className="pt-1">
+                  {phase.links.map((link) => (
+                    <li key={link.href}>
+                      <Link
+                        href={link.href}
+                        className="inline-flex min-h-11 items-center text-sm font-bold text-accent-text hover:underline"
+                      >
+                        {link.label} →
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
           </li>
         );

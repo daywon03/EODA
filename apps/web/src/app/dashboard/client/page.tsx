@@ -10,7 +10,11 @@ import {
   uploadEstablishmentLogoAsClient,
   removeEstablishmentLogoAsClient,
 } from "@/lib/actions/establishment";
-import { describeClientNextStep, summariseDocumentObligations } from "@/lib/services/client-contract-service";
+import {
+  describeClientNextStep,
+  summariseDocumentObligations,
+  toDocumentObligation,
+} from "@/lib/services/client-contract-service";
 import { canDepositDocuments } from "@/lib/services/mission-access-service";
 import { flattenChecklist } from "@/lib/services/structure-documents-service";
 import {
@@ -65,7 +69,11 @@ export default async function ClientHomePage() {
   const items = flattenChecklist(checklist);
   const rows = items.map((item) => toClientDocumentRow(item, supportMode));
   const depositOpen = canDepositDocuments(missionAccess);
-  const nextStep = describeClientNextStep(summariseDocumentObligations(items), depositOpen, supportMode);
+  const nextStep = describeClientNextStep(
+    summariseDocumentObligations(items.map(toDocumentObligation), supportMode),
+    depositOpen,
+    supportMode
+  );
   const toDeposit = documentsToDeposit(rows, 4);
   const counts = countClientFilters(rows);
   const workList = buildClientWorkList(rows);

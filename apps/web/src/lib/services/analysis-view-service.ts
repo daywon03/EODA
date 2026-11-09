@@ -103,7 +103,11 @@ export type ReviewableAnalysis = {
 // Le MODE de la mission (N1, évolution de 09-vision-produit §4.2 décidée le 30/09
 // puis le 08/10/2026) est un paramètre OBLIGATOIRE : un appelant qui l'oublierait ne
 // compile pas, au lieu de publier par défaut.
-//   - ACCOMPAGNE : règle stricte du cahier des charges, inchangée — rien de non relu.
+//   - ACCOMPAGNE : la structure ne voit JAMAIS l'analyse, relue ou non (demande de
+//     Sandrine, 08/11/2026). Ce qu'EODA lui restitue, c'est sa relecture (« Relu par
+//     EODA, le JJ/MM ») et le document validé — pas la sortie brute du modèle, qui
+//     affichait « 7 éléments attendus n'ont pas été retrouvés » sur une fiche validée.
+//     Durcit la règle du cahier des charges (rien de non relu) : rien du tout.
 //   - AUTONOMIE  : la structure a acheté l'outil sans relecture ; elle voit l'analyse
 //     non relue, TOUJOURS sous la réserve de review-mention-service.
 export function analysisVisibleTo(
@@ -113,8 +117,7 @@ export function analysisVisibleTo(
 ): DocumentAnalysisResult | null {
   // Le cabinet voit tout : c'est précisément son travail de relire avant de publier.
   if (audience === "CABINET") return version.analysis;
-  if (mode === "AUTONOMIE") return version.analysis;
-  return version.reviewedAt !== null ? version.analysis : null;
+  return mode === "AUTONOMIE" ? version.analysis : null;
 }
 
 // Vrai quand une analyse existe mais n'a pas encore été revue. Sert à dire au client

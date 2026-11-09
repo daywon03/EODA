@@ -73,13 +73,9 @@ export default async function MissionPage({ params }: Props) {
         </Card>
       ) : (
         <div className="space-y-6">
-          <MissionProgressSummary
-            diagnosticPct={mission.progress.diagnosticPct}
-            phasesPct={mission.progress.phasesPct}
-            globalPct={mission.progress.globalPct}
-          />
+          <MissionProgressSummary progress={mission.progress} />
 
-          {documentCounters && <MissionDocumentCounters counters={documentCounters} />}
+          {documentCounters && <MissionDocumentCounters counters={documentCounters} mode={mission.supportMode} />}
 
           <Card>
             <CardContent className="pt-6">

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   computeMissionProgress,
+  explainMissionProgress,
   isChecklistItemApplicable,
   MISSION_STEPS,
   PHASE_LABELS,
@@ -185,5 +186,52 @@ describe("computeMissionProgress — §7.4", () => {
   it("ne divise jamais par zéro sur une mission sans item", () => {
     const progress = computeMissionProgress([], "ESSENTIEL", false);
     expect(progress).toMatchObject({ diagnosticPct: 0, phasesPct: 0, globalPct: 0 });
+  });
+});
+
+// Retour de Sandrine (08/11/2026) : « Mise en conformité 100 % alors que l'avancement
+// global est à 71 % et les phases à 50 % — comment est-ce calculé ? ». Le calcul était
+// juste, mais écrit nulle part. Chaque pourcentage porte désormais sa phrase.
+describe("explainMissionProgress — le calcul écrit sous chaque chiffre", () => {
+  const items: MissionItemProgress[] = [
+    ...Array.from({ length: 11 }, () => item("DIAGNOSTIC", true)),
+    item("DIAGNOSTIC", false),
+    item("FONDATIONS", true),
+    item("DEPLOIEMENT", true),
+    item("CONSOLIDATION", false),
+    item("PREPARATION_FINALE", false),
+  ];
+  const progress = computeMissionProgress(items, "EXCELLENCE", false);
+
+  it("reproduit le cas remonté le 08/11 : 92 %, 50 %, 71 %", () => {
+    expect([progress.diagnosticPct, progress.phasesPct, progress.globalPct]).toEqual([92, 50, 71]);
+  });
+
+  it("compte les cases cochées par périmètre", () => {
+    expect(progress.counts.DIAGNOSTIC).toEqual({ done: 11, total: 12 });
+    expect(progress.counts.CONSOLIDATION).toEqual({ done: 0, total: 1 });
+  });
+
+  it("dit d'où vient chaque pourcentage, avec les vrais nombres", () => {
+    const text = explainMissionProgress(progress);
+    expect(text.diagnostic).toBe("11 cases cochées sur 12 dans la checklist de diagnostic.");
+    expect(text.phases).toBe(
+      "Moyenne des 4 phases : Mise en conformité — fondations 100 %, Mise en conformité — déploiement 100 %, Suivi 0 %, Préparation finale 0 %."
+    );
+    expect(text.global).toBe("Moitié diagnostic, moitié phases : (92 + 50) ÷ 2 = 71 %.");
+  });
+
+  it("dit que ce sont des cases cochées, pas des documents", () => {
+    expect(explainMissionProgress(progress).note).toContain("cases cochées");
+    expect(explainMissionProgress(progress).note).toContain("documents");
+  });
+
+  it("ne cite pas une phase hors formule", () => {
+    const performance = computeMissionProgress(
+      [item("FONDATIONS", true), item("CONSOLIDATION", false, "EXCELLENCE")],
+      "PERFORMANCE",
+      false
+    );
+    expect(explainMissionProgress(performance).phases).toBe("Moyenne de 1 phase : Mise en conformité — fondations 100 %.");
   });
 });
