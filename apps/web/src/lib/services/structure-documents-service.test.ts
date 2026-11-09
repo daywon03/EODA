@@ -6,6 +6,7 @@ import {
   documentBucket,
   documentProviderLabel,
   documentRowPill,
+  documentRowPillNote,
   documentsHref,
   filterDocumentRows,
   findDocumentRow,
@@ -101,10 +102,28 @@ describe("countDocumentBuckets", () => {
 });
 
 describe("documentRowPill", () => {
-  it("distingue manquant, à corriger et déposé dans « À faire »", () => {
+  it("distingue manquant, analyse à vérifier et déposé dans « À faire »", () => {
     expect(documentRowPill(doc({ status: "MISSING", currentVersion: null }))).toBe(DOCUMENT_PILLS.manquant);
-    expect(documentRowPill(doc({ status: "INCOMPLETE" }))).toBe(DOCUMENT_PILLS.aCorriger);
+    expect(documentRowPill(doc({ status: "INCOMPLETE" }))).toBe(DOCUMENT_PILLS.analyseAVerifier);
     expect(documentRowPill(doc({ status: "UPLOADED" }))).toBe(DOCUMENT_PILLS.depose);
+  });
+
+  // Retour du 09/11/2026 (#6) : « ! À corriger » présentait le statut INCOMPLETE, posé
+  // par l'IA, comme un jugement. C'est une analyse à vérifier par la consultante, et
+  // l'écran dit d'où elle vient.
+  it("un statut posé par l'analyse n'est jamais un jugement : « Analyse : à vérifier », ton review", () => {
+    const pill = documentRowPill(doc({ status: "INCOMPLETE" }));
+    expect(pill.label).toBe("Analyse : à vérifier");
+    expect(pill.tone).toBe("review");
+    expect(pill.label).not.toMatch(/corriger/i);
+  });
+
+  it("documentRowPillNote explique l'origine de « Analyse : à vérifier », et seulement elle", () => {
+    expect(documentRowPillNote(doc({ status: "INCOMPLETE" }))).toBe(
+      "L'analyse automatique a relevé des éléments manquants : ouvrez Analyse."
+    );
+    expect(documentRowPillNote(doc({ status: "UPLOADED" }))).toBeNull();
+    expect(documentRowPillNote(doc({ status: "MISSING", currentVersion: null }))).toBeNull();
   });
 
   it("suit l'onglet pour les autres cas", () => {

@@ -92,6 +92,11 @@ describe("vocabulaire des pastilles", () => {
     }
   });
 
+  it("documents : aucune pastille ne juge à la place de la consultante (« À corriger » retiré, 09/11/2026)", () => {
+    for (const p of Object.values(DOCUMENT_PILLS)) expect(p.label).not.toMatch(/corriger/i);
+    expect(DOCUMENT_PILLS.analyseAVerifier).toEqual({ label: "Analyse : à vérifier", glyph: "?", tone: "review" });
+  });
+
   it("statut documentaire stocké : libellés du portail inchangés", () => {
     expect(pillForDocumentStatus("MISSING").label).toBe("Manquant");
     expect(pillForDocumentStatus("COMPLIANT").label).toBe("Conforme");

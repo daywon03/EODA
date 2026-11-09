@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   computeMissionDocumentCounters,
+  missionDocumentCounterHint,
   validatedCounterLabel,
   type MissionDocumentSnapshot,
 } from "./mission-document-counters-service";
@@ -160,6 +161,36 @@ describe("validatedCounterLabel — jamais « conforme »", () => {
     for (const mode of ["ACCOMPAGNE", "AUTONOMIE"] as const) {
       for (const audience of ["CABINET", "CLIENT"] as const) {
         expect(validatedCounterLabel(mode, audience).toLowerCase()).not.toContain("conforme");
+      }
+    }
+  });
+});
+
+// Retour du 09/11/2026 (#12) : « Documents du portail client » montrait quatre nombres
+// sans dire ce qu'ils comptent. Une ligne sous chaque compteur, écrite ici pour qu'elle
+// suive la règle de calcul ci-dessus et non un texte posé à la main dans le composant.
+describe("missionDocumentCounterHint", () => {
+  it("dit ce que compte chacun des quatre compteurs", () => {
+    expect(missionDocumentCounterHint("deposited", "ACCOMPAGNE")).toBe("Au moins une version déposée.");
+    expect(missionDocumentCounterHint("analyzed", "ACCOMPAGNE")).toBe("Au moins une version analysée.");
+    expect(missionDocumentCounterHint("modified", "ACCOMPAGNE")).toBe(
+      "Une version régénérée, ou plus d'une version déposée."
+    );
+    expect(missionDocumentCounterHint("validated", "ACCOMPAGNE")).toBe(
+      "Validation d'EODA à jour : postérieure à la dernière version."
+    );
+  });
+
+  it("en autonomie, le dernier compteur parle de l'acceptation de la structure, jamais d'EODA", () => {
+    const hint = missionDocumentCounterHint("validated", "AUTONOMIE");
+    expect(hint).toBe("Acceptation de la structure à jour : postérieure à la dernière version.");
+    expect(hint).not.toContain("EODA");
+  });
+
+  it("n'emploie jamais le mot « conforme » (CLAUDE.md §7)", () => {
+    for (const key of ["deposited", "analyzed", "modified", "validated"] as const) {
+      for (const mode of ["ACCOMPAGNE", "AUTONOMIE"] as const) {
+        expect(missionDocumentCounterHint(key, mode).toLowerCase()).not.toContain("conforme");
       }
     }
   });

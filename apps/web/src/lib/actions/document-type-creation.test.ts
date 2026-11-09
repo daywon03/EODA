@@ -47,7 +47,9 @@ vi.mock("@/lib/email/notifications", () => ({
   notifyNewDocumentType: (...args: unknown[]) => notifyNewDocumentType(...args),
 }));
 
-const { createDocumentType, renameDocumentType } = await import("./document-type-creation");
+const { createDocumentType, listDocumentTypeAnnouncementTargets, renameDocumentType } = await import(
+  "./document-type-creation"
+);
 
 function form(fields: Record<string, string>): FormData {
   const data = new FormData();
@@ -97,7 +99,7 @@ describe("critères rattachés à la création", () => {
   it("un critère inconnu : refusé AVANT de créer la ligne", async () => {
     prismaMock.criterion.findMany.mockResolvedValue([{ id: "c-3142", code: "3.14.2" }]);
     expect(await createDocumentType(form({ ...valid, criteria: "3.14.2, 9.99.9" }))).toEqual({
-      error: "Critère inconnu du référentiel : 9.99.9.",
+      error: "Critère absent des grilles SAD : 9.99.9. Vérifiez le code ou son périmètre (un critère « Établissement » ne s'applique pas à un SAD).",
     });
     expect(prismaMock.documentType.create).not.toHaveBeenCalled();
   });
@@ -265,6 +267,30 @@ describe("annonce", () => {
     expect(prismaMock.establishment.findMany).not.toHaveBeenCalled();
     expect(notifyNewDocumentType).not.toHaveBeenCalled();
     expect(result).toEqual(expect.objectContaining({ announced: null }));
+  });
+
+  // Retour du 09/11/2026 (#7) : « 3 structures prévenues » sans l'avoir voulu. La case
+  // est décochée par défaut ; cochée, le formulaire NOMME les structures qui recevront
+  // l'annonce — calculées ici par la même règle que l'envoi.
+  it("nomme, par catégorie, les structures que l'envoi préviendrait (même règle)", async () => {
+    prismaMock.establishment.findMany.mockResolvedValue([
+      { id: "e-ok", name: "Structure A", mission: mission() },
+      { id: "e-essentiel", name: "Structure E", mission: mission({ formule: "ESSENTIEL" }) },
+      { id: "e-close", name: "Structure B", mission: mission({ closedAt: new Date("2026-01-01") }) },
+      { id: "e-sans-mission", name: "Structure D", mission: null },
+    ]);
+
+    const targets = await listDocumentTypeAnnouncementTargets();
+
+    expect(prismaMock.establishment.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { tenantId: "t-1" } }));
+    expect(targets).toEqual({ FONCTIONNEMENT: ["Structure A"], QUALITE_RISQUES: ["Structure A"], RH: ["Structure A"] });
+    expect(notifyNewDocumentType).not.toHaveBeenCalled();
+  });
+
+  it("la liste des structures est réservée à l'administration du cabinet", async () => {
+    requireCabinetAdminSession.mockRejectedValue(new Error("FORBIDDEN"));
+    await expect(listDocumentTypeAnnouncementTargets()).rejects.toThrow("FORBIDDEN");
+    expect(prismaMock.establishment.findMany).not.toHaveBeenCalled();
   });
 });
 

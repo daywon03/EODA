@@ -200,7 +200,7 @@ describe("addManualMatrixLinks", () => {
   it("refuse un code inconnu du référentiel ou une liste vide, sans rien écrire", async () => {
     prismaMock.criterion.findMany.mockResolvedValue([{ id: "c-131", code: "1.3.1" }]);
     expect(await addManualMatrixLinks("QUALITE_ENQUETE_QUESTIONNAIRE", ["1.3.1", "9.9.9"])).toEqual({
-      error: "Critère inconnu du référentiel : 9.9.9.",
+      error: "Critère absent des grilles SAD : 9.9.9. Vérifiez le code ou son périmètre (un critère « Établissement » ne s'applique pas à un SAD).",
     });
     expect(await addManualMatrixLinks("QUALITE_ENQUETE_QUESTIONNAIRE", [])).toEqual({ error: "Cochez au moins un critère." });
     expect(prismaMock.documentTypeCriterion.createMany).not.toHaveBeenCalled();
