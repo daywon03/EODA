@@ -53,7 +53,9 @@ export const DOCUMENT_PILLS = {
   manquant: pill("Manquant", "○", "todo"),
   depose: pill("Déposé", "↑", "deposited"),
   aRelire: pill("À relire", "◔", "review"),
-  aCorriger: pill("À corriger", "!", "fix"),
+  // Statut INCOMPLETE posé par l'IA : une analyse à vérifier par la consultante, jamais
+  // un jugement (« À corriger » retiré le 09/11/2026).
+  analyseAVerifier: pill("Analyse : à vérifier", "?", "review"),
   valide: pill("Validé", "✓", "ok"),
   accepteParVous: pill("Accepté par vous", "✓", "ok"),
   aRenouveler: pill("À renouveler", "↻", "renew"),

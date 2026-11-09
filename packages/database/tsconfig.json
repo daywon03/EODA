@@ -1,4 +1,4 @@
 {
   "extends": "../../tsconfig.base.json",
-  "include": ["src", "prisma/seed.ts", "prisma/seed-has-referential.ts"]
+  "include": ["src", "scripts/**/*.ts", "prisma/seed.ts", "prisma/seed-has-referential.ts"]
 }

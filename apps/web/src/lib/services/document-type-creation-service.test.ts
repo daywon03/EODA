@@ -7,6 +7,7 @@ import {
   normalizeCriterionQuery,
   normalizeDocumentTypeLabel,
   parseCriterionCodes,
+  describeAnnouncementTargets,
   shouldAnnounceNewDocumentType,
 } from "./document-type-creation-service";
 
@@ -102,5 +103,25 @@ describe("shouldAnnounceNewDocumentType", () => {
     expect(shouldAnnounceNewDocumentType({ access: "ACTIVE", coveredCategories: null, category: "RH" })).toBe(false);
     expect(shouldAnnounceNewDocumentType({ access: "LIBRARY", coveredCategories: ["RH"], category: "RH" })).toBe(false);
     expect(shouldAnnounceNewDocumentType({ access: "REVOKED", coveredCategories: ["RH"], category: "RH" })).toBe(false);
+  });
+});
+
+// Retour du 09/11/2026 (#7) : avant d'envoyer, le formulaire dit QUI recevra l'annonce.
+describe("describeAnnouncementTargets", () => {
+  it("nomme les structures, dans l'ordre reçu", () => {
+    expect(describeAnnouncementTargets(["Structure A", "Structure B"])).toBe(
+      "Recevront l'annonce (2 structures) : Structure A, Structure B."
+    );
+    expect(describeAnnouncementTargets(["Structure A"])).toBe("Recevra l'annonce (1 structure) : Structure A.");
+  });
+
+  it("aucune structure concernée : le dit, plutôt qu'un envoi muet", () => {
+    expect(describeAnnouncementTargets([])).toBe(
+      "Aucune structure accompagnée n'est concernée par cette catégorie : personne ne sera prévenu."
+    );
+  });
+
+  it("sans catégorie choisie : la demande d'abord", () => {
+    expect(describeAnnouncementTargets(null)).toBe("Choisissez la catégorie pour voir les structures prévenues.");
   });
 });

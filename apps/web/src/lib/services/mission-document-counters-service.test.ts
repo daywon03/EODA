@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   computeMissionDocumentCounters,
   countComplianceDocuments,
+  missionDocumentCounterHint,
   validatedCounterLabel,
   type ExpectedDocumentFacts,
   type MissionDocumentSnapshot,
@@ -167,6 +168,7 @@ describe("validatedCounterLabel — jamais « conforme »", () => {
   });
 });
 
+<<<<<<< HEAD
 // Retour de Sandrine (call du 09/11/2026) : « ce qui doit refléter l'avancement, ce
 // sont les documents validés / prouvés, pas des cases cochées ». L'étape « Mise en
 // conformité » compte les documents ATTENDUS par l'offre qui sont PROUVÉS.
@@ -222,5 +224,35 @@ describe("countComplianceDocuments — documents attendus prouvés", () => {
       "ACCOMPAGNE"
     );
     expect(result).toMatchObject({ proven: 0, expected: 1 });
+  });
+});
+
+// Retour du 09/11/2026 (#12) : « Documents du portail client » montrait quatre nombres
+// sans dire ce qu'ils comptent. Une ligne sous chaque compteur, écrite ici pour qu'elle
+// suive la règle de calcul ci-dessus et non un texte posé à la main dans le composant.
+describe("missionDocumentCounterHint", () => {
+  it("dit ce que compte chacun des quatre compteurs", () => {
+    expect(missionDocumentCounterHint("deposited", "ACCOMPAGNE")).toBe("Au moins une version déposée.");
+    expect(missionDocumentCounterHint("analyzed", "ACCOMPAGNE")).toBe("Au moins une version analysée.");
+    expect(missionDocumentCounterHint("modified", "ACCOMPAGNE")).toBe(
+      "Une version régénérée, ou plus d'une version déposée."
+    );
+    expect(missionDocumentCounterHint("validated", "ACCOMPAGNE")).toBe(
+      "Validation d'EODA à jour : aucune version plus récente à relire."
+    );
+  });
+
+  it("en autonomie, le dernier compteur parle de l'acceptation de la structure, jamais d'EODA", () => {
+    const hint = missionDocumentCounterHint("validated", "AUTONOMIE");
+    expect(hint).toBe("Acceptation de la structure à jour : aucune version plus récente à relire.");
+    expect(hint).not.toContain("EODA");
+  });
+
+  it("n'emploie jamais le mot « conforme » (CLAUDE.md §7)", () => {
+    for (const key of ["deposited", "analyzed", "modified", "validated"] as const) {
+      for (const mode of ["ACCOMPAGNE", "AUTONOMIE"] as const) {
+        expect(missionDocumentCounterHint(key, mode).toLowerCase()).not.toContain("conforme");
+      }
+    }
   });
 });

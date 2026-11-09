@@ -284,6 +284,8 @@ export type ClientDocumentRow = {
   code: string;
   label: string;
   category: DocumentCategory;
+  // Dossier de la ligne : il passe avant le code pour le rangement (documentGroupFor).
+  folder?: { id: string } | null;
   state: ClientDocumentState;
   // Noms des fichiers que la structure a le droit de voir (`clientSearchableFilenames`),
   // jamais ceux d'un brouillon d'EODA non validé : la recherche ne doit pas révéler ce

@@ -43,6 +43,7 @@ import { DocumentSheetBody } from "@/components/structure/DocumentSheetBody";
 import { NewDocumentTypeForm } from "@/components/checklist/NewDocumentTypeForm";
 import { normalizeCriterionQuery } from "@/lib/services/document-type-creation-service";
 import { listDocumentFolders } from "@/lib/actions/document-folder";
+import { listDocumentTypeAnnouncementTargets } from "@/lib/actions/document-type-creation";
 import { DocumentFolderManager } from "@/components/structure/lazy-document-panels";
 import { Folder } from "lucide-react";
 import { FolderDetails } from "@/components/structure/FolderDetails";
@@ -138,7 +139,14 @@ export default async function StructureDocumentsPage({ params, searchParams }: P
   const { id } = await params;
   const raw = await searchParams;
   const { role } = await requireEstablishmentInTenant(id, "READ");
-  const [checklist, folders] = await Promise.all([getEstablishmentChecklist(id), listDocumentFolders()]);
+  const canManageList = hasCabinetCapability(role, "CABINET_SETTINGS");
+  // Structures nommées avant d'annoncer une nouvelle ligne (09/11/2026) : lues pour
+  // l'administration seule, qui seule voit le formulaire.
+  const [checklist, folders, announceTargets] = await Promise.all([
+    getEstablishmentChecklist(id),
+    listDocumentFolders(),
+    canManageList ? listDocumentTypeAnnouncementTargets() : null,
+  ]);
 
   const filters = parseDocumentFilters(raw);
   const basePath = structureHref(id, "documents");
@@ -166,7 +174,6 @@ export default async function StructureDocumentsPage({ params, searchParams }: P
   const reminderCount = selectReminderLabels(allRows).length;
   const categories = Object.keys(DOCUMENT_CATEGORY_LABELS) as DocumentCategory[];
   // La liste vaut pour toutes les structures : la compléter est un réglage de cabinet.
-  const canManageList = hasCabinetCapability(role, "CABINET_SETTINGS");
 
   // Ce que la visionneuse doit savoir AVANT la réponse du serveur : un intitulé et la
   // version à afficher. Rien de plus — le détail arrive avec le rendu serveur.
@@ -253,6 +260,7 @@ export default async function StructureDocumentsPage({ params, searchParams }: P
             establishmentId={id}
             documentsPath={basePath}
             folders={folders}
+            {...(announceTargets ? { announceTargets } : {})}
             {...(initialCriterionCode ? { initialCriterionCode } : {})}
           />
           <DocumentFolderManager folders={folders} />
