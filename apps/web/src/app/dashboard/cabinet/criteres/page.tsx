@@ -47,12 +47,12 @@ export default async function CriterionMatrixPage() {
 
       <section aria-labelledby="matrix-manual" className="space-y-3">
         <h2 id="matrix-manual" className="text-xl font-bold text-ink">
-          Rattacher un critère à la main
+          Cocher et décocher les critères d&apos;un type
         </h2>
         <p className="text-ink2">
-          Pour un critère que la proposition ne cite pas pour ce type — par exemple les critères que le manuel attend
-          d&apos;une instance de participation, à faire vérifier dans l&apos;enquête de satisfaction. Valable pour
-          toutes les structures ; les analyses suivantes vérifieront ces critères.
+          Choisissez un type : ses critères s&apos;affichent, cochez-en d&apos;autres, retirez ceux qui ne
+          conviennent pas. Retirer un critère proposé, c&apos;est le refuser. La même liste existe dans la fiche
+          de chaque document (onglet « Critères HAS »). Valable pour toutes les structures.
         </p>
         <ManualMatrixLink documentTypes={review.documentTypes} />
       </section>
@@ -97,7 +97,7 @@ export default async function CriterionMatrixPage() {
           <p className="text-ink2">
             Ces types existent dans le référentiel, mais la proposition ne cite aucun critère pour
             eux : rien n&apos;étant proposé, rien ne peut être coché ci-dessus. Rattachez-les avec
-            « Rattacher un critère à la main », ou par « Ajouter à la matrice » sur un critère confirmé.
+            « Cocher et décocher les critères d&apos;un type », ou par « Ajouter à la matrice » sur un critère confirmé.
           </p>
           <ul className="divide-y divide-line rounded-xl border border-line bg-card">
             {review.typesWithoutProposal.map((type) => (

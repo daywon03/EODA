@@ -33,6 +33,7 @@ const {
   notifyOptionRequest,
   notifyNewMessage,
   sendDocumentReminderEmails,
+  notifyInformationRequested,
 } = await import("./notifications");
 
 const ETAB = "etab-1";
@@ -177,6 +178,32 @@ describe("notifyStructureActivity — un e-mail ne fait jamais échouer le geste
 // les LIENS de la base, les comptes désactivés sont écartés, et ce que l'écran annonce
 // est ce qui est réellement parti.
 // ─────────────────────────────────────────────────────────────────────────────
+
+describe("notifyInformationRequested — « Demander à la structure » (09/11/2026)", () => {
+  const input = { establishmentId: ETAB, establishmentName: "Structure test", documentLabel: "Livret d'accueil" } as const;
+
+  it("prévient les comptes rattachés, renvoie à « Mes tâches », et compte ce qui est parti", async () => {
+    givenClients(["a@structure.test", "b@structure.test"]);
+    send.mockReset().mockResolvedValueOnce("SENT").mockResolvedValueOnce("NOT_CONFIGURED");
+
+    expect(await notifyInformationRequested(input)).toEqual({ sent: 1, total: 2 });
+    const first = send.mock.calls[0]?.[0] as { subject: string; html: string };
+    expect(first.subject).toContain("Livret d'accueil");
+    expect(first.html).toContain("/dashboard/client/taches");
+  });
+
+  it("aucun compte joignable : rien ne part, aucun envoi annoncé", async () => {
+    givenClients([]);
+    expect(await notifyInformationRequested(input)).toEqual({ sent: 0, total: 0 });
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it("un envoi qui échoue ne fait pas échouer la demande", async () => {
+    givenClients(["a@structure.test"]);
+    send.mockReset().mockRejectedValue(new Error("smtp"));
+    expect(await notifyInformationRequested(input)).toEqual({ sent: 0, total: 1 });
+  });
+});
 
 describe("notifyDocumentAvailable — ce que l'écran annonce est ce qui est parti", () => {
   const input = { establishmentId: ETAB, establishmentName: "Structure test", documentLabel: "Livret d'accueil" } as const;

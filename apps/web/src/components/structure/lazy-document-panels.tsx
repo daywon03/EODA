@@ -29,6 +29,15 @@ export const DocumentFolderPicker = dynamic(() =>
   import("@/components/checklist/DocumentFolderPicker").then((m) => m.DocumentFolderPicker)
 );
 
+// Critères HAS d'un type (onglet « Critères HAS », 09/11/2026) : chargé à l'ouverture
+// de l'onglet seulement.
+export const CriterionLinker = dynamic(() => import("@/components/criteres/CriterionLinker").then((m) => m.CriterionLinker));
+
+// « Retirer cette ligne » (administration seule, geste rare — 09/11/2026).
+export const RemoveDocumentTypeButton = dynamic(() =>
+  import("./RemoveDocumentTypeButton").then((m) => m.RemoveDocumentTypeButton)
+);
+
 // « Gérer les dossiers » / « Importer un tableur » (administration seule, gestes rares).
 export const DocumentFolderManager = dynamic(() =>
   import("@/components/checklist/DocumentFolderManager").then((m) => m.DocumentFolderManager)

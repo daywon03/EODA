@@ -716,6 +716,12 @@ model DocumentType {
   folderId String?         @map("folder_id")
   folder   DocumentFolder? @relation(fields: [folderId], references: [id], onDelete: SetNull)
 
+  // ARCHIVÉE (09/11/2026, « il manque des poubelles ») : une ligne du cabinet retirée
+  // alors que des documents l'utilisent déjà. Masquée de toutes les listes, jamais
+  // supprimée — l'historique (versions, analyses, journal) reste lisible. NULL = en
+  // service. Une ligne jamais utilisée est supprimée pour de bon.
+  archivedAt DateTime? @map("archived_at")
+
   documents         DocumentTypeCriterion[]
   Document          Document[]
   // Gabarits de la bibliothèque rattachés à ce type (N8) : leurs versions FINALE
@@ -1869,6 +1875,10 @@ enum AuditAction {
   DOCUMENT_TYPE_SCOPE_CHANGED
   DOCUMENT_TYPE_CREATED
   DOCUMENT_TYPE_RENAMED
+  // Retirer une ligne du cabinet (09/11/2026) : archivée si des documents l'utilisent,
+  // supprimée sinon. Code de la ligne seulement.
+  DOCUMENT_TYPE_ARCHIVED
+  DOCUMENT_TYPE_DELETED
   // Dossiers de la liste « Documents » (03/11/2026) : création, renommage, ligne
   // rangée dans un dossier ou sortie, lignes créées en nombre depuis un tableur.
   // Intitulés de cabinet seulement, jamais une donnée de personne.

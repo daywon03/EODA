@@ -297,11 +297,18 @@ export function planManualLinks(input: {
   };
 }
 
-// Retirer à la main : seulement un rattachement que la proposition ne cite PAS pour ce
-// type. Un rattachement proposé se décoche sur la carte du type (planMatrixDecision) —
-// deux portes pour le même geste finiraient par se contredire.
-export function manualUnlinkError(input: { proposed: boolean; linked: boolean }): string | null {
+// Retirer un rattachement (retours de Sandrine, 09/11/2026 : « je coche ce qui est bon,
+// je décoche ce qui ne l'est pas », depuis n'importe quel menu). Tout rattachement
+// existant se retire : un critère PROPOSÉ décoché est REFUSÉ — c'est le même fait que
+// décocher sur la carte du type (planMatrixDecision supprime la ligne, rien d'autre
+// n'est stocké). Seul ce qui n'est pas rattaché est refusé.
+export function manualUnlinkError(input: { linked: boolean }): string | null {
   if (!input.linked) return "Ce critère n'est pas rattaché à ce type de document.";
-  if (input.proposed) return "Ce rattachement vient de la proposition : décochez-le sur la carte du type.";
   return null;
+}
+
+// Détail du journal : codes seulement, jamais un libellé. Dit si c'était un refus de la
+// proposition ou le retrait d'un ajout à la main.
+export function describeCriterionUnlink(documentTypeCode: string, criterionCode: string, proposed: boolean): string {
+  return `${documentTypeCode} · ${proposed ? "proposition refusée" : "retrait manuel"} ${criterionCode}`;
 }

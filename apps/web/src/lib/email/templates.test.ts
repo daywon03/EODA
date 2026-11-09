@@ -8,8 +8,32 @@ import {
   buildNewDocumentTypeEmail,
   buildOptionRequestEmail,
   buildStructureActivityEmail,
+  buildInformationRequestEmail,
   escapeHtml,
 } from "./templates";
+
+// « Demander à la structure » (09/11/2026) : l'e-mail dit QUEL document attend une
+// information, jamais ce que l'analyse ou la consultante a écrit.
+describe("buildInformationRequestEmail", () => {
+  const email = buildInformationRequestEmail({
+    recipientName: "Direction <Test>",
+    establishmentName: "Structure Test",
+    documentLabel: "Livret d'accueil",
+    tasksUrl: "https://app.example/dashboard/client/taches",
+  });
+
+  it("porte l'intitulé du type et « une information est attendue »", () => {
+    expect(email.subject).toBe("Une information est attendue — Livret d'accueil");
+    expect(email.html).toContain("Livret d&#39;accueil");
+    expect(email.html).toContain("une information est attendue");
+    expect(email.html).toContain("https://app.example/dashboard/client/taches");
+  });
+
+  it("échappe les saisies", () => {
+    expect(email.html).toContain("Direction &lt;Test&gt;");
+    expect(email.html).not.toContain("<Test>");
+  });
+});
 
 describe("escapeHtml", () => {
   it("neutralise une balise injectée dans un champ de saisie", () => {
