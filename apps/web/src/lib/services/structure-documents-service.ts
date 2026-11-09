@@ -120,9 +120,18 @@ export function documentRowPill(item: DocumentFacts): PillSpec {
       if (item.missingOwner === "EODA") return DOCUMENT_PILLS.aRedigerEoda;
       if (item.missingOwner === "STRUCTURE") return DOCUMENT_PILLS.chezLaStructure;
       if (item.status === "MISSING") return DOCUMENT_PILLS.manquant;
-      if (item.status === "INCOMPLETE") return DOCUMENT_PILLS.aCorriger;
+      if (item.status === "INCOMPLETE") return DOCUMENT_PILLS.analyseAVerifier;
       return DOCUMENT_PILLS.depose;
   }
+}
+
+// Phrase courte sous la pastille, pour l'écran : d'où vient « Analyse : à vérifier »
+// (retour du 09/11/2026, #6 — un statut de l'IA lu comme un jugement). `null` pour
+// toute autre pastille : elles se lisent seules.
+export const ANALYSIS_TO_CHECK_NOTE = "L'analyse automatique a relevé des éléments manquants : ouvrez Analyse.";
+
+export function documentRowPillNote(item: DocumentFacts): string | null {
+  return documentRowPill(item) === DOCUMENT_PILLS.analyseAVerifier ? ANALYSIS_TO_CHECK_NOTE : null;
 }
 
 export function flattenChecklist<T extends DocumentFacts>(
