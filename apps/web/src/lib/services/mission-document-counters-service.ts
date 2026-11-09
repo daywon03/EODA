@@ -67,6 +67,24 @@ export function computeMissionDocumentCounters(
   };
 }
 
+// Ce que compte chaque compteur, en une ligne sous le nombre (retour du 09/11/2026,
+// #12 : quatre nombres sans légende). Écrit ICI, à côté du calcul qu'il décrit, pour
+// que la légende suive la règle et non l'inverse.
+export function missionDocumentCounterHint(key: keyof MissionDocumentCounters, mode: SupportMode): string {
+  switch (key) {
+    case "deposited":
+      return "Au moins une version déposée.";
+    case "analyzed":
+      return "Au moins une version analysée.";
+    case "modified":
+      return "Une version régénérée, ou plus d'une version déposée.";
+    case "validated":
+      return mode === "ACCOMPAGNE"
+        ? "Validation d'EODA à jour : aucune version plus récente à relire."
+        : "Acceptation de la structure à jour : aucune version plus récente à relire.";
+  }
+}
+
 // Libellé du quatrième compteur, une seule source pour les deux portails : il dit QUI
 // a validé. La structure lit « par vous » là où le cabinet lit « par la structure ».
 export function validatedCounterLabel(mode: SupportMode, audience: "CABINET" | "CLIENT" = "CABINET"): string {

@@ -177,13 +177,13 @@ describe("missionDocumentCounterHint", () => {
       "Une version régénérée, ou plus d'une version déposée."
     );
     expect(missionDocumentCounterHint("validated", "ACCOMPAGNE")).toBe(
-      "Validation d'EODA à jour : postérieure à la dernière version."
+      "Validation d'EODA à jour : aucune version plus récente à relire."
     );
   });
 
   it("en autonomie, le dernier compteur parle de l'acceptation de la structure, jamais d'EODA", () => {
     const hint = missionDocumentCounterHint("validated", "AUTONOMIE");
-    expect(hint).toBe("Acceptation de la structure à jour : postérieure à la dernière version.");
+    expect(hint).toBe("Acceptation de la structure à jour : aucune version plus récente à relire.");
     expect(hint).not.toContain("EODA");
   });
 
