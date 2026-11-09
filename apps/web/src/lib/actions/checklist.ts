@@ -168,8 +168,9 @@ async function buildChecklist(
   const mode = resolveSupportMode(mission);
 
   // Types de documents attendus, restreints au périmètre de l'offre.
+  // Une ligne retirée (archivée, 09/11/2026) n'apparaît plus nulle part.
   const allTypes = await prisma.documentType.findMany({
-    where: covered ? { category: { in: [...covered] } } : {},
+    where: { archivedAt: null, ...(covered ? { category: { in: [...covered] } } : {}) },
     orderBy: [{ category: "asc" }, { code: "asc" }],
     include: { folder: { select: { id: true, label: true, position: true } } },
   });

@@ -16,6 +16,7 @@ import {
   type MatrixRow,
   type MatrixView,
   manualUnlinkError,
+  describeCriterionUnlink,
   planManualLinks,
 } from "./criterion-matrix-service";
 
@@ -326,9 +327,20 @@ describe("planManualLinks / manualUnlinkError — rattachement à la main", () =
     ).toEqual({ toCreate: ["1.3.1", "1.5.1"], alreadyLinked: ["1.1.1"], unknown: ["9.9.9"] });
   });
 
-  it("ne retire à la main que ce qui n'est pas proposé, et seulement s'il est rattaché", () => {
-    expect(manualUnlinkError({ proposed: false, linked: true })).toBeNull();
-    expect(manualUnlinkError({ proposed: true, linked: true })).toMatch(/proposition/);
-    expect(manualUnlinkError({ proposed: false, linked: false })).toMatch(/pas rattaché/);
+  // Retours de Sandrine (09/11/2026) : « je coche ce qui est bon, je décoche ce qui ne
+  // l'est pas », depuis n'importe quel menu. Décocher un critère PROPOSÉ, c'est le
+  // refuser — le même fait que décocher sur la carte du type (planMatrixDecision).
+  it("retire tout rattachement existant, proposé ou fait à la main ; refuse seulement ce qui n'est pas rattaché", () => {
+    expect(manualUnlinkError({ linked: true })).toBeNull();
+    expect(manualUnlinkError({ linked: false })).toMatch(/pas rattaché/);
+  });
+
+  it("journalise un retrait sans libellé : refus de la proposition, ou retrait d'un ajout à la main", () => {
+    expect(describeCriterionUnlink("QUALITE_ENQUETE_QUESTIONNAIRE", "3.14.2", true)).toBe(
+      "QUALITE_ENQUETE_QUESTIONNAIRE · proposition refusée 3.14.2"
+    );
+    expect(describeCriterionUnlink("QUALITE_ENQUETE_QUESTIONNAIRE", "1.3.1", false)).toBe(
+      "QUALITE_ENQUETE_QUESTIONNAIRE · retrait manuel 1.3.1"
+    );
   });
 });

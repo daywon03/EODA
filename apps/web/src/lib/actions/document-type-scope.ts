@@ -19,6 +19,7 @@ export async function listDocumentTypeScopes(): Promise<DocumentTypeScope[]> {
   await requireCabinetAdminSession();
 
   const types = await prisma.documentType.findMany({
+    where: { archivedAt: null },
     select: { id: true, label: true, category: true, requestedFromClient: true },
     orderBy: [{ category: "asc" }, { label: "asc" }],
   });

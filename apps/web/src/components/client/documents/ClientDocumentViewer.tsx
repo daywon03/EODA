@@ -11,7 +11,7 @@ import { cn } from "@/lib/utils";
 
 // « Mes documents » — la structure OUVRE ses documents (21/10/2026). Jusqu'ici la carte
 // d'un document ne permettait ni de le voir ni de le télécharger : seuls les livrables
-// s'ouvraient. Un clic sur le nom (ou sur « Voir ») ouvre la même visionneuse que le
+// s'ouvraient. Un clic sur « Voir le document » ouvre la même visionneuse que le
 // cabinet, tout de suite — tout ce qu'elle affiche est déjà dans la page.
 //
 // Les versions reçues sont DÉJÀ filtrées (`versionsVisibleToClient`) : ses dépôts, et
@@ -29,34 +29,36 @@ export function ClientDocumentViewer({
   label,
   versions,
   mention,
+  emphasis = "secondary",
 }: {
   label: string;
   versions: ClientViewerVersion[];
   mention: string | null;
+  // « Voir » est le geste PRINCIPAL de la carte quand il n'y a rien à déposer ni à
+  // accepter (primaryCardAction) : bouton plein. Sinon, lien secondaire.
+  emphasis?: "primary" | "secondary";
 }) {
   const [open, setOpen] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(versions[0]?.id ?? null);
   const selected = versions.find((version) => version.id === selectedId) ?? versions[0] ?? null;
 
-  if (!selected) return <h3 className="text-[19px] font-bold leading-snug">{label}</h3>;
+  // Le titre est posé par la carte (même gabarit pour toutes, QA du 09/11/2026) : ce
+  // composant ne rend que « Voir le document » et la visionneuse. Télécharger et PDF
+  // vivent DANS la visionneuse, version par version.
+  if (!selected) return null;
 
   return (
     <>
-      <h3 className="text-[19px] font-bold leading-snug">
-        <button
-          type="button"
-          onClick={() => setOpen(true)}
-          className="text-left underline-offset-4 hover:underline"
-          aria-haspopup="dialog"
-        >
-          {label}
-        </button>
-      </h3>
       <button
         type="button"
         onClick={() => setOpen(true)}
         aria-haspopup="dialog"
-        className="inline-flex min-h-12 w-fit items-center gap-2 text-base font-bold text-accent-text underline"
+        className={cn(
+          "inline-flex h-12 w-fit items-center gap-2 rounded-[10px] px-5 text-[17px] font-bold",
+          emphasis === "primary"
+            ? "bg-ink-fill text-on-ink hover:bg-ink-fill/90"
+            : "border-2 border-line bg-card text-ink hover:bg-soft"
+        )}
       >
         <Eye className="h-5 w-5" aria-hidden="true" />
         Voir le document

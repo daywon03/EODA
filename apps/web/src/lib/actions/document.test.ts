@@ -335,9 +335,35 @@ describe("uploadDocument — périmètre de l'offre", () => {
     const result = await uploadDocument(formData);
 
     expect(prismaMock.documentType.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { category: { in: ["LOI_2002_2"] } } })
+      expect.objectContaining({ where: { archivedAt: null, category: { in: ["LOI_2002_2"] } } })
     );
     expect(result).toMatchObject({ needsManualType: true, candidates: [expect.anything()] });
+  });
+});
+
+// Relecture du 09/11/2026 : une ligne archivée (A3) a quitté toutes les listes. Une page
+// restée ouverte ne doit pas pouvoir y déposer une pièce que personne ne verrait.
+describe("ligne de documents archivée — aucun dépôt, aucune réponse", () => {
+  const ARCHIVED = { ...LOI_TYPE, archivedAt: new Date("2026-11-09") };
+
+  it("refuse un dépôt sur une ligne archivée, sans rien stocker", async () => {
+    givenMission("ESSENTIEL");
+    prismaMock.documentType.findUnique.mockResolvedValue(ARCHIVED);
+
+    const result = await uploadDocument(uploadForm(ARCHIVED.id));
+
+    expect(result).toEqual({ error: "Type de document invalide." });
+    expect(ingestDocumentVersion).not.toHaveBeenCalled();
+  });
+
+  it("refuse une réponse sur une ligne archivée, sans rien écrire", async () => {
+    givenMission("ESSENTIEL");
+    prismaMock.documentType.findUnique.mockResolvedValue(ARCHIVED);
+
+    const result = await respondToMissingDocument(ESTABLISHMENT_ID, ARCHIVED.id, "WILL_PROVIDE", "en cours");
+
+    expect(result).toEqual({ error: "Type de document invalide." });
+    expect(prismaMock.document.upsert).not.toHaveBeenCalled();
   });
 });
 

@@ -9,6 +9,7 @@ import {
   describeEvaluationCountdown,
   toTimelinePhases,
   missionStepLinks,
+  depositedDiagnosticReportHref,
   type NextActionDocument,
   type TimelineMission,
 } from "./structure-sheet-service";
@@ -42,7 +43,7 @@ describe("describeEvaluationCountdown", () => {
   });
 });
 
-describe("toTimelinePhases — frise en quatre étapes (correction du 10/10/2026)", () => {
+describe("toTimelinePhases — frise en quatre étapes (correction du 10/10, documents du 09/11/2026)", () => {
   const mission: TimelineMission = {
     fondationsStartDate: day(-60),
     fondationsEndDate: day(-30),
@@ -52,7 +53,10 @@ describe("toTimelinePhases — frise en quatre étapes (correction du 10/10/2026
     consolidationEndDate: null,
     preparationFinaleStartDate: null,
     preparationFinaleEndDate: null,
-    progress: { diagnosticPct: 100, phasePcts: { FONDATIONS: 100, DEPLOIEMENT: 40, CONSOLIDATION: 0 } },
+    progress: {
+      phasePcts: { FONDATIONS: 100, DEPLOIEMENT: 40, CONSOLIDATION: 0 },
+      stepPcts: { DIAGNOSTIC: 100, MISE_EN_CONFORMITE: 54, SUIVI: 0 },
+    },
   };
 
   it("étape 1 = la checklist de diagnostic, pas la phase FONDATIONS", () => {
@@ -67,44 +71,77 @@ describe("toTimelinePhases — frise en quatre étapes (correction du 10/10/2026
     expect(phases[0]).not.toHaveProperty("period");
   });
 
-  it("mise en conformité = fondations + déploiement : début de l'une, fin de l'autre, moyenne", () => {
-    expect(toTimelinePhases(mission, NOW)[1]).toMatchObject({ percent: 70, period: "10/08/2026 → 08/11/2026" });
+  it("mise en conformité : période des fondations au déploiement, avancement = documents prouvés", () => {
+    expect(toTimelinePhases(mission, NOW)[1]).toMatchObject({ percent: 54, period: "10/08/2026 → 08/11/2026" });
   });
 
-  it("mise en conformité terminée seulement quand ses deux phases le sont", () => {
-    const done = toTimelinePhases(
-      { ...mission, progress: { diagnosticPct: 0, phasePcts: { FONDATIONS: 100, DEPLOIEMENT: 100 } } },
+  // Call du 09/11/2026 : « Mise en conformité à 100 % » alors que les documents
+  // restaient à valider. Les jalons cochés et les dates passées ne la terminent plus.
+  it("mise en conformité terminée seulement quand 100 % des documents sont prouvés", () => {
+    const allTicked = toTimelinePhases(
+      {
+        ...mission,
+        deploiementEndDate: day(-1),
+        progress: { phasePcts: { FONDATIONS: 100, DEPLOIEMENT: 100 }, stepPcts: { DIAGNOSTIC: 0, MISE_EN_CONFORMITE: 54 } },
+      },
       NOW
     );
-    expect(done[1]?.state).toBe("done");
-    expect(done[0]?.state).toBe("upcoming");
-  });
+    expect(allTicked[1]).toMatchObject({ state: "current", percent: 54 });
+    expect(allTicked[0]?.state).toBe("upcoming");
 
-  it("une phase hors formule ne retient pas l'étape ; une étape entière hors formule n'a pas d'avancement", () => {
-    const partial = toTimelinePhases(
-      { ...mission, progress: { diagnosticPct: 40, phasePcts: { FONDATIONS: 100 } } },
+    const proven = toTimelinePhases(
+      { ...mission, progress: { phasePcts: { FONDATIONS: 0 }, stepPcts: { DIAGNOSTIC: 40, MISE_EN_CONFORMITE: 100 } } },
       NOW
     );
-    expect(partial[0]?.state).toBe("current");
-    expect(partial[1]).toMatchObject({ state: "done", percent: 100 });
-    expect(partial[3]).toMatchObject({ period: "Hors formule", state: "upcoming" });
-    expect(partial[3]).not.toHaveProperty("percent");
+    expect(proven[1]).toMatchObject({ state: "done", percent: 100 });
   });
 
-  it("une date de fin passée termine la phase ; un item coché la démarre", () => {
+  it("mise en conformité à venir tant que rien n'a commencé (ni date, ni case, ni document)", () => {
     const phases = toTimelinePhases(
       {
         ...mission,
         fondationsStartDate: day(5),
-        fondationsEndDate: null,
         deploiementStartDate: day(5),
-        progress: { diagnosticPct: 0, phasePcts: { FONDATIONS: 0, DEPLOIEMENT: 0, CONSOLIDATION: 10 } },
+        progress: { phasePcts: { FONDATIONS: 0, DEPLOIEMENT: 0 }, stepPcts: { DIAGNOSTIC: 0, MISE_EN_CONFORMITE: 0 } },
+      },
+      NOW
+    );
+    expect(phases[1]?.state).toBe("upcoming");
+  });
+
+  it("une étape entière hors formule n'a pas d'avancement", () => {
+    const partial = toTimelinePhases(
+      { ...mission, progress: { phasePcts: { FONDATIONS: 100 }, stepPcts: { DIAGNOSTIC: 40, MISE_EN_CONFORMITE: 10 } } },
+      NOW
+    );
+    expect(partial[0]?.state).toBe("current");
+    expect(partial[3]).toMatchObject({ period: "Hors formule", state: "upcoming" });
+    expect(partial[3]).not.toHaveProperty("percent");
+  });
+
+  it("suivi : une date de fin passée termine la phase ; un item coché la démarre", () => {
+    const phases = toTimelinePhases(
+      {
+        ...mission,
+        progress: { phasePcts: { CONSOLIDATION: 10 }, stepPcts: { DIAGNOSTIC: 0, MISE_EN_CONFORMITE: 0, SUIVI: 10 } },
         consolidationEndDate: day(40),
       },
       NOW
     );
-    expect(phases.map((p) => p.state).slice(1, 3)).toEqual(["upcoming", "current"]);
-    expect(phases[2]?.period).toBe("… → 18/11/2026");
+    expect(phases[2]).toMatchObject({ state: "current", period: "… → 18/11/2026" });
+    const ended = toTimelinePhases({ ...mission, consolidationEndDate: day(-1) }, NOW);
+    expect(ended[2]?.state).toBe("done");
+  });
+
+  it("chaque étape s'ouvre sur l'écran où elle se travaille (avec l'identifiant de la structure)", () => {
+    const phases = toTimelinePhases(mission, NOW, "e1");
+    expect(phases.map((p) => p.href)).toEqual([
+      "/dashboard/cabinet/etablissements/e1/evaluation",
+      "/dashboard/cabinet/etablissements/e1/documents",
+      "/dashboard/cabinet/etablissements/e1/plan-action",
+      "/dashboard/cabinet/etablissements/e1/mission#etape-PREPARATION_FINALE",
+    ]);
+    expect(toTimelinePhases(mission, NOW)[0]).not.toHaveProperty("href");
   });
 });
 
@@ -225,9 +262,44 @@ describe("missionStepLinks — où se travaille chaque étape", () => {
     ]);
   });
 
-  it("Suivi : plan d'action ; Préparation finale : auto-évaluation", () => {
+  it("Suivi : plan d'action (les tâches) ; Préparation finale : la checklist de la phase d'abord", () => {
     expect(missionStepLinks("e1", "SUIVI")[0]?.label).toBe("Plan d'action");
-    expect(missionStepLinks("e1", "PREPARATION_FINALE")[0]?.label).toBe("Auto-évaluation");
+    expect(missionStepLinks("e1", "PREPARATION_FINALE").map((l) => l.label)).toEqual([
+      "Checklist de l'étape",
+      "Auto-évaluation",
+    ]);
+  });
+
+  // Call du 09/11/2026 : « le diagnostic, c'est l'auto-évaluation + le rapport de
+  // diagnostic Word déposé ». Le rapport déposé n'est cité que s'il existe.
+  it("Diagnostic : le rapport Word déposé s'ajoute s'il existe", () => {
+    const links = missionStepLinks("e1", "DIAGNOSTIC", { depositedReportHref: "/docs?doc=t9" });
+    expect(links.map((l) => l.label)).toEqual([
+      "Auto-évaluation",
+      "Rapport de diagnostic",
+      "Rapport déposé (Word)",
+      "Checklist de l'étape",
+    ]);
+    expect(links[2]?.href).toBe("/docs?doc=t9");
+    expect(missionStepLinks("e1", "SUIVI", { depositedReportHref: "/x" }).map((l) => l.label)).not.toContain(
+      "Rapport déposé (Word)"
+    );
+  });
+
+  it("le rapport déposé : la ligne « Rapport de diagnostic » (accents, casse ignorés) qui porte un dépôt", () => {
+    const row = (documentTypeId: string, label: string, deposited: boolean) => ({
+      documentTypeId,
+      label,
+      currentVersion: deposited ? { id: "v" } : null,
+    });
+    expect(
+      depositedDiagnosticReportHref("e1", [
+        row("t1", "Livret d'accueil", true),
+        row("t2", "RAPPORT DE DIAGNOSTIC", false),
+        row("t3", "Rapport de diagnostic — mission 2026", true),
+      ])
+    ).toBe("/dashboard/cabinet/etablissements/e1/documents?doc=t3");
+    expect(depositedDiagnosticReportHref("e1", [row("t2", "Rapport de diagnostic", false)])).toBeNull();
   });
 
   it("encode l'identifiant dans l'adresse", () => {

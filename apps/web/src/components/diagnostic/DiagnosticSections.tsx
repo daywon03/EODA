@@ -14,16 +14,31 @@ import {
 // Blocs de « Mon diagnostic » (N6), partagés par la page client et le rapport
 // imprimable : une seule mise en mots du même état dérivé.
 
-export function DiagnosticCounters({ summary, expectedImperatives }: { summary: DiagnosticSummary; expectedImperatives: number }) {
+// Le titre suit l'offre de la mission (call du 09/11/2026) : impératifs seuls en
+// Essentiel, tout le périmètre en Performance, Excellence et bêta-test.
+export function DiagnosticCounters({
+  summary,
+  expectedImperatives,
+  offerLabel,
+}: {
+  summary: DiagnosticSummary;
+  expectedImperatives: number;
+  offerLabel: string;
+}) {
   return (
     <section aria-labelledby="diag-counters" className="space-y-4">
       <div>
         <h2 id="diag-counters" className="text-2xl font-bold">
-          Vos {summary.imperatives.total} critères impératifs
+          {summary.scope.all
+            ? `Les ${summary.scope.total} critères de votre périmètre`
+            : `Vos ${summary.imperatives.total} critères impératifs`}
         </h2>
+        <p className="font-bold">{offerLabel}</p>
         <p className="text-ink2">
-          Chaque critère est compté une fois, selon les preuves déposées. Repère : {expectedImperatives} pour votre
-          type de service.
+          Chaque critère est compté une fois, selon les preuves déposées.
+          {summary.scope.all
+            ? ` Dont ${summary.imperatives.total} critères impératifs (repère : ${expectedImperatives} pour votre type de service).`
+            : ` Repère : ${expectedImperatives} pour votre type de service.`}
         </p>
       </div>
       <ul className="grid gap-3 sm:grid-cols-3">
@@ -37,10 +52,10 @@ export function DiagnosticCounters({ summary, expectedImperatives }: { summary: 
           </li>
         ))}
       </ul>
-      {summary.imperativesWithoutExpectedDocument > 0 && (
+      {summary.withoutExpectedDocument > 0 && (
         <p className="text-base text-ink2">
-          {summary.imperativesWithoutExpectedDocument} critère
-          {summary.imperativesWithoutExpectedDocument > 1 ? "s n'ont" : " n'a"} pas encore de document attendu défini
+          {summary.withoutExpectedDocument} critère
+          {summary.withoutExpectedDocument > 1 ? "s n'ont" : " n'a"} pas encore de document attendu défini
           par EODA.
         </p>
       )}
@@ -48,23 +63,20 @@ export function DiagnosticCounters({ summary, expectedImperatives }: { summary: 
   );
 }
 
+// Sans action prioritaire, la section ne s'affiche pas : la phrase « Aucun critère
+// impératif n'est sans preuve » a été retirée (call du 09/11/2026) — les cartes et la
+// liste disent déjà, critère par critère, Prouvé / En partie / Sans preuve.
 export function PriorityActions({ priorities, depositHref }: { priorities: PriorityAction[]; depositHref: string | null }) {
+  if (priorities.length === 0) return null;
   return (
     <section aria-labelledby="diag-priorities" className="space-y-4">
       <div>
         <h2 id="diag-priorities" className="text-2xl font-bold">
-          {priorities.length > 1
-            ? `Les ${priorities.length} actions prioritaires`
-            : priorities.length === 1
-              ? "L'action prioritaire"
-              : "Actions prioritaires"}
+          {priorities.length > 1 ? `Les ${priorities.length} actions prioritaires` : "L'action prioritaire"}
         </h2>
         <p className="text-ink2">Des critères impératifs sans aucune preuve. Un même document peut prouver plusieurs critères.</p>
       </div>
-      {priorities.length === 0 ? (
-        <p className="rounded-xl border border-line bg-card p-4">Aucun critère impératif n&apos;est sans preuve.</p>
-      ) : (
-        <ol className="space-y-3">
+      <ol className="space-y-3">
           {priorities.map((p, index) => (
             <li key={p.documentTypeId} className="flex flex-wrap items-center gap-4 rounded-xl border border-line bg-card p-4">
               <span
@@ -87,8 +99,7 @@ export function PriorityActions({ priorities, depositHref }: { priorities: Prior
               )}
             </li>
           ))}
-        </ol>
-      )}
+      </ol>
     </section>
   );
 }

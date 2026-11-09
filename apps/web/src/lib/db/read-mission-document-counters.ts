@@ -3,8 +3,68 @@ import type { CommercialTier, SupportMode } from "@eoda/database";
 import { getCoveredDocumentCategories } from "@/lib/services/offer-scope-service";
 import {
   computeMissionDocumentCounters,
+  countComplianceDocuments,
+  type ComplianceDocuments,
   type MissionDocumentCounters,
 } from "@/lib/services/mission-document-counters-service";
+
+// Documents attendus par l'offre et documents prouvés — mesure de l'étape « Mise en
+// conformité » (call du 09/11/2026). Lu par les DEUX portails (suivi de mission du
+// cabinet, « Mon suivi » de la structure) : un seul chemin, sinon l'un compterait
+// ce que l'autre ne voit pas (D1). Même absence de garde que la fonction suivante,
+// pour la même raison : ses appelants ont déjà franchi lib/auth/guards.ts.
+//
+// Un type de document attendu sans ligne Document compte quand même : c'est
+// précisément ce qui reste à faire.
+export async function readMissionComplianceDocuments(
+  establishmentId: string,
+  formule: CommercialTier | null,
+  gratuit: boolean,
+  mode: SupportMode
+): Promise<ComplianceDocuments> {
+  const categories = [...getCoveredDocumentCategories(formule, gratuit)];
+  const [types, documents] = await Promise.all([
+    prisma.documentType.findMany({
+      // Une ligne archivée a quitté toutes les listes : elle ne peut pas rester « attendue ».
+      where: { category: { in: categories }, archivedAt: null },
+      select: { id: true, category: true, code: true, isConditional: true },
+    }),
+    prisma.document.findMany({
+      where: { establishmentId, documentType: { category: { in: categories }, archivedAt: null } },
+      select: {
+        documentTypeId: true,
+        status: true,
+        statusOverriddenByUser: true,
+        validatedAt: true,
+        clientAcceptedAt: true,
+        currentVersion: { select: { uploadedAt: true, uploadedBy: { select: { role: true } } } },
+      },
+    }),
+  ]);
+  const byTypeId = new Map(documents.map((d) => [d.documentTypeId, d]));
+
+  return countComplianceDocuments(
+    types.map((type) => {
+      const doc = byTypeId.get(type.id);
+      return {
+        category: type.category,
+        code: type.code,
+        isConditional: type.isConditional,
+        document: doc
+          ? {
+              status: doc.status,
+              statusOverriddenByUser: doc.statusOverriddenByUser,
+              validatedAt: doc.validatedAt,
+              clientAcceptedAt: doc.clientAcceptedAt,
+              currentVersionUploadedAt: doc.currentVersion?.uploadedAt ?? null,
+              currentVersionByCabinet: doc.currentVersion != null && doc.currentVersion.uploadedBy.role !== "CLIENT_USER",
+            }
+          : null,
+      };
+    }),
+    mode
+  );
+}
 
 // Lecture des quatre compteurs documentaires (déposés / analysés par l'IA /
 // modifiés / validés par EODA, §12.4) pour un établissement dont l'offre est déjà connue.
@@ -30,6 +90,7 @@ export async function readMissionDocumentCounters(
       establishmentId,
       documentType: {
         category: { in: [...getCoveredDocumentCategories(formule, gratuit)] },
+        archivedAt: null,
       },
     },
     select: {

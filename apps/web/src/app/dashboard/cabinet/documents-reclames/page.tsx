@@ -1,6 +1,7 @@
 import { Files } from "lucide-react";
 import { requireCabinetAdminSession } from "@/lib/auth/guards";
 import { listDocumentTypeScopes } from "@/lib/actions/document-type-scope";
+import { listDocumentTypeAnnouncementTargets } from "@/lib/actions/document-type-creation";
 import { DOCUMENT_CATEGORY_LABELS } from "@/lib/services/structure-documents-service";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Callout } from "@/components/ui/callout";
@@ -22,7 +23,10 @@ export const metadata = { title: "Documents réclamés" };
 // ─────────────────────────────────────────────────────────────────────────────
 export default async function RequestedDocumentsPage() {
   await requireCabinetAdminSession();
-  const scopes = await listDocumentTypeScopes();
+  const [scopes, announceTargets] = await Promise.all([
+    listDocumentTypeScopes(),
+    listDocumentTypeAnnouncementTargets(),
+  ]);
   const requestedCount = scopes.filter((s) => s.requestedFromClient).length;
   const categories = (Object.keys(DOCUMENT_CATEGORY_LABELS) as DocumentCategory[]).filter((category) =>
     scopes.some((s) => s.category === category)
@@ -42,7 +46,7 @@ export default async function RequestedDocumentsPage() {
       </Callout>
 
       {/* Une ligne ajoutée ici vaut pour toutes les structures (createDocumentType). */}
-      <NewDocumentTypeForm />
+      <NewDocumentTypeForm announceTargets={announceTargets} />
 
       {scopes.length === 0 && <p className="text-ink2">Aucun type de document n&apos;est chargé.</p>}
 

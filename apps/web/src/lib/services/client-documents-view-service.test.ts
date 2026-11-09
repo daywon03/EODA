@@ -269,6 +269,28 @@ describe("les sept groupes de « Mes documents »", () => {
     expect(groups[groups.length - 1]).toMatchObject({ id: "AUTRES", label: UNRANKED_GROUP_LABEL });
     expect(ids(groups)).toContain("x");
   });
+
+  it("les fiches du dossier « Sensibilisation des professionnels » sont rangées en Qualité, jamais en RH (#9, 09/11)", () => {
+    const folder = { id: "docfolder-sensibilisation-pro" };
+    const fiches: ClientDocumentRow[] = [
+      { documentTypeId: "ref", code: "QUALITE_FICHE_SENSIBILISATION", label: "Fiche", category: "QUALITE_RISQUES", state: "TO_CHECK", folder },
+      { documentTypeId: "eoda", code: "EODA_FICHE_RISQUE_CHUTE", label: "Risque de chute", category: "RH", state: "TO_CHECK", folder },
+    ];
+    expect(groupClientDocuments(fiches, null, "ACCOMPAGNE").map((g) => [g.id, g.rows.map((r) => r.documentTypeId)])).toEqual([
+      ["QUALITE", ["ref", "eoda"]],
+    ]);
+  });
+
+  it("un dossier créé par le cabinet reste entier dans « Autres documents », jamais coupé (observé le 09/11)", () => {
+    const folder = { id: "cm-dossier-cree-par-le-cabinet" };
+    const lignes: ClientDocumentRow[] = [
+      { documentTypeId: "reg", code: "P12_REGISTRE", label: "Registre", category: "QUALITE_RISQUES", state: "TO_CHECK", folder },
+      { documentTypeId: "eoda", code: "EODA_NOTE", label: "Note", category: "RH", state: "TO_CHECK", folder },
+    ];
+    expect(groupClientDocuments(lignes, null, "ACCOMPAGNE").map((g) => [g.id, g.rows.map((r) => r.documentTypeId)])).toEqual([
+      ["AUTRES", ["reg", "eoda"]],
+    ]);
+  });
 });
 
 describe("isSettledForClient", () => {

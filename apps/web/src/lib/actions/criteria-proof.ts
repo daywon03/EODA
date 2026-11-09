@@ -28,7 +28,8 @@ export type StructureCriteriaProof = {
 // Le DÉTAIL des preuves de chaque critère, pour l'onglet Critères (21/10/2026) :
 // quels documents sont attendus, l'état de chacun, et ce que l'évaluateur HAS regarde
 // (éléments d'évaluation du référentiel, en cache). Même garde que ci-dessous.
-export type CriterionEvidence = { items: EvidenceItem[]; hasElements: string[] };
+// `documentTypeCode` : pour décocher le document de ce critère depuis l'onglet (09/11/2026).
+export type CriterionEvidence = { items: (EvidenceItem & { documentTypeCode: string | null })[]; hasElements: string[] };
 
 export async function getStructureCriteriaEvidence(establishmentId: string): Promise<Record<string, CriterionEvidence>> {
   const { establishmentId: id, establishmentType } = await requireEstablishmentInTenant(establishmentId, "READ");
@@ -62,7 +63,8 @@ async function buildCriteriaEvidence(id: string, establishmentType: Establishmen
     readChapters().then((list) => Promise.all(list.map((c) => readChapterTree(c.number)))),
   ]);
   const typeIds = [...new Set(rows.flatMap((r) => r.expectedDocumentTypeIds))];
-  const types = typeIds.length > 0 ? await prisma.documentType.findMany({ where: { id: { in: typeIds } }, select: { id: true, label: true } }) : [];
+  const types = typeIds.length > 0 ? await prisma.documentType.findMany({ where: { id: { in: typeIds } }, select: { id: true, label: true, code: true } }) : [];
+  const codes = new Map(types.map((t) => [t.id, t.code]));
 
   const labels = new Map(types.map((t) => [t.id, t.label]));
   const byType = new Map(
@@ -85,7 +87,13 @@ async function buildCriteriaEvidence(id: string, establishmentType: Establishmen
   return Object.fromEntries(
     rows.map((r) => [
       r.id,
-      { items: describeEvidence(r.expectedDocumentTypeIds, byType, labels, mode), hasElements: elementsByCriterion.get(r.id) ?? [] },
+      {
+        items: describeEvidence(r.expectedDocumentTypeIds, byType, labels, mode).map((item) => ({
+          ...item,
+          documentTypeCode: codes.get(item.documentTypeId) ?? null,
+        })),
+        hasElements: elementsByCriterion.get(r.id) ?? [],
+      },
     ])
   );
 }

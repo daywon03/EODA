@@ -10,6 +10,7 @@ import {
   buildDiagnosticSummary,
   derivePriorityActions,
   describeDiagnosticLine,
+  describeDiagnosticOffer,
   diagnosticFingerprint,
   groupDiagnosticChapters,
   type DiagnosticChapter,
@@ -38,6 +39,8 @@ export type DiagnosticData = {
   expectedImperatives: number;
   mode: SupportMode;
   scopeAll: boolean;
+  // « Offre Essentiel : les critères impératifs seulement » — le titre du rapport.
+  offerLabel: string;
   rows: CriterionProofRow[];
   summary: DiagnosticSummary;
   line: string;
@@ -84,7 +87,8 @@ export async function readDiagnostic(establishmentId: string): Promise<Diagnosti
       : [];
   const documentLabels = new Map(documentTypes.map((t) => [t.id, t.label]));
 
-  const summary = buildDiagnosticSummary(rows);
+  // Cartes et liste comptent le MÊME périmètre, celui de l'offre (call du 09/11/2026).
+  const summary = buildDiagnosticSummary(rows, scopeAll);
   const fingerprint = diagnosticFingerprint(rows);
   return {
     establishmentId: establishment.id,
@@ -94,9 +98,10 @@ export async function readDiagnostic(establishmentId: string): Promise<Diagnosti
     expectedImperatives: EXPECTED_IMPERATIVE_COUNT[establishment.type],
     mode,
     scopeAll,
+    offerLabel: describeDiagnosticOffer(offer ? offer.formule : undefined, offer?.gratuit ?? false),
     rows,
     summary,
-    line: describeDiagnosticLine(summary.imperatives, countImperativesInProgress(rows)),
+    line: describeDiagnosticLine(summary, countImperativesInProgress(rows)),
     priorities: derivePriorityActions(rows, documentLabels),
     chapters: groupDiagnosticChapters(rows, chapters, scopeAll),
     fingerprint,

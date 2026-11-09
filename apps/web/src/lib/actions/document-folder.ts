@@ -127,7 +127,7 @@ export async function setDocumentTypeFolder(documentTypeId: unknown, folderId: u
 
 async function importContext() {
   const [types, criteria] = await Promise.all([
-    prisma.documentType.findMany({ select: { label: true, code: true } }),
+    prisma.documentType.findMany({ select: { label: true, code: true, archivedAt: true } }),
     prisma.criterion.findMany({ select: { id: true, code: true } }),
   ]);
   return { types, criteria };
@@ -140,7 +140,8 @@ function planFor(
 ): ImportLinePlan[] {
   return planDocumentTypeImport({
     rows,
-    existingLabels: context.types.map((type) => type.label),
+    // Une ligne retirée (archivée) ne fait pas doublon ; son CODE reste pris.
+    existingLabels: context.types.filter((type) => !type.archivedAt).map((type) => type.label),
     knownCriterionCodes: new Set(context.criteria.map((criterion) => criterion.code)),
     // Même règle de libellé que la création à la main (doublons traités à part).
     labelError: (label) => documentTypeCreationError({ label, category, existingLabels: [] }),

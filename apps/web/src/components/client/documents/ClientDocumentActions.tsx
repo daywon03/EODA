@@ -21,6 +21,7 @@ export function ClientDocumentActions({
   code,
   state,
   depositNotice,
+  canAccept = true,
 }: {
   establishmentId: string;
   documentTypeId: string;
@@ -30,6 +31,10 @@ export function ClientDocumentActions({
   code: string;
   state: ClientDocumentState;
   depositNotice: string | null;
+  // « Je l'accepte » seulement si la pièce s'ouvre sur la carte (primaryCardAction) :
+  // on ne fait pas accepter ce qu'on ne peut pas lire. Affichage seulement — l'action
+  // serveur garde sa propre règle (canClientAcceptDocument).
+  canAccept?: boolean;
 }) {
   const [error, setError] = useState<string | null>(null);
   const deposit = { establishmentId, documentTypeId, documentLabel: label, notice: depositNotice };
@@ -47,10 +52,10 @@ export function ClientDocumentActions({
   const needsDeposit = state === "TO_DEPOSIT" || state === "RENEW";
 
   return (
-    <div className="flex flex-col items-start gap-2 sm:items-end">
+    <div className="flex flex-col items-start gap-2">
       <div className="flex flex-wrap gap-2.5">
         {needsDeposit && <DepositButton {...deposit} />}
-        {state === "TO_CHECK" && (
+        {state === "TO_CHECK" && canAccept && (
           <Button
             type="button"
             size="lg"

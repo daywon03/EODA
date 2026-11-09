@@ -452,6 +452,38 @@ export function buildStructureActivityEmail(input: {
   return { subject, html: layout(title, body, input.brand) };
 }
 
+// « Demander à la structure » (09/11/2026) : la consultante a confié une tâche à la
+// structure depuis un élément manquant de l'analyse. Seul l'INTITULÉ du type voyage,
+// avec « une information est attendue » : ni le texte de la demande (relu dans la
+// plateforme), ni l'analyse — un texte libre peut nommer une personne.
+export function buildInformationRequestEmail(input: {
+  recipientName: string;
+  establishmentName: string;
+  documentLabel: string;
+  tasksUrl: string;
+  brand?: BrandAssets;
+}): EmailContent {
+  const body = `
+    <p style="color:${BRUN_ANCRE};font-size:15px;line-height:1.6">
+      Bonjour ${escapeHtml(input.recipientName)},
+    </p>
+    <p style="color:${BRUN_ANCRE};font-size:15px;line-height:1.6">
+      Pour le document <strong>${escapeHtml(input.documentLabel)}</strong> de
+      ${escapeHtml(input.establishmentName)}, une information est attendue par EODA Conseil.
+      La demande vous attend dans votre espace, rubrique « Mes tâches ».
+    </p>
+    <p style="margin:24px 0">
+      <a href="${escapeHtml(input.tasksUrl)}"
+         style="background:${TERRE};color:#ffffff;text-decoration:none;padding:12px 20px;border-radius:8px;display:inline-block;font-weight:bold">
+        Voir la demande
+      </a>
+    </p>`;
+  return {
+    subject: `Une information est attendue — ${input.documentLabel}`,
+    html: layout("Une information est attendue", body, input.brand),
+  };
+}
+
 // Envoi réel du devis (22/09/2026) — remplace le brouillon `mailto:` qui ne
 // pouvait pas attacher de fichier. Le PDF (devis-pdf-service.ts) voyage en
 // pièce jointe ; ce message ne fait qu'annoncer ce qu'il contient, jamais
