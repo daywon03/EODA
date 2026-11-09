@@ -1,4 +1,5 @@
 import type { DocumentCategory } from "@eoda/database";
+import { documentTypeLabelKey } from "@eoda/database/objective-labels";
 import type { MissionAccessState } from "@/lib/services/mission-access-service";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -39,14 +40,9 @@ export function normalizeDocumentTypeLabel(label: string): string {
 // Clé de comparaison : sans accents, sans casse, sans ponctuation. Deux libellés de
 // même clé désignent le même document — le second serait un doublon que l'on
 // rattacherait, analyserait et mettrait à jour deux fois.
-export function documentTypeLabelKey(label: string): string {
-  return label
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, " ")
-    .trim();
-}
+// Source unique, partagée avec le script de nettoyage des intitulés
+// (packages/database/scripts/strip-objective-labels.ts) : une seule notion de doublon.
+export { documentTypeLabelKey };
 
 export function isCreatableCategory(category: string): category is CreatableDocumentCategory {
   return (CREATABLE_DOCUMENT_CATEGORIES as readonly string[]).includes(category);
