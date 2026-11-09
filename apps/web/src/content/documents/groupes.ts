@@ -152,8 +152,8 @@ export function documentGroupOf(code: string): DocumentGroupId | null {
 // Le dossier est un choix explicite du cabinet ; il décide donc le groupe. Clés = les
 // identifiants STABLES des dossiers posés par la migration 20261103100000
 // (`DOCUMENT_FOLDER_SEEDS`, concordance testée). Un dossier créé ensuite par le cabinet
-// n'est pas ici : il ne décide rien, le code puis la catégorie prennent le relais.
-// Choix provisoires, à relire par Sandrine.
+// n'est pas ici : il reste entier dans « Autres documents » — pour le ranger dans un
+// groupe, l'ajouter à cette table. Choix provisoires, à relire par Sandrine.
 export const DOCUMENT_GROUP_BY_FOLDER: Readonly<Record<string, DocumentGroupId>> = {
   "docfolder-sensibilisation-pro": "QUALITE",
   "docfolder-sensibilisation-pa": "PERSONNE_ACCOMPAGNEE",
@@ -181,10 +181,15 @@ export type GroupableDocumentType = {
   folder?: { id: string } | null;
 };
 
-// Règle unique : dossier connu → code rangé → catégorie d'une ligne du cabinet → `null`.
+// Règle unique. Une ligne rangée dans un DOSSIER suit le groupe du dossier, et rien
+// d'autre : un dossier n'est jamais coupé entre deux groupes (observé le 09/11/2026 :
+// « Sensibilisation des professionnels » entre RH et « Autres », « Pilotage qualité »
+// entre « Registres » et « Autres »). Un dossier créé par le cabinet, sans groupe
+// connu ici, reste ENTIER dans « Autres documents » (`null`) plutôt que d'être réparti
+// par les codes de ses lignes. Sans dossier : code rangé → catégorie d'une ligne du
+// cabinet → `null`.
 export function documentGroupFor(type: GroupableDocumentType): DocumentGroupId | null {
-  const byFolder = type.folder ? DOCUMENT_GROUP_BY_FOLDER[type.folder.id] : undefined;
-  if (byFolder) return byFolder;
+  if (type.folder) return DOCUMENT_GROUP_BY_FOLDER[type.folder.id] ?? null;
   const byCode = documentGroupOf(type.code);
   if (byCode) return byCode;
   if (type.category && type.code.startsWith(CABINET_CODE_PREFIX)) {
