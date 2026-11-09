@@ -99,7 +99,10 @@ vérifie** — sinon elle n'existe pas.
 | L'attribut `hidden` masque réellement, même sous une classe d'affichage | `globals.css` porte `[hidden]:where(:not([hidden="until-found"])){display:none !important}` — le préflight de Tailwind, sans `!important`, a la même spécificité que `.flex` (0,1,0) et vient plus tôt : `.flex` gagnait, et le repli du groupe « Réglages » de la barre latérale cabinet restait décoratif (16/10/2026) | `lib/design/hidden-attribute.test.ts` — **échoue** si le `!important` (ou l'exception `until-found`) disparaît de `globals.css` |
 | CVS « Non concerné » seulement avec une autre forme de participation, jamais fusionné avec l'enquête | refus serveur sans forme choisie ; la forme s'écrit sur la ligne « Autre forme de participation » seule ; un document NA sort des preuves attendues sans remplacement | `lib/services/participation-form-service.test.ts`, `missing-answer-service.test.ts`, `criteria-proof-service.test.ts`, `lib/actions/document.test.ts` |
 | Une analyse dit quand elle est finie, même si la page met du temps à se mettre à jour | `uploadDocument` et `reanalyzeDocument` ne font plus de `revalidatePath` (il faisait embarquer le rendu complet de la fiche à la réponse de l'action) : l'appelant passe par `useAnalysisRun`, qui affiche un pourcentage ESTIMÉ (« environ », plafonné à 90 %), puis « Analyse terminée — mise à jour de l'affichage… » pendant le `router.refresh()` | `lib/services/analysis-progress-service.test.ts`, `lib/actions/document.test.ts` (« rend la main sans re-rendre la page ») |
-| Une guideline posée là où elle ne sera pas lue est signalée ; un critère se rattache à la main | `guidelineReach` (matrice du type ∪ suggestions non rejetées du document) est la règle UNIQUE de `fetchCriterionGuidelines` et de `getGuidelineReach` ; `planManualLinks` n'écrit que des codes présents en base, `manualUnlinkError` refuse de retirer un rattachement proposé | `lib/services/criterion-guideline-service.test.ts`, `lib/services/criterion-matrix-service.test.ts`, `lib/actions/criterion-matrix.test.ts`, `lib/actions/document.test.ts` |
+| Une guideline posée là où elle ne sera pas lue est signalée ; un critère se coche et se décoche depuis la matrice, la fiche document et la page Critères d'une structure (retours de Sandrine, 09/11/2026) | `guidelineReach` (matrice du type ∪ suggestions non rejetées du document) est la règle UNIQUE de `fetchCriterionGuidelines` et de `getGuidelineReach` ; `planManualLinks` n'écrit que des codes présents en base ; UN composant (`CriterionLinker`, recherche `filterLinkableCriteria`) et UNE action de retrait (`unlinkCriterionFromDocumentType`) : décocher un critère proposé = le refuser (même suppression que `planMatrixDecision`), un ajout à la main = retrait, journal par codes (`describeCriterionUnlink`) ; `manualUnlinkError` ne refuse que ce qui n'est pas rattaché ; écriture CABINET_ADMIN, lecture `STRUCTURES_READ` | `lib/services/criterion-guideline-service.test.ts`, `lib/services/criterion-matrix-service.test.ts`, `lib/services/criterion-linker-service.test.ts`, `lib/actions/criterion-matrix.test.ts`, `lib/actions/document.test.ts` |
+| Une ligne de « Documents » créée par le cabinet se retire, sans effacer l'historique (« il manque des poubelles », 09/11/2026) | `planDocumentTypeRemoval` : ligne `EODA_…` jamais utilisée (aucun document, aucun gabarit) → supprimée ; utilisée → ARCHIVÉE (`DocumentType.archivedAt`, migration `20261109120000_document_type_archive`), rattachements de la matrice retirés dans la même transaction ; loi 2002-2 et référentiel refusés ; CABINET_ADMIN (`removeDocumentType`), journal `DOCUMENT_TYPE_DELETED` / `DOCUMENT_TYPE_ARCHIVED` par code ; une ligne archivée est absente de la checklist, de la détection, des options de dépôt, de la matrice, de la portée et des modèles, et ne bloque plus un intitulé (son code reste pris) | `lib/services/document-type-removal-service.test.ts`, `lib/actions/document-type-removal.test.ts`, `lib/actions/criterion-matrix.test.ts`, `lib/actions/document.test.ts` |
+| Le panneau d'un document se range en trois onglets, et dit quand l'analyse a relevé des manques (09/11/2026) | `DocumentSheetTabs` : « Le document » / « Critères HAS » / « Analyse », motif ARIA Tabs, onglets = liens `?onglet=` (`parseSheetTab`, `withSheetTab`) rendus par le serveur sans JS, onglet monté à sa première ouverture (chargement paresseux gardé) ; phrase `analysisMissingNotice` sous la pastille, lien vers l'onglet Analyse | `lib/services/document-sheet-tabs-service.test.ts` |
+| « Demander à la structure » depuis un élément manquant de l'analyse ne transporte pas l'analyse (09/11/2026) | `requestInformationFromStructure` : garde `requireEstablishmentAccess(DOCUMENTS_WRITE)`, compte de la structure refusé (`notFound`), accompagnement clôturé refusé, tâche `ActionItem` STRUCTURE source DOCUMENT liée au document, texte prérempli `defaultInformationRequestTitle` modifiable ; `notifyInformationRequested` : comptes rattachés, intitulé du type + « une information est attendue », décompte par `countDeliveries` ; journal sans le titre | `lib/actions/information-request.test.ts`, `lib/services/information-request-service.test.ts`, `lib/email/notifications.test.ts`, `lib/email/templates.test.ts` |
 | Le pool de connexions est borné, et le mode session du pooler est NOMMÉ | `resolveRuntimeDatabaseUrl` (paquet `@eoda/database`) pose `connection_limit=1` sur l'URL runtime **avant** la construction du client ; sans lui, Prisma ouvre `nb_cpu_physiques × 2 + 1` connexions par processus (21 sur le poste à 10 cœurs) contre **15 créneaux** en mode session, sur une base que le poste partage avec la production — incident du 16/10/2026 (`EMAXCONNSESSION`) ; `connectionPoolWarning` nomme le remède au démarrage au lieu de refuser de servir | `lib/db/database-url.test.ts` — dont le garde qui **échoue** si `packages/database/src/index.ts` cesse de passer l'URL résolue au client |
 
 **Dette acceptée, à réexaminer après le 22/09/2026** : `.npmrc` porte `node-linker=hoisted`,
@@ -1069,16 +1072,25 @@ Détail complet et état d'avancement : `specs/02-architecture-technique.md` §4
   prestation exigée (`devisContentError`). La mission qui en naît a `formule = null` →
   palier `SANS_OFFRE` (`offer-scope-service`) : socle loi 2002-2 + impératifs, **mode
   accompagné**, **aucun droit de génération**. Ne jamais lui inventer une formule.
-- **La matrice type de document → critère ne s'écrit que par l'écran**
-  `/dashboard/cabinet/criteres` (CABINET_ADMIN, spec 04) — jamais par seed ni migration.
-  La proposition du 08/10 y est embarquée et vérifiée contre sa source ; sur la carte
-  d'un type, seuls les critères **proposés et présents en base** sont décidables
-  (`planMatrixDecision`). **Depuis le 21/10/2026**, « Rattacher un critère à la main »
-  (même écran, CABINET_ADMIN) rattache n'importe quel critère du référentiel en base à
-  n'importe quel type (`planManualLinks`, codes recalculés, journal sans libellé) et ne
-  retire que ce qui n'est pas proposé (`manualUnlinkError`) — c'est ainsi qu'on fait
-  vérifier dans l'enquête les critères que le manuel attend d'une instance de
-  participation. Une **guideline n'est relue que pour les critères rattachés au type du
+- **La matrice type de document → critère ne s'écrit que par l'écran** — jamais par
+  seed ni migration —, et cet écran existe en TROIS menus qui partagent UN composant
+  (`CriterionLinker`, retours de Sandrine du 09/11/2026 : « je coche ce qui est bon,
+  je décoche ce qui ne l'est pas », « la même chose depuis plusieurs menus ») : la
+  matrice `/dashboard/cabinet/criteres`, l'onglet « Critères HAS » de la fiche
+  document, et la page Critères d'une structure (« Rattacher un document existant à
+  ce critère », « Retirer » sur chaque preuve). Écriture CABINET_ADMIN seule (spec 04) ;
+  lecture des critères d'un type (`getDocumentTypeLinks`) ouverte au cabinet qui lit
+  les structures. La proposition du 08/10 est embarquée et vérifiée contre sa source ;
+  sur la carte d'un type, seuls les critères **proposés et présents en base** sont
+  décidables (`planMatrixDecision`). Rattacher : n'importe quel critère du référentiel
+  en base à n'importe quel type en service (`planManualLinks`, codes recalculés,
+  journal sans libellé). **Retirer : UNE action, `unlinkCriterionFromDocumentType`**,
+  qui choisit l'écriture — un critère PROPOSÉ décoché est REFUSÉ (la même suppression
+  que la carte du type, rien d'autre n'est stocké ; journal « proposition refusée »),
+  un ajout à la main est retiré (« retrait manuel ») ; `manualUnlinkError` ne refuse
+  plus que ce qui n'est pas rattaché. Un type ARCHIVÉ répond comme un type inconnu.
+  ⚠️ « Charger toute la proposition » ajoute de nouveau un critère proposé refusé :
+  aucun refus n'est mémorisé. Une **guideline n'est relue que pour les critères rattachés au type du
   document ou reconnus dans ce document** (`guidelineReach`) : le formulaire le dit
   quand un critère coché n'en fait pas partie (call du 21/10 — les guidelines posées
   pour « forcer » un critère n'étaient jamais lues).
