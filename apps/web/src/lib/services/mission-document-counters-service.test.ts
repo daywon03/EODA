@@ -168,7 +168,6 @@ describe("validatedCounterLabel — jamais « conforme »", () => {
   });
 });
 
-<<<<<<< HEAD
 // Retour de Sandrine (call du 09/11/2026) : « ce qui doit refléter l'avancement, ce
 // sont les documents validés / prouvés, pas des cases cochées ». L'étape « Mise en
 // conformité » compte les documents ATTENDUS par l'offre qui sont PROUVÉS.
