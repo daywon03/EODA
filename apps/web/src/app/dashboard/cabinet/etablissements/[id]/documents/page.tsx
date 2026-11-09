@@ -273,7 +273,8 @@ export default async function StructureDocumentsPage({ params, searchParams }: P
               · {folder.rows.length} document{folder.rows.length > 1 ? "s" : ""} ici
               {folder.elsewhere.length > 0 && ` · ${describeElsewhere(folder.elsewhere)}`}
             </span>
-          </summary>
+          </summary>}
+        >
           {folder.elsewhere.length > 0 && (
             <p className="flex flex-wrap gap-x-4 gap-y-1 border-t border-line px-4 py-2 text-ink2">
               {folder.elsewhere.map(({ bucket, count }) => (
@@ -297,17 +298,6 @@ export default async function StructureDocumentsPage({ params, searchParams }: P
               className="rounded-t-none border-x-0 border-b-0"
             />
           )}
-        </details>
-          </summary>}
-        >
-          <DataTable
-            caption={`${folder.label} — ${DOCUMENT_BUCKET_LABELS[filters.bucket]}`}
-            columns={columns(menuContext)}
-            rows={folder.rows}
-            getRowKey={(row) => row.documentTypeId}
-            rowHref={(row) => documentsHref(basePath, { ...filters, doc: row.documentTypeId })}
-            className="rounded-t-none border-x-0 border-b-0"
-          />
         </FolderDetails>
       ))}
 
