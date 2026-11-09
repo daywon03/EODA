@@ -104,10 +104,35 @@ describe("documentGroupFor — dossier, puis code, puis catégorie d'une ligne d
     expect(documentGroupFor({ code: "EODA_PLAQUETTE_X", category: "FONCTIONNEMENT" })).toBeNull();
   });
 
-  it("un dossier créé par le cabinet (inconnu ici) ne décide rien : le code, puis la catégorie", () => {
+  it("un dossier créé par le cabinet (sans groupe connu) reste entier, à part — jamais coupé par les codes", () => {
     const folder = { id: "cm-dossier-cree-par-le-cabinet" };
-    expect(documentGroupFor({ code: "RH_DUERP", category: "RH", folder })).toBe("RISQUES");
-    expect(documentGroupFor({ code: "EODA_X", category: "RH", folder })).toBe("RESSOURCES_HUMAINES");
+    expect(documentGroupFor({ code: "RH_DUERP", category: "RH", folder })).toBeNull();
+    expect(documentGroupFor({ code: "EODA_X", category: "RH", folder })).toBeNull();
+  });
+
+  // Observé à l'écran le 09/11/2026 sur le portail de la structure pilote : le dossier
+  // « Sensibilisation des professionnels » coupé entre « Ressources humaines » (2) et
+  // « Autres documents » (20), « Pilotage qualité » entre « Registres » et « Autres ».
+  it("un dossier n'est JAMAIS coupé entre deux groupes, quels que soient les codes et catégories de ses lignes", () => {
+    const lines = [
+      { code: "QUALITE_FICHE_SENSIBILISATION", category: "QUALITE_RISQUES" as const },
+      { code: "P12_REGISTRE", category: "QUALITE_RISQUES" as const },
+      { code: "RH_DUERP", category: "RH" as const },
+      { code: "L2002_DIPC", category: "LOI_2002_2" as const },
+      { code: "EODA_FICHE_A", category: "RH" as const },
+      { code: "EODA_FICHE_B", category: "QUALITE_RISQUES" as const },
+      { code: "EODA_FICHE_C", category: "FONCTIONNEMENT" as const },
+      { code: "TYPE_INCONNU", category: "FONCTIONNEMENT" as const },
+    ];
+    const folderIds = [...DOCUMENT_FOLDER_SEEDS.map((f) => f.id), "cm-dossier-cree-par-le-cabinet"];
+    for (const id of folderIds) {
+      const groups = new Set(lines.map((line) => documentGroupFor({ ...line, folder: { id } })));
+      expect(groups.size, `dossier ${id}`).toBe(1);
+    }
+    // Le cas observé : un registre rangé dans « Pilotage qualité » suit le dossier.
+    expect(documentGroupFor({ code: "P12_REGISTRE", category: "QUALITE_RISQUES", folder: { id: "docfolder-pilotage-qualite" } })).toBe(
+      "QUALITE"
+    );
   });
 
   it("un code ni rangé ni créé par le cabinet reste à part (jamais deviné)", () => {

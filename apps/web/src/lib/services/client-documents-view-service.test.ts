@@ -280,6 +280,17 @@ describe("les sept groupes de « Mes documents »", () => {
       ["QUALITE", ["ref", "eoda"]],
     ]);
   });
+
+  it("un dossier créé par le cabinet reste entier dans « Autres documents », jamais coupé (observé le 09/11)", () => {
+    const folder = { id: "cm-dossier-cree-par-le-cabinet" };
+    const lignes: ClientDocumentRow[] = [
+      { documentTypeId: "reg", code: "P12_REGISTRE", label: "Registre", category: "QUALITE_RISQUES", state: "TO_CHECK", folder },
+      { documentTypeId: "eoda", code: "EODA_NOTE", label: "Note", category: "RH", state: "TO_CHECK", folder },
+    ];
+    expect(groupClientDocuments(lignes, null, "ACCOMPAGNE").map((g) => [g.id, g.rows.map((r) => r.documentTypeId)])).toEqual([
+      ["AUTRES", ["reg", "eoda"]],
+    ]);
+  });
 });
 
 describe("isSettledForClient", () => {
