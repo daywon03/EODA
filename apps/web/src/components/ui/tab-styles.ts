@@ -3,11 +3,15 @@ import { cn } from "@/lib/utils";
 // Apparence commune des deux variantes d'onglets — boutons (TabsWithCount, motif
 // ARIA « Tabs ») et liens (TabsNav, navigation entre routes). Une seule définition
 // pour qu'un onglet ait le même aspect quel que soit son mécanisme (D1).
-export const TAB_LIST_CLASS = "relative flex gap-1 overflow-x-auto border-b border-line";
+// `tab-scroller` (globals.css) : défilement sans barre visible, ombre au bord qui
+// déborde, filet du bas dessiné sans déborder (plus de barre verticale).
+export const TAB_LIST_CLASS = "tab-scroller relative flex gap-1 overflow-x-auto overflow-y-hidden";
 
 export function tabClassName(isSelected: boolean): string {
   return cn(
-    "-mb-px inline-flex min-h-11 items-center gap-2 whitespace-nowrap border-b-[3px] px-3 text-base",
+    // Contour de focus tracé À L'INTÉRIEUR : la barre coupe ce qui dépasse en hauteur,
+    // un contour extérieur y serait rogné (jamais retiré : ui-class-guard).
+    "inline-flex min-h-11 items-center gap-2 whitespace-nowrap border-b-[3px] px-3 text-base focus-visible:outline-offset-[-3px]",
     isSelected ? "border-accent-fill font-bold text-ink" : "border-transparent text-ink2 hover:border-line hover:text-ink"
   );
 }

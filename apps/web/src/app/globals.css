@@ -191,6 +191,33 @@
   }
 }
 
+@layer components {
+  /* Barre d'onglets qui déborde : jamais de barre de défilement visible (retour de
+   * Damon, 10/11/2026 — deux barres grises, dont une verticale, sous les onglets de
+   * la fiche structure). Le défilement reste (doigt, pavé tactile, Maj + molette,
+   * Tab qui amène l'onglet focalisé dans la vue) ; ce qui dépasse se SIGNALE par une
+   * ombre douce au bord concerné, et seulement quand il reste des onglets de ce
+   * côté-là : les deux premiers fonds suivent le contenu (`local`) et recouvrent
+   * l'ombre au début et à la fin, les deux derniers restent au bord (`scroll`).
+   * Aucun JavaScript (TabsNav est un composant serveur).
+   * `--tab-fade` = la couleur du fond sous la barre (page par défaut, carte dans un
+   * panneau). Le filet du bas est une ombre intérieure : une bordure + `-mb-px` sur
+   * les onglets débordait d'un pixel et faisait naître la barre verticale. */
+  .tab-scroller {
+    --tab-fade: var(--paper);
+    scrollbar-width: none;
+    background:
+      linear-gradient(to right, rgb(var(--tab-fade)) 30%, rgb(var(--tab-fade) / 0)) left center / 2.5rem 100% no-repeat local,
+      linear-gradient(to left, rgb(var(--tab-fade)) 30%, rgb(var(--tab-fade) / 0)) right center / 2.5rem 100% no-repeat local,
+      linear-gradient(to right, rgb(var(--ink) / 0.14), rgb(var(--ink) / 0)) left center / 1rem 100% no-repeat scroll,
+      linear-gradient(to left, rgb(var(--ink) / 0.14), rgb(var(--ink) / 0)) right center / 1rem 100% no-repeat scroll;
+    box-shadow: inset 0 -1px 0 rgb(var(--line));
+  }
+  .tab-scroller::-webkit-scrollbar {
+    display: none;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;

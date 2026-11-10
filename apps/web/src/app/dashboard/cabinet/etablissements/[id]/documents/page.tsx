@@ -279,6 +279,19 @@ export default async function StructureDocumentsPage({ params, searchParams }: P
         </div>
       )}
 
+      {/* Les documents hors dossier d'abord, juste sous les outils : c'est la liste
+          qu'on cherche ; les dossiers repliés suivent (retour de Damon, 10/11/2026). */}
+      {(foldered.loose.length > 0 || foldered.folders.length === 0) && (
+        <DataTable
+          caption={`Documents — ${DOCUMENT_BUCKET_LABELS[filters.bucket]}`}
+          columns={columns(menuContext)}
+          rows={foldered.loose}
+          getRowKey={(row) => row.documentTypeId}
+          rowHref={(row) => documentsHref(basePath, { ...filters, doc: row.documentTypeId })}
+          emptyMessage="Rien dans cette liste. Les documents apparaissent ici dès que leur état change."
+        />
+      )}
+
       {foldered.folders.map((folder) => (
         // Fermé par défaut ; ouvert quand on cherche, ou quand le document ouvert y est —
         // et il reste ouvert à la sortie du document (FolderDetails garde l'état).
@@ -320,17 +333,6 @@ export default async function StructureDocumentsPage({ params, searchParams }: P
           )}
         </FolderDetails>
       ))}
-
-      {(foldered.loose.length > 0 || foldered.folders.length === 0) && (
-        <DataTable
-          caption={`Documents — ${DOCUMENT_BUCKET_LABELS[filters.bucket]}`}
-          columns={columns(menuContext)}
-          rows={foldered.loose}
-          getRowKey={(row) => row.documentTypeId}
-          rowHref={(row) => documentsHref(basePath, { ...filters, doc: row.documentTypeId })}
-          emptyMessage="Rien dans cette liste. Les documents apparaissent ici dès que leur état change."
-        />
-      )}
     </div>
     </DocumentWorkspace>
   );
