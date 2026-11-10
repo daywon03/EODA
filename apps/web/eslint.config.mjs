@@ -50,6 +50,26 @@ const config = [
       // ── Pas de journalisation sauvage ────────────────────────────────────────
       "no-console": ["error", { allow: ["error", "warn"] }],
 
+      // ── Aucun import de VALEUR depuis @prisma/client ─────────────────────────
+      // Un objet d'énumération importé par un service pur atteint le navigateur dès
+      // qu'un composant client utilise ce service : il embarque tout `index-browser`
+      // de Prisma (22 Ko compressés sur l'onglet Mission, check:bundle du
+      // 10/11/2026). Les types restent permis ; une valeur s'écrit en littéraux
+      // tenus par un `Record<Enum, …>`, que le compilateur garde exhaustif.
+      "@typescript-eslint/no-restricted-imports": [
+        "error",
+        {
+          paths: [
+            {
+              name: "@prisma/client",
+              allowTypeImports: true,
+              message:
+                "Import de type seulement : une valeur de @prisma/client embarque Prisma dans le paquet du navigateur (budget P9). Écrire les littéraux dans un Record<Enum, …>.",
+            },
+          ],
+        },
+      ],
+
       // ── Aucun dialogue natif du navigateur ───────────────────────────────────
       // `window.confirm` / `alert` / `prompt` gèlent le fil d'exécution, ne sont ni
       // stylés ni traduisibles, et surtout : le navigateur propose de « bloquer les
@@ -105,7 +125,12 @@ const config = [
   // non nulles nécessaires pour vérifier une valeur derrière un `ok: true`.
   {
     files: ["**/*.test.ts"],
-    rules: { "@typescript-eslint/no-non-null-assertion": "off" },
+    rules: {
+      "@typescript-eslint/no-non-null-assertion": "off",
+      // Un test peut comparer une liste à l'énumération Prisma réelle : il n'est
+      // jamais servi au navigateur.
+      "@typescript-eslint/no-restricted-imports": "off",
+    },
   },
 
   // Fichiers de configuration exécutés AVANT l'application (build Next.js, config
