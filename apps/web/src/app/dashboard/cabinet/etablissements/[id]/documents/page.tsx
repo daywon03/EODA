@@ -209,6 +209,7 @@ export default async function StructureDocumentsPage({ params, searchParams }: P
             categoryLabel={DOCUMENT_CATEGORY_LABELS[opened.category]}
             establishmentId={id}
             canEditScope={canManageList}
+            canWriteGuidelines={hasCabinetCapability(role, "STRUCTURES_WRITE")}
             folders={folders}
             tab={parseSheetTab(raw.onglet)}
             panelHref={documentsHref(basePath, { ...filters, doc: opened.documentTypeId })}

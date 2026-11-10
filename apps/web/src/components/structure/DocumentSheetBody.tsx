@@ -44,6 +44,7 @@ export function DocumentSheetBody({
   categoryLabel,
   establishmentId,
   canEditScope,
+  canWriteGuidelines = false,
   folders = [],
   tab = "document",
   panelHref,
@@ -55,6 +56,9 @@ export function DocumentSheetBody({
   // Réglages de cabinet (CABINET_SETTINGS = administration) : nom, dossier, critères,
   // retrait de la ligne.
   canEditScope: boolean;
+  // Écrire une consigne pour l'IA sur un critère (STRUCTURES_WRITE : administration et
+  // consultante) — vérifié aussi par addCriterionGuidelines.
+  canWriteGuidelines?: boolean;
   // Dossiers de la liste, pour ranger la ligne (call du 29/10/2026).
   folders?: readonly { id: string; label: string }[];
   // Onglet demandé par l'adresse (`?onglet=`).
@@ -161,7 +165,15 @@ export function DocumentSheetBody({
         Les critères HAS que ce document doit prouver. La liste vaut pour toutes les structures
         {canEditScope ? "." : " ; seule l'administration la modifie."}
       </p>
-      <CriterionLinker typeCode={item.code} canEdit={canEditScope} />
+      <CriterionLinker
+        typeCode={item.code}
+        canEdit={canEditScope}
+        // Consignes pour l'IA sous chaque critère — jamais sur un document à accès
+        // restreint, que l'IA ne lit pas (ADR 20261110).
+        {...(item.restrictedAccess
+          ? {}
+          : { guidelines: { documentVersionId: version?.id ?? null, canWrite: canWriteGuidelines } })}
+      />
     </>
   );
 

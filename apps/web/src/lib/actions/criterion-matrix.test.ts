@@ -285,12 +285,13 @@ describe("lectures de la fiche document et de la page Critères (09/11/2026)", (
     requireCabinetSession.mockResolvedValue({ userId: "u-eval", tenantId: "t-1", role: "CABINET_EVALUATOR" });
     prismaMock.documentType.findUnique.mockResolvedValue({ id: "dt-enquete", archivedAt: null });
     prismaMock.documentTypeCriterion.findMany.mockResolvedValue([
-      { criterion: { code: "3.14.2", label: "Crise" } },
-      { criterion: { code: "1.3.1", label: "Participation" } },
+      { criterion: { id: "c-crise", code: "3.14.2", label: "Crise" } },
+      { criterion: { id: "c-part", code: "1.3.1", label: "Participation" } },
     ]);
+    // L'identifiant sert aux consignes pour l'IA posées depuis l'onglet (10/11/2026).
     expect(await getDocumentTypeLinks("QUALITE_ENQUETE_QUESTIONNAIRE")).toEqual([
-      { code: "1.3.1", label: "Participation", proposed: false },
-      { code: "3.14.2", label: "Crise", proposed: true },
+      { criterionId: "c-part", code: "1.3.1", label: "Participation", proposed: false },
+      { criterionId: "c-crise", code: "3.14.2", label: "Crise", proposed: true },
     ]);
     expect(requireCabinetSession).toHaveBeenCalledWith("STRUCTURES_READ");
   });

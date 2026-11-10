@@ -262,7 +262,8 @@ export async function promoteCriterionSuggestion(formData: FormData): Promise<{ 
 
 // ── Rattachement à la main (call du 21/10/2026) ─────────────────────────────
 
-export type DocumentTypeLink = { code: string; label: string; proposed: boolean };
+// `criterionId` : les consignes pour l'IA se posent sur le critère (CriterionGuideline).
+export type DocumentTypeLink = { criterionId: string; code: string; label: string; proposed: boolean };
 
 function proposedCodesFor(typeCode: string): Set<string> {
   return new Set(
@@ -282,11 +283,16 @@ export async function getDocumentTypeLinks(typeCode: string): Promise<DocumentTy
   if (!documentType) notFound();
   const links = await prisma.documentTypeCriterion.findMany({
     where: { documentTypeId: documentType.id },
-    select: { criterion: { select: { code: true, label: true } } },
+    select: { criterion: { select: { id: true, code: true, label: true } } },
   });
   const proposed = proposedCodesFor(typeCode);
   return links
-    .map((l) => ({ code: l.criterion.code, label: l.criterion.label, proposed: proposed.has(l.criterion.code) }))
+    .map((l) => ({
+      criterionId: l.criterion.id,
+      code: l.criterion.code,
+      label: l.criterion.label,
+      proposed: proposed.has(l.criterion.code),
+    }))
     .sort((a, b) => compareCriterionCodes(a.code, b.code));
 }
 

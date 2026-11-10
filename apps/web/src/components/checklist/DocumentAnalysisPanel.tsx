@@ -33,9 +33,6 @@ const RequestFromStructure = dynamic(() => import("./RequestFromStructure").then
 const AnalysisCriterionButton = dynamic(() =>
   import("./AnalysisCriterionButton").then((m) => m.AnalysisCriterionButton)
 );
-const AnalysisGuidelines = dynamic(() => import("./AnalysisGuidelines").then((m) => m.AnalysisGuidelines), {
-  loading: () => <p className="border-t border-gris-light pt-2 text-xs text-ink2">Chargement…</p>,
-});
 import type { CriterionSuggestionItem } from "@/lib/actions/checklist";
 
 // Résultat de l'analyse automatique d'une version déposée. Replié par défaut : la
@@ -310,7 +307,9 @@ export function DocumentAnalysisPanel({
             </div>
           )}
 
-          {canReview && <AnalysisGuidelines open={open} documentVersionId={documentVersionId ?? null} />}
+          {/* Les consignes pour l'IA sur un critère (« guidelines ») ne sont plus ici :
+              elles vivent sous chaque critère de l'onglet « Critères HAS » (10/11/2026,
+              CriterionGuidelineNotes) — un seul endroit pour les critères. */}
 
           {error && (
             <p role="alert" className="flex items-center gap-1.5 text-xs text-rouge-imp">
