@@ -75,6 +75,11 @@ export type DocumentAnalysisInput = {
   // de l'analyse (Document.analysisDirective, si `directiveInAnalysis`) — jamais
   // recopié à la main par un appelant, pour que réanalyser prenne la consigne à jour.
   analysisDirective?: string;
+  // Règle de gabarit propre au TYPE de document (E4, 10/11/2026 — PROVISOIRE) : pour une
+  // fiche de sensibilisation, « la date de dépôt fait foi ». Texte versionné de
+  // content/regles-redaction/gabarit.ts, jamais saisi par un utilisateur. Rendu dans le
+  // MESSAGE, jamais dans le prompt système (empreinte figée de la version « actuel »).
+  documentTypeNote?: string;
   // Version du prompt d'analyse (laboratoire, 29/10/2026) ; absente = version par défaut.
   promptVariant?: AnalysisPromptVariantId;
 };

@@ -455,6 +455,19 @@ describe("ingestDocumentVersion — commentaires du cabinet", () => {
     expect(analyze.mock.calls.at(-1)?.[0]).not.toHaveProperty("documentComment");
   });
 
+  it("fiche de sensibilisation : la règle « date de dépôt » est remise au port, et à elle seule (E4)", async () => {
+    const { llm, analyze } = arm();
+    prismaMock.document.findUnique.mockResolvedValueOnce({ documentType: { code: "PA_FICHE_P1_PLAINTES", folderId: null } });
+    await ingestDocumentVersion(baseInput({ extractedText: "Contenu." }), { storage: fakeStorage(), llm });
+    expect(analyze).toHaveBeenLastCalledWith(
+      expect.objectContaining({ documentTypeNote: expect.stringContaining("date de son dépôt sur la plateforme fait foi") })
+    );
+
+    prismaMock.document.findUnique.mockResolvedValueOnce({ documentType: { code: "L2002_LIVRET_ACCUEIL", folderId: null } });
+    await ingestDocumentVersion(baseInput({ extractedText: "Contenu." }), { storage: fakeStorage(), llm });
+    expect(analyze.mock.calls.at(-1)?.[0]).not.toHaveProperty("documentTypeNote");
+  });
+
   it("ne lit que les commentaires pris en compte par l'IA, et les remet au port", async () => {
     const { llm, analyze } = arm();
     await ingestDocumentVersion(baseInput({ extractedText: "Contenu." }), { storage: fakeStorage(), llm });

@@ -440,6 +440,12 @@ model Establishment {
   // l'impression, où une URL signée expirée donnerait un carré vide sur un document
   // remis au client.
   logoDataUri             String?        @map("logo_data_uri")
+  // CHARTE COULEUR (E1, call du 09/11/2026) — « #RRGGBB », saisie par le cabinet à
+  // côté du logo (parseBrandColors : hexadécimal, principale lisible sur le blanc).
+  // Appliquée au document FINAL d'une mise en conformité (titres, filets), jamais à
+  // la page de garde EODA. NULL = rendu par défaut.
+  brandPrimaryColor       String?        @map("brand_primary_color")
+  brandSecondaryColor     String?        @map("brand_secondary_color")
   // Historique/affichage uniquement — non éditable via l'UI. La formule qui fait
   // autorité pour le périmètre d'accompagnement réellement contracté est
   // Mission.formule (cf. section PIPELINE COMMERCIAL / SUIVI DE MISSION plus bas).

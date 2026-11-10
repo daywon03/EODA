@@ -31,7 +31,7 @@ const versionSelect = {
       establishmentId: true,
       currentVersionId: true,
       documentTypeId: true,
-      documentType: { select: { id: true, label: true, code: true, category: true } },
+      documentType: { select: { id: true, label: true, code: true, category: true, folderId: true } },
       establishment: { select: { name: true } },
     },
   },
@@ -52,6 +52,8 @@ export type CorrectionContext = {
     documentTypeId: string;
     documentLabel: string;
     documentCode: string;
+    // Dossier de la ligne (« Sensibilisation… » : la date de dépôt fait foi, E4).
+    documentFolderId: string | null;
     establishmentId: string;
     establishmentName: string;
   };
@@ -95,6 +97,7 @@ export async function openCorrectionContext(versionId: unknown): Promise<Correct
       documentTypeId: documentType.id,
       documentLabel: documentType.label,
       documentCode: documentType.code,
+      documentFolderId: documentType.folderId ?? null,
       establishmentId: document.establishmentId,
       establishmentName: document.establishment.name,
     },
