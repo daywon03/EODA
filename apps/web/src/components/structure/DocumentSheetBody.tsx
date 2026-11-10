@@ -123,6 +123,8 @@ export function DocumentSheetBody({
         <DocumentUploadButton
           establishmentId={establishmentId}
           documentTypeId={item.documentTypeId}
+          documentLabel={item.label}
+          documentValidated={item.validatedAt !== null}
           showModelSelector
           offerCabinetFinal
         />
