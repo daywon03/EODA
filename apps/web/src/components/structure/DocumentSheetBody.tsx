@@ -123,6 +123,8 @@ export function DocumentSheetBody({
         <DocumentUploadButton
           establishmentId={establishmentId}
           documentTypeId={item.documentTypeId}
+          documentLabel={item.label}
+          documentValidated={item.validatedAt !== null}
           showModelSelector
           offerCabinetFinal
         />
@@ -175,6 +177,9 @@ export function DocumentSheetBody({
           criterionSuggestions={version.criterionSuggestions}
           defaultOpen
           requestContext={{ establishmentId, documentTypeId: item.documentTypeId, documentLabel: item.label }}
+          // Administration seule, comme la matrice : retirer un critère attendu,
+          // rattacher un critère détecté (09/11/2026).
+          matrixTypeCode={canEditScope ? item.code : undefined}
         />
       ) : (
         <p className="text-ink2">

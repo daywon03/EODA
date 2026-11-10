@@ -9,7 +9,12 @@ import {
   type DocumentTypeLink,
 } from "@/lib/actions/criterion-matrix";
 import { listCriteriaForPicker, type CriterionOption } from "@/lib/actions/document";
-import { filterLinkableCriteria } from "@/lib/services/criterion-linker-service";
+import {
+  filterLinkableCriteria,
+  linkedCriteriaMessage,
+  unlinkCriterionQuestion,
+  unlinkedCriterionMessage,
+} from "@/lib/services/criterion-linker-service";
 import { Button } from "@/components/ui/button";
 import { ConfirmActionButton } from "@/components/ui/confirm-action-button";
 
@@ -87,10 +92,7 @@ export function CriterionLinker({ typeCode, canEdit }: { typeCode: string; canEd
       }
       setSelected(new Set());
       setLinks(await getDocumentTypeLinks(typeCode));
-      setMessage({
-        tone: "ok",
-        text: `${plural(result.added, "critère")} rattaché${result.added > 1 ? "s" : ""}. Relancez l'analyse des documents de ce type pour qu'ils soient vérifiés.`,
-      });
+      setMessage({ tone: "ok", text: linkedCriteriaMessage(result.added) });
     });
   }
 
@@ -98,7 +100,7 @@ export function CriterionLinker({ typeCode, canEdit }: { typeCode: string; canEd
     const result = await unlinkCriterionFromDocumentType(typeCode, code);
     if (!result) {
       setLinks(await getDocumentTypeLinks(typeCode));
-      setMessage({ tone: "ok", text: `Critère ${code} retiré de ce type de document.` });
+      setMessage({ tone: "ok", text: unlinkedCriterionMessage(code) });
     }
     return result;
   }
@@ -136,11 +138,7 @@ export function CriterionLinker({ typeCode, canEdit }: { typeCode: string; canEd
                     label="Retirer"
                     accessibleLabel={`Retirer le critère ${l.code}`}
                     icon={X}
-                    question={
-                      l.proposed
-                        ? `Retirer ${l.code} ? C'est refuser la proposition de la matrice : les analyses ne le vérifieront plus, pour toutes les structures.`
-                        : `Retirer ${l.code} ? Les analyses ne le vérifieront plus pour ce document, dans toutes les structures.`
-                    }
+                    question={unlinkCriterionQuestion(l.code, l.proposed)}
                     confirmLabel="Retirer"
                     onConfirm={() => unlink(l.code)}
                   />

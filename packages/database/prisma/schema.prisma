@@ -958,6 +958,18 @@ model DocumentVersion {
   correctedDraftMarkdown    String?   @map("corrected_draft_markdown")
   correctedDraftGeneratedAt DateTime? @map("corrected_draft_generated_at")
 
+  // DÉPÔT ANNULABLE (retour de Sandrine, 09/11/2026 : « je me suis trompée et je n'ai
+  // pas pu empêcher l'action »). Quand le dépôt du cabinet VAUT validation (« Version
+  // finale d'EODA »), il écrase `Document.validatedAt`. Pour qu'une annulation
+  // (`cancelDocumentDeposit`) rétablisse l'état d'AVANT plutôt que de deviner, le
+  // dépôt garde ici ce qu'il a remplacé : `validatedOnDeposit` = ce dépôt a validé ;
+  // `priorValidated*` = la validation antérieure (null = le document ne l'était pas).
+  // `priorValidatedByUserId` est une COPIE datée, sans relation : à la restauration,
+  // un compte disparu entre-temps est remplacé par null (cf. l'action).
+  validatedOnDeposit     Boolean   @default(false) @map("validated_on_deposit")
+  priorValidatedAt       DateTime? @map("prior_validated_at")
+  priorValidatedByUserId String?   @map("prior_validated_by_user_id")
+
   document               Document                      @relation("AllVersions", fields: [documentId], references: [id])
   uploadedBy             User                          @relation("UploadedBy", fields: [uploadedByUserId], references: [id])
   // SetNull : la désactivation d'un compte ne doit pas dépublier une analyse déjà
@@ -1849,6 +1861,9 @@ enum AuditAction {
   MISSION_SCOPE_UPDATED
   // Cycle de vie d'une version de document
   DOCUMENT_VERSION_DELETED
+  // Dépôt annulé par son auteur pendant l'envoi : la version qu'il venait de déposer
+  // est retirée, et la validation posée par ce dépôt défaite (09/11/2026).
+  DOCUMENT_DEPOSIT_CANCELLED
   DOCUMENT_JUSTIFICATION_UPDATED
   // Correction du TYPE d'un document (« ce n'est pas un compte-rendu CVS, c'est une
   // enquête de satisfaction ») et consigne d'analyse. `targetId` = le type visé,

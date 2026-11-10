@@ -237,7 +237,7 @@ describe("uploadDocument — version finale d'EODA (call du 18/10/2026)", () => 
 
     expect(prismaMock.documentVersion.update).toHaveBeenCalledWith({
       where: { id: "dv-1" },
-      data: { analysisReviewedAt: expect.any(Date) },
+      data: expect.objectContaining({ analysisReviewedAt: expect.any(Date), validatedOnDeposit: true }),
     });
     expect(prismaMock.document.update).toHaveBeenCalledWith(
       expect.objectContaining({ data: { validatedAt: expect.any(Date), validatedByUserId: "consultante-1" } })
@@ -246,6 +246,51 @@ describe("uploadDocument — version finale d'EODA (call du 18/10/2026)", () => 
       expect.objectContaining({ action: "DOCUMENT_VALIDATED", targetId: "doc-1" })
     );
     expect(notifyDocumentAvailable).toHaveBeenCalled();
+  });
+
+  // Dépôt annulable (09/11/2026) : la version garde la validation qu'elle remplace,
+  // pour que `cancelDocumentDeposit` rétablisse l'état d'AVANT au lieu de le deviner.
+  it("garde sur la version la validation qu'il remplace (document déjà validé)", async () => {
+    cabinetAccess();
+    const before = new Date("2026-11-01T09:00:00Z");
+    prismaMock.document.findUnique.mockResolvedValueOnce({ validatedAt: before, validatedByUserId: "consultante-2" });
+
+    await uploadDocument(finalForm());
+
+    expect(prismaMock.documentVersion.update).toHaveBeenCalledWith({
+      where: { id: "dv-1" },
+      data: {
+        analysisReviewedAt: expect.any(Date),
+        validatedOnDeposit: true,
+        priorValidatedAt: before,
+        priorValidatedByUserId: "consultante-2",
+      },
+    });
+  });
+
+  it("garde « pas de validation avant » quand le document n'était pas validé", async () => {
+    cabinetAccess();
+    prismaMock.document.findUnique.mockResolvedValueOnce({ validatedAt: null, validatedByUserId: null });
+
+    await uploadDocument(finalForm());
+
+    expect(prismaMock.documentVersion.update).toHaveBeenCalledWith({
+      where: { id: "dv-1" },
+      data: expect.objectContaining({ validatedOnDeposit: true, priorValidatedAt: null, priorValidatedByUserId: null }),
+    });
+  });
+
+  it("dit combien d'e-mails sont réellement partis (l'annulation le répète)", async () => {
+    cabinetAccess();
+    const result = await uploadDocument(finalForm());
+    expect(result).toMatchObject({ success: true, notifiedCount: 2 });
+  });
+
+  it("dépôt du cabinet non annoncé : aucun e-mail compté", async () => {
+    cabinetAccess();
+    prismaMock.document.findUnique.mockResolvedValue({ validatedAt: null });
+    const result = await uploadDocument(uploadForm(LOI_TYPE.id));
+    expect(result).toMatchObject({ success: true, notifiedCount: 0 });
   });
 
   it("décoché (dépôt pour le compte de la structure), rien n'est validé en silence", async () => {
@@ -286,7 +331,7 @@ describe("uploadDocument — périmètre de l'offre", () => {
 
     const result = await uploadDocument(uploadForm(LOI_TYPE.id));
 
-    expect(result).toEqual({ success: true, documentTypeId: LOI_TYPE.id, documentVersionId: "dv-1" });
+    expect(result).toEqual({ success: true, documentTypeId: LOI_TYPE.id, documentVersionId: "dv-1", notifiedCount: 1 });
     expect(ingestDocumentVersion).toHaveBeenCalledTimes(1);
   });
 
@@ -310,7 +355,7 @@ describe("uploadDocument — périmètre de l'offre", () => {
 
     const result = await uploadDocument(uploadForm(RH_TYPE.id));
 
-    expect(result).toEqual({ success: true, documentTypeId: RH_TYPE.id, documentVersionId: "dv-1" });
+    expect(result).toEqual({ success: true, documentTypeId: RH_TYPE.id, documentVersionId: "dv-1", notifiedCount: 1 });
     expect(ingestDocumentVersion).toHaveBeenCalledTimes(1);
   });
 
@@ -322,6 +367,7 @@ describe("uploadDocument — périmètre de l'offre", () => {
       success: true,
       documentTypeId: RH_TYPE.id,
       documentVersionId: "dv-1",
+      notifiedCount: 1,
     });
   });
 

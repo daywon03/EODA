@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   CLIENT_DOCUMENT_VIEWS,
+  clientDocumentsViewHref,
   clientViewOf,
   countClientViews,
   describeClientTodo,
@@ -74,6 +75,14 @@ describe("describeClientView — un mot, un pictogramme, une phrase", () => {
       }
     }
     expect(describeClientView("fait", "ACCOMPAGNE").sentence).toMatch(/acceptés par vous/);
+  });
+});
+
+describe("clientDocumentsViewHref — un seul lien vers un onglet de « Mes documents »", () => {
+  it("écrit l'adresse que parseClientDocumentView relit", () => {
+    expect(clientDocumentsViewHref("a-faire")).toBe("/dashboard/client/documents?vue=a-faire");
+    const view = new URL(clientDocumentsViewHref("fait"), "https://exemple.test").searchParams.get("vue");
+    expect(parseClientDocumentView(view ? { vue: view } : {}, "ACCOMPAGNE")).toBe("fait");
   });
 });
 
