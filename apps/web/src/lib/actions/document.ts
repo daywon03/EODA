@@ -26,6 +26,7 @@ import {
   planDepositCancellation,
   validationOutcome,
   type ValidationOutcome,
+  type ValidationRollback,
 } from "@/lib/services/document-deposit-service";
 import {
   canDepositDocumentFile,
@@ -944,7 +945,7 @@ export async function deleteDocumentVersion(
     };
   }
 
-  const removal = await removeDocumentVersion(version, null);
+  const removal = await removeDocumentVersion(version);
   if (removal) return removal;
 
   await recordAuditEvent({
@@ -969,17 +970,32 @@ export async function deleteDocumentVersion(
 // l'identifiant de la version (document-deposit-service). Elle :
 //   - passe la MÊME garde que la suppression (établissement propriétaire, résolu en
 //     base), et la règle de la suppression PLUS l'auteur exact : on n'annule que SON
-//     PROPRE dernier dépôt (`planDepositCancellation`) ;
-//   - retire la version par le MÊME chemin (`removeDocumentVersion` : stockage,
-//     images, rendu en cache, ligne) ;
-//   - défait la validation posée par ce dépôt (« Version finale d'EODA ») : la
-//     validation d'avant, gardée sur la version au dépôt, est rétablie ; sinon elle
-//     est retirée — dans la même transaction que le retrait.
+//     PROPRE dernier dépôt (`planDepositCancellation`) ; une mission close ou un accès
+//     révoqué refusent, comme le dépôt ; une structure n'annule plus un dépôt relu par
+//     EODA ou accepté depuis (relecture de sécurité du 10/11/2026) ;
+//   - retire la version dans une transaction VERROUILLÉE PAR CONDITION : le document ne
+//     bascule que s'il pointe encore cette version (`currentVersionId`), sinon un autre
+//     dépôt est arrivé et rien n'est annulé ; une seconde annulation concurrente rend un
+//     message (P2025 toléré). Le stockage n'est supprimé qu'APRÈS la transaction réussie ;
+//   - défait la validation posée par ce dépôt (« Version finale d'EODA ») — rétablie si
+//     le document l'était avant, retirée sinon — SEULEMENT si elle est encore celle du
+//     dépôt (même horodatage que `analysisReviewedAt`, posés ensemble par
+//     `uploadDocument`) : quelqu'un qui a re-validé entre-temps garde sa validation.
+//     L'acceptation de la structure tombe avec elle : une ancienne acceptation ne
+//     « revient » pas sur la version rétablie.
 // Ce qu'elle NE défait PAS, et que l'écran dit : un e-mail déjà parti, l'appel au
 // modèle déjà payé, la trace DOCUMENT_UPLOADED du journal (append-only).
 export type CancelDocumentDepositResult =
   | { cancelled: true; validation: ValidationOutcome }
   | { error: string };
+
+const CANCELLATION_REFUSALS: Record<"NOT_OWN_DEPOSIT" | "NOT_LATEST" | "REVIEWED_SINCE_DEPOSIT", string> = {
+  NOT_LATEST:
+    "Ce dépôt n'est plus la dernière version : il ne s'annule plus. Retirez-le depuis l'historique des versions si besoin.",
+  NOT_OWN_DEPOSIT: "Vous ne pouvez annuler que votre propre dépôt.",
+  REVIEWED_SINCE_DEPOSIT:
+    "Ce dépôt a déjà été relu ou accepté : il ne s'annule plus. Contactez votre consultant EODA pour toute correction.",
+};
 
 export async function cancelDocumentDeposit(documentVersionId: string): Promise<CancelDocumentDepositResult> {
   if (typeof documentVersionId !== "string" || documentVersionId.length === 0) {
@@ -993,6 +1009,8 @@ export async function cancelDocumentDeposit(documentVersionId: string): Promise<
       documentId: true,
       fileStorageKey: true,
       uploadedByUserId: true,
+      uploadedAt: true,
+      analysisReviewedAt: true,
       validatedOnDeposit: true,
       priorValidatedAt: true,
       priorValidatedByUserId: true,
@@ -1001,6 +1019,8 @@ export async function cancelDocumentDeposit(documentVersionId: string): Promise<
           id: true,
           establishmentId: true,
           currentVersionId: true,
+          validatedAt: true,
+          clientAcceptedAt: true,
           documentType: { select: { code: true } },
         },
       },
@@ -1009,6 +1029,8 @@ export async function cancelDocumentDeposit(documentVersionId: string): Promise<
   if (!version) notFound();
 
   const access = await requireEstablishmentAccess(version.document.establishmentId, NEED.DOCUMENTS_WRITE);
+  // Annuler retire une version : c'est une écriture, fermée comme le dépôt.
+  if (!canDepositDocuments(access.missionAccess)) return { error: DEPOSIT_CLOSED_MESSAGE };
 
   const uploader = await prisma.user.findUnique({
     where: { id: version.uploadedByUserId },
@@ -1023,29 +1045,15 @@ export async function cancelDocumentDeposit(documentVersionId: string): Promise<
     validatedOnDeposit: version.validatedOnDeposit,
     priorValidatedAt: version.priorValidatedAt,
     priorValidatedByUserId: version.priorValidatedByUserId,
+    versionUploadedAt: version.uploadedAt,
+    documentValidatedAt: version.document.validatedAt,
+    clientAcceptedAt: version.document.clientAcceptedAt,
   });
-  if (!plan.ok) {
-    return {
-      error:
-        plan.reason === "NOT_LATEST"
-          ? "Ce dépôt n'est plus la dernière version : il ne s'annule plus. Retirez-le depuis l'historique des versions si besoin."
-          : "Vous ne pouvez annuler que votre propre dépôt.",
-    };
-  }
+  if (!plan.ok) return { error: CANCELLATION_REFUSALS[plan.reason] };
 
-  let validationPatch: { validatedAt: Date | null; validatedByUserId: string | null } | null = null;
-  if (plan.validation.kind === "REMOVE") validationPatch = { validatedAt: null, validatedByUserId: null };
-  if (plan.validation.kind === "RESTORE") {
-    // Copie datée sans clé étrangère : un compte disparu entre-temps ne doit pas faire
-    // échouer la restauration (la relation de `documents` est en SetNull).
-    const previousValidator = plan.validation.validatedByUserId
-      ? await prisma.user.findUnique({ where: { id: plan.validation.validatedByUserId }, select: { id: true } })
-      : null;
-    validationPatch = { validatedAt: plan.validation.validatedAt, validatedByUserId: previousValidator?.id ?? null };
-  }
-
-  const removal = await removeDocumentVersion(version, validationPatch);
-  if (removal) return removal;
+  const withdrawal = await withdrawCancelledDeposit(version, await validationReset(plan.validation, version.analysisReviewedAt));
+  if ("error" in withdrawal) return withdrawal;
+  const validation: ValidationOutcome = withdrawal.validationReset ? validationOutcome(plan.validation) : "UNCHANGED";
 
   const audit = {
     actorUserId: access.userId,
@@ -1060,24 +1068,47 @@ export async function cancelDocumentDeposit(documentVersionId: string): Promise<
   });
   // Même trace que `setDocumentValidated` quand la validation tombe : l'historique de
   // validation d'un document se lit sur ces deux actions.
-  if (plan.validation.kind === "REMOVE") {
+  if (validation === "REMOVED") {
     await recordAuditEvent({ ...audit, action: "DOCUMENT_UNVALIDATED", targetId: version.document.id });
   }
 
   revalidateDocumentViews(version.document.establishmentId);
-  return { cancelled: true, validation: validationOutcome(plan.validation) };
+  return { cancelled: true, validation };
+}
+
+type ValidationPatch = { validatedAt: Date | null; validatedByUserId: string | null };
+// La validation à défaire, et la preuve qu'elle est encore celle du dépôt : l'horodatage
+// que `uploadDocument` a posé à la fois sur la version (`analysisReviewedAt`) et sur le
+// document (`validatedAt`). Sans cet horodatage, rien ne prouve que la validation est
+// celle du dépôt : on n'y touche pas.
+type ValidationReset = { depositValidatedAt: Date; patch: ValidationPatch };
+
+async function validationReset(rollback: ValidationRollback, depositStamp: Date | null): Promise<ValidationReset | null> {
+  if (rollback.kind === "UNCHANGED" || depositStamp === null) return null;
+  if (rollback.kind === "REMOVE") return { depositValidatedAt: depositStamp, patch: { validatedAt: null, validatedByUserId: null } };
+  // Copie datée sans clé étrangère : un compte disparu entre-temps ne doit pas faire
+  // échouer la restauration (la relation de `documents` est en SetNull).
+  const previousValidator = rollback.validatedByUserId
+    ? await prisma.user.findUnique({ where: { id: rollback.validatedByUserId }, select: { id: true } })
+    : null;
+  return { depositValidatedAt: depositStamp, patch: { validatedAt: rollback.validatedAt, validatedByUserId: previousValidator?.id ?? null } };
+}
+
+class DepositSupersededError extends Error {}
+
+// Une seconde annulation concurrente a déjà supprimé la ligne : Prisma rend P2025.
+function isRecordAlreadyGone(error: unknown): boolean {
+  return typeof error === "object" && error !== null && "code" in error && error.code === "P2025";
 }
 
 // Retrait d'une version : stockage D'ABORD, images, rendu en cache, puis la ligne et
-// le document dans une transaction. Partagé par la suppression (`deleteDocumentVersion`)
-// et l'annulation d'un dépôt (`cancelDocumentDeposit`) — un seul chemin, sinon l'un des
-// deux finit par oublier le rendu en cache ou les images.
+// le document dans une transaction. Chemin de la SUPPRESSION (`deleteDocumentVersion`).
+// L'annulation d'un dépôt (`withdrawCancelledDeposit`) partage les mêmes morceaux dans
+// l'ordre inverse — la transaction verrouillée d'abord — parce qu'une annulation court
+// contre le dépôt suivant.
 //
-// NON exporté (tout export d'un fichier "use server" est une route publique) : les
+// NON exportés (tout export d'un fichier "use server" est une route publique) : les
 // appelants ont déjà passé la garde ET la règle de qui peut retirer quoi.
-//
-// `validationPatch` : la validation à réécrire dans la MÊME transaction (annulation
-// d'un dépôt qui l'avait posée) ; `null` = la validation n'est pas touchée.
 type RemovableVersion = {
   id: string;
   documentId: string;
@@ -1085,21 +1116,61 @@ type RemovableVersion = {
   document: { currentVersionId: string | null };
 };
 
-async function removeDocumentVersion(
-  version: RemovableVersion,
-  validationPatch: { validatedAt: Date | null; validatedByUserId: string | null } | null
-): Promise<{ error: string } | null> {
-  // Récupérées AVANT la transaction : le cascade Prisma (onDelete: Cascade) va
-  // supprimer les lignes DocumentVersionImage, mais jamais les objets qu'elles
-  // pointent dans le stockage — sans quoi ils restent orphelins dans le bucket,
-  // porteurs potentiels de données personnelles (droit à l'effacement).
-  const imageKeys = (
-    await prisma.documentVersionImage.findMany({
-      where: { documentVersionId: version.id },
-      select: { fileStorageKey: true },
-    })
-  ).map((image) => image.fileStorageKey);
+// Récupérées AVANT la transaction : le cascade Prisma (onDelete: Cascade) va supprimer
+// les lignes DocumentVersionImage, mais jamais les objets qu'elles pointent dans le
+// stockage — sans quoi ils restent orphelins dans le bucket, porteurs potentiels de
+// données personnelles (droit à l'effacement).
+async function collectImageKeys(versionId: string): Promise<string[]> {
+  const images = await prisma.documentVersionImage.findMany({
+    where: { documentVersionId: versionId },
+    select: { fileStorageKey: true },
+  });
+  return images.map((image) => image.fileStorageKey);
+}
 
+// Best-effort, image par image : l'échec de suppression d'une image ne bloque JAMAIS le
+// retrait — ce ne sont que des objets déjà orphelins en base une fois le cascade passé.
+// Les pages rendues pour l'aperçu sont DÉRIVÉES de la pièce retirée : elles partent avec
+// elle (un PDF garde le texte du document) ; la plupart des versions n'en ont aucune.
+async function deleteDerivedObjects(versionId: string, imageKeys: string[]): Promise<void> {
+  for (const imageKey of imageKeys) {
+    try {
+      await getFileStoragePort().delete(imageKey);
+    } catch (error) {
+      console.error("Suppression d'une image de document échouée — objet orphelin dans le stockage :", error);
+    }
+  }
+  await deleteCachedDocumentPdf(versionId);
+}
+
+// Le document APRÈS le retrait de sa version courante.
+//   - une version précédente redevient courante, « déposée » : un fichier est bien là,
+//     sa conformité n'est plus établie tant qu'elle n'est pas réanalysée ;
+//   - plus aucune version : le document redevient MANQUANT (un COMPLIANT sans fichier
+//     produirait une checklist qui ment, et un critère HAS coté sur une preuve absente).
+async function documentAfterRemoval(
+  tx: Prisma.TransactionClient,
+  version: RemovableVersion
+): Promise<{ currentVersionId: string | null; status: "UPLOADED" | "MISSING"; statusOverriddenByUser: false }> {
+  // Versions régénérées à partir de celle-ci : le lien de filiation est coupé plutôt que
+  // de faire échouer la suppression sur une contrainte de clé étrangère.
+  await tx.documentVersion.updateMany({
+    where: { regeneratedFromVersionId: version.id },
+    data: { regeneratedFromVersionId: null },
+  });
+  const previous = await tx.documentVersion.findFirst({
+    where: { documentId: version.documentId, id: { not: version.id } },
+    orderBy: { versionNumber: "desc" },
+    select: { id: true },
+  });
+  return previous
+    ? { currentVersionId: previous.id, status: "UPLOADED", statusOverriddenByUser: false }
+    : { currentVersionId: null, status: "MISSING", statusOverriddenByUser: false };
+}
+
+// ORDRE de la suppression : l'objet de stockage D'ABORD (cf. `deleteDocumentVersion`).
+async function removeDocumentVersion(version: RemovableVersion): Promise<{ error: string } | null> {
+  const imageKeys = await collectImageKeys(version.id);
   try {
     await getFileStoragePort().delete(version.fileStorageKey);
   } catch (error) {
@@ -1109,68 +1180,57 @@ async function removeDocumentVersion(
         "Le fichier n'a pas pu être supprimé du stockage. Rien n'a été effacé : réessayez, et signalez l'incident si l'erreur persiste.",
     };
   }
-
-  // Best-effort, image par image : contrairement au fichier principal ci-dessus,
-  // l'échec de suppression d'une image ne bloque JAMAIS la suppression du
-  // document — ce ne sont que des objets déjà orphelins en base une fois le
-  // cascade passé, pas la pièce que le cabinet ou le client vient de retirer.
-  for (const imageKey of imageKeys) {
-    try {
-      await getFileStoragePort().delete(imageKey);
-    } catch (error) {
-      console.error("Suppression d'une image de document échouée — objet orphelin dans le stockage :", error);
-    }
-  }
-
-  // Les pages rendues pour l'aperçu sont DÉRIVÉES de la pièce qui vient d'être
-  // supprimée : elles partent avec elle, pour la même raison que les images
-  // ci-dessus (droit à l'effacement — un PDF garde le texte du document). Best-effort
-  // lui aussi, et il le faut : la plupart des versions n'ont jamais été ouvertes en
-  // aperçu, donc n'ont aucun rendu à supprimer.
-  await deleteCachedDocumentPdf(version.id);
+  await deleteDerivedObjects(version.id, imageKeys);
 
   await prisma.$transaction(async (tx) => {
-    // Versions régénérées à partir de celle-ci : le lien de filiation est coupé
-    // plutôt que de faire échouer la suppression sur une contrainte de clé étrangère.
-    await tx.documentVersion.updateMany({
-      where: { regeneratedFromVersionId: version.id },
-      data: { regeneratedFromVersionId: null },
-    });
-
+    const after = await documentAfterRemoval(tx, version);
     if (version.document.currentVersionId === version.id) {
-      const previous = await tx.documentVersion.findFirst({
-        where: { documentId: version.documentId, id: { not: version.id } },
-        orderBy: { versionNumber: "desc" },
-        select: { id: true },
-      });
-
-      await tx.document.update({
-        where: { id: version.documentId },
-        data: previous
-          ? {
-              currentVersionId: previous.id,
-              // Le statut décrivait l'analyse de la version supprimée. La version
-              // remise en courant redevient « déposée » : un fichier est bien là,
-              // sa conformité n'est plus établie tant qu'elle n'est pas réanalysée.
-              status: "UPLOADED",
-              statusOverriddenByUser: false,
-              ...validationPatch,
-            }
-          : {
-              // Dernière version supprimée : le document redevient MANQUANT. Le laisser
-              // COMPLIANT sans aucun fichier produirait une checklist qui ment, et un
-              // critère HAS coté sur une preuve inexistante.
-              currentVersionId: null,
-              status: "MISSING",
-              statusOverriddenByUser: false,
-              ...validationPatch,
-            },
-      });
+      await tx.document.update({ where: { id: version.documentId }, data: after });
     }
-
     await tx.documentVersion.delete({ where: { id: version.id } });
   });
   return null;
+}
+
+// ORDRE de l'annulation : la transaction VERROUILLÉE d'abord, le stockage ensuite. Un
+// stockage en échec après coup laisse un objet orphelin, signalé au journal d'erreurs —
+// la version, elle, est bien retirée et l'écran le dit.
+async function withdrawCancelledDeposit(
+  version: RemovableVersion,
+  reset: ValidationReset | null
+): Promise<{ error: string } | { validationReset: boolean }> {
+  const imageKeys = await collectImageKeys(version.id);
+  let validationWasReset = false;
+  try {
+    await prisma.$transaction(async (tx) => {
+      const after = await documentAfterRemoval(tx, version);
+      const moved = await tx.document.updateMany({
+        where: { id: version.documentId, currentVersionId: version.id },
+        data: after,
+      });
+      if (moved.count === 0) throw new DepositSupersededError();
+      if (reset) {
+        const reverted = await tx.document.updateMany({
+          where: { id: version.documentId, validatedAt: reset.depositValidatedAt },
+          data: { ...reset.patch, clientAcceptedAt: null, clientAcceptedByUserId: null },
+        });
+        validationWasReset = reverted.count > 0;
+      }
+      await tx.documentVersion.delete({ where: { id: version.id } });
+    });
+  } catch (error) {
+    if (error instanceof DepositSupersededError) return { error: "Un autre dépôt est arrivé : rien n'a été annulé." };
+    if (isRecordAlreadyGone(error)) return { error: "Ce dépôt a déjà été annulé." };
+    throw error;
+  }
+
+  try {
+    await getFileStoragePort().delete(version.fileStorageKey);
+  } catch (error) {
+    console.error("Annulation d'un dépôt : version retirée, objet de stockage orphelin à supprimer :", error);
+  }
+  await deleteDerivedObjects(version.id, imageKeys);
+  return { validationReset: validationWasReset };
 }
 
 // ── Revue humaine d'une analyse avant restitution ────────────────────────────

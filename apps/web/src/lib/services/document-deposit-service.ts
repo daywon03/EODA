@@ -62,6 +62,11 @@ export type CancellationFacts = {
   validatedOnDeposit: boolean;
   priorValidatedAt: Date | null;
   priorValidatedByUserId: string | null;
+  // Ce qui s'est passé SUR LE DOCUMENT depuis (relecture de sécurité du 10/11/2026) :
+  // une structure n'annule plus un dépôt qu'EODA a relu ou qu'elle a accepté après coup.
+  versionUploadedAt: Date;
+  documentValidatedAt: Date | null;
+  clientAcceptedAt: Date | null;
 };
 
 export type ValidationRollback =
@@ -70,7 +75,7 @@ export type ValidationRollback =
   | { kind: "RESTORE"; validatedAt: Date; validatedByUserId: string | null };
 
 export type CancellationPlan =
-  | { ok: false; reason: "NOT_OWN_DEPOSIT" | "NOT_LATEST" }
+  | { ok: false; reason: "NOT_OWN_DEPOSIT" | "NOT_LATEST" | "REVIEWED_SINCE_DEPOSIT" }
   | { ok: true; validation: ValidationRollback };
 
 // Annuler, c'est retirer SON PROPRE dernier dépôt : la règle de la suppression
@@ -84,6 +89,15 @@ export function planDepositCancellation(facts: CancellationFacts): CancellationP
     isLatest: facts.isLatest,
   });
   if (!sameSide || facts.uploaderUserId !== facts.actorUserId) return { ok: false, reason: "NOT_OWN_DEPOSIT" };
+  // Côté structure : relu par EODA ou accepté APRÈS ce dépôt — annuler effacerait ce
+  // travail avec la version. (Le cabinet, lui, annule son propre « Version finale », qui a
+  // posé la validation : elle est défaite plus bas.)
+  if (
+    !facts.actorIsCabinet &&
+    [facts.documentValidatedAt, facts.clientAcceptedAt].some((date) => date !== null && date > facts.versionUploadedAt)
+  ) {
+    return { ok: false, reason: "REVIEWED_SINCE_DEPOSIT" };
+  }
   if (!facts.validatedOnDeposit) return { ok: true, validation: { kind: "UNCHANGED" } };
   if (facts.priorValidatedAt === null) return { ok: true, validation: { kind: "REMOVE" } };
   return {

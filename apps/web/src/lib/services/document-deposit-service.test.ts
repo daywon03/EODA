@@ -65,7 +65,54 @@ const FACTS: CancellationFacts = {
   validatedOnDeposit: false,
   priorValidatedAt: null,
   priorValidatedByUserId: null,
+  versionUploadedAt: new Date("2026-11-10T10:00:00Z"),
+  documentValidatedAt: null,
+  clientAcceptedAt: null,
 };
+
+const CLIENT_FACTS: CancellationFacts = {
+  ...FACTS,
+  actorUserId: "client-1",
+  uploaderUserId: "client-1",
+  actorIsCabinet: false,
+  versionProducedByCabinet: false,
+};
+
+// Relecture de sécurité du 10/11/2026 : une structure pouvait annuler un dépôt qu'EODA
+// avait relu (ou qu'elle avait accepté) entre-temps — le travail de relecture disparaissait
+// avec la version.
+describe("planDepositCancellation — un dépôt relu ou accepté depuis ne s'annule plus (structure)", () => {
+  const after = new Date("2026-11-10T10:05:00Z");
+  const before = new Date("2026-11-01T10:00:00Z");
+
+  it("validé par EODA APRÈS le dépôt : refusé", () => {
+    expect(planDepositCancellation({ ...CLIENT_FACTS, documentValidatedAt: after })).toEqual({
+      ok: false,
+      reason: "REVIEWED_SINCE_DEPOSIT",
+    });
+  });
+
+  it("accepté par la structure APRÈS le dépôt : refusé", () => {
+    expect(planDepositCancellation({ ...CLIENT_FACTS, clientAcceptedAt: after })).toEqual({
+      ok: false,
+      reason: "REVIEWED_SINCE_DEPOSIT",
+    });
+  });
+
+  it("validation ou acceptation ANTÉRIEURES au dépôt : l'annulation reste possible", () => {
+    expect(planDepositCancellation({ ...CLIENT_FACTS, documentValidatedAt: before, clientAcceptedAt: before })).toEqual({
+      ok: true,
+      validation: { kind: "UNCHANGED" },
+    });
+  });
+
+  it("le cabinet annule son propre dépôt « Version finale », qui a lui-même validé le document", () => {
+    expect(planDepositCancellation({ ...FACTS, validatedOnDeposit: true, documentValidatedAt: after })).toEqual({
+      ok: true,
+      validation: { kind: "REMOVE" },
+    });
+  });
+});
 
 describe("planDepositCancellation — qui peut annuler, et ce qu'on rétablit", () => {
   it("refuse le dépôt de quelqu'un d'autre, même du même côté", () => {
