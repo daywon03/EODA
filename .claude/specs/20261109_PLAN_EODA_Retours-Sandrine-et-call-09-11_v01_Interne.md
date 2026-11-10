@@ -180,3 +180,36 @@ la vérifie) ; parcours vérifié à l'écran.
 3. Annonce d'une nouvelle ligne : **décochée** par défaut (0.4).
 4. Version et date écrites par la plateforme, pas par l'IA (E3).
 5. Le renommage en masse des titres ne s'applique en base que sur ta commande (`--apply`).
+
+## 5. État au 10/11/2026 et reste à faire (call relu le 10/11)
+
+Fusionné dans `develop` (PR #65, #68) : lots 0, A, B, C, D, E — critères cochables depuis trois
+menus, poubelles, onglets du panneau, « Demander à la structure », « Mes documents » refait,
+avancement par les preuves, diagnostic par offre, tampon en accès restreint (et contenu dérivé
+fermé), dépôt confirmé et annulable, version et date par la plateforme, page de garde EODA,
+charte couleur de la structure.
+
+Fait le 10/11 (cette PR) :
+- « Mettre en conformité » est un vrai bouton plein dans la rangée d'actions de la version
+  (`CorrectedDraftPanel`), « Document corrigé » un bouton à contour — Sandrine ne l'avait
+  jamais vu sous le document (call du 09/11).
+- Page Critères d'une structure : « Rattacher un document existant » (bouton plein) et
+  « Créer un nouveau document pour ce critère » (bouton à contour) ne sont plus des textes.
+- A6 : le récapitulatif de dépôt du cabinet nomme l'onglet d'arrivée (« Vous le retrouverez
+  dans l'onglet « À relire » / « Validé » »), libellés lus dans `DOCUMENT_BUCKET_LABELS`.
+
+### Reste à faire — code
+
+| # | Sujet | État | Prochaine étape |
+|---|---|---|---|
+| R1 | **Assistant dans la fiche document (lot F)** | spécification seulement (`20261110_SPEC_…Assistant-fiche-document`) | trois décisions de Damon (§5 de la spec : plafond de coût, autonomie, conservation du fil), puis F1 « Expliquer ce point » — sans table ni mémoire |
+| R2 | Refus d'un critère proposé non mémorisé | « Charger toute la proposition » rajoute un critère refusé (⚠️ CLAUDE.md §7) | table ou colonne de refus, lue par `planMatrixDecision` ; test rouge d'abord |
+| R3 | Recette à l'écran de tous les lots | non faite (plan §2, « QA navigateur ») | parcours cabinet et structure, 375 / 1280 px, clair et sombre ; dont #13 : la structure accompagnée ne voit aucune analyse |
+| R4 | Diagnostic rapide vendable aux SAD qui ont une évaluation proche (« 0/16 ») | le diagnostic déclaratif du libre-service existe (`/espace`) ; aucune offre « diagnostic seul » au catalogue | dépend des prix (lot D SaaS) : ne pas inventer de montant |
+| R5 | Preuve de mise en pratique (KPI) | quiz et enquêtes existent ; visite d'observation terrain non modélisée | attendre le retour sur la faisabilité avant de concevoir |
+
+### Reste à faire — commandes à lancer par Damon (base partagée avec la production)
+
+- `pnpm --filter @eoda/database labels:strip-objectives` avec `--apply` (titres « (Objectif 3.13) »).
+- `pnpm --filter @eoda/database documents:purge-restricted-content` avec `--apply`.
+- Relire l'essai à blanc de chacun avant.

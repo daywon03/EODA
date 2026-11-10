@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, Plus } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { requireCabinetSession } from "@/lib/auth/guards";
 import { hasCabinetCapability } from "@/lib/auth/capabilities";
 import { getStructureCriteriaEvidence, getStructureCriteriaProof, type CriterionEvidence } from "@/lib/actions/criteria-proof";
@@ -177,22 +178,22 @@ function CriterionDetails({
             </ul>
           )}
           {canEditMatrix && (
-            <div className="mt-2 space-y-1">
+            <div className="mt-3 space-y-2">
               {/* Choisir une ligne DÉJÀ dans la liste (retours du 09/11/2026), en plus
                   d'en créer une. */}
               <AttachExistingDocument
                 criterionCode={row.code}
                 linkedDocumentTypeIds={items.map((item) => item.documentTypeId)}
               />
-            <span className="flex flex-wrap gap-x-6">
+            <span className="flex flex-wrap items-center gap-x-6 gap-y-2">
               {/* Déposer DEPUIS le critère (call du 28/10/2026) : une nouvelle ligne de
                   Documents, déjà rattachée à ce critère, puis le dépôt sur cette ligne. */}
-              <Link
-                href={`${documentsPath}?critere=${encodeURIComponent(row.code)}`}
-                className="inline-flex min-h-11 items-center font-bold text-accent-text hover:underline"
-              >
-                + Créer un nouveau document pour ce critère
-              </Link>
+              <Button asChild variant="outline" className="font-bold">
+                <Link href={`${documentsPath}?critere=${encodeURIComponent(row.code)}`}>
+                  <Plus className="h-4 w-4" aria-hidden="true" />
+                  Créer un nouveau document pour ce critère
+                </Link>
+              </Button>
               <Link href="/dashboard/cabinet/criteres" className="inline-flex min-h-11 items-center font-bold text-accent-text hover:underline">
                 Modifier les preuves attendues (matrice — vaut pour toutes les structures) →
               </Link>
