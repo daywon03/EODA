@@ -113,3 +113,45 @@ describe("liste des documents — structure", () => {
     expect(byCode(items(checklist), "L2002_LIVRET_ACCUEIL")).toMatchObject({ restrictedAccess: false, canOpenFile: true });
   });
 });
+
+// Relecture de sécurité du 10/11/2026 : le nom du fichier du tampon et le nom de qui l'a
+// déposé partaient au cabinet et aux rôles de la structure qui n'ouvrent pas le fichier.
+describe("liste des documents — nom de fichier et auteur d'une ligne restreinte", () => {
+  type Masked = {
+    currentVersion: { originalFilename: string };
+    versions: { originalFilename: string; uploadedByName: string | null }[];
+  };
+  const asClient = (accessRole: string) =>
+    requireClientEstablishment.mockResolvedValue({
+      session: { user: { name: "Personne" } },
+      establishment: { id: "etab-1", name: "SAD fictif", type: "SAD_AIDE", logoDataUri: null },
+      accessRole,
+      missionAccess: "ACTIVE",
+      missionClosure: null,
+    });
+  const expectMasked = (item: Masked) => {
+    expect(item.currentVersion.originalFilename).toBe("Fichier à accès restreint");
+    expect(item.versions[0]).toMatchObject({ originalFilename: "Fichier à accès restreint", uploadedByName: null });
+  };
+
+  it("cabinet : nom remplacé, auteur masqué — le livret garde les siens", async () => {
+    const list = items(await getEstablishmentChecklist("etab-1"));
+    expectMasked(byCode(list, "DEPARTEMENT_TAMPON") as unknown as Masked);
+    const livret = byCode(list, "L2002_LIVRET_ACCUEIL") as unknown as Masked;
+    expect(livret.versions[0]).toMatchObject({ originalFilename: "fichier.pdf", uploadedByName: "Direction" });
+  });
+
+  it("responsable qualité : nom remplacé, auteur masqué", async () => {
+    asClient("RESPONSABLE_QUALITE");
+    const { checklist } = await getClientChecklist();
+    expectMasked(byCode(items(checklist), "DEPARTEMENT_TAMPON") as unknown as Masked);
+  });
+
+  it("direction : voit le nom de son fichier et qui l'a déposé", async () => {
+    asClient("DIRECTION");
+    const { checklist } = await getClientChecklist();
+    const tampon = byCode(items(checklist), "DEPARTEMENT_TAMPON") as unknown as Masked;
+    expect(tampon.currentVersion.originalFilename).toBe("fichier.pdf");
+    expect(tampon.versions[0]).toMatchObject({ originalFilename: "fichier.pdf", uploadedByName: "Direction" });
+  });
+});

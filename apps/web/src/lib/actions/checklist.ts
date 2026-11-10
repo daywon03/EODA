@@ -6,7 +6,7 @@ import { participationLineLabel } from "@/lib/services/participation-form-servic
 
 import { NEED, type ClientAccessRole } from "@/lib/auth/capabilities";
 import { canOpenFilesOfType, documentFileOpenerOf } from "@/lib/auth/document-file-access";
-import { isRestrictedDocumentType } from "@/content/documents/acces-restreint";
+import { isRestrictedDocumentType, RESTRICTED_FILE_LABEL } from "@/content/documents/acces-restreint";
 import { prisma } from "@eoda/database";
 import { notFound } from "next/navigation";
 import { requireClientEstablishment, requireEstablishmentInTenant } from "@/lib/auth/guards";
@@ -143,8 +143,9 @@ export type DocumentVersionItem = {
   originalFilename: string;
   uploadedAt: Date;
   // Qui l'a déposée. « EODA » ou le nom de la structure : c'est ce qui distingue la
-  // version d'origine du client de celle que le cabinet a produite.
-  uploadedByName: string;
+  // version d'origine du client de celle que le cabinet a produite. `null` : masqué
+  // (ligne à accès restreint que l'appelant n'ouvre pas).
+  uploadedByName: string | null;
   producedByCabinet: boolean;
   hasAnalysis: boolean;
 };
@@ -272,6 +273,10 @@ async function buildChecklist(
     // Ligne restreinte : aucune analyse ni suggestion n'est restituée, à personne — même
     // enregistrée avant la restriction (ADR 20261110).
     const restrictedAccess = isRestrictedDocumentType(dt.code);
+    const canOpenFile = canOpenFilesOfType(opener, dt.code);
+    // Ni le nom du fichier ni celui de qui l'a déposé pour qui n'ouvre pas le fichier
+    // (relecture de sécurité du 10/11/2026) — la date et l'état restent.
+    const hideFileNames = restrictedAccess && !canOpenFile;
     const { status, declaredMissing } = normaliseMissingState({
       category: dt.category,
       code: dt.code,
@@ -281,7 +286,13 @@ async function buildChecklist(
     });
     const currentVersion = doc?.currentVersion
       ? toChecklistVersion(
-          restrictedAccess ? { ...doc.currentVersion, analysisResultJson: null } : doc.currentVersion,
+          restrictedAccess
+            ? {
+                ...doc.currentVersion,
+                analysisResultJson: null,
+                ...(hideFileNames && { originalFilename: RESTRICTED_FILE_LABEL }),
+              }
+            : doc.currentVersion,
           { audience, mode, validatedAt: doc.validatedAt },
           // Jamais transmis au CLIENT : une suggestion non tranchée est une
           // hypothèse de travail interne (CDC §5, §7), gatée ici plutôt qu'à la
@@ -304,7 +315,7 @@ async function buildChecklist(
       expectedFrequency: dt.expectedFrequency,
       requestedFromClient: dt.requestedFromClient,
       restrictedAccess,
-      canOpenFile: canOpenFilesOfType(opener, dt.code),
+      canOpenFile,
       folder: dt.folder,
       expiryNotice: describeExpiry(expiryFacts, now),
       status,
@@ -342,9 +353,9 @@ async function buildChecklist(
       versions: (doc?.versions ?? []).map((version) => ({
         id: version.id,
         versionNumber: version.versionNumber,
-        originalFilename: version.originalFilename,
+        originalFilename: hideFileNames ? RESTRICTED_FILE_LABEL : version.originalFilename,
         uploadedAt: version.uploadedAt,
-        uploadedByName: version.uploadedBy.name,
+        uploadedByName: hideFileNames ? null : version.uploadedBy.name,
         // Le rôle de l'auteur dit d'où vient la version. Recopié à la lecture plutôt
         // que stocké : un compte ne change pas de camp, et une colonne de plus serait
         // une vérité à maintenir.

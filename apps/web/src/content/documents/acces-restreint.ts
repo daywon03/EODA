@@ -27,3 +27,7 @@ export function isRestrictedDocumentType(code: string | null | undefined): boole
 // Le libellé unique, cabinet comme structure : il dit QUI ouvre, pas pourquoi les autres
 // n'ouvrent pas.
 export const RESTRICTED_DOCUMENT_NOTICE = "Accès réservé à la direction de la structure";
+
+// Ce qui s'affiche À LA PLACE du nom de fichier pour qui n'ouvre pas le fichier (relecture
+// de sécurité du 10/11/2026) : le nom d'un scan peut dire ce qu'il contient.
+export const RESTRICTED_FILE_LABEL = "Fichier à accès restreint";

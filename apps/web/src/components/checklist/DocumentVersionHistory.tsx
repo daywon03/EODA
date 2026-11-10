@@ -102,7 +102,8 @@ function VersionRow({
         {formatDate(version.uploadedAt)} ·{" "}
         {/* D'où vient la version : c'est ce qui distingue l'original du client du
             travail de mise en conformité. */}
-        {version.producedByCabinet ? "EODA" : version.uploadedByName}
+        {/* Auteur masqué sur une ligne à accès restreint que l'appelant n'ouvre pas. */}
+        {version.producedByCabinet ? "EODA" : (version.uploadedByName ?? "la structure")}
       </p>
 
       {/* Réservé au cabinet, comme AnalyzeDocumentButton juste en dessous : côté
