@@ -11,15 +11,15 @@ import { analysisMissingNotice, withSheetTab, type SheetTab } from "@/lib/servic
 import { DocumentScopeToggle } from "@/components/checklist/DocumentScopeToggle";
 import { DocumentVersionHistory } from "@/components/checklist/DocumentVersionHistory";
 import { DocumentStepTrail } from "@/components/checklist/DocumentStepTrail";
-import { DocumentAnalysisPanel } from "@/components/checklist/DocumentAnalysisPanel";
-import { MissingDocumentJustification } from "@/components/checklist/MissingDocumentJustification";
 import { DocumentUploadButton } from "@/components/checklist/DocumentUploadButton";
 import { DocumentSheetTabs } from "@/components/structure/DocumentSheetTabs";
 import {
   AnalysisLabPanel,
   CriterionLinker,
+  DocumentAnalysisPanel,
   DocumentFolderPicker,
   DocumentSettingsPanel,
+  MissingDocumentJustification,
   ParticipationFormPicker,
   RemoveDocumentTypeButton,
   RenameDocumentType,
