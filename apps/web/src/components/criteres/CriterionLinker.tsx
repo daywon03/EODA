@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useId, useState, useTransition } from "react";
+import dynamic from "next/dynamic";
 import { CheckCircle2, Loader2, Search, X } from "lucide-react";
 import {
   addManualMatrixLinks,
@@ -34,9 +35,23 @@ import { ConfirmActionButton } from "@/components/ui/confirm-action-button";
 
 type Message = { tone: "ok" | "error"; text: string };
 
+// Consignes pour l'IA sous chaque critère (fiche document seulement, 10/11/2026).
+const CriterionGuidelineNotes = dynamic(() => import("./CriterionGuidelineNotes").then((m) => m.CriterionGuidelineNotes));
+
+export type CriterionGuidelinesOptions = { documentVersionId: string | null; canWrite: boolean };
+
 const plural = (n: number, word: string): string => `${n} ${word}${n > 1 ? "s" : ""}`;
 
-export function CriterionLinker({ typeCode, canEdit }: { typeCode: string; canEdit: boolean }) {
+export function CriterionLinker({
+  typeCode,
+  canEdit,
+  guidelines,
+}: {
+  typeCode: string;
+  canEdit: boolean;
+  // Présent = « Consignes pour l'IA » sous chaque critère rattaché (fiche document).
+  guidelines?: CriterionGuidelinesOptions;
+}) {
   const [links, setLinks] = useState<DocumentTypeLink[] | null>(null);
   const [criteria, setCriteria] = useState<CriterionOption[] | null>(null);
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
@@ -125,22 +140,32 @@ export function CriterionLinker({ typeCode, canEdit }: { typeCode: string; canEd
         {links && links.length > 0 && (
           <ul className="divide-y divide-line rounded-lg border border-line">
             {links.map((l) => (
-              <li key={l.code} className="flex items-start justify-between gap-3 px-3 py-2">
-                <span className="min-w-0">
-                  <span className="font-bold tabular-nums text-ink">{l.code}</span>
-                  <span className="text-ink"> — {l.label}</span>
-                  <span className="block text-sm text-ink2">{l.proposed ? "Proposé par la matrice" : "Ajouté à la main"}</span>
-                </span>
-                {canEdit && (
-                  <ConfirmActionButton
-                    appearance="link"
-                    align="end"
-                    label="Retirer"
-                    accessibleLabel={`Retirer le critère ${l.code}`}
-                    icon={X}
-                    question={unlinkCriterionQuestion(l.code, l.proposed)}
-                    confirmLabel="Retirer"
-                    onConfirm={() => unlink(l.code)}
+              <li key={l.code} className="space-y-2 px-3 py-2">
+                <div className="flex items-start justify-between gap-3">
+                  <span className="min-w-0">
+                    <span className="font-bold tabular-nums text-ink">{l.code}</span>
+                    <span className="text-ink"> — {l.label}</span>
+                    <span className="block text-sm text-ink2">{l.proposed ? "Proposé par la matrice" : "Ajouté à la main"}</span>
+                  </span>
+                  {canEdit && (
+                    <ConfirmActionButton
+                      appearance="link"
+                      align="end"
+                      label="Retirer"
+                      accessibleLabel={`Retirer le critère ${l.code}`}
+                      icon={X}
+                      question={unlinkCriterionQuestion(l.code, l.proposed)}
+                      confirmLabel="Retirer"
+                      onConfirm={() => unlink(l.code)}
+                    />
+                  )}
+                </div>
+                {guidelines && (
+                  <CriterionGuidelineNotes
+                    criterionId={l.criterionId}
+                    criterionCode={l.code}
+                    documentVersionId={guidelines.documentVersionId}
+                    canWrite={guidelines.canWrite}
                   />
                 )}
               </li>

@@ -26,7 +26,10 @@ export default async function CriterionMatrixPage() {
   // Rattachements proposés, applicables, pas encore en base — ce que « Charger toute
   // la proposition » ajouterait (le serveur recalcule le même plan au clic).
   const missing = new Set(
-    review.groups.flatMap((g) => g.rows.filter((r) => !r.linked).map((r) => `${g.documentTypeCode}|${r.criterionCode}`))
+    // Un critère refusé n'est pas « à ajouter » : le chargement le saute (10/11/2026).
+    review.groups.flatMap((g) =>
+      g.rows.filter((r) => !r.linked && !r.refused).map((r) => `${g.documentTypeCode}|${r.criterionCode}`)
+    )
   ).size;
 
   return (

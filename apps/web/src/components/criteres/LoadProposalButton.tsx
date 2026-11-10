@@ -24,7 +24,8 @@ export function LoadProposalButton({ missing }: { missing: number }) {
           if ("error" in result) return result;
           setSummary(
             `${result.added} rattachement(s) ajouté(s), ${result.alreadyLinked} déjà en place` +
-              (result.skipped > 0 ? `, ${result.skipped} hors référentiel ignoré(s).` : ".")
+              (result.skipped > 0 ? `, ${result.skipped} hors référentiel ignoré(s)` : "") +
+              (result.refused > 0 ? `, ${result.refused} refusé(s) laissé(s) de côté.` : ".")
           );
           return null;
         }}
