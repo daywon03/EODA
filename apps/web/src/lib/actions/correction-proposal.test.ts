@@ -126,6 +126,32 @@ describe("generateCorrectionProposal — droit de générer (D11, D13)", () => {
   });
 });
 
+// Le tampon de la structure (ADR 20261110) : aucune IA ne le lit, l'écran côte à côte et
+// ses exports n'existent pas pour lui — même pour l'administration, même en Excellence.
+describe("document à accès restreint — pas de mise en conformité", () => {
+  it("introuvable pour le cabinet, avant tout appel au modèle", async () => {
+    givenMission("EXCELLENCE");
+    prismaMock.documentVersion.findUnique.mockResolvedValue({
+      id: "dv-t",
+      versionNumber: 1,
+      extractedText: "texte d'un dépôt antérieur",
+      analysisResultJson: ANALYSIS,
+      analysisReviewedAt: null,
+      document: {
+        id: "doc-t",
+        establishmentId: ETAB,
+        currentVersionId: "dv-t",
+        documentTypeId: "dt-t",
+        documentType: { id: "dt-t", label: "Tampon", code: "DEPARTEMENT_TAMPON", category: "FONCTIONNEMENT" },
+        establishment: { name: "SAD Les Glycines (fictif)" },
+      },
+    });
+    await expect(generateCorrectionProposal("dv-t")).rejects.toThrow("NEXT_NOT_FOUND");
+    await expect(getCorrectionWorkspace("dv-t")).rejects.toThrow("NEXT_NOT_FOUND");
+    expect(generateCorrectedDraft).not.toHaveBeenCalled();
+  });
+});
+
 describe("garde de l'écran — structure", () => {
   it("accompagnée : introuvable (c'est EODA qui met en conformité), même en Excellence", async () => {
     givenMission("EXCELLENCE", "ACCOMPAGNE");

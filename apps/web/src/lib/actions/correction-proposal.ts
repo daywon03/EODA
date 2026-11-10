@@ -185,6 +185,7 @@ export async function applyCorrectionProposal(
       establishmentId: context.version.establishmentId,
       documentTypeId: context.version.documentTypeId,
       documentTypeLabel: context.version.documentLabel,
+      documentTypeCode: context.version.documentCode,
       content: docx,
       contentType: DOCX_CONTENT_TYPE,
       originalFilename,

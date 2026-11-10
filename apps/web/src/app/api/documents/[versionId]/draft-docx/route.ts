@@ -9,6 +9,7 @@ import { documentMention } from "@/lib/services/review-mention-service";
 import { loadCorrectedDraftImages } from "@/lib/services/document-generation-service";
 import { buildEodaFileName } from "@/lib/services/document-naming-service";
 import { getFileStoragePort } from "@/lib/storage";
+import { isRestrictedDocumentType } from "@/content/documents/acces-restreint";
 
 // Téléchargement du brouillon corrigé — route et non action serveur, mêmes raisons
 // que /api/export/cotations/[id] : un .docx se sert avec ses en-têtes, pas via un
@@ -40,6 +41,10 @@ export async function GET(_request: Request, context: Context): Promise<Response
 
   const access = await tryEstablishmentAccess(version.document.establishmentId, NEED.DOCUMENTS_READ);
   if (!access || access.isClient) notFound();
+  // Le brouillon est tiré du contenu du document, et ses annexes sont les images du
+  // fichier : pour un document à accès restreint (le tampon, ADR 20261110), il n'existe
+  // pas pour le cabinet — même règle que les autres portes.
+  if (isRestrictedDocumentType(version.document.documentType?.code)) notFound();
   if (!version.correctedDraftMarkdown) notFound();
 
   // Images d'origine du document déposé, jointes en annexe (D6). Best-effort côté

@@ -25,12 +25,28 @@ describe("selectTabletStructureDocuments", () => {
     expect(sheets).toEqual({ PA_FICHE_P1_PLAINTES: { versionId: "eoda", originalFilename: "eoda.docx" } });
   });
 
-  it("sert aussi le tampon et le contrat récapitulatif du Département, à la même règle", () => {
+  it("sert aussi le contrat récapitulatif du Département, à la même règle (validation à jour)", () => {
     const sheets = selectTabletStructureDocuments([
-      { code: DEPARTEMENT_TAMPON_CODE, validatedAt: new Date("2026-10-31T00:00:00Z"), versions: [version("tampon", 1, "2026-10-30", true)] },
       { code: DEPARTEMENT_CONTRAT_CODE, validatedAt: null, versions: [version("contrat", 1, "2026-10-30", true)] },
     ]);
-    expect(sheets).toEqual({ [DEPARTEMENT_TAMPON_CODE]: { versionId: "tampon", originalFilename: "tampon.docx" } });
+    expect(sheets).toEqual({});
+  });
+
+  // Le tampon est à accès restreint (ADR 20261110) : EODA ne l'ouvre pas, donc ne le
+  // valide pas. La tablette prend le DERNIER dépôt, de la structure ou d'EODA pour elle.
+  it("le tampon : la dernière version déposée, sans validation d'EODA", () => {
+    const sheets = selectTabletStructureDocuments([
+      {
+        code: DEPARTEMENT_TAMPON_CODE,
+        validatedAt: null,
+        versions: [version("ancien", 1, "2026-10-30", true), version("nouveau", 2, "2026-11-09", false)],
+      },
+    ]);
+    expect(sheets).toEqual({ [DEPARTEMENT_TAMPON_CODE]: { versionId: "nouveau", originalFilename: "nouveau.docx" } });
+  });
+
+  it("le tampon jamais déposé : rien", () => {
+    expect(selectTabletStructureDocuments([{ code: DEPARTEMENT_TAMPON_CODE, validatedAt: null, versions: [] }])).toEqual({});
   });
 
   it("les codes de l'écran sont ceux de la base", () => {
