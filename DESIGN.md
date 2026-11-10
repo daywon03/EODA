@@ -348,6 +348,16 @@ exigences d'écran. Les enfreindre n'est pas une maladresse de style.
   sa façon finirait par contredire la fiche qu'il compte.
 - **Les options payantes ne se « vendent » pas avec des cadenas partout** ; un client voit son
   contrat et les options non souscrites à leur prix « à partir de », sans artifice.
+- **Le document final d'une mise en conformité a deux habits, jamais mêlés** (call du
+  09/11/2026) : une **page de garde EODA** détachable (charte EODA : logo EODA seul, brun
+  ancre `#3E2C26`, critères couverts, paternité, pied de page sans numéro), puis le
+  **document de la structure**, numéroté à partir de 1, avec son logo (sinon son nom) en
+  en-tête et sa charte : couleur principale sur le titre, H1 et H2, couleur secondaire en
+  filet sous le titre et les H1. Sans charte saisie, titres au brun ancre et style Word par
+  défaut. La couleur principale est refusée à la saisie sous 3:1 sur le blanc (titres = grand
+  texte). Saisie : réglages de la fiche structure, section « Logo et couleurs de la
+  structure » (sélecteur natif + champ hexadécimal, aperçu sur papier blanc fixe, quel que
+  soit le thème de l'écran).
 
 ### 7.1 Anti-objectifs (repris du brief §11)
 
