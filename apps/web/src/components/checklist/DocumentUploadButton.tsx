@@ -20,6 +20,11 @@ type Props = {
   // Côté cabinet : « Version finale d'EODA » — le dépôt vaut validation (call du
   // 18/10/2026). Décochée, c'est un dépôt pour le compte de la structure.
   offerCabinetFinal?: boolean;
+  // Côté cabinet, ligne à accès restreint (le tampon, ADR 20261110) : le cabinet peut
+  // déposer pour la structure, mais ne pourra plus ouvrir le fichier — on le dit AVANT
+  // l'envoi. Ni modèle à choisir, ni version finale (le dépôt n'est jamais analysé ni
+  // validé), ni pages préparées.
+  restrictedForCabinet?: boolean;
 };
 
 export function DocumentUploadButton({
@@ -27,7 +32,10 @@ export function DocumentUploadButton({
   documentTypeId,
   showModelSelector = false,
   offerCabinetFinal = false,
+  restrictedForCabinet = false,
 }: Props) {
+  const withModel = showModelSelector && !restrictedForCabinet;
+  const withCabinetFinal = offerCabinetFinal && !restrictedForCabinet;
   const inputRef = useRef<HTMLInputElement>(null);
   const [cabinetFinal, setCabinetFinal] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -42,8 +50,8 @@ export function DocumentUploadButton({
     formData.set("establishmentId", establishmentId);
     formData.set("documentTypeId", documentTypeId);
     formData.set("file", file);
-    if (showModelSelector) formData.set("modelId", modelId);
-    if (offerCabinetFinal && cabinetFinal) formData.set("cabinetFinal", "1");
+    if (withModel) formData.set("modelId", modelId);
+    if (withCabinetFinal && cabinetFinal) formData.set("cabinetFinal", "1");
 
     setError(null);
     void run(
@@ -53,14 +61,20 @@ export function DocumentUploadButton({
       if ("error" in result) setError(result.error);
       // Les pages de l'aperçu se préparent dès le dépôt : le premier « voir » tombe
       // sur le cache au lieu d'un lancement de Chromium.
-      else prepareDocumentPages(result.documentVersionId, file.name);
+      else if (!restrictedForCabinet) prepareDocumentPages(result.documentVersionId, file.name);
       if (inputRef.current) inputRef.current.value = "";
     });
   }
 
   return (
     <div className="flex min-w-0 max-w-full flex-col items-end gap-1">
-      {showModelSelector && (
+      {restrictedForCabinet && (
+        <p className="max-w-[320px] text-right text-sm text-ink">
+          <span className="font-bold">Document à accès restreint.</span> Vous pouvez le déposer pour la structure,
+          mais ni vous ni personne chez EODA ne pourra l&apos;ouvrir ensuite : seule sa direction y aura accès.
+        </p>
+      )}
+      {withModel && (
         <select
           value={modelId}
           onChange={(e) => setModelId(e.target.value)}
@@ -75,7 +89,7 @@ export function DocumentUploadButton({
           ))}
         </select>
       )}
-      {offerCabinetFinal && (
+      {withCabinetFinal && (
         <label className="flex max-w-[320px] cursor-pointer items-start gap-2 text-sm text-ink">
           <input
             type="checkbox"
@@ -119,7 +133,11 @@ export function DocumentUploadButton({
         )}
         Déposer
       </Button>
-      <AnalysisRunStatus phase={phase} elapsedMs={elapsedMs} subject="Analyse du document déposé" />
+      <AnalysisRunStatus
+        phase={phase}
+        elapsedMs={elapsedMs}
+        subject={restrictedForCabinet ? "Dépôt du document" : "Analyse du document déposé"}
+      />
       {error && (
         <p role="alert" className="flex items-center gap-1 text-xs text-rouge-imp max-w-[220px] text-right">
           <AlertCircle className="w-3 h-3 flex-shrink-0" aria-hidden="true" />

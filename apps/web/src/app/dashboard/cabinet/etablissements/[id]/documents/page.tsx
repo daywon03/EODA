@@ -30,6 +30,7 @@ import {
 } from "@/lib/services/structure-documents-service";
 import { structureHref } from "@/lib/design/structure-tabs";
 import type { DocumentCategory } from "@eoda/database";
+import { RestrictedFileNotice } from "@/components/checklist/RestrictedFileNotice";
 import { DataTable, type DataTableColumn, type DataTableFilterMenu, type DataTableSortMenu } from "@/components/ui/data-table";
 import { filterMenuFor, sortMenuFor } from "@/components/ui/data-table-menus";
 import { TabsNav } from "@/components/ui/tabs-nav";
@@ -101,6 +102,8 @@ function columns(context: MenuContext): DataTableColumn<Row>[] {
         <span className="flex flex-col">
           <span>{row.label}</span>
           <span className="text-sm font-normal text-ink2">{DOCUMENT_CATEGORY_LABELS[row.category]}</span>
+          {/* Le tampon (ADR 20261110) : le cabinet voit la ligne, jamais le fichier. */}
+          {row.restrictedAccess && <RestrictedFileNotice className="font-normal" />}
         </span>
       ),
     },
@@ -187,6 +190,7 @@ export default async function StructureDocumentsPage({ params, searchParams }: P
         title: row.label,
         versionId: row.currentVersion?.id ?? null,
         originalFilename: row.currentVersion?.originalFilename ?? null,
+        fileLocked: !row.canOpenFile,
       },
     ])
   );

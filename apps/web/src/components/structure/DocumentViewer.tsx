@@ -15,12 +15,15 @@ export function DocumentViewer({
   title,
   versionId,
   originalFilename,
+  fileLocked = false,
   onClose,
   details,
 }: {
   title: string;
   versionId: string | null;
   originalFilename: string | null;
+  // Ligne à accès restreint que la personne n'ouvre pas : un cadenas à la place des pages.
+  fileLocked?: boolean;
   onClose: () => void;
   details: ReactNode;
 }) {
@@ -28,7 +31,7 @@ export function DocumentViewer({
     <DialogFrame variant="viewer" title={title} onClose={onClose}>
       <div className="flex h-full min-h-0 flex-col lg:flex-row">
         <section aria-label="Aperçu du document" className="h-[55dvh] min-h-0 min-w-0 flex-shrink-0 lg:h-auto lg:flex-1">
-          <DocumentPreviewPane versionId={versionId} originalFilename={originalFilename} title={title} />
+          <DocumentPreviewPane versionId={versionId} originalFilename={originalFilename} title={title} fileLocked={fileLocked} />
         </section>
         <aside
           aria-label="Détail du document"
