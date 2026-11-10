@@ -16,6 +16,7 @@ import { directiveForAnalysis } from "@/lib/services/analysis-directive-service"
 import { extractMarkdown, type ExtractedImage } from "@/lib/services/text-extraction-service";
 import { validateUploadOnServer } from "@/lib/security/office-archive-guard";
 import { describeImage } from "@/lib/services/image-vision-service";
+import { isRestrictedDocumentType } from "@/content/documents/acces-restreint";
 import { readValidatedExamples } from "@/lib/db/read-validated-examples";
 import {
   buildAdditionalCriteriaCatalog,
@@ -57,6 +58,9 @@ export type IngestDocumentInput = {
   establishmentId: string;
   documentTypeId: string;
   documentTypeLabel: string;
+  // Code du type : décide si le document est à accès restreint (ADR 20261110) — alors
+  // ni texte, ni image, ni appel au modèle, quoi que l'appelant transmette.
+  documentTypeCode: string;
   content: Buffer;
   contentType: string;
   originalFilename: string;
@@ -85,9 +89,15 @@ export type IngestDocumentOutput = {
 };
 
 export async function ingestDocumentVersion(
-  input: IngestDocumentInput,
+  rawInput: IngestDocumentInput,
   ports: IngestionPorts
 ): Promise<IngestDocumentOutput> {
+  // Document à accès restreint (le tampon) : aucune machine ne le lit. Le court-circuit
+  // est ici, au plus près du stockage et du modèle — l'action qui dépose n'extrait déjà
+  // rien, mais un futur appelant ne doit pas pouvoir l'oublier.
+  const input: IngestDocumentInput = isRestrictedDocumentType(rawInput.documentTypeCode)
+    ? { ...rawInput, extractedText: null, extractedImages: [] }
+    : rawInput;
   const document = await prisma.document.upsert({
     where: {
       establishmentId_documentTypeId: {
@@ -311,12 +321,15 @@ export async function readAnalysisTarget(
           id: true,
           establishmentId: true,
           documentTypeId: true,
-          documentType: { select: { label: true } },
+          documentType: { select: { label: true, code: true } },
         },
       },
     },
   });
   if (!version || !version.document.documentTypeId || !version.document.documentType) return null;
+  // Document à accès restreint (ADR 20261110) : il n'a pas de cible d'analyse — ni
+  // réanalyse (qui réextrairait le texte du fichier), ni laboratoire, ni prompt montré.
+  if (isRestrictedDocumentType(version.document.documentType.code)) return null;
   return {
     version: { id: version.id, fileStorageKey: version.fileStorageKey, extractedText: version.extractedText },
     target: {

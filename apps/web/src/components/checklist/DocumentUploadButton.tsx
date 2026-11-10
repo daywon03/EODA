@@ -25,6 +25,11 @@ type Props = {
   // Côté cabinet : « Version finale d'EODA » — le dépôt vaut validation (call du
   // 18/10/2026). Décochée, c'est un dépôt pour le compte de la structure.
   offerCabinetFinal?: boolean;
+  // Côté cabinet, ligne à accès restreint (le tampon, ADR 20261110) : le cabinet peut
+  // déposer pour la structure, mais ne pourra plus ouvrir le fichier — on le dit AVANT
+  // l'envoi. Ni modèle à choisir, ni version finale (le dépôt n'est jamais analysé ni
+  // validé), ni pages préparées.
+  restrictedForCabinet?: boolean;
 };
 
 // Dépôt du cabinet, en deux temps (retour de Sandrine du 09/11/2026) : choisir le
@@ -37,13 +42,16 @@ export function DocumentUploadButton({
   documentValidated,
   showModelSelector = false,
   offerCabinetFinal = false,
+  restrictedForCabinet = false,
 }: Props) {
+  const withModel = showModelSelector && !restrictedForCabinet;
+  const withCabinetFinal = offerCabinetFinal && !restrictedForCabinet;
   const inputRef = useRef<HTMLInputElement>(null);
   const chooseButton = useRef<HTMLButtonElement>(null);
   const [cabinetFinal, setCabinetFinal] = useState(true);
   const [modelId, setModelId] = useState(DEFAULT_LLM_MODEL_ID);
   const deposit = useDocumentDeposit("CABINET");
-  const finalChecked = offerCabinetFinal && cabinetFinal;
+  const finalChecked = withCabinetFinal && cabinetFinal;
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     deposit.choose(e.target.files?.[0]);
@@ -63,7 +71,7 @@ export function DocumentUploadButton({
     formData.set("establishmentId", establishmentId);
     formData.set("documentTypeId", documentTypeId);
     if (deposit.file) formData.set("file", deposit.file);
-    if (showModelSelector) formData.set("modelId", modelId);
+    if (withModel) formData.set("modelId", modelId);
     if (finalChecked) formData.set("cabinetFinal", "1");
     void deposit.send(formData);
   }
@@ -72,6 +80,12 @@ export function DocumentUploadButton({
 
   return (
     <div className="flex min-w-0 max-w-full flex-col items-end gap-2">
+      {restrictedForCabinet && (
+        <p className="max-w-[320px] text-right text-sm text-ink">
+          <span className="font-bold">Document à accès restreint.</span> Vous pouvez le déposer pour la structure,
+          mais ni vous ni personne chez EODA ne pourra l&apos;ouvrir ensuite : seule sa direction y aura accès.
+        </p>
+      )}
       <input
         ref={inputRef}
         type="file"
@@ -99,7 +113,7 @@ export function DocumentUploadButton({
           onDiscard={discard}
           onRequestCancel={deposit.requestCancel}
         >
-          {offerCabinetFinal && (
+          {withCabinetFinal && (
             <label className="flex cursor-pointer items-start gap-2">
               <input
                 type="checkbox"
@@ -116,7 +130,7 @@ export function DocumentUploadButton({
               </span>
             </label>
           )}
-          {showModelSelector && (
+          {withModel && (
             <label className="block space-y-1">
               <span className="text-ink2">Modèle d&apos;IA pour l&apos;analyse</span>
               <select
@@ -147,7 +161,7 @@ export function DocumentUploadButton({
             <Upload className="h-3.5 w-3.5" aria-hidden="true" />
             Déposer un fichier
           </Button>
-          <AnalysisRunStatus phase={deposit.phase} elapsedMs={deposit.elapsedMs} subject="Analyse du document déposé" />
+          <AnalysisRunStatus phase={deposit.phase} elapsedMs={deposit.elapsedMs} subject={restrictedForCabinet ? "Dépôt du document" : "Analyse du document déposé"} />
           {deposit.outcome?.kind === "cancelled" && (
             <p role="status" className="max-w-[320px] text-right text-sm font-bold text-ink">
               {deposit.outcome.message}

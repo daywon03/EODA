@@ -88,6 +88,9 @@ const {
   generateDocumentDraft,
   setDocumentValidated,
   getDocumentPreviewData,
+  getDocumentDownloadUrl,
+  getExtractedText,
+  changeDocumentType,
   setCriterionGuidelineAiUse,
   setDocumentCommentAiUse,
   setParticipationForm,
@@ -903,5 +906,156 @@ describe("getDocumentPreviewData — ce que la structure a le droit d'ouvrir", (
 
     prismaMock.documentVersion.findUnique.mockResolvedValue(versionRow("CABINET_ADMIN", new Date()));
     await expect(getDocumentPreviewData("v-1")).resolves.toMatchObject({ kind: "document" });
+  });
+});
+
+// ── Document à accès restreint : le tampon de la structure (ADR 20261110) ────
+//
+// « C'est comme si quelqu'un avait accès à la signature EODA pour signer des chèques »
+// (Sandrine, 09/11/2026). Le FICHIER ne s'ouvre que pour la direction de la structure ;
+// le cabinet voit la ligne, jamais le contenu, et aucune IA ne le lit.
+const TAMPON_TYPE = {
+  id: "dt-tampon",
+  code: "DEPARTEMENT_TAMPON",
+  label: "Tampon de la structure — posé sur le formulaire du Département",
+  category: "FONCTIONNEMENT",
+  archivedAt: null,
+};
+
+describe("document à accès restreint — les portes qui servent le fichier", () => {
+  function tamponVersion(role = "CLIENT_USER") {
+    return {
+      id: "v-tampon",
+      originalFilename: "tampon.pdf",
+      fileStorageKey: "storage-key",
+      extractedText: "texte d'un ancien dépôt",
+      uploadedBy: { role },
+      document: { establishmentId: ESTABLISHMENT_ID, validatedAt: null, documentType: { code: "DEPARTEMENT_TAMPON" } },
+    };
+  }
+  const asClientRole = (clientAccessRole: string) =>
+    tryEstablishmentAccess.mockResolvedValue({ isClient: true, clientAccessRole, userId: "u-1", session: { user: { role: "CLIENT_USER" } } });
+  const asCabinetReader = () =>
+    tryEstablishmentAccess.mockResolvedValue({ isClient: false, clientAccessRole: null, userId: "u-cab", session: { user: { role: "CABINET_ADMIN" } } });
+
+  beforeEach(() => {
+    prismaMock.documentVersion.findUnique.mockReset();
+    tryEstablishmentAccess.mockReset();
+    prismaMock.documentVersion.findUnique.mockResolvedValue(tamponVersion());
+  });
+
+  it("le cabinet, administration comprise, n'ouvre ni l'aperçu, ni le téléchargement, ni le texte extrait — rien n'est journalisé", async () => {
+    asCabinetReader();
+    await expect(getDocumentPreviewData("v-tampon")).resolves.toBeNull();
+    await expect(getDocumentDownloadUrl("v-tampon")).resolves.toBeNull();
+    await expect(getExtractedText("v-tampon")).resolves.toBeNull();
+    expect(recordAuditEvent).not.toHaveBeenCalled();
+  });
+
+  it.each(["RESPONSABLE_QUALITE", "ADMINISTRATIF"])("la structure au rôle %s ne l'ouvre pas", async (role) => {
+    asClientRole(role);
+    await expect(getDocumentPreviewData("v-tampon")).resolves.toBeNull();
+    await expect(getDocumentDownloadUrl("v-tampon")).resolves.toBeNull();
+  });
+
+  it("la direction l'ouvre, même déposé par EODA pour son compte et jamais validé", async () => {
+    asClientRole("DIRECTION");
+    prismaMock.documentVersion.findUnique.mockResolvedValue({ ...tamponVersion("CABINET_ADMIN"), originalFilename: "tampon.docx" });
+    await expect(getDocumentPreviewData("v-tampon")).resolves.toMatchObject({ kind: "document" });
+  });
+
+  it("l'aperçu de la direction ne montre jamais le texte extrait d'un ancien dépôt", async () => {
+    asClientRole("DIRECTION");
+    prismaMock.documentVersion.findUnique.mockResolvedValue({ ...tamponVersion(), originalFilename: "tampon.doc" });
+    const preview = await getDocumentPreviewData("v-tampon");
+    expect(JSON.stringify(preview)).not.toContain("texte d'un ancien dépôt");
+  });
+});
+
+describe("document à accès restreint — dépôt", () => {
+  function tamponForm(cabinetFinal = false): FormData {
+    const formData = uploadForm(TAMPON_TYPE.id);
+    if (cabinetFinal) formData.set("cabinetFinal", "1");
+    return formData;
+  }
+  const asClient = (clientAccessRole: string) =>
+    requireEstablishmentAccess.mockResolvedValue({
+      userId: "user-1",
+      session: { user: { role: "CLIENT_USER" } },
+      isClient: true,
+      clientAccessRole,
+      missionAccess: "ACTIVE",
+    });
+
+  beforeEach(() => {
+    givenMission(null);
+    prismaMock.documentType.findUnique.mockResolvedValue(TAMPON_TYPE);
+    prismaMock.document.findUnique.mockResolvedValue({ validatedAt: null });
+  });
+
+  it("la direction dépose : le texte n'est jamais extrait, rien ne part à l'IA", async () => {
+    asClient("DIRECTION");
+    const result = await uploadDocument(tamponForm());
+    expect(result).toMatchObject({ success: true });
+    expect(extractMarkdown).not.toHaveBeenCalled();
+    expect(ingestDocumentVersion).toHaveBeenCalledWith(
+      expect.objectContaining({ documentTypeCode: "DEPARTEMENT_TAMPON", extractedText: null, extractedImages: [] }),
+      expect.anything()
+    );
+  });
+
+  it.each(["RESPONSABLE_QUALITE", "ADMINISTRATIF"])("la structure au rôle %s ne dépose pas sur la ligne restreinte", async (role) => {
+    asClient(role);
+    const result = await uploadDocument(tamponForm());
+    expect(result).toMatchObject({ error: expect.stringContaining("direction") });
+    expect(ingestDocumentVersion).not.toHaveBeenCalled();
+  });
+
+  it("le cabinet dépose pour la structure, mais son dépôt ne vaut jamais validation", async () => {
+    asCabinet();
+    const result = await uploadDocument(tamponForm(true));
+    expect(result).toMatchObject({ success: true });
+    expect(extractMarkdown).not.toHaveBeenCalled();
+    expect(prismaMock.$transaction).not.toHaveBeenCalled();
+    expect(recordAuditEvent).not.toHaveBeenCalledWith(expect.objectContaining({ action: "DOCUMENT_VALIDATED" }));
+  });
+
+  it("la détection automatique du type ne propose jamais une ligne restreinte", async () => {
+    asClient("DIRECTION");
+    prismaMock.documentType.findMany.mockResolvedValue([TAMPON_TYPE, RH_TYPE]);
+    suggestDocumentType.mockReturnValue(null);
+    const formData = uploadForm(TAMPON_TYPE.id);
+    formData.delete("documentTypeId");
+    await uploadDocument(formData);
+    expect(suggestDocumentType).toHaveBeenCalledWith([RH_TYPE], "doc.pdf", "texte extrait");
+  });
+});
+
+describe("document à accès restreint — validation et reclassement", () => {
+  it("le cabinet ne valide pas un document qu'il ne peut pas regarder", async () => {
+    asCabinet();
+    prismaMock.document.findUnique.mockResolvedValue({
+      id: "doc-t",
+      validatedAt: null,
+      currentVersionId: "v-tampon",
+      documentType: { code: "DEPARTEMENT_TAMPON" },
+    });
+    const result = await setDocumentValidated(ESTABLISHMENT_ID, TAMPON_TYPE.id, true);
+    expect(result).toMatchObject({ error: expect.any(String) });
+    expect(prismaMock.document.update).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    [TAMPON_TYPE, RH_TYPE],
+    [RH_TYPE, TAMPON_TYPE],
+  ])("refuse de faire entrer un document dans une ligne restreinte ou de l'en sortir", async (from, to) => {
+    asCabinet();
+    givenMission(null);
+    prismaMock.documentType.findUnique.mockImplementation(({ where }: { where: { id: string } }) =>
+      Promise.resolve(where.id === from.id ? from : to)
+    );
+    const result = await changeDocumentType(ESTABLISHMENT_ID, from.id, to.id);
+    expect(result).toMatchObject({ error: expect.stringContaining("restreint") });
+    expect(prismaMock.$transaction).not.toHaveBeenCalled();
   });
 });

@@ -8,6 +8,7 @@ import { resolveSupportMode } from "@/lib/services/support-mode-service";
 import { correctionRight, type CorrectionRight } from "@/lib/services/offer-scope-service";
 import { analysisVisibleTo } from "@/lib/services/analysis-view-service";
 import { canUseComplianceWorkspace } from "@/lib/services/correction-proposal-service";
+import { isRestrictedDocumentType } from "@/content/documents/acces-restreint";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CONTEXTE D'UNE MISE EN CONFORMITÉ (N8) — résolu une seule fois pour l'écran côte à
@@ -64,6 +65,9 @@ export async function openCorrectionContext(versionId: unknown): Promise<Correct
   const documentType = document.documentType!;
 
   const access = await requireEstablishmentAccess(document.establishmentId, NEED.DOCUMENTS_WRITE);
+  // Document à accès restreint (le tampon, ADR 20261110) : aucune IA ne le lit, l'écran
+  // et ses exports n'existent pas pour lui — introuvable, comme hors périmètre.
+  if (isRestrictedDocumentType(documentType.code)) notFound();
   const offer = await findMissionOffer(document.establishmentId);
   const mode = resolveSupportMode(offer);
   const right = correctionRight(offer, documentType.category);

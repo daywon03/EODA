@@ -22,12 +22,13 @@ import {
   canDeleteVersion,
   MAX_JUSTIFICATION_LENGTH,
 } from "@/lib/services/document-workflow-service";
-import { isVersionVisibleToClient } from "@/lib/services/deliverables-service";
 import {
   planDepositCancellation,
   validationOutcome,
   type ValidationOutcome,
 } from "@/lib/services/document-deposit-service";
+import { canDepositDocumentFile, canOpenDocumentFile, documentFileOpenerOf } from "@/lib/auth/document-file-access";
+import { isRestrictedDocumentType } from "@/content/documents/acces-restreint";
 import { decideAnalysisDirective } from "@/lib/services/analysis-directive-service";
 import { extractMarkdown } from "@/lib/services/text-extraction-service";
 import { canRenderDocumentPages } from "@/lib/services/file-type-service";
@@ -83,6 +84,11 @@ const DEPOSIT_CLOSED_MESSAGE =
 const OUT_OF_OFFER_ERROR =
   "Ce document n'entre pas dans le périmètre de l'offre souscrite pour cet établissement.";
 
+// Document à accès restreint (le tampon, ADR 20261110).
+const RESTRICTED_DEPOSIT_ERROR = "Seule la direction de la structure dépose ce document.";
+const RESTRICTED_RECLASS_ERROR =
+  "Un document à accès restreint ne change pas de ligne : supprimez le dépôt et redéposez-le sous le bon type.";
+
 export type DocumentTypeCandidate = { id: string; label: string; category: string };
 
 export type UploadDocumentResult =
@@ -129,24 +135,37 @@ export async function uploadDocument(formData: FormData): Promise<UploadDocument
   const validation = validateUploadOnServer(buffer, file.size);
   if (!validation.ok) return { error: validation.error };
 
-  const extraction = await extractMarkdown(buffer, validation.contentType);
+  // Le type CHOISI est lu avant toute extraction : un document à accès restreint (le
+  // tampon, ADR 20261110) n'est jamais lu par une machine — ni texte, ni images, ni IA.
+  const requestedTypeId = formData.get("documentTypeId");
+  const hasRequestedType = typeof requestedTypeId === "string" && requestedTypeId.length > 0;
+  const requestedType = hasRequestedType
+    ? await prisma.documentType.findUnique({ where: { id: requestedTypeId } })
+    : null;
+  const unreadable = isRestrictedDocumentType(requestedType?.code);
+
+  const extraction = unreadable ? null : await extractMarkdown(buffer, validation.contentType);
   // Les images éventuellement extraites sont stockées plus loin, à l'intérieur de
   // `ingestDocumentVersion` (seule cette fonction connaît le numéro de version) —
   // ici on ne garde que le texte, pour la catégorisation automatique ci-dessous.
   const extractedText = extraction ? extraction.markdown : null;
   const extractedImages = extraction ? extraction.images : [];
 
-  const requestedTypeId = formData.get("documentTypeId");
-  let documentTypeId = typeof requestedTypeId === "string" && requestedTypeId ? requestedTypeId : null;
-
-  if (!documentTypeId) {
+  let documentType = requestedType;
+  if (!hasRequestedType) {
     // Restreint au périmètre de l'offre : sans ce filtre, la liste de candidats
     // renvoyée à l'UI énumérerait des types de documents que l'offre exclut.
     const allTypes = await prisma.documentType.findMany({
       where: { archivedAt: null, ...(coveredCategories ? { category: { in: [...coveredCategories] } } : {}) },
       select: { id: true, code: true, label: true, category: true },
     });
-    const suggestion = suggestDocumentType(allTypes, file.name, extractedText);
+    // Une ligne restreinte se CHOISIT, elle ne se devine pas : la deviner supposerait
+    // d'avoir lu le fichier. Elle reste proposée dans la liste du choix manuel.
+    const suggestion = suggestDocumentType(
+      allTypes.filter((type) => !isRestrictedDocumentType(type.code)),
+      file.name,
+      extractedText
+    );
     if (!suggestion) {
       return {
         error: "Type de document non détecté automatiquement — merci de le sélectionner.",
@@ -154,12 +173,16 @@ export async function uploadDocument(formData: FormData): Promise<UploadDocument
         candidates: allTypes.map(({ id, label, category }) => ({ id, label, category })),
       };
     }
-    documentTypeId = suggestion.documentTypeId;
+    documentType = await prisma.documentType.findUnique({ where: { id: suggestion.documentTypeId } });
   }
 
-  const documentType = await prisma.documentType.findUnique({ where: { id: documentTypeId } });
   // Une ligne archivée a quitté toutes les listes : une page restée ouverte n'y dépose rien.
   if (!documentType || documentType.archivedAt) return { error: "Type de document invalide." };
+
+  // Ligne restreinte : la direction de la structure, ou le cabinet pour son compte.
+  if (!canDepositDocumentFile(documentFileOpenerOf(access), documentType.code)) {
+    return { error: RESTRICTED_DEPOSIT_ERROR };
+  }
 
   // Refus AVANT ingestion : rien n'est stocké, aucune analyse n'est déclenchée.
   // `documentTypeId` peut venir du formulaire (entrée non fiable) : le contrôle
@@ -181,6 +204,7 @@ export async function uploadDocument(formData: FormData): Promise<UploadDocument
       establishmentId,
       documentTypeId: documentType.id,
       documentTypeLabel: documentType.label,
+      documentTypeCode: documentType.code,
       content: buffer,
       contentType: validation.contentType,
       originalFilename: file.name,
@@ -209,7 +233,9 @@ export async function uploadDocument(formData: FormData): Promise<UploadDocument
   // c'est un dépôt POUR LE COMPTE de la structure (un original du client), qui suit le
   // parcours normal : on ne valide jamais en silence une pièce que personne n'a relue.
   // Jamais pour un client : le champ est ignoré si l'appelant n'est pas du cabinet.
-  if (!access.isClient && formData.get("cabinetFinal") === "1") {
+  // Jamais sur une ligne restreinte : le cabinet ne la relira pas, valider serait
+  // engager une parole sur un fichier que personne chez EODA ne regarde.
+  if (!access.isClient && formData.get("cabinetFinal") === "1" && !isRestrictedDocumentType(documentType.code)) {
     const now = new Date();
     const validatedDocument = await prisma.$transaction(async (tx) => {
       // Dépôt annulable (09/11/2026) : la version garde la validation qu'elle
@@ -537,6 +563,11 @@ export async function changeDocumentType(
     prisma.documentType.findUnique({ where: { id: toDocumentTypeId }, select: { id: true, code: true, category: true } }),
   ]);
   if (!from || !to) return { error: "Type de document invalide." };
+  // Sortir un document d'une ligne restreinte le rendrait lisible par le cabinet ; l'y
+  // faire entrer garderait le texte et l'analyse déjà faits (ADR 20261110).
+  if (isRestrictedDocumentType(from.code) || isRestrictedDocumentType(to.code)) {
+    return { error: RESTRICTED_RECLASS_ERROR };
+  }
 
   // Même arbitrage que le dépôt : on ne re-classe pas sous un type que l'offre de la
   // structure ne couvre pas — le document disparaîtrait de sa checklist.
@@ -727,9 +758,13 @@ async function getAuthorizedDocumentVersion(documentVersionId: string) {
   // « Mes documents » et que la route PDF). La structure reçoit l'historique des
   // versions dans sa page : leurs identifiants ne sont donc pas un secret, et
   // masquer un bouton ne protégerait rien.
+  //
+  // Document à accès restreint (le tampon, ADR 20261110) : la direction de la
+  // structure seule — aucun compte du cabinet. Une seule règle, `canOpenDocumentFile`,
+  // pour cette porte et pour les routes qui servent les octets.
   if (
-    access.isClient &&
-    !isVersionVisibleToClient({
+    !canOpenDocumentFile(documentFileOpenerOf(access), {
+      documentTypeCode: version.document.documentType?.code,
       producedByCabinet: version.uploadedBy.role !== "CLIENT_USER",
       validatedAt: version.document.validatedAt,
     })
@@ -800,7 +835,9 @@ export async function getDocumentPreviewData(
   return buildFilePreview({
     originalFilename: version.originalFilename,
     fileStorageKey: version.fileStorageKey,
-    extractedText: version.extractedText,
+    // Un document restreint n'a jamais de texte extrait montré, même d'un dépôt
+    // antérieur à la restriction : on montre la pièce, jamais ce qu'une machine en a lu.
+    extractedText: isRestrictedDocumentType(version.document.documentType?.code) ? null : version.extractedText,
     documentPagesUrl,
   });
 }
@@ -1475,9 +1512,15 @@ export async function setDocumentValidated(
 
   const document = await prisma.document.findUnique({
     where: { establishmentId_documentTypeId: { establishmentId, documentTypeId } },
-    select: { id: true, validatedAt: true, currentVersionId: true },
+    select: { id: true, validatedAt: true, currentVersionId: true, documentType: { select: { code: true } } },
   });
   if (!document) return { error: "Ce document n'a pas encore été déposé." };
+
+  // Valider, c'est avoir regardé : un document à accès restreint ne s'ouvre pas au
+  // cabinet (ADR 20261110), il ne se valide donc pas.
+  if (validated && isRestrictedDocumentType(document.documentType?.code)) {
+    return { error: "Document à accès restreint : EODA ne l'ouvre pas, il ne se valide pas." };
+  }
 
   // Valider un document sans version reviendrait à valider une intention.
   if (validated && document.currentVersionId === null) {

@@ -4,7 +4,9 @@ import type { ParticipationForm } from "@eoda/database";
 import { readStoredAnalysis } from "@/lib/services/stored-analysis-service";
 import { participationLineLabel } from "@/lib/services/participation-form-service";
 
-import { NEED } from "@/lib/auth/capabilities";
+import { NEED, type ClientAccessRole } from "@/lib/auth/capabilities";
+import { canOpenFilesOfType, documentFileOpenerOf } from "@/lib/auth/document-file-access";
+import { isRestrictedDocumentType } from "@/content/documents/acces-restreint";
 import { prisma } from "@eoda/database";
 import { notFound } from "next/navigation";
 import { requireClientEstablishment, requireEstablishmentInTenant } from "@/lib/auth/guards";
@@ -51,6 +53,11 @@ export type ChecklistItem = {
   // Réclamé à la structure, ou produit par EODA (§ call du 26/08). Le portail client
   // n'affiche que les types réclamés — plus ceux dont un document existe déjà.
   requestedFromClient: boolean;
+  // Ligne à ACCÈS RESTREINT (le tampon, ADR 20261110), et ce que l'écran peut proposer à
+  // la personne qui regarde : ouvrir le fichier (Voir, Télécharger, PDF) ou seulement un
+  // cadenas. Le refus réel est dans chaque porte (`canOpenDocumentFile`).
+  restrictedAccess: boolean;
+  canOpenFile: boolean;
   // Dossier de la liste « Documents » où la ligne se range (call du 29/10/2026), ou
   // null : la ligne reste à plat.
   folder: { id: string; label: string; position: number } | null;
@@ -151,11 +158,15 @@ export type ChecklistByCategory = Record<DocumentCategory, ChecklistItem[]>;
 // points d'entrée (portail client, fiche cabinet) la déclarent explicitement — une
 // valeur par défaut finirait par publier au client le jour où un troisième appelant
 // oublierait de la préciser.
+// `clientAccessRole` : rôle d'accès de la personne côté structure (null côté cabinet) —
+// il décide si une ligne restreinte propose d'ouvrir le fichier.
 async function buildChecklist(
   establishmentId: string,
   establishmentType: EstablishmentType,
-  audience: AnalysisAudience
+  audience: AnalysisAudience,
+  clientAccessRole: ClientAccessRole | null
 ): Promise<{ checklist: ChecklistByCategory; offer: MissionOffer | null; mode: SupportMode }> {
+  const opener = documentFileOpenerOf({ isClient: audience === "CLIENT", clientAccessRole });
   // Une seule lecture d'horloge par construction de checklist : deux documents
   // déposés le même jour ne doivent pas se périmer à une milliseconde d'écart.
   const now = new Date();
@@ -258,6 +269,9 @@ async function buildChecklist(
     // « Je ne l'ai pas » (N3) : statut à afficher et fait « à produire », y compris
     // le rattrapage des anciens « Non » sur la loi 2002-2 (missing-answer-service).
     const hasVersion = !!doc?.currentVersion;
+    // Ligne restreinte : aucune analyse ni suggestion n'est restituée, à personne — même
+    // enregistrée avant la restriction (ADR 20261110).
+    const restrictedAccess = isRestrictedDocumentType(dt.code);
     const { status, declaredMissing } = normaliseMissingState({
       category: dt.category,
       code: dt.code,
@@ -267,15 +281,16 @@ async function buildChecklist(
     });
     const currentVersion = doc?.currentVersion
       ? toChecklistVersion(
-          doc.currentVersion,
+          restrictedAccess ? { ...doc.currentVersion, analysisResultJson: null } : doc.currentVersion,
           { audience, mode, validatedAt: doc.validatedAt },
           // Jamais transmis au CLIENT : une suggestion non tranchée est une
           // hypothèse de travail interne (CDC §5, §7), gatée ici plutôt qu'à la
           // lecture (cf. commentaire sur le `select` ci-dessus).
-          audience === "CABINET" ? doc.criterionSuggestions : [],
+          audience === "CABINET" && !restrictedAccess ? doc.criterionSuggestions : [],
           establishmentType
         )
       : null;
+    const hasStoredAnalysis = !restrictedAccess && doc?.currentVersion?.analysisResultJson != null;
     const clientAcceptedAt = doc?.clientAcceptedAt ?? null;
 
     const item: ChecklistItem = {
@@ -288,6 +303,8 @@ async function buildChecklist(
       isConditional: dt.isConditional,
       expectedFrequency: dt.expectedFrequency,
       requestedFromClient: dt.requestedFromClient,
+      restrictedAccess,
+      canOpenFile: canOpenFilesOfType(opener, dt.code),
       folder: dt.folder,
       expiryNotice: describeExpiry(expiryFacts, now),
       status,
@@ -332,12 +349,12 @@ async function buildChecklist(
         // que stocké : un compte ne change pas de camp, et une colonne de plus serait
         // une vérité à maintenir.
         producedByCabinet: version.uploadedBy.role !== "CLIENT_USER",
-        hasAnalysis: version.analysisResultJson !== null,
+        hasAnalysis: !restrictedAccess && version.analysisResultJson !== null,
       })),
       validatedAt: doc?.validatedAt ?? null,
       step: deriveDocumentStep({
         hasVersion: !!doc?.currentVersion,
-        hasAnalysis: doc?.currentVersion?.analysisResultJson != null,
+        hasAnalysis: hasStoredAnalysis,
         hasCabinetVersion: (doc?.versions ?? []).some(
           (version) => version.uploadedBy.role !== "CLIENT_USER"
         ),
@@ -448,7 +465,7 @@ export async function getClientChecklist(): Promise<{
 }> {
   // L'établissement est résolu depuis le lien EstablishmentUser de la session, pas
   // depuis un identifiant fourni par la requête : non falsifiable par construction.
-  const { session, establishment, missionAccess, missionClosure } = await requireClientEstablishment(NEED.DOCUMENTS_READ);
+  const { session, establishment, accessRole, missionAccess, missionClosure } = await requireClientEstablishment(NEED.DOCUMENTS_READ);
   const userName = session.user.name ?? null;
   // `now` lu ici, à la frontière : le service reste pur et testable sans horloge.
   const libraryUpdateAlert = isLibraryUpdateAlertDue(missionClosure, new Date());
@@ -468,7 +485,8 @@ export async function getClientChecklist(): Promise<{
   const { checklist, offer, mode } = await buildChecklist(
     establishment.id,
     establishment.type as EstablishmentType,
-    "CLIENT"
+    "CLIENT",
+    accessRole
   );
 
   return { establishment, checklist, missionAccess, libraryUpdateAlert, supportMode: mode, offer, userName };
@@ -482,7 +500,7 @@ export async function getEstablishmentChecklist(
   // établissement, tous tenants confondus.
   const { establishmentType } = await requireEstablishmentInTenant(establishmentId, "READ");
 
-  return (await buildChecklist(establishmentId, establishmentType, "CABINET")).checklist;
+  return (await buildChecklist(establishmentId, establishmentType, "CABINET", null)).checklist;
 }
 
 // ── Rapport de mise en conformité ────────────────────────────────────────────
@@ -507,7 +525,7 @@ export async function getConformityReportData(
   });
   if (!establishment) notFound();
 
-  const { checklist } = await buildChecklist(establishmentId, establishment.type, "CABINET");
+  const { checklist } = await buildChecklist(establishmentId, establishment.type, "CABINET", null);
   // La catégorie est la CLÉ de la checklist, pas un champ de l'item : on la rattache
   // ici plutôt que de l'ajouter partout dans le modèle.
   const items = Object.entries(checklist).flatMap(([category, categoryItems]) =>
