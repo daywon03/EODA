@@ -1,4 +1,5 @@
 import type { DocumentCategory } from "@eoda/database";
+import { documentTypeLabelKey } from "@eoda/database/objective-labels";
 import type { MissionAccessState } from "@/lib/services/mission-access-service";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -39,14 +40,9 @@ export function normalizeDocumentTypeLabel(label: string): string {
 // Clé de comparaison : sans accents, sans casse, sans ponctuation. Deux libellés de
 // même clé désignent le même document — le second serait un doublon que l'on
 // rattacherait, analyserait et mettrait à jour deux fois.
-export function documentTypeLabelKey(label: string): string {
-  return label
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, " ")
-    .trim();
-}
+// Source unique, partagée avec le script de nettoyage des intitulés
+// (packages/database/scripts/strip-objective-labels.ts) : une seule notion de doublon.
+export { documentTypeLabelKey };
 
 export function isCreatableCategory(category: string): category is CreatableDocumentCategory {
   return (CREATABLE_DOCUMENT_CATEGORIES as readonly string[]).includes(category);
@@ -143,4 +139,17 @@ export function shouldAnnounceNewDocumentType(input: {
   // `null` = aucune mission (avant-vente) : rien n'est contracté, rien n'est annoncé.
   if (input.coveredCategories === null) return false;
   return input.coveredCategories.includes(input.category);
+}
+
+// Ce que le formulaire dit AVANT l'envoi (retour du 09/11/2026, #7 : « 3 structures
+// prévenues » sans l'avoir voulu). La case est décochée par défaut ; cochée, on nomme
+// qui recevra l'annonce — liste calculée côté serveur par shouldAnnounceNewDocumentType.
+// `null` = catégorie pas encore choisie.
+export function describeAnnouncementTargets(names: readonly string[] | null): string {
+  if (names === null) return "Choisissez la catégorie pour voir les structures prévenues.";
+  if (names.length === 0) {
+    return "Aucune structure accompagnée n'est concernée par cette catégorie : personne ne sera prévenu.";
+  }
+  const many = names.length > 1;
+  return `${many ? "Recevront" : "Recevra"} l'annonce (${names.length} structure${many ? "s" : ""}) : ${names.join(", ")}.`;
 }

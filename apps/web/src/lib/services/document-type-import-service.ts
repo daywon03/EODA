@@ -1,3 +1,4 @@
+import { unknownCriteriaMessage } from "./criterion-code-message";
 import {
   documentTypeLabelKey,
   MAX_CRITERIA_AT_CREATION,
@@ -129,7 +130,7 @@ export function planDocumentTypeImport(input: {
         criteria,
         unknownCriteria,
         status: "INVALID",
-        problem: `Critère inconnu du référentiel : ${unknownCriteria.join(", ")}.`,
+        problem: unknownCriteriaMessage(unknownCriteria),
       };
     }
     return { label, criteria, unknownCriteria, status: "NEW", problem: null };

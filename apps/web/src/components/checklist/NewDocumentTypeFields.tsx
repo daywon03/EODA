@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useEffect } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AlertCircle, CheckCircle2, Loader2, Plus } from "lucide-react";
 import { createDocumentType, type CreateDocumentTypeResult } from "@/lib/actions/document-type-creation";
@@ -10,12 +10,19 @@ import { useResetAfterSuccess } from "@/lib/forms/use-reset-after-success";
 import { DOCUMENT_CATEGORY_LABELS } from "@/lib/services/structure-documents-service";
 import {
   CREATABLE_DOCUMENT_CATEGORIES,
+  describeAnnouncementTargets,
   DOCUMENT_TYPE_LABEL_MAX,
+  isCreatableCategory,
+  type CreatableDocumentCategory,
 } from "@/lib/services/document-type-creation-service";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
+
+// Structures qui recevraient l'annonce, par catégorie — calculées côté serveur
+// (listDocumentTypeAnnouncementTargets), par la même règle que l'envoi.
+export type AnnouncementTargets = Readonly<Record<CreatableDocumentCategory, readonly string[]>>;
 
 type Props = {
   // Fiche d'où la ligne est créée — pour proposer de l'ouvrir aussitôt. Absente sur
@@ -23,10 +30,11 @@ type Props = {
   establishmentId?: string;
   // Adresse de l'onglet Documents de cette fiche.
   documentsPath?: string;
-  // Critère d'où l'on vient (onglet Critères → « Ajouter un document à ce critère »).
+  // Critère d'où l'on vient (onglet Critères → « Créer un nouveau document pour ce critère »).
   initialCriterionCode?: string;
   folders: readonly { id: string; label: string }[];
   initialFolderId?: string;
+  announceTargets?: AnnouncementTargets;
   onClose: () => void;
 };
 
@@ -38,8 +46,12 @@ export function NewDocumentTypeFields({
   initialCriterionCode,
   folders,
   initialFolderId,
+  announceTargets,
   onClose,
 }: Props) {
+  // Catégorie et case lues ici pour nommer, AVANT l'envoi, les structures prévenues.
+  const [category, setCategory] = useState("");
+  const [announce, setAnnounce] = useState(false);
   const router = useRouter();
   const [state, formAction, isPending] = useActionState(
     async (_previous: CreateDocumentTypeResult | null, data: FormData) => createDocumentType(data),
@@ -50,7 +62,12 @@ export function NewDocumentTypeFields({
 
   // La liste affichée à côté se relit : la nouvelle ligne y apparaît sans recharger.
   useEffect(() => {
-    if (succeeded) router.refresh();
+    if (!succeeded) return;
+    router.refresh();
+    // Le formulaire se vide après un succès : la case d'annonce aussi, sinon la ligne
+    // suivante serait annoncée sans qu'on l'ait redemandé.
+    setCategory("");
+    setAnnounce(false);
   }, [succeeded, state, router]);
 
   return (
@@ -85,7 +102,14 @@ export function NewDocumentTypeFields({
 
       <div className="space-y-1.5">
         <Label htmlFor="new-document-type-category">Catégorie</Label>
-        <Select id="new-document-type-category" name="category" required disabled={isPending} defaultValue="">
+        <Select
+          id="new-document-type-category"
+          name="category"
+          required
+          disabled={isPending}
+          value={category}
+          onChange={(event) => setCategory(event.target.value)}
+        >
           <option value="" disabled>
             Choisir…
           </option>
@@ -141,10 +165,26 @@ export function NewDocumentTypeFields({
         </label>
       </fieldset>
 
-      <label className="flex min-h-11 items-center gap-2 text-ink">
-        <input type="checkbox" name="announce" defaultChecked disabled={isPending} />
-        Prévenir par e-mail les structures accompagnées concernées
-      </label>
+      {/* Décochée par défaut (09/11/2026, « 3 structures prévenues » sans l'avoir voulu) ;
+          cochée, les structures qui recevront l'annonce sont NOMMÉES avant l'envoi. */}
+      <div className="space-y-1">
+        <label className="flex min-h-11 items-center gap-2 text-ink">
+          <input
+            type="checkbox"
+            name="announce"
+            checked={announce}
+            onChange={(event) => setAnnounce(event.target.checked)}
+            disabled={isPending}
+            aria-describedby="new-document-type-announce-targets"
+          />
+          Prévenir par e-mail les structures accompagnées concernées
+        </label>
+        <p id="new-document-type-announce-targets" aria-live="polite" className="text-sm text-ink2">
+          {announce && announceTargets
+            ? describeAnnouncementTargets(isCreatableCategory(category) ? announceTargets[category] : null)
+            : null}
+        </p>
+      </div>
 
       {state && "error" in state && (
         <p role="alert" className="flex items-center gap-2 text-sm text-rouge-imp">

@@ -10,8 +10,10 @@ export type TimelinePhase = {
   period?: string;
   percent?: number;
   state: PhaseState;
-  // Écrans où l'étape se travaille (retour de Sandrine, 08/11/2026).
+  // Écrans où l'étape se travaille (retour de Sandrine, 08/11/2026). Le premier est
+  // la destination de l'étape elle-même : `href` (call du 09/11/2026).
   links?: readonly { label: string; href: string }[];
+  href?: string;
 };
 
 // L'état se lit par le glyphe ET le mot, pas par la couleur seule.
@@ -29,6 +31,10 @@ export function PhaseTimeline({ label, phases, className }: { label: string; pha
     <ol aria-label={label} className={cn("grid gap-3 sm:grid-flow-col sm:auto-cols-fr", className)}>
       {phases.map((phase) => {
         const s = STATE[phase.state];
+        // Le titre mène au premier écran de l'étape ; la liste n'en répète pas le lien.
+        const [primary, ...others] = phase.links ?? [];
+        const titleHref = phase.href ?? primary?.href;
+        const listed = titleHref !== undefined && primary?.href === titleHref ? others : (phase.links ?? []);
         return (
           <li
             key={phase.id}
@@ -45,15 +51,27 @@ export function PhaseTimeline({ label, phases, className }: { label: string; pha
               {s.glyph}
             </span>
             <div className="min-w-0 space-y-0.5">
-              <p className="font-bold text-ink">{phase.label}</p>
+              {titleHref ? (
+                <Link href={titleHref} className="group flex min-h-11 flex-col justify-center">
+                  <span className="font-bold text-ink group-hover:underline">
+                    {phase.label}
+                    <span aria-hidden="true">&nbsp;→</span>
+                  </span>
+                  {primary && primary.href === titleHref && (
+                    <span className="text-sm font-bold text-accent-text">{primary.label}</span>
+                  )}
+                </Link>
+              ) : (
+                <p className="font-bold text-ink">{phase.label}</p>
+              )}
               <p className="text-sm text-ink2">
                 {s.word}
                 {phase.percent !== undefined && ` · ${phase.percent} %`}
               </p>
               {phase.period && <p className="text-sm tabular-nums text-ink2">{phase.period}</p>}
-              {phase.links && phase.links.length > 0 && (
+              {listed.length > 0 && (
                 <ul className="pt-1">
-                  {phase.links.map((link) => (
+                  {listed.map((link) => (
                     <li key={link.href}>
                       <Link
                         href={link.href}

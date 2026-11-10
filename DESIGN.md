@@ -263,6 +263,40 @@ humaines · Qualité.
 - `groupes.test.ts` échoue si un type du référentiel n'a pas de groupe ou si un code rangé
   n'existe pas.
 
+**La page (refonte du 09/11/2026, retours de la directrice du pilote et de Sandrine : « je
+comprends rien » devant cinq bulles d'état et huit bulles de rubriques).** De haut en bas :
+
+1. **Titre + une phrase qui répond à « que dois-je faire ? »** (`describeClientTodo`) :
+   « Vous avez 3 documents à déposer et 21 à accepter. EODA prépare 19 documents. » ; sans
+   geste attendu, « Rien à faire pour l'instant. ». En autonomie, « à créer » et « à
+   vérifier », et jamais « EODA prépare ».
+2. **Trois onglets**, des liens (`aria-current="page"`), ≥ 64 px de haut, pictogramme Lucide
+   + mot + nombre — jamais la couleur seule ; l'onglet vit dans l'adresse (`?vue=`) :
+   | Onglet | `?vue=` | États (accompagnée) | États (autonomie) |
+   |---|---|---|---|
+   | À faire par vous (défaut) | `a-faire` | à déposer, à renouveler, relu par EODA à accepter | idem + à créer (déclaré absent), à vérifier |
+   | EODA s'en occupe / **Reçus** en autonomie | `en-cours` | à produire par EODA, reçu en cours | reçu, analyse indisponible |
+   | C'est fait | `fait` | accepté par vous, non concerné | idem |
+   Sous les onglets, une phrase dit ce que contient l'onglet courant. La correspondance est
+   **une** fonction totale, `clientViewOf` (`client-documents-page-service.ts`). Les anciens
+   `?filtre=` ouvrent l'onglet qui contient ces documents ; `?groupe=` et `?tri=` sont
+   acceptés sans effet. Une recherche sans onglet choisi ouvre le premier onglet qui a un
+   résultat (le diagnostic renvoie vers `?q=<nom>`).
+3. **Recherche** : un champ, un bouton (formulaire GET), sur les trois onglets ; les nombres
+   des onglets en tiennent compte.
+4. **Sommaire « Aller à une rubrique »** : ancres vers les rubriques de l'onglet, en ligne
+   dès `lg`, `<details>` natif replié en dessous ; absent s'il n'y a qu'une rubrique.
+5. **Rubriques** en `h2` (« N documents »), dossiers (`FolderDetails`) puis cartes, **ordre
+   alphabétique** dans chaque rubrique — le bouton « Trier de A à Z » n'existe plus. Une
+   rubrique sans document dans l'onglet n'est pas rendue ; un onglet vide le dit
+   (`describeEmptyView`).
+6. **Carte** : un seul geste principal (`primaryCardAction`) — Déposer (à déposer, à
+   renouveler), Accepter (relu par EODA / à vérifier), sinon Voir (bouton plein) ; le reste
+   en secondaire (lien ou contour). En bibliothèque, Voir seulement.
+
+Tout fonctionne **sans JavaScript** (liens, formulaire GET, `<details>`). Rien de ce que la
+structure a le droit de voir ne change : l'onglet range, il ne filtre aucune autorisation.
+
 ---
 
 ## 6. Voix et mots
@@ -348,6 +382,7 @@ vérifie.**
 | Une seule source de navigation côté client, et la barre latérale rend la liste **entière** | `lib/design/client-sidebar.test.ts` | `buildClientNav` appelé une fois ; pas de `splitClientNav` ni de `slice(` dans `ClientNavList` ; barre du bas `lg:hidden` seul rendu sous `lg` |
 | La densité du client survit à la copie de la barre latérale | idem | entrée client `h-12` **et** `text-lg`, entrée cabinet `h-11` — l'une ne se recopie jamais dans l'autre |
 | Le repli d'une barre latérale ne replie pas l'autre | `lib/design/navigation.test.ts` | `CLIENT_SIDEBAR_KEY ≠ CABINET_SIDEBAR_KEY`, et clés passées en argument obligatoire |
+| « Mes documents » : chaque état tombe dans UN onglet, la phrase d'en-tête et le geste principal de la carte se dérivent | `lib/services/client-documents-page-service.test.ts` | correspondance totale (somme des onglets = nombre de documents), accompagnée **et** autonomie ; « EODA » jamais écrit en autonomie ; aucun « validé » / « conforme » ; anciens `?filtre=` traduits |
 | L'attribut `hidden` masque réellement, même sous une classe d'affichage | `lib/design/hidden-attribute.test.ts` | `globals.css` doit porter `[hidden]:where(:not([hidden="until-found"])){display:none !important}` — sans le `!important`, `.flex` (même spécificité, plus loin dans la feuille) gagne et le repli d'une section reste décoratif (16/10/2026) |
 
 **Dette déclarée — non vérifié à ce jour** : `eslint-plugin-jsx-a11y` en `error`, un passage

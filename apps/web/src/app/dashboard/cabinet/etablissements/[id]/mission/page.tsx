@@ -21,8 +21,13 @@ import {
   MISSION_STEPS,
   PHASE_DATE_FIELDS,
   PHASE_LABELS,
+  explainMissionProgress,
   stepTitle,
 } from "@/lib/services/mission-progress-service";
+import { getEstablishmentChecklist } from "@/lib/actions/checklist";
+import { flattenChecklist } from "@/lib/services/structure-documents-service";
+import { depositedDiagnosticReportHref, toTimelinePhases } from "@/lib/services/structure-sheet-service";
+import { PhaseTimeline } from "@/components/ui/phase-timeline";
 import { AvenantSignatureToggle } from "@/components/mission/AvenantSignatureToggle";
 import { requireEstablishmentInTenant } from "@/lib/auth/guards";
 import { hasCabinetCapability } from "@/lib/auth/capabilities";
@@ -40,13 +45,17 @@ export default async function MissionPage({ params }: Props) {
   const { role } = await requireEstablishmentInTenant(id, "READ");
   const canSeeContract = hasCabinetCapability(role, "STRUCTURE_CONTRACT");
   const canManage = hasCabinetCapability(role, "CABINET_SETTINGS");
-  const [, mission, formules, options, documentCounters] = await Promise.all([
+  const [, mission, formules, options, documentCounters, checklist] = await Promise.all([
     getEstablishment(id),
     getMission(id),
     canSeeContract ? listFormulesForMissionSetup() : Promise.resolve([]),
     canSeeContract ? listOptionsForMissionSetup() : Promise.resolve([]),
     getMissionDocumentCounters(id),
+    getEstablishmentChecklist(id),
   ]);
+  // Frise cliquable (call du 09/11/2026) : la même que la vue d'ensemble, rapport de
+  // diagnostic déposé compris.
+  const depositedReportHref = depositedDiagnosticReportHref(id, flattenChecklist(checklist));
 
   // Prestations rattachées HORS devis signé : ce sont elles, et elles seules, que
   // l'avenant régularise — donc les seules dont la signature se suit.
@@ -74,6 +83,11 @@ export default async function MissionPage({ params }: Props) {
       ) : (
         <div className="space-y-6">
           <MissionProgressSummary progress={mission.progress} />
+
+          <PhaseTimeline
+            label="Étapes de la mission"
+            phases={toTimelinePhases(mission, new Date(), id, { depositedReportHref })}
+          />
 
           {documentCounters && <MissionDocumentCounters counters={documentCounters} mode={mission.supportMode} />}
 
@@ -166,6 +180,13 @@ export default async function MissionPage({ params }: Props) {
               <h3 id={`etape-${step.id}`} className="text-lg font-bold text-ink">
                 {stepTitle(step)}
               </h3>
+              {step.id === "MISE_EN_CONFORMITE" && (
+                <p className="text-sm text-ink2">
+                  Avancement de l&apos;étape : {mission.progress.stepPcts.MISE_EN_CONFORMITE ?? 0} % —{" "}
+                  {explainMissionProgress(mission.progress).conformite} Les cases ci-dessous sont des
+                  jalons : elles ne font pas avancer l&apos;étape.
+                </p>
+              )}
               {step.phases.length === 0 ? (
                 <Card>
                   <CardContent className="pt-6">

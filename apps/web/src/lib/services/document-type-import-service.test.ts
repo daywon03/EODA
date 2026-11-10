@@ -70,7 +70,7 @@ describe("planDocumentTypeImport", () => {
       ["NEW", null],
       ["DUPLICATE", "Existe déjà : « Note de service »."],
       ["DUPLICATE", "En double dans le fichier."],
-      ["INVALID", "Critère inconnu du référentiel : 9.9.9."],
+      ["INVALID", "Critère absent des grilles SAD : 9.9.9. Vérifiez le code ou son périmètre (un critère « Établissement » ne s'applique pas à un SAD)."],
       ["INVALID", "trop court"],
     ]);
   });

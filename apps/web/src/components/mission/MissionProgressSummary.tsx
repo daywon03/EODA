@@ -10,7 +10,13 @@ export function MissionProgressSummary({ progress }: Props) {
   const rows = [
     { label: "Avancement global", value: progress.globalPct, color: "bg-vert-ok", how: explanation.global },
     { label: "Diagnostic", value: progress.diagnosticPct, color: "bg-ambre", how: explanation.diagnostic },
-    { label: "Phases d'accompagnement", value: progress.phasesPct, color: "bg-terre", how: explanation.phases },
+    // Call du 09/11/2026 : la mise en conformité se mesure en documents prouvés.
+    {
+      label: "Mise en conformité",
+      value: progress.stepPcts.MISE_EN_CONFORMITE ?? 0,
+      color: "bg-terre",
+      how: explanation.conformite,
+    },
   ];
 
   return (

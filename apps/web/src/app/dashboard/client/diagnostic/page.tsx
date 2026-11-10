@@ -53,7 +53,7 @@ export default async function ClientDiagnosticPage() {
         {data.validation.clientCanAccept && <GestureButton action={acceptDiagnostic} label="J'accepte ce diagnostic" large />}
       </div>
 
-      <DiagnosticCounters summary={data.summary} expectedImperatives={data.expectedImperatives} />
+      <DiagnosticCounters summary={data.summary} expectedImperatives={data.expectedImperatives} offerLabel={data.offerLabel} />
 
       {practices && practices.questions.length > 0 && (
         <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-line bg-soft p-5">
@@ -78,7 +78,7 @@ export default async function ClientDiagnosticPage() {
 
       <DiagnosticChapters
         chapters={data.chapters}
-        scopeNote={describeChaptersScope(data.scopeAll, data.summary.imperatives.total)}
+        scopeNote={describeChaptersScope(data.scopeAll, data.summary.scope.total)}
         details={
           evidence
             ? {

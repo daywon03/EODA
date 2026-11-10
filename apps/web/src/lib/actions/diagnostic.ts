@@ -10,6 +10,7 @@ import {
   requireEstablishmentInTenant,
 } from "@/lib/auth/guards";
 import { recordAuditEvent } from "@/lib/services/audit-log-service";
+import { structureHref } from "@/lib/design/structure-tabs";
 import { canDepositDocuments } from "@/lib/services/mission-access-service";
 import { buildDiagnosticSnapshot } from "@/lib/services/diagnostic-service";
 import { decideClientAcceptance, decideEodaReview } from "@/lib/services/diagnostic-validation-service";
@@ -24,7 +25,8 @@ import { readDiagnostic, type DiagnosticData } from "@/lib/db/read-diagnostic";
 // côté — jamais un « valider » partagé.
 // ─────────────────────────────────────────────────────────────────────────────
 
-const DIAGNOSTIC_PATHS = ["/dashboard/client", "/dashboard/client/diagnostic"];
+const CLIENT_DIAGNOSTIC_PATH = "/dashboard/client/diagnostic";
+const DIAGNOSTIC_PATHS = ["/dashboard/client", CLIENT_DIAGNOSTIC_PATH];
 
 // Structure de l'appelant (lien EstablishmentUser), jamais un identifiant reçu.
 export async function getClientDiagnostic(): Promise<DiagnosticData | null> {
@@ -43,7 +45,9 @@ export async function getStructureDiagnostic(establishmentId: string): Promise<D
 
 // Le rapport imprimable, des deux côtés. Un rapport est un document : son accès se
 // journalise (CLAUDE.md §5 bis), sans donnée personnelle dans `detail`.
-export async function getDiagnosticForPrint(establishmentId: string): Promise<DiagnosticData> {
+// `backHref` : « Retour à la fiche » (call du 09/11/2026 — la page n'avait aucune
+// navigation), vers la fiche structure côté cabinet, « Mon diagnostic » côté structure.
+export async function getDiagnosticForPrint(establishmentId: string): Promise<DiagnosticData & { backHref: string }> {
   const access = await requireEstablishmentAccess(establishmentId, NEED.DIAGNOSTIC_READ);
   const data = await readDiagnostic(access.establishmentId);
   if (!data) notFound();
@@ -55,7 +59,7 @@ export async function getDiagnosticForPrint(establishmentId: string): Promise<Di
     targetId: access.establishmentId,
     detail: access.isClient ? "structure" : "cabinet",
   });
-  return data;
+  return { ...data, backHref: access.isClient ? CLIENT_DIAGNOSTIC_PATH : structureHref(access.establishmentId) };
 }
 
 function revalidateDiagnostic(establishmentId: string): void {

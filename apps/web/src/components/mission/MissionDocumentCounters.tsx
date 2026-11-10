@@ -2,6 +2,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Upload, Sparkles, PencilLine, CheckCircle2 } from "lucide-react";
 import type { SupportMode } from "@eoda/database";
 import {
+  missionDocumentCounterHint,
   validatedCounterLabel,
   type MissionDocumentCounters as Counters,
 } from "@/lib/services/mission-document-counters-service";
@@ -33,7 +34,7 @@ export function MissionDocumentCounters({ counters, mode }: Props) {
       <CardContent>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {cells(mode).map(({ key, label, icon: Icon, color }) => (
-            <div key={key} className="flex items-center gap-2.5">
+            <div key={key} className="flex items-start gap-2.5">
               <span
                 className={`flex items-center justify-center w-8 h-8 rounded-lg flex-shrink-0 ${color}`}
               >
@@ -44,6 +45,8 @@ export function MissionDocumentCounters({ counters, mode }: Props) {
                   {counters[key]}
                 </p>
                 <p className="text-xs text-ink2 leading-none mt-1">{label}</p>
+                {/* Ce que le compteur compte (retour du 09/11/2026) — même règle que le calcul. */}
+                <p className="text-xs text-ink2 leading-snug mt-1">{missionDocumentCounterHint(key, mode)}</p>
               </div>
             </div>
           ))}

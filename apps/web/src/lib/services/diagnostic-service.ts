@@ -1,5 +1,7 @@
+import type { CommercialTier } from "@eoda/database";
 import { chapterLabel } from "./chapter-label-service";
 import { PROOF_PILLS, type CriterionProofRow, type ProofStatus } from "./criteria-proof-service";
+import { getOfferScope } from "./offer-scope-service";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // « MON DIAGNOSTIC » (client) — tranche N6, maquette « Portail Client v2 ».
@@ -37,34 +39,75 @@ export type DiagnosticCounter = {
 };
 
 export type DiagnosticSummary = {
+  // Les impératifs, toujours comptés à part (en-tête, photo, journal).
   imperatives: { proven: number; total: number };
+  // Le périmètre du rapport, FILTRÉ PAR L'OFFRE de la mission (call du 09/11/2026) :
+  // Essentiel = les impératifs seuls ; Performance, Excellence, bêta-test = tous les
+  // critères applicables au profil. Les cartes ET la liste comptent ce périmètre.
+  scope: { all: boolean; proven: number; total: number };
   counters: DiagnosticCounter[];
-  // Impératifs que la matrice ne rattache encore à aucun document : ni prouvés ni
-  // « sans preuve » — on le dit à part plutôt que de les ranger de force.
-  imperativesWithoutExpectedDocument: number;
+  // Critères du périmètre que la matrice ne rattache encore à aucun document : ni
+  // prouvés ni « sans preuve » — on le dit à part plutôt que de les ranger de force.
+  withoutExpectedDocument: number;
 };
 
-export function buildDiagnosticSummary(rows: readonly CriterionProofRow[]): DiagnosticSummary {
+// `scopeAll` vient de l'offre de la MISSION (getOfferScope(...).criteriaScope),
+// jamais de Establishment.commercialTier. Les lignes reçues sont déjà filtrées par
+// applicabilité (un SAD aide ne voit jamais un critère SAD_MIXTE, read-criteria-proof).
+export function buildDiagnosticSummary(rows: readonly CriterionProofRow[], scopeAll: boolean): DiagnosticSummary {
   const imperatives = rows.filter((r) => r.isImperative);
+  const scoped = scopeAll ? rows : imperatives;
   const counters = DIAGNOSTIC_STATES.map((state) => ({
     state,
     label: PROOF_PILLS[state].label,
     glyph: PROOF_PILLS[state].glyph,
     definition: DIAGNOSTIC_STATE_DEFINITIONS[state],
-    count: imperatives.filter((r) => r.status === state).length,
+    count: scoped.filter((r) => r.status === state).length,
   }));
   return {
-    imperatives: { proven: imperatives.filter((r) => r.status === "PROUVE").length, total: imperatives.length },
+    imperatives: countProven(imperatives),
+    scope: { all: scopeAll, ...countProven(scoped) },
     counters,
-    imperativesWithoutExpectedDocument: imperatives.filter((r) => r.status === "NON_RATTACHE").length,
+    withoutExpectedDocument: scoped.filter((r) => r.status === "NON_RATTACHE").length,
   };
+}
+
+function countProven(rows: readonly CriterionProofRow[]): { proven: number; total: number } {
+  return { proven: rows.filter((r) => r.status === "PROUVE").length, total: rows.length };
+}
+
+// Le titre du rapport nomme l'offre qui le filtre (call du 09/11/2026). Une mission
+// sans offre (prestations à la carte) ou l'absence de mission : les impératifs.
+// `undefined` = aucune mission ; `null` = mission sans offre.
+const OFFER_NAMES: Record<Exclude<CommercialTier, "BETA">, string> = {
+  ESSENTIEL: "Offre Essentiel",
+  PERFORMANCE: "Offre Performance",
+  EXCELLENCE: "Offre Excellence",
+};
+
+export function describeDiagnosticOffer(formule: CommercialTier | null | undefined, gratuit: boolean): string {
+  const name =
+    formule === undefined
+      ? "Aucune mission"
+      : gratuit || formule === "BETA"
+        ? "Bêta-test"
+        : formule === null
+          ? "Prestations à la carte"
+          : OFFER_NAMES[formule];
+  const covered = formule !== undefined && getOfferScope(formule, gratuit).criteriaScope === "ALL";
+  return `${name} : ${covered ? "tous les critères de votre périmètre" : "les critères impératifs seulement"}`;
 }
 
 // La phrase d'en-tête. Le total est celui des critères EN BASE pour ce profil (16 SAD
 // aide, 17 SAD mixte — context/02 §4), jamais un nombre écrit en dur.
 // `inProgress` : impératifs dont une partie des pièces est déjà là (21/10/2026) —
 // sans lui, « 0 sur 16 » se lisait comme « rien n'est fait ».
-export function describeDiagnosticLine(imperatives: { proven: number; total: number }, inProgress = 0): string {
+export function describeDiagnosticLine(
+  summary: Pick<DiagnosticSummary, "imperatives" | "scope">,
+  inProgress = 0
+): string {
+  if (summary.scope.all) return describeFullScopeLine(summary);
+  const imperatives = summary.imperatives;
   if (imperatives.total === 0) return "Aucun critère impératif n'est encore chargé pour votre structure.";
   const remaining = imperatives.total - imperatives.proven;
   const head = `${imperatives.proven} critère${imperatives.proven > 1 ? "s" : ""} impératif${imperatives.proven > 1 ? "s" : ""} sur ${imperatives.total} ${imperatives.proven > 1 ? "sont prouvés" : "est prouvé"}.`;
@@ -73,6 +116,14 @@ export function describeDiagnosticLine(imperatives: { proven: number; total: num
   const progress =
     started > 0 ? ` (dont ${started} déjà en partie : une pièce attendue reste à relire ou à déposer)` : "";
   return `${head} ${remaining} ${remaining > 1 ? "restent" : "reste"} à travailler${progress}.`;
+}
+
+function describeFullScopeLine({ imperatives, scope }: Pick<DiagnosticSummary, "imperatives" | "scope">): string {
+  if (scope.total === 0) return "Aucun critère n'est encore chargé pour votre structure.";
+  const remaining = scope.total - scope.proven;
+  const head = `${scope.proven} critère${scope.proven > 1 ? "s" : ""} sur ${scope.total} ${scope.proven > 1 ? "sont prouvés" : "est prouvé"}, dont ${imperatives.proven} impératif${imperatives.proven > 1 ? "s" : ""} sur ${imperatives.total}.`;
+  if (remaining === 0) return `${head} Tous sont prouvés.`;
+  return `${head} ${remaining} ${remaining > 1 ? "restent" : "reste"} à travailler.`;
 }
 
 // ── Les 3 actions prioritaires ───────────────────────────────────────────────
@@ -173,11 +224,12 @@ function imperativesPart(chapterRows: readonly CriterionProofRow[]): string {
   return ` · impératifs : ${provenOf(imperatives.filter((r) => r.status === "PROUVE").length, imperatives.length)}`;
 }
 
-// Ce que montre la liste des chapitres, et ce que comptent les cartes du haut.
-export function describeChaptersScope(scopeAll: boolean, imperativesTotal: number): string {
+// Ce que montre la liste des chapitres : depuis le 09/11/2026, toujours la même chose
+// que les cartes du haut (le périmètre de l'offre). `total` = summary.scope.total.
+export function describeChaptersScope(scopeAll: boolean, total: number): string {
   return scopeAll
-    ? `La liste montre tous les critères de votre périmètre. Les cartes du haut ne comptent que les ${imperativesTotal} critères impératifs, marqués ▲ Impératif.`
-    : `La liste montre vos ${imperativesTotal} critères impératifs, les mêmes que les cartes du haut.`;
+    ? `La liste montre les ${total} critères de votre périmètre, les mêmes que les cartes du haut. Les critères impératifs sont marqués ▲ Impératif.`
+    : `La liste montre vos ${total} critères impératifs, les mêmes que les cartes du haut.`;
 }
 
 // ── La photo figée par un geste de validation ────────────────────────────────
@@ -192,11 +244,10 @@ export type DiagnosticSnapshot = {
 };
 
 export function buildDiagnosticSnapshot(rows: readonly CriterionProofRow[], takenAt: Date): DiagnosticSnapshot {
-  const summary = buildDiagnosticSummary(rows);
   return {
     version: DIAGNOSTIC_SNAPSHOT_VERSION,
     takenAt: takenAt.toISOString(),
-    imperatives: summary.imperatives,
+    imperatives: countProven(rows.filter((r) => r.isImperative)),
     rows: rows.map((r) => ({ code: r.code, label: r.label, isImperative: r.isImperative, status: r.status })),
   };
 }

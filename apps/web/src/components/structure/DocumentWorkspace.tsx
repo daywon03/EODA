@@ -37,6 +37,9 @@ function documentIdFromAnchor(target: EventTarget | null): { id: string; href: s
   if (!(target instanceof Element)) return null;
   const anchor = target.closest("a[href]");
   if (!(anchor instanceof HTMLAnchorElement)) return null;
+  // Les onglets du panneau (DocumentSheetTabs) portent `?doc=` pour rester des
+  // adresses, mais changent d'onglet sur place : ce n'est pas une ouverture.
+  if (anchor.hasAttribute("data-workspace-ignore")) return null;
   const url = new URL(anchor.href, window.location.href);
   if (url.origin !== window.location.origin) return null;
   const id = url.searchParams.get("doc");

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { getDiagnosticForPrint } from "@/lib/actions/diagnostic";
 import { describeChaptersScope } from "@/lib/services/diagnostic-service";
 import { DIAGNOSTIC_DISCLAIMER } from "@/lib/services/diagnostic-service";
@@ -30,7 +31,10 @@ export default async function ImprimerDiagnosticPage({ params, searchParams }: P
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-end print:hidden">
+      <div className="flex flex-wrap items-center justify-between gap-3 print:hidden">
+        <Link href={data.backHref} className="inline-flex min-h-11 items-center font-bold text-accent-text hover:underline">
+          <span aria-hidden="true">←&nbsp;</span>Retour à la fiche
+        </Link>
         <PrintButton fileName={fileName} auto={auto === "1"} />
       </div>
       <article className="space-y-7 text-ink">
@@ -45,6 +49,7 @@ export default async function ImprimerDiagnosticPage({ params, searchParams }: P
         </header>
         <div>
           <h1 className="text-3xl font-bold">Rapport de diagnostic — {data.establishmentName}</h1>
+          <p className="mt-1 text-lg font-bold">{data.offerLabel}</p>
           <p className="mt-1 text-ink2">Édité le {formatDate(issuedOn)}</p>
           <p className="mt-3 text-lg">{data.line}</p>
         </div>
@@ -52,12 +57,16 @@ export default async function ImprimerDiagnosticPage({ params, searchParams }: P
           {data.validation.mention}
           {data.validation.acceptedLabel ? ` · ${data.validation.acceptedLabel}` : ""}
         </p>
-        <DiagnosticCounters summary={data.summary} expectedImperatives={data.expectedImperatives} />
+        <DiagnosticCounters
+          summary={data.summary}
+          expectedImperatives={data.expectedImperatives}
+          offerLabel={data.offerLabel}
+        />
         <PriorityActions priorities={data.priorities} depositHref={null} />
         <DiagnosticChapters
           chapters={data.chapters}
           printable
-          scopeNote={describeChaptersScope(data.scopeAll, data.summary.imperatives.total)}
+          scopeNote={describeChaptersScope(data.scopeAll, data.summary.scope.total)}
         />
         <footer className="border-t border-line pt-4 text-base text-ink2">{DIAGNOSTIC_DISCLAIMER}</footer>
       </article>

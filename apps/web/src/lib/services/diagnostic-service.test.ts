@@ -5,6 +5,7 @@ import {
   buildDiagnosticSummary,
   derivePriorityActions,
   describeDiagnosticLine,
+  describeDiagnosticOffer,
   describePriorityProves,
   diagnosticFingerprint,
   groupDiagnosticChapters,
@@ -38,10 +39,11 @@ const ROWS: CriterionProofRow[] = [
 ];
 
 describe("buildDiagnosticSummary", () => {
-  const summary = buildDiagnosticSummary(ROWS);
+  const summary = buildDiagnosticSummary(ROWS, false);
 
-  it("compte les impératifs seulement, chacun une fois", () => {
+  it("offre limitée aux impératifs (Essentiel) : les cartes comptent les impératifs, chacun une fois", () => {
     expect(summary.imperatives).toEqual({ proven: 1, total: 6 });
+    expect(summary.scope).toEqual({ all: false, proven: 1, total: 6 });
     expect(Object.fromEntries(summary.counters.map((c) => [c.state, c.count]))).toEqual({
       PROUVE: 1,
       EN_PARTIE: 1,
@@ -49,8 +51,21 @@ describe("buildDiagnosticSummary", () => {
     });
   });
 
-  it("met à part les impératifs sans document attendu, et définit chaque état", () => {
-    expect(summary.imperativesWithoutExpectedDocument).toBe(1);
+  // Call du 09/11/2026 : « Performance + Excellence = tous les critères ». Les cartes
+  // et la liste comptent alors la même chose.
+  it("offre qui couvre tout (Performance, Excellence, bêta) : les cartes comptent tout le périmètre", () => {
+    const all = buildDiagnosticSummary(ROWS, true);
+    expect(all.scope).toEqual({ all: true, proven: 1, total: 7 });
+    expect(all.imperatives).toEqual({ proven: 1, total: 6 });
+    expect(Object.fromEntries(all.counters.map((c) => [c.state, c.count]))).toEqual({
+      PROUVE: 1,
+      EN_PARTIE: 1,
+      SANS_PREUVE: 4,
+    });
+  });
+
+  it("met à part les critères sans document attendu, et définit chaque état", () => {
+    expect(summary.withoutExpectedDocument).toBe(1);
     for (const counter of summary.counters) expect(counter.definition.length).toBeGreaterThan(10);
     expect(summary.counters.map((c) => c.label)).toEqual(["Prouvé", "En partie", "Sans preuve"]);
   });
@@ -61,18 +76,50 @@ describe("buildDiagnosticSummary", () => {
 });
 
 describe("describeDiagnosticLine", () => {
-  it("dit le nombre prouvé sur le total réel", () => {
-    expect(describeDiagnosticLine({ proven: 3, total: 16 })).toBe(
+  const imperativesOnly = (proven: number, total: number) => ({
+    imperatives: { proven, total },
+    scope: { all: false, proven, total },
+  });
+
+  it("impératifs seuls : dit le nombre prouvé sur le total réel", () => {
+    expect(describeDiagnosticLine(imperativesOnly(3, 16))).toBe(
       "3 critères impératifs sur 16 sont prouvés. 13 restent à travailler."
     );
-    expect(describeDiagnosticLine({ proven: 1, total: 17 })).toBe("1 critère impératif sur 17 est prouvé. 16 restent à travailler.");
+    expect(describeDiagnosticLine(imperativesOnly(1, 17))).toBe("1 critère impératif sur 17 est prouvé. 16 restent à travailler.");
     // Le travail déjà engagé se dit (21/10/2026).
-    expect(describeDiagnosticLine({ proven: 0, total: 16 }, 16)).toBe(
+    expect(describeDiagnosticLine(imperativesOnly(0, 16), 16)).toBe(
       "0 critère impératif sur 16 est prouvé. 16 restent à travailler (dont 16 déjà en partie : une pièce attendue reste à relire ou à déposer)."
     );
-    expect(describeDiagnosticLine({ proven: 16, total: 16 })).toMatch(/Tous sont prouvés/);
-    expect(describeDiagnosticLine({ proven: 15, total: 16 })).toMatch(/1 reste à travailler/);
-    expect(describeDiagnosticLine({ proven: 0, total: 0 })).toMatch(/Aucun critère impératif/);
+    expect(describeDiagnosticLine(imperativesOnly(16, 16))).toMatch(/Tous sont prouvés/);
+    expect(describeDiagnosticLine(imperativesOnly(15, 16))).toMatch(/1 reste à travailler/);
+    expect(describeDiagnosticLine(imperativesOnly(0, 0))).toMatch(/Aucun critère impératif/);
+  });
+
+  it("tout le périmètre : les critères prouvés, dont les impératifs", () => {
+    expect(
+      describeDiagnosticLine({ imperatives: { proven: 9, total: 16 }, scope: { all: true, proven: 41, total: 137 } }, 3)
+    ).toBe("41 critères sur 137 sont prouvés, dont 9 impératifs sur 16. 96 restent à travailler.");
+    expect(
+      describeDiagnosticLine({ imperatives: { proven: 16, total: 16 }, scope: { all: true, proven: 137, total: 137 } })
+    ).toBe("137 critères sur 137 sont prouvés, dont 16 impératifs sur 16. Tous sont prouvés.");
+    expect(describeDiagnosticLine({ imperatives: { proven: 0, total: 0 }, scope: { all: true, proven: 0, total: 0 } })).toMatch(
+      /Aucun critère n'est encore chargé/
+    );
+  });
+});
+
+describe("describeDiagnosticOffer — le rapport nomme l'offre qui le filtre", () => {
+  it("nomme l'offre de la mission et ce qu'elle couvre", () => {
+    expect(describeDiagnosticOffer("ESSENTIEL", false)).toBe("Offre Essentiel : les critères impératifs seulement");
+    expect(describeDiagnosticOffer("PERFORMANCE", false)).toBe("Offre Performance : tous les critères de votre périmètre");
+    expect(describeDiagnosticOffer("EXCELLENCE", false)).toBe("Offre Excellence : tous les critères de votre périmètre");
+    expect(describeDiagnosticOffer("BETA", false)).toBe("Bêta-test : tous les critères de votre périmètre");
+    expect(describeDiagnosticOffer("ESSENTIEL", true)).toBe("Bêta-test : tous les critères de votre périmètre");
+  });
+
+  it("sans offre ou sans mission : les impératifs, et on le dit", () => {
+    expect(describeDiagnosticOffer(null, false)).toBe("Prestations à la carte : les critères impératifs seulement");
+    expect(describeDiagnosticOffer(undefined, false)).toBe("Aucune mission : les critères impératifs seulement");
   });
 });
 
@@ -183,9 +230,9 @@ describe("rapport : impératifs et périmètre complet, distingués", () => {
     expect(groupDiagnosticChapters(rows, chapters, false)[0]!.summary).toBe("0 prouvé sur 1");
   });
 
-  it("dit ce que montre la liste, et ce que comptent les cartes", () => {
-    expect(describeChaptersScope(true, 16)).toBe(
-      "La liste montre tous les critères de votre périmètre. Les cartes du haut ne comptent que les 16 critères impératifs, marqués ▲ Impératif."
+  it("dit ce que montre la liste : la même chose que les cartes du haut", () => {
+    expect(describeChaptersScope(true, 137)).toBe(
+      "La liste montre les 137 critères de votre périmètre, les mêmes que les cartes du haut. Les critères impératifs sont marqués ▲ Impératif."
     );
     expect(describeChaptersScope(false, 16)).toBe("La liste montre vos 16 critères impératifs, les mêmes que les cartes du haut.");
   });

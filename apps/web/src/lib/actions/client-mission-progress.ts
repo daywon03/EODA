@@ -3,6 +3,7 @@
 import { NEED } from "@/lib/auth/capabilities";
 import { prisma } from "@eoda/database";
 import { requireClientEstablishment } from "@/lib/auth/guards";
+import { readMissionComplianceDocuments } from "@/lib/db/read-mission-document-counters";
 import {
   computeMissionProgress,
   type MissionProgress,
@@ -30,14 +31,20 @@ export async function getClientMissionProgress(): Promise<ClientMissionProgressV
     select: {
       formule: true,
       gratuit: true,
+      supportMode: true,
       itemStatuses: { select: { itemId: true, completed: true } },
     },
   });
   if (!mission) return { hasMission: false };
 
-  const catalogItems = await prisma.missionChecklistItem.findMany({
-    select: { id: true, scope: true, minFormule: true },
-  });
+  // Mêmes lectures que le suivi de mission du cabinet (getMission) : la structure
+  // et EODA lisent le même pourcentage.
+  const [catalogItems, complianceDocuments] = await Promise.all([
+    prisma.missionChecklistItem.findMany({
+      select: { id: true, scope: true, minFormule: true },
+    }),
+    readMissionComplianceDocuments(establishment.id, mission.formule, mission.gratuit, mission.supportMode),
+  ]);
   const completedByItemId = new Map(mission.itemStatuses.map((s) => [s.itemId, s.completed]));
 
   const progress = computeMissionProgress(
@@ -47,7 +54,8 @@ export async function getClientMissionProgress(): Promise<ClientMissionProgressV
       completed: completedByItemId.get(item.id) ?? false,
     })),
     mission.formule,
-    mission.gratuit
+    mission.gratuit,
+    complianceDocuments
   );
 
   return { hasMission: true, progress };

@@ -4,6 +4,7 @@ import dynamic from "next/dynamic";
 import { useState } from "react";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import type { AnnouncementTargets } from "./NewDocumentTypeFields";
 
 // Le formulaire n'est chargé qu'au clic : c'est un geste rare, et l'onglet Documents
 // de la fiche est la route la plus lourde du cabinet (budget de JavaScript).
@@ -18,19 +19,28 @@ type Props = {
   establishmentId?: string;
   // Adresse de l'onglet Documents de cette fiche.
   documentsPath?: string;
-  // Venu d'un critère (« Ajouter un document à ce critère ») : formulaire ouvert,
+  // Venu d'un critère (« Créer un nouveau document pour ce critère ») : formulaire ouvert,
   // critère prérempli.
   initialCriterionCode?: string;
   // Dossiers où ranger la ligne (call du 29/10/2026).
   folders?: readonly { id: string; label: string }[];
   // Dossier présélectionné (bouton « Ajouter une ligne » d'un dossier).
   initialFolderId?: string;
+  // Structures qui recevraient l'annonce, par catégorie (calculées côté serveur).
+  announceTargets?: AnnouncementTargets;
 };
 
 // « Ajouter un document à la liste » — une ligne créée une fois, pour toutes les
 // structures (createDocumentType). Replié par défaut : la liste reste l'objet
 // principal de l'écran.
-export function NewDocumentTypeForm({ establishmentId, documentsPath, initialCriterionCode, folders = [], initialFolderId }: Props) {
+export function NewDocumentTypeForm({
+  establishmentId,
+  documentsPath,
+  initialCriterionCode,
+  folders = [],
+  initialFolderId,
+  announceTargets,
+}: Props) {
   const [open, setOpen] = useState(initialCriterionCode !== undefined);
 
   if (!open) {
@@ -48,6 +58,7 @@ export function NewDocumentTypeForm({ establishmentId, documentsPath, initialCri
       {...(documentsPath ? { documentsPath } : {})}
       {...(initialCriterionCode ? { initialCriterionCode } : {})}
       {...(initialFolderId ? { initialFolderId } : {})}
+      {...(announceTargets ? { announceTargets } : {})}
       folders={folders}
       onClose={() => setOpen(false)}
     />
