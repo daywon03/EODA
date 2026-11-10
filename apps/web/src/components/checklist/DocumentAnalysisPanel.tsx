@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useCallback, useEffect, useState, useTransition } from "react";
 import dynamic from "next/dynamic";
+import { useRouter } from "next/navigation";
 import {
   ChevronDown,
   AlertCircle,
@@ -16,6 +17,8 @@ import {
 import type { DocumentAnalysisResult, AnalysisFinding } from "@/lib/llm";
 import { describeAnalysis, splitCriteriaCoverage, summariseAnalysis } from "@/lib/services/analysis-view-service";
 import { setAnalysisReviewed } from "@/lib/actions/document";
+import { getDocumentTypeLinks, type DocumentTypeLink } from "@/lib/actions/criterion-matrix";
+import { analysisCriterionAction } from "@/lib/services/criterion-linker-service";
 import { Button } from "@/components/ui/button";
 
 // Le formulaire des guidelines (liste des critères, saisie, relance de l'analyse) ne
@@ -26,6 +29,10 @@ const CriterionSuggestionsList = dynamic(() =>
 );
 // « Demander à la structure » (09/11/2026) : cabinet seulement, panneau ouvert.
 const RequestFromStructure = dynamic(() => import("./RequestFromStructure").then((m) => m.RequestFromStructure));
+// Détacher / rattacher un critère depuis l'analyse (09/11/2026) : administration seule.
+const AnalysisCriterionButton = dynamic(() =>
+  import("./AnalysisCriterionButton").then((m) => m.AnalysisCriterionButton)
+);
 const AnalysisGuidelines = dynamic(() => import("./AnalysisGuidelines").then((m) => m.AnalysisGuidelines), {
   loading: () => <p className="border-t border-gris-light pt-2 text-xs text-ink2">Chargement…</p>,
 });
@@ -54,7 +61,12 @@ type Props = {
   defaultOpen?: boolean;
   // Cabinet seulement : chaque élément manquant propose « Demander à la structure ».
   requestContext?: { establishmentId: string; documentTypeId: string; documentLabel: string };
+  // Administration du cabinet seulement (même règle que la matrice, CABINET_ADMIN) :
+  // code du type, pour retirer un critère attendu ou rattacher un critère détecté.
+  matrixTypeCode?: string | undefined;
 };
+
+type MatrixMessage = { tone: "ok" | "error"; text: string };
 
 export function DocumentAnalysisPanel({
   analysis,
@@ -66,11 +78,56 @@ export function DocumentAnalysisPanel({
   criterionSuggestions = [],
   defaultOpen = false,
   requestContext,
+  matrixTypeCode,
 }: Props) {
+  const router = useRouter();
   const [open, setOpen] = useState(defaultOpen);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  // La matrice ACTUELLE du type : l'analyse est figée, la matrice bouge — le geste
+  // proposé sur un critère se décide sur elle (analysisCriterionAction).
+  const [links, setLinks] = useState<DocumentTypeLink[] | null>(null);
+  const [matrixMessage, setMatrixMessage] = useState<MatrixMessage | null>(null);
   const summary = summariseAnalysis(analysis);
+
+  const reloadLinks = useCallback(async () => {
+    if (!matrixTypeCode) return;
+    setLinks(await getDocumentTypeLinks(matrixTypeCode));
+  }, [matrixTypeCode]);
+
+  useEffect(() => {
+    if (!open || !matrixTypeCode) return;
+    let cancelled = false;
+    void getDocumentTypeLinks(matrixTypeCode).then((list) => {
+      if (!cancelled) setLinks(list);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, matrixTypeCode]);
+
+  const linkedCodes = links ? new Set(links.map((l) => l.code)) : null;
+  const proposedCodes = new Set((links ?? []).filter((l) => l.proposed).map((l) => l.code));
+
+  function criterionAction(code: string, list: "detected" | "missing") {
+    if (!matrixTypeCode) return null;
+    const action = analysisCriterionAction({ code, list, linkedCodes });
+    if (!action) return null;
+    return (
+      <AnalysisCriterionButton
+        typeCode={matrixTypeCode}
+        code={code}
+        action={action}
+        proposed={proposedCodes.has(code)}
+        onChanged={async (message) => {
+          await reloadLinks();
+          setMatrixMessage({ tone: "ok", text: message });
+          router.refresh();
+        }}
+        onError={(message) => setMatrixMessage({ tone: "error", text: message })}
+      />
+    );
+  }
 
   function toggleReview() {
     if (!documentVersionId) return;
@@ -155,6 +212,7 @@ export function DocumentAnalysisPanel({
                           </span>
                           {" : "}
                           <span className="text-ink2">{c.note}</span>
+                          {criterionAction(c.criterionCode, "detected")}
                         </li>
                       ))}
                     </ul>
@@ -172,10 +230,25 @@ export function DocumentAnalysisPanel({
                           <span className="font-medium text-brun-ancre">{c.criterionCode}</span>
                           {" : "}
                           <span className="text-ink2">{c.note}</span>
+                          {criterionAction(c.criterionCode, "missing")}
                         </li>
                       ))}
                     </ul>
                   </div>
+                )}
+                {matrixTypeCode && (
+                  <p className="text-sm text-ink2">
+                    Retirer ou rattacher un critère change la liste de ce type de document pour toutes les
+                    structures. L&apos;analyse affichée ne change pas : relancez-la pour en tenir compte.
+                  </p>
+                )}
+                {matrixMessage && (
+                  <p
+                    role={matrixMessage.tone === "error" ? "alert" : "status"}
+                    className={matrixMessage.tone === "error" ? "text-sm text-danger-text" : "text-sm text-ok-text"}
+                  >
+                    {matrixMessage.text}
+                  </p>
                 )}
               </div>
             );

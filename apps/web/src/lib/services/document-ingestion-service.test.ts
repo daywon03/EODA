@@ -13,7 +13,7 @@ const prismaMock = {
   // `findUnique` : relu au moment de l'analyse pour la consigne de la consultante
   // (`analysisDirective` / `directiveInAnalysis`, 20/10/2026).
   document: { upsert: vi.fn(), update: vi.fn(), findUnique: vi.fn() },
-  documentVersion: { create: vi.fn(), update: vi.fn() },
+  documentVersion: { create: vi.fn(), update: vi.fn(), findUnique: vi.fn() },
   documentVersionImage: { create: vi.fn(), findMany: vi.fn() },
   // Lues par l'analyse (analyzeVersion) — cf. le second describe, qui porte sur la
   // matrice type de document ↔ critères.
@@ -32,7 +32,7 @@ vi.mock("@/lib/services/image-vision-service", () => ({
   describeImage: (...args: unknown[]) => describeImage(...args),
 }));
 
-const { ingestDocumentVersion, MAX_IMAGES_DESCRIBED, MAX_IMAGE_SIZE_BYTES } = await import(
+const { ingestDocumentVersion, readAnalysisTarget, reanalyzeDocumentVersion, MAX_IMAGES_DESCRIBED, MAX_IMAGE_SIZE_BYTES } = await import(
   "./document-ingestion-service"
 );
 
@@ -44,6 +44,7 @@ function baseInput(overrides: Partial<Parameters<typeof ingestDocumentVersion>[0
     establishmentId: ESTABLISHMENT_ID,
     documentTypeId: DOCUMENT_TYPE_ID,
     documentTypeLabel: "Livret d'accueil",
+    documentTypeCode: "L2002_LIVRET_ACCUEIL",
     content: Buffer.from("contenu"),
     contentType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     originalFilename: "livret.docx",
@@ -78,6 +79,54 @@ beforeEach(() => {
   // Aucune consigne par défaut : c'est le cas de la quasi-totalité des documents.
   prismaMock.document.findUnique.mockResolvedValue(null);
   prismaMock.documentVersionImage.create.mockResolvedValue({});
+});
+
+// Le tampon de la structure (ADR 20261110) : même si un appelant transmettait du texte
+// ou des images, rien n'est enregistré ni envoyé au modèle — le court-circuit est ICI,
+// au plus près du port, pas seulement dans l'action qui dépose.
+describe("ingestDocumentVersion — document à accès restreint", () => {
+  it("stocke le fichier, n'enregistre ni texte ni image, et n'appelle pas le modèle", async () => {
+    const storage = fakeStorage();
+    const analyze = vi.fn();
+    const llm = { analyze, describeAnalysisCall: describeCall } as unknown as LLMAnalysisPort;
+    const image = { position: 1, contentType: "image/png", buffer: Buffer.from("x") };
+
+    const result = await ingestDocumentVersion(
+      baseInput({ documentTypeCode: "DEPARTEMENT_TAMPON", extractedText: "Texte lu par erreur.", extractedImages: [image] }),
+      { storage, llm }
+    );
+
+    expect(result).toMatchObject({ documentVersionId: "dv-1", analysisSucceeded: false });
+    expect(storage.upload).toHaveBeenCalledTimes(1);
+    expect(prismaMock.documentVersion.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ extractedText: null }),
+    });
+    expect(describeImage).not.toHaveBeenCalled();
+    expect(prismaMock.documentVersionImage.create).not.toHaveBeenCalled();
+    expect(analyze).not.toHaveBeenCalled();
+    expect(prismaMock.document.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ status: "UPLOADED" }) })
+    );
+  });
+
+  it("ni réanalyse ni laboratoire : la cible d'analyse d'un document restreint n'existe pas", async () => {
+    prismaMock.documentVersion.findUnique.mockResolvedValue({
+      id: "v-t",
+      fileStorageKey: "k",
+      extractedText: "texte d'un dépôt antérieur à la restriction",
+      uploadedBy: { role: "CLIENT_USER" },
+      document: { id: "doc-t", establishmentId: ESTABLISHMENT_ID, documentTypeId: "dt-t", documentType: { label: "Tampon", code: "DEPARTEMENT_TAMPON" } },
+    });
+    const storage = fakeStorage();
+    const analyze = vi.fn();
+
+    await expect(readAnalysisTarget("v-t")).resolves.toBeNull();
+    await expect(
+      reanalyzeDocumentVersion("v-t", { storage, llm: { analyze, describeAnalysisCall: describeCall } as unknown as LLMAnalysisPort })
+    ).resolves.toMatchObject({ error: expect.any(String) });
+    expect(storage.getSignedDownloadUrl).not.toHaveBeenCalled();
+    expect(analyze).not.toHaveBeenCalled();
+  });
 });
 
 describe("ingestDocumentVersion — stockage best-effort des images extraites", () => {
@@ -404,6 +453,19 @@ describe("ingestDocumentVersion — commentaires du cabinet", () => {
     prismaMock.document.findUnique.mockResolvedValueOnce({ missingJustification: "Autre forme = enquête", commentUsedByAi: false });
     await ingestDocumentVersion(baseInput({ extractedText: "Contenu." }), { storage: fakeStorage(), llm });
     expect(analyze.mock.calls.at(-1)?.[0]).not.toHaveProperty("documentComment");
+  });
+
+  it("fiche de sensibilisation : la règle « date de dépôt » est remise au port, et à elle seule (E4)", async () => {
+    const { llm, analyze } = arm();
+    prismaMock.document.findUnique.mockResolvedValueOnce({ documentType: { code: "PA_FICHE_P1_PLAINTES", folderId: null } });
+    await ingestDocumentVersion(baseInput({ extractedText: "Contenu." }), { storage: fakeStorage(), llm });
+    expect(analyze).toHaveBeenLastCalledWith(
+      expect.objectContaining({ documentTypeNote: expect.stringContaining("date de son dépôt sur la plateforme fait foi") })
+    );
+
+    prismaMock.document.findUnique.mockResolvedValueOnce({ documentType: { code: "L2002_LIVRET_ACCUEIL", folderId: null } });
+    await ingestDocumentVersion(baseInput({ extractedText: "Contenu." }), { storage: fakeStorage(), llm });
+    expect(analyze.mock.calls.at(-1)?.[0]).not.toHaveProperty("documentTypeNote");
   });
 
   it("ne lit que les commentaires pris en compte par l'IA, et les remet au port", async () => {

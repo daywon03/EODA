@@ -45,6 +45,10 @@ export type DocumentFacts = {
   // Les fichiers déposés : la recherche porte aussi sur leur nom (call du 21/10/2026 —
   // « je vais taper enquête » ne trouvait rien sous « questionnaire vierge »).
   versions?: readonly { originalFilename: string }[];
+  // Ligne à accès restreint que l'appelant n'ouvre pas (ADR 20261110) : la recherche ne
+  // porte pas sur ses noms de fichiers — l'intitulé, si.
+  restrictedAccess?: boolean;
+  canOpenFile?: boolean;
 };
 
 // ── « À rédiger · EODA » / « Chez la structure » (N2) — dérivés, jamais stockés ─
@@ -269,7 +273,8 @@ export function filterDocumentRows<T extends DocumentFacts>(
       (filters.category === null || row.category === filters.category) &&
       (needle === "" ||
         normalise(row.label).includes(needle) ||
-        (row.versions ?? []).some((version) => normalise(version.originalFilename).includes(needle)))
+        (!(row.restrictedAccess && row.canOpenFile === false) &&
+          (row.versions ?? []).some((version) => normalise(version.originalFilename).includes(needle))))
   );
 }
 

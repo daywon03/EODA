@@ -3,7 +3,7 @@ import { prisma } from "@eoda/database";
 import { tryEstablishmentAccess } from "@/lib/auth/guards";
 import { NEED } from "@/lib/auth/capabilities";
 import { recordAuditEvent } from "@/lib/services/audit-log-service";
-import { isVersionVisibleToClient } from "@/lib/services/deliverables-service";
+import { canOpenDocumentFile, documentFileOpenerOf } from "@/lib/auth/document-file-access";
 import { getOrRenderDocumentPdf } from "@/lib/services/document-pdf-service";
 import {
   documentPdfErrorResponse,
@@ -64,17 +64,19 @@ export async function GET(request: Request, context: Context): Promise<Response>
 
   // Un brouillon produit par EODA n'est pas restituable avant validation du document
   // (deliverables-service). La structure reçoit les identifiants des versions dans sa
-  // page : la route doit refuser, pas seulement la carte cacher le bouton.
+  // page : la route doit refuser, pas seulement la carte cacher le bouton. Un document à
+  // accès restreint (le tampon, ADR 20261110) ne s'ouvre qu'à la direction de la
+  // structure — refusé au cabinet AVANT la préparation (`?prepare=1`) comme avant le
+  // rendu. Une seule règle pour toutes les portes : `canOpenDocumentFile`.
   if (
-    access.isClient &&
-    !isVersionVisibleToClient({
+    !canOpenDocumentFile(documentFileOpenerOf(access), {
+      documentTypeCode: version.document.documentType?.code,
       producedByCabinet: version.uploadedBy.role !== "CLIENT_USER",
       validatedAt: version.document.validatedAt,
     })
   ) {
     notFound();
   }
-
 
   const searchParams = new URL(request.url).searchParams;
   const download = searchParams.get("download") === "1";

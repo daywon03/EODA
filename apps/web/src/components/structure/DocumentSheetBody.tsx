@@ -10,6 +10,7 @@ import { canRemoveDocumentType } from "@/lib/services/document-type-removal-serv
 import { analysisMissingNotice, withSheetTab, type SheetTab } from "@/lib/services/document-sheet-tabs-service";
 import { DocumentScopeToggle } from "@/components/checklist/DocumentScopeToggle";
 import { DocumentVersionHistory } from "@/components/checklist/DocumentVersionHistory";
+import { RestrictedFileNotice } from "@/components/checklist/RestrictedFileNotice";
 import { DocumentStepTrail } from "@/components/checklist/DocumentStepTrail";
 import { DocumentUploadButton } from "@/components/checklist/DocumentUploadButton";
 import { DocumentSheetTabs } from "@/components/structure/DocumentSheetTabs";
@@ -112,19 +113,29 @@ export function DocumentSheetBody({
       </p>
       {/* Toutes les versions : la comparaison entre la version du client et celle
           qu'EODA a produite montre le travail fait. */}
-      <DocumentVersionHistory versions={item.versions} canManageVersions />
-      <DocumentStepTrail
-        establishmentId={establishmentId}
-        documentTypeId={item.documentTypeId}
-        step={item.step}
-        isImage={version ? isImageFile(version.originalFilename) : false}
-      />
+      {/* Ligne à accès restreint (le tampon, ADR 20261110) : le cabinet voit la ligne,
+          son état et ses dates, jamais le fichier. */}
+      {item.restrictedAccess && <RestrictedFileNotice />}
+      <DocumentVersionHistory versions={item.versions} canManageVersions fileLocked={!item.canOpenFile} />
+      {/* Le parcours (analysé, relu, validé) n'existe pas pour une ligne restreinte :
+          EODA ne l'ouvre pas, donc ne la valide pas (setDocumentValidated refuse). */}
+      {!item.restrictedAccess && (
+        <DocumentStepTrail
+          establishmentId={establishmentId}
+          documentTypeId={item.documentTypeId}
+          step={item.step}
+          isImage={version ? isImageFile(version.originalFilename) : false}
+        />
+      )}
       <div className="border-t border-line pt-4">
         <DocumentUploadButton
           establishmentId={establishmentId}
           documentTypeId={item.documentTypeId}
+          documentLabel={item.label}
+          documentValidated={item.validatedAt !== null}
           showModelSelector
           offerCabinetFinal
+          restrictedForCabinet={item.restrictedAccess}
         />
       </div>
       {/* Ligne « Autre forme de participation des usagers » : la forme choisie
@@ -156,7 +167,12 @@ export function DocumentSheetBody({
 
   const analysisPanel = (
     <>
-      {version && (
+      {item.restrictedAccess && (
+        <p className="text-ink2">
+          Document à accès restreint : il n&apos;est ni analysé ni mis en conformité, et EODA ne l&apos;ouvre pas.
+        </p>
+      )}
+      {version && !item.restrictedAccess && (
         // Bien visible (retours du 09/11/2026) : la mise en conformité côte à côte, qui
         // reste soumise au droit de la mission côté serveur.
         <Link href={`/dashboard/cabinet/conformite/${version.id}`} className={buttonVariants({ className: "w-full sm:w-auto" })}>
@@ -175,8 +191,11 @@ export function DocumentSheetBody({
           criterionSuggestions={version.criterionSuggestions}
           defaultOpen
           requestContext={{ establishmentId, documentTypeId: item.documentTypeId, documentLabel: item.label }}
+          // Administration seule, comme la matrice : retirer un critère attendu,
+          // rattacher un critère détecté (09/11/2026).
+          matrixTypeCode={canEditScope ? item.code : undefined}
         />
-      ) : (
+      ) : item.restrictedAccess ? null : (
         <p className="text-ink2">
           {version
             ? "Pas encore d'analyse pour la version actuelle. Lancez-la depuis l'onglet « Le document », dans l'historique des versions."
@@ -205,7 +224,7 @@ export function DocumentSheetBody({
       />
       {/* Laboratoire d'analyse (29/10/2026) : le prompt envoyé, des essais d'autres
           versions, le verdict de la consultante — jamais montré à la structure. */}
-      {version && <AnalysisLabPanel documentVersionId={version.id} />}
+      {version && !item.restrictedAccess && <AnalysisLabPanel documentVersionId={version.id} />}
     </>
   );
 

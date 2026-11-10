@@ -11,6 +11,7 @@ import { AnalyzeDocumentButton } from "./AnalyzeDocumentButton";
 import { CorrectedDraftPanel } from "./CorrectedDraftPanel";
 import { canRenderDocumentPages, isImageFile } from "@/lib/services/file-type-service";
 import { INLINE_ACTION_MUTED_CLASS } from "@/components/ui/inline-action";
+import { RestrictedFileNotice } from "@/components/checklist/RestrictedFileNotice";
 
 type Props = {
   versions: DocumentVersionItem[];
@@ -20,6 +21,10 @@ type Props = {
   // L'action serveur applique la même règle ; ce drapeau ne fait que ne pas proposer
   // un bouton qui serait refusé.
   canManageVersions?: boolean;
+  // Ligne à accès restreint que la personne n'ouvre pas (le tampon, vu du cabinet —
+  // ADR 20261110) : ni Voir, ni Télécharger, ni Analyser. Les routes refusent de toute
+  // façon ; l'écran ne propose pas un geste qui serait refusé.
+  fileLocked: boolean;
 };
 
 // Toutes les versions d'un document, de la plus récente à la plus ancienne.
@@ -30,7 +35,7 @@ type Props = {
 //
 // La plus récente reste toujours visible ; le reste se déplie. Une liste de sept
 // versions ouverte en permanence noierait la checklist.
-export function DocumentVersionHistory({ versions, canManageVersions = false }: Props) {
+export function DocumentVersionHistory({ versions, canManageVersions = false, fileLocked }: Props) {
   const [open, setOpen] = useState(false);
 
   if (versions.length === 0) return null;
@@ -40,7 +45,7 @@ export function DocumentVersionHistory({ versions, canManageVersions = false }: 
 
   return (
     <div className="mt-1 space-y-1">
-      <VersionRow version={latest} canManageVersions={canManageVersions} isLatest />
+      <VersionRow version={latest} canManageVersions={canManageVersions} fileLocked={fileLocked} isLatest />
 
       {older.length > 0 && (
         <>
@@ -63,7 +68,7 @@ export function DocumentVersionHistory({ versions, canManageVersions = false }: 
             <ul className="space-y-1 border-l border-gris-light pl-3">
               {older.map((version) => (
                 <li key={version.id}>
-                  <VersionRow version={version} canManageVersions={canManageVersions} />
+                  <VersionRow version={version} canManageVersions={canManageVersions} fileLocked={fileLocked} />
                 </li>
               ))}
             </ul>
@@ -77,10 +82,12 @@ export function DocumentVersionHistory({ versions, canManageVersions = false }: 
 function VersionRow({
   version,
   canManageVersions,
+  fileLocked,
   isLatest = false,
 }: {
   version: DocumentVersionItem;
   canManageVersions: boolean;
+  fileLocked: boolean;
   isLatest?: boolean;
 }) {
   return (
@@ -95,7 +102,8 @@ function VersionRow({
         {formatDate(version.uploadedAt)} ·{" "}
         {/* D'où vient la version : c'est ce qui distingue l'original du client du
             travail de mise en conformité. */}
-        {version.producedByCabinet ? "EODA" : version.uploadedByName}
+        {/* Auteur masqué sur une ligne à accès restreint que l'appelant n'ouvre pas. */}
+        {version.producedByCabinet ? "EODA" : (version.uploadedByName ?? "la structure")}
       </p>
 
       {/* Réservé au cabinet, comme AnalyzeDocumentButton juste en dessous : côté
@@ -115,11 +123,15 @@ function VersionRow({
           passage à la ligne, « Réanalyser » partait derrière un défilement horizontal
           (retour du 21/10/2026). */}
       <span className="flex w-full flex-wrap items-center gap-x-3 gap-y-2">
+        {fileLocked && <RestrictedFileNotice />}
+        {!fileLocked && (
         <DocumentPreviewLink
           documentVersionId={version.id}
           originalFilename={version.originalFilename}
           canViewExtractedText={canManageVersions}
         />
+        )}
+        {!fileLocked && (
         <DocumentDownloadLink
           documentVersionId={version.id}
           // Même prédicat que celui qui décide de l'aperçu paginé : ce dont on sait
@@ -132,18 +144,19 @@ function VersionRow({
               : null
           }
         />
+        )}
         {/* Réservé au cabinet et à la version courante : réanalyser une version
             reléguée à l'historique écrirait un résultat qui n'appartient plus au
             document tel qu'il se présente aujourd'hui. Absent pour une image :
             aucun texte à en extraire, donc rien pour une IA à analyser (call du
             15/09/2026) — le bouton n'aurait fait qu'échouer avec une erreur. */}
-        {isLatest && canManageVersions && !isImageFile(version.originalFilename) && (
+        {isLatest && canManageVersions && !fileLocked && !isImageFile(version.originalFilename) && (
           <AnalyzeDocumentButton documentVersionId={version.id} hasAnalysis={version.hasAnalysis} />
         )}
         {/* La génération s'appuie sur les manques/suggestions de l'analyse : sans
             analyse, il n'y a rien à corriger (cf. document-generation-service.ts) —
             et une image n'en a jamais. */}
-        {isLatest && canManageVersions && version.hasAnalysis && !isImageFile(version.originalFilename) && (
+        {isLatest && canManageVersions && !fileLocked && version.hasAnalysis && !isImageFile(version.originalFilename) && (
           <CorrectedDraftPanel documentVersionId={version.id} />
         )}
         {isLatest && version.producedByCabinet === canManageVersions && (

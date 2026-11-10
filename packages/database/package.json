@@ -8,7 +8,9 @@
     "./seed-steps": "./src/seed-steps.ts",
     "./document-types": "./src/document-types.ts",
     "./document-folders": "./src/document-folders.ts",
-    "./objective-labels": "./src/objective-labels.ts"
+    "./objective-labels": "./src/objective-labels.ts",
+    "./restricted-document-types": "./src/restricted-document-types.ts",
+    "./restricted-content-purge": "./src/restricted-content-purge.ts"
   },
   "scripts": {
     "generate": "node scripts/generate-migration-manifest.mjs && prisma generate",
@@ -17,6 +19,7 @@
     "migrate:deploy": "prisma migrate deploy",
     "seed": "tsx prisma/seed.ts",
     "labels:strip-objectives": "tsx scripts/strip-objective-labels.ts",
+    "documents:purge-restricted-content": "tsx scripts/purge-restricted-document-content.ts",
     "studio": "prisma studio"
   },
   "dependencies": {

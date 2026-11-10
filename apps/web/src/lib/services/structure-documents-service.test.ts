@@ -192,6 +192,24 @@ describe("flattenChecklist, filtres et recherche", () => {
     expect(filterDocumentRows(withFile, { query: "plainte", category: null })).toHaveLength(0);
   });
 
+  // Relecture de sécurité du 10/11/2026 : la recherche filtrait sur le nom du fichier du
+  // tampon, même pour qui ne peut pas l'ouvrir (un oracle sur le nom).
+  it("ne cherche pas dans le nom des fichiers d'une ligne restreinte que l'appelant n'ouvre pas — l'intitulé, si", () => {
+    const tampon = {
+      ...rows[0]!,
+      label: "Tampon de la structure",
+      restrictedAccess: true,
+      canOpenFile: false,
+      versions: [{ originalFilename: "Fichier à accès restreint" }],
+    };
+    expect(filterDocumentRows([tampon], { query: "restreint", category: null })).toHaveLength(0);
+    expect(filterDocumentRows([tampon], { query: "fichier", category: null })).toHaveLength(0);
+    expect(filterDocumentRows([tampon], { query: "tampon", category: null })).toHaveLength(1);
+
+    const openable = { ...tampon, canOpenFile: true, versions: [{ originalFilename: "cachet-2026.png" }] };
+    expect(filterDocumentRows([openable], { query: "cachet", category: null })).toHaveLength(1);
+  });
+
   it("rowsInBucket ne garde que l'onglet demandé", () => {
     expect(rowsInBucket(rows, "todo")).toHaveLength(2);
     expect(rowsInBucket(rows, "validated")).toHaveLength(0);

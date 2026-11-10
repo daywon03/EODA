@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { FileX, Loader2 } from "lucide-react";
+import { FileX, Loader2, Lock } from "lucide-react";
+import { RESTRICTED_DOCUMENT_NOTICE } from "@/content/documents/acces-restreint";
 import { DocxPreview } from "./DocxPreview";
 import { getDocumentPreviewData } from "@/lib/actions/document";
 import { documentViewerSource } from "@/lib/services/document-viewer-service";
@@ -93,11 +94,28 @@ export function DocumentPreviewPane({
   versionId,
   originalFilename,
   title,
+  fileLocked = false,
 }: {
   versionId: string | null;
   originalFilename: string | null;
   title: string;
+  // Ligne à accès restreint (le tampon, ADR 20261110) : aucune adresse n'est appelée —
+  // la route refuserait de toute façon.
+  fileLocked?: boolean;
 }) {
+  if (fileLocked) {
+    return (
+      <div className="flex h-full flex-col items-center justify-center gap-3 bg-soft px-6 text-center">
+        <Lock className="h-10 w-10 text-ink2" aria-hidden="true" />
+        <p className="text-base font-bold text-ink">{RESTRICTED_DOCUMENT_NOTICE}</p>
+        <p className="max-w-sm text-sm text-ink2">
+          {versionId
+            ? "Le fichier est déposé. Il ne s'ouvre ni chez EODA ni pour les autres comptes de la structure."
+            : "Aucun fichier déposé pour l'instant."}
+        </p>
+      </div>
+    );
+  }
   if (!versionId || !originalFilename) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-3 bg-soft px-6 text-center">

@@ -6,6 +6,7 @@ const isProduction = process.env.NODE_ENV === "production";
 // Les archives du binaire serverless (chromium.br, al2023.tar.br…), cf.
 // `outputFileTracingIncludes` plus bas.
 const CHROMIUM_BINARIES = "../../node_modules/@sparticuz/chromium/bin/**";
+const EODA_LOGO_FILE = "./public/logo-eoda.png";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // EN-TÊTES DE SÉCURITÉ
@@ -96,6 +97,12 @@ const nextConfig: NextConfig = {
     "/dashboard/cabinet/commercial": [CHROMIUM_BINARIES],
     "/dashboard/cabinet/commercial/devis": [CHROMIUM_BINARIES],
     "/dashboard/cabinet/commercial/devis/[id]": [CHROMIUM_BINARIES],
+    // Page de garde EODA de la mise en conformité (E2, 10/11/2026) : l'action
+    // « Enregistrer la version N+1 » lit `public/logo-eoda.png` sur le disque
+    // (`eoda-logo-asset.ts`), dans la fonction des deux pages qui l'importent. Sans
+    // le fichier, la page de garde écrit « EODA conseil » — jamais un échec.
+    "/dashboard/cabinet/conformite/[versionId]": [EODA_LOGO_FILE],
+    "/dashboard/client/documents/conformite/[versionId]": [EODA_LOGO_FILE],
   },
   // Ne pas divulguer la version du framework aux scanners automatisés.
   poweredByHeader: false,

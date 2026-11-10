@@ -4,6 +4,12 @@ import { SURVEY_SCALES, SURVEY_TEMPLATES, type SurveyQuestion, type SurveyTempla
 import { RECEPTION_DOCUMENTS, RECEPTION_POINTS_VERSION } from "@/content/enquete/reception";
 import { ADMISSION_EXPLANATIONS, ADMISSION_EXPLANATIONS_VERSION } from "@/content/admission/explications";
 import { DISCOVERY_GRID } from "@/content/decouverte/grille";
+import {
+  AWARENESS_SHEET_RULE,
+  FOOTER_RULE,
+  IDENTITY_BLOCK_FIELDS,
+  TEMPLATE_RULES_VERSION,
+} from "@/content/regles-redaction/gabarit";
 import type { DiscoveryField } from "@/content/decouverte/types";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -25,7 +31,7 @@ export const CONTENT_REVIEW_STATUS = "Provisoire, à valider par Sandrine";
 export type ReviewField = { label: string; value: string };
 export type ReviewItem = { id: string; title: string; fields: readonly ReviewField[] };
 export type ReviewGroup = { id: string; title: string; version: string; provenance: string; items: readonly ReviewItem[] };
-export type ReviewFamilyId = "QUIZ" | "PRATIQUES" | "ENQUETE" | "DECOUVERTE" | "RECEPTION" | "ADMISSION";
+export type ReviewFamilyId = "QUIZ" | "PRATIQUES" | "ENQUETE" | "DECOUVERTE" | "RECEPTION" | "ADMISSION" | "GABARIT";
 export type ReviewFamily = { id: ReviewFamilyId; title: string; description: string; groups: readonly ReviewGroup[] };
 export type ContentReviewCatalog = { status: string; families: readonly ReviewFamily[] };
 
@@ -194,6 +200,37 @@ function admissionGroups(): ReviewGroup[] {
   }));
 }
 
+const WRITTEN_BY_LABELS = {
+  PLATEFORME: "La plateforme, à l'enregistrement de la version N+1",
+  DOCUMENT: "Recopié du document, sinon champ à compléter",
+} as const;
+
+// Règle de gabarit d'un document EODA (E4, call du 09/11/2026) — PROVISOIRE.
+function templateGroup(): ReviewGroup {
+  return {
+    id: "gabarit-bloc-identification",
+    title: "Bloc d'identification d'un document EODA",
+    version: TEMPLATE_RULES_VERSION,
+    provenance: "Call du 09/11/2026 (mise en conformité de la FAMO) : version, pied de page, date, date de révision",
+    items: [
+      ...IDENTITY_BLOCK_FIELDS.map((field, index) => ({
+        id: field.id,
+        title: `${index + 1}. ${field.label}`,
+        fields: fields([
+          ["Écrit par", WRITTEN_BY_LABELS[field.writtenBy]],
+          ["Règle", field.hint],
+        ]),
+      })),
+      { id: "pied-de-page", title: `${IDENTITY_BLOCK_FIELDS.length + 1}. Pied de page`, fields: fields([["Règle", FOOTER_RULE]]) },
+      {
+        id: "fiche-sensibilisation",
+        title: `${IDENTITY_BLOCK_FIELDS.length + 2}. Fiche de sensibilisation`,
+        fields: fields([["Règle", AWARENESS_SHEET_RULE]]),
+      },
+    ],
+  };
+}
+
 export function buildContentReviewCatalog(labels: DocumentTypeLabels = new Map()): ContentReviewCatalog {
   return {
     status: CONTENT_REVIEW_STATUS,
@@ -233,6 +270,12 @@ export function buildContentReviewCatalog(labels: DocumentTypeLabels = new Map()
         title: "Accueil et DIPEC : ce qu'il faut expliquer",
         description: "Les points du manuel HAS expliqués à la personne avant la signature du DIPEC sur la tablette, avec leurs critères, leur nature et leur source.",
         groups: admissionGroups(),
+      },
+      {
+        id: "GABARIT",
+        title: "Gabarit d'un document EODA",
+        description: "Le bloc d'identification attendu en tête des documents mis en conformité (version, date, rédaction, archivage, prochaine révision), qui l'écrit, et l'exception des fiches de sensibilisation.",
+        groups: [templateGroup()],
       },
     ],
   };

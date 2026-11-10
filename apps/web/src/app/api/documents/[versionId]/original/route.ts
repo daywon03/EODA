@@ -6,7 +6,7 @@ import { recordAuditEvent } from "@/lib/services/audit-log-service";
 import { getFileStoragePort } from "@/lib/storage";
 import { inlineOriginalHeaders, inlineOriginalType } from "@/lib/services/document-original-response";
 import { documentPdfErrorResponse } from "@/lib/services/document-pdf-response";
-import { isVersionVisibleToClient } from "@/lib/services/deliverables-service";
+import { canOpenDocumentFile, documentFileOpenerOf } from "@/lib/auth/document-file-access";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // L'ORIGINAL D'UN PDF OU D'UNE PHOTO, pour la visionneuse (21/10/2026).
@@ -44,11 +44,13 @@ export async function GET(_request: Request, context: Context): Promise<Response
   const access = await tryEstablishmentAccess(version.document.establishmentId, NEED.DOCUMENTS_READ);
   if (!access) notFound();
 
-  // Même garde que la route des pages : un brouillon d'EODA n'est pas restituable à la
-  // structure avant la validation du document — refusé ici, pas seulement caché.
+  // Même règle que la route des pages (`canOpenDocumentFile`) : un brouillon d'EODA
+  // n'est pas restituable à la structure avant la validation du document, et un document
+  // à accès restreint (le tampon) ne s'ouvre qu'à la direction — refusé ici, pas
+  // seulement caché.
   if (
-    access.isClient &&
-    !isVersionVisibleToClient({
+    !canOpenDocumentFile(documentFileOpenerOf(access), {
+      documentTypeCode: version.document.documentType?.code,
       producedByCabinet: version.uploadedBy.role !== "CLIENT_USER",
       validatedAt: version.document.validatedAt,
     })
