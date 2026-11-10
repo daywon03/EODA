@@ -171,6 +171,20 @@ describe("buildMatrixView", () => {
     ]);
   });
 
+  // 10/11/2026 : un critère refusé ne doit pas revenir pré-coché sur la carte du type.
+  it("marque un couple refusé, jamais un couple rattaché", () => {
+    const withRefusal = buildMatrixView(ROWS, {
+      criterionLabels: new Map([["1.10.2", "x"], ["1.2.1", "y"]]),
+      documentTypeLabels: new Map([["L2002_DIPC", "DIPEC"]]),
+      linkedPairs: new Set([pairKey("L2002_DIPC", "1.2.1")]),
+      refusedPairs: new Set([pairKey("L2002_DIPC", "1.10.2")]),
+    });
+    expect(withRefusal.groups[0]?.rows.map((r) => [r.criterionCode, r.linked, r.refused])).toEqual([
+      ["1.2.1", true, false],
+      ["1.10.2", false, true],
+    ]);
+  });
+
   it("porte l'intitulé du critère à côté de son code (un code seul ne se relit pas)", () => {
     const dipc = view.groups[1];
     expect(dipc?.rows[0]?.criterionLabel).toBe("La personne est informée de ses droits");
@@ -301,7 +315,29 @@ describe("planFullProposalLoad — charger toute la proposition", () => {
         linkedPairs: new Set([pairKey("DIPC", "1.4.2")]),
       }
     );
-    expect(plan).toEqual({ toCreate: [{ documentTypeId: "t-dipc", criterionId: "c-121" }], alreadyLinked: 1, skipped: 2 });
+    expect(plan).toEqual({
+      toCreate: [{ documentTypeId: "t-dipc", criterionId: "c-121" }],
+      alreadyLinked: 1,
+      skipped: 2,
+      refused: 0,
+    });
+  });
+
+  // ⚠️ levé le 10/11/2026 : « Charger toute la proposition » rajoutait un critère proposé
+  // que l'administration avait refusé (décoché) — aucun refus n'était mémorisé.
+  it("ne recrée jamais un couple refusé, et le compte à part", () => {
+    const plan = planFullProposalLoad([row("DIPC", "1.2.1"), row("DIPC", "1.4.2")], {
+      documentTypeIds: new Map([["DIPC", "t-dipc"]]),
+      criterionIds: new Map([["1.2.1", "c-121"], ["1.4.2", "c-142"]]),
+      linkedPairs: new Set(),
+      refusedPairs: new Set([pairKey("DIPC", "1.2.1")]),
+    });
+    expect(plan).toEqual({
+      toCreate: [{ documentTypeId: "t-dipc", criterionId: "c-142" }],
+      alreadyLinked: 0,
+      skipped: 0,
+      refused: 1,
+    });
   });
 
   it("la proposition embarquée se charge entièrement contre un référentiel complet", () => {

@@ -67,14 +67,12 @@ export function AttachExistingDocument({
   return (
     <div className="space-y-2">
       {!open && (
-        <button
-          type="button"
-          onClick={start}
-          className="inline-flex min-h-11 items-center gap-1.5 font-bold text-accent-text hover:underline"
-        >
+        // Un vrai bouton, pas un texte souligné (retour de Damon, 10/11/2026 : le geste
+        // passait inaperçu sous la liste des preuves).
+        <Button type="button" onClick={start} className="font-bold">
           <Link2 className="h-4 w-4" aria-hidden="true" />
           Rattacher un document existant à ce critère
-        </button>
+        </Button>
       )}
       {open && (
         <div className="space-y-2 rounded-lg border border-line bg-card p-3">

@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import dynamic from "next/dynamic";
-import { Loader2, Pencil } from "lucide-react";
+import { Loader2, Pencil, Wand2 } from "lucide-react";
+import { Button, buttonVariants } from "@/components/ui/button";
 
 // Chargé au clic sur « Document corrigé » : geste rare, et le panneau embarque la
 // bibliothèque de comparaison (budget de JavaScript de l'onglet Documents).
@@ -37,21 +38,20 @@ export function CorrectedDraftPanel({ documentVersionId }: { documentVersionId: 
 
   return (
     <>
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className="inline-flex items-center gap-1 text-xs text-accent-text hover:underline"
-      >
-        <Pencil className="h-3 w-3 flex-shrink-0" aria-hidden="true" />
-        Document corrigé
-      </button>
-      {/* Écran côte à côte (N8) : décision ajout par ajout, version N+1. */}
+      {/* Écran côte à côte (N8) : décision ajout par ajout, version N+1. Un vrai
+          bouton, en tête du geste (call du 09/11/2026 : Sandrine ne l'avait jamais vu
+          sous le document ; retour de Damon du 10/11 : « un bouton normal »). */}
       <a
         href={`/dashboard/cabinet/conformite/${documentVersionId}`}
-        className="inline-flex items-center gap-1 text-xs text-accent-text hover:underline"
+        className={buttonVariants({ size: "sm", className: "font-bold" })}
       >
-        Mettre en conformité côte à côte
+        <Wand2 className="h-4 w-4 flex-shrink-0" aria-hidden="true" />
+        Mettre en conformité
       </a>
+      <Button type="button" variant="outline" size="sm" onClick={() => setOpen(true)}>
+        <Pencil className="h-4 w-4 flex-shrink-0" aria-hidden="true" />
+        Document corrigé
+      </Button>
 
       {open && <DraftDrawer documentVersionId={documentVersionId} onClose={() => setOpen(false)} />}
     </>

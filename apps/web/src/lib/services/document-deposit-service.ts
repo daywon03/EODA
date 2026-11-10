@@ -1,4 +1,5 @@
 import { canDeleteVersion } from "./document-workflow-service";
+import { DOCUMENT_BUCKET_LABELS, type DocumentBucket } from "./structure-documents-service";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // DÉPÔT EN DEUX TEMPS, ET SON ANNULATION (retour de Sandrine, 09/11/2026 : « Il me
@@ -39,16 +40,21 @@ export function describeDepositEffects(input: {
 }): string[] {
   const analysis = "Le document sera lu et analysé dès le dépôt (environ une minute).";
   if (input.side === "CLIENT") return [analysis, "L'équipe EODA sera prévenue par e-mail."];
+  // L'onglet d'arrivée est nommé (call du 09/11/2026, A6) : un document déposé qui
+  // change d'onglet semblait avoir disparu. Libellés = ceux des onglets eux-mêmes.
+  const landsIn = (bucket: DocumentBucket): string =>
+    `Vous le retrouverez dans l'onglet « ${DOCUMENT_BUCKET_LABELS[bucket]} ».`;
   if (input.cabinetFinal) {
-    return [analysis, "Le document sera validé tout de suite et la structure prévenue par e-mail."];
+    return [analysis, "Le document sera validé tout de suite et la structure prévenue par e-mail.", landsIn("validated")];
   }
   if (input.documentValidated) {
     return [
       analysis,
       "Ce document est déjà validé : la nouvelle version sera remise tout de suite à la structure, prévenue par e-mail.",
+      landsIn("validated"),
     ];
   }
-  return [analysis, "Il passera par « À relire ». Personne n'est prévenu."];
+  return [analysis, "Il passera par « À relire ». Personne n'est prévenu.", landsIn("review")];
 }
 
 export type CancellationFacts = {

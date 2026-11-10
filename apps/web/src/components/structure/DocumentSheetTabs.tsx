@@ -3,6 +3,7 @@
 import { useRef, useState, type KeyboardEvent, type MouseEvent, type ReactNode } from "react";
 import { AlertCircle } from "lucide-react";
 import { TAB_COUNT_CLASS, TAB_LIST_CLASS, tabClassName } from "@/components/ui/tab-styles";
+import { cn } from "@/lib/utils";
 import { nextTabIndex } from "@/lib/design/keyboard-navigation";
 import { SHEET_TABS, type SheetTab } from "@/lib/services/document-sheet-tabs-service";
 
@@ -87,7 +88,7 @@ export function DocumentSheetTabs({
         )}
       </div>
 
-      <div role="tablist" aria-label="Rubriques du document" onKeyDown={handleKeyDown} className={TAB_LIST_CLASS}>
+      <div role="tablist" aria-label="Rubriques du document" onKeyDown={handleKeyDown} className={cn(TAB_LIST_CLASS, "[--tab-fade:var(--card)]")}>
         {SHEET_TABS.map((tab, index) => {
           const isSelected = tab.id === active;
           return (

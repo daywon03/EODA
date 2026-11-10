@@ -62,13 +62,23 @@ async function loadLinkedPairs(): Promise<Set<string>> {
   return new Set(links.map((l) => pairKey(l.documentType.code, l.criterion.code)));
 }
 
+// Couples proposés que l'administration a refusés (10/11/2026) : ni pré-cochés sur la
+// carte du type, ni recréés par « Charger toute la proposition ».
+async function loadRefusedPairs(): Promise<Set<string>> {
+  const refusals = await prisma.proposedCriterionRefusal.findMany({
+    select: { documentType: { select: { code: true } }, criterion: { select: { code: true } } },
+  });
+  return new Set(refusals.map((r) => pairKey(r.documentType.code, r.criterion.code)));
+}
+
 export async function getMatrixReview(): Promise<MatrixReview> {
   const { tenantId } = await requireCabinetAdminSession();
 
-  const [criteria, documentTypes, linkedPairs, confirmed] = await Promise.all([
+  const [criteria, documentTypes, linkedPairs, refusedPairs, confirmed] = await Promise.all([
     prisma.criterion.findMany({ select: { code: true, label: true } }),
     prisma.documentType.findMany({ where: { archivedAt: null }, select: { code: true, label: true } }),
     loadLinkedPairs(),
+    loadRefusedPairs(),
     // Suggestions confirmées des structures DE CE CABINET seulement (cloisonnement).
     prisma.documentCriterionSuggestion.findMany({
       where: {
@@ -89,6 +99,7 @@ export async function getMatrixReview(): Promise<MatrixReview> {
     criterionLabels: new Map(criteria.map((c) => [c.code, c.label])),
     documentTypeLabels: new Map(documentTypes.map((t) => [t.code, t.label])),
     linkedPairs,
+    refusedPairs,
   });
 
   // Une ligne par couple (type, critère) pas encore rattaché — plusieurs documents
@@ -164,6 +175,14 @@ export async function validateMatrixForDocumentType(formData: FormData): Promise
     prisma.documentTypeCriterion.deleteMany({
       where: { documentTypeId: documentType.id, criterionId: { in: decision.toDelete.flatMap(toId) } },
     }),
+    // Le refus se mémorise : « Charger toute la proposition » ne le défera plus.
+    prisma.proposedCriterionRefusal.createMany({
+      data: decision.toDelete.flatMap(toId).map((criterionId) => ({ documentTypeId: documentType.id, criterionId })),
+      skipDuplicates: true,
+    }),
+    prisma.proposedCriterionRefusal.deleteMany({
+      where: { documentTypeId: documentType.id, criterionId: { in: decision.toCreate.flatMap(toId) } },
+    }),
   ]);
 
   await recordAuditEvent({
@@ -182,18 +201,22 @@ export async function validateMatrixForDocumentType(formData: FormData): Promise
 // « Charger toute la proposition » (décision de Damon, 21/10/2026) — CABINET_ADMIN
 // seul. Ajoute, n'enlève rien ; le plan est recalculé ici depuis la proposition
 // embarquée et la base, aucune entrée du formulaire n'est lue.
-export async function loadFullProposedMatrix(): Promise<{ error: string } | { added: number; alreadyLinked: number; skipped: number }> {
+export async function loadFullProposedMatrix(): Promise<
+  { error: string } | { added: number; alreadyLinked: number; skipped: number; refused: number }
+> {
   const { userId, session } = await requireCabinetAdminSession();
 
-  const [criteria, documentTypes, linkedPairs] = await Promise.all([
+  const [criteria, documentTypes, linkedPairs, refusedPairs] = await Promise.all([
     prisma.criterion.findMany({ select: { id: true, code: true } }),
     prisma.documentType.findMany({ where: { archivedAt: null }, select: { id: true, code: true } }),
     loadLinkedPairs(),
+    loadRefusedPairs(),
   ]);
   const plan = planFullProposalLoad(parseProposedMatrix(PROPOSED_MATRIX_CSV), {
     documentTypeIds: new Map(documentTypes.map((t) => [t.code, t.id])),
     criterionIds: new Map(criteria.map((c) => [c.code, c.id])),
     linkedPairs,
+    refusedPairs,
   });
 
   const created =
@@ -205,12 +228,12 @@ export async function loadFullProposedMatrix(): Promise<{ error: string } | { ad
     action: "DOCUMENT_TYPE_CRITERIA_UPDATED",
     actorUserId: userId,
     actorRole: session.user.role,
-    detail: `proposition complète · +${created.count}`,
+    detail: `proposition complète · +${created.count} · refusés gardés ${plan.refused}`,
   });
 
   revalidatePath(MATRIX_PATH);
   revalidateTag(CRITERION_MATRIX_TAG);
-  return { added: created.count, alreadyLinked: plan.alreadyLinked, skipped: plan.skipped };
+  return { added: created.count, alreadyLinked: plan.alreadyLinked, skipped: plan.skipped, refused: plan.refused };
 }
 
 // « Ajouter à la matrice » une suggestion confirmée sur un document d'une structure.
@@ -246,6 +269,10 @@ export async function promoteCriterionSuggestion(formData: FormData): Promise<{ 
   await prisma.documentTypeCriterion.create({
     data: { documentTypeId, criterionId: suggestion.criterionId },
   });
+  // Rattaché de nouveau : un ancien refus de ce couple ne vaut plus.
+  await prisma.proposedCriterionRefusal.deleteMany({
+    where: { documentTypeId, criterionId: { in: [suggestion.criterionId] } },
+  });
 
   await recordAuditEvent({
     action: "DOCUMENT_TYPE_CRITERION_PROMOTED",
@@ -262,7 +289,8 @@ export async function promoteCriterionSuggestion(formData: FormData): Promise<{ 
 
 // ── Rattachement à la main (call du 21/10/2026) ─────────────────────────────
 
-export type DocumentTypeLink = { code: string; label: string; proposed: boolean };
+// `criterionId` : les consignes pour l'IA se posent sur le critère (CriterionGuideline).
+export type DocumentTypeLink = { criterionId: string; code: string; label: string; proposed: boolean };
 
 function proposedCodesFor(typeCode: string): Set<string> {
   return new Set(
@@ -282,11 +310,16 @@ export async function getDocumentTypeLinks(typeCode: string): Promise<DocumentTy
   if (!documentType) notFound();
   const links = await prisma.documentTypeCriterion.findMany({
     where: { documentTypeId: documentType.id },
-    select: { criterion: { select: { code: true, label: true } } },
+    select: { criterion: { select: { id: true, code: true, label: true } } },
   });
   const proposed = proposedCodesFor(typeCode);
   return links
-    .map((l) => ({ code: l.criterion.code, label: l.criterion.label, proposed: proposed.has(l.criterion.code) }))
+    .map((l) => ({
+      criterionId: l.criterion.id,
+      code: l.criterion.code,
+      label: l.criterion.label,
+      proposed: proposed.has(l.criterion.code),
+    }))
     .sort((a, b) => compareCriterionCodes(a.code, b.code));
 }
 
@@ -327,16 +360,23 @@ export async function addManualMatrixLinks(
   if (plan.unknown.length > 0) return { error: unknownCriteriaMessage(plan.unknown) };
 
   const idByCode = new Map(criteria.map((c) => [c.code, c.id]));
+  const toCreateIds = plan.toCreate.flatMap((code) => {
+    const criterionId = idByCode.get(code);
+    return criterionId ? [criterionId] : [];
+  });
   const created =
-    plan.toCreate.length === 0
+    toCreateIds.length === 0
       ? { count: 0 }
       : await prisma.documentTypeCriterion.createMany({
-          data: plan.toCreate.flatMap((code) => {
-            const criterionId = idByCode.get(code);
-            return criterionId ? [{ documentTypeId: documentType.id, criterionId }] : [];
-          }),
+          data: toCreateIds.map((criterionId) => ({ documentTypeId: documentType.id, criterionId })),
           skipDuplicates: true,
         });
+  // Rattachés de nouveau : leurs anciens refus ne valent plus.
+  if (toCreateIds.length > 0) {
+    await prisma.proposedCriterionRefusal.deleteMany({
+      where: { documentTypeId: documentType.id, criterionId: { in: toCreateIds } },
+    });
+  }
 
   // Codes seulement : ni libellé libre, ni donnée de structure.
   await recordAuditEvent({
@@ -376,13 +416,24 @@ export async function unlinkCriterionFromDocumentType(
   const error = manualUnlinkError({ linked: link !== null });
   if (error) return { error };
 
-  await prisma.documentTypeCriterion.delete({ where: key });
+  const isProposed = proposedCodesFor(typeCode).has(criterionCode);
+  if (isProposed) {
+    // Décocher un critère PROPOSÉ = le refuser, et s'en souvenir (10/11/2026) :
+    // « Charger toute la proposition » ne le remettra plus.
+    const pair = { documentTypeId: documentType.id, criterionId: criterion.id };
+    await prisma.$transaction([
+      prisma.documentTypeCriterion.delete({ where: key }),
+      prisma.proposedCriterionRefusal.upsert({ where: { documentTypeId_criterionId: pair }, create: pair, update: {} }),
+    ]);
+  } else {
+    await prisma.documentTypeCriterion.delete({ where: key });
+  }
   await recordAuditEvent({
     action: "DOCUMENT_TYPE_CRITERIA_UPDATED",
     actorUserId: userId,
     actorRole: session.user.role,
     targetId: documentType.id,
-    detail: describeCriterionUnlink(typeCode, criterionCode, proposedCodesFor(typeCode).has(criterionCode)),
+    detail: describeCriterionUnlink(typeCode, criterionCode, isProposed),
   });
 
   revalidatePath(MATRIX_PATH);

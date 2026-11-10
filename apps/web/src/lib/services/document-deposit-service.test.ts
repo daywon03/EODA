@@ -49,6 +49,21 @@ describe("describeDepositEffects — ce que le dépôt va faire, dit AVANT l'env
     expect(effects.join(" ")).not.toMatch(/validé/);
   });
 
+  // Call du 09/11/2026 (A6) : Sandrine déposait et ne retrouvait plus le document,
+  // parti dans un autre onglet. Le récapitulatif nomme l'onglet d'arrivée.
+  it("cabinet : nomme l'onglet où le document sera rangé", () => {
+    const toReview = describeDepositEffects({ side: "CABINET", cabinetFinal: false, documentValidated: false });
+    expect(toReview).toContain("Vous le retrouverez dans l'onglet « À relire ».");
+    for (const input of [
+      { cabinetFinal: true, documentValidated: false },
+      { cabinetFinal: false, documentValidated: true },
+    ]) {
+      expect(describeDepositEffects({ side: "CABINET", ...input })).toContain(
+        "Vous le retrouverez dans l'onglet « Validé »."
+      );
+    }
+  });
+
   it("dit toujours que l'analyse se lance au dépôt", () => {
     for (const side of ["CABINET", "CLIENT"] as const) {
       expect(describeDepositEffects({ side, cabinetFinal: false, documentValidated: false }).join(" ")).toMatch(/lu/);
