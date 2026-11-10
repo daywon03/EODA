@@ -202,6 +202,41 @@ describe("applyCorrectionProposal — enregistrer la version N+1", () => {
     expect(recordAuditEvent).toHaveBeenCalledWith(expect.objectContaining({ action: "CORRECTION_PROPOSAL_APPLIED", targetId: "dv-new" }));
   });
 
+  it("la PLATEFORME écrit la version suivante et la date du jour, et retire les encarts de critères (E2, E3)", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-11-10T10:00:00Z"));
+    try {
+      prismaMock.correctionProposal.findUnique.mockResolvedValue({
+        id: "p-1",
+        sourceVersionId: "dv-1",
+        resultVersionId: null,
+        proposalJson: {
+          ...PROPOSAL,
+          segments: [
+            { kind: "ORIGINAL", text: "# Règlement\nVersion : 1\nDate de mise à jour : 11/10/2026" },
+            { kind: "ORIGINAL", text: "## Critères HAS couverts\n- 3.12.1" },
+            ...PROPOSAL.segments.slice(1),
+          ],
+        },
+      });
+      await applyCorrectionProposal("p-1", { a1: "ACCEPTE" });
+      const input = ingestDocumentVersion.mock.calls[0]?.[0] as { extractedText: string };
+      expect(input.extractedText).toContain("Version : 1.1\nDate de mise à jour : 10/11/2026");
+      expect(input.extractedText).not.toContain("Critères HAS couverts");
+      expect(recordAuditEvent).toHaveBeenCalledWith(
+        expect.objectContaining({ action: "CORRECTION_PROPOSAL_APPLIED", detail: expect.stringContaining("version du document 1.1") })
+      );
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("sans bloc d'identification : une ligne normalisée est ajoutée en tête", async () => {
+    await applyCorrectionProposal("p-1", {});
+    const input = ingestDocumentVersion.mock.calls[0]?.[0] as { extractedText: string };
+    expect(input.extractedText.split("\n")[0]).toMatch(/^\*\*Version :\*\* 1\.1 · \*\*Date de mise à jour :\*\* \d{2}\/\d{2}\/\d{4}$/);
+  });
+
   it("origine cabinet quand c'est le cabinet qui enregistre", async () => {
     await applyCorrectionProposal("p-1", { a1: "ACCEPTE" });
     expect(ingestDocumentVersion.mock.calls[0]?.[0]).toMatchObject({ documentOrigin: "CABINET" });

@@ -5,6 +5,7 @@ import { SURVEY_TEMPLATES } from "@/content/enquete";
 import { RECEPTION_DOCUMENTS } from "@/content/enquete/reception";
 import { DISCOVERY_GRID } from "@/content/decouverte/grille";
 import { allAdmissionPoints } from "@/content/admission/explications";
+import { IDENTITY_BLOCK_FIELDS, TEMPLATE_RULES_VERSION } from "@/content/regles-redaction/gabarit";
 import { buildContentReviewCatalog, CONTENT_REVIEW_STATUS, countReviewItems } from "./content-review-service";
 
 const catalog = buildContentReviewCatalog(new Map([["L2002_LIVRET_ACCUEIL", "Livret d'accueil"]]));
@@ -13,7 +14,7 @@ const valueOf = (fields: readonly { label: string; value: string }[], label: str
 
 describe("buildContentReviewCatalog — tout le contenu provisoire, rien d'oublié", () => {
   it("les six familles, dans l'ordre, et le statut « à valider par Sandrine »", () => {
-    expect(catalog.families.map((f) => f.id)).toEqual(["QUIZ", "PRATIQUES", "ENQUETE", "DECOUVERTE", "RECEPTION", "ADMISSION"]);
+    expect(catalog.families.map((f) => f.id)).toEqual(["QUIZ", "PRATIQUES", "ENQUETE", "DECOUVERTE", "RECEPTION", "ADMISSION", "GABARIT"]);
     expect(catalog.status).toBe(CONTENT_REVIEW_STATUS);
     expect(CONTENT_REVIEW_STATUS).toMatch(/à valider par Sandrine/);
   });
@@ -68,6 +69,16 @@ describe("buildContentReviewCatalog — tout le contenu provisoire, rien d'oubli
     expect(valueOf(trust.fields, "Critères HAS")).toBe("1.2.3");
     expect(valueOf(trust.fields, "Nature")).toBe("Obligation");
     expect(valueOf(items.find((i) => i.id === "retractation")!.fields, "À confirmer")).toMatch(/Sandrine/);
+  });
+
+  it("gabarit (E4, provisoire) : chaque champ du bloc d'identification, qui l'écrit, et la fiche de sensibilisation", () => {
+    const gabarit = family("GABARIT");
+    expect(gabarit.groups[0]!.version).toBe(TEMPLATE_RULES_VERSION);
+    expect(countReviewItems(gabarit)).toBe(IDENTITY_BLOCK_FIELDS.length + 2);
+    const items = gabarit.groups[0]!.items;
+    expect(valueOf(items.find((i) => i.id === "version")!.fields, "Écrit par")).toMatch(/plateforme/i);
+    expect(valueOf(items.find((i) => i.id === "archivage")!.fields, "Écrit par")).toMatch(/Recopié du document/);
+    expect(valueOf(items.find((i) => i.id === "fiche-sensibilisation")!.fields, "Règle")).toMatch(/date de dépôt/);
   });
 
   it("n'affiche jamais un champ vide, et garde un code de document inconnu tel quel", () => {

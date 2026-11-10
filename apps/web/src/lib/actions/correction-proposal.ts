@@ -12,6 +12,8 @@ import { ingestDocumentVersion } from "@/lib/services/document-ingestion-service
 import { generateBrandedDocx } from "@/lib/services/markdown-to-docx-service";
 import { documentMention } from "@/lib/services/review-mention-service";
 import { buildEodaFileName } from "@/lib/services/document-naming-service";
+import { prepareFinalDocumentMarkdown } from "@/lib/services/final-document-service";
+import { documentIdentityRule } from "@/lib/services/document-identity-service";
 import {
   additionsOf,
   buildDecisionsRecord,
@@ -162,7 +164,15 @@ export async function applyCorrectionProposal(
   const parsed = parseDecisions(rawDecisions, proposal);
   if (!parsed.ok) return { error: parsed.error };
 
-  const markdown = proposalToMarkdown(proposal, parsed.decisions);
+  const now = new Date();
+  // Document FINAL (call du 09/11/2026) : encarts « critères HAS » retirés du corps
+  // (E2), version suivante et date du jour écrites par la PLATEFORME (E3) — jamais par
+  // l'IA. Une fiche de sensibilisation garde sa date de dépôt (E4, provisoire).
+  const { markdown, identity } = prepareFinalDocumentMarkdown(proposalToMarkdown(proposal, parsed.decisions), {
+    identityRule: documentIdentityRule({ code: context.version.documentCode, folderId: context.version.documentFolderId }),
+    previousVersionLabel: String(context.version.versionNumber),
+    today: now,
+  });
   const nextNumber = context.version.versionNumber + 1;
   const docx = await generateBrandedDocx({
     markdown,
@@ -171,7 +181,7 @@ export async function applyCorrectionProposal(
     reviewMention: documentMention({ mode: context.mode, reviewedAt: null }),
   });
   const originalFilename = buildEodaFileName({
-    issuedOn: new Date(),
+    issuedOn: now,
     type: context.version.documentCode,
     clientName: context.version.establishmentName,
     objet: "Mise-en-conformite",
@@ -196,7 +206,6 @@ export async function applyCorrectionProposal(
     { storage: getFileStoragePort(), llm: getLLMAnalysisPort() }
   );
 
-  const now = new Date();
   await prisma.correctionProposal.update({
     where: { id: stored.id },
     data: {
@@ -214,7 +223,7 @@ export async function applyCorrectionProposal(
     actorRole: context.access.session.user.role,
     establishmentId: context.version.establishmentId,
     targetId: ingested.documentVersionId,
-    detail: `${context.version.documentCode} v${nextNumber} : ${counts.accepted} accepté(s), ${counts.refused} refusé(s), ${counts.pending} non retenu(s)`,
+    detail: `${context.version.documentCode} v${nextNumber} : ${counts.accepted} accepté(s), ${counts.refused} refusé(s), ${counts.pending} non retenu(s)${identity ? ` ; version du document ${identity.version}` : ""}`,
   });
   revalidateCorrection(context);
   return { ok: true, versionNumber: nextNumber };

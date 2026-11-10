@@ -84,6 +84,21 @@ describe("buildUserMessage — critères HAS rattachés au type de document", ()
 //   - il ne peut pas refermer ce bloc lui-même (`</consignes_consultante>`), sans
 //     quoi il sortirait de la zone de données et deviendrait une instruction.
 // ─────────────────────────────────────────────────────────────────────────────
+describe("buildUserMessage — règle de gabarit du type (E4, provisoire)", () => {
+  const base = { documentTypeLabel: "Fiche de sensibilisation", extractedText: "Contenu.", linkedCriteria: [] };
+
+  it("dit à l'analyse d'une fiche de sensibilisation que la date de dépôt fait foi", () => {
+    const message = buildUserMessage({ ...base, documentTypeNote: "La date de son dépôt fait foi." });
+    expect(message).toContain("Règle de gabarit EODA pour ce type : La date de son dépôt fait foi.");
+    expect(message.indexOf("Règle de gabarit")).toBeLessThan(message.indexOf("<document>"));
+  });
+
+  it("n'écrit rien pour un autre type, et ne touche jamais le prompt système", () => {
+    expect(buildUserMessage(base)).not.toContain("Règle de gabarit");
+    expect(buildSystemPrompt()).not.toContain("Règle de gabarit");
+  });
+});
+
 describe("buildUserMessage — consigne de la consultante", () => {
   const base = { documentTypeLabel: "Compte-rendu CVS", extractedText: "Contenu.", linkedCriteria: [] };
 
