@@ -1120,8 +1120,13 @@ Détail complet et état d'avancement : `specs/02-architecture-technique.md` §4
   que la carte du type, rien d'autre n'est stocké ; journal « proposition refusée »),
   un ajout à la main est retiré (« retrait manuel ») ; `manualUnlinkError` ne refuse
   plus que ce qui n'est pas rattaché. Un type ARCHIVÉ répond comme un type inconnu.
-  ⚠️ « Charger toute la proposition » ajoute de nouveau un critère proposé refusé :
-  aucun refus n'est mémorisé. Une **guideline n'est relue que pour les critères rattachés au type du
+  **Un refus se mémorise (10/11/2026)** : retirer un critère PROPOSÉ (n'importe quel
+  menu, ou la carte du type) pose `ProposedCriterionRefusal` (migration
+  `20261110120000_proposed_criterion_refusals`) ; « Charger toute la proposition » le
+  saute et le compte (`planFullProposalLoad.refused`), la carte du type ne le pré-coche
+  plus (« refusé »), et tout nouveau rattachement du couple (carte, à la main,
+  suggestion promue) efface le refus — tests dans `criterion-matrix.test.ts` et
+  `criterion-matrix-service.test.ts`. Une **guideline n'est relue que pour les critères rattachés au type du
   document ou reconnus dans ce document** (`guidelineReach`) : le formulaire le dit
   quand un critère coché n'en fait pas partie (call du 21/10 — les guidelines posées
   pour « forcer » un critère n'étaient jamais lues).

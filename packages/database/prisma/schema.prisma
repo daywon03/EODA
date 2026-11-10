@@ -604,6 +604,7 @@ model Criterion {
   objective               Objective                     @relation(fields: [objectiveId], references: [id])
   evaluationElements      EvaluationElement[]
   documentTypes           DocumentTypeCriterion[]
+  refusedForTypes         ProposedCriterionRefusal[]
   guidelines              CriterionGuideline[]
   templateDocuments       TemplateDocumentCriterion[]
   documentSuggestions     DocumentCriterionSuggestion[]
@@ -729,6 +730,7 @@ model DocumentType {
   archivedAt DateTime? @map("archived_at")
 
   documents         DocumentTypeCriterion[]
+  refusedCriteria   ProposedCriterionRefusal[]
   Document          Document[]
   // Gabarits de la bibliothèque rattachés à ce type (N8) : leurs versions FINALE
   // servent d'exemples validés à la génération et à l'analyse de ce type.
@@ -817,6 +819,24 @@ model DocumentTypeCriterion {
   @@id([documentTypeId, criterionId])
   @@index([criterionId])
   @@map("document_type_criteria")
+}
+
+// Un critère PROPOSÉ pour un type de document (proposition embarquée du 08/10) que
+// l'administration a retiré : « Charger toute la proposition » ne le recrée plus
+// (10/11/2026). Posé au retrait (unlinkCriterionFromDocumentType, carte du type),
+// effacé dès que le couple est rattaché de nouveau, quel que soit le chemin. Même
+// portée que la matrice : globale, sans donnée de structure.
+model ProposedCriterionRefusal {
+  documentTypeId String   @map("document_type_id")
+  criterionId    String   @map("criterion_id")
+  refusedAt      DateTime @default(now()) @map("refused_at")
+
+  documentType DocumentType @relation(fields: [documentTypeId], references: [id], onDelete: Cascade)
+  criterion    Criterion    @relation(fields: [criterionId], references: [id])
+
+  @@id([documentTypeId, criterionId])
+  @@index([criterionId])
+  @@map("proposed_criterion_refusals")
 }
 
 // Rattache une fiche de la bibliothèque de modèles à des critères HAS — même

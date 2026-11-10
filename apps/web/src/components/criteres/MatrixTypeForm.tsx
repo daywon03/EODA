@@ -48,7 +48,8 @@ export function MatrixTypeForm({ group }: { group: MatrixGroup }) {
               type="checkbox"
               name="criterionCode"
               value={row.criterionCode}
-              defaultChecked={row.linked || row.confidence === "HAUTE"}
+              // Un critère refusé n'est jamais pré-coché : « Valider » le remettrait.
+              defaultChecked={row.linked || (row.confidence === "HAUTE" && !row.refused)}
               disabled={isPending}
               className="mt-1 h-5 w-5 accent-terre"
             />
@@ -58,6 +59,7 @@ export function MatrixTypeForm({ group }: { group: MatrixGroup }) {
               <span className="block text-sm text-ink2">
                 {CONFIDENCE_LABELS[row.confidence]}
                 {row.linked && " · déjà rattaché"}
+                {row.refused && " · refusé (cochez pour le rattacher quand même)"}
               </span>
               {row.remark && <span className="block text-sm text-ink2">{row.remark}</span>}
             </span>

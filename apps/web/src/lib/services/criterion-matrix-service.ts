@@ -115,7 +115,8 @@ export function pairKey(documentTypeCode: string, criterionCode: string): string
 
 // `criterionLabel` : l'intitulé du référentiel en base — un code seul (« 1.10.2 »)
 // ne se relit pas sans ouvrir le manuel HAS à côté.
-export type MatrixReviewRow = MatrixRow & { linked: boolean; criterionLabel: string };
+// `refused` : proposé, retiré par l'administration — ni pré-coché, ni rechargé.
+export type MatrixReviewRow = MatrixRow & { linked: boolean; refused: boolean; criterionLabel: string };
 
 export type MatrixGroup = {
   documentTypeCode: string;
@@ -143,6 +144,8 @@ export function buildMatrixView(
     criterionLabels: ReadonlyMap<string, string>;
     documentTypeLabels: ReadonlyMap<string, string>;
     linkedPairs: ReadonlySet<string>;
+    // Couples proposés refusés par l'administration (ProposedCriterionRefusal).
+    refusedPairs?: ReadonlySet<string>;
   }
 ): MatrixView {
   const groups = new Map<string, MatrixGroup>();
@@ -173,10 +176,14 @@ export function buildMatrixView(
       rows: [],
     };
     if (!group.rows.some((r) => r.criterionCode === row.criterionCode)) {
+      const key = pairKey(row.documentTypeCode, row.criterionCode);
+      const linked = known.linkedPairs.has(key);
       group.rows.push({
         ...row,
         criterionLabel,
-        linked: known.linkedPairs.has(pairKey(row.documentTypeCode, row.criterionCode)),
+        linked,
+        // Un couple rattaché n'est jamais « refusé », même si un ancien refus traîne.
+        refused: !linked && (known.refusedPairs?.has(key) ?? false),
       });
     }
     groups.set(row.documentTypeCode, group);
@@ -227,10 +234,14 @@ export function describeMatrixDecision(documentTypeCode: string, decision: Matri
 // qui ajoute en une fois chaque rattachement proposé dont le type ET le critère
 // existent en base. Il n'en RETIRE aucun — décocher reste un geste type par type
 // (planMatrixDecision) — et ignore ce qui est déjà rattaché.
+// Un couple REFUSÉ (critère proposé que l'administration a retiré —
+// ProposedCriterionRefusal, 10/11/2026) n'est jamais recréé : avant, recharger la
+// proposition annulait silencieusement chaque refus.
 export type ProposalLoadPlan = {
   toCreate: { documentTypeId: string; criterionId: string }[];
   alreadyLinked: number;
   skipped: number;
+  refused: number;
 };
 
 export function planFullProposalLoad(
@@ -239,12 +250,14 @@ export function planFullProposalLoad(
     documentTypeIds: ReadonlyMap<string, string>;
     criterionIds: ReadonlyMap<string, string>;
     linkedPairs: ReadonlySet<string>;
+    refusedPairs?: ReadonlySet<string>;
   }
 ): ProposalLoadPlan {
   const seen = new Set<string>();
   const toCreate: ProposalLoadPlan["toCreate"] = [];
   let alreadyLinked = 0;
   let skipped = 0;
+  let refused = 0;
   for (const row of rows) {
     const key = pairKey(row.documentTypeCode, row.criterionCode);
     if (seen.has(key)) continue;
@@ -253,9 +266,10 @@ export function planFullProposalLoad(
     const criterionId = context.criterionIds.get(row.criterionCode);
     if (!documentTypeId || !criterionId) skipped++;
     else if (context.linkedPairs.has(key)) alreadyLinked++;
+    else if (context.refusedPairs?.has(key)) refused++;
     else toCreate.push({ documentTypeId, criterionId });
   }
-  return { toCreate, alreadyLinked, skipped };
+  return { toCreate, alreadyLinked, skipped, refused };
 }
 
 // ── Promotion d'une suggestion confirmée au type de document ─────────────────

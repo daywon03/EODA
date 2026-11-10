@@ -9,6 +9,7 @@ const prismaMock = {
   documentType: { findMany: vi.fn(), findUnique: vi.fn() },
   documentTypeCriterion: { findMany: vi.fn(), findUnique: vi.fn(), createMany: vi.fn(), deleteMany: vi.fn(), create: vi.fn(), delete: vi.fn() },
   documentCriterionSuggestion: { findMany: vi.fn(), findFirst: vi.fn() },
+  proposedCriterionRefusal: { findMany: vi.fn(), upsert: vi.fn(), createMany: vi.fn(), deleteMany: vi.fn() },
   $transaction: vi.fn(),
 };
 const requireCabinetAdminSession = vi.fn();
@@ -39,6 +40,7 @@ const {
   unlinkCriterionFromDocumentType,
   getDocumentTypeLinks,
   listLinkableDocumentTypes,
+  loadFullProposedMatrix,
 } = await import("./criterion-matrix");
 
 function form(fields: Record<string, string | string[]>): FormData {
@@ -57,6 +59,8 @@ beforeEach(() => {
     session: { user: { role: "CABINET_ADMIN" } },
   });
   prismaMock.$transaction.mockResolvedValue([]);
+  // Par défaut, aucun critère proposé n'a été refusé.
+  prismaMock.proposedCriterionRefusal.findMany.mockResolvedValue([]);
 });
 
 describe("garde", () => {
@@ -317,5 +321,87 @@ describe("lectures de la fiche document et de la page Critères (09/11/2026)", (
     expect(prismaMock.documentType.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { archivedAt: null } }));
     requireCabinetAdminSession.mockRejectedValue(new Error("REDIRECT"));
     await expect(listLinkableDocumentTypes()).rejects.toThrow("REDIRECT");
+  });
+});
+
+// ⚠️ levé le 10/11/2026 : un critère proposé refusé revenait par « Charger toute la
+// proposition ». Le refus est désormais mémorisé (ProposedCriterionRefusal).
+describe("refus d'un critère proposé — mémorisé, effacé au rattachement, respecté au chargement", () => {
+  it("décocher un critère PROPOSÉ pose le refus, dans la même transaction que le retrait", async () => {
+    prismaMock.documentType.findUnique.mockResolvedValue({ id: "dt-enquete", archivedAt: null });
+    prismaMock.criterion.findUnique.mockResolvedValue({ id: "c-3142" });
+    prismaMock.documentTypeCriterion.findUnique.mockResolvedValue({ criterionId: "c-3142" });
+    expect(await unlinkCriterionFromDocumentType("QUALITE_ENQUETE_QUESTIONNAIRE", "3.14.2")).toBeNull();
+    const pair = { documentTypeId: "dt-enquete", criterionId: "c-3142" };
+    expect(prismaMock.proposedCriterionRefusal.upsert).toHaveBeenCalledWith({
+      where: { documentTypeId_criterionId: pair },
+      create: pair,
+      update: {},
+    });
+    expect(prismaMock.$transaction).toHaveBeenCalled();
+  });
+
+  it("retirer un ajout fait à la main ne pose aucun refus", async () => {
+    prismaMock.documentType.findUnique.mockResolvedValue({ id: "dt-enquete", archivedAt: null });
+    prismaMock.criterion.findUnique.mockResolvedValue({ id: "c-131" });
+    prismaMock.documentTypeCriterion.findUnique.mockResolvedValue({ criterionId: "c-131" });
+    expect(await unlinkCriterionFromDocumentType("QUALITE_ENQUETE_QUESTIONNAIRE", "1.3.1")).toBeNull();
+    expect(prismaMock.proposedCriterionRefusal.upsert).not.toHaveBeenCalled();
+  });
+
+  it("carte du type : un proposé retiré est refusé, un proposé coché efface son refus", async () => {
+    prismaMock.documentType.findUnique.mockResolvedValue({ id: "type-dipc" });
+    prismaMock.criterion.findMany.mockResolvedValue([
+      { id: "c-121", code: "1.2.1" },
+      { id: "c-122", code: "1.2.2" },
+    ]);
+    prismaMock.documentTypeCriterion.findMany.mockResolvedValue([{ criterion: { code: "1.2.2" } }]);
+    await validateMatrixForDocumentType(form({ documentTypeCode: "L2002_DIPC", criterionCode: ["1.2.1"] }));
+    expect(prismaMock.proposedCriterionRefusal.createMany).toHaveBeenCalledWith({
+      data: [{ documentTypeId: "type-dipc", criterionId: "c-122" }],
+      skipDuplicates: true,
+    });
+    expect(prismaMock.proposedCriterionRefusal.deleteMany).toHaveBeenCalledWith({
+      where: { documentTypeId: "type-dipc", criterionId: { in: ["c-121"] } },
+    });
+  });
+
+  it("rattacher à la main efface le refus des critères rattachés", async () => {
+    prismaMock.documentType.findUnique.mockResolvedValue({ id: "dt-enquete" });
+    prismaMock.documentTypeCriterion.findMany.mockResolvedValue([]);
+    prismaMock.documentTypeCriterion.createMany.mockResolvedValue({ count: 1 });
+    prismaMock.criterion.findMany.mockResolvedValue([{ id: "c-3142", code: "3.14.2" }]);
+    await addManualMatrixLinks("QUALITE_ENQUETE_QUESTIONNAIRE", ["3.14.2"]);
+    expect(prismaMock.proposedCriterionRefusal.deleteMany).toHaveBeenCalledWith({
+      where: { documentTypeId: "dt-enquete", criterionId: { in: ["c-3142"] } },
+    });
+  });
+
+  it("promouvoir une suggestion efface le refus du couple", async () => {
+    prismaMock.documentCriterionSuggestion.findFirst.mockResolvedValue({
+      id: "s1",
+      status: "CONFIRMED",
+      criterionId: "c-1",
+      criterion: { code: "3.1.1" },
+      document: { documentTypeId: "type-1", documentType: { code: "T1" } },
+    });
+    prismaMock.documentTypeCriterion.findUnique.mockResolvedValue(null);
+    expect(await promoteCriterionSuggestion(form({ suggestionId: "s1" }))).toBeNull();
+    expect(prismaMock.proposedCriterionRefusal.deleteMany).toHaveBeenCalledWith({
+      where: { documentTypeId: "type-1", criterionId: { in: ["c-1"] } },
+    });
+  });
+
+  it("« Charger toute la proposition » ne recrée pas un couple refusé, et le dit", async () => {
+    // 3.14.2 est proposé pour l'enquête dans la proposition embarquée.
+    prismaMock.criterion.findMany.mockResolvedValue([{ id: "c-3142", code: "3.14.2" }]);
+    prismaMock.documentType.findMany.mockResolvedValue([{ id: "dt-enquete", code: "QUALITE_ENQUETE_QUESTIONNAIRE" }]);
+    prismaMock.documentTypeCriterion.findMany.mockResolvedValue([]);
+    prismaMock.proposedCriterionRefusal.findMany.mockResolvedValue([
+      { documentType: { code: "QUALITE_ENQUETE_QUESTIONNAIRE" }, criterion: { code: "3.14.2" } },
+    ]);
+    const result = await loadFullProposedMatrix();
+    expect(result).toMatchObject({ added: 0, refused: 1 });
+    expect(prismaMock.documentTypeCriterion.createMany).not.toHaveBeenCalled();
   });
 });

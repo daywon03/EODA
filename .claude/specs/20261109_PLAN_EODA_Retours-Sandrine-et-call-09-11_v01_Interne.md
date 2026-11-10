@@ -203,7 +203,7 @@ Fait le 10/11 (cette PR) :
 | # | Sujet | État | Prochaine étape |
 |---|---|---|---|
 | R1 | **Assistant dans la fiche document (lot F)** | spécification seulement (`20261110_SPEC_…Assistant-fiche-document`) | trois décisions de Damon (§5 de la spec : plafond de coût, autonomie, conservation du fil), puis F1 « Expliquer ce point » — sans table ni mémoire |
-| R2 | Refus d'un critère proposé non mémorisé | « Charger toute la proposition » rajoute un critère refusé (⚠️ CLAUDE.md §7) | table ou colonne de refus, lue par `planMatrixDecision` ; test rouge d'abord |
+| R2 | Refus d'un critère proposé non mémorisé | **fait le 10/11** : table `ProposedCriterionRefusal`, posée au retrait, effacée au rattachement, lue par le chargement et la carte du type | migration à appliquer au déploiement (`migrate deploy`, automatique sur Vercel) |
 | R3 | Recette à l'écran de tous les lots | non faite (plan §2, « QA navigateur ») | parcours cabinet et structure, 375 / 1280 px, clair et sombre ; dont #13 : la structure accompagnée ne voit aucune analyse |
 | R4 | Diagnostic rapide vendable aux SAD qui ont une évaluation proche (« 0/16 ») | le diagnostic déclaratif du libre-service existe (`/espace`) ; aucune offre « diagnostic seul » au catalogue | dépend des prix (lot D SaaS) : ne pas inventer de montant |
 | R5 | Preuve de mise en pratique (KPI) | quiz et enquêtes existent ; visite d'observation terrain non modélisée | attendre le retour sur la faisabilité avant de concevoir |
