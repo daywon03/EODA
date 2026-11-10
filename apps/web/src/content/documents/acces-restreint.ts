@@ -11,9 +11,14 @@
 // Une liste dans le code, et non une colonne réglable à l'écran : lever la restriction
 // passe par une revue de code, pas par un clic d'un compte qui voudrait lire le tampon.
 // `acces-restreint.test.ts` échoue si un code listé n'est pas un type du référentiel.
+//
+// La liste elle-même est déclarée dans `@eoda/database/restricted-document-types` (le
+// script de purge de ce paquet la lit aussi) ; elle est réexportée ici, où se lit la règle.
 // ─────────────────────────────────────────────────────────────────────────────
 
-export const RESTRICTED_DOCUMENT_TYPE_CODES: readonly string[] = ["DEPARTEMENT_TAMPON"];
+import { RESTRICTED_DOCUMENT_TYPE_CODES } from "@eoda/database/restricted-document-types";
+
+export { RESTRICTED_DOCUMENT_TYPE_CODES };
 
 export function isRestrictedDocumentType(code: string | null | undefined): boolean {
   return typeof code === "string" && RESTRICTED_DOCUMENT_TYPE_CODES.includes(code);
