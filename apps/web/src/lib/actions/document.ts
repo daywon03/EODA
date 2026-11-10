@@ -23,6 +23,11 @@ import {
   MAX_JUSTIFICATION_LENGTH,
 } from "@/lib/services/document-workflow-service";
 import { isVersionVisibleToClient } from "@/lib/services/deliverables-service";
+import {
+  planDepositCancellation,
+  validationOutcome,
+  type ValidationOutcome,
+} from "@/lib/services/document-deposit-service";
 import { decideAnalysisDirective } from "@/lib/services/analysis-directive-service";
 import { extractMarkdown } from "@/lib/services/text-extraction-service";
 import { canRenderDocumentPages } from "@/lib/services/file-type-service";
@@ -83,7 +88,10 @@ export type DocumentTypeCandidate = { id: string; label: string; category: strin
 export type UploadDocumentResult =
   // `documentVersionId` : l'écran qui vient de déposer prépare aussitôt les pages de
   // l'aperçu (`?prepare=1`), pour que le premier « voir » tombe sur le cache.
-  | { success: true; documentTypeId: string; documentVersionId: string }
+  // `notifiedCount` : e-mails RÉELLEMENT partis à cause de ce dépôt (countDeliveries) —
+  // la structure prévenue d'un livrable, ou le cabinet prévenu d'un dépôt. Une
+  // annulation le répète : un e-mail parti ne se rappelle pas.
+  | { success: true; documentTypeId: string; documentVersionId: string; notifiedCount: number }
   | { error: string; needsManualType?: true; candidates?: DocumentTypeCandidate[] };
 
 export async function uploadDocument(formData: FormData): Promise<UploadDocumentResult> {
@@ -204,9 +212,21 @@ export async function uploadDocument(formData: FormData): Promise<UploadDocument
   if (!access.isClient && formData.get("cabinetFinal") === "1") {
     const now = new Date();
     const validatedDocument = await prisma.$transaction(async (tx) => {
+      // Dépôt annulable (09/11/2026) : la version garde la validation qu'elle
+      // remplace, pour que `cancelDocumentDeposit` rétablisse l'état d'AVANT.
+      const before = await tx.document.findUnique({
+        where: { establishmentId_documentTypeId: { establishmentId, documentTypeId: documentType.id } },
+        select: { validatedAt: true, validatedByUserId: true },
+      });
+      const priorValidatedAt = before?.validatedAt ?? null;
       await tx.documentVersion.update({
         where: { id: result.documentVersionId },
-        data: { analysisReviewedAt: now },
+        data: {
+          analysisReviewedAt: now,
+          validatedOnDeposit: true,
+          priorValidatedAt,
+          priorValidatedByUserId: priorValidatedAt ? (before?.validatedByUserId ?? null) : null,
+        },
       });
       return tx.document.update({
         where: { establishmentId_documentTypeId: { establishmentId, documentTypeId: documentType.id } },
@@ -234,13 +254,15 @@ export async function uploadDocument(formData: FormData): Promise<UploadDocument
   // donc le client est prévenu comme à la validation. Un dépôt sur un document non
   // validé ne prévient personne : c'est un travail en cours, et l'annoncer serait
   // promettre à la place de la consultante — l'annonce part quand elle valide.
+  let notifiedCount = 0;
   if (!access.isClient) {
     const document = await prisma.document.findUnique({
       where: { establishmentId_documentTypeId: { establishmentId, documentTypeId: documentType.id } },
       select: { validatedAt: true },
     });
     if (document?.validatedAt) {
-      await announceValidatedDocument(establishmentId, documentType.id, access.missionAccess);
+      const notified = await announceValidatedDocument(establishmentId, documentType.id, access.missionAccess);
+      notifiedCount = notified.sent;
     }
   }
 
@@ -248,14 +270,20 @@ export async function uploadDocument(formData: FormData): Promise<UploadDocument
   // arrivée ne se découvre qu'en rouvrant la fiche — donc jamais le jour même. Le
   // dépôt du cabinet, lui, ne s'annonce pas à lui-même (branche ci-dessus).
   if (access.isClient) {
-    await notifyStructureActivity({
+    const notified = await notifyStructureActivity({
       establishmentId,
       documentLabel: documentType.label,
       kind: "DEPOSIT",
     });
+    notifiedCount = notified.sent;
   }
 
-  return { success: true, documentTypeId: documentType.id, documentVersionId: result.documentVersionId };
+  return {
+    success: true,
+    documentTypeId: documentType.id,
+    documentVersionId: result.documentVersionId,
+    notifiedCount,
+  };
 }
 
 // Réponse sur un document pas encore déposé (missing-answer-service, N3) :
@@ -872,6 +900,151 @@ export async function deleteDocumentVersion(
     };
   }
 
+  const removal = await removeDocumentVersion(version, null);
+  if (removal) return removal;
+
+  await recordAuditEvent({
+    action: "DOCUMENT_VERSION_DELETED",
+    actorUserId: userId,
+    actorRole: session.user.role,
+    establishmentId: version.document.establishmentId,
+    targetId: version.id,
+    detail: version.document.documentType?.code ?? null,
+  });
+
+  revalidateDocumentViews(version.document.establishmentId);
+  return null;
+}
+
+// ── Annuler un dépôt en cours ────────────────────────────────────────────────
+// Retour de Sandrine (09/11/2026, 22h52) : « Il me faut la possibilité d'annuler un
+// dépôt de doc en cours… je me suis trompée et je n'ai pas pu empêcher l'action. »
+//
+// Une action serveur ne s'interrompt pas. « Annuler le dépôt » à l'écran demande donc
+// l'annulation, et l'interface appelle CETTE action dès que `uploadDocument` a rendu
+// l'identifiant de la version (document-deposit-service). Elle :
+//   - passe la MÊME garde que la suppression (établissement propriétaire, résolu en
+//     base), et la règle de la suppression PLUS l'auteur exact : on n'annule que SON
+//     PROPRE dernier dépôt (`planDepositCancellation`) ;
+//   - retire la version par le MÊME chemin (`removeDocumentVersion` : stockage,
+//     images, rendu en cache, ligne) ;
+//   - défait la validation posée par ce dépôt (« Version finale d'EODA ») : la
+//     validation d'avant, gardée sur la version au dépôt, est rétablie ; sinon elle
+//     est retirée — dans la même transaction que le retrait.
+// Ce qu'elle NE défait PAS, et que l'écran dit : un e-mail déjà parti, l'appel au
+// modèle déjà payé, la trace DOCUMENT_UPLOADED du journal (append-only).
+export type CancelDocumentDepositResult =
+  | { cancelled: true; validation: ValidationOutcome }
+  | { error: string };
+
+export async function cancelDocumentDeposit(documentVersionId: string): Promise<CancelDocumentDepositResult> {
+  if (typeof documentVersionId !== "string" || documentVersionId.length === 0) {
+    return { error: "Version de document invalide." };
+  }
+
+  const version = await prisma.documentVersion.findUnique({
+    where: { id: documentVersionId },
+    select: {
+      id: true,
+      documentId: true,
+      fileStorageKey: true,
+      uploadedByUserId: true,
+      validatedOnDeposit: true,
+      priorValidatedAt: true,
+      priorValidatedByUserId: true,
+      document: {
+        select: {
+          id: true,
+          establishmentId: true,
+          currentVersionId: true,
+          documentType: { select: { code: true } },
+        },
+      },
+    },
+  });
+  if (!version) notFound();
+
+  const access = await requireEstablishmentAccess(version.document.establishmentId, NEED.DOCUMENTS_WRITE);
+
+  const uploader = await prisma.user.findUnique({
+    where: { id: version.uploadedByUserId },
+    select: { role: true },
+  });
+  const plan = planDepositCancellation({
+    actorUserId: access.userId,
+    actorIsCabinet: !access.isClient,
+    uploaderUserId: version.uploadedByUserId,
+    versionProducedByCabinet: uploader?.role !== "CLIENT_USER",
+    isLatest: version.document.currentVersionId === version.id,
+    validatedOnDeposit: version.validatedOnDeposit,
+    priorValidatedAt: version.priorValidatedAt,
+    priorValidatedByUserId: version.priorValidatedByUserId,
+  });
+  if (!plan.ok) {
+    return {
+      error:
+        plan.reason === "NOT_LATEST"
+          ? "Ce dépôt n'est plus la dernière version : il ne s'annule plus. Retirez-le depuis l'historique des versions si besoin."
+          : "Vous ne pouvez annuler que votre propre dépôt.",
+    };
+  }
+
+  let validationPatch: { validatedAt: Date | null; validatedByUserId: string | null } | null = null;
+  if (plan.validation.kind === "REMOVE") validationPatch = { validatedAt: null, validatedByUserId: null };
+  if (plan.validation.kind === "RESTORE") {
+    // Copie datée sans clé étrangère : un compte disparu entre-temps ne doit pas faire
+    // échouer la restauration (la relation de `documents` est en SetNull).
+    const previousValidator = plan.validation.validatedByUserId
+      ? await prisma.user.findUnique({ where: { id: plan.validation.validatedByUserId }, select: { id: true } })
+      : null;
+    validationPatch = { validatedAt: plan.validation.validatedAt, validatedByUserId: previousValidator?.id ?? null };
+  }
+
+  const removal = await removeDocumentVersion(version, validationPatch);
+  if (removal) return removal;
+
+  const audit = {
+    actorUserId: access.userId,
+    actorRole: access.session.user.role,
+    establishmentId: version.document.establishmentId,
+  };
+  await recordAuditEvent({
+    ...audit,
+    action: "DOCUMENT_DEPOSIT_CANCELLED",
+    targetId: version.id,
+    detail: version.document.documentType?.code ?? null,
+  });
+  // Même trace que `setDocumentValidated` quand la validation tombe : l'historique de
+  // validation d'un document se lit sur ces deux actions.
+  if (plan.validation.kind === "REMOVE") {
+    await recordAuditEvent({ ...audit, action: "DOCUMENT_UNVALIDATED", targetId: version.document.id });
+  }
+
+  revalidateDocumentViews(version.document.establishmentId);
+  return { cancelled: true, validation: validationOutcome(plan.validation) };
+}
+
+// Retrait d'une version : stockage D'ABORD, images, rendu en cache, puis la ligne et
+// le document dans une transaction. Partagé par la suppression (`deleteDocumentVersion`)
+// et l'annulation d'un dépôt (`cancelDocumentDeposit`) — un seul chemin, sinon l'un des
+// deux finit par oublier le rendu en cache ou les images.
+//
+// NON exporté (tout export d'un fichier "use server" est une route publique) : les
+// appelants ont déjà passé la garde ET la règle de qui peut retirer quoi.
+//
+// `validationPatch` : la validation à réécrire dans la MÊME transaction (annulation
+// d'un dépôt qui l'avait posée) ; `null` = la validation n'est pas touchée.
+type RemovableVersion = {
+  id: string;
+  documentId: string;
+  fileStorageKey: string;
+  document: { currentVersionId: string | null };
+};
+
+async function removeDocumentVersion(
+  version: RemovableVersion,
+  validationPatch: { validatedAt: Date | null; validatedByUserId: string | null } | null
+): Promise<{ error: string } | null> {
   // Récupérées AVANT la transaction : le cascade Prisma (onDelete: Cascade) va
   // supprimer les lignes DocumentVersionImage, mais jamais les objets qu'elles
   // pointent dans le stockage — sans quoi ils restent orphelins dans le bucket,
@@ -937,6 +1110,7 @@ export async function deleteDocumentVersion(
               // sa conformité n'est plus établie tant qu'elle n'est pas réanalysée.
               status: "UPLOADED",
               statusOverriddenByUser: false,
+              ...validationPatch,
             }
           : {
               // Dernière version supprimée : le document redevient MANQUANT. Le laisser
@@ -945,23 +1119,13 @@ export async function deleteDocumentVersion(
               currentVersionId: null,
               status: "MISSING",
               statusOverriddenByUser: false,
+              ...validationPatch,
             },
       });
     }
 
     await tx.documentVersion.delete({ where: { id: version.id } });
   });
-
-  await recordAuditEvent({
-    action: "DOCUMENT_VERSION_DELETED",
-    actorUserId: userId,
-    actorRole: session.user.role,
-    establishmentId: version.document.establishmentId,
-    targetId: version.id,
-    detail: version.document.documentType?.code ?? null,
-  });
-
-  revalidateDocumentViews(version.document.establishmentId);
   return null;
 }
 
