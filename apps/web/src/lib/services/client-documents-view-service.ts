@@ -44,12 +44,19 @@ export function isReviewedByEoda(facts: {
 // un travail en cours, et le montrer serait promettre à la place de la consultante.
 // Une version d'EODA déposée APRÈS la validation compte comme validée — elle devient
 // le livrable sur-le-champ (isValidationCurrent, même règle que les livrables).
+//
+// Ligne à accès restreint (le tampon, ADR 20261110) : EODA y dépose POUR la structure et
+// ne valide jamais (il n'ouvre pas le fichier) — ce n'est pas un brouillon, toutes les
+// versions sont à elle. Qui, dans la structure, ouvre le fichier est une autre question
+// (`canOpenDocumentFile`, la direction seule). Par défaut `false` : oublier l'argument
+// cache, il n'ouvre rien.
 export function versionsVisibleToClient<T extends { producedByCabinet: boolean; uploadedAt: Date }>(
   versions: readonly T[],
-  validatedAt: Date | null
+  validatedAt: Date | null,
+  restrictedAccess = false
 ): T[] {
-  return versions.filter((version) =>
-    isVersionVisibleToClient({ producedByCabinet: version.producedByCabinet, validatedAt })
+  return versions.filter(
+    (version) => restrictedAccess || isVersionVisibleToClient({ producedByCabinet: version.producedByCabinet, validatedAt })
   );
 }
 
@@ -199,6 +206,8 @@ export type ViewableVersion = {
 
 export function viewableVersionFor(item: {
   validatedAt: Date | null;
+  // Ligne à accès restreint : même règle que `versionsVisibleToClient`.
+  restrictedAccess?: boolean;
   currentVersion: { id: string; originalFilename: string; versionNumber: number } | null;
   versions: readonly {
     id: string;
@@ -216,7 +225,7 @@ export function viewableVersionFor(item: {
   const producedByCabinet =
     item.versions.find((version) => version.id === current.id)?.producedByCabinet ?? true;
 
-  if (isVersionVisibleToClient({ producedByCabinet, validatedAt: item.validatedAt })) {
+  if (item.restrictedAccess === true || isVersionVisibleToClient({ producedByCabinet, validatedAt: item.validatedAt })) {
     return {
       id: current.id,
       filename: current.originalFilename,

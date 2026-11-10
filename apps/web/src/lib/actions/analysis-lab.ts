@@ -6,6 +6,7 @@ import { notFound } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { requireCabinetSession, requireEstablishmentAccess, structureScopeWhere } from "@/lib/auth/guards";
 import { NEED, type EstablishmentNeed } from "@/lib/auth/capabilities";
+import { OPEN_CONTENT_DOCUMENT_WHERE, requireDocumentContentOpen } from "@/lib/auth/document-file-access";
 import { recordAuditEvent } from "@/lib/services/audit-log-service";
 import { consumeThrottledAttempt } from "@/lib/security/attempt-throttle";
 import { getLLMAnalysisPort, isKnownLlmModelId } from "@/lib/llm";
@@ -50,11 +51,16 @@ async function requireLab(documentVersionId: unknown, need: EstablishmentNeed) {
   if (typeof documentVersionId !== "string" || documentVersionId.length === 0) notFound();
   const version = await prisma.documentVersion.findUnique({
     where: { id: documentVersionId },
-    select: { document: { select: { establishmentId: true, establishment: { select: { tenantId: true } } } } },
+    select: {
+      document: { select: { establishmentId: true, establishment: { select: { tenantId: true } }, documentType: { select: { code: true } } } },
+    },
   });
   if (!version) notFound();
   const access = await requireEstablishmentAccess(version.document.establishmentId, need);
   if (access.isClient) notFound();
+  // Document à accès restreint (ADR 20261110) : ni prompt, ni essais, ni analyse officielle
+  // — même pour un tampon analysé avant la restriction.
+  requireDocumentContentOpen(version.document.documentType?.code);
   return { access, establishmentId: version.document.establishmentId, tenantId: version.document.establishment.tenantId };
 }
 
@@ -275,7 +281,10 @@ export type LabOverviewRow = {
 export async function getAnalysisLabOverview(): Promise<{ tallies: (VariantTally & { label: string })[]; rows: LabOverviewRow[] }> {
   const context = await requireCabinetSession("STRUCTURES_READ");
   const trials = await prisma.analysisTrial.findMany({
-    where: { tenantId: context.tenantId, documentVersion: { document: { establishment: structureScopeWhere(context) } } },
+    where: {
+      tenantId: context.tenantId,
+      documentVersion: { document: { establishment: structureScopeWhere(context), ...OPEN_CONTENT_DOCUMENT_WHERE } },
+    },
     orderBy: { createdAt: "desc" },
     take: 200,
     select: {

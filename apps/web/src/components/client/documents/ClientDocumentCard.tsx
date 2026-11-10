@@ -16,6 +16,7 @@ import { DocumentAnalysisPanel } from "@/components/checklist/DocumentAnalysisPa
 import { ParticipationFormPicker } from "@/components/checklist/ParticipationFormPicker";
 import { PARTICIPATION_LINE_CODE } from "@/lib/services/participation-form-service";
 import { ClientDocumentActions } from "./ClientDocumentActions";
+import { RestrictedFileNotice } from "@/components/checklist/RestrictedFileNotice";
 
 // Une carte de « Mes documents » : le nom, la pastille (mot + glyphe), un geste
 // principal, et — quand il y a quelque chose à lire — l'analyse sous sa mention
@@ -50,11 +51,17 @@ export function ClientDocumentCard({
   // La pièce à ouvrir peut ne PAS être la version en cours : quand EODA a déposé un
   // brouillon par-dessus le dépôt du client, on montre le dépôt du client (règle 1
   // de `viewableVersionFor`).
-  const viewable = viewableVersionFor(item);
-  const visibleVersions = versionsVisibleToClient(item.versions, item.validatedAt);
+  //
+  // Ligne à accès restreint (le tampon, ADR 20261110) : seule la direction ouvre le
+  // fichier et dépose (`canOpenFile`, calculé par la couche de lecture) ; les autres rôles
+  // voient la ligne et un cadenas. Les routes refusent de toute façon.
+  const fileLocked = !item.canOpenFile;
+  const viewable = fileLocked ? null : viewableVersionFor(item);
+  const visibleVersions = versionsVisibleToClient(item.versions, item.validatedAt, item.restrictedAccess);
+  const canDeposit = canAct && !fileLocked;
   // UN geste principal (09/11/2026) : déposer, accepter, sinon voir. Le reste est
   // secondaire — lien ou contour, jamais un second aplat.
-  const primary = primaryCardAction(state, { canAct, hasViewable: viewable !== null });
+  const primary = primaryCardAction(state, { canAct: canDeposit, hasViewable: viewable !== null });
   // Toute carte qui a une pièce visible montre « Voir le document », au même endroit.
   const viewer = viewable ? (
     <ClientDocumentViewer
@@ -93,6 +100,7 @@ export function ClientDocumentCard({
           {/* Ce qu'on ouvre est DIT, pas seulement cliquable : « votre dépôt » et
               « document produit par EODA » ne sont pas la même chose juridiquement
               (CLAUDE.md §7, deux mentions jamais interchangeables). */}
+          {item.restrictedAccess && fileLocked && <RestrictedFileNotice className="text-base" />}
           {viewable && (
             <p className="text-base text-ink2">
               {viewable.producedByCabinet ? "Document produit par EODA" : "Votre dépôt"} · version{" "}
@@ -103,7 +111,7 @@ export function ClientDocumentCard({
 
       <div className="flex flex-wrap items-start gap-3">
         {primary === "VIEW" && viewer}
-        {canAct && (
+        {canDeposit && (
           <ClientDocumentActions
             establishmentId={establishmentId}
             documentTypeId={item.documentTypeId}

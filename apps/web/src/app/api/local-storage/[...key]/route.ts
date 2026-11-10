@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@eoda/database";
 import { tryEstablishmentAccess } from "@/lib/auth/guards";
 import { NEED } from "@/lib/auth/capabilities";
+import { canOpenDocumentFile, documentFileOpenerOf } from "@/lib/auth/document-file-access";
 import { STORAGE_ROOT } from "@/lib/storage/local-fs-storage-adapter";
 import { isProductionRuntime } from "@/lib/config/env";
 
@@ -40,12 +41,27 @@ export async function GET(request: Request, { params }: { params: Promise<{ key:
   //    et l'appelant doit être habilité sur l'établissement propriétaire.
   const version = await prisma.documentVersion.findFirst({
     where: { fileStorageKey: storageKey },
-    select: { originalFilename: true, document: { select: { establishmentId: true } } },
+    select: {
+      originalFilename: true,
+      uploadedBy: { select: { role: true } },
+      document: { select: { establishmentId: true, validatedAt: true, documentType: { select: { code: true } } } },
+    },
   });
   if (!version) return NextResponse.json({ error: "Fichier introuvable" }, { status: 404 });
 
   const access = await tryEstablishmentAccess(version.document.establishmentId, NEED.DOCUMENTS_READ);
   if (!access) return NextResponse.json({ error: "Fichier introuvable" }, { status: 404 });
+  // Même règle que les autres portes (brouillon d'EODA, document à accès restreint) :
+  // une adresse de développement n'ouvre pas ce que la production refuse.
+  if (
+    !canOpenDocumentFile(documentFileOpenerOf(access), {
+      documentTypeCode: version.document.documentType?.code,
+      producedByCabinet: version.uploadedBy.role !== "CLIENT_USER",
+      validatedAt: version.document.validatedAt,
+    })
+  ) {
+    return NextResponse.json({ error: "Fichier introuvable" }, { status: 404 });
+  }
 
   // 3. Confinement du chemin. `path.resolve` normalise les `..` ; la comparaison
   //    inclut le séparateur pour qu'un répertoire frère (".local-storage-autre")

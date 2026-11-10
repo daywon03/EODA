@@ -29,6 +29,9 @@ export type WorkspaceEntry = {
   title: string;
   versionId: string | null;
   originalFilename: string | null;
+  // Ligne à accès restreint que la personne n'ouvre pas (le tampon, vu du cabinet) :
+  // ni aperçu, ni pages préparées au survol — un cadenas à la place.
+  fileLocked: boolean;
 };
 
 const PREPARE_DELAY_MS = 150;
@@ -88,7 +91,7 @@ export function DocumentWorkspace({
 
   function prepare(id: string) {
     const entry = entries[id];
-    if (!entry?.versionId || !entry.originalFilename || prepared.current.has(entry.versionId)) return;
+    if (!entry?.versionId || !entry.originalFilename || entry.fileLocked || prepared.current.has(entry.versionId)) return;
     // Une seule préparation par version et par visite de la page : survoler dix fois
     // une ligne ne relance pas dix rendus.
     if (prepareDocumentPages(entry.versionId, entry.originalFilename)) prepared.current.add(entry.versionId);
@@ -133,6 +136,7 @@ export function DocumentWorkspace({
           title={displayed.title}
           versionId={displayed.versionId}
           originalFilename={displayed.originalFilename}
+          fileLocked={displayed.fileLocked}
           onClose={close}
           details={
             detailsReady ? (

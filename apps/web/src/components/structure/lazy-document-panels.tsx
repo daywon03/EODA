@@ -33,6 +33,28 @@ export const DocumentFolderPicker = dynamic(() =>
 // de l'onglet seulement.
 export const CriterionLinker = dynamic(() => import("@/components/criteres/CriterionLinker").then((m) => m.CriterionLinker));
 
+// Onglet « Analyse » (09/11/2026) : ni l'analyse ni la réponse « je ne l'ai pas » ne
+// sont dans l'onglet ouvert par défaut. Rendues côté serveur quand l'adresse demande
+// `?onglet=analyse` (le HTML arrive complet, sans JavaScript) ; sinon téléchargées à
+// la première ouverture de l'onglet, avec un état de chargement annoncé.
+function PanelLoading() {
+  return (
+    <p role="status" className="text-sm text-ink2">
+      Chargement…
+    </p>
+  );
+}
+
+export const DocumentAnalysisPanel = dynamic(
+  () => import("@/components/checklist/DocumentAnalysisPanel").then((m) => m.DocumentAnalysisPanel),
+  { loading: PanelLoading }
+);
+
+export const MissingDocumentJustification = dynamic(
+  () => import("@/components/checklist/MissingDocumentJustification").then((m) => m.MissingDocumentJustification),
+  { loading: PanelLoading }
+);
+
 // « Retirer cette ligne » (administration seule, geste rare — 09/11/2026).
 export const RemoveDocumentTypeButton = dynamic(() =>
   import("./RemoveDocumentTypeButton").then((m) => m.RemoveDocumentTypeButton)

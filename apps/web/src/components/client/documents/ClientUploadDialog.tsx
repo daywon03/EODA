@@ -1,19 +1,21 @@
 "use client";
 
 import { useId, useRef, useState, type DragEvent } from "react";
-import { AlertCircle, Camera, FileText, Loader2, Upload } from "lucide-react";
-import { uploadDocument } from "@/lib/actions/document";
-import { prepareDocumentPages } from "@/lib/services/document-viewer-service";
+import { Camera, Upload } from "lucide-react";
+import { describeDepositEffects } from "@/lib/services/document-deposit-service";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
-import { AnalysisRunStatus } from "@/components/checklist/AnalysisRunStatus";
-import { useAnalysisRun } from "@/components/checklist/use-analysis-run";
+import { DepositReview } from "@/components/checklist/DepositReview";
+import { useDocumentDeposit } from "@/components/checklist/use-document-deposit";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // DÉPÔT EN TROIS ÉTAPES (maquette « Portail Client v2 », R6).
 //
 //   1. Choisir : un fichier, le glisser, ou prendre une photo (`capture`).
-//   2. Vérifier : « C'est bien le document X ? » + l'avertissement nominatif.
+//   2. Vérifier : le récapitulatif PARTAGÉ avec le cabinet (DepositReview,
+//      use-document-deposit — 09/11/2026) : fichier, document de destination, ce
+//      que le dépôt déclenche, l'avertissement nominatif ; « Déposer » / « Annuler ».
+//      Pendant l'envoi, « Annuler le dépôt » retire la version dès qu'elle existe.
 //   3. Envoyé.
 //
 // Le dépôt passe par l'action `uploadDocument` EXISTANTE : la garde, le contrôle de
@@ -23,10 +25,7 @@ import { useAnalysisRun } from "@/components/checklist/use-analysis-run";
 
 const ACCEPTED = ".pdf,.doc,.docx,.xls,.xlsx,.csv,.jpg,.jpeg,.png";
 
-function formatSize(bytes: number): string {
-  if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} Ko`;
-  return `${(bytes / (1024 * 1024)).toFixed(1).replace(".", ",")} Mo`;
-}
+const CLIENT_EFFECTS = describeDepositEffects({ side: "CLIENT", cabinetFinal: false, documentValidated: false });
 
 export function ClientUploadDialog({
   establishmentId,
@@ -42,25 +41,17 @@ export function ClientUploadDialog({
   notice: string | null;
   onClose: () => void;
 }) {
-  const [file, setFile] = useState<File | null>(null);
-  const [sent, setSent] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
-  const { phase, elapsedMs, run } = useAnalysisRun();
-  // Le bouton se libère dès l'envoi enregistré ; la mise à jour de la page se fait derrière.
-  const isPending = phase === "running";
+  const deposit = useDocumentDeposit("CLIENT");
   const fileInput = useRef<HTMLInputElement>(null);
   const photoInput = useRef<HTMLInputElement>(null);
+  const dropZone = useRef<HTMLButtonElement>(null);
   const noticeId = useId();
 
-  const step = sent ? 3 : file ? 2 : 1;
+  const step = deposit.outcome?.kind === "deposited" ? 3 : deposit.file ? 2 : 1;
 
   function pick(list: FileList | null) {
-    const chosen = list?.[0];
-    if (chosen) {
-      setError(null);
-      setFile(chosen);
-    }
+    deposit.choose(list?.[0]);
   }
 
   function onDrop(event: DragEvent<HTMLButtonElement>) {
@@ -69,24 +60,18 @@ export function ClientUploadDialog({
     pick(event.dataTransfer.files);
   }
 
+  function discard() {
+    deposit.discard();
+    requestAnimationFrame(() => dropZone.current?.focus());
+  }
+
   function send() {
-    if (!file) return;
+    if (!deposit.file) return;
     const formData = new FormData();
     formData.set("establishmentId", establishmentId);
     formData.set("documentTypeId", documentTypeId);
-    formData.set("file", file);
-    setError(null);
-    void run(
-      () => uploadDocument(formData),
-      (result) => !("error" in result)
-    ).then((result) => {
-      if ("error" in result) setError(result.error);
-      else {
-        // Pages de l'aperçu préparées dès le dépôt (cf. DocumentUploadButton).
-        prepareDocumentPages(result.documentVersionId, file.name);
-        setSent(true);
-      }
-    });
+    formData.set("file", deposit.file);
+    void deposit.send(formData);
   }
 
   const title = step === 1 ? `Choisissez le fichier : ${documentLabel}` : step === 2 ? "Vérifiez le fichier" : "Merci !";
@@ -98,12 +83,23 @@ export function ClientUploadDialog({
 
         {step === 1 && (
           <>
+            {deposit.outcome?.kind === "cancelled" && (
+              <p role="status" className="rounded-lg bg-soft px-4 py-3 font-bold">
+                {deposit.outcome.message}
+              </p>
+            )}
+            {deposit.error && (
+              <p role="alert" className="text-danger-text">
+                {deposit.error}
+              </p>
+            )}
             {notice && (
               <p id={noticeId} className="rounded-lg border-2 border-ink bg-soft px-4 py-3 font-bold">
                 {notice}
               </p>
             )}
             <button
+              ref={dropZone}
               type="button"
               onClick={() => fileInput.current?.click()}
               onDragOver={(event) => {
@@ -125,7 +121,18 @@ export function ClientUploadDialog({
               <Camera className="h-5 w-5" aria-hidden="true" />
               Prendre une photo du document
             </Button>
-            <input ref={fileInput} type="file" accept={ACCEPTED} className="hidden" onChange={(e) => pick(e.target.files)} />
+            {/* Vidés au choix : rechoisir le même fichier après « Annuler » rouvre
+                le récapitulatif (un `change` ne part pas pour une valeur identique). */}
+            <input
+              ref={fileInput}
+              type="file"
+              accept={ACCEPTED}
+              className="hidden"
+              onChange={(e) => {
+                pick(e.target.files);
+                e.target.value = "";
+              }}
+            />
             {/* `capture` ouvre l'appareil photo sur tablette et téléphone. */}
             <input
               ref={photoInput}
@@ -133,39 +140,31 @@ export function ClientUploadDialog({
               accept="image/*"
               capture="environment"
               className="hidden"
-              onChange={(e) => pick(e.target.files)}
+              onChange={(e) => {
+                pick(e.target.files);
+                e.target.value = "";
+              }}
             />
           </>
         )}
 
-        {step === 2 && file && (
-          <>
-            <div className="flex items-center gap-3.5 rounded-xl bg-paper p-4">
-              <FileText className="h-9 w-9 flex-shrink-0 text-ink" aria-hidden="true" />
-              <div className="min-w-0">
-                <p className="truncate font-bold">{file.name}</p>
-                <p className="text-base text-ink2">{formatSize(file.size)}</p>
-              </div>
-            </div>
-            <p className="text-xl">C&apos;est bien le document « {documentLabel} » ?</p>
+        {step === 2 && deposit.file && (
+          <DepositReview
+            file={deposit.file}
+            documentLabel={documentLabel}
+            effects={CLIENT_EFFECTS}
+            density="client"
+            sending={deposit.sending}
+            cancelRequested={deposit.cancelRequested}
+            phase={deposit.phase}
+            elapsedMs={deposit.elapsedMs}
+            error={deposit.error}
+            onConfirm={send}
+            onDiscard={discard}
+            onRequestCancel={deposit.requestCancel}
+          >
             <p className="font-bold">Vérifiez qu&apos;il ne contient pas le nom d&apos;une personne accompagnée.</p>
-            {error && (
-              <p role="alert" className="flex items-start gap-2 text-danger-text">
-                <AlertCircle className="mt-1 h-5 w-5 flex-shrink-0" aria-hidden="true" />
-                {error}
-              </p>
-            )}
-            <div className="flex flex-wrap gap-3">
-              <Button type="button" variant="outline" size="lg" className="text-lg" disabled={isPending} onClick={() => setFile(null)}>
-                ← Changer de fichier
-              </Button>
-              <Button type="button" size="lg" className="flex-1 text-lg font-bold" disabled={isPending} onClick={send}>
-                {isPending && <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" />}
-                Oui, envoyer
-              </Button>
-            </div>
-            <AnalysisRunStatus phase={phase} elapsedMs={elapsedMs} subject="Lecture du document" className="max-w-none" />
-          </>
+          </DepositReview>
         )}
 
         {step === 3 && (

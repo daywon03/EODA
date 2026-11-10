@@ -86,7 +86,14 @@ describe("getMatrixReview", () => {
 
     expect(prismaMock.documentCriterionSuggestion.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: expect.objectContaining({ document: expect.objectContaining({ establishment: { tenantId: "t-1" } }) }),
+        where: expect.objectContaining({
+          document: expect.objectContaining({
+            establishment: { tenantId: "t-1" },
+            // Relecture de sécurité du 10/11/2026 : un critère reconnu dans un tampon est
+            // une donnée tirée de son contenu — jamais proposé à la matrice.
+            NOT: { documentType: { code: { in: ["DEPARTEMENT_TAMPON"] } } },
+          }),
+        }),
       })
     );
     expect(review.promotable.map((p) => p.suggestionId)).toEqual(["s2"]);
@@ -145,7 +152,12 @@ describe("promoteCriterionSuggestion", () => {
 
     expect(await promoteCriterionSuggestion(form({ suggestionId: "s1" }))).toBeNull();
     expect(prismaMock.documentCriterionSuggestion.findFirst).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { id: "s1", document: { establishment: { tenantId: "t-1" } } } })
+      expect.objectContaining({
+        where: {
+          id: "s1",
+          document: { establishment: { tenantId: "t-1" }, NOT: { documentType: { code: { in: ["DEPARTEMENT_TAMPON"] } } } },
+        },
+      })
     );
     expect(prismaMock.documentTypeCriterion.create).toHaveBeenCalledWith({
       data: { documentTypeId: "type-1", criterionId: "c-1" },

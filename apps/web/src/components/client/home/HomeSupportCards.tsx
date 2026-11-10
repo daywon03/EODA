@@ -4,11 +4,8 @@ import type { AvailableOption } from "@/lib/services/client-contract-service";
 import { AppointmentList } from "@/components/agenda/AppointmentList";
 import { RequestOptionQuoteForm } from "@/components/client/RequestOptionQuoteForm";
 import { EodaMark } from "@/components/layout/EodaLogo";
-import {
-  CLIENT_CONTRACT_PATH,
-  CLIENT_DOCUMENTS_PATH,
-  CLIENT_MESSAGES_PATH,
-} from "@/lib/design/client-navigation";
+import { CLIENT_CONTRACT_PATH, CLIENT_MESSAGES_PATH } from "@/lib/design/client-navigation";
+import { clientDocumentsViewHref } from "@/lib/services/client-documents-page-service";
 
 const LINK_BUTTON =
   "inline-flex h-12 items-center whitespace-nowrap rounded-[10px] border-2 border-ink bg-card px-[18px] text-[17px] font-bold text-ink hover:bg-soft";
@@ -40,7 +37,7 @@ export function AutonomyHomeCard({
       {/* En autonomie, les documents à créer sont dans l'onglet « À faire par vous »
           de « Mes documents » (refonte du 09/11/2026 : plus de section « liste de travail »). */}
       {hasWork && (
-        <Link href={`${CLIENT_DOCUMENTS_PATH}?vue=a-faire`} className={LINK_BUTTON}>
+        <Link href={clientDocumentsViewHref("a-faire")} className={LINK_BUTTON}>
           Voir ma liste de travail
         </Link>
       )}

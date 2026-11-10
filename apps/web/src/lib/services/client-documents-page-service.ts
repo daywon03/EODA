@@ -1,4 +1,5 @@
 import type { SupportMode } from "@eoda/database";
+import { CLIENT_DOCUMENTS_PATH } from "@/lib/design/client-navigation";
 import {
   groupClientDocuments,
   matchesClientSearch,
@@ -28,6 +29,12 @@ import {
 
 export const CLIENT_DOCUMENT_VIEWS = ["a-faire", "en-cours", "fait"] as const;
 export type ClientDocumentView = (typeof CLIENT_DOCUMENT_VIEWS)[number];
+
+// Le lien vers un onglet, écrit une fois (accueil, encarts de mode) : il doit rester
+// ce que `parseClientDocumentView` relit.
+export function clientDocumentsViewHref(view: ClientDocumentView): string {
+  return `${CLIENT_DOCUMENTS_PATH}?vue=${view}`;
+}
 
 // Une seule correspondance, totale (le type l'impose). En autonomie, personne d'autre
 // que la structure ne produit un document qu'elle n'a pas : « À produire » y est donc

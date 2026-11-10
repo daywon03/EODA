@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { STYLE_GUIDE, STYLE_GUIDE_VERSION, renderStyleGuide } from "@/content/regles-redaction";
+import { AWARENESS_SHEET_RULE, IDENTITY_BLOCK_FIELDS, TEMPLATE_RULES_VERSION } from "@/content/regles-redaction/gabarit";
 import { buildGenerationSystemPrompt, buildGenerationUserMessage } from "./generation-prompt";
 import { buildSystemPrompt, buildUserMessage } from "./analysis-prompt";
 
@@ -30,6 +31,23 @@ describe("cahier de style (content/regles-redaction)", () => {
     for (const expected of ["sommaire", "numéros de page", "critères HAS couverts", "Court", "[À compléter"]) {
       expect(text.toLowerCase()).toContain(expected.toLowerCase());
     }
+  });
+});
+
+describe("cahier de style v04 (call du 09/11/2026)", () => {
+  it("interdit les critères HAS dans le corps : ils vont sur la page de garde EODA", () => {
+    const prompt = buildGenerationSystemPrompt();
+    expect(prompt).toContain("Aucune liste des critères HAS couverts dans le corps du document");
+    expect(prompt).toContain("page de garde EODA");
+    expect(prompt).not.toContain("Sous le titre, la liste de tous les critères HAS couverts");
+  });
+
+  it("porte la règle de gabarit, marquée provisoire, avec chaque champ du bloc d'identification", () => {
+    const prompt = buildGenerationSystemPrompt();
+    expect(prompt).toContain(TEMPLATE_RULES_VERSION);
+    expect(prompt).toContain("provisoire, à valider par sandrine");
+    for (const field of IDENTITY_BLOCK_FIELDS) expect(prompt).toContain(field.label.toLowerCase());
+    expect(prompt).toContain(AWARENESS_SHEET_RULE);
   });
 });
 

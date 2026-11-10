@@ -19,13 +19,13 @@ import { canDepositDocuments } from "@/lib/services/mission-access-service";
 import { flattenChecklist } from "@/lib/services/structure-documents-service";
 import {
   buildClientWorkList,
-  countClientFilters,
   depositNoticeFor,
   describeWorkList,
   documentsToDeposit,
   greetingFor,
   toClientDocumentRow,
 } from "@/lib/services/client-documents-view-service";
+import { clientDocumentsViewHref, describeClientTodo } from "@/lib/services/client-documents-page-service";
 import { SUPPORT_OPTION_CODE } from "@/lib/services/support-mode-service";
 import { CLIENT_DOCUMENTS_PATH } from "@/lib/design/client-navigation";
 import { EstablishmentLogoForm } from "@/components/etablissement/EstablishmentLogoForm";
@@ -75,7 +75,6 @@ export default async function ClientHomePage() {
     supportMode
   );
   const toDeposit = documentsToDeposit(rows, 4);
-  const counts = countClientFilters(rows);
   const workList = buildClientWorkList(rows);
   const first = toDeposit[0];
 
@@ -89,9 +88,18 @@ export default async function ClientHomePage() {
     <div className="flex flex-col gap-7">
       <div>
         <h1 className="text-[36px] font-bold leading-tight">{greetingFor(userName)}</h1>
-        <p className="mt-2 max-w-[60ch] text-[21px]">
-          {counts.accepte} document{counts.accepte > 1 ? "s" : ""} accepté{counts.accepte > 1 ? "s" : ""}.{" "}
-          {counts["a-deposer"]} à déposer.
+        {/* La phrase de « Mes documents » (describeClientTodo, Lot B) : ce que la
+            structure doit faire, et ce qu'EODA prépare — plus deux compteurs à
+            interpréter (« X accepté(s). Y à déposer. »). */}
+        <p className="mt-2 max-w-[60ch] text-[21px]">{describeClientTodo(rows, supportMode)}</p>
+        <p className="mt-3">
+          <Link
+            href={clientDocumentsViewHref("a-faire")}
+            className="inline-flex min-h-12 items-center gap-2 font-bold text-accent-text underline underline-offset-4"
+          >
+            Voir ce que j&apos;ai à faire
+            <span aria-hidden="true">→</span>
+          </Link>
         </p>
       </div>
 

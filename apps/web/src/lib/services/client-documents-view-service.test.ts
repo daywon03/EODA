@@ -51,6 +51,12 @@ describe("versionsVisibleToClient — ce que la structure peut ouvrir", () => {
   it("montre la version d'EODA dès que le document est validé", () => {
     expect(versionsVisibleToClient([eodaVersion, clientVersion], AFTER).map((v) => v.id)).toEqual(["e", "c"]);
   });
+
+  // Le tampon (ADR 20261110) : EODA le dépose POUR la structure et ne le valide jamais
+  // (il ne l'ouvre pas). Ce n'est pas un brouillon : la structure voit toutes ses versions.
+  it("ligne à accès restreint : le dépôt d'EODA pour la structure se voit sans validation", () => {
+    expect(versionsVisibleToClient([eodaVersion, clientVersion], null, true).map((v) => v.id)).toEqual(["e", "c"]);
+  });
 });
 
 describe("isReviewedByEoda", () => {
@@ -382,6 +388,11 @@ describe("viewableVersionFor — ce que la structure peut ouvrir depuis « Mes d
     versionNumber: n,
     originalFilename: `eoda-v${n}.docx`,
     producedByCabinet: true,
+  });
+
+  it("ligne à accès restreint : la version déposée par EODA pour la structure est celle qu'on montre", () => {
+    const item = { validatedAt: null, restrictedAccess: true, currentVersion: cabinet(2), versions: [own(1), cabinet(2)] };
+    expect(viewableVersionFor(item)).toMatchObject({ id: "v2", producedByCabinet: true });
   });
 
   it("montre la pièce déposée par la structure, quelle que soit l'étape", () => {

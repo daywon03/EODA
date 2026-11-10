@@ -15,7 +15,11 @@
 // `generation-prompt.test.ts` vérifie que le prompt l'embarque bien.
 // ─────────────────────────────────────────────────────────────────────────────
 
-export const STYLE_GUIDE_VERSION = "regles-redaction v03 — 21/10/2026";
+import { TEMPLATE_RULES_STATUS, TEMPLATE_RULES_VERSION, templateRules } from "./gabarit";
+
+// v04 (10/11/2026) : critères HAS hors du corps (page de garde EODA, E2) et règle de
+// gabarit (bloc d'identification, E4 — `gabarit.ts`, provisoire).
+export const STYLE_GUIDE_VERSION = "regles-redaction v04 — 10/11/2026";
 
 export type StyleGuideSection = { title: string; rules: readonly string[] };
 
@@ -42,9 +46,7 @@ export const STYLE_GUIDE: readonly StyleGuideSection[] = [
   {
     title: "Forme d'un document EODA",
     rules: [
-      "Première page : version et date de mise à jour à compléter. [10 §4]",
-      "Sous le titre, la liste de tous les critères HAS couverts ; sous chaque section, les critères correspondants. [10 §4]",
-      "Un encadré « Ce document couvre aussi les critères X, Y » quand c'est le cas. [10 §4]",
+      "Aucune liste des critères HAS couverts dans le corps du document — ni sous le titre, ni sous les sections, ni en encadré « Ce document couvre aussi les critères… » : la plateforme les place sur une page de garde EODA séparée, détachable. Le critère d'un ajout se renseigne dans criterionCode, jamais dans son texte. [10 §4, call du 09/11/2026]",
       "Un sommaire en début de document ; les numéros de page sont ajoutés à l'export. [10 §4]",
       "Les références légales et réglementaires du critère (fiche du manuel) insérées dans le document quand elles sont fournies. [10 §4]",
       "Un bloc « Validation et diffusion » en fin de document. [10 §4]",
@@ -70,6 +72,11 @@ export const STYLE_GUIDE: readonly StyleGuideSection[] = [
       "Jamais une valeur plausible inventée à la place d'un champ à compléter. [10 §7]",
       "Ne modifie JAMAIS un numéro de version ni une date du document : recopie-les à l'identique. N'en écris aucun nouveau ; s'il en faut un, écris [À compléter : version ou date]. [10 §7, call du 18/10/2026]",
     ],
+  },
+  {
+    // Règle de gabarit (E4) : PROVISOIRE tant que Sandrine ne l'a pas validée.
+    title: `Gabarit — bloc d'identification (${TEMPLATE_RULES_VERSION}, ${TEMPLATE_RULES_STATUS.toLowerCase()})`,
+    rules: templateRules(),
   },
 ];
 

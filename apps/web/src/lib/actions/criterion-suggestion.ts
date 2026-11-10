@@ -5,6 +5,8 @@ import { prisma } from "@eoda/database";
 import { revalidatePath } from "next/cache";
 import { notFound } from "next/navigation";
 import { requireEstablishmentAccess } from "@/lib/auth/guards";
+import { isRestrictedDocumentType } from "@/content/documents/acces-restreint";
+import { requireDocumentContentOpen } from "@/lib/auth/document-file-access";
 import { recordAuditEvent } from "@/lib/services/audit-log-service";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -32,9 +34,12 @@ async function reviewSuggestion(
   // fiche d'un autre client (IDOR).
   const suggestion = await prisma.documentCriterionSuggestion.findUnique({
     where: { id: suggestionId },
-    select: { id: true, status: true, document: { select: { establishmentId: true } } },
+    select: { id: true, status: true, document: { select: { establishmentId: true, documentType: { select: { code: true } } } } },
   });
   if (!suggestion || suggestion.document.establishmentId !== establishmentId) notFound();
+  // Tirée d'un document à accès restreint (analysé avant la restriction) : une donnée lue
+  // dans son contenu, que le cabinet ne tranche pas (ADR 20261110).
+  requireDocumentContentOpen(suggestion.document.documentType?.code);
 
   // Déjà tranchée : on ne réécrit pas une décision humaine, on le dit simplement.
   if (suggestion.status !== "PENDING") return null;
@@ -86,11 +91,14 @@ export async function confirmAllCriterionSuggestions(
 
   const suggestions = await prisma.documentCriterionSuggestion.findMany({
     where: { id: { in: suggestionIds }, status: "PENDING" },
-    select: { id: true, document: { select: { establishmentId: true } } },
+    select: { id: true, document: { select: { establishmentId: true, documentType: { select: { code: true } } } } },
   });
   // IDOR : n'importe quel id qui n'appartient pas à CET établissement est
-  // silencieusement écarté plutôt que de faire échouer tout le lot.
-  const owned = suggestions.filter((s) => s.document.establishmentId === establishmentId);
+  // silencieusement écarté plutôt que de faire échouer tout le lot — de même une
+  // suggestion tirée d'un document à accès restreint (ADR 20261110).
+  const owned = suggestions.filter(
+    (s) => s.document.establishmentId === establishmentId && !isRestrictedDocumentType(s.document.documentType?.code)
+  );
   if (owned.length === 0) return null;
 
   await prisma.documentCriterionSuggestion.updateMany({

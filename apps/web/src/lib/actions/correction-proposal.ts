@@ -9,9 +9,14 @@ import { canDepositDocuments } from "@/lib/services/mission-access-service";
 import { CORRECTION_NOT_INCLUDED_MESSAGE } from "@/lib/services/offer-scope-service";
 import { generateCorrectedDraft } from "@/lib/services/document-generation-service";
 import { ingestDocumentVersion } from "@/lib/services/document-ingestion-service";
-import { generateBrandedDocx } from "@/lib/services/markdown-to-docx-service";
+import { generateBrandedDocx, type CoverPageInput, type DocxBrand } from "@/lib/services/markdown-to-docx-service";
+import { buildCoverPage, prepareFinalDocumentMarkdown } from "@/lib/services/final-document-service";
+import { readBrandColors } from "@/lib/services/brand-color-service";
+import { decodeLogoDataUri } from "@/lib/services/logo-response-service";
+import { readEodaLogoPng } from "@/lib/services/eoda-logo-asset";
 import { documentMention } from "@/lib/services/review-mention-service";
 import { buildEodaFileName } from "@/lib/services/document-naming-service";
+import { documentIdentityRule } from "@/lib/services/document-identity-service";
 import {
   additionsOf,
   buildDecisionsRecord,
@@ -138,6 +143,41 @@ export async function generateCorrectionProposal(
   return null;
 }
 
+// Habillage du document FINAL (call du 09/11/2026) : la page de garde EODA (E2) liste
+// les critères de la MATRICE du type — jamais ce que le modèle a écrit —, le corps
+// porte le logo et les couleurs de la structure (E1). Lus ici, et pas dans le
+// contexte de l'écran : le logo pèse jusqu'à 300 Ko et ne sert qu'à l'enregistrement.
+async function readFinalDocumentDress(
+  context: CorrectionContext
+): Promise<{ coverPage: CoverPageInput; brand: DocxBrand }> {
+  const [links, establishment, eodaLogo] = await Promise.all([
+    prisma.documentTypeCriterion.findMany({
+      where: { documentTypeId: context.version.documentTypeId },
+      select: { criterion: { select: { code: true, label: true } } },
+    }),
+    prisma.establishment.findUnique({
+      where: { id: context.version.establishmentId },
+      select: { logoDataUri: true, brandPrimaryColor: true, brandSecondaryColor: true },
+    }),
+    readEodaLogoPng(),
+  ]);
+  const logo = decodeLogoDataUri(establishment?.logoDataUri ?? null);
+  return {
+    coverPage: {
+      ...buildCoverPage({
+        documentLabel: context.version.documentLabel,
+        establishmentName: context.version.establishmentName,
+        criteria: links.map((link) => link.criterion),
+      }),
+      eodaLogo,
+    },
+    brand: {
+      colors: establishment ? readBrandColors(establishment) : null,
+      logo: logo ? { data: logo.bytes, type: logo.type === "image/png" ? "png" : "jpg" } : null,
+    },
+  };
+}
+
 export async function applyCorrectionProposal(
   proposalId: string,
   rawDecisions: unknown
@@ -162,16 +202,27 @@ export async function applyCorrectionProposal(
   const parsed = parseDecisions(rawDecisions, proposal);
   if (!parsed.ok) return { error: parsed.error };
 
-  const markdown = proposalToMarkdown(proposal, parsed.decisions);
+  const now = new Date();
+  // Document FINAL (call du 09/11/2026) : encarts « critères HAS » retirés du corps
+  // (E2), version suivante et date du jour écrites par la PLATEFORME (E3) — jamais par
+  // l'IA. Une fiche de sensibilisation garde sa date de dépôt (E4, provisoire).
+  const { markdown, identity } = prepareFinalDocumentMarkdown(proposalToMarkdown(proposal, parsed.decisions), {
+    identityRule: documentIdentityRule({ code: context.version.documentCode, folderId: context.version.documentFolderId }),
+    previousVersionLabel: String(context.version.versionNumber),
+    today: now,
+  });
   const nextNumber = context.version.versionNumber + 1;
+  const { coverPage, brand } = await readFinalDocumentDress(context);
   const docx = await generateBrandedDocx({
     markdown,
     title: context.version.documentLabel,
     establishmentName: context.version.establishmentName,
     reviewMention: documentMention({ mode: context.mode, reviewedAt: null }),
+    coverPage,
+    brand,
   });
   const originalFilename = buildEodaFileName({
-    issuedOn: new Date(),
+    issuedOn: now,
     type: context.version.documentCode,
     clientName: context.version.establishmentName,
     objet: "Mise-en-conformite",
@@ -185,6 +236,7 @@ export async function applyCorrectionProposal(
       establishmentId: context.version.establishmentId,
       documentTypeId: context.version.documentTypeId,
       documentTypeLabel: context.version.documentLabel,
+      documentTypeCode: context.version.documentCode,
       content: docx,
       contentType: DOCX_CONTENT_TYPE,
       originalFilename,
@@ -196,7 +248,6 @@ export async function applyCorrectionProposal(
     { storage: getFileStoragePort(), llm: getLLMAnalysisPort() }
   );
 
-  const now = new Date();
   await prisma.correctionProposal.update({
     where: { id: stored.id },
     data: {
@@ -214,7 +265,7 @@ export async function applyCorrectionProposal(
     actorRole: context.access.session.user.role,
     establishmentId: context.version.establishmentId,
     targetId: ingested.documentVersionId,
-    detail: `${context.version.documentCode} v${nextNumber} : ${counts.accepted} accepté(s), ${counts.refused} refusé(s), ${counts.pending} non retenu(s)`,
+    detail: `${context.version.documentCode} v${nextNumber} : ${counts.accepted} accepté(s), ${counts.refused} refusé(s), ${counts.pending} non retenu(s)${identity ? ` ; version du document ${identity.version}` : ""}`,
   });
   revalidateCorrection(context);
   return { ok: true, versionNumber: nextNumber };

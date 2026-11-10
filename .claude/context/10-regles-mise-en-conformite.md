@@ -103,6 +103,21 @@ salariés réfractaires** à la formation (22/09).
 - Version **imprimable** : encarts de commentaires retirés, texte justifié, format livret
   (22/09).
 
+**Révision du 09/11/2026 (call sur la FAMO) — remplace les deux puces « critères » ci-dessus
+pour le document FINAL** : « le document final au client ne doit pas contenir les critères
+HAS. Les critères, c'est pour nous : une première page détachable, avec notre logo
+uniquement, qui explique ce que le document couvre et les critères qu'il couvre ; derrière,
+le document final avec l'effigie et les couleurs du client, sans les encarts. » ✅ Fait le
+10/11/2026 : cahier de style v04 (aucune liste de critères dans le corps), nettoyage
+déterministe à l'enregistrement, page de garde EODA (critères lus dans la matrice), charte
+couleur par structure (`Establishment.brandPrimaryColor` / `brandSecondaryColor`).
+**Version et date** : « la version proposée affiche 11/10/2026 au lieu d'aujourd'hui, et la
+version devrait passer en 1.1 » → écrites par la PLATEFORME à l'enregistrement de la
+version N+1 (`stampDocumentIdentity`), jamais par l'IA (§7 ci-dessous). **Gabarit** :
+« version, pied de page, date, date de révision » + rédigé/validé par et emplacement
+d'archivage ; pour une fiche de sensibilisation, « la date d'upload suffit » — règle
+**provisoire, à valider par Sandrine** (`content/regles-redaction/gabarit.ts`).
+
 **Chaîne de pièces par document** (26/08) : la version d'origine du client ; un **rapport
 de conformité** critère par critère (« il manque ça ») ; la version modifiée numérotée
 (V2, V3…), toutes les versions conservées ; et un **rapport des changements** remis au

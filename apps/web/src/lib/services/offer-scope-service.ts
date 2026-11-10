@@ -1,5 +1,4 @@
-import { DocumentCategory } from "@prisma/client";
-import type { CommercialTier, RequirementLevel } from "@eoda/database";
+import type { CommercialTier, DocumentCategory, RequirementLevel } from "@eoda/database";
 
 // Couche UNIQUE de périmétrage par offre commerciale — source de vérité pour ce
 // qui est coté, ce qui est corrigé, quelles catégories documentaires sont suivies
@@ -48,14 +47,22 @@ export type OfferScope = {
   documentCategories: readonly DocumentCategory[];
 };
 
-// Dérivé de l'énumération Prisma, jamais retranscrit à la main : une cinquième
-// catégorie documentaire ajoutée au schéma est automatiquement couverte par
-// Performance et Excellence, au lieu d'en être exclue en silence (Règle zéro —
-// une règle qu'aucune machine ne vérifie n'est pas une règle).
-// L'objet d'énumération vient de `@prisma/client` et non de `@eoda/database` :
-// ce dernier instancie un PrismaClient au chargement du module, ce qu'un service
-// pur ne doit pas provoquer (les types, eux, restent importés de @eoda/database).
-const ALL_DOCUMENT_CATEGORIES: readonly DocumentCategory[] = Object.values(DocumentCategory);
+// Toutes les catégories documentaires, tenues par le COMPILATEUR : un
+// `Record<DocumentCategory, true>` refuse de compiler s'il manque une clé, donc une
+// cinquième catégorie ajoutée au schéma casse `pnpm typecheck` ici au lieu d'être
+// exclue en silence de Performance et d'Excellence (Règle zéro). Le test compare en
+// plus cette liste à l'énumération Prisma.
+// Jamais d'import de VALEUR depuis `@prisma/client` : ce service est atteint par des
+// composants client (SupportModeSection → support-mode-service), et l'objet
+// d'énumération embarquait tout `index-browser` de Prisma — 22 Ko compressés sur
+// l'onglet Mission (check:bundle, 10/11/2026).
+const DOCUMENT_CATEGORY_SET: Record<DocumentCategory, true> = {
+  LOI_2002_2: true,
+  FONCTIONNEMENT: true,
+  QUALITE_RISQUES: true,
+  RH: true,
+};
+const ALL_DOCUMENT_CATEGORIES = Object.keys(DOCUMENT_CATEGORY_SET) as readonly DocumentCategory[];
 
 const OFFER_SCOPES: Record<OfferTier, OfferScope> = {
   SANS_OFFRE: {
