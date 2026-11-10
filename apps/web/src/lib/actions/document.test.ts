@@ -96,6 +96,10 @@ const {
   setParticipationForm,
   addCriterionGuidelines,
   getGuidelineReach,
+  getCorrectedDraft,
+  saveDocumentDraft,
+  setAnalysisReviewed,
+  updateAnalysisDirective,
 } = await import("./document");
 
 describe("setDocumentCommentAiUse — « Commentaire sur ce document » remis à l'IA", () => {
@@ -1057,5 +1061,56 @@ describe("document à accès restreint — validation et reclassement", () => {
     const result = await changeDocumentType(ESTABLISHMENT_ID, from.id, to.id);
     expect(result).toMatchObject({ error: expect.stringContaining("restreint") });
     expect(prismaMock.$transaction).not.toHaveBeenCalled();
+  });
+});
+
+// Relecture de sécurité du 10/11/2026 : un tampon déposé AVANT la restriction garde en base
+// son texte, son analyse, son brouillon. Les actions qui les lisent ou les écrivent passaient
+// par la seule garde d'établissement — le cabinet les obtenait avec l'identifiant de version.
+describe("document à accès restreint — analyse, brouillon et revue fermés au cabinet", () => {
+  const OLD_TAMPON_VERSION = {
+    id: "v-tampon",
+    analysisResultJson: { elementsPresents: [{ text: "Cachet de la structure", source: null }], elementsManquants: [], suggestionsCorrection: [] },
+    analysisReviewedAt: null,
+    correctedDraftMarkdown: "brouillon d'un ancien dépôt",
+    correctedDraftGeneratedAt: new Date("2026-11-01T00:00:00Z"),
+    document: {
+      id: "doc-t",
+      establishmentId: ESTABLISHMENT_ID,
+      documentTypeId: TAMPON_TYPE.id,
+      documentType: { code: TAMPON_TYPE.code, label: TAMPON_TYPE.label },
+    },
+  };
+
+  beforeEach(() => {
+    asCabinet();
+    tryEstablishmentAccess.mockResolvedValue({ isClient: false, clientAccessRole: null, userId: "sandrine", session: { user: { role: "CABINET_ADMIN" } } });
+    prismaMock.documentVersion.findUnique.mockResolvedValue(OLD_TAMPON_VERSION);
+  });
+
+  it("getCorrectedDraft : notFound, le brouillon n'est jamais rendu", async () => {
+    await expect(getCorrectedDraft("v-tampon")).rejects.toThrow("NEXT_NOT_FOUND");
+  });
+
+  it("saveDocumentDraft : notFound, rien n'est écrit ni journalisé", async () => {
+    await expect(saveDocumentDraft("v-tampon", "nouveau texte")).rejects.toThrow("NEXT_NOT_FOUND");
+    expect(recordAuditEvent).not.toHaveBeenCalled();
+  });
+
+  it("setAnalysisReviewed : notFound, l'ancienne analyse n'est jamais publiée", async () => {
+    await expect(setAnalysisReviewed("v-tampon", true)).rejects.toThrow("NEXT_NOT_FOUND");
+    expect(prismaMock.documentVersion.update).not.toHaveBeenCalled();
+  });
+
+  it("getGuidelineReach : notFound, les critères reconnus dans le tampon ne sortent pas", async () => {
+    await expect(getGuidelineReach("v-tampon")).rejects.toThrow("NEXT_NOT_FOUND");
+    expect(prismaMock.documentCriterionSuggestion.findMany).not.toHaveBeenCalled();
+  });
+
+  it("updateAnalysisDirective : notFound sur une ligne restreinte (aucune IA ne la lit)", async () => {
+    givenMission(null);
+    prismaMock.documentType.findUnique.mockResolvedValue(TAMPON_TYPE);
+    await expect(updateAnalysisDirective(ESTABLISHMENT_ID, TAMPON_TYPE.id, "consigne", true)).rejects.toThrow("NEXT_NOT_FOUND");
+    expect(prismaMock.document.upsert).not.toHaveBeenCalled();
   });
 });

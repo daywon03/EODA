@@ -27,7 +27,12 @@ import {
   validationOutcome,
   type ValidationOutcome,
 } from "@/lib/services/document-deposit-service";
-import { canDepositDocumentFile, canOpenDocumentFile, documentFileOpenerOf } from "@/lib/auth/document-file-access";
+import {
+  canDepositDocumentFile,
+  canOpenDocumentFile,
+  documentFileOpenerOf,
+  requireDocumentContentOpen,
+} from "@/lib/auth/document-file-access";
 import { isRestrictedDocumentType } from "@/content/documents/acces-restreint";
 import { decideAnalysisDirective } from "@/lib/services/analysis-directive-service";
 import { extractMarkdown } from "@/lib/services/text-extraction-service";
@@ -674,6 +679,8 @@ export async function updateAnalysisDirective(
     select: { id: true, code: true, category: true },
   });
   if (!documentType) return { error: "Type de document invalide." };
+  // Ligne à accès restreint : aucune IA ne la lit, une consigne d'analyse n'y a pas de sens.
+  requireDocumentContentOpen(documentType.code);
 
   if (!(await isCategoryCoveredForEstablishment(establishmentId, documentType.category))) {
     return { error: OUT_OF_OFFER_ERROR };
@@ -1188,13 +1195,14 @@ export async function setAnalysisReviewed(
       id: true,
       analysisResultJson: true,
       analysisReviewedAt: true,
-      document: { select: { establishmentId: true } },
+      document: { select: { establishmentId: true, documentType: { select: { code: true } } } },
     },
   });
   if (!version) notFound();
 
   const access = await requireEstablishmentAccess(version.document.establishmentId, NEED.DOCUMENTS_WRITE);
   if (access.isClient) notFound();
+  requireDocumentContentOpen(version.document.documentType?.code);
 
   // Rien à publier : refuser plutôt que de poser une date de revue sur une analyse
   // inexistante, qui ferait croire à une relecture qui n'a pas eu lieu.
@@ -1253,6 +1261,7 @@ export async function reanalyzeDocument(
 
   const access = await requireEstablishmentAccess(version.document.establishmentId, NEED.DOCUMENTS_WRITE);
   if (access.isClient) notFound();
+  requireDocumentContentOpen(version.document.documentType?.code);
 
   const validatedModelId = modelId && isKnownLlmModelId(modelId) ? modelId : null;
   // Version du prompt (laboratoire, 29/10/2026) : une valeur inconnue retombe sur la
@@ -1409,13 +1418,14 @@ export async function getGuidelineReach(
     where: { id: documentVersionId },
     select: {
       document: {
-        select: { id: true, establishmentId: true, documentTypeId: true, documentType: { select: { label: true } } },
+        select: { id: true, establishmentId: true, documentTypeId: true, documentType: { select: { label: true, code: true } } },
       },
     },
   });
   if (!version) notFound();
   const access = await requireEstablishmentAccess(version.document.establishmentId, NEED.DOCUMENTS_READ);
   if (access.isClient) notFound();
+  requireDocumentContentOpen(version.document.documentType?.code);
 
   const typeId = version.document.documentTypeId;
   const [matrix, suggestions] = await Promise.all([
@@ -1660,13 +1670,14 @@ export async function getCorrectedDraft(documentVersionId: string): Promise<Corr
     select: {
       correctedDraftMarkdown: true,
       correctedDraftGeneratedAt: true,
-      document: { select: { establishmentId: true } },
+      document: { select: { establishmentId: true, documentType: { select: { code: true } } } },
     },
   });
   if (!version) return undefined;
 
   const access = await tryEstablishmentAccess(version.document.establishmentId, NEED.DOCUMENTS_READ);
   if (!access || access.isClient) return undefined;
+  requireDocumentContentOpen(version.document.documentType?.code);
 
   if (!version.correctedDraftMarkdown || !version.correctedDraftGeneratedAt) return null;
   return { markdown: markForeignScript(version.correctedDraftMarkdown), generatedAt: version.correctedDraftGeneratedAt };
@@ -1702,6 +1713,7 @@ export async function saveDocumentDraft(
 
   const access = await requireEstablishmentAccess(version.document.establishmentId, NEED.DOCUMENTS_WRITE);
   if (access.isClient) notFound();
+  requireDocumentContentOpen(version.document.documentType?.code);
 
   await saveCorrectedDraft(documentVersionId, markdown.trim());
 

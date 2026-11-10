@@ -169,15 +169,50 @@ describe("lectures", () => {
     expect(result.official.promptLabel).toMatch(/antérieure/);
   });
 
-  it("le bilan est borné au tenant ET au périmètre de l'appelant", async () => {
+  it("le bilan est borné au tenant ET au périmètre de l'appelant, et n'inclut aucun document à accès restreint", async () => {
     requireCabinetSession.mockResolvedValue({ tenantId: "t-1" });
     prismaMock.analysisTrial.findMany.mockResolvedValue([]);
     await getAnalysisLabOverview();
     expect(requireCabinetSession).toHaveBeenCalledWith("STRUCTURES_READ");
     expect(prismaMock.analysisTrial.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { tenantId: "t-1", documentVersion: { document: { establishment: { tenantId: "t-1", id: { in: ["etab-1"] } } } } },
+        where: {
+          tenantId: "t-1",
+          documentVersion: {
+            document: {
+              establishment: { tenantId: "t-1", id: { in: ["etab-1"] } },
+              NOT: { documentType: { code: { in: ["DEPARTEMENT_TAMPON"] } } },
+            },
+          },
+        },
       })
     );
+  });
+});
+
+// Relecture de sécurité du 10/11/2026 : les essais et l'analyse officielle d'un tampon
+// déposé AVANT la restriction restaient lisibles par le cabinet avec l'identifiant de
+// version. La version est relue AVEC son type, et un type restreint ferme le laboratoire.
+describe("document à accès restreint", () => {
+  beforeEach(() => {
+    prismaMock.documentVersion.findUnique.mockResolvedValue({
+      document: { establishmentId: "etab-1", establishment: { tenantId: "t-1" }, documentType: { code: "DEPARTEMENT_TAMPON" } },
+    });
+    prismaMock.analysisTrial.findUnique.mockResolvedValue({ id: "trial-1", documentVersionId: "v-tampon" });
+  });
+
+  it("aucune lecture : ni prompt, ni essais, ni analyse officielle", async () => {
+    await expect(previewAnalysisPrompt("v-tampon", "cible", null)).rejects.toThrow("NOT_FOUND");
+    await expect(listAnalysisTrials("v-tampon")).rejects.toThrow("NOT_FOUND");
+    expect(prismaMock.analysisTrial.findMany).not.toHaveBeenCalled();
+    expect(readAnalysisTarget).not.toHaveBeenCalled();
+  });
+
+  it("aucune écriture : ni essai, ni verdict", async () => {
+    await expect(runAnalysisTrial("v-tampon", "cible", null)).rejects.toThrow("NOT_FOUND");
+    await expect(judgeAnalysisTrial("trial-1", "BON", null)).rejects.toThrow("NOT_FOUND");
+    expect(llm.analyze).not.toHaveBeenCalled();
+    expect(prismaMock.analysisTrial.create).not.toHaveBeenCalled();
+    expect(prismaMock.analysisTrial.update).not.toHaveBeenCalled();
   });
 });

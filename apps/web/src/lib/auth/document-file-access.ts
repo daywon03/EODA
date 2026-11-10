@@ -1,4 +1,6 @@
-import { isRestrictedDocumentType } from "@/content/documents/acces-restreint";
+import type { Prisma } from "@eoda/database";
+import { notFound } from "next/navigation";
+import { isRestrictedDocumentType, RESTRICTED_DOCUMENT_TYPE_CODES } from "@/content/documents/acces-restreint";
 import { isVersionVisibleToClient } from "@/lib/services/deliverables-service";
 import type { ClientAccessRole } from "./capabilities";
 
@@ -58,6 +60,21 @@ export function canDepositDocumentFile(opener: DocumentFileOpener, documentTypeC
   if (!isRestrictedDocumentType(documentTypeCode)) return opener.side !== "TABLET";
   return opener.side === "CABINET" || isDirection(opener);
 }
+
+// ── Contenu DÉRIVÉ d'une version (texte extrait, analyse, brouillon, essais, suggestions) ──
+// Relecture de sécurité du 10/11/2026 : un tampon déposé AVANT la restriction garde ces
+// données en base. Elles ne s'ouvrent à PERSONNE par les actions (la direction ouvre le
+// fichier, pas une analyse que l'IA n'aurait jamais dû faire). Chaque action qui les lit ou
+// les écrit appelle cette garde après la garde d'établissement — aucune ne la recopie.
+export function requireDocumentContentOpen(documentTypeCode: string | null | undefined): void {
+  if (isRestrictedDocumentType(documentTypeCode)) notFound();
+}
+
+// Filtre Prisma sur `Document` pour les lectures de liste du même contenu dérivé. Un
+// document sans type passe (le filtre de relation est faux sur une relation nulle).
+export const OPEN_CONTENT_DOCUMENT_WHERE: Prisma.DocumentWhereInput = {
+  NOT: { documentType: { code: { in: [...RESTRICTED_DOCUMENT_TYPE_CODES] } } },
+};
 
 // Depuis le contexte que rend la garde d'établissement — jamais depuis une entrée.
 export function documentFileOpenerOf(access: {

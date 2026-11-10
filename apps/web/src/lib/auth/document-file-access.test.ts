@@ -1,12 +1,20 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { CLIENT_ACCESS_ROLES } from "./capabilities";
 import {
   canDepositDocumentFile,
   canOpenDocumentFile,
   canOpenFilesOfType,
   documentFileOpenerOf,
+  OPEN_CONTENT_DOCUMENT_WHERE,
+  requireDocumentContentOpen,
   type DocumentFileOpener,
 } from "./document-file-access";
+
+vi.mock("next/navigation", () => ({
+  notFound: () => {
+    throw new Error("NOT_FOUND");
+  },
+}));
 
 // Case par case (ADR 20261110) : cabinet × rôle client × tablette × document restreint ou
 // non, et la règle de restitution des brouillons d'EODA qu'elle absorbe. Le rôle CABINET
@@ -118,5 +126,27 @@ describe("documentFileOpenerOf — depuis le contexte rendu par la garde", () =>
     const opener = documentFileOpenerOf({ isClient: true, clientAccessRole: null });
     expect(canOpenDocumentFile(opener, { documentTypeCode: RESTRICTED, ...own })).toBe(false);
     expect(canDepositDocumentFile(opener, RESTRICTED)).toBe(false);
+  });
+});
+
+// Relecture de sécurité du 10/11/2026 : les actions qui lisent ou écrivent l'ANALYSE d'une
+// version (laboratoire, brouillon, revue, suggestions) ne testaient pas la restriction —
+// un tampon déposé avant elle gardait texte, analyse et essais lisibles par le cabinet.
+// Une seule garde, appelée par chacune.
+describe("requireDocumentContentOpen — contenu dérivé (analyse, brouillon, essais)", () => {
+  it("un type restreint : notFound, quel que soit l'appelant", () => {
+    expect(() => requireDocumentContentOpen(RESTRICTED)).toThrow("NOT_FOUND");
+  });
+
+  it("un type ordinaire ou absent : laisse passer", () => {
+    expect(() => requireDocumentContentOpen(ORDINARY)).not.toThrow();
+    expect(() => requireDocumentContentOpen(null)).not.toThrow();
+    expect(() => requireDocumentContentOpen(undefined)).not.toThrow();
+  });
+});
+
+describe("OPEN_CONTENT_DOCUMENT_WHERE — filtre de liste", () => {
+  it("écarte les documents d'un type restreint, garde ceux sans type", () => {
+    expect(OPEN_CONTENT_DOCUMENT_WHERE).toEqual({ NOT: { documentType: { code: { in: [RESTRICTED] } } } });
   });
 });

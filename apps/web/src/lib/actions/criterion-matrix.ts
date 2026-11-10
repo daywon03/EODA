@@ -5,6 +5,7 @@ import { revalidatePath, revalidateTag } from "next/cache";
 import { CRITERION_MATRIX_TAG } from "@/lib/db/referential-cache";
 import { notFound } from "next/navigation";
 import { requireCabinetAdminSession, requireCabinetSession } from "@/lib/auth/guards";
+import { OPEN_CONTENT_DOCUMENT_WHERE } from "@/lib/auth/document-file-access";
 import { recordAuditEvent } from "@/lib/services/audit-log-service";
 import { PROPOSED_MATRIX_CSV } from "@/content/criteres/matrice-proposition";
 import {
@@ -70,7 +71,11 @@ export async function getMatrixReview(): Promise<MatrixReview> {
     loadLinkedPairs(),
     // Suggestions confirmées des structures DE CE CABINET seulement (cloisonnement).
     prisma.documentCriterionSuggestion.findMany({
-      where: { status: "CONFIRMED", document: { establishment: { tenantId }, documentTypeId: { not: null } } },
+      where: {
+        status: "CONFIRMED",
+        // Jamais un critère reconnu dans un document à accès restreint (ADR 20261110).
+        document: { establishment: { tenantId }, documentTypeId: { not: null }, ...OPEN_CONTENT_DOCUMENT_WHERE },
+      },
       select: {
         id: true,
         criterion: { select: { code: true, label: true } },
@@ -217,7 +222,7 @@ export async function promoteCriterionSuggestion(formData: FormData): Promise<{ 
 
   // IDOR : la suggestion doit appartenir à une structure du cabinet de l'appelant.
   const suggestion = await prisma.documentCriterionSuggestion.findFirst({
-    where: { id: suggestionId, document: { establishment: { tenantId } } },
+    where: { id: suggestionId, document: { establishment: { tenantId }, ...OPEN_CONTENT_DOCUMENT_WHERE } },
     select: {
       id: true,
       status: true,
