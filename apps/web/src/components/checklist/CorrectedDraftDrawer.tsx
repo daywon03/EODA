@@ -1,0 +1,236 @@
+"use client";
+
+import { useEffect, useState, useTransition } from "react";
+import { AlertCircle, Download, Loader2, Sparkles, X } from "lucide-react";
+import {
+  getCorrectedDraft,
+  generateDocumentDraft,
+  saveDocumentDraft,
+  getExtractedText,
+} from "@/lib/actions/document";
+import { buildDraftDiff, type DraftDiffSegment } from "@/lib/services/document-diff-service";
+import { LLM_MODEL_OPTIONS, DEFAULT_LLM_MODEL_ID } from "@/lib/llm/openrouter-models";
+import { formatDate } from "@/lib/services/date-format-service";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+
+// Panneau du brouillon corrigé (avant / après, retouche, régénération), ouvert par
+// « Document corrigé » (CorrectedDraftPanel). Fichier séparé pour être chargé AU CLIC :
+// la bibliothèque de comparaison (`diff`) et ce panneau n'ont rien à faire dans le
+// premier chargement de l'onglet Documents (budget de JavaScript, check:bundle).
+export function DraftDrawer({ documentVersionId, onClose }: { documentVersionId: string; onClose: () => void }) {
+  const [modelId, setModelId] = useState(DEFAULT_LLM_MODEL_ID);
+  const [draft, setDraft] = useState<{ markdown: string; generatedAt: Date } | null | undefined>(undefined);
+  const [originalText, setOriginalText] = useState<string | null>(null);
+  const [mode, setMode] = useState<"diff" | "edit">("diff");
+  const [editedMarkdown, setEditedMarkdown] = useState("");
+  const [saved, setSaved] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
+
+  useEffect(() => {
+    startTransition(async () => {
+      const [existingDraft, extracted] = await Promise.all([
+        getCorrectedDraft(documentVersionId),
+        getExtractedText(documentVersionId),
+      ]);
+      setDraft(existingDraft ?? null);
+      setEditedMarkdown(existingDraft?.markdown ?? "");
+      setOriginalText(extracted && "text" in extracted ? extracted.text : "");
+    });
+  }, [documentVersionId]);
+
+  function handleGenerate() {
+    setError(null);
+    setSaved(false);
+    startTransition(async () => {
+      const result = await generateDocumentDraft(documentVersionId, modelId);
+      if (result && "error" in result) {
+        setError(result.error);
+        return;
+      }
+      const refreshed = await getCorrectedDraft(documentVersionId);
+      setDraft(refreshed ?? null);
+      setEditedMarkdown(refreshed?.markdown ?? "");
+      setMode("diff");
+    });
+  }
+
+  function handleSave() {
+    setError(null);
+    setSaved(false);
+    startTransition(async () => {
+      const result = await saveDocumentDraft(documentVersionId, editedMarkdown);
+      if (result && "error" in result) {
+        setError(result.error);
+        return;
+      }
+      const refreshed = await getCorrectedDraft(documentVersionId);
+      setDraft(refreshed ?? null);
+      setSaved(true);
+    });
+  }
+
+  const diffSegments: DraftDiffSegment[] =
+    draft && originalText !== null ? buildDraftDiff(originalText, draft.markdown) : [];
+
+  return (
+    <div className="fixed inset-0 z-50 flex justify-end bg-brun-ancre/30" role="dialog" aria-modal="true">
+      <div className="flex h-full w-full max-w-xl flex-col bg-surface shadow-xl">
+        <header className="flex items-center justify-between border-b border-gris-light px-4 py-3">
+          <div className="flex items-center gap-2">
+            <Sparkles className="h-4 w-4 text-amber-text" aria-hidden="true" />
+            <h2 className="text-sm font-medium text-brun-ancre">Document corrigé — brouillon IA</h2>
+          </div>
+          <button type="button" onClick={onClose} aria-label="Fermer" className="text-ink2 hover:text-brun-ancre">
+            <X className="h-4 w-4" aria-hidden="true" />
+          </button>
+        </header>
+
+        <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
+          {draft === undefined && (
+            <p className="flex items-center gap-2 text-xs text-ink2">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+              Chargement…
+            </p>
+          )}
+
+          {draft === null && (
+            <div className="space-y-2">
+              <p className="text-xs text-ink2">
+                Aucun brouillon généré pour cette version. L&apos;IA réécrit le document en intégrant les
+                éléments manquants et les suggestions de l&apos;analyse.
+              </p>
+              <div className="flex items-center gap-2">
+                <select
+                  value={modelId}
+                  onChange={(e) => setModelId(e.target.value)}
+                  disabled={isPending}
+                  aria-label="Modèle IA pour la génération"
+                  className="rounded-md border border-gris-light bg-surface px-1.5 py-1 text-xs text-brun-ancre"
+                >
+                  {LLM_MODEL_OPTIONS.map((option) => (
+                    <option key={option.id} value={option.id}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+                <Button type="button" size="sm" disabled={isPending} onClick={handleGenerate}>
+                  {isPending ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+                  ) : (
+                    <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
+                  )}
+                  Générer
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {draft && (
+            <div className="space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-xs text-ink2">
+                  Généré le {formatDate(draft.generatedAt)} — brouillon de travail, à relire avant tout usage.
+                </p>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setMode("diff")}
+                    className={`text-xs ${mode === "diff" ? "font-medium text-accent-text" : "text-ink2 hover:underline"}`}
+                  >
+                    Avant / après
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setMode("edit")}
+                    className={`text-xs ${mode === "edit" ? "font-medium text-accent-text" : "text-ink2 hover:underline"}`}
+                  >
+                    Modifier
+                  </button>
+                </div>
+              </div>
+
+              {mode === "diff" ? (
+                <div className="rounded-lg border border-gris-light bg-ivoire/40 p-3 text-xs leading-relaxed text-brun-ancre whitespace-pre-wrap">
+                  {diffSegments.map((segment, index) => {
+                    if (segment.kind === "removed") {
+                      return (
+                        <span key={index} className="text-rouge-imp line-through decoration-2">
+                          {segment.text}
+                        </span>
+                      );
+                    }
+                    if (segment.kind === "added") {
+                      return (
+                        <span key={index} className="text-ok-text underline decoration-2">
+                          {segment.text}
+                        </span>
+                      );
+                    }
+                    return <span key={index}>{segment.text}</span>;
+                  })}
+                </div>
+              ) : (
+                <Textarea
+                  value={editedMarkdown}
+                  onChange={(e) => setEditedMarkdown(e.target.value)}
+                  rows={20}
+                  className="text-xs font-mono"
+                />
+              )}
+
+              <div className="flex flex-wrap items-center gap-2">
+                {mode === "edit" && (
+                  <Button type="button" size="sm" disabled={isPending} onClick={handleSave}>
+                    {isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> : null}
+                    Enregistrer
+                  </Button>
+                )}
+                <a
+                  href={`/api/documents/${documentVersionId}/draft-docx`}
+                  className="inline-flex items-center gap-1.5 text-xs text-accent-text hover:underline"
+                >
+                  <Download className="h-3.5 w-3.5" aria-hidden="true" />
+                  Télécharger le .docx
+                </a>
+                <div className="flex items-center gap-2">
+                  <select
+                    value={modelId}
+                    onChange={(e) => setModelId(e.target.value)}
+                    disabled={isPending}
+                    aria-label="Modèle IA pour la régénération"
+                    className="rounded-md border border-gris-light bg-surface px-1.5 py-1 text-xs text-brun-ancre"
+                  >
+                    {LLM_MODEL_OPTIONS.map((option) => (
+                      <option key={option.id} value={option.id}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={handleGenerate}
+                    disabled={isPending}
+                    className="text-xs text-ink2 hover:underline"
+                  >
+                    Régénérer
+                  </button>
+                </div>
+              </div>
+
+              {saved && <p role="status" className="text-xs text-ok-text">Modifications enregistrées.</p>}
+            </div>
+          )}
+
+          {error && (
+            <p role="alert" className="flex items-center gap-1.5 text-xs text-rouge-imp">
+              <AlertCircle className="h-3.5 w-3.5 flex-shrink-0" aria-hidden="true" />
+              {error}
+            </p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}

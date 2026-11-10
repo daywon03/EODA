@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { DocumentCategory } from "@prisma/client";
 import {
   CORRECTION_NOT_INCLUDED_MESSAGE,
   correctionRight,
@@ -98,6 +99,15 @@ describe("catégories documentaires couvertes — §12.1", () => {
       expect(getCoveredDocumentCategories(formule, false)).toHaveLength(4);
       expect(isDocumentCategoryCovered(formule, false, "RH")).toBe(true);
     }
+  });
+
+  it("couvre en Excellence TOUTES les catégories de l'énumération Prisma, ni plus ni moins", () => {
+    // La liste du service est tenue par le compilateur ; ce test la compare en plus à
+    // l'énumération réelle du schéma (le service ne peut plus l'importer : 22 Ko
+    // compressés dans le paquet de l'onglet Mission).
+    expect([...getCoveredDocumentCategories("EXCELLENCE", false)].sort()).toEqual(
+      Object.values(DocumentCategory).sort()
+    );
   });
 
   it("ouvre les quatre catégories à un Essentiel en bêta-test gratuit", () => {
