@@ -14,6 +14,7 @@ import { NEED } from "@/lib/auth/capabilities";
 import { canDepositDocuments } from "@/lib/services/mission-access-service";
 import { recordAuditEvent } from "@/lib/services/audit-log-service";
 import { validateLogoUpload } from "@/lib/security/upload-validation-service";
+import { parseBrandColors } from "@/lib/services/brand-color-service";
 import { getFileStoragePort } from "@/lib/storage";
 import {
   firstError,
@@ -235,6 +236,36 @@ export async function removeEstablishmentLogo(
 ): Promise<{ error: string } | null> {
   const { establishmentId: id } = await requireEstablishmentInTenant(establishmentId, "WRITE");
   return applyLogoRemoval(id);
+}
+
+// ── Charte couleur de la structure (E1, call du 09/11/2026) ──────────────────
+//
+// Saisie par le CABINET à côté du logo, même garde (requireEstablishmentInTenant en
+// écriture : une consultante non affectée ou une commerciale est refusée par la
+// garde, jamais par un bouton masqué). Validée par parseBrandColors (hexadécimal,
+// principale lisible sur le blanc) ; deux champs vides effacent la charte.
+export type BrandColorsActionState = { error: string } | { ok: true } | null;
+
+export async function setEstablishmentBrandColors(
+  _prevState: BrandColorsActionState,
+  formData: FormData
+): Promise<BrandColorsActionState> {
+  const establishmentIdRaw = formData.get("establishmentId");
+  if (typeof establishmentIdRaw !== "string" || establishmentIdRaw.length === 0) {
+    return { error: "Établissement manquant." };
+  }
+  const { establishmentId } = await requireEstablishmentInTenant(establishmentIdRaw, "WRITE");
+
+  const parsed = parseBrandColors({ primary: formData.get("primary"), secondary: formData.get("secondary") });
+  if (!parsed.ok) return { error: parsed.error };
+
+  await prisma.establishment.update({
+    where: { id: establishmentId },
+    data: { brandPrimaryColor: parsed.colors.primary, brandSecondaryColor: parsed.colors.secondary },
+  });
+  revalidatePath(`/dashboard/cabinet/etablissements/${establishmentId}`);
+  revalidatePath(`/dashboard/cabinet/etablissements/${establishmentId}/reglages`);
+  return { ok: true };
 }
 
 // Variantes CLIENT — « ce serait bien qu'ils puissent l'ajouter » (Sandrine,

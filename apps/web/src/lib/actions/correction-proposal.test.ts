@@ -1,4 +1,6 @@
+import { inflateRawSync } from "node:zlib";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { readZip } from "@/lib/services/zip-read";
 
 // Mettre en conformité (N8). Ce qui est protégé : le DROIT de générer (correctionScope,
 // D11, D13) avant tout appel au modèle, des deux côtés ; la structure n'ouvre l'écran
@@ -13,6 +15,9 @@ const prismaMock = {
   documentVersion: { findUnique: vi.fn() },
   correctionProposal: { findUnique: vi.fn(), findFirst: vi.fn(), update: vi.fn() },
   criterion: { findMany: vi.fn() },
+  // Habillage du document final (E1, E2) : matrice du type, logo et couleurs.
+  documentTypeCriterion: { findMany: vi.fn() },
+  establishment: { findUnique: vi.fn() },
 };
 const requireEstablishmentAccess = vi.fn();
 const generateCorrectedDraft = vi.fn();
@@ -83,6 +88,8 @@ beforeEach(() => {
   prismaMock.correctionProposal.findFirst.mockResolvedValue(null);
   prismaMock.correctionProposal.update.mockResolvedValue({});
   prismaMock.criterion.findMany.mockResolvedValue([]);
+  prismaMock.documentTypeCriterion.findMany.mockResolvedValue([]);
+  prismaMock.establishment.findUnique.mockResolvedValue({ logoDataUri: null, brandPrimaryColor: null, brandSecondaryColor: null });
 });
 
 describe("generateCorrectionProposal — droit de générer (D11, D13)", () => {
@@ -235,6 +242,23 @@ describe("applyCorrectionProposal — enregistrer la version N+1", () => {
     await applyCorrectionProposal("p-1", {});
     const input = ingestDocumentVersion.mock.calls[0]?.[0] as { extractedText: string };
     expect(input.extractedText.split("\n")[0]).toMatch(/^\*\*Version :\*\* 1\.1 · \*\*Date de mise à jour :\*\* \d{2}\/\d{2}\/\d{4}$/);
+  });
+
+  it("page de garde EODA depuis la MATRICE du type, couleurs de la structure dans le document (E1, E2)", async () => {
+    prismaMock.documentTypeCriterion.findMany.mockResolvedValue([{ criterion: { code: "3.12.1", label: "Plaintes et réclamations" } }]);
+    prismaMock.establishment.findUnique.mockResolvedValue({ logoDataUri: null, brandPrimaryColor: "#1A4D8F", brandSecondaryColor: null });
+    await applyCorrectionProposal("p-1", { a1: "ACCEPTE" });
+
+    expect(prismaMock.documentTypeCriterion.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { documentTypeId: "dt-1" } }));
+    expect(prismaMock.establishment.findUnique).toHaveBeenCalledWith(expect.objectContaining({ where: { id: ETAB } }));
+    const input = ingestDocumentVersion.mock.calls[0]?.[0] as { content: Buffer; extractedText: string };
+    const entries = await readZip(new Uint8Array(input.content), async (d) => new Uint8Array(inflateRawSync(d)));
+    const body = Buffer.from(entries.find((e) => e.name === "word/document.xml")!.data).toString("utf8");
+    const coverEnd = body.indexOf("<w:sectPr");
+    expect(body.slice(0, coverEnd)).toContain("Plaintes et réclamations");
+    expect(body.slice(coverEnd)).toContain("1A4D8F");
+    // La page de garde n'entre pas dans le texte de la version : le document seul.
+    expect(input.extractedText).not.toContain("Ce que couvre ce document");
   });
 
   it("origine cabinet quand c'est le cabinet qui enregistre", async () => {

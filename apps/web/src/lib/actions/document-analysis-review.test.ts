@@ -35,7 +35,10 @@ vi.mock("@/lib/services/document-ingestion-service", () => ({
 vi.mock("@/lib/services/audit-log-service", () => ({
   recordAuditEvent: (...args: unknown[]) => recordAuditEvent(...args),
 }));
-vi.mock("@/lib/security/upload-validation-service", () => ({ validateUploadedFile: vi.fn() }));
+vi.mock("@/lib/security/upload-validation-service", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/security/upload-validation-service")>()),
+  validateUploadedFile: vi.fn(),
+}));
 vi.mock("@/lib/services/establishment-offer-service", () => ({
   getEstablishmentCoveredCategories: vi.fn(),
   isCategoryCoveredForEstablishment: vi.fn(),

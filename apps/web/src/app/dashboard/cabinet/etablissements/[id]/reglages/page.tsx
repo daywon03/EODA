@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { InviteClientForm } from "@/components/etablissement/InviteClientForm";
 import { ClientUserRow } from "@/components/etablissement/ClientUserRow";
 import { EstablishmentLogoForm } from "@/components/etablissement/EstablishmentLogoForm";
+import { EstablishmentBrandColorsForm } from "@/components/etablissement/EstablishmentBrandColorsForm";
 import { DocumentScopeToggle } from "@/components/checklist/DocumentScopeToggle";
 
 export const metadata = { title: "Réglages" };
@@ -123,13 +124,19 @@ export default async function StructureSettingsPage({ params }: Props) {
 
       <Section
         id="settings-logo"
-        title="Logo de la structure"
+        title="Logo et couleurs de la structure"
         description="Il figure sur les documents que la plateforme produit pour cette structure. Sans logo déposé, c'est son nom qui est écrit."
       >
         <EstablishmentLogoForm
           establishmentId={establishment.id}
           establishmentName={establishment.name}
           logoDataUri={establishment.logoDataUri}
+        />
+        <EstablishmentBrandColorsForm
+          establishmentId={establishment.id}
+          establishmentName={establishment.name}
+          primary={establishment.brandPrimaryColor}
+          secondary={establishment.brandSecondaryColor}
         />
       </Section>
 
