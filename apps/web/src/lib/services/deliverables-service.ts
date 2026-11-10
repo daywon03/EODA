@@ -1,6 +1,7 @@
 import type { DocumentCategory } from "@eoda/database";
 import { versionsVisibleToClient } from "./client-documents-view-service";
 import type { DocumentStep } from "./document-workflow-service";
+import { isRestrictedDocumentType } from "@/content/documents/acces-restreint";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // RESTITUTIONS & LIVRABLES — « mise à disposition des livrables VALIDÉS,
@@ -138,9 +139,13 @@ export function selectDeliverables(items: readonly DeliverableSourceItem[]): Del
 // Ce qu'EODA a produit mais n'a pas encore validé. Compté, jamais listé : annoncer
 // « votre livret d'accueil arrive » avant que la consultante l'ait validé, c'est
 // promettre à sa place.
+//
+// Une ligne à accès restreint (le tampon, ADR 20261110) n'en fait jamais partie : EODA y
+// dépose pour la structure et ne la validera pas, ce n'est pas un livrable en cours.
 export function countDeliverablesInProgress(items: readonly DeliverableSourceItem[]): number {
   return items.filter(
-    (item) => item.step !== "VALIDE" && latestCabinetVersion(item.versions) !== null
+    (item) =>
+      item.step !== "VALIDE" && !isRestrictedDocumentType(item.code) && latestCabinetVersion(item.versions) !== null
   ).length;
 }
 

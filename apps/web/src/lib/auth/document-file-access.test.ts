@@ -3,6 +3,7 @@ import { CLIENT_ACCESS_ROLES } from "./capabilities";
 import {
   canDepositDocumentFile,
   canOpenDocumentFile,
+  canOpenFilesOfType,
   documentFileOpenerOf,
   type DocumentFileOpener,
 } from "./document-file-access";
@@ -68,6 +69,20 @@ describe("canOpenDocumentFile — document à accès restreint", () => {
   it("la tablette enregistrée de la structure l'ouvre, pour la pose du tampon", () => {
     expect(canOpenDocumentFile(tablet, { documentTypeCode: RESTRICTED, ...own })).toBe(true);
     expect(canOpenDocumentFile(tablet, { documentTypeCode: RESTRICTED, ...eodaDraft })).toBe(true);
+  });
+});
+
+describe("canOpenFilesOfType — ce que la ligne propose à l'écran", () => {
+  it("ligne ordinaire : tout le monde (la version décide ensuite)", () => {
+    expect(canOpenFilesOfType(cabinet, ORDINARY)).toBe(true);
+    for (const role of CLIENT_ACCESS_ROLES) expect(canOpenFilesOfType(client(role), ORDINARY)).toBe(true);
+  });
+
+  it("ligne restreinte : la direction et la tablette seulement", () => {
+    expect(canOpenFilesOfType(cabinet, RESTRICTED)).toBe(false);
+    expect(canOpenFilesOfType(client("DIRECTION"), RESTRICTED)).toBe(true);
+    expect(canOpenFilesOfType(client("RESPONSABLE_QUALITE"), RESTRICTED)).toBe(false);
+    expect(canOpenFilesOfType(tablet, RESTRICTED)).toBe(true);
   });
 });
 

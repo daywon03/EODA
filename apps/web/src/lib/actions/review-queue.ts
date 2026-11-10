@@ -15,6 +15,7 @@ import {
   type ReviewQueueItem,
 } from "@/lib/services/review-queue-service";
 import { markForeignScript } from "@/lib/llm/script-guard";
+import { RESTRICTED_DOCUMENT_TYPE_CODES } from "@/content/documents/acces-restreint";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // FILE « À RELIRE » — lecture côté cabinet (règles : review-queue-service.ts).
@@ -34,12 +35,19 @@ const REVIEW_QUEUE_LIMIT = 200;
 // Identifiant cuid : une chaîne courte. Tout le reste est refusé avant la base.
 const MAX_ID_LENGTH = 64;
 
+// Un document à accès restreint (le tampon, ADR 20261110) n'entre jamais dans la file :
+// le cabinet ne l'ouvre pas, il n'a rien à y relire — même une analyse d'avant la
+// restriction. `NOT` plutôt que `notIn` : un document sans type reste dans la file.
+const NOT_RESTRICTED = {
+  NOT: { documentType: { code: { in: [...RESTRICTED_DOCUMENT_TYPE_CODES] } } },
+} satisfies Prisma.DocumentWhereInput;
+
 function awaitingReviewWhere(establishment: Prisma.EstablishmentWhereInput): Prisma.DocumentVersionWhereInput {
   return {
     analysisResultJson: { not: Prisma.AnyNull },
     analysisReviewedAt: null,
     currentForDocument: { isNot: null },
-    document: { establishment },
+    document: { establishment, ...NOT_RESTRICTED },
   };
 }
 
@@ -59,6 +67,7 @@ export async function countDocumentsAwaitingReviewByEstablishment(): Promise<Map
     by: ["establishmentId"],
     where: {
       establishment: structureScopeWhere(context),
+      ...NOT_RESTRICTED,
       currentVersion: {
         is: { analysisResultJson: { not: Prisma.AnyNull }, analysisReviewedAt: null },
       },
@@ -75,7 +84,7 @@ export async function getEstablishmentReviewSummary(establishmentId: string): Pr
   const { tenantId } = await requireEstablishmentInTenant(establishmentId, "READ");
   const where: Prisma.DocumentVersionWhereInput = {
     ...awaitingReviewWhere({ tenantId }),
-    document: { establishmentId, establishment: { tenantId } },
+    document: { establishmentId, establishment: { tenantId }, ...NOT_RESTRICTED },
   };
   const [count, oldest] = await Promise.all([
     prisma.documentVersion.count({ where }),
@@ -159,7 +168,7 @@ export async function getReviewQueueEntry(versionId: string): Promise<ReviewQueu
   if (typeof versionId !== "string" || versionId.length === 0 || versionId.length > MAX_ID_LENGTH) notFound();
 
   const version = await prisma.documentVersion.findFirst({
-    where: { id: versionId, document: { establishment: structureScopeWhere(context) } },
+    where: { id: versionId, document: { establishment: structureScopeWhere(context), ...NOT_RESTRICTED } },
     select: {
       id: true,
       versionNumber: true,

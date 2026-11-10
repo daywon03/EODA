@@ -34,10 +34,16 @@ function isDirection(opener: DocumentFileOpener): boolean {
   return opener.side === "CLIENT" && opener.accessRole === "DIRECTION";
 }
 
+// Au niveau de la LIGNE (le type), avant toute version : ce que l'écran propose — un
+// cadenas, ou les boutons Voir / Télécharger. La version, elle, est jugée par
+// `canOpenDocumentFile`.
+export function canOpenFilesOfType(opener: DocumentFileOpener, documentTypeCode: string | null | undefined): boolean {
+  if (!isRestrictedDocumentType(documentTypeCode)) return true;
+  return opener.side === "TABLET" || isDirection(opener);
+}
+
 export function canOpenDocumentFile(opener: DocumentFileOpener, facts: DocumentFileFacts): boolean {
-  if (isRestrictedDocumentType(facts.documentTypeCode)) {
-    return opener.side === "TABLET" || isDirection(opener);
-  }
+  if (isRestrictedDocumentType(facts.documentTypeCode)) return canOpenFilesOfType(opener, facts.documentTypeCode);
   // Une tablette n'ouvre que ce que ses propres sélections lui annoncent (DIPEC validé,
   // fiches validées) — par leurs routes, jamais par cette porte générale.
   if (opener.side === "TABLET") return false;

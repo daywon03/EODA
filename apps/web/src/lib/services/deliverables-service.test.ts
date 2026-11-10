@@ -132,6 +132,14 @@ describe("countDeliverablesInProgress", () => {
       ])
     ).toBe(1);
   });
+
+  // Le tampon déposé par EODA pour la structure (ADR 20261110) ne sera jamais validé :
+  // le compter « en cours de finalisation par EODA » promettrait un livrable qui ne
+  // viendra pas.
+  it("ne compte jamais une ligne à accès restreint", () => {
+    const produced = [version({ id: "v2", versionNumber: 2, producedByCabinet: true })];
+    expect(countDeliverablesInProgress([item({ code: "DEPARTEMENT_TAMPON", step: "DEPOSE", versions: produced })])).toBe(0);
+  });
 });
 
 describe("groupDeliverablesByCategory", () => {

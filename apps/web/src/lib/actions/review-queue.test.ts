@@ -38,11 +38,15 @@ const {
   listDocumentsAwaitingReview,
 } = await import("./review-queue");
 
+// Un document à accès restreint (le tampon, ADR 20261110) n'entre jamais dans la file :
+// le cabinet ne l'ouvre pas, il n'a rien à y relire.
+const NOT_RESTRICTED = { NOT: { documentType: { code: { in: ["DEPARTEMENT_TAMPON"] } } } };
+
 const EXPECTED_WHERE = {
   analysisResultJson: { not: "AnyNull" },
   analysisReviewedAt: null,
   currentForDocument: { isNot: null },
-  document: { establishment: { tenantId: "tenant-1" } },
+  document: { establishment: { tenantId: "tenant-1" }, ...NOT_RESTRICTED },
 };
 
 const ANALYSIS = {
@@ -92,6 +96,7 @@ describe("countDocumentsAwaitingReviewByEstablishment", () => {
         by: ["establishmentId"],
         where: {
           establishment: { tenantId: "tenant-1" },
+          ...NOT_RESTRICTED,
           currentVersion: { is: { analysisResultJson: { not: "AnyNull" }, analysisReviewedAt: null } },
         },
       })
@@ -183,7 +188,7 @@ describe("getReviewQueueEntry", () => {
     const entry = await getReviewQueueEntry("v1");
 
     expect(prismaMock.documentVersion.findFirst).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { id: "v1", document: { establishment: { tenantId: "tenant-1" } } } })
+      expect.objectContaining({ where: { id: "v1", document: { establishment: { tenantId: "tenant-1" }, ...NOT_RESTRICTED } } })
     );
     expect(entry).toMatchObject({
       versionId: "v1",
@@ -235,7 +240,7 @@ describe("getEstablishmentReviewSummary — en-tête de la fiche", () => {
     prismaMock.documentVersion.count.mockResolvedValue(2);
     prismaMock.documentVersion.findFirst.mockResolvedValue({ id: "v-old" });
     await expect(getEstablishmentReviewSummary("e1")).resolves.toEqual({ count: 2, oldestVersionId: "v-old" });
-    const where = { ...EXPECTED_WHERE, document: { establishmentId: "e1", establishment: { tenantId: "tenant-1" } } };
+    const where = { ...EXPECTED_WHERE, document: { establishmentId: "e1", establishment: { tenantId: "tenant-1" }, ...NOT_RESTRICTED } };
     expect(prismaMock.documentVersion.count).toHaveBeenCalledWith({ where });
     expect(prismaMock.documentVersion.findFirst).toHaveBeenCalledWith(
       expect.objectContaining({ where, orderBy: { uploadedAt: "asc" } })
