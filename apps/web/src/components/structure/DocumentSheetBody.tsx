@@ -222,7 +222,6 @@ export function DocumentSheetBody({
         code={item.code}
         declaredMissing={item.declaredMissing}
         missingJustification={item.missingJustification}
-        commentUsedByAi={item.commentUsedByAi}
         hasVersion={version !== null}
       />
       {/* Sous quel TYPE ce fichier est rangé, et la consigne libre donnée au modèle. */}

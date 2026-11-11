@@ -399,6 +399,7 @@ model User {
   anonymousSurveyInvites      AnonymousSurveyInvite[]       @relation("AnonymousSurveyInviteCreatedBy")
   analysisTrialsCreated       AnalysisTrial[]               @relation("AnalysisTrialCreatedBy")
   analysisTrialsJudged        AnalysisTrial[]               @relation("AnalysisTrialJudgedBy")
+  documentComments            DocumentComment[]             @relation("DocumentCommentAuthor")
 
   @@index([tenantId])
   @@map("users")
@@ -859,6 +860,27 @@ model EstablishmentDocumentTypeExclusion {
   @@map("establishment_document_type_exclusions")
 }
 
+// Le FIL de commentaires d'un document (retour de Sandrine, 10/11/2026 : « je ne vois
+// pas l'historique »). Append-only : un commentaire ne se modifie ni ne se supprime ;
+// seul « pris en compte par l'IA » se bascule (journalisé). L'IA relit tous les
+// commentaires cochés (document-comment-thread-service). Affiché au cabinet seulement.
+model DocumentComment {
+  id           String   @id @default(cuid())
+  documentId   String   @map("document_id")
+  authorUserId String?  @map("author_user_id")
+  text         String
+  aiEnabled    Boolean  @default(true) @map("ai_enabled")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  // SetNull : un compte désactivé ou supprimé n'efface pas ce qu'il a écrit.
+  author   User?    @relation("DocumentCommentAuthor", fields: [authorUserId], references: [id], onDelete: SetNull)
+
+  @@index([documentId, createdAt])
+  @@index([authorUserId])
+  @@map("document_comments")
+}
+
 // Rattache une fiche de la bibliothèque de modèles à des critères HAS — même
 // patron que DocumentTypeCriterion ci-dessus, pour la bibliothèque de modèles
 // plutôt que pour les documents attendus du client (demande du 16/09/2026).
@@ -940,6 +962,7 @@ model Document {
   clientAcceptedBy     User?                         @relation("DocumentClientAcceptedBy", fields: [clientAcceptedByUserId], references: [id], onDelete: SetNull)
   criterionSuggestions DocumentCriterionSuggestion[]
   actionItems          ActionItem[]
+  comments             DocumentComment[]
 
   @@unique([establishmentId, documentTypeId])
   @@index([documentTypeId])
@@ -1981,6 +2004,9 @@ enum AuditAction {
   // « Commentaire sur ce document » remis ou retiré de l'IA (21/10/2026). `targetId` =
   // type de document, `detail` = « oui » / « non », jamais le commentaire.
   DOCUMENT_COMMENT_AI_TOGGLED
+  // Un commentaire ajouté au fil d'un document (10/11/2026). Code du type seulement,
+  // jamais le texte.
+  DOCUMENT_COMMENT_ADDED
   // Fil d'échange (audit du 28/10/2026) : un message posté, un débit dépassé.
   // `detail` porte le côté, jamais le texte du message.
   MISSION_MESSAGE_POSTED
