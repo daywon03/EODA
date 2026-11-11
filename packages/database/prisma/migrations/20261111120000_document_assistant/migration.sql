@@ -1,6 +1,5 @@
 -- ASSISTANT DE LA FICHE DOCUMENT (lot F, 11/11/2026, construit comme MusicPlanner).
--- Conversations d'un compte du cabinet — sur UN document d'UNE structure (fiche
--- document), ou sans structure ni document (assistant du menu latéral) —, messages
+-- Conversations d'un compte du cabinet sur UN document d'UNE structure, messages
 -- (propositions en JSON), crédits du jour par compte (40, remis à minuit à Paris).
 --
 -- Additive : trois tables neuves, une énumération, deux actions de journal ; aucune
@@ -16,8 +15,8 @@ CREATE TYPE "AssistantMessageRole" AS ENUM ('USER', 'ASSISTANT');
 CREATE TABLE "assistant_conversations" (
     "id" TEXT NOT NULL,
     "user_id" TEXT NOT NULL,
-    "establishment_id" TEXT,
-    "document_type_id" TEXT,
+    "establishment_id" TEXT NOT NULL,
+    "document_type_id" TEXT NOT NULL,
     "title" TEXT NOT NULL,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMP(3) NOT NULL,
