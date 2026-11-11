@@ -7,7 +7,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const prismaMock = {
   documentType: { findUnique: vi.fn() },
-  document: { findUnique: vi.fn() },
+  document: { findUnique: vi.fn(), findFirst: vi.fn() },
+  correctionProposal: { findFirst: vi.fn(), updateMany: vi.fn(), create: vi.fn() },
+  documentVersion: { update: vi.fn() },
+  $transaction: vi.fn(async (ops: unknown[]) => Promise.all(ops)),
   documentTypeCriterion: { findMany: vi.fn() },
   assistantCreditDay: { findUnique: vi.fn(), upsert: vi.fn() },
   assistantConversation: { findMany: vi.fn(), findFirst: vi.fn(), create: vi.fn(), update: vi.fn(), deleteMany: vi.fn() },
@@ -19,6 +22,9 @@ const reply = vi.fn();
 const getAssistantChatPort = vi.fn();
 const addDocumentComment = vi.fn();
 const requestInformationFromStructure = vi.fn();
+const openCorrectionContext = vi.fn();
+const readCriterionLabels = vi.fn();
+const revalidatePath = vi.fn();
 
 vi.mock("@eoda/database", () => ({ prisma: prismaMock }));
 vi.mock("next/navigation", () => ({
@@ -42,6 +48,11 @@ vi.mock("@/lib/llm/assistant-chat", async () => {
   return { AssistantChatError, getAssistantChatPort: () => getAssistantChatPort() };
 });
 vi.mock("./document-comment", () => ({ addDocumentComment: (...a: unknown[]) => addDocumentComment(...a) }));
+vi.mock("next/cache", () => ({ revalidatePath: (p: string) => revalidatePath(p) }));
+vi.mock("./correction-context", () => ({
+  openCorrectionContext: (id: string) => openCorrectionContext(id),
+  readCriterionLabels: (codes: string[]) => readCriterionLabels(codes),
+}));
 vi.mock("./information-request", () => ({
   requestInformationFromStructure: (f: FormData) => requestInformationFromStructure(f),
 }));
@@ -211,6 +222,106 @@ describe("resolveAssistantProposal", () => {
     prismaMock.assistantMessage.findFirst.mockResolvedValue(pending("COMMENT"));
     expect(await resolveAssistantProposal("etab-1", "m-1", 0, "DISMISS")).toBeNull();
     expect(addDocumentComment).not.toHaveBeenCalled();
+  });
+});
+
+describe("resolveAssistantProposal — ajout au document", () => {
+  const addition = {
+    id: "m-2",
+    proposalsJson: [
+      {
+        kind: "ADDITION",
+        text: "Vous pouvez faire appel à une personne qualifiée.",
+        status: "PENDING",
+        anchor: "Vous êtes associé à votre projet.",
+        criterionCode: "1.2.5",
+      },
+    ],
+    conversation: { documentTypeId: "dt-livret" },
+  };
+  const context = (overrides: Record<string, unknown> = {}) => ({
+    access: { userId: "u-eval", session: { user: { role: "CABINET_EVALUATOR" } }, missionAccess: "ACTIVE" },
+    right: { included: true },
+    version: { id: "v-1", extractedText: "Vos droits.\n\nVous êtes associé à votre projet.\n\nRéclamations." },
+    ...overrides,
+  });
+
+  beforeEach(() => {
+    prismaMock.assistantMessage.findFirst.mockResolvedValue(addition);
+    prismaMock.document.findFirst.mockResolvedValue({ currentVersionId: "v-1" });
+    readCriterionLabels.mockResolvedValue(new Map([["1.2.5", "Plaintes et réclamations"]]));
+    prismaMock.correctionProposal.updateMany.mockResolvedValue({ count: 1 });
+  });
+
+  it("sans mise en conformité ouverte : en crée une depuis l'original, l'ajout placé après sa citation", async () => {
+    openCorrectionContext.mockResolvedValue(context());
+    prismaMock.correctionProposal.findFirst.mockResolvedValue(null);
+    expect(await resolveAssistantProposal("etab-1", "m-2", 0, "CONFIRM")).toBeNull();
+    expect(openCorrectionContext).toHaveBeenCalledWith("v-1");
+    const data = prismaMock.correctionProposal.create.mock.calls[0]?.[0].data;
+    expect(data.sourceVersionId).toBe("v-1");
+    expect(data.generatedById).toBe("u-eval");
+    expect(data.proposalJson.segments.map((s: { kind: string }) => s.kind)).toEqual(["ORIGINAL", "ORIGINAL", "AJOUT", "ORIGINAL"]);
+    expect(data.proposalJson.segments[2]).toMatchObject({ criterionCode: "1.2.5", id: "assistant-1" });
+    expect(prismaMock.assistantMessage.update).toHaveBeenCalledWith({
+      where: { id: "m-2" },
+      data: { proposalsJson: [expect.objectContaining({ kind: "ADDITION", status: "APPLIED" })] },
+    });
+    // Journal : jamais le texte de l'ajout.
+    const detail = recordAuditEvent.mock.calls[0]?.[0].detail as string;
+    expect(detail).not.toContain("personne qualifiée");
+    expect(revalidatePath).toHaveBeenCalledWith("/dashboard/cabinet/conformite/v-1");
+  });
+
+  it("mise en conformité ouverte : l'ajout s'y insère par une écriture conditionnelle", async () => {
+    openCorrectionContext.mockResolvedValue(context());
+    prismaMock.correctionProposal.findFirst.mockResolvedValue({
+      id: "p-1",
+      resultVersionId: null,
+      proposalJson: { schemaVersion: 1, segments: [{ kind: "ORIGINAL", text: "Vous êtes associé à votre projet." }] },
+    });
+    expect(await resolveAssistantProposal("etab-1", "m-2", 0, "CONFIRM")).toBeNull();
+    expect(prismaMock.correctionProposal.create).not.toHaveBeenCalled();
+    expect(prismaMock.correctionProposal.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: "p-1", resultVersionId: null } })
+    );
+  });
+
+  it("proposition enregistrée entre-temps : rien n'est ajouté, la carte reste en attente", async () => {
+    openCorrectionContext.mockResolvedValue(context());
+    prismaMock.correctionProposal.findFirst.mockResolvedValue({
+      id: "p-1",
+      resultVersionId: null,
+      proposalJson: { schemaVersion: 1, segments: [{ kind: "ORIGINAL", text: "Texte." }] },
+    });
+    prismaMock.correctionProposal.updateMany.mockResolvedValue({ count: 0 });
+    expect(await resolveAssistantProposal("etab-1", "m-2", 0, "CONFIRM")).toMatchObject({ error: expect.any(String) });
+    expect(prismaMock.assistantMessage.update).not.toHaveBeenCalled();
+  });
+
+  it("hors droit de l'offre : refusé, rien n'est écrit", async () => {
+    openCorrectionContext.mockResolvedValue(context({ right: { included: false } }));
+    expect(await resolveAssistantProposal("etab-1", "m-2", 0, "CONFIRM")).toMatchObject({ error: expect.any(String) });
+    expect(prismaMock.correctionProposal.create).not.toHaveBeenCalled();
+    expect(prismaMock.assistantMessage.update).not.toHaveBeenCalled();
+  });
+
+  it("accompagnement terminé : refusé", async () => {
+    openCorrectionContext.mockResolvedValue(context({ access: { userId: "u-eval", session: { user: { role: "CABINET_EVALUATOR" } }, missionAccess: "LIBRARY" } }));
+    expect(await resolveAssistantProposal("etab-1", "m-2", 0, "CONFIRM")).toMatchObject({ error: expect.any(String) });
+    expect(prismaMock.correctionProposal.create).not.toHaveBeenCalled();
+  });
+
+  it("aucun fichier déposé : refusé sans ouvrir la mise en conformité", async () => {
+    prismaMock.document.findFirst.mockResolvedValue({ currentVersionId: null });
+    expect(await resolveAssistantProposal("etab-1", "m-2", 0, "CONFIRM")).toMatchObject({ error: expect.any(String) });
+    expect(openCorrectionContext).not.toHaveBeenCalled();
+  });
+
+  it("document à accès restreint : la garde de la mise en conformité répond introuvable", async () => {
+    openCorrectionContext.mockRejectedValue(new Error("NOT_FOUND"));
+    await expect(resolveAssistantProposal("etab-1", "m-2", 0, "CONFIRM")).rejects.toThrow("NOT_FOUND");
+    expect(prismaMock.assistantMessage.update).not.toHaveBeenCalled();
   });
 });
 

@@ -1,4 +1,6 @@
 import Link from "next/link";
+import type { ReactNode } from "react";
+import { PanelRightClose, Sparkles } from "lucide-react";
 import { generateCorrectionProposal, type CorrectionWorkspace } from "@/lib/actions/correction-proposal";
 import { formatDateTime } from "@/lib/services/date-format-service";
 import { Callout } from "@/components/ui/callout";
@@ -8,18 +10,81 @@ import { ComplianceSideBySide } from "./ComplianceSideBySide";
 // Corps de l'écran « Mettre en conformité » (N8), commun au portail client et au
 // cabinet : seul le lien de retour change. La mention vient de review-mention-service
 // (en autonomie : la réserve complète) ; une proposition n'est jamais « validée ».
-export function CorrectionWorkspaceView({ workspace, backHref, backLabel }: { workspace: CorrectionWorkspace; backHref: string; backLabel: string }) {
+//
+// Côté cabinet, `assistant` ajoute le panneau de l'assistant À DROITE (11/11/2026,
+// « comme VS Code ») : le document au centre, la conversation à côté. Le panneau
+// s'ouvre et se ferme par l'adresse (`?assistant=1`), sans JavaScript ; l'assistant
+// garde ses propres gardes et ses crédits. Le portail de la structure ne le passe pas.
+export type WorkspaceAssistant = { open: boolean; openHref: string; closeHref: string; panel: ReactNode };
+
+export function CorrectionWorkspaceView({
+  workspace,
+  backHref,
+  backLabel,
+  assistant,
+}: {
+  workspace: CorrectionWorkspace;
+  backHref: string;
+  backLabel: string;
+  assistant?: WorkspaceAssistant | undefined;
+}) {
+  const body = <WorkspaceBody workspace={workspace} backHref={backHref} backLabel={backLabel} assistant={assistant} />;
+  if (!assistant?.open) return body;
+  return (
+    <div className="flex flex-wrap items-start gap-6">
+      <div className="min-w-0 flex-[999_1_560px]">{body}</div>
+      <aside
+        aria-label="Assistant"
+        className="w-full min-w-0 flex-[1_1_360px] lg:sticky lg:top-4 lg:max-w-[420px]"
+      >
+        <div className="mb-2 flex justify-end">
+          <Link
+            href={assistant.closeHref}
+            className="inline-flex min-h-11 items-center gap-2 rounded-lg px-3 text-ink2 hover:bg-soft hover:text-ink"
+          >
+            <PanelRightClose className="h-4 w-4" aria-hidden="true" />
+            Fermer l&apos;assistant
+          </Link>
+        </div>
+        {assistant.panel}
+      </aside>
+    </div>
+  );
+}
+
+function WorkspaceBody({
+  workspace,
+  backHref,
+  backLabel,
+  assistant,
+}: {
+  workspace: CorrectionWorkspace;
+  backHref: string;
+  backLabel: string;
+  assistant?: WorkspaceAssistant | undefined;
+}) {
   const { context, proposal } = workspace;
   const generate = generateCorrectionProposal.bind(null, context.version.id, null);
 
   return (
     <div className="flex flex-col gap-6">
-      <Link
-        href={backHref}
-        className="inline-flex min-h-12 w-fit items-center rounded-[10px] border border-ink bg-card px-4 text-ink hover:bg-soft"
-      >
-        ← {backLabel}
-      </Link>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <Link
+          href={backHref}
+          className="inline-flex min-h-12 w-fit items-center rounded-[10px] border border-ink bg-card px-4 text-ink hover:bg-soft"
+        >
+          ← {backLabel}
+        </Link>
+        {assistant && !assistant.open && (
+          <Link
+            href={assistant.openHref}
+            className="inline-flex min-h-12 w-fit items-center gap-2 rounded-[10px] border border-ink bg-ink-fill px-4 font-bold text-on-ink hover:opacity-90"
+          >
+            <Sparkles className="h-4 w-4" aria-hidden="true" />
+            Assistant
+          </Link>
+        )}
+      </div>
 
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0">

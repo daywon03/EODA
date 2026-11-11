@@ -24,6 +24,7 @@ import {
   parseDecisions,
   proposalToMarkdown,
   readDecisionsRecord,
+  splitParagraphs,
   type ProposalDecision,
 } from "@/lib/services/correction-proposal-service";
 import { readStoredProposal, type CorrectionProposal } from "@/lib/llm/correction-proposal";
@@ -60,13 +61,6 @@ export type CorrectionWorkspace = {
   generateBlockedReason: string | null;
   canSave: boolean;
 };
-
-function splitParagraphs(text: string | null): string[] {
-  return (text ?? "")
-    .split(/\n\s*\n/)
-    .map((p) => p.trim())
-    .filter((p) => p.length > 0);
-}
 
 export async function getCorrectionWorkspace(versionId: string): Promise<CorrectionWorkspace> {
   const context = await openCorrectionContext(versionId);

@@ -173,3 +173,12 @@ export function canUseComplianceWorkspace(facts: { isClient: boolean; mode: Supp
 export function nextVersionLabel(currentVersionNumber: number): string {
   return `Enregistrer la version ${currentVersionNumber + 1}`;
 }
+
+// Les paragraphes du texte extrait, tels que l'écran côte à côte les montre ; partagé
+// avec l'ajout de l'assistant, qui part de ces mêmes paragraphes.
+export function splitParagraphs(text: string | null): string[] {
+  return (text ?? "")
+    .split(/\n\s*\n/)
+    .map((p) => p.trim())
+    .filter((p) => p.length > 0);
+}
