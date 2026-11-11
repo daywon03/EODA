@@ -1,4 +1,4 @@
-import { prisma, type Prisma } from "@eoda/database";
+import { prisma, type AppTransactionClient } from "@eoda/database";
 import { appUrl } from "@/lib/config/app-url";
 import { generateOneTimeToken, hashOneTimeToken, oneTimeTokenExpiry } from "@/lib/security/one-time-token";
 import { PASSWORD_SETUP_TTL_HOURS, passwordSetupPathFor } from "@/lib/services/password-setup-service";
@@ -8,7 +8,7 @@ import { PASSWORD_SETUP_TTL_HOURS, passwordSetupPathFor } from "@/lib/services/p
 // Rend l'URL complète, EN CLAIR, qui ne vit que le temps de partir par e-mail (ou de
 // s'afficher une fois au cabinet si l'e-mail n'est pas parti) ; seule l'empreinte est
 // écrite.
-export async function issuePasswordSetupLink(userId: string, now: Date = new Date(), tx: Prisma.TransactionClient = prisma): Promise<string> {
+export async function issuePasswordSetupLink(userId: string, now: Date = new Date(), tx: AppTransactionClient = prisma): Promise<string> {
   const token = generateOneTimeToken();
   await tx.passwordSetupToken.updateMany({ where: { userId, usedAt: null }, data: { usedAt: now } });
   await tx.passwordSetupToken.create({

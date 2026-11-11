@@ -29,6 +29,8 @@ import { clientDocumentsViewHref, describeClientTodo } from "@/lib/services/clie
 import { SUPPORT_OPTION_CODE } from "@/lib/services/support-mode-service";
 import { CLIENT_DOCUMENTS_PATH } from "@/lib/design/client-navigation";
 import { EstablishmentLogoForm } from "@/components/etablissement/EstablishmentLogoForm";
+import { readLogoVersion } from "@/lib/db/read-logo-version";
+import { CLIENT_LOGO_URL, versionedLogoUrl } from "@/lib/services/logo-response-service";
 import { DepositButton } from "@/components/client/documents/DepositButton";
 import { AccompaniedHomeCard, AutonomyHomeCard } from "@/components/client/home/HomeSupportCards";
 
@@ -45,15 +47,17 @@ export default async function ClientHomePage() {
   // Rôle d'accès d'abord (N9) : l'accueil complet lit les documents, les rendez-vous
   // et le contrat ; un rôle qui n'a pas les documents (intervenant) reçoit un accueil
   // réduit à ce qu'il peut faire — ses lectures gardées le renverraient ici en boucle.
-  const { accessRole } = await requireClientEstablishment("HOME");
+  const { accessRole, establishment: linkedEstablishment } = await requireClientEstablishment("HOME");
   if (accessRole && !clientAllows(accessRole, NEED.DOCUMENTS_READ)) {
     return <LimitedClientHome accessRole={accessRole} firstName={await getClientGreetingName()} />;
   }
   const canSeeAppointments = !accessRole || clientAllows(accessRole, { module: "MESSAGES", mode: "READ" });
   const canSeeContract = !accessRole || clientAllows(accessRole, { module: "CONTRACT", mode: "READ" });
-  const [data, appointments] = await Promise.all([
+  const [data, appointments, logoVersion] = await Promise.all([
     getClientChecklist(),
     canSeeAppointments ? listClientAppointments(3) : Promise.resolve([]),
+    // Même lecture mémoïsée que la coquille : une seule requête pour les deux.
+    linkedEstablishment ? readLogoVersion(linkedEstablishment.id) : Promise.resolve(null),
   ]);
   const { establishment, checklist, missionAccess, libraryUpdateAlert, supportMode, userName } = data;
 
@@ -199,7 +203,7 @@ export default async function ClientHomePage() {
           <EstablishmentLogoForm
             establishmentId={establishment.id}
             establishmentName={establishment.name}
-            logoDataUri={establishment.logoDataUri}
+            logoSrc={versionedLogoUrl(CLIENT_LOGO_URL, logoVersion)}
             uploadAction={uploadEstablishmentLogoAsClient}
             removeAction={removeEstablishmentLogoAsClient}
           />
