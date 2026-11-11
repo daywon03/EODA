@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { cn } from "@/lib/utils";
-import { TAB_COUNT_CLASS, TAB_LIST_CLASS, tabClassName } from "./tab-styles";
+import { TAB_COUNT_CLASS, TAB_LIST_CLASS, TAB_WRAP_CLASS, tabClassName } from "./tab-styles";
 
 export type TabLink = {
   id: string;
@@ -20,14 +20,17 @@ export function TabsNav({
   tabs,
   activeId,
   className,
+  wrap = false,
 }: {
   label: string;
   tabs: readonly TabLink[];
   activeId: string | null;
   className?: string;
+  // true : les onglets passent à la ligne au lieu de défiler (barres longues).
+  wrap?: boolean;
 }) {
   return (
-    <nav aria-label={label} className={cn(TAB_LIST_CLASS, className)}>
+    <nav aria-label={label} className={cn(wrap ? TAB_WRAP_CLASS : TAB_LIST_CLASS, className)}>
       {tabs.map((tab) => {
         const isActive = tab.id === activeId;
         return (

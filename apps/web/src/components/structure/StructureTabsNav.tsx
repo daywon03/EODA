@@ -20,6 +20,8 @@ export function StructureTabsNav({ establishmentId, visibleTabIds }: { establish
       tabs={tabs}
       activeId={activeStructureTabId(pathname, establishmentId)}
       className="mt-4"
+      // Onze onglets : tous visibles, sur deux lignes si besoin, jamais coupés au bord.
+      wrap
     />
   );
 }
