@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   ASSISTANT_DAILY_CREDITS,
   ASSISTANT_REPLY_RESERVE,
+  cleanAssistantText,
   buildAssistantContext,
   buildAssistantSystemPrompt,
   conversationTitle,
@@ -79,6 +80,13 @@ describe("parseAssistantReply — la réponse du modèle, validée", () => {
   it("ne dit jamais « conforme » : le mot est remplacé", () => {
     expect(parseAssistantReply(JSON.stringify({ reponse: "Le document est conforme.", propositions: [] })).text).toBe(
       "Le document est complet selon cette lecture, à vérifier."
+    );
+  });
+
+  // Essai réel du 11/11/2026 : malgré la consigne, le modèle écrit encore « **Titre :** ».
+  it("retire le Markdown que l'écran afficherait tel quel", () => {
+    expect(cleanAssistantText("## Bilan\n**Documents à relire :**\n- __Plan__ de crise\n> note", 1000)).toBe(
+      "Bilan\nDocuments à relire :\n- Plan de crise\nnote"
     );
   });
 

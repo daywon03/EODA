@@ -1,4 +1,5 @@
 import {
+  Sparkles,
   BookOpen,
   Building2,
   CalendarDays,
@@ -34,6 +35,7 @@ export const NAV_ICONS: Record<NavIconKey, LucideIcon> = {
   home: House,
   structures: Building2,
   review: ClipboardCheck,
+  assistant: Sparkles,
   agenda: CalendarDays,
   library: Library,
   journal: ScrollText,

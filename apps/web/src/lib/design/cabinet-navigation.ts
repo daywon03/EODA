@@ -28,6 +28,8 @@ export const TEAM_PATH = `${CABINET_ROOT}/equipe`;
 export const CONTENT_REVIEW_PATH = `${CABINET_ROOT}/contenus`;
 // Laboratoire d'analyse : bilan des essais de prompt et des verdicts (29/10/2026).
 export const ANALYSIS_LAB_PATH = `${CABINET_ROOT}/laboratoire`;
+// Assistant du menu latéral (11/11/2026, comme MusicPlanner).
+export const ASSISTANT_PATH = `${CABINET_ROOT}/assistant`;
 const COMMERCIAL_ROOT = `${CABINET_ROOT}/commercial`;
 
 export type CabinetNavCounts = {
@@ -60,6 +62,11 @@ function structureItems(role: UserRole, counts: CabinetNavCounts): NavItem[] {
       count: counts.documentsAwaitingReview,
       countLabel: pluralize(counts.documentsAwaitingReview, "document à relire", "documents à relire"),
     },
+    // Poser une question coûte des crédits et propose des actions : qui écrit seulement
+    // (la page le revérifie, requireCabinetSession).
+    ...(hasCabinetCapability(role, "STRUCTURES_WRITE")
+      ? [{ id: "assistant", href: ASSISTANT_PATH, label: "Assistant", icon: "assistant" as const }]
+      : []),
   ];
 }
 

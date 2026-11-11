@@ -80,8 +80,19 @@ function withoutVerdict(text: string): string {
   return text.replace(/\best conforme\b/gi, "est complet selon cette lecture, à vérifier").replace(/\bconformes?\b/gi, "complet selon cette lecture");
 }
 
+// Le Markdown que l'écran afficherait tel quel (« **Titre :** », « ## », « > ») : le
+// modèle en écrit malgré la consigne (essai réel du 11/11/2026). Les tirets de liste
+// restent : ce sont eux que la consigne demande.
+function withoutMarkdown(text: string): string {
+  return text
+    .replace(/\*\*([^*\n]+)\*\*/g, "$1")
+    .replace(/__([^_\n]+)__/g, "$1")
+    .replace(/^#{1,6}\s+/gm, "")
+    .replace(/^>\s?/gm, "");
+}
+
 export function cleanAssistantText(text: string, max: number): string {
-  return withoutVerdict(text.trim()).slice(0, max);
+  return withoutVerdict(withoutMarkdown(text.trim())).slice(0, max);
 }
 
 export function parseAssistantReply(raw: string): { text: string; proposals: AssistantProposal[] } {

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useId, useState, useTransition } from "react";
-import { Check, Loader2, MessageSquarePlus, Plus, Send, Sparkles, Trash2, X } from "lucide-react";
+import { Loader2, MessageSquarePlus, Plus, Send, Sparkles, Trash2 } from "lucide-react";
 import {
   askDocumentAssistant,
   deleteAssistantConversation,
@@ -9,8 +9,8 @@ import {
   resolveAssistantProposal,
   type AssistantState,
 } from "@/lib/actions/document-assistant";
-import { isCreditLow, MAX_QUESTION_LENGTH, type AssistantProposal } from "@/lib/services/assistant-service";
-import { cn } from "@/lib/utils";
+import { MAX_QUESTION_LENGTH, type AssistantProposal } from "@/lib/services/assistant-service";
+import { CreditGauge, MessageBubble, ProposalCard, ThinkingIndicator } from "./assistant-parts";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
@@ -25,11 +25,6 @@ import { Textarea } from "@/components/ui/textarea";
 const PROPOSAL_COPY: Record<AssistantProposal["kind"], { title: string; confirm: string }> = {
   COMMENT: { title: "Consigne à retenir pour l'IA", confirm: "Ajouter aux commentaires" },
   INFORMATION_REQUEST: { title: "Demande à la structure", confirm: "Envoyer la demande" },
-};
-const STATUS_COPY: Record<AssistantProposal["status"], string> = {
-  PENDING: "",
-  APPLIED: "Fait",
-  DISMISSED: "Écartée",
 };
 
 export function DocumentAssistant({ establishmentId, documentTypeId }: { establishmentId: string; documentTypeId: string }) {
@@ -117,9 +112,7 @@ export function DocumentAssistant({ establishmentId, documentTypeId }: { establi
           <Sparkles className="h-4 w-4 text-accent-text" aria-hidden="true" />
           Assistant
         </h3>
-        <p className={cn("text-sm", isCreditLow(remaining) ? "font-bold text-danger-text" : "text-ink2")}>
-          {remaining}/{state.credits.limit} crédits aujourd&apos;hui
-        </p>
+        <CreditGauge used={state.credits.used} limit={state.credits.limit} />
       </div>
       <p className="text-sm text-ink2">
         Il lit ce document, son analyse, ses critères et vos commentaires. Ses réponses sont des propositions à vérifier :
@@ -171,53 +164,26 @@ export function DocumentAssistant({ establishmentId, documentTypeId }: { establi
       {state.messages.length > 0 && (
         <ol aria-label="Échanges avec l'assistant" className="max-h-[28rem] space-y-3 overflow-y-auto">
           {state.messages.map((message) => (
-            <li key={message.id} className={cn("space-y-2", message.role === "USER" && "pl-8")}>
-              <div
-                className={cn(
-                  "whitespace-pre-wrap break-words rounded-lg px-3 py-2 text-ink",
-                  message.role === "USER" ? "bg-soft" : "border border-line bg-surface"
-                )}
-              >
-                <span className="sr-only">{message.role === "USER" ? "Vous : " : "Assistant : "}</span>
-                {message.content}
-              </div>
+            <li key={message.id} className="space-y-2">
+              <MessageBubble role={message.role}>{message.content}</MessageBubble>
               {message.proposals.map((proposal, index) => (
-                <div key={index} className="space-y-2 rounded-lg border border-accent-text/40 bg-card p-3">
-                  <p className="text-sm font-bold text-ink">{PROPOSAL_COPY[proposal.kind].title}</p>
-                  <p className="whitespace-pre-wrap break-words text-ink">{proposal.text}</p>
-                  {proposal.status === "PENDING" ? (
-                    <div className="flex flex-wrap gap-2">
-                      <Button type="button" size="sm" onClick={() => decide(message.id, index, "CONFIRM")} disabled={isPending}>
-                        <Check className="h-4 w-4" aria-hidden="true" />
-                        {PROPOSAL_COPY[proposal.kind].confirm}
-                      </Button>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => decide(message.id, index, "DISMISS")}
-                        disabled={isPending}
-                      >
-                        <X className="h-4 w-4" aria-hidden="true" />
-                        Écarter
-                      </Button>
-                    </div>
-                  ) : (
-                    <p className="text-sm text-ink2">{STATUS_COPY[proposal.status]}</p>
-                  )}
-                </div>
+                <ProposalCard
+                  key={index}
+                  title={PROPOSAL_COPY[proposal.kind].title}
+                  text={proposal.text}
+                  status={proposal.status}
+                  confirmLabel={PROPOSAL_COPY[proposal.kind].confirm}
+                  disabled={isPending}
+                  onConfirm={() => decide(message.id, index, "CONFIRM")}
+                  onDismiss={() => decide(message.id, index, "DISMISS")}
+                />
               ))}
             </li>
           ))}
         </ol>
       )}
 
-      {thinking && (
-        <p role="status" className="flex items-center gap-2 text-ink2">
-          <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-          L&apos;assistant réfléchit…
-        </p>
-      )}
+      {thinking && <ThinkingIndicator />}
 
       {!state.available && state.unavailableReason && <p className="text-ink2">{state.unavailableReason}</p>}
 
