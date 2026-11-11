@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { useId, type ReactNode } from "react";
 import Link from "next/link";
 import { ChevronDown } from "lucide-react";
+import { useDisclosure } from "@/components/ui/use-disclosure";
 
 export type MoreActionLink = {
   id: string;
@@ -20,28 +21,8 @@ const ITEM_CLASS = "flex min-h-11 w-full items-center rounded-md px-3 text-left 
 // `role="menu"` : ce sont des liens et un bouton ordinaires, atteints à la
 // tabulation. Échap et un clic à l'extérieur referment ; le focus revient au bouton.
 export function MoreActionsMenu({ links, footer }: { links: readonly MoreActionLink[]; footer?: ReactNode }) {
-  const [open, setOpen] = useState(false);
+  const { open, setOpen, rootRef: root, triggerRef: trigger } = useDisclosure();
   const panelId = useId();
-  const root = useRef<HTMLDivElement>(null);
-  const trigger = useRef<HTMLButtonElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    function onPointerDown(event: PointerEvent) {
-      if (root.current && !root.current.contains(event.target as Node)) setOpen(false);
-    }
-    function onKeyDown(event: KeyboardEvent) {
-      if (event.key !== "Escape") return;
-      setOpen(false);
-      trigger.current?.focus();
-    }
-    document.addEventListener("pointerdown", onPointerDown);
-    document.addEventListener("keydown", onKeyDown);
-    return () => {
-      document.removeEventListener("pointerdown", onPointerDown);
-      document.removeEventListener("keydown", onKeyDown);
-    };
-  }, [open]);
 
   return (
     <div ref={root} className="relative">

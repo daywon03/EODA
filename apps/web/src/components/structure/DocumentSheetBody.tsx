@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Wand2 } from "lucide-react";
+import { Sparkles, Wand2 } from "lucide-react";
 import type { ChecklistItem } from "@/lib/actions/checklist";
 import { documentRowPill } from "@/lib/services/structure-documents-service";
 import { StatusPill } from "@/components/ui/status-pill";
@@ -17,7 +17,6 @@ import { DocumentSheetTabs } from "@/components/structure/DocumentSheetTabs";
 import {
   AnalysisLabPanel,
   CriterionLinker,
-  DocumentAssistantLauncher,
   DocumentAnalysisPanel,
   DocumentFolderPicker,
   DocumentSettingsPanel,
@@ -28,6 +27,7 @@ import {
 } from "@/components/structure/lazy-document-panels";
 import { PARTICIPATION_LINE_CODE } from "@/lib/services/participation-form-service";
 import { buttonVariants } from "@/components/ui/button";
+import { cabinetConformityHref, documentAssistantEntry } from "@/lib/services/document-assistant-entry-service";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Contenu du panneau latéral d'un document (onglet Documents de la fiche). Il
@@ -78,8 +78,29 @@ export function DocumentSheetBody({
   };
   const removable = canEditScope && canRemoveDocumentType({ code: item.code, category: item.category, archivedAt: null });
 
+  const assistant = documentAssistantEntry({
+    canWrite: canWriteGuidelines,
+    restrictedAccess: item.restrictedAccess,
+    versionId: version?.id ?? null,
+  });
+
   const header = (
     <>
+      {/* Assistant (11/11/2026) : dans l'en-tête, visible depuis les trois onglets. Il
+          ouvre la mise en conformité avec l'assistant à droite ; quand il ne peut pas
+          servir, il reste à sa place et dit pourquoi. */}
+      {assistant.kind === "OPEN" && (
+        <Link href={assistant.href} className={buttonVariants({ variant: "outline", className: "w-full sm:w-auto" })}>
+          <Sparkles className="h-4 w-4" aria-hidden="true" />
+          Ouvrir avec l&apos;assistant
+        </Link>
+      )}
+      {assistant.kind === "UNAVAILABLE" && (
+        <p className="flex items-start gap-2 text-sm text-ink2">
+          <Sparkles className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+          {assistant.reason}
+        </p>
+      )}
       <p className="text-sm text-ink2">{categoryLabel}</p>
       <StatusPill pill={documentRowPill(item)} />
       {item.isConditional && item.status !== "NOT_APPLICABLE" && <p className="text-sm text-ink2">Si concerné</p>}
@@ -188,15 +209,10 @@ export function DocumentSheetBody({
       {version && !item.restrictedAccess && (
         // Bien visible (retours du 09/11/2026) : la mise en conformité côte à côte, qui
         // reste soumise au droit de la mission côté serveur.
-        <Link href={`/dashboard/cabinet/conformite/${version.id}`} className={buttonVariants({ className: "w-full sm:w-auto" })}>
+        <Link href={cabinetConformityHref(version.id, { assistant: false })} className={buttonVariants({ className: "w-full sm:w-auto" })}>
           <Wand2 className="h-4 w-4" aria-hidden="true" />
           Mettre en conformité
         </Link>
-      )}
-      {/* Assistant (lot F, 11/11/2026) : questions sur CE document, chargé au clic ;
-          jamais sur un document restreint ; écriture STRUCTURES_WRITE. */}
-      {version && !item.restrictedAccess && canWriteGuidelines && (
-        <DocumentAssistantLauncher establishmentId={establishmentId} documentTypeId={item.documentTypeId} />
       )}
       {version?.analysis ? (
         <DocumentAnalysisPanel

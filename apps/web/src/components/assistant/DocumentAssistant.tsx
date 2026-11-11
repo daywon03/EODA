@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useId, useState, useTransition } from "react";
-import { Loader2, MessageSquarePlus, Plus, Send, Sparkles, Trash2 } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Loader2, Plus, Sparkles, Trash2 } from "lucide-react";
 import {
   askDocumentAssistant,
   deleteAssistantConversation,
@@ -9,11 +10,13 @@ import {
   resolveAssistantProposal,
   type AssistantState,
 } from "@/lib/actions/document-assistant";
-import { MAX_QUESTION_LENGTH, type AssistantProposal } from "@/lib/services/assistant-service";
+import type { AssistantProposal } from "@/lib/services/assistant-service";
 import { CreditGauge, MessageBubble, ProposalCard, ThinkingIndicator } from "./assistant-parts";
+import { ChatComposer } from "./ChatComposer";
+import { ModelPicker } from "./ModelPicker";
+import { useAssistantModel } from "./use-assistant-model";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // L'ASSISTANT DE LA FICHE DOCUMENT (lot F, 11/11/2026 — « comme MusicPlanner »).
@@ -25,7 +28,16 @@ import { Textarea } from "@/components/ui/textarea";
 const PROPOSAL_COPY: Record<AssistantProposal["kind"], { title: string; confirm: string }> = {
   COMMENT: { title: "Consigne à retenir pour l'IA", confirm: "Ajouter aux commentaires" },
   INFORMATION_REQUEST: { title: "Demande à la structure", confirm: "Envoyer la demande" },
+  // Posé dans la mise en conformité, où il s'accepte ou se refuse : jamais écrit seul.
+  ADDITION: { title: "Ajout au document", confirm: "Placer dans le document" },
 };
+const PROPOSAL_TONE = { COMMENT: "comment", INFORMATION_REQUEST: "request", ADDITION: "addition" } as const;
+
+function proposalTarget(proposal: AssistantProposal): string | null {
+  if (proposal.kind !== "ADDITION") return null;
+  const where = proposal.anchor ? `Après « ${proposal.anchor} »` : "En fin de document";
+  return proposal.criterionCode ? `${where} · critère ${proposal.criterionCode}` : where;
+}
 
 export function DocumentAssistant({ establishmentId, documentTypeId }: { establishmentId: string; documentTypeId: string }) {
   const [state, setState] = useState<AssistantState | null>(null);
@@ -35,6 +47,8 @@ export function DocumentAssistant({ establishmentId, documentTypeId }: { establi
   const [isPending, startTransition] = useTransition();
   const fieldId = useId();
   const pickerId = useId();
+  const [model, setModel] = useAssistantModel();
+  const router = useRouter();
 
   async function refresh(conversationId: string | null) {
     setState(await getDocumentAssistant(establishmentId, documentTypeId, conversationId));
@@ -61,7 +75,6 @@ export function DocumentAssistant({ establishmentId, documentTypeId }: { establi
 
   const remaining = Math.max(0, state.credits.limit - state.credits.used);
   const outOfCredits = remaining === 0;
-  const canAsk = state.available && !outOfCredits && !thinking;
 
   function ask() {
     const text = question.trim();
@@ -69,7 +82,7 @@ export function DocumentAssistant({ establishmentId, documentTypeId }: { establi
     setError(null);
     setThinking(true);
     startTransition(async () => {
-      const result = await askDocumentAssistant(establishmentId, documentTypeId, state.conversationId, text);
+      const result = await askDocumentAssistant(establishmentId, documentTypeId, state.conversationId, text, model);
       setThinking(false);
       if ("error" in result) {
         setError(result.error);
@@ -88,6 +101,8 @@ export function DocumentAssistant({ establishmentId, documentTypeId }: { establi
       const result = await resolveAssistantProposal(establishmentId, messageId, index, decision);
       if (result && "error" in result) setError(result.error);
       await refresh(state?.conversationId ?? null);
+      // Un ajout placé apparaît dans le document à côté : la page se redessine.
+      if (!result && decision === "CONFIRM") router.refresh();
     });
   }
 
@@ -162,14 +177,16 @@ export function DocumentAssistant({ establishmentId, documentTypeId }: { establi
       )}
 
       {state.messages.length > 0 && (
-        <ol aria-label="Échanges avec l'assistant" className="max-h-[28rem] space-y-3 overflow-y-auto">
+        <ol aria-label="Échanges avec l'assistant" className="assistant-scroll assistant-thread max-h-[32rem] space-y-6 overflow-y-auto pr-1">
           {state.messages.map((message) => (
             <li key={message.id} className="space-y-2">
               <MessageBubble role={message.role}>{message.content}</MessageBubble>
               {message.proposals.map((proposal, index) => (
                 <ProposalCard
                   key={index}
+                  tone={PROPOSAL_TONE[proposal.kind]}
                   title={PROPOSAL_COPY[proposal.kind].title}
+                  target={proposalTarget(proposal)}
                   text={proposal.text}
                   status={proposal.status}
                   confirmLabel={PROPOSAL_COPY[proposal.kind].confirm}
@@ -188,27 +205,20 @@ export function DocumentAssistant({ establishmentId, documentTypeId }: { establi
       {!state.available && state.unavailableReason && <p className="text-ink2">{state.unavailableReason}</p>}
 
       {state.available && (
-        <div className="space-y-2">
-          <label htmlFor={fieldId} className="block text-sm text-ink2">
-            {outOfCredits ? "Crédits du jour épuisés. Ils reviennent à minuit." : "Votre question sur ce document"}
-          </label>
-          <Textarea
-            id={fieldId}
-            value={question}
-            onChange={(event) => setQuestion(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) ask();
-            }}
-            rows={3}
-            maxLength={MAX_QUESTION_LENGTH}
-            disabled={!canAsk}
-            placeholder="ex : que veut dire « éléments attendus non retrouvés » ici ? Que faut-il ajouter ?"
-          />
-          <Button type="button" onClick={ask} disabled={!canAsk || question.trim().length === 0}>
-            {thinking ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <Send className="h-4 w-4" aria-hidden="true" />}
-            Envoyer
-          </Button>
-        </div>
+        <ChatComposer
+          value={question}
+          onChange={setQuestion}
+          onSubmit={ask}
+          disabled={outOfCredits}
+          busy={thinking}
+          label="Votre question sur ce document"
+          placeholder={
+            outOfCredits
+              ? "Crédits du jour épuisés. Ils reviennent à minuit."
+              : "Que veut dire « éléments attendus non retrouvés » ici ? Que faut-il ajouter ?"
+          }
+          leading={<ModelPicker value={model} onChange={setModel} disabled={thinking} />}
+        />
       )}
 
       {error && (
@@ -217,17 +227,5 @@ export function DocumentAssistant({ establishmentId, documentTypeId }: { establi
         </p>
       )}
     </section>
-  );
-}
-
-// Le déclencheur : l'assistant (et ses lectures) ne se chargent qu'au clic.
-export function DocumentAssistantLauncher({ establishmentId, documentTypeId }: { establishmentId: string; documentTypeId: string }) {
-  const [open, setOpen] = useState(false);
-  if (open) return <DocumentAssistant establishmentId={establishmentId} documentTypeId={documentTypeId} />;
-  return (
-    <Button type="button" variant="outline" onClick={() => setOpen(true)}>
-      <MessageSquarePlus className="h-4 w-4" aria-hidden="true" />
-      Poser une question à l&apos;assistant
-    </Button>
   );
 }

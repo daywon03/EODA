@@ -71,3 +71,16 @@ export function activeStructureTabId(
   const tab = tabs.find((t) => t.segment === segment || (t.alsoMatches ?? []).includes(segment));
   return tab?.id ?? null;
 }
+
+// ── « Plus » (11/11/2026, option 3 de la maquette) ───────────────────────────
+// Onze onglets ne tiennent pas sur une ligne : les six du quotidien restent visibles,
+// les autres passent dans « Plus ». L'onglet OUVERT est toujours visible — rangé dans
+// « Plus », il rejoint la barre (on voit où l'on est sans ouvrir le menu).
+export const PRIMARY_STRUCTURE_TAB_IDS: readonly string[] = ["overview", "documents", "criteres", "plan-action", "evaluation", "mission"];
+
+export function splitStructureTabs<T extends { id: string }>(tabs: readonly T[], activeId: string | null): { primary: T[]; more: T[] } {
+  const primary = tabs.filter((tab) => PRIMARY_STRUCTURE_TAB_IDS.includes(tab.id) || tab.id === activeId);
+  const more = tabs.filter((tab) => !primary.includes(tab));
+  return { primary, more };
+}
+

@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   activeStructureTabId,
+  PRIMARY_STRUCTURE_TAB_IDS,
+  splitStructureTabs,
   STRUCTURE_TABS,
   structureHref,
   visibleStructureTabs,
@@ -61,3 +63,35 @@ describe("activeStructureTabId", () => {
     expect(activeStructureTabId("/dashboard/cabinet/etablissements/e1/inconnu", "e1")).toBeNull();
   });
 });
+
+describe("splitStructureTabs — six onglets visibles, le reste dans « Plus »", () => {
+  const ids = (tabs: readonly { id: string }[]) => tabs.map((t) => t.id);
+
+  it("garde les six du quotidien, dans l'ordre de la fiche, et range les autres", () => {
+    const { primary, more } = splitStructureTabs(STRUCTURE_TABS, "documents");
+    expect(ids(primary)).toEqual(["overview", "documents", "criteres", "plan-action", "evaluation", "mission"]);
+    expect(ids(more)).toEqual(["equipe", "personnes", "enquetes", "echanges", "reglages"]);
+  });
+
+  it("l'onglet ouvert rangé dans « Plus » rejoint la barre, à sa place", () => {
+    const { primary, more } = splitStructureTabs(STRUCTURE_TABS, "enquetes");
+    expect(ids(primary)).toContain("enquetes");
+    expect(ids(more)).not.toContain("enquetes");
+    expect(ids(primary).indexOf("enquetes")).toBeLessThan(ids(primary).indexOf("mission"));
+  });
+
+  it("aucun onglet perdu ni en double", () => {
+    const { primary, more } = splitStructureTabs(STRUCTURE_TABS, null);
+    expect([...ids(primary), ...ids(more)].sort()).toEqual(ids(STRUCTURE_TABS).sort());
+  });
+
+  it("chaque onglet principal existe dans la fiche", () => {
+    for (const id of PRIMARY_STRUCTURE_TAB_IDS) expect(ids(STRUCTURE_TABS)).toContain(id);
+  });
+
+  it("sans les Réglages (lecture seule), « Plus » ne les propose pas", () => {
+    const { more } = splitStructureTabs(visibleStructureTabs("CABINET_READONLY"), null);
+    expect(ids(more)).not.toContain("reglages");
+  });
+});
+

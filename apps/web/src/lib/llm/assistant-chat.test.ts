@@ -53,6 +53,8 @@ describe("OpenRouterAssistantChat", () => {
     const body = JSON.parse((fetchImpl.mock.calls[0]?.[1] as { body: string }).body) as Record<string, unknown>;
     expect(body.tools).toEqual([tool]);
     expect(body.tool_choice).toBe("auto");
+    expect(body.model).toBe("minimax/minimax-m2.7");
+    await new OpenRouterAssistantChat("k", fakeFetch(reply("{}"))).reply([], { maxTokens: 10, model: "z-ai/glm-5.3" });
   });
 
   it("réponse HTTP en erreur : AssistantChatError", async () => {

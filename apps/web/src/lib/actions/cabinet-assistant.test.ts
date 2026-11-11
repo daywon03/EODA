@@ -94,12 +94,25 @@ describe("askCabinetAssistant", () => {
     expect(requireCabinetSession).toHaveBeenCalledWith("STRUCTURES_WRITE");
     expect(prismaMock.assistantConversation.create).toHaveBeenCalledWith({ data: { userId: "u-eval", title: "Où en sont mes structures ?" }, select: { id: true } });
     expect(prismaMock.assistantMessage.create).toHaveBeenLastCalledWith({
-      data: expect.objectContaining({ role: "ASSISTANT", credits: 3, proposalsJson: [proposal("INFORMATION_REQUEST")] }),
+      data: expect.objectContaining({
+        role: "ASSISTANT",
+        credits: 3,
+        proposalsJson: [proposal("INFORMATION_REQUEST")],
+        // Ce qui a été lu, pour la phrase « A lu… » sous la réponse.
+        toolsUsed: ["list_structures", "get_structure_documents"],
+      }),
     });
     expect(debitCredits).toHaveBeenCalledWith("u-eval", 3, 900, 80);
     const audit = recordAuditEvent.mock.calls[0]?.[0] as { detail: string };
     expect(audit.detail).toBe("assistant du cabinet · 3 crédits · outils : list_structures, get_structure_documents");
     expect(JSON.stringify(recordAuditEvent.mock.calls)).not.toContain("Où en sont");
+  });
+
+  it("le modèle choisi est résolu dans le catalogue ; inconnu, le défaut", async () => {
+    await askCabinetAssistant(null, "q", "deepseek-v4.1-flash");
+    expect((runCabinetAgent.mock.calls[0]?.[0] as { model: string }).model).toBe("deepseek/deepseek-v4.1-flash");
+    await askCabinetAssistant(null, "q", "modele-pirate");
+    expect((runCabinetAgent.mock.calls[1]?.[0] as { model: string }).model).toBe("minimax/minimax-m2.7");
   });
 
   it("compte sans droit d'écriture ou client : refusé avant tout", async () => {
