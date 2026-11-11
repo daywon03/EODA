@@ -33,6 +33,10 @@ export const DocumentFolderPicker = dynamic(() =>
 // de l'onglet seulement.
 // Poubelle d'une ligne (10/11/2026) : administration seule, hors premier chargement.
 export const DocumentLineTrash = dynamic(() => import("./DocumentLineTrash").then((m) => m.DocumentLineTrash));
+// Assistant de la fiche document (lot F, 11/11/2026) : hors premier chargement.
+export const DocumentAssistantLauncher = dynamic(() =>
+  import("@/components/assistant/DocumentAssistant").then((m) => m.DocumentAssistantLauncher)
+);
 export const HiddenDocumentTypes = dynamic(() => import("./HiddenDocumentTypes").then((m) => m.HiddenDocumentTypes));
 
 export const CriterionLinker = dynamic(() => import("@/components/criteres/CriterionLinker").then((m) => m.CriterionLinker));

@@ -12,6 +12,11 @@ const PROMPT_BLOCKS = [
   "retours_cabinet",
   "catalogue_criteres",
   "images_decrites",
+  // Assistant de la fiche document (11/11/2026, assistant-service).
+  "document_texte",
+  "analyse_document",
+  "criteres_document",
+  "commentaires_document",
 ] as const;
 
 const BLOCK_TAG = new RegExp(`<\\s*/?\\s*(?:${PROMPT_BLOCKS.join("|")})\\b[^>]*>`, "gi");

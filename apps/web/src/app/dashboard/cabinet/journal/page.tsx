@@ -84,6 +84,8 @@ const ACTION_LABELS: Record<AuditAction, string> = {
   DOCUMENT_TYPE_ARCHIVED: "Document retiré de la liste (archivé, historique gardé)",
   DOCUMENT_TYPE_DELETED: "Document retiré de la liste (supprimé, jamais utilisé)",
   DOCUMENT_COMMENT_ADDED: "Commentaire ajouté sur un document",
+  ASSISTANT_QUESTION_ASKED: "Question posée à l'assistant d'un document",
+  ASSISTANT_CONVERSATION_DELETED: "Conversation avec l'assistant supprimée",
   DOCUMENT_TYPE_HIDDEN_FOR_ESTABLISHMENT: "Document retiré de la liste de cette structure",
   DOCUMENT_TYPE_RESTORED_FOR_ESTABLISHMENT: "Document rétabli dans la liste de cette structure",
   DOCUMENT_FOLDER_CREATED: "Dossier de la liste créé",
