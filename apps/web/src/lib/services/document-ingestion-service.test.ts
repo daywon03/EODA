@@ -463,14 +463,14 @@ describe("ingestDocumentVersion — commentaires du cabinet", () => {
       missingJustification: "ancien texte",
       commentUsedByAi: true,
       comments: [
-        { text: "DPO : Julien Chevalier", aiEnabled: true, createdAt: new Date(2026, 10, 10) },
+        { text: "DPO : Jean Exemple", aiEnabled: true, createdAt: new Date(2026, 10, 10) },
         { text: "brouillon", aiEnabled: false, createdAt: new Date(2026, 10, 9) },
         { text: "ancien texte", aiEnabled: true, createdAt: new Date(2026, 10, 1) },
       ],
     });
     await ingestDocumentVersion(baseInput({ extractedText: "Contenu." }), { storage: fakeStorage(), llm });
     expect(analyze).toHaveBeenLastCalledWith(
-      expect.objectContaining({ documentComment: "- 01/11/2026 : ancien texte\n- 10/11/2026 : DPO : Julien Chevalier" })
+      expect.objectContaining({ documentComment: "- 01/11/2026 : ancien texte\n- 10/11/2026 : DPO : Jean Exemple" })
     );
   });
 

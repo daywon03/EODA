@@ -41,15 +41,15 @@ beforeEach(() => {
 
 describe("addDocumentComment", () => {
   it("ajoute un commentaire daté au fil, sans écraser, et journalise le code seulement", async () => {
-    expect(await addDocumentComment("etab-1", "dt-pca", " DPO : Julien Chevalier ")).toBeNull();
+    expect(await addDocumentComment("etab-1", "dt-pca", " DPO : Jean Exemple ")).toBeNull();
     expect(requireEstablishmentInTenant).toHaveBeenCalledWith("etab-1", "WRITE");
     expect(prismaMock.documentComment.create).toHaveBeenCalledWith({
-      data: { documentId: "doc-1", authorUserId: "u-eval", text: "DPO : Julien Chevalier", aiEnabled: true },
+      data: { documentId: "doc-1", authorUserId: "u-eval", text: "DPO : Jean Exemple", aiEnabled: true },
     });
     const audit = recordAuditEvent.mock.calls[0]?.[0] as { detail: string; action: string };
     expect(audit.action).toBe("DOCUMENT_COMMENT_ADDED");
     expect(audit.detail).toBe("QUALITE_PCA");
-    expect(JSON.stringify(audit)).not.toContain("Julien");
+    expect(JSON.stringify(audit)).not.toContain("Jean Exemple");
   });
 
   it("refuse un commentaire vide, sans rien écrire", async () => {

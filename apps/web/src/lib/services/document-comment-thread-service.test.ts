@@ -17,13 +17,13 @@ describe("commentsForAnalysis — ce que l'IA relit", () => {
     expect(
       commentsForAnalysis(
         [
-          { text: "DPO : Julien Chevalier", aiEnabled: true, createdAt: at(10) },
+          { text: "DPO : Jean Exemple", aiEnabled: true, createdAt: at(10) },
           { text: "ignorer l'annexe 3", aiEnabled: false, createdAt: at(9) },
           { text: "Le CVS est remplacé par l'enquête", aiEnabled: true, createdAt: at(8) },
         ],
         null
       )
-    ).toBe("- 08/11/2026 : Le CVS est remplacé par l'enquête\n- 10/11/2026 : DPO : Julien Chevalier");
+    ).toBe("- 08/11/2026 : Le CVS est remplacé par l'enquête\n- 10/11/2026 : DPO : Jean Exemple");
   });
 
   it("aucun commentaire coché : rien", () => {

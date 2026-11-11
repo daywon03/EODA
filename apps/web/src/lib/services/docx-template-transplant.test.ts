@@ -113,7 +113,7 @@ describe("transplantIntoTemplate — le Word complet", () => {
     { name: "[Content_Types].xml", data: enc("<Types/>"), modifiedAt: new Date(2026, 0, 1) },
     { name: "word/document.xml", data: enc(DOCUMENT), modifiedAt: new Date(2026, 0, 1) },
     { name: "word/styles.xml", data: enc(STYLES), modifiedAt: new Date(2026, 0, 1) },
-    { name: "word/header1.xml", data: enc("<w:hdr>LOGO ASSAD</w:hdr>"), modifiedAt: new Date(2026, 0, 1) },
+    { name: "word/header1.xml", data: enc("<w:hdr>LOGO STRUCTURE FICTIVE</w:hdr>"), modifiedAt: new Date(2026, 0, 1) },
   ]);
   const inflate = async (data: Uint8Array) => new Uint8Array(inflateRawSync(data));
 
@@ -134,7 +134,7 @@ describe("transplantIntoTemplate — le Word complet", () => {
     const text = (name: string) => new TextDecoder().decode(entries.find((e) => e.name === name)!.data);
     const doc = text("word/document.xml");
     expect(text("word/styles.xml")).toBe(STYLES);
-    expect(text("word/header1.xml")).toBe("<w:hdr>LOGO ASSAD</w:hdr>");
+    expect(text("word/header1.xml")).toBe("<w:hdr>LOGO STRUCTURE FICTIVE</w:hdr>");
     expect(doc).toContain("Texte corrigé.");
     expect(doc).not.toContain("Ancien corps");
     expect(doc).toContain(SECT);
