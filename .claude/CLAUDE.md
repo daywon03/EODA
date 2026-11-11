@@ -45,6 +45,7 @@ vérifie** — sinon elle n'existe pas.
 | CSP à nonce réellement applicable (aucune page pré-rendue) | `pnpm check:csp` après le build, **sort en code 1** si un `<script>` est écrit sans nonce | `apps/web/scripts/check-csp-nonce.mjs` + CI ; le réglage est `export const dynamic = "force-dynamic"` dans `apps/web/src/app/layout.tsx` |
 | Budget de JavaScript par route | `pnpm check:bundle` après le build, **sort en code 1** au-delà du budget | `apps/web/scripts/check-bundle-budget.mjs` + CI |
 | Prisma n'atteint jamais le navigateur (10/11/2026 — `DocumentCategory` importé en VALEUR par `offer-scope-service`, atteint par `SupportModeSection`, embarquait tout `index-browser` : 22 Ko sur l'onglet Mission, 143 Ko pour 140) | `@typescript-eslint/no-restricted-imports` en **error** : `@prisma/client` en import de type seulement (tests exceptés) ; une liste de valeurs s'écrit dans un `Record<Enum, …>` que le compilateur garde exhaustif, comparé à l'énumération par un test | `apps/web/eslint.config.mjs`, `lib/services/offer-scope-service.test.ts` |
+| Une navigation ne paie pas le transport de ce qu'elle ne lit pas (11/11/2026 — « le site est lent quand on clique » ; mesuré : exécution en base < 1 ms par requête dans `pg_stat_statements`, aller-retour ~50-70 ms depuis le poste, `connection_limit=1` qui sérialise tout : la lenteur est le NOMBRE d'allers-retours et le POIDS transporté) | (1) `previewFeatures = ["relationJoins", "omitApi"]` : un `include` part en UNE requête (vérifié sur la vraie base : résultats identiques, fiche 320 → 54 ms, checklist 436 → 116 ms, file « À relire » 260 → 56 ms) ; (2) omission GLOBALE de `Establishment.logoDataUri` (~250 Ko) et `DocumentVersion.extractedText` (`HEAVY_COLUMNS_OMIT`, `@eoda/database`) — le compilateur refuse tout lecteur qui comptait sur la ligne complète, lecture explicite par `select` ou `omit: { x: false }` ; transactions typées `AppTransactionClient` ; (3) le logo ne s'écrit JAMAIS en base64 dans une page : coquille client → `/api/client/logo` (garde `requireClientEstablishment("HOME")`, structure lue par le lien), réglages → `/api/establishments/[id]/logo`, adresse versionnée par `readLogoVersion` (date de la fiche) ; (4) lien client de la garde mémoïsé par rendu (`readActiveClientLink`) | `tsc` (types omis), `lib/auth/guards-client-roles.test.ts` (« ne lit jamais le logo »), `app/api/client/logo/route.test.ts`, `lib/actions/structures-overview.test.ts` (présence du logo par projection d'identifiants) |
 | Configuration de production complète | contrôle au démarrage qui **sort en code 1** | `apps/web/src/instrumentation.ts` + `lib/config/production-profile.ts` |
 | Migrations appliquées au déploiement | `migrate deploy` dans `buildCommand` | `vercel.json` |
 | Dépendances vulnérables | `pnpm audit:deps` — **sort en code 1** sur toute vulnérabilité haute ou critique, **sans `\|\| true`** ; distingue « vulnérabilité trouvée » de « registre npm injoignable », qu'il réessaie avant d'échouer en le disant | `scripts/audit-dependencies.mjs` + CI |
@@ -126,6 +127,16 @@ qui désactive l'arborescence isolée de pnpm et rend possibles les dépendances
 22/08/2026 — sa cause n'existe donc plus. Il ne se retire pas à l'aveugle : la
 vérification est un déploiement de **prévisualisation Vercel** sans cette ligne, pas une
 construction locale.
+
+**Ouvert au 11/11/2026 — taille du pool (décision de Damon attendue)** : mesuré depuis
+le poste, 6 requêtes lancées ensemble coûtent **411 ms** avec `connection_limit=1` (elles
+font la queue) et **107 ms** avec `connection_limit=3` ; le mode transaction (6543) est
+PIRE (~290 ms par requête, contre ~55 ms en session). Chaque `Promise.all` du dépôt est
+donc aujourd'hui sérialisé. Relever la limite sans élargir le plafond de 15 créneaux du
+mode session reproduirait l'incident du 16/10 (`EMAXCONNSESSION`). Deux voies : augmenter
+le `pool_size` du pooler dans Supabase (Database → Settings, selon la taille de calcul)
+PUIS `DEFAULT_CONNECTION_LIMIT` à 2-3 dans `database-url.ts` ; ou séparer la base du poste
+de celle de la production. Rien n'a été changé sans cette décision.
 
 **Ouvert au 13/10/2026 — `braces` (GHSA-vfj7-8cjw-p6xm)** : aucune version corrigée publiée
 (≤ 3.0.3 vulnérable, 3.0.3 est la dernière), atteint seulement par l'outillage de

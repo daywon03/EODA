@@ -86,7 +86,7 @@ export function ClientSidebar({
           `soft` de la barre, et à côté de celui d'EODA comme sur ses documents.
           Repliée, la place manque : il disparaît (le nom reste lu par l'aria-label). */}
       {!collapsed && structureLogo && (
-        // eslint-disable-next-line @next/next/no-img-element -- data URI déposée par le cabinet, sans optimisation possible
+        // eslint-disable-next-line @next/next/no-img-element -- route authentifiée (cookie de session), hors optimiseur d'images
         <img src={structureLogo} alt="" className="mx-5 mb-4 h-10 max-w-[120px] object-contain" />
       )}
 

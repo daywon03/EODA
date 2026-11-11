@@ -12,6 +12,7 @@ const prismaMock = {
   document: { groupBy: vi.fn() },
   documentType: { count: vi.fn() },
   mission: { findMany: vi.fn() },
+  establishment: { findMany: vi.fn() },
 };
 const readCriteriaProof = vi.fn();
 const requireCabinetSession = vi.fn();
@@ -41,7 +42,6 @@ const ESTABLISHMENT = {
   id: "e1",
   name: "SAD Les Glycines (fictif)",
   type: "SAD_AIDE",
-  logoDataUri: null,
   hasEvaluationTargetDate: new Date("2027-01-03"),
   prospect: { status: "SIGNE" },
   mission: {
@@ -68,6 +68,7 @@ beforeEach(() => {
   countDocumentsAwaitingReviewByEstablishment.mockResolvedValue(new Map([["e1", 2]]));
   prismaMock.document.groupBy.mockResolvedValue([{ establishmentId: "e1", _count: { _all: 4 } }]);
   prismaMock.documentType.count.mockResolvedValue(7);
+  prismaMock.establishment.findMany.mockResolvedValue([{ id: "e2" }]);
   prismaMock.mission.findMany.mockResolvedValue([{ establishmentId: "e1", supportMode: "AUTONOMIE" }]);
   readCriteriaProof.mockResolvedValue(
     new Map([
@@ -88,6 +89,19 @@ beforeEach(() => {
 });
 
 describe("getStructuresOverview", () => {
+  it("dit si une structure a un logo par une projection d'identifiants, sans jamais lire le logo (~250 Ko)", async () => {
+    const { rows } = await getStructuresOverview();
+
+    expect(rows.map((r) => [r.id, r.hasLogo])).toEqual([
+      ["e1", false],
+      ["e2", true],
+    ]);
+    expect(prismaMock.establishment.findMany).toHaveBeenCalledWith({
+      where: { id: { in: ["e1", "e2"] }, logoDataUri: { not: null } },
+      select: { id: true },
+    });
+  });
+
   it("assemble les faits dérivés de chaque structure", async () => {
     const { rows, portfolio } = await getStructuresOverview();
 

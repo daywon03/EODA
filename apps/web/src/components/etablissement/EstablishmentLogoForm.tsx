@@ -14,7 +14,9 @@ type RemoveAction = (establishmentId: string) => Promise<LogoActionState>;
 type Props = {
   establishmentId: string;
   establishmentName: string;
-  logoDataUri: string | null;
+  // Adresse du logo (route mise en cache, versionnée) — jamais le data URI lui-même,
+  // qui pèserait ~250 Ko dans la page. null : aucun logo déposé.
+  logoSrc: string | null;
   // Par défaut les actions CABINET : le seul appelant jusqu'ici. Le portail
   // client passe les variantes `...AsClient` (mêmes règles de validation de
   // fichier, garde d'autorisation différente — cf. lib/actions/establishment.ts) ;
@@ -31,7 +33,7 @@ type Props = {
 export function EstablishmentLogoForm({
   establishmentId,
   establishmentName,
-  logoDataUri,
+  logoSrc,
   uploadAction = uploadEstablishmentLogo,
   removeAction = removeEstablishmentLogo,
 }: Props) {
@@ -49,10 +51,10 @@ export function EstablishmentLogoForm({
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-4">
         <div className="flex h-20 w-40 items-center justify-center rounded-lg border border-dashed border-gris-light bg-ivoire/50 p-2">
-          {logoDataUri ? (
+          {logoSrc ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
-              src={logoDataUri}
+              src={logoSrc}
               alt={`Logo de ${establishmentName}`}
               className="max-h-full max-w-full object-contain"
             />
@@ -81,7 +83,7 @@ export function EstablishmentLogoForm({
             cette structure, à côté du logo EODA.
           </p>
 
-          {logoDataUri && (
+          {logoSrc && (
             <Button
               type="button"
               size="sm"

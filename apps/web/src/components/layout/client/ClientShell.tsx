@@ -12,6 +12,8 @@ import {
   CLIENT_ROOT,
 } from "@/lib/design/client-navigation";
 import { clientAllows } from "@/lib/auth/capabilities";
+import { readLogoVersion } from "@/lib/db/read-logo-version";
+import { CLIENT_LOGO_URL, versionedLogoUrl } from "@/lib/services/logo-response-service";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
 import { EodaMark } from "../EodaLogo";
 import { HelpLink, MAIN_CONTENT_ID, SkipLink } from "../shell-parts";
@@ -55,10 +57,14 @@ export async function ClientShell({ children }: { children: ReactNode }) {
   // le module DOCUMENTS ne voit pas l'entrée, donc il n'a rien à compter — et on ne
   // lit pas un compteur en son nom.
   const canReadDeliverables = canSeeClientEntry(accessRole, "deliverables");
-  const [hasUnansweredMessage, newDeliverablesCount] = await Promise.all([
+  const [hasUnansweredMessage, newDeliverablesCount, logoVersion] = await Promise.all([
     canReadMessages ? getClientHasUnansweredMessage() : Promise.resolve(false),
     canReadDeliverables ? getClientNewDeliverablesCount() : Promise.resolve(0),
+    establishment ? readLogoVersion(establishment.id) : Promise.resolve(null),
   ]);
+  // Le logo part par sa route (mise en cache par le navigateur), jamais en base64
+  // dans la page : il pesait ~250 Ko, écrit deux fois à chaque navigation.
+  const logoUrl = versionedLogoUrl(CLIENT_LOGO_URL, logoVersion);
   const items = buildClientNav({ hasUnansweredMessage, accessRole, newDeliverablesCount });
   const userName = session.user.name ?? session.user.email ?? "Mon compte";
   const structureName = establishment?.name ?? "Espace client";
@@ -73,7 +79,7 @@ export async function ClientShell({ children }: { children: ReactNode }) {
       <ClientSidebar
         items={items}
         structureName={structureName}
-        structureLogo={establishment?.logoDataUri ?? null}
+        structureLogo={logoUrl}
         modeLabel={modeLabel}
       />
 
@@ -89,9 +95,9 @@ export async function ClientShell({ children }: { children: ReactNode }) {
             className="flex min-w-0 items-center gap-2.5 rounded-lg lg:hidden"
           >
             <EodaMark size={40} className="flex-shrink-0" />
-            {establishment?.logoDataUri && (
-              // eslint-disable-next-line @next/next/no-img-element -- data URI déposée par le cabinet, sans optimisation possible
-              <img src={establishment.logoDataUri} alt="" className="hidden h-10 max-w-[96px] object-contain sm:block" />
+            {logoUrl && (
+              // eslint-disable-next-line @next/next/no-img-element -- route authentifiée (cookie de session), hors optimiseur d'images
+              <img src={logoUrl} alt="" className="hidden h-10 max-w-[96px] object-contain sm:block" />
             )}
             <span className="truncate font-bold">{structureName}</span>
           </Link>

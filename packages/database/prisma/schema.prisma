@@ -5,6 +5,15 @@
 generator client {
   provider      = "prisma-client-js"
   binaryTargets = ["native", "debian-openssl-3.0.x", "linux-musl-openssl-3.0.x"]
+  // PERFORMANCE (11/11/2026) — mesuré : chaque requête coûte un aller-retour (~50-70 ms
+  // depuis le poste, quelques dizaines depuis Vercel cdg1), et `connection_limit=1`
+  // sérialise tout. Le temps d'exécution en base est sous la milliseconde
+  // (pg_stat_statements) : la lenteur est le NOMBRE d'allers-retours.
+  //   - relationJoins : un `include` / `select` imbriqué part en UNE requête (jointure
+  //     LATERAL) au lieu d'une requête par niveau de relation.
+  //   - omitApi : permet l'omission GLOBALE des colonnes lourdes (cf. src/index.ts) —
+  //     une lecture de ligne complète ne traîne plus le logo en base64 ni le texte extrait.
+  previewFeatures = ["relationJoins", "omitApi"]
 }
 
 datasource db {

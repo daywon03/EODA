@@ -18,7 +18,8 @@
 // Limite : les images extraites sont retirées de la base, pas du stockage (le script
 // n'a pas d'accès au stockage) ; leur nombre est rendu pour décision.
 // ─────────────────────────────────────────────────────────────────────────────
-import { Prisma, type PrismaClient } from "@prisma/client";
+import { Prisma } from "@prisma/client";
+import type { AppPrismaClient, AppTransactionClient } from "./index";
 
 export const PURGE_ACTOR_ROLE = "SCRIPT purge-restricted-document-content";
 
@@ -36,10 +37,10 @@ export type RestrictedContentCounts = {
 export type RestrictedContentPurgeReport = { applied: boolean; counts: RestrictedContentCounts };
 
 type PurgeTx = Pick<
-  Prisma.TransactionClient,
+  AppTransactionClient,
   "documentVersion" | "analysisTrial" | "documentCriterionSuggestion" | "documentVersionImage" | "correctionProposal" | "auditLogEntry"
 >;
-export type RestrictedContentPurgeClient = PurgeTx & Pick<PrismaClient, "$transaction">;
+export type RestrictedContentPurgeClient = PurgeTx & Pick<AppPrismaClient, "$transaction">;
 
 const EMPTY_COUNTS: RestrictedContentCounts = {
   versions: 0,
