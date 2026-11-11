@@ -13,7 +13,13 @@
 > validée (`parseAssistantReply`). Code : `lib/services/assistant-service.ts`,
 > `lib/llm/assistant-chat.ts`, `lib/actions/document-assistant.ts`,
 > `components/assistant/DocumentAssistant.tsx`, migration `20261111120000_document_assistant`.
-> Pas encore fait : bouton flottant sur toutes les pages, choix du modèle, mesures d'usage.
+> **Assistant du menu latéral (11/11/2026)** : page `/dashboard/cabinet/assistant`, tâches
+> prédéfinies, vraie boucle d'outils (vérifiée sur MiniMax M2.7 via OpenRouter) bornée au
+> périmètre de l'appelant — structures, documents, analyses, texte, images décrites, mise en
+> page Word, base vectorielle — et cartes (consigne, demande à la structure, consignes de mise
+> en page enregistrées pour la structure). Mêmes crédits.
+> Pas encore fait : bouton flottant sur toutes les pages, choix du modèle, mesures d'usage,
+> lecture des images par un modèle de vision (on lit les descriptions faites à l'analyse).
 > Cette spécification passe avant le code parce qu'elle touche à la doctrine IA (`CLAUDE.md` §7 :
 > une sortie de modèle est une proposition, jamais un verdict) et au coût par appel.
 

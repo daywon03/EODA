@@ -15,7 +15,6 @@ import {
   buildAssistantSystemPrompt,
   conversationTitle,
   creditsFor,
-  parisDay,
   parseAssistantReply,
   proposalDecisionError,
   recentHistory,
@@ -23,6 +22,7 @@ import {
   type AssistantProposal,
 } from "@/lib/services/assistant-service";
 import { AssistantChatError, getAssistantChatPort } from "@/lib/llm/assistant-chat";
+import { creditsUsedToday, debitCredits } from "@/lib/db/assistant-credits";
 import { addDocumentComment } from "./document-comment";
 import { requestInformationFromStructure } from "./information-request";
 
@@ -80,23 +80,6 @@ async function findLine(documentTypeId: string): Promise<{ id: string; code: str
   return line;
 }
 
-async function creditsUsed(userId: string): Promise<number> {
-  const row = await prisma.assistantCreditDay.findUnique({
-    where: { userId_day: { userId, day: parisDay(new Date()) } },
-    select: { used: true },
-  });
-  return Math.min(row?.used ?? 0, ASSISTANT_DAILY_CREDITS);
-}
-
-async function debit(userId: string, credits: number, inputTokens: number, outputTokens: number): Promise<void> {
-  const day = parisDay(new Date());
-  await prisma.assistantCreditDay.upsert({
-    where: { userId_day: { userId, day } },
-    create: { userId, day, used: credits, inputTokens, outputTokens },
-    update: { used: { increment: credits }, inputTokens: { increment: inputTokens }, outputTokens: { increment: outputTokens } },
-  });
-}
-
 async function loadMessages(conversationId: string): Promise<AssistantMessageView[]> {
   const rows = await prisma.assistantMessage.findMany({
     where: { conversationId },
@@ -129,7 +112,7 @@ export async function getDocumentAssistant(
   const hasPort = getAssistantChatPort() !== null;
 
   const [used, conversations] = await Promise.all([
-    creditsUsed(access.userId),
+    creditsUsedToday(access.userId),
     prisma.assistantConversation.findMany({
       where: { userId: access.userId, establishmentId: access.establishmentId, documentTypeId: line.id },
       orderBy: { updatedAt: "desc" },
@@ -167,7 +150,7 @@ export async function askDocumentAssistant(
 
   const port = getAssistantChatPort();
   if (!port) return { error: UNAVAILABLE_NO_KEY };
-  if ((await creditsUsed(access.userId)) >= ASSISTANT_DAILY_CREDITS) return { error: OUT_OF_CREDITS };
+  if ((await creditsUsedToday(access.userId)) >= ASSISTANT_DAILY_CREDITS) return { error: OUT_OF_CREDITS };
 
   const conversation = conversationId
     ? await ownConversation(access.userId, access.establishmentId, line.id, conversationId)
@@ -233,10 +216,10 @@ export async function askDocumentAssistant(
         model: reply.model,
       },
     });
-    await debit(access.userId, replyCredits, reply.inputTokens, reply.outputTokens);
+    await debitCredits(access.userId, replyCredits, reply.inputTokens, reply.outputTokens);
   } catch (error) {
     // Des jetons consommés malgré l'échec se décomptent quand même (MusicPlanner).
-    if (error instanceof AssistantChatError && error.cost) await debit(access.userId, creditsFor(error.cost), 0, 0);
+    if (error instanceof AssistantChatError && error.cost) await debitCredits(access.userId, creditsFor(error.cost), 0, 0);
     await prisma.assistantConversation.update({ where: { id: conversation.id }, data: { updatedAt: new Date() } });
     return {
       error:
@@ -284,6 +267,8 @@ export async function resolveAssistantProposal(
 
   if (decision === "CONFIRM") {
     const documentTypeId = message.conversation.documentTypeId;
+    // Une conversation de la fiche porte toujours son document ; sinon, rien à rejouer.
+    if (!documentTypeId) notFound();
     if (proposal.kind === "COMMENT") {
       const result = await addDocumentComment(access.establishmentId, documentTypeId, proposal.text, true);
       if (result && "error" in result) return result;

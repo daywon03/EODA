@@ -28,6 +28,7 @@ describe("visibilité par rôle", () => {
       "home",
       "structures",
       "review",
+      "assistant",
       "agenda",
       "library",
       "journal",
@@ -112,10 +113,12 @@ describe("section Réglages", () => {
   it("le groupe principal garde les six entrées de la maquette, dans l'ordre", () => {
     // Ce que voit l'administration : les cinq entrées de terrain, plus « Journal »,
     // seules visibles sans déplier quoi que ce soit.
+    // + « Assistant » (11/11/2026, comme MusicPlanner) pour qui peut écrire.
     expect(buildCabinetNav("CABINET_ADMIN", NO_COUNTS)[0]?.items.map((i) => i.label)).toEqual([
       "Accueil",
       "Structures",
       "À relire",
+      "Assistant",
       "Agenda",
       "Bibliothèque",
       "Journal",

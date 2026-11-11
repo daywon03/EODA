@@ -22,6 +22,7 @@ import { isRestrictedDocumentType } from "@/content/documents/acces-restreint";
 const versionSelect = {
   id: true,
   versionNumber: true,
+  fileStorageKey: true,
   extractedText: true,
   analysisResultJson: true,
   analysisReviewedAt: true,
@@ -47,6 +48,8 @@ export type CorrectionContext = {
     id: string;
     versionNumber: number;
     extractedText: string | null;
+    // Fichier de la version : son Word sert de gabarit au document final (11/11/2026).
+    fileStorageKey: string;
     isCurrent: boolean;
     documentId: string;
     documentTypeId: string;
@@ -92,6 +95,7 @@ export async function openCorrectionContext(versionId: unknown): Promise<Correct
       id: version.id,
       versionNumber: version.versionNumber,
       extractedText: version.extractedText,
+      fileStorageKey: version.fileStorageKey,
       isCurrent: document.currentVersionId === version.id,
       documentId: document.id,
       documentTypeId: documentType.id,

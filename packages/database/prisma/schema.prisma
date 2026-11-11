@@ -481,6 +481,7 @@ model Establishment {
   anonymousSurveyResponses AnonymousSurveyResponse[]
   hiddenDocumentTypes      EstablishmentDocumentTypeExclusion[]
   assistantConversations   AssistantConversation[]
+  documentDesign           EstablishmentDocumentDesign?
 
   @@index([tenantId])
   @@map("establishments")
@@ -2015,6 +2016,9 @@ enum AuditAction {
   // type — jamais la question ni la réponse), une conversation supprimée.
   ASSISTANT_QUESTION_ASKED
   ASSISTANT_CONVERSATION_DELETED
+  // Mise en page des documents d'une structure (11/11/2026) : modèle Word déposé ou
+  // retiré, consignes écrites. Jamais le texte des consignes dans le journal.
+  DOCUMENT_DESIGN_UPDATED
   // Fil d'échange (audit du 28/10/2026) : un message posté, un débit dépassé.
   // `detail` porte le côté, jamais le texte du message.
   MISSION_MESSAGE_POSTED
@@ -3151,15 +3155,16 @@ enum TabletRole {
 model AssistantConversation {
   id              String   @id @default(cuid())
   userId          String   @map("user_id")
-  establishmentId String   @map("establishment_id")
-  documentTypeId  String   @map("document_type_id")
+  // null = assistant du menu latéral (toutes structures du périmètre, 11/11/2026).
+  establishmentId String?  @map("establishment_id")
+  documentTypeId  String?  @map("document_type_id")
   title           String
   createdAt       DateTime @default(now()) @map("created_at")
   updatedAt       DateTime @updatedAt @map("updated_at")
 
   user          User               @relation(fields: [userId], references: [id], onDelete: Cascade)
-  establishment Establishment      @relation(fields: [establishmentId], references: [id], onDelete: Cascade)
-  documentType  DocumentType       @relation(fields: [documentTypeId], references: [id], onDelete: Cascade)
+  establishment Establishment?     @relation(fields: [establishmentId], references: [id], onDelete: Cascade)
+  documentType  DocumentType?      @relation(fields: [documentTypeId], references: [id], onDelete: Cascade)
   messages      AssistantMessage[]
 
   @@index([userId, establishmentId, documentTypeId])
@@ -3201,4 +3206,23 @@ model AssistantCreditDay {
 
   @@id([userId, day])
   @@map("assistant_credit_days")
+}
+
+// MISE EN PAGE DES DOCUMENTS D'UNE STRUCTURE (11/11/2026 — retour de Damon : « la mise
+// en conformité ne garde pas le design des documents »). Le document final reprend le
+// Word d'origine du client ; quand il n'y en a pas (PDF, document écrit par EODA), il
+// reprend ce MODÈLE déposé pour la structure (styles, en-têtes, pieds, logo, marges).
+// Les CONSIGNES écrites (« titres en majuscules, numérotation 1.1 ») sont remises à la
+// mise en conformité comme une donnée. Une ligne par structure.
+model EstablishmentDocumentDesign {
+  establishmentId String   @id @map("establishment_id")
+  modelFileKey    String?  @map("model_file_key")
+  modelFilename   String?  @map("model_filename")
+  notes           String?
+  updatedByUserId String?  @map("updated_by_user_id")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  establishment Establishment @relation(fields: [establishmentId], references: [id], onDelete: Cascade)
+
+  @@map("establishment_document_designs")
 }

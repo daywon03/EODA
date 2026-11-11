@@ -40,6 +40,21 @@ describe("OpenRouterAssistantChat", () => {
     await expect(ko.reply([], { maxTokens: 4000 })).rejects.toMatchObject({ name: "AssistantChatError", cost: 0.003 });
   });
 
+  it("step : déclare les outils et rend les appels d'outils demandés", async () => {
+    const fetchImpl = fakeFetch({
+      model: "minimax/minimax-m2.7",
+      choices: [{ message: { content: null, tool_calls: [{ id: "t1", function: { name: "list_structures", arguments: "{}" } }] }, finish_reason: "tool_calls" }],
+      usage: { prompt_tokens: 50, completion_tokens: 10, cost: 0.0001 },
+    });
+    const tool = { type: "function" as const, function: { name: "list_structures", description: "d", parameters: { type: "object" } } };
+    const step = await new OpenRouterAssistantChat("k", fetchImpl).step([{ role: "user", content: "q" }], { maxTokens: 1000, tools: [tool] });
+    expect(step.toolCalls).toEqual([{ id: "t1", name: "list_structures", arguments: "{}" }]);
+    expect(step.content).toBe("");
+    const body = JSON.parse((fetchImpl.mock.calls[0]?.[1] as { body: string }).body) as Record<string, unknown>;
+    expect(body.tools).toEqual([tool]);
+    expect(body.tool_choice).toBe("auto");
+  });
+
   it("réponse HTTP en erreur : AssistantChatError", async () => {
     const fetchImpl = vi.fn().mockResolvedValue({ ok: false, status: 502 }) as unknown as typeof fetch;
     await expect(new OpenRouterAssistantChat("k", fetchImpl).reply([], { maxTokens: 10 })).rejects.toBeInstanceOf(AssistantChatError);

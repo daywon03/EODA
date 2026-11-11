@@ -14,6 +14,8 @@ import { InviteClientForm } from "@/components/etablissement/InviteClientForm";
 import { ClientUserRow } from "@/components/etablissement/ClientUserRow";
 import { EstablishmentLogoForm } from "@/components/etablissement/EstablishmentLogoForm";
 import { EstablishmentBrandColorsForm } from "@/components/etablissement/EstablishmentBrandColorsForm";
+import { DocumentDesignForm } from "@/components/etablissement/DocumentDesignForm";
+import { getDocumentDesign } from "@/lib/actions/document-design";
 import { DocumentScopeToggle } from "@/components/checklist/DocumentScopeToggle";
 
 export const metadata = { title: "Réglages" };
@@ -40,7 +42,11 @@ function Section({ id, title, description, children }: { id: string; title: stri
 export default async function StructureSettingsPage({ params }: Props) {
   const { id } = await params;
   const { role } = await requireEstablishmentInTenant(id, "READ");
-  const [establishment, checklist] = await Promise.all([getEstablishment(id), getEstablishmentChecklist(id)]);
+  const [establishment, checklist, design] = await Promise.all([
+    getEstablishment(id),
+    getEstablishmentChecklist(id),
+    getDocumentDesign(id),
+  ]);
   // Basculer un document entre « réclamé » et « produit par EODA » vaut pour tous
   // les clients : politique de cabinet, réservée à CABINET_ADMIN (l'action le
   // revérifie).
@@ -137,6 +143,21 @@ export default async function StructureSettingsPage({ params }: Props) {
           establishmentName={establishment.name}
           primary={establishment.brandPrimaryColor}
           secondary={establishment.brandSecondaryColor}
+        />
+      </Section>
+
+      {/* 11/11/2026 : la mise en conformité garde le design du client — son Word d'origine,
+          sinon ce modèle ; les consignes partent à la génération. */}
+      <Section
+        id="settings-design"
+        title="Mise en page des documents"
+        description="Le document corrigé garde la mise en page de son propre Word. Pour un PDF ou un document écrit par EODA, il reprend ce modèle."
+      >
+        <DocumentDesignForm
+          establishmentId={establishment.id}
+          modelFilename={design?.modelFilename ?? null}
+          notes={design?.notes ?? null}
+          updatedAt={design?.updatedAt ?? null}
         />
       </Section>
 

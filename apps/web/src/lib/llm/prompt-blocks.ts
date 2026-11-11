@@ -17,6 +17,8 @@ const PROMPT_BLOCKS = [
   "analyse_document",
   "criteres_document",
   "commentaires_document",
+  // Mise en page de la structure (11/11/2026).
+  "consignes_mise_en_page",
 ] as const;
 
 const BLOCK_TAG = new RegExp(`<\\s*/?\\s*(?:${PROMPT_BLOCKS.join("|")})\\b[^>]*>`, "gi");

@@ -15,6 +15,7 @@ export type NavIconKey =
   | "home"
   | "structures"
   | "review"
+  | "assistant"
   | "agenda"
   | "library"
   | "journal"
