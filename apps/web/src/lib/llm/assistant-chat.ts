@@ -42,8 +42,11 @@ export type ToolDefinition = {
 export type ChatStep = Omit<ChatReply, "text"> & { content: string; toolCalls: ToolCall[] };
 
 export interface AssistantChatPort {
-  reply(messages: readonly ChatMessage[], options: { maxTokens: number; sourceText?: string | undefined }): Promise<ChatReply>;
-  step(messages: readonly StepMessage[], options: { maxTokens: number; tools?: readonly ToolDefinition[] }): Promise<ChatStep>;
+  reply(messages: readonly ChatMessage[], options: { maxTokens: number; sourceText?: string | undefined; model?: string | undefined }): Promise<ChatReply>;
+  step(
+    messages: readonly StepMessage[],
+    options: { maxTokens: number; tools?: readonly ToolDefinition[]; model?: string | undefined }
+  ): Promise<ChatStep>;
 }
 
 export class AssistantChatError extends Error {
@@ -75,8 +78,9 @@ export class OpenRouterAssistantChat implements AssistantChatPort {
     private readonly fetchImpl: typeof fetch = fetch
   ) {}
 
-  private async once(messages: readonly ChatMessage[], maxTokens: number): Promise<ChatReply> {
-    const model = resolveOpenRouterSlug(DEFAULT_LLM_MODEL_ID);
+  private async once(messages: readonly ChatMessage[], maxTokens: number, chosen?: string): Promise<ChatReply> {
+    // Le modèle choisi dans le sélecteur (assistant-models), sinon celui des analyses.
+    const model = chosen ?? resolveOpenRouterSlug(DEFAULT_LLM_MODEL_ID);
     const response = await this.fetchImpl(ENDPOINT, {
       method: "POST",
       signal: AbortSignal.timeout(TIMEOUT_MS),
@@ -108,8 +112,11 @@ export class OpenRouterAssistantChat implements AssistantChatPort {
     };
   }
 
-  async step(messages: readonly StepMessage[], options: { maxTokens: number; tools?: readonly ToolDefinition[] }): Promise<ChatStep> {
-    const model = resolveOpenRouterSlug(DEFAULT_LLM_MODEL_ID);
+  async step(
+    messages: readonly StepMessage[],
+    options: { maxTokens: number; tools?: readonly ToolDefinition[]; model?: string | undefined }
+  ): Promise<ChatStep> {
+    const model = options.model ?? resolveOpenRouterSlug(DEFAULT_LLM_MODEL_ID);
     const response = await this.fetchImpl(ENDPOINT, {
       method: "POST",
       signal: AbortSignal.timeout(TIMEOUT_MS),
@@ -145,11 +152,14 @@ export class OpenRouterAssistantChat implements AssistantChatPort {
     };
   }
 
-  async reply(messages: readonly ChatMessage[], options: { maxTokens: number; sourceText?: string | undefined }): Promise<ChatReply> {
+  async reply(
+    messages: readonly ChatMessage[],
+    options: { maxTokens: number; sourceText?: string | undefined; model?: string | undefined }
+  ): Promise<ChatReply> {
     const allowed = allowedForeignCharacters(options.sourceText);
-    const first = await this.once(messages, options.maxTokens);
+    const first = await this.once(messages, options.maxTokens, options.model);
     if (foreignCharacters(first.text, allowed).length === 0) return first;
-    const second = await this.once(messages, options.maxTokens);
+    const second = await this.once(messages, options.maxTokens, options.model);
     const cost = (first.cost ?? 0) + (second.cost ?? 0);
     if (foreignCharacters(second.text, allowed).length > 0) {
       throw new AssistantChatError("La réponse contenait des caractères d'une autre écriture : elle a été refusée.", cost);

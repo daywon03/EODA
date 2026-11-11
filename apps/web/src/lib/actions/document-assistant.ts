@@ -22,6 +22,7 @@ import {
   type AssistantProposal,
 } from "@/lib/services/assistant-service";
 import { AssistantChatError, getAssistantChatPort } from "@/lib/llm/assistant-chat";
+import { resolveAssistantModel } from "@/lib/llm/assistant-models";
 import { creditsUsedToday, debitCredits } from "@/lib/db/assistant-credits";
 import { addDocumentComment } from "./document-comment";
 import { requestInformationFromStructure } from "./information-request";
@@ -138,7 +139,8 @@ export async function askDocumentAssistant(
   establishmentId: string,
   documentTypeId: string,
   conversationId: string | null,
-  question: string
+  question: string,
+  modelId: string | null = null
 ): Promise<{ error: string } | { conversationId: string }> {
   const access = await requireEstablishmentInTenant(establishmentId, "WRITE");
   const line = await findLine(documentTypeId);
@@ -200,7 +202,11 @@ export async function askDocumentAssistant(
         ...recentHistory(history),
         { role: "user", content: text },
       ],
-      { maxTokens: ASSISTANT_REPLY_RESERVE, sourceText: document?.currentVersion?.extractedText ?? undefined }
+      {
+        maxTokens: ASSISTANT_REPLY_RESERVE,
+        sourceText: document?.currentVersion?.extractedText ?? undefined,
+        model: resolveAssistantModel(modelId).openRouterSlug,
+      }
     );
     replyCredits = creditsFor(reply.cost);
     const parsed = reply.truncated
