@@ -497,10 +497,24 @@ export async function tryEstablishmentAccess(
 // l'accueil de son portail — jamais une page vide qui laisserait croire à un bug.
 export type ClientNeed = EstablishmentNeed | "HOME";
 
+// Lien ACTIF seulement : un accès retiré par la direction ne rattache plus rien.
+// MÉMOÏSÉ PAR RENDU (`react.cache`, comme `resolveUser`) : la coquille et la page
+// appellent toutes deux la garde à chaque navigation. Jamais entre deux requêtes — un
+// retrait d'accès prend effet à la requête suivante. Le logo n'est pas lu ici (data
+// URI de ~250 Ko) : la coquille passe par `readLogoVersion` et `/api/client/logo`.
+const readActiveClientLink = cache(async (userId: string) =>
+  prisma.establishmentUser.findFirst({
+    where: { userId, revokedAt: null },
+    include: {
+      establishment: { select: { id: true, name: true, type: true } },
+    },
+  })
+);
+
 export async function requireClientEstablishment(need: ClientNeed): Promise<{
   session: Session;
   userId: string;
-  establishment: { id: string; name: string; type: string; logoDataUri: string | null } | null;
+  establishment: { id: string; name: string; type: string } | null;
   // Rôle d'accès dans la structure (null sans structure rattachée), et limitation de
   // l'action à ce qui appartient à la personne (niveau OWN de la matrice).
   accessRole: ClientAccessRole | null;
@@ -520,13 +534,7 @@ export async function requireClientEstablishment(need: ClientNeed): Promise<{
   enforceAccountState(session, user, { allowRotationPending: false });
   if (user.role !== "CLIENT_USER") redirect(roleHomePath(user.role));
 
-  // Lien ACTIF seulement : un accès retiré par la direction ne rattache plus rien.
-  const link = await prisma.establishmentUser.findFirst({
-    where: { userId: session.user.id, revokedAt: null },
-    include: {
-      establishment: { select: { id: true, name: true, type: true, logoDataUri: true } },
-    },
-  });
+  const link = await readActiveClientLink(session.user.id);
 
   if (!link?.establishment) {
     return {

@@ -26,3 +26,16 @@ export function decodeLogoDataUri(dataUri: string | null): { bytes: Buffer; type
 export function establishmentLogoUrl(establishmentId: string): string {
   return `/api/establishments/${encodeURIComponent(establishmentId)}/logo`;
 }
+
+// Le logo de LA structure du compte client connecté : la route résout la structure
+// depuis le lien du compte (garde), jamais depuis un identifiant reçu. Ouverte à tout
+// rôle d'accès de la structure — l'intervenant, qui n'a pas le module Documents, voit
+// lui aussi le logo de sa structure dans la coquille.
+export const CLIENT_LOGO_URL = "/api/client/logo";
+
+// Ajoute la version (date de mise à jour de la fiche) : le navigateur garde la route
+// en cache une heure, un nouveau logo doit donc changer d'adresse. Sans logo : null,
+// l'écran n'affiche rien plutôt qu'une image cassée.
+export function versionedLogoUrl(baseUrl: string, version: number | null): string | null {
+  return version === null ? null : `${baseUrl}?v=${version}`;
+}

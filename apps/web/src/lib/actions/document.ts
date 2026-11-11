@@ -750,6 +750,9 @@ async function getAuthorizedDocumentVersion(documentVersionId: string) {
 
   const version = await prisma.documentVersion.findUnique({
     where: { id: documentVersionId },
+    // Le texte extrait est omis par défaut (colonne lourde, @eoda/database) : l'aperçu
+    // et la vérification de l'extraction le lisent, d'où l'opt-in explicite.
+    omit: { extractedText: false },
     include: {
       // `validatedAt` et l'auteur de la version : la règle de restitution ci-dessous
       // a besoin des deux, et les relire ailleurs ferait diverger les portes.

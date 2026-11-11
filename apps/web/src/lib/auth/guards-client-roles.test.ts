@@ -38,7 +38,7 @@ function link(accessRole: string, revokedAt: Date | null = null) {
   prismaMock.establishmentUser.findUnique.mockResolvedValue({ establishmentId: "etab-1", accessRole, revokedAt });
   prismaMock.establishmentUser.findFirst.mockResolvedValue({
     accessRole,
-    establishment: { id: "etab-1", name: "SAD Les Glycines (fictif)", type: "SAD_AIDE", logoDataUri: null },
+    establishment: { id: "etab-1", name: "SAD Les Glycines (fictif)", type: "SAD_AIDE" },
   });
 }
 
@@ -129,6 +129,14 @@ describe("requireClientEstablishment — module de la page", () => {
     await requireClientEstablishment("HOME");
     expect(prismaMock.establishmentUser.findFirst).toHaveBeenCalledWith(
       expect.objectContaining({ where: { userId: "client-1", revokedAt: null } })
+    );
+  });
+
+  it("ne lit jamais le logo (~250 Ko) : la coquille passe par /api/client/logo", async () => {
+    link("DIRECTION");
+    await requireClientEstablishment("HOME");
+    expect(prismaMock.establishmentUser.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({ include: { establishment: { select: { id: true, name: true, type: true } } } })
     );
   });
 

@@ -482,6 +482,7 @@ export async function listEstablishments() {
 
 
 export type EstablishmentWithUsers = Prisma.EstablishmentGetPayload<{
+  omit: { logoDataUri: true };
   include: {
     establishmentUsers: {
       include: {

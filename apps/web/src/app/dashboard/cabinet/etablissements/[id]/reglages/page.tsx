@@ -16,6 +16,8 @@ import { EstablishmentLogoForm } from "@/components/etablissement/EstablishmentL
 import { EstablishmentBrandColorsForm } from "@/components/etablissement/EstablishmentBrandColorsForm";
 import { DocumentDesignForm } from "@/components/etablissement/DocumentDesignForm";
 import { getDocumentDesign } from "@/lib/actions/document-design";
+import { readLogoVersion } from "@/lib/db/read-logo-version";
+import { establishmentLogoUrl, versionedLogoUrl } from "@/lib/services/logo-response-service";
 import { DocumentScopeToggle } from "@/components/checklist/DocumentScopeToggle";
 
 export const metadata = { title: "Réglages" };
@@ -42,10 +44,11 @@ function Section({ id, title, description, children }: { id: string; title: stri
 export default async function StructureSettingsPage({ params }: Props) {
   const { id } = await params;
   const { role } = await requireEstablishmentInTenant(id, "READ");
-  const [establishment, checklist, design] = await Promise.all([
+  const [establishment, checklist, design, logoVersion] = await Promise.all([
     getEstablishment(id),
     getEstablishmentChecklist(id),
     getDocumentDesign(id),
+    readLogoVersion(id),
   ]);
   // Basculer un document entre « réclamé » et « produit par EODA » vaut pour tous
   // les clients : politique de cabinet, réservée à CABINET_ADMIN (l'action le
@@ -136,7 +139,7 @@ export default async function StructureSettingsPage({ params }: Props) {
         <EstablishmentLogoForm
           establishmentId={establishment.id}
           establishmentName={establishment.name}
-          logoDataUri={establishment.logoDataUri}
+          logoSrc={versionedLogoUrl(establishmentLogoUrl(establishment.id), logoVersion)}
         />
         <EstablishmentBrandColorsForm
           establishmentId={establishment.id}
