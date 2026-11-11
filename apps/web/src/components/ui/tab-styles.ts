@@ -6,10 +6,6 @@ import { cn } from "@/lib/utils";
 // `tab-scroller` (globals.css) : défilement sans barre visible, ombre au bord qui
 // déborde, filet du bas dessiné sans déborder (plus de barre verticale).
 export const TAB_LIST_CLASS = "tab-scroller relative flex gap-1 overflow-x-auto overflow-y-hidden";
-// Variante À LA LIGNE (11/11/2026, fiche structure : onze onglets, « Vue d'ensemble » et
-// « Réglages » coupés aux bords sans qu'on sache qu'il fallait faire défiler) : tous les
-// onglets restent visibles, la barre passe sur deux lignes quand la place manque.
-export const TAB_WRAP_CLASS = "relative flex flex-wrap gap-x-1 border-b border-line";
 
 export function tabClassName(isSelected: boolean): string {
   return cn(
