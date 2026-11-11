@@ -104,6 +104,14 @@ describe("prompt et contexte", () => {
     expect(prompt).toMatch(/français/);
   });
 
+  // Essai réel du 11/11/2026 : le modèle écrivait la demande à la structure DANS sa
+  // réponse (aucune carte, donc aucun bouton) et en Markdown (« ** » affichés tels quels).
+  it("exige les propositions en cartes, jamais recopiées dans la réponse, et du texte sans Markdown", () => {
+    const prompt = buildAssistantSystemPrompt();
+    expect(prompt).toMatch(/jamais dans "reponse"/);
+    expect(prompt).toMatch(/sans Markdown/);
+  });
+
   it("le contexte balise chaque donnée, neutralise les balises glissées et anonymise", () => {
     const context = buildAssistantContext({
       documentLabel: "Plan de crise",
