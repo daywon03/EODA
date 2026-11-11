@@ -40,6 +40,7 @@ import {
   type MissionAccessState,
 } from "@/lib/services/mission-access-service";
 import { markForeignScript } from "@/lib/llm/script-guard";
+import { documentTypeVisibleTo } from "@/lib/db/document-type-visibility";
 
 export type ChecklistItem = {
   documentTypeId: string;
@@ -180,9 +181,10 @@ async function buildChecklist(
   const mode = resolveSupportMode(mission);
 
   // Types de documents attendus, restreints au périmètre de l'offre.
-  // Une ligne retirée (archivée, 09/11/2026) n'apparaît plus nulle part.
+  // Une ligne retirée (archivée, 09/11/2026) ou masquée pour cette structure
+  // (10/11/2026) n'apparaît plus nulle part.
   const allTypes = await prisma.documentType.findMany({
-    where: { archivedAt: null, ...(covered ? { category: { in: [...covered] } } : {}) },
+    where: { ...documentTypeVisibleTo(establishmentId), ...(covered ? { category: { in: [...covered] } } : {}) },
     orderBy: [{ category: "asc" }, { code: "asc" }],
     include: { folder: { select: { id: true, label: true, position: true } } },
   });

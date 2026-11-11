@@ -1,6 +1,7 @@
 import { prisma } from "@eoda/database";
 import type { CommercialTier, SupportMode } from "@eoda/database";
 import { getCoveredDocumentCategories } from "@/lib/services/offer-scope-service";
+import { documentTypeVisibleTo } from "./document-type-visibility";
 import {
   computeMissionDocumentCounters,
   countComplianceDocuments,
@@ -25,12 +26,13 @@ export async function readMissionComplianceDocuments(
   const categories = [...getCoveredDocumentCategories(formule, gratuit)];
   const [types, documents] = await Promise.all([
     prisma.documentType.findMany({
-      // Une ligne archivée a quitté toutes les listes : elle ne peut pas rester « attendue ».
-      where: { category: { in: categories }, archivedAt: null },
+      // Une ligne archivée, ou masquée pour cette structure, a quitté ses listes : elle
+      // ne peut pas rester « attendue ».
+      where: { category: { in: categories }, ...documentTypeVisibleTo(establishmentId) },
       select: { id: true, category: true, code: true, isConditional: true },
     }),
     prisma.document.findMany({
-      where: { establishmentId, documentType: { category: { in: categories }, archivedAt: null } },
+      where: { establishmentId, documentType: { category: { in: categories }, ...documentTypeVisibleTo(establishmentId) } },
       select: {
         documentTypeId: true,
         status: true,
@@ -90,7 +92,7 @@ export async function readMissionDocumentCounters(
       establishmentId,
       documentType: {
         category: { in: [...getCoveredDocumentCategories(formule, gratuit)] },
-        archivedAt: null,
+        ...documentTypeVisibleTo(establishmentId),
       },
     },
     select: {

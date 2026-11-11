@@ -2,6 +2,7 @@ import { prisma } from "@eoda/database";
 import type { FileStoragePort } from "@/lib/storage";
 import type { LLMAnalysisPort } from "@/lib/llm";
 import type { DocumentAnalysisInput } from "@/lib/llm/llm-analysis-port";
+import { commentsForAnalysis } from "./document-comment-thread-service";
 import {
   analysisPromptVariant,
   DEFAULT_ANALYSIS_PROMPT_VARIANT,
@@ -400,6 +401,8 @@ export async function prepareAnalysisInput(
           directiveInAnalysis: true,
           missingJustification: true,
           commentUsedByAi: true,
+          // Fil de commentaires (10/11/2026) : relu en entier, ceux cochés pour l'IA.
+          comments: { select: { text: true, aiEnabled: true, createdAt: true } },
           // Fiche de sensibilisation ? (règle de gabarit E4, provisoire) — même lecture.
           documentType: { select: { code: true, folderId: true } },
         },
@@ -426,8 +429,12 @@ export async function prepareAnalysisInput(
       // Exemples validés du même type, du même tenant (N8, context/10 §9).
       readValidatedExamples(tenantId, params.documentTypeId),
     ]);
-    const commentText = documentDirective?.missingJustification?.trim();
-    const documentComment = documentDirective?.commentUsedByAi && commentText ? commentText : undefined;
+    // Fil de commentaires (10/11/2026) ; l'ancien commentaire unique seulement si le fil
+    // est vide (la migration l'y a recopié).
+    const documentComment = commentsForAnalysis(documentDirective?.comments ?? [], {
+      text: documentDirective?.missingJustification ?? null,
+      usedByAi: documentDirective?.commentUsedByAi === true,
+    });
 
     // Consigne réellement transmise au modèle — vide si le bouton « prendre en
     // compte » est éteint, ou si la consigne est blanche. C'est ELLE qui est
@@ -632,17 +639,22 @@ export async function fetchKnowledgeExcerpts(
 // guideline n'existait. Elle commencera à en rappeler dès que cette table sera
 // peuplée, sans qu'aucune ligne de ce fichier n'ait besoin de changer.
 //
-// « Commentaire sur ce document » (Document.missingJustification) — remis à l'IA
-// seulement s'il est « pris en compte » (Document.commentUsedByAi, oui par défaut).
+// « Commentaire sur ce document » — depuis le 10/11/2026 un FIL (DocumentComment) :
+// tous les commentaires « pris en compte par l'IA », datés (commentsForAnalysis) ;
+// l'ancien commentaire unique seulement si le fil est vide.
 // Même repli que les guidelines : une panne de lecture n'empêche jamais l'analyse.
 export async function readDocumentComment(documentId: string): Promise<string | undefined> {
   try {
     const doc = await prisma.document.findUnique({
       where: { id: documentId },
-      select: { missingJustification: true, commentUsedByAi: true },
+      select: {
+        missingJustification: true,
+        commentUsedByAi: true,
+        comments: { select: { text: true, aiEnabled: true, createdAt: true } },
+      },
     });
-    const text = doc?.missingJustification?.trim();
-    return doc?.commentUsedByAi && text ? text : undefined;
+    if (!doc) return undefined;
+    return commentsForAnalysis(doc.comments ?? [], { text: doc.missingJustification, usedByAi: doc.commentUsedByAi });
   } catch (error) {
     console.error("Commentaire du document — lecture échouée, analyse sans lui :", error);
     return undefined;
