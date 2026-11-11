@@ -80,7 +80,7 @@ function withoutVerdict(text: string): string {
   return text.replace(/\best conforme\b/gi, "est complet selon cette lecture, à vérifier").replace(/\bconformes?\b/gi, "complet selon cette lecture");
 }
 
-function clean(text: string, max: number): string {
+export function cleanAssistantText(text: string, max: number): string {
   return withoutVerdict(text.trim()).slice(0, max);
 }
 
@@ -92,14 +92,14 @@ export function parseAssistantReply(raw: string): { text: string; proposals: Ass
       .flatMap((item: unknown): AssistantProposal[] => {
         if (!item || typeof item !== "object") return [];
         const type = "type" in item && typeof item.type === "string" ? PROPOSAL_TYPES[item.type] : undefined;
-        const text = "texte" in item && typeof item.texte === "string" ? clean(item.texte, MAX_PROPOSAL_TEXT) : "";
+        const text = "texte" in item && typeof item.texte === "string" ? cleanAssistantText(item.texte, MAX_PROPOSAL_TEXT) : "";
         return type && text ? [{ kind: type, text, status: "PENDING" }] : [];
       })
       .slice(0, MAX_PROPOSALS);
-    const text = clean(parsed.reponse, MAX_REPLY_TEXT);
+    const text = cleanAssistantText(parsed.reponse, MAX_REPLY_TEXT);
     return { text: text || EMPTY_REPLY, proposals };
   }
-  const text = clean(raw, MAX_REPLY_TEXT);
+  const text = cleanAssistantText(raw, MAX_REPLY_TEXT);
   return { text: text || EMPTY_REPLY, proposals: [] };
 }
 

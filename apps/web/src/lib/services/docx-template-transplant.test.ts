@@ -7,6 +7,8 @@ import {
   readTemplateStyles,
   replaceBody,
   transplantIntoTemplate,
+  describeDocxDesign,
+  summarizeDocxDesign,
   type TemplateStyles,
 } from "./docx-template-transplant";
 
@@ -104,6 +106,36 @@ describe("replaceBody — le corps change, la mise en page reste", () => {
 
   it("refuse un document sans corps lisible plutôt que d'écrire à côté", () => {
     expect(() => replaceBody("<w:document/>", "<w:p/>")).toThrow();
+  });
+});
+
+describe("describeDocxDesign — ce que l'assistant comprend de la mise en page d'un client", () => {
+  it("police, tailles, couleur des titres, en-tête et logo, format et marges", () => {
+    const design = describeDocxDesign([
+      {
+        name: "word/styles.xml",
+        data: new TextEncoder().encode(
+          `<w:styles><w:docDefaults><w:rPrDefault><w:rPr><w:rFonts w:ascii="Calibri"/><w:sz w:val="22"/></w:rPr></w:rPrDefault></w:docDefaults>` +
+            `<w:style w:type="paragraph" w:styleId="Titre1"><w:name w:val="heading 1"/><w:rPr><w:rFonts w:ascii="Georgia"/><w:color w:val="1F6E43"/><w:sz w:val="32"/></w:rPr></w:style></w:styles>`
+        ),
+      },
+      { name: "word/header1.xml", data: new TextEncoder().encode("<w:hdr><w:p><w:r><w:t>Association Exemple</w:t></w:r><w:r><w:drawing/></w:r></w:p></w:hdr>") },
+      { name: "word/footer1.xml", data: new TextEncoder().encode("<w:ftr><w:p><w:r><w:t>Page</w:t></w:r></w:p></w:ftr>") },
+      { name: "word/document.xml", data: new TextEncoder().encode(DOCUMENT) },
+    ]);
+    expect(design).toEqual({
+      bodyFont: "Calibri",
+      bodySizePt: 11,
+      headingFont: "Georgia",
+      headingColor: "#1F6E43",
+      headingSizePt: 16,
+      headerTexts: ["Association Exemple"],
+      footerTexts: ["Page"],
+      headerHasImage: true,
+      pageSize: "A4 portrait",
+      marginsCm: { top: 2.5 },
+    });
+    expect(summarizeDocxDesign(design)).toContain("titres en Georgia 16 pt, couleur #1F6E43");
   });
 });
 

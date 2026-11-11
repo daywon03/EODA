@@ -201,3 +201,91 @@ export async function transplantIntoTemplate(template: Uint8Array, inflateRaw: I
     entries.map((e) => ({ name: e.name, data: e.name === "word/document.xml" ? next : e.data, modifiedAt: now }))
   );
 }
+
+// ── Comprendre la mise en page d'un client (assistant du menu, 11/11/2026) ─────
+// Ce que l'assistant LIT d'un Word pour en parler et proposer des consignes : police et
+// taille du corps, police / couleur / taille des titres, textes et logo de l'en-tête,
+// pied, format et marges. Rien n'est deviné : un champ absent reste null.
+
+export type DocxDesign = {
+  bodyFont: string | null;
+  bodySizePt: number | null;
+  headingFont: string | null;
+  headingColor: string | null;
+  headingSizePt: number | null;
+  headerTexts: string[];
+  footerTexts: string[];
+  headerHasImage: boolean;
+  pageSize: string | null;
+  marginsCm: Partial<Record<"top" | "bottom" | "left" | "right", number>>;
+};
+
+const textOf = (xml: string): string =>
+  [...xml.matchAll(/<w:t(?:\s[^>]*)?>([^<]*)<\/w:t>/g)].map((m) => m[1]).join("").replace(/\s+/g, " ").trim();
+const halfPoints = (xml: string | undefined): number | null => {
+  const value = xml ? /<w:sz w:val="(\d+)"/.exec(xml)?.[1] : undefined;
+  return value ? Number(value) / 2 : null;
+};
+const font = (xml: string | undefined): string | null => (xml ? (/<w:rFonts\b[^>]*w:ascii="([^"]+)"/.exec(xml)?.[1] ?? null) : null);
+
+export function describeDocxDesign(entries: readonly { name: string; data: Uint8Array }[]): DocxDesign {
+  const decode = (name: string) => {
+    const entry = entries.find((e) => e.name === name);
+    return entry ? new TextDecoder().decode(entry.data) : "";
+  };
+  const styles = decode("word/styles.xml");
+  const defaults = /<w:docDefaults>([\s\S]*?)<\/w:docDefaults>/.exec(styles)?.[1];
+  const heading = [...styles.matchAll(/<w:style\b[^>]*>([\s\S]*?)<\/w:style>/g)].find((m) =>
+    /<w:name w:val="heading 1"/i.test(m[1] ?? "")
+  )?.[1];
+  const color = heading ? /<w:color w:val="([0-9A-Fa-f]{6})"/.exec(heading)?.[1] : undefined;
+
+  const parts = (prefix: string) => entries.filter((e) => new RegExp(`^word/${prefix}\\d*\\.xml$`).test(e.name)).map((e) => new TextDecoder().decode(e.data));
+  const headers = parts("header");
+  const footers = parts("footer");
+
+  const documentXml = decode("word/document.xml");
+  const sect = documentXml.slice(documentXml.lastIndexOf("<w:sectPr"));
+  const pgSz = /<w:pgSz\b([^>]*)\/>/.exec(sect)?.[1] ?? "";
+  const w = Number(/w:w="(\d+)"/.exec(pgSz)?.[1] ?? 0);
+  const h = Number(/w:h="(\d+)"/.exec(pgSz)?.[1] ?? 0);
+  const isA4 = (a: number, b: number) => Math.abs(a - 11906) < 60 && Math.abs(b - 16838) < 60;
+  const pageSize = w && h ? (isA4(w, h) ? "A4 portrait" : isA4(h, w) ? "A4 paysage" : `${Math.round(w / 56.7) / 10} × ${Math.round(h / 56.7) / 10} cm`) : null;
+  const pgMar = /<w:pgMar\b([^>]*)\/>/.exec(sect)?.[1] ?? "";
+  const marginsCm: DocxDesign["marginsCm"] = {};
+  for (const side of ["top", "bottom", "left", "right"] as const) {
+    const twips = /w:(\w+)="(\d+)"/g;
+    for (const m of pgMar.matchAll(twips)) if (m[1] === side) marginsCm[side] = Math.round((Number(m[2]) / 567) * 10) / 10;
+  }
+
+  return {
+    bodyFont: font(defaults),
+    bodySizePt: halfPoints(defaults),
+    headingFont: font(heading),
+    headingColor: color ? `#${color.toUpperCase()}` : null,
+    headingSizePt: halfPoints(heading),
+    headerTexts: headers.map(textOf).filter(Boolean),
+    footerTexts: footers.map(textOf).filter(Boolean),
+    headerHasImage: headers.some((x) => /<w:drawing|<w:pict|<v:imagedata/.test(x)),
+    pageSize,
+    marginsCm,
+  };
+}
+
+export function summarizeDocxDesign(design: DocxDesign): string {
+  const parts: string[] = [];
+  if (design.bodyFont || design.bodySizePt) parts.push(`corps en ${design.bodyFont ?? "police par défaut"}${design.bodySizePt ? ` ${design.bodySizePt} pt` : ""}`);
+  if (design.headingFont || design.headingColor || design.headingSizePt) {
+    parts.push(
+      `titres en ${design.headingFont ?? design.bodyFont ?? "police du corps"}${design.headingSizePt ? ` ${design.headingSizePt} pt` : ""}${design.headingColor ? `, couleur ${design.headingColor}` : ""}`
+    );
+  }
+  if (design.headerTexts.length > 0 || design.headerHasImage) {
+    parts.push(`en-tête : ${design.headerTexts.join(" / ") || "sans texte"}${design.headerHasImage ? " (avec logo ou image)" : ""}`);
+  }
+  if (design.footerTexts.length > 0) parts.push(`pied de page : ${design.footerTexts.join(" / ")}`);
+  if (design.pageSize) parts.push(`format ${design.pageSize}`);
+  const margins = Object.entries(design.marginsCm).map(([side, cm]) => `${({ top: "haut", bottom: "bas", left: "gauche", right: "droite" } as Record<string, string>)[side]} ${cm} cm`);
+  if (margins.length > 0) parts.push(`marges ${margins.join(", ")}`);
+  return parts.length > 0 ? parts.join(" ; ") : "Mise en page non lisible dans ce fichier.";
+}
