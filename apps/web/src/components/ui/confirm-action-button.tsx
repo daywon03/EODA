@@ -44,6 +44,10 @@ type Props = {
   // débordait à gauche du panneau, y était coupée et passait sous l'aperçu PDF — le
   // bouton « Supprimer le fichier » n'était plus cliquable (21/10/2026).
   align?: "start" | "end";
+  // Autres réponses possibles à la MÊME question, rendues après « Confirmer » (la
+  // poubelle d'une ligne de documents, 10/11/2026 : « seulement pour ce client » ou
+  // « pour toutes les structures »). Même déroulé : erreur affichée, question refermée.
+  alternatives?: readonly { label: string; onConfirm: () => Promise<ActionResult> }[];
 };
 
 // Confirmation d'une action, en deux temps : on demande, puis on confirme.
@@ -73,6 +77,7 @@ export function ConfirmActionButton({
   appearance = "button",
   disabled = false,
   align = "end",
+  alternatives = [],
 }: Props) {
   const [asking, setAsking] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -124,10 +129,10 @@ export function ConfirmActionButton({
     setAsking(!asking);
   }
 
-  function run() {
+  function run(action: () => Promise<ActionResult> = onConfirm) {
     setError(null);
     startTransition(async () => {
-      const result = await onConfirm();
+      const result = await action();
       if (result && "error" in result) {
         // L'erreur reste affichée et la question se referme : réessayer à
         // l'identique donnerait le même refus.
@@ -202,7 +207,7 @@ export function ConfirmActionButton({
           // Ancrée SOUS le déclencheur et alignée à droite : elle reste dans le
           // champ de vision sans jamais élargir son conteneur. `max-w` la garde
           // dans l'écran sur un téléphone.
-          className={`absolute ${align === "start" ? "left-0" : "right-0"} top-full z-50 mt-2 flex w-64 max-w-[calc(100vw-2rem)] flex-col gap-2 rounded-lg border border-gris-light bg-surface p-3 text-left shadow-eoda-md`}
+          className={`absolute ${align === "start" ? "left-0" : "right-0"} top-full z-50 mt-2 flex ${alternatives.length > 0 ? "w-80" : "w-64"} max-w-[calc(100vw-2rem)] flex-col gap-2 rounded-lg border border-gris-light bg-surface p-3 text-left shadow-eoda-md`}
         >
           <span id={questionId} className="block text-xs leading-snug text-brun-ancre">
             {question}
@@ -213,7 +218,7 @@ export function ConfirmActionButton({
               type="button"
               size="sm"
               variant={tone === "destructive" ? "destructive" : "default"}
-              onClick={run}
+              onClick={() => run()}
               disabled={isPending}
             >
               {isPending ? (
@@ -223,6 +228,18 @@ export function ConfirmActionButton({
               )}
               {confirmLabel}
             </Button>
+            {alternatives.map((alternative) => (
+              <Button
+                key={alternative.label}
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => run(alternative.onConfirm)}
+                disabled={isPending}
+              >
+                {alternative.label}
+              </Button>
+            ))}
             {/* Sortie toujours offerte, et au même niveau visuel que la confirmation :
                 une confirmation sans échappatoire se clique par réflexe. */}
             <Button

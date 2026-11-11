@@ -3,6 +3,7 @@ import { prisma, type EstablishmentType, type SupportMode } from "@eoda/database
 import { isCriterionApplicable } from "@/lib/services/criterion-applicability-service";
 import { isCriterionImperativeForEstablishment } from "@/lib/services/criterion-imperativeness-service";
 import { buildCriteriaProofRows, type CriterionProofRow } from "@/lib/services/criteria-proof-service";
+import { withoutHiddenTypes } from "@/lib/services/document-type-exclusion-service";
 import { readCriteriaWithMatrix } from "./referential-cache";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -30,7 +31,7 @@ export async function readCriteriaProof(
   const result = new Map<string, CriterionProofRow[]>();
   if (targets.length === 0) return result;
 
-  const [criteria, documents] = await Promise.all([
+  const [criteria, documents, exclusions] = await Promise.all([
     // Référentiel + matrice : communs à tous, gardés en cache (referential-cache.ts).
     readCriteriaWithMatrix(),
     prisma.document.findMany({
@@ -44,9 +45,17 @@ export async function readCriteriaProof(
         currentVersion: { select: { uploadedAt: true, uploadedBy: { select: { role: true } } } },
       },
     }),
+    // Lignes masquées pour chaque structure (10/11/2026) : plus « attendues » chez elle.
+    prisma.establishmentDocumentTypeExclusion.findMany({
+      where: { establishmentId: { in: targets.map((t) => t.id) } },
+      select: { establishmentId: true, documentTypeId: true },
+    }),
   ]);
 
   for (const target of targets) {
+    const hidden = new Set(
+      exclusions.filter((e) => e.establishmentId === target.id).map((e) => e.documentTypeId)
+    );
     const sources = criteria
       .filter((c) => isCriterionApplicable(c.applicableTo, target.type))
       .map((c) => ({
@@ -55,7 +64,10 @@ export async function readCriteriaProof(
         label: c.label,
         chapterNumber: c.objective.theme.chapter.number,
         isImperative: isCriterionImperativeForEstablishment(c, target.type),
-        expectedDocumentTypeIds: c.documentTypes.map((d) => d.documentTypeId),
+        expectedDocumentTypeIds: withoutHiddenTypes(
+          c.documentTypes.map((d) => d.documentTypeId),
+          hidden
+        ),
       }));
     const docs = documents
       .filter((d) => d.establishmentId === target.id)

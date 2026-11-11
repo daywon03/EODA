@@ -476,6 +476,7 @@ model Establishment {
   deviceEnrollments        DeviceEnrollment[]
   anonymousSurveyInvites   AnonymousSurveyInvite[]
   anonymousSurveyResponses AnonymousSurveyResponse[]
+  hiddenDocumentTypes      EstablishmentDocumentTypeExclusion[]
 
   @@index([tenantId])
   @@map("establishments")
@@ -731,6 +732,7 @@ model DocumentType {
 
   documents         DocumentTypeCriterion[]
   refusedCriteria   ProposedCriterionRefusal[]
+  hiddenFor         EstablishmentDocumentTypeExclusion[]
   Document          Document[]
   // Gabarits de la bibliothèque rattachés à ce type (N8) : leurs versions FINALE
   // servent d'exemples validés à la génération et à l'analyse de ce type.
@@ -837,6 +839,24 @@ model ProposedCriterionRefusal {
   @@id([documentTypeId, criterionId])
   @@index([criterionId])
   @@map("proposed_criterion_refusals")
+}
+
+// Une ligne de « Documents » masquée pour UNE structure (retour de Sandrine,
+// 10/11/2026 : doublons, lignes devenues inutiles). Elle quitte la liste, les
+// compteurs, l'avancement, les preuves attendues et le portail de CETTE structure ;
+// les autres ne voient rien changer. Réversible (« Rétablir »). Jamais une ligne de
+// la loi 2002-2, jamais une ligne qui porte un dépôt (document-type-exclusion-service).
+model EstablishmentDocumentTypeExclusion {
+  establishmentId String   @map("establishment_id")
+  documentTypeId  String   @map("document_type_id")
+  hiddenAt        DateTime @default(now()) @map("hidden_at")
+
+  establishment Establishment @relation(fields: [establishmentId], references: [id], onDelete: Cascade)
+  documentType  DocumentType  @relation(fields: [documentTypeId], references: [id], onDelete: Cascade)
+
+  @@id([establishmentId, documentTypeId])
+  @@index([documentTypeId])
+  @@map("establishment_document_type_exclusions")
 }
 
 // Rattache une fiche de la bibliothèque de modèles à des critères HAS — même
@@ -1920,6 +1940,9 @@ enum AuditAction {
   // supprimée sinon. Code de la ligne seulement.
   DOCUMENT_TYPE_ARCHIVED
   DOCUMENT_TYPE_DELETED
+  // Ligne masquée / rétablie pour UNE structure (10/11/2026). Code de la ligne seulement.
+  DOCUMENT_TYPE_HIDDEN_FOR_ESTABLISHMENT
+  DOCUMENT_TYPE_RESTORED_FOR_ESTABLISHMENT
   // Dossiers de la liste « Documents » (03/11/2026) : création, renommage, ligne
   // rangée dans un dossier ou sortie, lignes créées en nombre depuis un tableur.
   // Intitulés de cabinet seulement, jamais une donnée de personne.

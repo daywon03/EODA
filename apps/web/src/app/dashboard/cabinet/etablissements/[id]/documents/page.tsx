@@ -49,6 +49,9 @@ import { DocumentFolderManager } from "@/components/structure/lazy-document-pane
 import { Folder } from "lucide-react";
 import { FolderDetails } from "@/components/structure/FolderDetails";
 import { parseSheetTab } from "@/lib/services/document-sheet-tabs-service";
+import { removalChoices } from "@/lib/services/document-type-exclusion-service";
+import { canRemoveDocumentType } from "@/lib/services/document-type-removal-service";
+import { DocumentLineTrash, HiddenDocumentTypes } from "@/components/structure/lazy-document-panels";
 
 export const metadata = { title: "Documents" };
 
@@ -91,7 +94,33 @@ function filterMenu(context: MenuContext, column: DocumentColumnFilter): DataTab
   });
 }
 
-function columns(context: MenuContext): DataTableColumn<Row>[] {
+// Poubelle d'une ligne (10/11/2026), administration seule : « seulement pour cette
+// structure » ou « pour toutes les structures » — les deux règles rejouées côté serveur.
+function trashColumn(establishmentId: string): DataTableColumn<Row> {
+  return {
+    id: "actions",
+    header: "Retirer",
+    align: "end",
+    cell: (row) => {
+      const choices = removalChoices({
+        category: row.category,
+        hasDeposit: row.currentVersion != null,
+        removableForEveryone: canRemoveDocumentType({ code: row.code, category: row.category, archivedAt: null }),
+      });
+      return (
+        <DocumentLineTrash
+          establishmentId={establishmentId}
+          documentTypeId={row.documentTypeId}
+          label={row.label}
+          forThisStructure={choices.forThisStructure}
+          forEveryone={choices.forEveryone}
+        />
+      );
+    },
+  };
+}
+
+function columns(context: MenuContext, trash: DataTableColumn<Row> | null = null): DataTableColumn<Row>[] {
   return [
     {
       id: "name",
@@ -135,6 +164,7 @@ function columns(context: MenuContext): DataTableColumn<Row>[] {
     // Qui a FOURNI le document — l'auteur du dépôt, pas le réglage du type (call du
     // 18/10/2026) ; sans dépôt, qui doit le fournir.
     { id: "source", header: "Fourni par", menu: { filter: filterMenu(context, "fourni") }, cell: (row) => documentProviderLabel(row) },
+    ...(trash ? [trash] : []),
   ];
 }
 
@@ -155,6 +185,7 @@ export default async function StructureDocumentsPage({ params, searchParams }: P
   ]);
 
   const filters = parseDocumentFilters(raw);
+  const trash = canManageList ? trashColumn(id) : null;
   const basePath = structureHref(id, "documents");
   const allRows = flattenChecklist(checklist);
   const searched = filterDocumentRows(allRows, filters);
@@ -277,6 +308,7 @@ export default async function StructureDocumentsPage({ params, searchParams }: P
             {...(initialCriterionCode ? { initialCriterionCode } : {})}
           />
           <DocumentFolderManager folders={folders} />
+          <HiddenDocumentTypes establishmentId={id} />
         </div>
       )}
 
@@ -285,7 +317,7 @@ export default async function StructureDocumentsPage({ params, searchParams }: P
       {(foldered.loose.length > 0 || foldered.folders.length === 0) && (
         <DataTable
           caption={`Documents — ${DOCUMENT_BUCKET_LABELS[filters.bucket]}`}
-          columns={columns(menuContext)}
+          columns={columns(menuContext, trash)}
           rows={foldered.loose}
           getRowKey={(row) => row.documentTypeId}
           rowHref={(row) => documentsHref(basePath, { ...filters, doc: row.documentTypeId })}
@@ -325,7 +357,7 @@ export default async function StructureDocumentsPage({ params, searchParams }: P
           {folder.rows.length > 0 && (
             <DataTable
               caption={`${folder.label} — ${DOCUMENT_BUCKET_LABELS[filters.bucket]}`}
-              columns={columns(menuContext)}
+              columns={columns(menuContext, trash)}
               rows={folder.rows}
               getRowKey={(row) => row.documentTypeId}
               rowHref={(row) => documentsHref(basePath, { ...filters, doc: row.documentTypeId })}

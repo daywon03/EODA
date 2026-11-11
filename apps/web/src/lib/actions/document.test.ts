@@ -11,6 +11,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const prismaMock = {
   mission: { findUnique: vi.fn() },
   documentType: { findMany: vi.fn(), findUnique: vi.fn() },
+  // Par défaut, aucune ligne masquée pour la structure (10/11/2026).
+  establishmentDocumentTypeExclusion: { findUnique: vi.fn().mockResolvedValue(null) },
   document: { upsert: vi.fn(), findUnique: vi.fn(), findFirst: vi.fn(), update: vi.fn() },
   documentVersion: { findUnique: vi.fn(), update: vi.fn() },
   establishment: { findUnique: vi.fn() },
@@ -388,7 +390,10 @@ describe("uploadDocument — périmètre de l'offre", () => {
     const result = await uploadDocument(formData);
 
     expect(prismaMock.documentType.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { archivedAt: null, category: { in: ["LOI_2002_2"] } } })
+      // Lignes archivées ET lignes masquées pour cette structure exclues (10/11/2026).
+      expect.objectContaining({
+        where: { archivedAt: null, hiddenFor: { none: { establishmentId: "etab-1" } }, category: { in: ["LOI_2002_2"] } },
+      })
     );
     expect(result).toMatchObject({ needsManualType: true, candidates: [expect.anything()] });
   });
@@ -406,6 +411,18 @@ describe("ligne de documents archivée — aucun dépôt, aucune réponse", () =
     const result = await uploadDocument(uploadForm(ARCHIVED.id));
 
     expect(result).toEqual({ error: "Type de document invalide." });
+    expect(ingestDocumentVersion).not.toHaveBeenCalled();
+  });
+
+  // 10/11/2026 : masquée pour CETTE structure, une ligne ne reçoit plus de dépôt.
+  it("refuse un dépôt sur une ligne masquée pour cette structure, sans rien stocker", async () => {
+    givenMission("ESSENTIEL");
+    prismaMock.documentType.findUnique.mockResolvedValue(LOI_TYPE);
+    prismaMock.establishmentDocumentTypeExclusion.findUnique.mockResolvedValueOnce({ documentTypeId: LOI_TYPE.id });
+
+    const result = await uploadDocument(uploadForm(LOI_TYPE.id));
+
+    expect(result).toEqual({ error: expect.stringContaining("masquée pour cette structure") });
     expect(ingestDocumentVersion).not.toHaveBeenCalled();
   });
 

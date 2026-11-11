@@ -31,6 +31,10 @@ export const DocumentFolderPicker = dynamic(() =>
 
 // Critères HAS d'un type (onglet « Critères HAS », 09/11/2026) : chargé à l'ouverture
 // de l'onglet seulement.
+// Poubelle d'une ligne (10/11/2026) : administration seule, hors premier chargement.
+export const DocumentLineTrash = dynamic(() => import("./DocumentLineTrash").then((m) => m.DocumentLineTrash));
+export const HiddenDocumentTypes = dynamic(() => import("./HiddenDocumentTypes").then((m) => m.HiddenDocumentTypes));
+
 export const CriterionLinker = dynamic(() => import("@/components/criteres/CriterionLinker").then((m) => m.CriterionLinker));
 
 // Onglet « Analyse » (09/11/2026) : ni l'analyse ni la réponse « je ne l'ai pas » ne

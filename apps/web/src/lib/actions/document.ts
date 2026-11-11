@@ -72,6 +72,10 @@ import {
 import type { PickerCriterion } from "@/lib/services/criterion-picker-service";
 import { buildFilePreview } from "@/lib/services/file-preview-service";
 import type { FilePreviewData } from "@/lib/services/file-preview-types";
+import { documentTypeVisibleTo } from "@/lib/db/document-type-visibility";
+
+const HIDDEN_LINE_DEPOSIT_ERROR =
+  "Cette ligne est masquée pour cette structure : rétablissez-la dans « Lignes masquées » avant d'y déposer.";
 
 // Cette action reste volontairement mince : autorisation → validation → délégation
 // au service d'ingestion → invalidation de cache. La séquence métier (versioning,
@@ -162,7 +166,10 @@ export async function uploadDocument(formData: FormData): Promise<UploadDocument
     // Restreint au périmètre de l'offre : sans ce filtre, la liste de candidats
     // renvoyée à l'UI énumérerait des types de documents que l'offre exclut.
     const allTypes = await prisma.documentType.findMany({
-      where: { archivedAt: null, ...(coveredCategories ? { category: { in: [...coveredCategories] } } : {}) },
+      where: {
+        ...documentTypeVisibleTo(establishmentId),
+        ...(coveredCategories ? { category: { in: [...coveredCategories] } } : {}),
+      },
       select: { id: true, code: true, label: true, category: true },
     });
     // Une ligne restreinte se CHOISIT, elle ne se devine pas : la deviner supposerait
@@ -184,6 +191,12 @@ export async function uploadDocument(formData: FormData): Promise<UploadDocument
 
   // Une ligne archivée a quitté toutes les listes : une page restée ouverte n'y dépose rien.
   if (!documentType || documentType.archivedAt) return { error: "Type de document invalide." };
+  // Masquée pour CETTE structure (10/11/2026) : y déposer cacherait la pièce.
+  const hidden = await prisma.establishmentDocumentTypeExclusion.findUnique({
+    where: { establishmentId_documentTypeId: { establishmentId, documentTypeId: documentType.id } },
+    select: { documentTypeId: true },
+  });
+  if (hidden) return { error: HIDDEN_LINE_DEPOSIT_ERROR };
 
   // Ligne restreinte : la direction de la structure, ou le cabinet pour son compte.
   if (!canDepositDocumentFile(documentFileOpenerOf(access), documentType.code)) {
@@ -729,7 +742,7 @@ export async function listDocumentTypeOptions(
 
   const categories = await getEstablishmentCoveredCategories(establishmentId);
   return prisma.documentType.findMany({
-    where: { archivedAt: null, ...(categories ? { category: { in: [...categories] } } : {}) },
+    where: { ...documentTypeVisibleTo(establishmentId), ...(categories ? { category: { in: [...categories] } } : {}) },
     select: { id: true, label: true, category: true },
     orderBy: [{ category: "asc" }, { label: "asc" }],
   });

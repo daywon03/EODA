@@ -6,6 +6,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const prismaMock = {
   criterion: { findMany: vi.fn() },
   document: { findMany: vi.fn() },
+  // Lignes masquées pour la structure (10/11/2026) : aucune par défaut.
+  establishmentDocumentTypeExclusion: { findMany: vi.fn().mockResolvedValue([]) },
 };
 const requireEstablishmentInTenant = vi.fn();
 const getEstablishmentSupportMode = vi.fn();
@@ -73,6 +75,15 @@ describe("getStructureCriteriaProof", () => {
     expect(proof.rows.map((r) => r.code)).toContain("3.6.2");
     expect(proof.imperatives).toEqual({ proven: 0, total: 2 });
     expect(proof.expectedImperatives).toBe(17);
+  });
+
+  // 10/11/2026 : une ligne masquée pour CETTE structure n'est plus un document attendu.
+  it("une ligne masquée pour la structure n'est plus attendue par ses critères", async () => {
+    prismaMock.establishmentDocumentTypeExclusion.findMany.mockResolvedValueOnce([
+      { establishmentId: "e1", documentTypeId: "t-dipc" },
+    ]);
+    const proof = await getStructureCriteriaProof("e1");
+    expect(proof.rows.find((r) => r.code === "2.2.2")?.status).toBe("NON_RATTACHE");
   });
 
   it("fiche d'un autre cabinet / non authentifié : la garde refuse, rien n'est lu", async () => {

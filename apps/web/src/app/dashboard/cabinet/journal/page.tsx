@@ -83,6 +83,8 @@ const ACTION_LABELS: Record<AuditAction, string> = {
   DOCUMENT_TYPE_RENAMED: "Document de la liste renommé",
   DOCUMENT_TYPE_ARCHIVED: "Document retiré de la liste (archivé, historique gardé)",
   DOCUMENT_TYPE_DELETED: "Document retiré de la liste (supprimé, jamais utilisé)",
+  DOCUMENT_TYPE_HIDDEN_FOR_ESTABLISHMENT: "Document retiré de la liste de cette structure",
+  DOCUMENT_TYPE_RESTORED_FOR_ESTABLISHMENT: "Document rétabli dans la liste de cette structure",
   DOCUMENT_FOLDER_CREATED: "Dossier de la liste créé",
   DOCUMENT_FOLDER_RENAMED: "Dossier de la liste renommé",
   DOCUMENT_TYPE_FOLDER_CHANGED: "Document rangé dans un dossier",
