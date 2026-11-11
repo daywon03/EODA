@@ -29,6 +29,8 @@ import {
 import { readStoredProposal, type CorrectionProposal } from "@/lib/llm/correction-proposal";
 import { getLLMAnalysisPort, isKnownLlmModelId } from "@/lib/llm";
 import { getFileStoragePort } from "@/lib/storage";
+import { buildFinalDocx } from "@/lib/services/final-docx-builder";
+import { nodeInflateRaw } from "@/lib/services/node-inflate";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // METTRE EN CONFORMITÉ CÔTE À CÔTE — actions (tranche N8).
@@ -149,8 +151,8 @@ export async function generateCorrectionProposal(
 // contexte de l'écran : le logo pèse jusqu'à 300 Ko et ne sert qu'à l'enregistrement.
 async function readFinalDocumentDress(
   context: CorrectionContext
-): Promise<{ coverPage: CoverPageInput; brand: DocxBrand }> {
-  const [links, establishment, eodaLogo] = await Promise.all([
+): Promise<{ coverPage: CoverPageInput; brand: DocxBrand; structureModelKey: string | null }> {
+  const [links, establishment, eodaLogo, design] = await Promise.all([
     prisma.documentTypeCriterion.findMany({
       where: { documentTypeId: context.version.documentTypeId },
       select: { criterion: { select: { code: true, label: true } } },
@@ -160,6 +162,10 @@ async function readFinalDocumentDress(
       select: { logoDataUri: true, brandPrimaryColor: true, brandSecondaryColor: true },
     }),
     readEodaLogoPng(),
+    prisma.establishmentDocumentDesign.findUnique({
+      where: { establishmentId: context.version.establishmentId },
+      select: { modelFileKey: true },
+    }),
   ]);
   const logo = decodeLogoDataUri(establishment?.logoDataUri ?? null);
   return {
@@ -175,6 +181,7 @@ async function readFinalDocumentDress(
       colors: establishment ? readBrandColors(establishment) : null,
       logo: logo ? { data: logo.bytes, type: logo.type === "image/png" ? "png" : "jpg" } : null,
     },
+    structureModelKey: design?.modelFileKey ?? null,
   };
 }
 
@@ -212,14 +219,27 @@ export async function applyCorrectionProposal(
     today: now,
   });
   const nextNumber = context.version.versionNumber + 1;
-  const { coverPage, brand } = await readFinalDocumentDress(context);
-  const docx = await generateBrandedDocx({
-    markdown,
-    title: context.version.documentLabel,
-    establishmentName: context.version.establishmentName,
-    reviewMention: documentMention({ mode: context.mode, reviewedAt: null }),
-    coverPage,
-    brand,
+  const { coverPage, brand, structureModelKey } = await readFinalDocumentDress(context);
+  const reviewMention = documentMention({ mode: context.mode, reviewedAt: null });
+  // Le design du CLIENT (11/11/2026) : son Word d'origine, sinon le modèle de mise en page
+  // de la structure ; le rendu EODA seulement en dernier recours.
+  const { docx } = await buildFinalDocx({
+    candidates: [
+      { key: context.version.fileStorageKey, source: "SOURCE" },
+      ...(structureModelKey ? [{ key: structureModelKey, source: "STRUCTURE_MODEL" as const }] : []),
+    ],
+    storage: getFileStoragePort(),
+    inflateRaw: nodeInflateRaw,
+    transplant: { markdown, cover: coverPage, reviewMention },
+    branded: () =>
+      generateBrandedDocx({
+        markdown,
+        title: context.version.documentLabel,
+        establishmentName: context.version.establishmentName,
+        reviewMention,
+        coverPage,
+        brand,
+      }),
   });
   const originalFilename = buildEodaFileName({
     issuedOn: now,

@@ -198,6 +198,12 @@ Fait le 10/11 (cette PR) :
 - A6 : le récapitulatif de dépôt du cabinet nomme l'onglet d'arrivée (« Vous le retrouverez
   dans l'onglet « À relire » / « Validé » »), libellés lus dans `DOCUMENT_BUCKET_LABELS`.
 
+Fait le 11/11 (retours de Sandrine du 10/11, décisions de Damon) :
+- « Commentaires sur ce document » devient un FIL daté (DocumentComment, l'ancien
+  commentaire recopié en premier), chaque commentaire coché ou non pour l'IA.
+- Poubelle sur chaque ligne de l'onglet Documents : « seulement pour cette structure »
+  (masquée, rétablie depuis « Lignes masquées ») ou « pour toutes les structures ».
+
 ### Reste à faire — code
 
 | # | Sujet | État | Prochaine étape |

@@ -455,6 +455,25 @@ describe("ingestDocumentVersion — commentaires du cabinet", () => {
     expect(analyze.mock.calls.at(-1)?.[0]).not.toHaveProperty("documentComment");
   });
 
+  // 10/11/2026 : le commentaire devient un FIL — tous les commentaires cochés, datés,
+  // atteignent le port ; l'ancien champ n'est plus relu en double.
+  it("fil de commentaires : tous ceux cochés pour l'IA sont remis au port, datés", async () => {
+    const { llm, analyze } = arm();
+    prismaMock.document.findUnique.mockResolvedValueOnce({
+      missingJustification: "ancien texte",
+      commentUsedByAi: true,
+      comments: [
+        { text: "DPO : Jean Exemple", aiEnabled: true, createdAt: new Date(2026, 10, 10) },
+        { text: "brouillon", aiEnabled: false, createdAt: new Date(2026, 10, 9) },
+        { text: "ancien texte", aiEnabled: true, createdAt: new Date(2026, 10, 1) },
+      ],
+    });
+    await ingestDocumentVersion(baseInput({ extractedText: "Contenu." }), { storage: fakeStorage(), llm });
+    expect(analyze).toHaveBeenLastCalledWith(
+      expect.objectContaining({ documentComment: "- 01/11/2026 : ancien texte\n- 10/11/2026 : DPO : Jean Exemple" })
+    );
+  });
+
   it("fiche de sensibilisation : la règle « date de dépôt » est remise au port, et à elle seule (E4)", async () => {
     const { llm, analyze } = arm();
     prismaMock.document.findUnique.mockResolvedValueOnce({ documentType: { code: "PA_FICHE_P1_PLAINTES", folderId: null } });

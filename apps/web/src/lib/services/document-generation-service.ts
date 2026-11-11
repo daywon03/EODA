@@ -90,12 +90,13 @@ export async function generateCorrectedDraft(
   const linkedCriteriaOption = linkedCriteria.map((c) => ({ code: c.criterion.code, label: c.criterion.label }));
   const tenantId = version.document.establishment.tenantId;
 
-  const [knowledgeExcerpts, criterionGuidelines, validatedExamples, documentComment] = await Promise.all([
+  const [knowledgeExcerpts, criterionGuidelines, validatedExamples, documentComment, designNotes] = await Promise.all([
     fetchKnowledgeExcerpts(tenantId, version.document.documentType.label, criteriaLabels),
     fetchCriterionGuidelines(tenantId, criterionIds, version.document.id),
     // Exemples validés du même type, du même tenant — jamais d'un autre établissement.
     readValidatedExamples(tenantId, documentTypeId),
     readDocumentComment(version.document.id),
+    readDesignNotes(version.document.establishmentId),
   ]);
 
   const sentText = anonymizeText(version.extractedText);
@@ -110,6 +111,7 @@ export async function generateCorrectedDraft(
       suggestionsCorrection: analysis.suggestionsCorrection,
       ...(validatedExamples.length > 0 && { validatedExamples }),
       ...(documentComment && { documentComment: anonymizeText(documentComment) }),
+      ...(designNotes && { designNotes: anonymizeText(designNotes) }),
       ...(modelId && { modelId }),
     });
     // Ce que le modèle ne peut pas prouver est retiré (code hors référentiel,
@@ -188,4 +190,15 @@ export async function saveCorrectedDraft(documentVersionId: string, markdown: st
     where: { id: documentVersionId },
     data: { correctedDraftMarkdown: markdown },
   });
+}
+
+// Consignes de mise en page de la STRUCTURE (11/11/2026). Un enrichissement : une panne
+// de lecture n'empêche jamais la génération.
+async function readDesignNotes(establishmentId: string): Promise<string | null> {
+  try {
+    const design = await prisma.establishmentDocumentDesign.findUnique({ where: { establishmentId }, select: { notes: true } });
+    return design?.notes?.trim() || null;
+  } catch {
+    return null;
+  }
 }

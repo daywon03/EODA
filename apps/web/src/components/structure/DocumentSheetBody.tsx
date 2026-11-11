@@ -17,6 +17,7 @@ import { DocumentSheetTabs } from "@/components/structure/DocumentSheetTabs";
 import {
   AnalysisLabPanel,
   CriterionLinker,
+  DocumentAssistantLauncher,
   DocumentAnalysisPanel,
   DocumentFolderPicker,
   DocumentSettingsPanel,
@@ -192,6 +193,11 @@ export function DocumentSheetBody({
           Mettre en conformité
         </Link>
       )}
+      {/* Assistant (lot F, 11/11/2026) : questions sur CE document, chargé au clic ;
+          jamais sur un document restreint ; écriture STRUCTURES_WRITE. */}
+      {version && !item.restrictedAccess && canWriteGuidelines && (
+        <DocumentAssistantLauncher establishmentId={establishmentId} documentTypeId={item.documentTypeId} />
+      )}
       {version?.analysis ? (
         <DocumentAnalysisPanel
           analysis={version.analysis}
@@ -222,7 +228,6 @@ export function DocumentSheetBody({
         code={item.code}
         declaredMissing={item.declaredMissing}
         missingJustification={item.missingJustification}
-        commentUsedByAi={item.commentUsedByAi}
         hasVersion={version !== null}
       />
       {/* Sous quel TYPE ce fichier est rangé, et la consigne libre donnée au modèle. */}

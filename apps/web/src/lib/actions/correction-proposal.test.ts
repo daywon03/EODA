@@ -18,6 +18,8 @@ const prismaMock = {
   // Habillage du document final (E1, E2) : matrice du type, logo et couleurs.
   documentTypeCriterion: { findMany: vi.fn() },
   establishment: { findUnique: vi.fn() },
+  // Modèle de mise en page de la structure (11/11/2026) : aucun par défaut.
+  establishmentDocumentDesign: { findUnique: vi.fn().mockResolvedValue(null) },
 };
 const requireEstablishmentAccess = vi.fn();
 const generateCorrectedDraft = vi.fn();
@@ -40,10 +42,13 @@ vi.mock("@/lib/services/document-ingestion-service", () => ({
   ingestDocumentVersion: (...args: unknown[]) => ingestDocumentVersion(...args),
 }));
 vi.mock("@/lib/services/audit-log-service", () => ({ recordAuditEvent: (...args: unknown[]) => recordAuditEvent(...args) }));
-vi.mock("@/lib/storage", () => ({ getFileStoragePort: () => ({}) }));
+// Gabarit du document final (11/11/2026) : aucun Word lisible par défaut → rendu EODA.
+const storageDownload = vi.fn();
+vi.mock("@/lib/storage", () => ({ getFileStoragePort: () => ({ download: (key: string) => storageDownload(key) }) }));
 vi.mock("@/lib/llm", () => ({ getLLMAnalysisPort: () => ({}), isKnownLlmModelId: () => false }));
 
 const { applyCorrectionProposal, generateCorrectionProposal, getCorrectionWorkspace } = await import("./correction-proposal");
+const { buildStoredZip } = await import("@/lib/services/zip-store");
 
 const ETAB = "etab-fictif";
 const ANALYSIS = { elementsPresents: [], elementsManquants: ["Horaires"], suggestionsCorrection: [], sembleConforme: false };
@@ -63,6 +68,7 @@ function givenVersion(category: string, overrides: { current?: boolean; reviewed
     id: "dv-1",
     versionNumber: 1,
     extractedText: "Article 1 — Objet",
+    fileStorageKey: "documents/dv-1.docx",
     analysisResultJson: ANALYSIS,
     analysisReviewedAt: overrides.reviewedAt ?? null,
     document: {
@@ -90,6 +96,7 @@ beforeEach(() => {
   prismaMock.criterion.findMany.mockResolvedValue([]);
   prismaMock.documentTypeCriterion.findMany.mockResolvedValue([]);
   prismaMock.establishment.findUnique.mockResolvedValue({ logoDataUri: null, brandPrimaryColor: null, brandSecondaryColor: null });
+  storageDownload.mockRejectedValue(new Error("absent"));
 });
 
 describe("generateCorrectionProposal — droit de générer (D11, D13)", () => {
@@ -215,6 +222,30 @@ describe("applyCorrectionProposal — enregistrer la version N+1", () => {
   beforeEach(() => {
     givenMission("PERFORMANCE", "AUTONOMIE");
     givenVersion("LOI_2002_2");
+  });
+
+  // 11/11/2026 : « la mise en conformité ne garde pas le design des documents ». Le Word
+  // d'origine du client sert de gabarit : ses styles et son en-tête restent, le corps change.
+  it("garde le design du client : le Word d'origine sert de gabarit", async () => {
+    const enc = (text: string) => new TextEncoder().encode(text);
+    const at = new Date(2026, 0, 1);
+    storageDownload.mockResolvedValue(
+      Buffer.from(
+        buildStoredZip([
+          { name: "word/document.xml", data: enc('<w:document xmlns:w="w"><w:body><w:p/><w:sectPr><w:headerReference r:id="rId9"/></w:sectPr></w:body></w:document>'), modifiedAt: at },
+          { name: "word/styles.xml", data: enc('<w:styles><w:style w:type="paragraph" w:styleId="Titre1"><w:name w:val="heading 1"/></w:style></w:styles>'), modifiedAt: at },
+          { name: "word/header1.xml", data: enc("<w:hdr>LOGO DE LA STRUCTURE</w:hdr>"), modifiedAt: at },
+        ])
+      )
+    );
+    expect(await applyCorrectionProposal("p-1", { a1: "ACCEPTE", a2: "REFUSE" })).toEqual({ ok: true, versionNumber: 2 });
+    expect(storageDownload).toHaveBeenCalledWith("documents/dv-1.docx");
+    const input = ingestDocumentVersion.mock.calls[0]?.[0] as { content: Buffer };
+    const entries = await readZip(new Uint8Array(input.content), async (d) => new Uint8Array(inflateRawSync(d)));
+    const text = (name: string) => new TextDecoder().decode(entries.find((e) => e.name === name)?.data);
+    expect(text("word/header1.xml")).toBe("<w:hdr>LOGO DE LA STRUCTURE</w:hdr>");
+    expect(text("word/document.xml")).toContain("Permanence");
+    expect(text("word/document.xml")).toContain('<w:headerReference r:id="rId9"/>');
   });
 
   it("crée la version 2 liée à l'originale, avec les seuls ajouts acceptés, et fige les décisions", async () => {

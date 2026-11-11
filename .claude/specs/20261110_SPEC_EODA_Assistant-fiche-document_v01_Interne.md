@@ -1,6 +1,25 @@
 # Spécification — Assistant dans la fiche document (lot F du plan du 09/11/2026)
 
-> Statut : **proposé, rien n'est codé.** Source : call du 09/11/2026 (Sandrine et Damon).
+> Statut : **v1 codée le 11/11/2026** — décision de Damon : « on fait comme avec MusicPlanner »
+> (session du 05/11/2026, PR #75/#78/#79 de MusicPlanner). Source : call du 09/11/2026.
+>
+> **Décisions tranchées (§5 ci-dessous) :** coût = 40 crédits par jour et par compte, non
+> cumulables, remis à minuit (Paris), 1 crédit = 0,0015 € de coût réel (`usage.cost`
+> d'OpenRouter), au moins 1 par question, confirmer / écarter gratuit ; à zéro : « Crédits du
+> jour épuisés. Ils reviennent à minuit. » — accès : cabinet (`STRUCTURES_WRITE`), jamais une
+> structure, ni en autonomie ni accompagnée — conservation : pas de purge, jusqu'à ce que
+> l'auteur supprime la conversation. **Écart assumé avec MusicPlanner** : pas de boucle
+> d'outils, le contexte d'UN document est remis d'emblée, balisé comme donnée ; réponse JSON
+> validée (`parseAssistantReply`). Code : `lib/services/assistant-service.ts`,
+> `lib/llm/assistant-chat.ts`, `lib/actions/document-assistant.ts`,
+> `components/assistant/DocumentAssistant.tsx`, migration `20261111120000_document_assistant`.
+> **Assistant du menu latéral (11/11/2026)** : page `/dashboard/cabinet/assistant`, tâches
+> prédéfinies, vraie boucle d'outils (vérifiée sur MiniMax M2.7 via OpenRouter) bornée au
+> périmètre de l'appelant — structures, documents, analyses, texte, images décrites, mise en
+> page Word, base vectorielle — et cartes (consigne, demande à la structure, consignes de mise
+> en page enregistrées pour la structure). Mêmes crédits.
+> Pas encore fait : bouton flottant sur toutes les pages, choix du modèle, mesures d'usage,
+> lecture des images par un modèle de vision (on lit les descriptions faites à l'analyse).
 > Cette spécification passe avant le code parce qu'elle touche à la doctrine IA (`CLAUDE.md` §7 :
 > une sortie de modèle est une proposition, jamais un verdict) et au coût par appel.
 

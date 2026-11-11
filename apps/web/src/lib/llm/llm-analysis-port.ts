@@ -165,6 +165,8 @@ export type DocumentGenerationInput = {
   knowledgeExcerpts?: string[];
   criterionGuidelines?: string[];
   documentComment?: string;
+  // Consignes de mise en page de la STRUCTURE (11/11/2026, EstablishmentDocumentDesign).
+  designNotes?: string;
   modelId?: string;
   elementsManquants: string[];
   suggestionsCorrection: string[];

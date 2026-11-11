@@ -72,6 +72,11 @@ import {
 import type { PickerCriterion } from "@/lib/services/criterion-picker-service";
 import { buildFilePreview } from "@/lib/services/file-preview-service";
 import type { FilePreviewData } from "@/lib/services/file-preview-types";
+import { documentTypeVisibleTo } from "@/lib/db/document-type-visibility";
+import { isNewJustification } from "@/lib/services/document-comment-thread-service";
+
+const HIDDEN_LINE_DEPOSIT_ERROR =
+  "Cette ligne est masquée pour cette structure : rétablissez-la dans « Lignes masquées » avant d'y déposer.";
 
 // Cette action reste volontairement mince : autorisation → validation → délégation
 // au service d'ingestion → invalidation de cache. La séquence métier (versioning,
@@ -162,7 +167,10 @@ export async function uploadDocument(formData: FormData): Promise<UploadDocument
     // Restreint au périmètre de l'offre : sans ce filtre, la liste de candidats
     // renvoyée à l'UI énumérerait des types de documents que l'offre exclut.
     const allTypes = await prisma.documentType.findMany({
-      where: { archivedAt: null, ...(coveredCategories ? { category: { in: [...coveredCategories] } } : {}) },
+      where: {
+        ...documentTypeVisibleTo(establishmentId),
+        ...(coveredCategories ? { category: { in: [...coveredCategories] } } : {}),
+      },
       select: { id: true, code: true, label: true, category: true },
     });
     // Une ligne restreinte se CHOISIT, elle ne se devine pas : la deviner supposerait
@@ -184,6 +192,12 @@ export async function uploadDocument(formData: FormData): Promise<UploadDocument
 
   // Une ligne archivée a quitté toutes les listes : une page restée ouverte n'y dépose rien.
   if (!documentType || documentType.archivedAt) return { error: "Type de document invalide." };
+  // Masquée pour CETTE structure (10/11/2026) : y déposer cacherait la pièce.
+  const hidden = await prisma.establishmentDocumentTypeExclusion.findUnique({
+    where: { establishmentId_documentTypeId: { establishmentId, documentTypeId: documentType.id } },
+    select: { documentTypeId: true },
+  });
+  if (hidden) return { error: HIDDEN_LINE_DEPOSIT_ERROR };
 
   // Ligne restreinte : la direction de la structure, ou le cabinet pour son compte.
   if (!canDepositDocumentFile(documentFileOpenerOf(access), documentType.code)) {
@@ -365,8 +379,9 @@ export async function respondToMissingDocument(
 
   const trimmedComment = comment?.trim().slice(0, MAX_JUSTIFICATION_LENGTH) || null;
   const { status, statusOverriddenByUser } = missingAnswerWrite(answer);
+  const before = await readJustification(establishmentId, documentTypeId);
 
-  await prisma.document.upsert({
+  const saved = await prisma.document.upsert({
     where: { establishmentId_documentTypeId: { establishmentId, documentTypeId } },
     update: { status, missingJustification: trimmedComment, statusOverriddenByUser },
     create: {
@@ -377,6 +392,7 @@ export async function respondToMissingDocument(
       statusOverriddenByUser,
     },
   });
+  await appendJustificationToThread(saved?.id, before, trimmedComment, access.userId);
 
   await recordAuditEvent({
     action: "DOCUMENT_STATUS_ANSWERED",
@@ -457,6 +473,26 @@ export async function setParticipationForm(
   return null;
 }
 
+// Une justification qui change rejoint le FIL de commentaires du document (10/11/2026) :
+// l'historique ne se perd plus, et l'IA la relit comme les autres commentaires.
+async function readJustification(establishmentId: string, documentTypeId: string): Promise<string | null> {
+  const document = await prisma.document.findUnique({
+    where: { establishmentId_documentTypeId: { establishmentId, documentTypeId } },
+    select: { missingJustification: true },
+  });
+  return document?.missingJustification ?? null;
+}
+
+async function appendJustificationToThread(
+  documentId: string | undefined,
+  previous: string | null,
+  next: string | null,
+  authorUserId: string
+): Promise<void> {
+  if (!documentId || !next || !isNewJustification(previous, next)) return;
+  await prisma.documentComment.create({ data: { documentId, authorUserId, text: next.trim() } });
+}
+
 // ── Correction de la justification « document manquant » ─────────────────────
 // La justification n'était éditable QUE tant qu'aucune version n'existait : une
 // erreur de saisie devenait définitive au premier dépôt. Cette action la corrige
@@ -481,14 +517,16 @@ export async function updateMissingJustification(
   }
 
   const trimmedComment = comment?.trim().slice(0, MAX_JUSTIFICATION_LENGTH) || null;
+  const before = await readJustification(establishmentId, documentTypeId);
 
-  await prisma.document.upsert({
+  const saved = await prisma.document.upsert({
     where: { establishmentId_documentTypeId: { establishmentId, documentTypeId } },
     update: { missingJustification: trimmedComment },
     // Aucune ligne encore : le commentaire précède le dépôt, le document reste
     // manquant. On ne fabrique surtout pas un statut à partir d'un commentaire.
     create: { establishmentId, documentTypeId, status: "MISSING", missingJustification: trimmedComment },
   });
+  await appendJustificationToThread(saved?.id, before, trimmedComment, access.userId);
 
   await recordAuditEvent({
     action: "DOCUMENT_JUSTIFICATION_UPDATED",
@@ -503,37 +541,6 @@ export async function updateMissingJustification(
   return null;
 }
 
-// « Pris en compte par l'IA » pour le commentaire de ce document (21/10/2026). Même
-// garde que l'écriture du commentaire : qui peut l'écrire peut décider s'il est remis
-// à l'analyse. S'applique à la PROCHAINE analyse (« Réanalyser »).
-export async function setDocumentCommentAiUse(
-  establishmentId: string,
-  documentTypeId: string,
-  enabled: boolean
-): Promise<{ error: string } | null> {
-  const access = await requireEstablishmentAccess(establishmentId, NEED.DOCUMENTS_WRITE);
-  if (!canDepositDocuments(access.missionAccess)) return { error: DEPOSIT_CLOSED_MESSAGE };
-
-  const document = await prisma.document.findUnique({
-    where: { establishmentId_documentTypeId: { establishmentId, documentTypeId } },
-    select: { id: true, commentUsedByAi: true, documentType: { select: { code: true } } },
-  });
-  if (!document) return { error: "Aucun commentaire sur ce document." };
-  const value = enabled === true;
-  if (document.commentUsedByAi === value) return null;
-
-  await prisma.document.update({ where: { id: document.id }, data: { commentUsedByAi: value } });
-  await recordAuditEvent({
-    action: "DOCUMENT_COMMENT_AI_TOGGLED",
-    actorUserId: access.userId,
-    actorRole: access.session.user.role,
-    establishmentId,
-    targetId: documentTypeId,
-    detail: `${document.documentType?.code ?? "?"} · ${value ? "oui" : "non"}`,
-  });
-  revalidateDocumentViews(establishmentId);
-  return null;
-}
 
 
 // ── Reclasser un document sous un autre type ─────────────────────────────────
@@ -729,7 +736,7 @@ export async function listDocumentTypeOptions(
 
   const categories = await getEstablishmentCoveredCategories(establishmentId);
   return prisma.documentType.findMany({
-    where: { archivedAt: null, ...(categories ? { category: { in: [...categories] } } : {}) },
+    where: { ...documentTypeVisibleTo(establishmentId), ...(categories ? { category: { in: [...categories] } } : {}) },
     select: { id: true, label: true, category: true },
     orderBy: [{ category: "asc" }, { label: "asc" }],
   });

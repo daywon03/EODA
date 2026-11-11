@@ -11,6 +11,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const prismaMock = {
   mission: { findUnique: vi.fn() },
   documentType: { findMany: vi.fn(), findUnique: vi.fn() },
+  // Par défaut, aucune ligne masquée pour la structure (10/11/2026).
+  establishmentDocumentTypeExclusion: { findUnique: vi.fn().mockResolvedValue(null) },
+  documentComment: { create: vi.fn() },
   document: { upsert: vi.fn(), findUnique: vi.fn(), findFirst: vi.fn(), update: vi.fn() },
   documentVersion: { findUnique: vi.fn(), update: vi.fn() },
   establishment: { findUnique: vi.fn() },
@@ -92,7 +95,6 @@ const {
   getExtractedText,
   changeDocumentType,
   setCriterionGuidelineAiUse,
-  setDocumentCommentAiUse,
   setParticipationForm,
   addCriterionGuidelines,
   getGuidelineReach,
@@ -102,23 +104,8 @@ const {
   updateAnalysisDirective,
 } = await import("./document");
 
-describe("setDocumentCommentAiUse — « Commentaire sur ce document » remis à l'IA", () => {
-  it("passe par la garde d'écriture, bascule le seul drapeau et journalise sans le commentaire", async () => {
-    prismaMock.document.findUnique.mockResolvedValue({ id: "doc-1", commentUsedByAi: true, documentType: { code: "CVS" } });
-    expect(await setDocumentCommentAiUse("etab-1", "dt-cvs", false)).toBeNull();
-    expect(requireEstablishmentAccess).toHaveBeenCalledWith("etab-1", expect.objectContaining({ mode: "WRITE" }));
-    expect(prismaMock.document.update).toHaveBeenCalledWith({ where: { id: "doc-1" }, data: { commentUsedByAi: false } });
-    expect(recordAuditEvent).toHaveBeenCalledWith(expect.objectContaining({ action: "DOCUMENT_COMMENT_AI_TOGGLED", detail: "CVS · non" }));
-  });
-
-  it("n'écrit rien quand le document n'existe pas ou que l'état est déjà le bon", async () => {
-    prismaMock.document.findUnique.mockResolvedValue(null);
-    expect(await setDocumentCommentAiUse("etab-1", "dt-cvs", false)).toMatchObject({ error: expect.any(String) });
-    prismaMock.document.findUnique.mockResolvedValue({ id: "doc-1", commentUsedByAi: true, documentType: { code: "CVS" } });
-    expect(await setDocumentCommentAiUse("etab-1", "dt-cvs", true)).toBeNull();
-    expect(prismaMock.document.update).not.toHaveBeenCalled();
-  });
-});
+// La bascule « pris en compte par l'IA » est désormais PAR COMMENTAIRE du fil
+// (10/11/2026) : lib/actions/document-comment.ts et son test.
 
 // « Pouvoir oui ou non le faire prendre en compte par l'IA » (call du 18/10/2026).
 describe("setCriterionGuidelineAiUse", () => {
@@ -388,7 +375,10 @@ describe("uploadDocument — périmètre de l'offre", () => {
     const result = await uploadDocument(formData);
 
     expect(prismaMock.documentType.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { archivedAt: null, category: { in: ["LOI_2002_2"] } } })
+      // Lignes archivées ET lignes masquées pour cette structure exclues (10/11/2026).
+      expect.objectContaining({
+        where: { archivedAt: null, hiddenFor: { none: { establishmentId: "etab-1" } }, category: { in: ["LOI_2002_2"] } },
+      })
     );
     expect(result).toMatchObject({ needsManualType: true, candidates: [expect.anything()] });
   });
@@ -406,6 +396,18 @@ describe("ligne de documents archivée — aucun dépôt, aucune réponse", () =
     const result = await uploadDocument(uploadForm(ARCHIVED.id));
 
     expect(result).toEqual({ error: "Type de document invalide." });
+    expect(ingestDocumentVersion).not.toHaveBeenCalled();
+  });
+
+  // 10/11/2026 : masquée pour CETTE structure, une ligne ne reçoit plus de dépôt.
+  it("refuse un dépôt sur une ligne masquée pour cette structure, sans rien stocker", async () => {
+    givenMission("ESSENTIEL");
+    prismaMock.documentType.findUnique.mockResolvedValue(LOI_TYPE);
+    prismaMock.establishmentDocumentTypeExclusion.findUnique.mockResolvedValueOnce({ documentTypeId: LOI_TYPE.id });
+
+    const result = await uploadDocument(uploadForm(LOI_TYPE.id));
+
+    expect(result).toEqual({ error: expect.stringContaining("masquée pour cette structure") });
     expect(ingestDocumentVersion).not.toHaveBeenCalled();
   });
 
@@ -442,6 +444,25 @@ describe("respondToMissingDocument — périmètre de l'offre", () => {
 
     expect(result).toBeNull();
     expect(prismaMock.document.upsert).toHaveBeenCalledTimes(1);
+  });
+
+  // 10/11/2026 : une justification qui change rejoint le fil de commentaires du document.
+  it("une justification nouvelle rejoint le fil ; la même, jamais deux fois", async () => {
+    givenMission("ESSENTIEL");
+    prismaMock.documentType.findUnique.mockResolvedValue(LOI_TYPE);
+    prismaMock.document.findUnique.mockResolvedValueOnce({ missingJustification: "ancien" });
+    prismaMock.document.upsert.mockResolvedValueOnce({ id: "doc-1" });
+
+    expect(await respondToMissingDocument(ESTABLISHMENT_ID, LOI_TYPE.id, "WILL_PROVIDE", " en cours ")).toBeNull();
+    expect(prismaMock.documentComment.create).toHaveBeenCalledWith({
+      data: { documentId: "doc-1", authorUserId: expect.any(String), text: "en cours" },
+    });
+
+    prismaMock.documentComment.create.mockClear();
+    prismaMock.document.findUnique.mockResolvedValueOnce({ missingJustification: "en cours" });
+    prismaMock.document.upsert.mockResolvedValueOnce({ id: "doc-1" });
+    await respondToMissingDocument(ESTABLISHMENT_ID, LOI_TYPE.id, "WILL_PROVIDE", "en cours");
+    expect(prismaMock.documentComment.create).not.toHaveBeenCalled();
   });
 
   it("n'oppose aucun périmètre à un établissement sans mission (avant-vente)", async () => {
