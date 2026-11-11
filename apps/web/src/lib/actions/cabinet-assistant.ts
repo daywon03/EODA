@@ -7,6 +7,7 @@ import { recordAuditEvent } from "@/lib/services/audit-log-service";
 import { ASSISTANT_DAILY_CREDITS, MAX_QUESTION_LENGTH, conversationTitle, creditsFor } from "@/lib/services/assistant-service";
 import { runCabinetAgent, type CabinetProposal, type CabinetProposalKind } from "@/lib/services/cabinet-assistant-agent";
 import { AssistantChatError, getAssistantChatPort } from "@/lib/llm/assistant-chat";
+import { resolveAssistantModel } from "@/lib/llm/assistant-models";
 import { creditsUsedToday, debitCredits } from "@/lib/db/assistant-credits";
 import { cabinetAssistantDeps } from "@/lib/db/cabinet-assistant-deps";
 import { MAX_DESIGN_NOTES_LENGTH } from "@/lib/services/document-design-service";
@@ -107,7 +108,8 @@ export async function getCabinetAssistant(conversationId: string | null = null):
 
 export async function askCabinetAssistant(
   conversationId: string | null,
-  question: string
+  question: string,
+  modelId: string | null = null
 ): Promise<{ error: string } | { conversationId: string }> {
   const context = await requireCabinetSession("STRUCTURES_WRITE");
   const text = typeof question === "string" ? question.trim() : "";
@@ -135,6 +137,8 @@ export async function askCabinetAssistant(
       question: text,
       history,
       userName: context.session.user.name ?? "la consultante",
+      // Entrée du navigateur : un identifiant inconnu retombe sur le modèle par défaut.
+      model: resolveAssistantModel(modelId).openRouterSlug,
     });
     credits = creditsFor(result.cost);
     tools = result.toolsUsed;

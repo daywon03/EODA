@@ -48,7 +48,10 @@ export type AgentDeps = {
 };
 
 export type AgentPort = {
-  step(messages: readonly StepMessage[], options: { maxTokens: number; tools?: readonly ToolDefinition[] }): Promise<ChatStep>;
+  step(
+    messages: readonly StepMessage[],
+    options: { maxTokens: number; tools?: readonly ToolDefinition[]; model?: string | undefined }
+  ): Promise<ChatStep>;
 };
 
 const object = (properties: Record<string, unknown>, required: string[]) => ({
@@ -197,6 +200,8 @@ export async function runCabinetAgent(input: {
   history: readonly { role: "user" | "assistant"; content: string }[];
   userName: string;
   today?: Date;
+  // Slug OpenRouter du modèle choisi (assistant-models) ; absent = modèle par défaut.
+  model?: string;
 }): Promise<AgentResult> {
   const messages: StepMessage[] = [
     { role: "system", content: buildCabinetSystemPrompt({ userName: input.userName, today: input.today ?? new Date() }) },
@@ -212,7 +217,11 @@ export async function runCabinetAgent(input: {
 
   for (let round = 0; round <= MAX_TOOL_ROUNDS; round++) {
     const withTools = round < MAX_TOOL_ROUNDS;
-    const result = await input.port.step(messages, { maxTokens: MAX_OUTPUT_TOKENS, ...(withTools ? { tools: CABINET_ASSISTANT_TOOLS } : {}) });
+    const result = await input.port.step(messages, {
+      maxTokens: MAX_OUTPUT_TOKENS,
+      model: input.model,
+      ...(withTools ? { tools: CABINET_ASSISTANT_TOOLS } : {}),
+    });
     cost += result.cost ?? 0;
     inputTokens += result.inputTokens;
     outputTokens += result.outputTokens;

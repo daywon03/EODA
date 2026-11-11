@@ -216,6 +216,58 @@
   .tab-scroller::-webkit-scrollbar {
     display: none;
   }
+
+  /* ASSISTANT (refonte du 11/11/2026, façon ChatGPT / Claude). Le focus du champ du
+   * composeur n'est jamais retiré : il passe du champ au BLOC ENTIER (même contour ambre
+   * de 3 px que partout), qui est ce que l'œil voit comme « la zone de saisie ». */
+  .assistant-composer:has(textarea:focus-visible) {
+    outline: 3px solid rgb(var(--focus));
+    outline-offset: 2px;
+  }
+  .assistant-composer textarea:focus-visible {
+    outline: 3px solid transparent;
+  }
+  .assistant-thread ::selection {
+    background: rgb(var(--highlight));
+  }
+  /* Barres de défilement fines, aux couleurs du papier. */
+  .assistant-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(var(--line)) transparent;
+  }
+  /* Le menu des modèles naît du bouton (bas gauche), sans saut. */
+  .assistant-pop {
+    transform-origin: bottom left;
+    animation: assistant-pop 180ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  @keyframes assistant-pop {
+    from {
+      opacity: 0;
+      transform: translateY(6px) scale(0.97);
+    }
+  }
+  /* « L'assistant consulte vos dossiers » : trois points qui respirent. */
+  .assistant-dots span {
+    animation: assistant-dot 1.2s ease-in-out infinite;
+  }
+  .assistant-dots span:nth-child(2) {
+    animation-delay: 0.15s;
+  }
+  .assistant-dots span:nth-child(3) {
+    animation-delay: 0.3s;
+  }
+  @keyframes assistant-dot {
+    0%,
+    80%,
+    100% {
+      opacity: 0.25;
+      transform: translateY(0);
+    }
+    40% {
+      opacity: 1;
+      transform: translateY(-3px);
+    }
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

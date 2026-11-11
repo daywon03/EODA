@@ -107,6 +107,17 @@ describe("runCabinetAgent", () => {
     expect(tool?.content).toMatch(/introuvable/);
   });
 
+  it("le modèle choisi part à chaque tour", async () => {
+    const port = {
+      step: vi
+        .fn()
+        .mockResolvedValueOnce(step("", [{ id: "t1", name: "list_structures", arguments: "{}" }]))
+        .mockResolvedValueOnce(step("ok")),
+    };
+    await runCabinetAgent({ port, deps: deps(), question: "q", history: [], userName: "C", model: "z-ai/glm-5.3-flash" });
+    expect(port.step.mock.calls.map((c) => (c[1] as { model?: string }).model)).toEqual(["z-ai/glm-5.3-flash", "z-ai/glm-5.3-flash"]);
+  });
+
   it("au plus 4 tours d'outils, puis une réponse finale sans outils", async () => {
     const port = { step: vi.fn().mockResolvedValue(step("", [{ id: "t", name: "list_structures", arguments: "{}" }])) };
     port.step.mockResolvedValueOnce(step("", [{ id: "t", name: "list_structures", arguments: "{}" }]))

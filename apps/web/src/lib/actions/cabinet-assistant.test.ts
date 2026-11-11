@@ -102,6 +102,13 @@ describe("askCabinetAssistant", () => {
     expect(JSON.stringify(recordAuditEvent.mock.calls)).not.toContain("Où en sont");
   });
 
+  it("le modèle choisi est résolu dans le catalogue ; inconnu, le défaut", async () => {
+    await askCabinetAssistant(null, "q", "deepseek-v4.1-flash");
+    expect((runCabinetAgent.mock.calls[0]?.[0] as { model: string }).model).toBe("deepseek/deepseek-v4.1-flash");
+    await askCabinetAssistant(null, "q", "modele-pirate");
+    expect((runCabinetAgent.mock.calls[1]?.[0] as { model: string }).model).toBe("minimax/minimax-m2.7");
+  });
+
   it("compte sans droit d'écriture ou client : refusé avant tout", async () => {
     requireCabinetSession.mockRejectedValue(new Error("REDIRECT"));
     await expect(askCabinetAssistant(null, "q")).rejects.toThrow("REDIRECT");
