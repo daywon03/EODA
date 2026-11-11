@@ -184,3 +184,32 @@ describe("conversation", () => {
     expect(ASSISTANT_REPLY_RESERVE).toBeGreaterThanOrEqual(4000);
   });
 });
+
+describe("parseAssistantReply — ajout au document", () => {
+  it("lit un ajout avec sa citation et son critère", () => {
+    const reply = parseAssistantReply(
+      JSON.stringify({
+        reponse: "Je propose un ajout.",
+        propositions: [{ type: "ajout_document", texte: "Une personne qualifiée peut être saisie.", apres: "  Vos droits  ", critere: "1.2.5" }],
+      })
+    );
+    expect(reply.proposals).toEqual([
+      { kind: "ADDITION", text: "Une personne qualifiée peut être saisie.", status: "PENDING", anchor: "Vos droits", criterionCode: "1.2.5" },
+    ]);
+  });
+
+  it("un code qui n'a pas la forme d'un critère est ignoré, une citation vide aussi", () => {
+    const reply = parseAssistantReply(
+      JSON.stringify({ reponse: "Ok.", propositions: [{ type: "ajout_document", texte: "Ajout.", apres: "", critere: "critère 1" }] })
+    );
+    expect(reply.proposals[0]).toMatchObject({ anchor: null, criterionCode: null });
+  });
+
+  it("les autres cartes ne portent ni citation ni critère", () => {
+    const reply = parseAssistantReply(
+      JSON.stringify({ reponse: "Ok.", propositions: [{ type: "consigne_ia", texte: "Le DPO est page 4.", apres: "x", critere: "1.2.5" }] })
+    );
+    expect(reply.proposals[0]).toEqual({ kind: "COMMENT", text: "Le DPO est page 4.", status: "PENDING" });
+  });
+});
+

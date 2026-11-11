@@ -3186,6 +3186,8 @@ model AssistantMessage {
   proposalsJson  Json?                @map("proposals_json")
   credits        Int                  @default(0)
   model          String?
+  // Assistant du menu : noms des outils de lecture appelés pour cette réponse.
+  toolsUsed      String[]             @default([]) @map("tools_used")
   createdAt      DateTime             @default(now()) @map("created_at")
 
   conversation AssistantConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)

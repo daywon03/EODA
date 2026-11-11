@@ -94,7 +94,13 @@ describe("askCabinetAssistant", () => {
     expect(requireCabinetSession).toHaveBeenCalledWith("STRUCTURES_WRITE");
     expect(prismaMock.assistantConversation.create).toHaveBeenCalledWith({ data: { userId: "u-eval", title: "Où en sont mes structures ?" }, select: { id: true } });
     expect(prismaMock.assistantMessage.create).toHaveBeenLastCalledWith({
-      data: expect.objectContaining({ role: "ASSISTANT", credits: 3, proposalsJson: [proposal("INFORMATION_REQUEST")] }),
+      data: expect.objectContaining({
+        role: "ASSISTANT",
+        credits: 3,
+        proposalsJson: [proposal("INFORMATION_REQUEST")],
+        // Ce qui a été lu, pour la phrase « A lu… » sous la réponse.
+        toolsUsed: ["list_structures", "get_structure_documents"],
+      }),
     });
     expect(debitCredits).toHaveBeenCalledWith("u-eval", 3, 900, 80);
     const audit = recordAuditEvent.mock.calls[0]?.[0] as { detail: string };

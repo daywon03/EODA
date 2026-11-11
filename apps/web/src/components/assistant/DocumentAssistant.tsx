@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useId, useState, useTransition } from "react";
-import { Loader2, MessageSquarePlus, Plus, Sparkles, Trash2 } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Loader2, Plus, Sparkles, Trash2 } from "lucide-react";
 import {
   askDocumentAssistant,
   deleteAssistantConversation,
@@ -27,7 +28,16 @@ import { Select } from "@/components/ui/select";
 const PROPOSAL_COPY: Record<AssistantProposal["kind"], { title: string; confirm: string }> = {
   COMMENT: { title: "Consigne à retenir pour l'IA", confirm: "Ajouter aux commentaires" },
   INFORMATION_REQUEST: { title: "Demande à la structure", confirm: "Envoyer la demande" },
+  // Posé dans la mise en conformité, où il s'accepte ou se refuse : jamais écrit seul.
+  ADDITION: { title: "Ajout au document", confirm: "Placer dans le document" },
 };
+const PROPOSAL_TONE = { COMMENT: "comment", INFORMATION_REQUEST: "request", ADDITION: "addition" } as const;
+
+function proposalTarget(proposal: AssistantProposal): string | null {
+  if (proposal.kind !== "ADDITION") return null;
+  const where = proposal.anchor ? `Après « ${proposal.anchor} »` : "En fin de document";
+  return proposal.criterionCode ? `${where} · critère ${proposal.criterionCode}` : where;
+}
 
 export function DocumentAssistant({ establishmentId, documentTypeId }: { establishmentId: string; documentTypeId: string }) {
   const [state, setState] = useState<AssistantState | null>(null);
@@ -38,6 +48,7 @@ export function DocumentAssistant({ establishmentId, documentTypeId }: { establi
   const fieldId = useId();
   const pickerId = useId();
   const [model, setModel] = useAssistantModel();
+  const router = useRouter();
 
   async function refresh(conversationId: string | null) {
     setState(await getDocumentAssistant(establishmentId, documentTypeId, conversationId));
@@ -90,6 +101,8 @@ export function DocumentAssistant({ establishmentId, documentTypeId }: { establi
       const result = await resolveAssistantProposal(establishmentId, messageId, index, decision);
       if (result && "error" in result) setError(result.error);
       await refresh(state?.conversationId ?? null);
+      // Un ajout placé apparaît dans le document à côté : la page se redessine.
+      if (!result && decision === "CONFIRM") router.refresh();
     });
   }
 
@@ -171,8 +184,9 @@ export function DocumentAssistant({ establishmentId, documentTypeId }: { establi
               {message.proposals.map((proposal, index) => (
                 <ProposalCard
                   key={index}
-                  tone={proposal.kind === "COMMENT" ? "comment" : "request"}
+                  tone={PROPOSAL_TONE[proposal.kind]}
                   title={PROPOSAL_COPY[proposal.kind].title}
+                  target={proposalTarget(proposal)}
                   text={proposal.text}
                   status={proposal.status}
                   confirmLabel={PROPOSAL_COPY[proposal.kind].confirm}
@@ -213,17 +227,5 @@ export function DocumentAssistant({ establishmentId, documentTypeId }: { establi
         </p>
       )}
     </section>
-  );
-}
-
-// Le déclencheur : l'assistant (et ses lectures) ne se chargent qu'au clic.
-export function DocumentAssistantLauncher({ establishmentId, documentTypeId }: { establishmentId: string; documentTypeId: string }) {
-  const [open, setOpen] = useState(false);
-  if (open) return <DocumentAssistant establishmentId={establishmentId} documentTypeId={documentTypeId} />;
-  return (
-    <Button type="button" variant="outline" onClick={() => setOpen(true)}>
-      <MessageSquarePlus className="h-4 w-4" aria-hidden="true" />
-      Poser une question à l&apos;assistant
-    </Button>
   );
 }

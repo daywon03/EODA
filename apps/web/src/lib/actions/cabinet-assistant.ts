@@ -9,6 +9,7 @@ import { runCabinetAgent, type CabinetProposal, type CabinetProposalKind } from 
 import { AssistantChatError, getAssistantChatPort } from "@/lib/llm/assistant-chat";
 import { resolveAssistantModel } from "@/lib/llm/assistant-models";
 import { creditsUsedToday, debitCredits } from "@/lib/db/assistant-credits";
+import { readToolsOnly } from "@/lib/services/assistant-ui-service";
 import { cabinetAssistantDeps } from "@/lib/db/cabinet-assistant-deps";
 import { MAX_DESIGN_NOTES_LENGTH } from "@/lib/services/document-design-service";
 import { addDocumentComment } from "./document-comment";
@@ -30,6 +31,9 @@ export type CabinetAssistantMessage = {
   role: "USER" | "ASSISTANT";
   content: string;
   proposals: CabinetProposal[];
+  // Ce que l'assistant a lu pour cette réponse (noms d'outils) et ce qu'elle a coûté.
+  toolsUsed: string[];
+  credits: number;
   createdAt: Date;
 };
 
@@ -73,9 +77,17 @@ async function loadMessages(conversationId: string): Promise<CabinetAssistantMes
     where: { conversationId },
     orderBy: { createdAt: "asc" },
     take: 100,
-    select: { id: true, role: true, content: true, proposalsJson: true, createdAt: true },
+    select: { id: true, role: true, content: true, proposalsJson: true, toolsUsed: true, credits: true, createdAt: true },
   });
-  return rows.map((m) => ({ id: m.id, role: m.role, content: m.content, proposals: readProposals(m.proposalsJson), createdAt: m.createdAt }));
+  return rows.map((m) => ({
+    id: m.id,
+    role: m.role,
+    content: m.content,
+    proposals: readProposals(m.proposalsJson),
+    toolsUsed: m.toolsUsed,
+    credits: m.credits,
+    createdAt: m.createdAt,
+  }));
 }
 
 async function ownThread(userId: string, conversationId: string): Promise<{ id: string }> {
@@ -143,7 +155,7 @@ export async function askCabinetAssistant(
     credits = creditsFor(result.cost);
     tools = result.toolsUsed;
     await prisma.assistantMessage.create({
-      data: { conversationId: thread.id, role: "ASSISTANT", content: result.text, proposalsJson: result.proposals, credits, model: result.model },
+      data: { conversationId: thread.id, role: "ASSISTANT", content: result.text, proposalsJson: result.proposals, credits, model: result.model, toolsUsed: readToolsOnly(result.toolsUsed) },
     });
     await debitCredits(context.userId, credits, result.inputTokens, result.outputTokens);
   } catch (error) {

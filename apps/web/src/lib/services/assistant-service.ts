@@ -29,9 +29,21 @@ const MAX_PROPOSALS = 3;
 const MAX_PROPOSAL_TEXT = 1000;
 const MAX_REPLY_TEXT = 8000;
 
-export type ProposalKind = "COMMENT" | "INFORMATION_REQUEST";
+// ADDITION (11/11/2026) : un passage à ajouter au document, posé dans la mise en
+// conformité à la confirmation (assistant-addition-service) — jamais écrit directement.
+export type ProposalKind = "COMMENT" | "INFORMATION_REQUEST" | "ADDITION";
 export type ProposalStatus = "PENDING" | "APPLIED" | "DISMISSED";
-export type AssistantProposal = { kind: ProposalKind; text: string; status: ProposalStatus };
+export type AssistantProposal = {
+  kind: ProposalKind;
+  text: string;
+  status: ProposalStatus;
+  // ADDITION seulement : le passage du document après lequel l'ajout se place, et le
+  // critère HAS qui le justifie (revérifié contre le référentiel à la confirmation).
+  anchor?: string | null;
+  criterionCode?: string | null;
+};
+const MAX_ANCHOR_TEXT = 300;
+const CRITERION_CODE = /^\d+(\.\d+){1,3}$/;
 
 // ── Crédits ──────────────────────────────────────────────────────────────────
 
@@ -62,7 +74,20 @@ export function parisDay(now: Date): string {
 const PROPOSAL_TYPES: Record<string, ProposalKind> = {
   consigne_ia: "COMMENT",
   demande_structure: "INFORMATION_REQUEST",
+  ajout_document: "ADDITION",
 };
+
+function optionalField(item: object, key: string, max: number): string | null {
+  const value = key in item ? (item as Record<string, unknown>)[key] : undefined;
+  if (typeof value !== "string") return null;
+  const text = value.trim().replace(/\s+/g, " ").slice(0, max);
+  return text.length > 0 ? text : null;
+}
+
+function additionFields(item: object): Pick<AssistantProposal, "anchor" | "criterionCode"> {
+  const code = optionalField(item, "critere", 20);
+  return { anchor: optionalField(item, "apres", MAX_ANCHOR_TEXT), criterionCode: code && CRITERION_CODE.test(code) ? code : null };
+}
 
 function extractJson(raw: string): unknown {
   const start = raw.indexOf("{");
@@ -104,7 +129,8 @@ export function parseAssistantReply(raw: string): { text: string; proposals: Ass
         if (!item || typeof item !== "object") return [];
         const type = "type" in item && typeof item.type === "string" ? PROPOSAL_TYPES[item.type] : undefined;
         const text = "texte" in item && typeof item.texte === "string" ? cleanAssistantText(item.texte, MAX_PROPOSAL_TEXT) : "";
-        return type && text ? [{ kind: type, text, status: "PENDING" }] : [];
+        if (!type || !text) return [];
+        return [type === "ADDITION" ? { kind: type, text, status: "PENDING", ...additionFields(item) } : { kind: type, text, status: "PENDING" }];
       })
       .slice(0, MAX_PROPOSALS);
     const text = cleanAssistantText(parsed.reponse, MAX_REPLY_TEXT);
@@ -134,11 +160,13 @@ Règles :
 - Tu écris en français simple, avec l'alphabet latin seulement, en quelques phrases ou une courte liste, en texte brut sans Markdown : ni astérisques, ni dièses, ni chevrons ; une liste s'écrit avec des tirets « - ».
 - Tu peux proposer au plus 3 actions, qu'un humain confirmera d'un clic :
   - "consigne_ia" : une consigne courte à retenir pour les prochaines analyses de ce document (par exemple « Le DPO est nommé page 4 ») ;
-  - "demande_structure" : une demande polie à la structure pour une information qui manque (par exemple « Merci d'indiquer les coordonnées du DAC 93 »).
+  - "demande_structure" : une demande polie à la structure pour une information qui manque (par exemple « Merci d'indiquer les coordonnées du DAC 93 ») ;
+  - "ajout_document" : un passage à AJOUTER au document, rédigé tel qu'il y figurera. Mets dans "apres" une courte citation EXACTE du document (une phrase) après laquelle il se place, et dans "critere" le code du critère HAS qu'il couvre s'il est dans <criteres_document>, sinon "". Il ne remplace rien : il s'ajoute, et la consultante l'accepte ou le refuse dans le document. N'invente ni nom, ni numéro, ni date, ni version : écris [À compléter : …] pour ce que seule la structure sait.
   Une action se met TOUJOURS dans "propositions", jamais dans "reponse" : dans "reponse", annonce-la en une phrase (« Je vous propose une demande à la structure, ci-dessous »). Ne propose une action que si elle est utile.
 
 Réponds UNIQUEMENT avec un objet JSON :
-{"reponse": "ta réponse", "propositions": [{"type": "consigne_ia" | "demande_structure", "texte": "…"}]}`;
+{"reponse": "ta réponse", "propositions": [{"type": "consigne_ia" | "demande_structure" | "ajout_document", "texte": "…", "apres": "…", "critere": "…"}]}
+("apres" et "critere" ne servent qu'à "ajout_document".)`;
 }
 
 export type AssistantContextInput = {
@@ -208,6 +236,7 @@ const STATUS_WORD: Record<ProposalStatus, string> = {
 const KIND_WORD: Record<ProposalKind, string> = {
   COMMENT: "Consigne proposée",
   INFORMATION_REQUEST: "Demande à la structure proposée",
+  ADDITION: "Ajout au document proposé",
 };
 
 export type HistoryMessage = { role: "USER" | "ASSISTANT"; content: string; proposals: readonly AssistantProposal[] };

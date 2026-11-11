@@ -1,6 +1,7 @@
 "use server";
 
 import { notFound } from "next/navigation";
+import { revalidatePath } from "next/cache";
 import { prisma, type Prisma } from "@eoda/database";
 import { requireEstablishmentInTenant } from "@/lib/auth/guards";
 import { recordAuditEvent } from "@/lib/services/audit-log-service";
@@ -26,6 +27,12 @@ import { resolveAssistantModel } from "@/lib/llm/assistant-models";
 import { creditsUsedToday, debitCredits } from "@/lib/db/assistant-credits";
 import { addDocumentComment } from "./document-comment";
 import { requestInformationFromStructure } from "./information-request";
+import { openCorrectionContext, readCriterionLabels } from "./correction-context";
+import { canDepositDocuments } from "@/lib/services/mission-access-service";
+import { CORRECTION_NOT_INCLUDED_MESSAGE } from "@/lib/services/offer-scope-service";
+import { proposalToMarkdown, splitParagraphs } from "@/lib/services/correction-proposal-service";
+import { insertAssistantAddition, proposalFromParagraphs } from "@/lib/services/assistant-addition-service";
+import { validateCorrectionProposal, type CorrectionProposal } from "@/lib/llm/correction-proposal";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ASSISTANT DE LA FICHE DOCUMENT (lot F, 11/11/2026) — construit comme MusicPlanner.
@@ -64,10 +71,19 @@ function readProposals(value: Prisma.JsonValue | null): AssistantProposal[] {
   if (!Array.isArray(value)) return [];
   return value.flatMap((item): AssistantProposal[] => {
     if (!item || typeof item !== "object" || Array.isArray(item)) return [];
-    const { kind, text, status } = item as Record<string, unknown>;
-    if ((kind !== "COMMENT" && kind !== "INFORMATION_REQUEST") || typeof text !== "string") return [];
+    const { kind, text, status, anchor, criterionCode } = item as Record<string, unknown>;
+    if ((kind !== "COMMENT" && kind !== "INFORMATION_REQUEST" && kind !== "ADDITION") || typeof text !== "string") return [];
     if (status !== "PENDING" && status !== "APPLIED" && status !== "DISMISSED") return [];
-    return [{ kind, text, status }];
+    if (kind !== "ADDITION") return [{ kind, text, status }];
+    return [
+      {
+        kind,
+        text,
+        status,
+        anchor: typeof anchor === "string" ? anchor : null,
+        criterionCode: typeof criterionCode === "string" ? criterionCode : null,
+      },
+    ];
   });
 }
 
@@ -275,7 +291,10 @@ export async function resolveAssistantProposal(
     const documentTypeId = message.conversation.documentTypeId;
     // Une conversation de la fiche porte toujours son document ; sinon, rien à rejouer.
     if (!documentTypeId) notFound();
-    if (proposal.kind === "COMMENT") {
+    if (proposal.kind === "ADDITION") {
+      const result = await placeAdditionInCompliance(access.establishmentId, documentTypeId, proposal);
+      if (result) return result;
+    } else if (proposal.kind === "COMMENT") {
       const result = await addDocumentComment(access.establishmentId, documentTypeId, proposal.text, true);
       if (result && "error" in result) return result;
     } else {
@@ -290,6 +309,84 @@ export async function resolveAssistantProposal(
 
   const next = proposals.map((p, i) => (i === index ? { ...p, status: decision === "CONFIRM" ? "APPLIED" : "DISMISSED" } : p));
   await prisma.assistantMessage.update({ where: { id: message.id }, data: { proposalsJson: next } });
+  return null;
+}
+
+// Lecture pour RÉÉCRIRE : validée, mais sans le marquage d'affichage (script-guard),
+// qui finirait sinon enregistré dans la proposition.
+function readProposalForWrite(value: Prisma.JsonValue): CorrectionProposal | null {
+  try {
+    return validateCorrectionProposal(value);
+  } catch {
+    return null;
+  }
+}
+
+// « Placer dans le document » : l'ajout rejoint la mise en conformité OUVERTE de la
+// version courante (sinon une proposition neuve, faite des paragraphes de l'original),
+// où il se décide comme les ajouts du modèle. Les gardes sont celles de la mise en
+// conformité (openCorrectionContext : DOCUMENTS_WRITE, restreint introuvable), plus le
+// droit de l'offre et la mission ouverte. Une proposition déjà enregistrée (version
+// N+1 faite) n'est jamais modifiée : la règle passe par une écriture CONDITIONNELLE.
+// Non exportée : elle n'est atteinte que par resolveAssistantProposal, gardée.
+async function placeAdditionInCompliance(
+  establishmentId: string,
+  documentTypeId: string,
+  proposal: AssistantProposal
+): Promise<{ error: string } | null> {
+  const document = await prisma.document.findFirst({
+    where: { establishmentId, documentTypeId },
+    select: { currentVersionId: true },
+  });
+  if (!document?.currentVersionId) return { error: "Aucun fichier déposé : il n'y a pas encore de document à compléter." };
+
+  const context = await openCorrectionContext(document.currentVersionId);
+  if (!canDepositDocuments(context.access.missionAccess)) {
+    return { error: "L'accompagnement est terminé : plus de nouvelle version." };
+  }
+  if (!context.right.included) return { error: CORRECTION_NOT_INCLUDED_MESSAGE };
+
+  const versionId = context.version.id;
+  const latest = await prisma.correctionProposal.findFirst({
+    where: { sourceVersionId: versionId },
+    orderBy: { generatedAt: "desc" },
+    select: { id: true, proposalJson: true, resultVersionId: true },
+  });
+  const open = latest && !latest.resultVersionId ? readProposalForWrite(latest.proposalJson) : null;
+  const base = open ?? proposalFromParagraphs(splitParagraphs(context.version.extractedText));
+  const known = proposal.criterionCode ? await readCriterionLabels([proposal.criterionCode]) : new Map<string, string>();
+  const { proposal: next, addition, anchored } = insertAssistantAddition(
+    base,
+    { text: proposal.text, anchor: proposal.anchor ?? null, criterionCode: proposal.criterionCode ?? null },
+    { knownCriterionCodes: new Set(known.keys()), originalText: context.version.extractedText ?? "" }
+  );
+
+  const draft = { correctedDraftMarkdown: proposalToMarkdown(next), correctedDraftGeneratedAt: new Date() };
+  if (open && latest) {
+    const [updated] = await prisma.$transaction([
+      prisma.correctionProposal.updateMany({ where: { id: latest.id, resultVersionId: null }, data: { proposalJson: next } }),
+      prisma.documentVersion.update({ where: { id: versionId }, data: draft }),
+    ]);
+    if (updated.count === 0) return { error: "La mise en conformité vient d'être enregistrée : rien n'a été ajouté. Rouvrez la page." };
+  } else {
+    await prisma.$transaction([
+      prisma.correctionProposal.create({
+        data: { sourceVersionId: versionId, proposalJson: next, generatedById: context.access.userId },
+      }),
+      prisma.documentVersion.update({ where: { id: versionId }, data: draft }),
+    ]);
+  }
+
+  await recordAuditEvent({
+    action: "CORRECTED_DRAFT_EDITED",
+    actorUserId: context.access.userId,
+    actorRole: context.access.session.user.role,
+    establishmentId,
+    targetId: versionId,
+    // Jamais le texte de l'ajout : seulement d'où il vient et où il est allé.
+    detail: `ajout de l'assistant · ${addition.criterionCode ?? "sans critère"} · ${anchored ? "placé après la citation" : "placé en fin de document"}`,
+  });
+  revalidatePath(`/dashboard/cabinet/conformite/${versionId}`);
   return null;
 }
 

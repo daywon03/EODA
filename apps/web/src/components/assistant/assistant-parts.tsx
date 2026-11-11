@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { Check, CheckCircle2, Palette, Send, Sparkles, StickyNote, X, type LucideIcon } from "lucide-react";
+import { Check, CheckCircle2, FilePlus2, Palette, Send, Sparkles, StickyNote, X, type LucideIcon } from "lucide-react";
 import { isCreditLow } from "@/lib/services/assistant-service";
 import { cn } from "@/lib/utils";
 
@@ -129,8 +129,8 @@ export function ThinkingIndicator({ label = "L'assistant consulte vos dossiers" 
 }
 
 const STATUS_COPY = { APPLIED: "Fait", DISMISSED: "Écartée" } as const;
-export type ProposalTone = "comment" | "request" | "design";
-const TONE_ICON: Record<ProposalTone, LucideIcon> = { comment: StickyNote, request: Send, design: Palette };
+export type ProposalTone = "comment" | "request" | "design" | "addition";
+const TONE_ICON: Record<ProposalTone, LucideIcon> = { comment: StickyNote, request: Send, design: Palette, addition: FilePlus2 };
 
 // Une proposition à confirmer : rien ne s'écrit sans ce clic, et le serveur revérifie tout.
 export function ProposalCard({
