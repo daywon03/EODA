@@ -17,6 +17,8 @@ import { ParticipationFormPicker } from "@/components/checklist/ParticipationFor
 import { PARTICIPATION_LINE_CODE } from "@/lib/services/participation-form-service";
 import { ClientDocumentActions } from "./ClientDocumentActions";
 import { RestrictedFileNotice } from "@/components/checklist/RestrictedFileNotice";
+import { formatDate } from "@/lib/services/date-format-service";
+import { cardSignatureOffer, signedCopyPath, signingPagePath } from "@/lib/services/document-signature-service";
 
 // Une carte de « Mes documents » : le nom, la pastille (mot + glyphe), un geste
 // principal, et — quand il y a quelque chose à lire — l'analyse sous sa mention
@@ -33,6 +35,7 @@ export function ClientDocumentCard({
   mode,
   establishmentId,
   canAct,
+  isDirection = false,
   complianceHref = null,
 }: {
   item: ChecklistItem;
@@ -41,6 +44,8 @@ export function ClientDocumentCard({
   establishmentId: string;
   // Dépôts ouverts (mission active) ; en bibliothèque, la carte se lit seulement.
   canAct: boolean;
+  // La personne connectée est la DIRECTION : elle seule signe et tamponne (12/11/2026).
+  isDirection?: boolean;
   // « Mettre en conformité » (N8) : en autonomie, si l'offre comprend la génération
   // de ce document et qu'une analyse est lisible. Calculé par la page.
   complianceHref?: string | null;
@@ -62,6 +67,16 @@ export function ClientDocumentCard({
   // UN geste principal (09/11/2026) : déposer, accepter, sinon voir. Le reste est
   // secondaire — lien ou contour, jamais un second aplat.
   const primary = primaryCardAction(state, { canAct: canDeposit, hasViewable: viewable !== null });
+  // Signer et tamponner un document accepté (12/11/2026) — la direction seule ; la copie
+  // signée se télécharge ensuite par tous ceux qui ouvrent le document.
+  const signature = cardSignatureOffer({
+    accepted: state === "ACCEPTED",
+    isDirection,
+    canAct: canDeposit,
+    restricted: item.restrictedAccess,
+    filename: version?.originalFilename ?? null,
+    signedAt: version?.signedAt ?? null,
+  });
   // Toute carte qui a une pièce visible montre « Voir le document », au même endroit.
   const viewer = viewable ? (
     <ClientDocumentViewer
@@ -101,6 +116,9 @@ export function ClientDocumentCard({
               « document produit par EODA » ne sont pas la même chose juridiquement
               (CLAUDE.md §7, deux mentions jamais interchangeables). */}
           {item.restrictedAccess && fileLocked && <RestrictedFileNotice className="text-base" />}
+          {signature === "SIGNED" && version?.signedAt && (
+            <p className="text-base font-bold">Signé par la direction le {formatDate(version.signedAt)}</p>
+          )}
           {viewable && (
             <p className="text-base text-ink2">
               {viewable.producedByCabinet ? "Document produit par EODA" : "Votre dépôt"} · version{" "}
@@ -124,6 +142,24 @@ export function ClientDocumentCard({
           />
         )}
         {primary !== "VIEW" && viewer}
+        {signature === "SIGN" && (
+          <Link
+            href={signingPagePath(item.documentTypeId)}
+            className="inline-flex h-12 w-fit items-center gap-2 rounded-[10px] border-2 border-line bg-card px-5 text-[17px] font-bold text-ink hover:bg-soft"
+          >
+            Signer et tamponner
+            <span className="sr-only"> : {item.label}</span>
+          </Link>
+        )}
+        {signature === "SIGNED" && version && (
+          <a
+            href={signedCopyPath(version.id)}
+            className="inline-flex min-h-12 items-center font-bold text-accent-text underline underline-offset-4"
+          >
+            Télécharger la version signée
+            <span className="sr-only"> : {item.label}</span>
+          </a>
+        )}
         {complianceHref && (
           <Link
             href={complianceHref}

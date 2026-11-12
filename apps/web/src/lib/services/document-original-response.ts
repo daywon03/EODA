@@ -39,6 +39,25 @@ export function inlineOriginalFilename(originalFilename: string): string {
   return toSafeFilenameSegment(originalFilename);
 }
 
+// ── Copie signée par la structure (12/11/2026) ──────────────────────────────
+// Word ou PDF seulement, toujours en pièce jointe : c'est un fichier à garder.
+const SIGNED_TYPES = [PDF_MIME_TYPE, DOCX_MIME_TYPE] as const;
+export type SignedCopyType = (typeof SIGNED_TYPES)[number];
+
+export function signedCopyType(content: Buffer): SignedCopyType | null {
+  const detected = detectFileType(content);
+  return SIGNED_TYPES.find((type) => type === detected) ?? null;
+}
+
+export function signedCopyHeaders(type: SignedCopyType, filename: string): Record<string, string> {
+  return {
+    "Content-Type": type,
+    "Content-Disposition": `attachment; filename="${inlineOriginalFilename(filename)}"`,
+    "Cache-Control": "private, no-store",
+    "X-Content-Type-Options": "nosniff",
+  };
+}
+
 export function inlineOriginalHeaders(type: InlineOriginalType, originalFilename: string): Record<string, string> {
   return {
     "Content-Type": type,

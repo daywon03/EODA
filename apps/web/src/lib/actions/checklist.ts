@@ -113,6 +113,9 @@ export type ChecklistItem = {
     analysisReviewedAt: Date | null;
     // Relu par EODA : revue de l'analyse, ou validation posée après ce dépôt.
     reviewedByEoda: boolean;
+    // Copie signée et tamponnée par la direction de la structure (12/11/2026), posée
+    // SUR cette version. null : pas encore signée.
+    signedAt: Date | null;
     // Mention à afficher à la STRUCTURE sous ce qu'elle lit (review-mention-service) :
     // « Relu par EODA, le JJ/MM » ou, en autonomie, la réserve complète.
     clientMention: string | null;
@@ -215,6 +218,7 @@ async function buildChecklist(
           uploadedAt: true,
           analysisResultJson: true,
           analysisReviewedAt: true,
+          signedAt: true,
           uploadedBy: { select: { role: true } },
         },
       },
@@ -409,6 +413,7 @@ function toChecklistVersion(
     uploadedAt: Date;
     analysisResultJson: unknown;
     analysisReviewedAt: Date | null;
+    signedAt: Date | null;
     uploadedBy: { role: string };
   },
   context: { audience: AnalysisAudience; mode: SupportMode; validatedAt: Date | null },
@@ -442,6 +447,7 @@ function toChecklistVersion(
     analysisReviewedAt: version.analysisReviewedAt,
     analysisAwaitingReview: isAnalysisAwaitingReview(reviewable),
     reviewedByEoda,
+    signedAt: version.signedAt,
     // La date affichée est celle de la revue de l'analyse ; à défaut, celle de la
     // validation (posée après ce dépôt, sinon reviewedByEoda serait faux).
     clientMention: documentMention({
@@ -475,6 +481,9 @@ export async function getClientChecklist(): Promise<{
   offer: MissionOffer | null;
   // Nom de la personne connectée (« Bonjour {prénom} »), lu de la session.
   userName: string | null;
+  // Rôle d'accès de la personne connectée : décide de ce que l'écran PROPOSE (signer =
+  // direction). Chaque action revérifie avec sa propre garde.
+  accessRole: ClientAccessRole | null;
 }> {
   // L'établissement est résolu depuis le lien EstablishmentUser de la session, pas
   // depuis un identifiant fourni par la requête : non falsifiable par construction.
@@ -492,6 +501,7 @@ export async function getClientChecklist(): Promise<{
       supportMode: STRICT_SUPPORT_MODE,
       offer: null,
       userName,
+      accessRole,
     };
   }
 
@@ -502,7 +512,7 @@ export async function getClientChecklist(): Promise<{
     accessRole
   );
 
-  return { establishment, checklist, missionAccess, libraryUpdateAlert, supportMode: mode, offer, userName };
+  return { establishment, checklist, missionAccess, libraryUpdateAlert, supportMode: mode, offer, userName, accessRole };
 }
 
 export async function getEstablishmentChecklist(

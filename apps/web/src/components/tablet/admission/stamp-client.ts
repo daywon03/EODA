@@ -35,8 +35,14 @@ export type PreparedStamp = { png: Uint8Array; turns: number };
 
 // Le fichier source dessiné une fois ; le recadrage et le sens se refont à la demande.
 export async function loadStampSource(versionId: string): Promise<HTMLCanvasElement | null> {
+  return loadStampSourceFrom(tabletAwarenessSheetUrl(versionId));
+}
+
+// Même lecture depuis une autre porte : le portail de la structure lit son tampon par
+// `/api/documents/[versionId]/original`, que seule la direction ouvre (12/11/2026).
+export async function loadStampSourceFrom(url: string): Promise<HTMLCanvasElement | null> {
   try {
-    const response = await fetch(tabletAwarenessSheetUrl(versionId), { credentials: "same-origin", cache: "no-store" });
+    const response = await fetch(url, { credentials: "same-origin", cache: "no-store" });
     if (!response.ok) return null;
     const bytes = new Uint8Array(await response.arrayBuffer());
     const kind = detectStampSource(bytes);
