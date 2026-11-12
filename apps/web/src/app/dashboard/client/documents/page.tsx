@@ -82,7 +82,7 @@ function RubricLinks({ groups }: { groups: readonly { id: string; label: string;
 // son onglet aussi (client-documents-page-service) ; rien ne change de ce que la
 // structure a le droit de voir.
 export default async function ClientDocumentsPage({ searchParams }: Props) {
-  const [{ establishment, checklist, missionAccess, supportMode, offer }, params] = await Promise.all([
+  const [{ establishment, checklist, missionAccess, supportMode, offer, accessRole }, params] = await Promise.all([
     getClientChecklist(),
     searchParams,
   ]);
@@ -243,6 +243,7 @@ export default async function ClientDocumentsPage({ searchParams }: Props) {
                 mode={supportMode}
                 establishmentId={establishment.id}
                 canAct={canAct}
+                isDirection={accessRole === "DIRECTION"}
                 complianceHref={
                   canAct &&
                   supportMode === "AUTONOMIE" &&

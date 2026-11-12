@@ -378,6 +378,7 @@ model User {
   optionRequests              ClientOptionRequest[]         @relation("RequestedBy")
   prospectTimeline            ProspectTimelineEntry[]       @relation("ProspectTimelineAuthor")
   reviewedAnalyses            DocumentVersion[]             @relation("AnalysisReviewedBy")
+  signedDocumentVersions      DocumentVersion[]             @relation("DocumentVersionSignedBy")
   createdAppointments         Appointment[]                 @relation("AppointmentCreatedBy")
   validatedDocuments          Document[]                    @relation("DocumentValidatedBy")
   clientAcceptedDocuments     Document[]                    @relation("DocumentClientAcceptedBy")
@@ -1053,7 +1054,19 @@ model DocumentVersion {
   priorValidatedAt       DateTime? @map("prior_validated_at")
   priorValidatedByUserId String?   @map("prior_validated_by_user_id")
 
+  // COPIE SIGNÉE ET TAMPONNÉE PAR LA STRUCTURE (demande de Damon, 11/11/2026 ;
+  // décisions du 12/11). Rangée SUR la version acceptée, jamais comme une nouvelle
+  // version : une version N+1 rendrait caducs « Relu par EODA » et « Accepté »
+  // (`isValidationCurrent`, `isAcceptanceCurrent`) et repartirait à l'analyse, tampon
+  // compris. L'IA ne lit jamais ce fichier (elle lit `fileStorageKey`). Posée une fois,
+  // par la direction seule (`saveSignedDocument`) ; visible d'EODA.
+  signedFileStorageKey String?   @map("signed_file_storage_key")
+  signedAt             DateTime? @map("signed_at")
+  signedByUserId       String?   @map("signed_by_user_id")
+
   document               Document                      @relation("AllVersions", fields: [documentId], references: [id])
+  // SetNull : un compte désactivé ne retire pas la signature d'un document.
+  signedBy               User?                         @relation("DocumentVersionSignedBy", fields: [signedByUserId], references: [id], onDelete: SetNull)
   uploadedBy             User                          @relation("UploadedBy", fields: [uploadedByUserId], references: [id])
   // SetNull : la désactivation d'un compte ne doit pas dépublier une analyse déjà
   // restituée au client.
@@ -1068,6 +1081,7 @@ model DocumentVersion {
   analysisTrials         AnalysisTrial[]
 
   @@index([documentId])
+  @@index([signedByUserId])
   @@map("document_versions")
 }
 
@@ -2060,6 +2074,9 @@ enum AuditAction {
   // document, `detail` = le code du type de document. Distinct de DOCUMENT_VALIDATED,
   // qui est la parole d'EODA.
   DOCUMENT_ACCEPTED_BY_CLIENT
+  // Copie signée et tamponnée d'un document accepté, déposée par la direction de la
+  // structure (12/11/2026). `targetId` = la version, `detail` = code du type + marques.
+  DOCUMENT_SIGNED_BY_CLIENT
   // Passage d'une mission en autonomie ou en accompagnement (N1). `targetId` =
   // identifiant de la mission, `detail` = le nouveau mode.
   MISSION_SUPPORT_MODE_CHANGED

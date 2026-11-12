@@ -4,6 +4,7 @@ import type { ChecklistItem } from "@/lib/actions/checklist";
 import { documentRowPill } from "@/lib/services/structure-documents-service";
 import { StatusPill } from "@/components/ui/status-pill";
 import { formatDate } from "@/lib/services/date-format-service";
+import { signedCopyPath } from "@/lib/services/document-signature-service";
 import { isImageFile } from "@/lib/services/file-type-service";
 import { summariseAnalysis } from "@/lib/services/analysis-view-service";
 import { canRemoveDocumentType } from "@/lib/services/document-type-removal-service";
@@ -113,6 +114,15 @@ export function DocumentSheetBody({
       {item.clientAccepted && item.clientAcceptedAt && (
         <p className="text-sm font-bold text-ink">
           <span aria-hidden="true">✓ </span>Accepté par la structure le {formatDate(item.clientAcceptedAt)}
+        </p>
+      )}
+      {/* Signé et tamponné par la direction (12/11/2026) : EODA voit la copie signée. */}
+      {item.currentVersion?.signedAt && (
+        <p className="text-sm font-bold text-ink">
+          <span aria-hidden="true">✓ </span>Signé par la structure le {formatDate(item.currentVersion.signedAt)} ·{" "}
+          <a href={signedCopyPath(item.currentVersion.id)} className="text-accent-text underline underline-offset-4">
+            télécharger la version signée
+          </a>
         </p>
       )}
     </>
