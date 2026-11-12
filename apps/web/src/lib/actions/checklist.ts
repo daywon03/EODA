@@ -116,6 +116,9 @@ export type ChecklistItem = {
     // Copie signée et tamponnée par la direction de la structure (12/11/2026), posée
     // SUR cette version. null : pas encore signée.
     signedAt: Date | null;
+    // Vrai : copie signée ICI. Faux avec `signedAt` : déclaré « déjà signé » au dépôt.
+    // La clé de stockage elle-même ne quitte jamais le serveur.
+    hasSignedCopy: boolean;
     // Mention à afficher à la STRUCTURE sous ce qu'elle lit (review-mention-service) :
     // « Relu par EODA, le JJ/MM » ou, en autonomie, la réserve complète.
     clientMention: string | null;
@@ -219,6 +222,7 @@ async function buildChecklist(
           analysisResultJson: true,
           analysisReviewedAt: true,
           signedAt: true,
+          signedFileStorageKey: true,
           uploadedBy: { select: { role: true } },
         },
       },
@@ -414,6 +418,7 @@ function toChecklistVersion(
     analysisResultJson: unknown;
     analysisReviewedAt: Date | null;
     signedAt: Date | null;
+    signedFileStorageKey: string | null;
     uploadedBy: { role: string };
   },
   context: { audience: AnalysisAudience; mode: SupportMode; validatedAt: Date | null },
@@ -448,6 +453,7 @@ function toChecklistVersion(
     analysisAwaitingReview: isAnalysisAwaitingReview(reviewable),
     reviewedByEoda,
     signedAt: version.signedAt,
+    hasSignedCopy: version.signedFileStorageKey !== null,
     // La date affichée est celle de la revue de l'analyse ; à défaut, celle de la
     // validation (posée après ce dépôt, sinon reviewedByEoda serait faux).
     clientMention: documentMention({

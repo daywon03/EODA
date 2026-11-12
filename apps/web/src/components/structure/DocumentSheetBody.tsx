@@ -117,14 +117,20 @@ export function DocumentSheetBody({
         </p>
       )}
       {/* Signé et tamponné par la direction (12/11/2026) : EODA voit la copie signée. */}
-      {item.currentVersion?.signedAt && (
-        <p className="text-sm font-bold text-ink">
-          <span aria-hidden="true">✓ </span>Signé par la structure le {formatDate(item.currentVersion.signedAt)} ·{" "}
-          <a href={signedCopyPath(item.currentVersion.id)} className="text-accent-text underline underline-offset-4">
-            télécharger la version signée
-          </a>
-        </p>
-      )}
+      {item.currentVersion?.signedAt &&
+        (item.currentVersion.hasSignedCopy ? (
+          <p className="text-sm font-bold text-ink">
+            <span aria-hidden="true">✓ </span>Signé par la structure le {formatDate(item.currentVersion.signedAt)} ·{" "}
+            <a href={signedCopyPath(item.currentVersion.id)} className="text-accent-text underline underline-offset-4">
+              télécharger la version signée
+            </a>
+          </p>
+        ) : (
+          // « Il est déjà signé » (12/11/2026) : le fichier déposé est le document signé.
+          <p className="text-sm font-bold text-ink">
+            <span aria-hidden="true">✓ </span>Déjà signé au dépôt, déclaré par la structure le {formatDate(item.currentVersion.signedAt)}
+          </p>
+        ))}
     </>
   );
 

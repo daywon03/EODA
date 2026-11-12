@@ -32,7 +32,7 @@ vi.mock("@/lib/security/office-archive-guard", () => ({
   validateUploadOnServer: (...args: unknown[]) => validateUploadOnServer(...args),
 }));
 
-const { getDocumentSigningContext, saveSignedDocument } = await import("./document-signature");
+const { declareDocumentAlreadySigned, getDocumentSigningContext, saveSignedDocument, withdrawAlreadySignedDeclaration } = await import("./document-signature");
 
 const ETAB = "etab-fictif";
 const TYPE = "dt-plaintes";
@@ -47,7 +47,7 @@ const DIRECTION = {
   missionAccess: "ACTIVE",
 };
 
-function givenDocument(overrides: { clientAcceptedAt?: Date | null; signedAt?: Date | null; filename?: string; code?: string } = {}) {
+function givenDocument(overrides: { clientAcceptedAt?: Date | null; signedAt?: Date | null; signedFileStorageKey?: string | null; filename?: string; code?: string } = {}) {
   prismaMock.document.findUnique.mockResolvedValue({
     clientAcceptedAt: overrides.clientAcceptedAt === undefined ? new Date("2026-11-05") : overrides.clientAcceptedAt,
     documentType: { code: overrides.code ?? "QUALITE_PROCEDURE_PLAINTES", label: "Procédure de gestion des plaintes" },
@@ -57,6 +57,7 @@ function givenDocument(overrides: { clientAcceptedAt?: Date | null; signedAt?: D
       originalFilename: overrides.filename ?? "plaintes.docx",
       uploadedAt: UPLOADED,
       signedAt: overrides.signedAt ?? null,
+      signedFileStorageKey: overrides.signedFileStorageKey ?? null,
     },
   });
 }
@@ -187,5 +188,84 @@ describe("saveSignedDocument — refus", () => {
   it("identifiants absents : introuvable avant toute garde", async () => {
     await expect(saveSignedDocument(form({ establishmentId: null }))).rejects.toThrow("NEXT_NOT_FOUND");
     expect(requireEstablishmentAccess).not.toHaveBeenCalled();
+  });
+});
+
+// « Il est déjà signé » (12/11/2026) : le fichier déposé porte déjà signature et tampon.
+// Mêmes portes que la signature ; `signedAt` posé SANS copie ; réversible par la seule
+// direction, et seulement pour une DÉCLARATION (jamais une copie signée ici).
+describe("declareDocumentAlreadySigned", () => {
+  it("pose la date sans copie, sur la version courante, une seule fois, et journalise", async () => {
+    const result = await declareDocumentAlreadySigned(form());
+    expect(result).toEqual({ signedAt: expect.any(Date) });
+    expect(prismaMock.documentVersion.updateMany).toHaveBeenCalledWith({
+      where: { id: "v-3", signedAt: null, currentForDocument: { isNot: null } },
+      data: { signedAt: expect.any(Date), signedByUserId: "user-direction", signedFileStorageKey: null },
+    });
+    expect(storage.upload).not.toHaveBeenCalled();
+    expect(recordAuditEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ action: "DOCUMENT_SIGNED_BY_CLIENT", targetId: "v-3", detail: "QUALITE_PROCEDURE_PLAINTES · déclaré déjà signé au dépôt" })
+    );
+  });
+
+  it.each([
+    ["responsable qualité", () => requireEstablishmentAccess.mockResolvedValue({ ...DIRECTION, clientAccessRole: "RESPONSABLE_QUALITE" }), /direction/],
+    ["mission close", () => requireEstablishmentAccess.mockResolvedValue({ ...DIRECTION, missionAccess: "LIBRARY" }), /terminé/],
+    ["non accepté", () => givenDocument({ clientAcceptedAt: null }), /Acceptez/],
+    ["déjà signé", () => givenDocument({ signedAt: new Date() }), /déjà signé/],
+  ])("refus : %s", async (_name, arrange, message) => {
+    arrange();
+    const result = await declareDocumentAlreadySigned(form());
+    expect(result).toEqual({ error: expect.stringMatching(message) });
+    expect(prismaMock.documentVersion.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("une autre version que la courante : rien n'est posé", async () => {
+    expect(await declareDocumentAlreadySigned(form({ versionId: "v-2" }))).toEqual({ error: expect.stringMatching(/nouveau dépôt/) });
+    expect(prismaMock.documentVersion.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("deux onglets : la seconde déclaration est refusée, sans journal", async () => {
+    prismaMock.documentVersion.updateMany.mockResolvedValue({ count: 0 });
+    expect(await declareDocumentAlreadySigned(form())).toEqual({ error: expect.stringMatching(/déjà signé/) });
+    expect(recordAuditEvent).not.toHaveBeenCalled();
+  });
+
+  it("le cabinet : introuvable", async () => {
+    requireEstablishmentAccess.mockResolvedValue({ ...DIRECTION, isClient: false, clientAccessRole: null });
+    await expect(declareDocumentAlreadySigned(form())).rejects.toThrow("NEXT_NOT_FOUND");
+  });
+});
+
+describe("withdrawAlreadySignedDeclaration", () => {
+  beforeEach(() => givenDocument({ signedAt: new Date("2026-11-12") }));
+
+  it("retire une DÉCLARATION seulement (copie signée exclue par la condition), et journalise", async () => {
+    expect(await withdrawAlreadySignedDeclaration(form())).toEqual({ ok: true });
+    expect(prismaMock.documentVersion.updateMany).toHaveBeenCalledWith({
+      where: { id: "v-3", signedAt: { not: null }, signedFileStorageKey: null, currentForDocument: { isNot: null } },
+      data: { signedAt: null, signedByUserId: null },
+    });
+    expect(recordAuditEvent).toHaveBeenCalledWith(expect.objectContaining({ detail: "QUALITE_PROCEDURE_PLAINTES · déclaration « déjà signé » retirée" }));
+  });
+
+  it("une copie signée ici (ou rien à retirer) : refusé, sans journal", async () => {
+    prismaMock.documentVersion.updateMany.mockResolvedValue({ count: 0 });
+    expect(await withdrawAlreadySignedDeclaration(form())).toEqual({ error: expect.stringMatching(/rien n'a été retiré/) });
+    expect(recordAuditEvent).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["responsable qualité", { clientAccessRole: "RESPONSABLE_QUALITE" }, /direction/],
+    ["mission close", { missionAccess: "LIBRARY" }, /terminé/],
+  ])("refus : %s", async (_name, patch, message) => {
+    requireEstablishmentAccess.mockResolvedValue({ ...DIRECTION, ...patch });
+    expect(await withdrawAlreadySignedDeclaration(form())).toEqual({ error: expect.stringMatching(message) });
+    expect(prismaMock.documentVersion.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("le cabinet : introuvable", async () => {
+    requireEstablishmentAccess.mockResolvedValue({ ...DIRECTION, isClient: false, clientAccessRole: null });
+    await expect(withdrawAlreadySignedDeclaration(form())).rejects.toThrow("NEXT_NOT_FOUND");
   });
 });

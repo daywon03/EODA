@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
-import { AlertCircle, CheckCircle2, Loader2, RotateCw } from "lucide-react";
+import { AlertCircle, CheckCircle2, Loader2, RotateCw, Trash2 } from "lucide-react";
 import { saveSignedDocument, type DocumentSigningContext } from "@/lib/actions/document-signature";
 import {
   defaultZoneMarks,
@@ -10,6 +10,7 @@ import {
   manualPdfZone,
   matchRenderedParagraph,
   normalizeLine,
+  removeZone,
   shortLabel,
   signedCopyPath,
   signedFilename,
@@ -159,6 +160,19 @@ export function DocumentSigningWorkspace({ context }: { context: DocumentSigning
     invalidate();
   }
 
+  // La poubelle d'une case (12/11/2026) : une case trouvée à tort, ou posée au mauvais
+  // endroit, se retire ; elle se repose à la main avec « Choisir où signer ».
+  function deleteZone(id: string) {
+    const next = removeZone(zones, marks, id);
+    setZones(next.zones);
+    setMarks(next.marks);
+    invalidate();
+  }
+
+  function zoneName(z: Zone): string {
+    return `${z.paragraph === null ? "Fin du document" : z.label}${z.page ? `, page ${z.page}` : ""}`;
+  }
+
   function addZone(zone: Zone, mark: SignatureMark) {
     setZones((z) => [...z, zone]);
     setMarks((m) => ({ ...m, [zone.id]: mark }));
@@ -283,12 +297,19 @@ export function DocumentSigningWorkspace({ context }: { context: DocumentSigning
   const pdfPages = built?.pages ?? (loaded.kind === "PDF" ? loaded.pages : null);
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
-      {/* Le document */}
-      <section aria-label="Le document" className="flex min-w-0 flex-col gap-4">
-        {built && <p className="rounded-lg bg-highlight px-4 py-3 text-base font-bold">Voici la version signée : relisez chaque page avant d&apos;enregistrer.</p>}
+    // Grand écran (retour de Damon, 12/11/2026) : l'espace tient dans la fenêtre, les
+    // étapes 1 à 4 restent FIXES à droite et seul le document défile. Petit écran : une
+    // seule colonne, la page défile comme d'habitude.
+    <div className="grid gap-6 lg:sticky lg:top-20 lg:h-[calc(100dvh-6.5rem)] lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
+      {/* Le document — seul à défiler */}
+      <section
+        aria-label="Le document"
+        tabIndex={0}
+        className="flex min-w-0 flex-col gap-4 lg:min-h-0 lg:overflow-y-auto lg:overscroll-contain lg:rounded-xl lg:border lg:border-line lg:p-3"
+      >
+        {built && <p className="rounded-lg bg-highlight px-4 py-3 text-base font-bold lg:sticky lg:top-0 lg:z-10">Voici la version signée : relisez chaque page avant d&apos;enregistrer.</p>}
         {placing && (
-          <p role="status" className="rounded-lg bg-highlight px-4 py-3 text-base font-bold">
+          <p role="status" className="rounded-lg bg-highlight px-4 py-3 text-base font-bold lg:sticky lg:top-0 lg:z-10">
             {loaded.kind === "PDF" ? "Touchez la page à l'endroit où poser" : "Touchez la ligne après laquelle poser"}{" "}
             {placing === "SIGNATURE" ? "votre signature" : "le tampon"}.
           </p>
@@ -322,22 +343,34 @@ export function DocumentSigningWorkspace({ context }: { context: DocumentSigning
                     zones
                       .filter((z) => z.page === page.page && z.rect)
                       .map((z) => (
-                        <button
-                          key={z.id}
-                          type="button"
-                          style={zoneStyle(z.rect!, page)}
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            setMark(z.id, marks[z.id] ? null : z.kind);
-                          }}
-                          className={cn(
-                            "absolute flex items-center justify-center rounded border-2 border-dashed text-sm font-bold",
-                            marks[z.id] ? "border-ok-text bg-ok-soft/80 text-ok-text" : "border-ambre bg-highlight/60 text-ink"
-                          )}
-                        >
-                          {marks[z.id] ? MARK_LABELS[marks[z.id]!] : "Case libre"}
-                          <span className="sr-only"> — {z.label}, page {page.page}</span>
-                        </button>
+                        <div key={z.id} style={zoneStyle(z.rect!, page)} className="absolute">
+                          <button
+                            type="button"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              setMark(z.id, marks[z.id] ? null : z.kind);
+                            }}
+                            className={cn(
+                              "flex h-full w-full items-center justify-center rounded border-2 border-dashed text-sm font-bold",
+                              marks[z.id] ? "border-ok-text bg-ok-soft/80 text-ok-text" : "border-ambre bg-highlight/60 text-ink"
+                            )}
+                          >
+                            {marks[z.id] ? MARK_LABELS[marks[z.id]!] : "Case libre"}
+                            <span className="sr-only"> — {z.label}, page {page.page}</span>
+                          </button>
+                          <button
+                            type="button"
+                            aria-label={`Retirer la case : ${zoneName(z)}`}
+                            title="Retirer cette case"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              deleteZone(z.id);
+                            }}
+                            className="absolute right-1 top-1 flex h-8 w-8 items-center justify-center rounded-full border border-line bg-card text-danger-text shadow hover:bg-soft"
+                          >
+                            <Trash2 className="h-4 w-4" aria-hidden="true" />
+                          </button>
+                        </div>
                       ))}
                 </div>
               </div>
@@ -347,7 +380,7 @@ export function DocumentSigningWorkspace({ context }: { context: DocumentSigning
       </section>
 
       {/* Les étapes */}
-      <section aria-label="Les étapes" className="flex min-w-0 flex-col gap-4 lg:sticky lg:top-4 lg:self-start">
+      <section aria-label="Les étapes" className="flex min-w-0 flex-col gap-4 lg:min-h-0 lg:overflow-y-auto lg:overscroll-contain">
         <div className="flex flex-col gap-2 rounded-xl border border-line bg-card p-4">
           <h2 className="text-lg font-bold">1. Ma signature</h2>
           <SignaturePad label="Signature de la direction" onChange={(png) => {
@@ -387,7 +420,7 @@ export function DocumentSigningWorkspace({ context }: { context: DocumentSigning
           <h2 className="text-lg font-bold">3. Les cases</h2>
           {zones.length === 0 ? (
             <p className="text-base">
-              Aucune case de signature n&apos;a été trouvée dans ce document.{" "}
+              Aucune case de signature dans la liste.{" "}
               Choisissez vous-même où poser votre signature et le tampon.
             </p>
           ) : (
@@ -408,6 +441,16 @@ export function DocumentSigningWorkspace({ context }: { context: DocumentSigning
                     <option value="SIGNATURE">Ma signature</option>
                     <option value="TAMPON">Le tampon</option>
                   </select>
+                  <button
+                    type="button"
+                    aria-label={`Retirer la case : ${zoneName(z)}`}
+                    title="Retirer cette case"
+                    disabled={built !== null}
+                    onClick={() => deleteZone(z.id)}
+                    className="flex h-12 w-12 items-center justify-center rounded-md border border-line bg-card text-danger-text hover:bg-soft disabled:opacity-50"
+                  >
+                    <Trash2 className="h-5 w-5" aria-hidden="true" />
+                  </button>
                 </li>
               ))}
             </ul>

@@ -19,6 +19,7 @@ import { ClientDocumentActions } from "./ClientDocumentActions";
 import { RestrictedFileNotice } from "@/components/checklist/RestrictedFileNotice";
 import { formatDate } from "@/lib/services/date-format-service";
 import { cardSignatureOffer, signedCopyPath, signingPagePath } from "@/lib/services/document-signature-service";
+import { DeclareAlreadySignedButton, WithdrawAlreadySignedButton } from "./signing/AlreadySignedButtons";
 
 // Une carte de « Mes documents » : le nom, la pastille (mot + glyphe), un geste
 // principal, et — quand il y a quelque chose à lire — l'analyse sous sa mention
@@ -76,7 +77,13 @@ export function ClientDocumentCard({
     restricted: item.restrictedAccess,
     filename: version?.originalFilename ?? null,
     signedAt: version?.signedAt ?? null,
+    hasSignedCopy: version?.hasSignedCopy ?? false,
   });
+  // « Il est déjà signé » se déclare et se retire par la direction, dépôts ouverts.
+  const signatureTarget =
+    version && isDirection && canDeposit
+      ? { establishmentId, documentTypeId: item.documentTypeId, versionId: version.id, label: item.label }
+      : null;
   // Toute carte qui a une pièce visible montre « Voir le document », au même endroit.
   const viewer = viewable ? (
     <ClientDocumentViewer
@@ -119,6 +126,9 @@ export function ClientDocumentCard({
           {signature === "SIGNED" && version?.signedAt && (
             <p className="text-base font-bold">Signé par la direction le {formatDate(version.signedAt)}</p>
           )}
+          {signature === "SIGNED_BEFORE_DEPOSIT" && version?.signedAt && (
+            <p className="text-base font-bold">Déjà signé au dépôt · indiqué par la direction le {formatDate(version.signedAt)}</p>
+          )}
           {viewable && (
             <p className="text-base text-ink2">
               {viewable.producedByCabinet ? "Document produit par EODA" : "Votre dépôt"} · version{" "}
@@ -151,6 +161,8 @@ export function ClientDocumentCard({
             <span className="sr-only"> : {item.label}</span>
           </Link>
         )}
+        {signature === "SIGN" && signatureTarget && <DeclareAlreadySignedButton {...signatureTarget} />}
+        {signature === "SIGNED_BEFORE_DEPOSIT" && signatureTarget && <WithdrawAlreadySignedButton {...signatureTarget} />}
         {signature === "SIGNED" && version && (
           <a
             href={signedCopyPath(version.id)}

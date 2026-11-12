@@ -12,6 +12,7 @@ import { validateUploadOnServer } from "@/lib/security/office-archive-guard";
 import { buildStorageKey, DOCX_MIME_TYPE, PDF_MIME_TYPE } from "@/lib/security/upload-validation-service";
 import { getFileStoragePort } from "@/lib/storage";
 import {
+  DECLARATION_NOT_FOUND_MESSAGE,
   signableKind,
   signedFilename,
   SIGNING_REFUSAL_MESSAGES,
@@ -42,6 +43,9 @@ export type DocumentSigningContext = {
   filename: string;
   kind: SignableKind | null;
   signedAt: Date | null;
+  // Vrai : une copie signée ICI existe. Faux avec `signedAt` posé : la direction a
+  // déclaré le fichier déposé déjà signé (« Il est déjà signé »).
+  hasSignedCopy: boolean;
   refusal: string | null;
   // Le DERNIER dépôt du tampon de la structure (même règle que la tablette — il n'est
   // jamais validé, EODA ne l'ouvre pas). null : aucun tampon déposé.
@@ -55,7 +59,7 @@ async function readSignableDocument(establishmentId: string, documentTypeId: str
       clientAcceptedAt: true,
       documentType: { select: { code: true, label: true } },
       currentVersion: {
-        select: { id: true, versionNumber: true, originalFilename: true, uploadedAt: true, signedAt: true },
+        select: { id: true, versionNumber: true, originalFilename: true, uploadedAt: true, signedAt: true, signedFileStorageKey: true },
       },
     },
   });
@@ -108,6 +112,7 @@ export async function getDocumentSigningContext(establishmentId: string, documen
     filename: version.originalFilename,
     kind: signableKind(version.originalFilename),
     signedAt: version.signedAt,
+    hasSignedCopy: version.signedFileStorageKey !== null,
     refusal,
     tamponVersionId: tampon?.currentVersionId ?? null,
   };
@@ -183,4 +188,66 @@ export async function saveSignedDocument(formData: FormData): Promise<{ error: s
   });
   revalidateDocumentViews(establishmentId);
   return { signedAt };
+}
+
+// « Il est déjà signé » (12/11/2026) : le fichier déposé porte déjà la signature et le
+// tampon. Mêmes portes que la signature (direction, mission active, accepté, version
+// courante, pas déjà signé) ; `signedAt` posé SANS copie, par une écriture conditionnelle.
+export async function declareDocumentAlreadySigned(formData: FormData): Promise<{ error: string } | { signedAt: Date }> {
+  const { access, document, establishmentId } = await requireSignableDocument(
+    formData.get("establishmentId"),
+    formData.get("documentTypeId")
+  );
+  const version = document.currentVersion!;
+  if (formData.get("versionId") !== version.id) return { error: STALE_VERSION_MESSAGE };
+  const refusal = refusalFor(access, document);
+  if (refusal) return { error: refusal };
+
+  const signedAt = new Date();
+  const updated = await prisma.documentVersion.updateMany({
+    where: { id: version.id, signedAt: null, currentForDocument: { isNot: null } },
+    data: { signedAt, signedByUserId: access.userId, signedFileStorageKey: null },
+  });
+  if (updated.count === 0) return { error: SIGNING_REFUSAL_MESSAGES.ALREADY_SIGNED };
+
+  await recordAuditEvent({
+    action: "DOCUMENT_SIGNED_BY_CLIENT",
+    actorUserId: access.userId,
+    actorRole: access.session.user.role,
+    establishmentId,
+    targetId: version.id,
+    detail: `${document.documentType?.code ?? "?"} · déclaré déjà signé au dépôt`,
+  });
+  revalidateDocumentViews(establishmentId);
+  return { signedAt };
+}
+
+// Retirer la déclaration (clic par erreur) : direction, mission active, et seulement une
+// DÉCLARATION — une copie signée ici ne se retire pas par ce geste.
+export async function withdrawAlreadySignedDeclaration(formData: FormData): Promise<{ error: string } | { ok: true }> {
+  const { access, document, establishmentId } = await requireSignableDocument(
+    formData.get("establishmentId"),
+    formData.get("documentTypeId")
+  );
+  const version = document.currentVersion!;
+  if (formData.get("versionId") !== version.id) return { error: STALE_VERSION_MESSAGE };
+  if (access.clientAccessRole !== "DIRECTION") return { error: SIGNING_REFUSAL_MESSAGES.NOT_DIRECTION };
+  if (!canDepositDocuments(access.missionAccess)) return { error: SIGNING_REFUSAL_MESSAGES.CLOSED };
+
+  const updated = await prisma.documentVersion.updateMany({
+    where: { id: version.id, signedAt: { not: null }, signedFileStorageKey: null, currentForDocument: { isNot: null } },
+    data: { signedAt: null, signedByUserId: null },
+  });
+  if (updated.count === 0) return { error: DECLARATION_NOT_FOUND_MESSAGE };
+
+  await recordAuditEvent({
+    action: "DOCUMENT_SIGNED_BY_CLIENT",
+    actorUserId: access.userId,
+    actorRole: access.session.user.role,
+    establishmentId,
+    targetId: version.id,
+    detail: `${document.documentType?.code ?? "?"} · déclaration « déjà signé » retirée`,
+  });
+  revalidateDocumentViews(establishmentId);
+  return { ok: true };
 }

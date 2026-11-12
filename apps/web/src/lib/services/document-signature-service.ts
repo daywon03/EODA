@@ -215,10 +215,36 @@ export function signedFilename(filename: string): string {
   return `${base}-signe${match?.[2] ?? ""}`;
 }
 
+// Retirer une case de la liste (retour de Damon, 12/11/2026 : « il faut qu'il soit
+// possible d'enlever les cases de signature ») : la case ET sa marque disparaissent,
+// les autres restent telles quelles.
+export function removeZone<Z extends { id: string }>(
+  zones: readonly Z[],
+  marks: Readonly<Record<string, SignatureMark | null>>,
+  id: string
+): { zones: Z[]; marks: Record<string, SignatureMark | null> } {
+  const rest = { ...marks };
+  delete rest[id];
+  return { zones: zones.filter((z) => z.id !== id), marks: rest };
+}
+
+// ── « Il est déjà signé » (retour de Damon, 12/11/2026 : « certains documents sont
+// déjà signés, il n'y a pas besoin de les signer ou les tamponner ») ──────────────
+// La direction le DÉCLARE : `signedAt` est posé SANS copie signée
+// (`signedFileStorageKey` null) — le fichier déposé est lui-même le document signé.
+// Aucune colonne de plus : l'absence de copie suffit à distinguer les deux cas.
+export type SignatureState = "UNSIGNED" | "SIGNED_HERE" | "SIGNED_BEFORE_DEPOSIT";
+
+export function signatureState(facts: { signedAt: Date | null; hasSignedCopy: boolean }): SignatureState {
+  if (!facts.signedAt) return "UNSIGNED";
+  return facts.hasSignedCopy ? "SIGNED_HERE" : "SIGNED_BEFORE_DEPOSIT";
+}
+
 // Ce que la carte de « Mes documents » PROPOSE (l'action revérifie tout) : signer un
 // document accepté, Word ou PDF, si l'on est la direction et que les dépôts sont ouverts ;
-// sinon, s'il est signé, la copie signée à télécharger.
-export type CardSignatureOffer = "SIGN" | "SIGNED" | null;
+// sinon, s'il est signé, la copie signée à télécharger — ou, s'il l'était déjà au
+// dépôt, seulement la mention.
+export type CardSignatureOffer = "SIGN" | "SIGNED" | "SIGNED_BEFORE_DEPOSIT" | null;
 
 export function cardSignatureOffer(facts: {
   accepted: boolean;
@@ -227,8 +253,11 @@ export function cardSignatureOffer(facts: {
   restricted: boolean;
   filename: string | null;
   signedAt: Date | null;
+  hasSignedCopy: boolean;
 }): CardSignatureOffer {
-  if (facts.signedAt) return "SIGNED";
+  const state = signatureState(facts);
+  if (state === "SIGNED_HERE") return "SIGNED";
+  if (state === "SIGNED_BEFORE_DEPOSIT") return "SIGNED_BEFORE_DEPOSIT";
   if (!facts.accepted || !facts.isDirection || !facts.canAct || facts.restricted) return null;
   return facts.filename && signableKind(facts.filename) ? "SIGN" : null;
 }
@@ -251,6 +280,8 @@ export const SIGNING_REFUSAL_MESSAGES: Record<SigningRefusal, string> = {
   UNSUPPORTED_FORMAT: "Seuls les documents Word (.docx) et PDF se signent ici.",
   ALREADY_SIGNED: "Ce document est déjà signé. Une nouvelle version déposée pourra être signée à son tour.",
 };
+
+export const DECLARATION_NOT_FOUND_MESSAGE = "Ce document n'est pas marqué « déjà signé » : rien n'a été retiré.";
 
 export function signingRefusal(facts: {
   accessRole: ClientAccessRole | null;

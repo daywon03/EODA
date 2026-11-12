@@ -9,7 +9,9 @@ import {
   manualPdfZone,
   matchRenderedParagraph,
   normalizeLine,
+  removeZone,
   signableKind,
+  signatureState,
   signedFilename,
   signingRefusal,
 } from "./document-signature-service";
@@ -260,12 +262,15 @@ describe("matchRenderedParagraph — l'endroit touché dans l'aperçu Word", () 
 });
 
 describe("cardSignatureOffer — ce que la carte propose", () => {
-  const facts = { accepted: true, isDirection: true, canAct: true, restricted: false, filename: "a.pdf", signedAt: null };
+  const facts = { accepted: true, isDirection: true, canAct: true, restricted: false, filename: "a.pdf", signedAt: null, hasSignedCopy: false };
   it("la direction, sur un document accepté : signer", () => {
     expect(cardSignatureOffer(facts)).toBe("SIGN");
   });
   it("déjà signé : la copie signée, pour tous les rôles et même en bibliothèque", () => {
-    expect(cardSignatureOffer({ ...facts, isDirection: false, canAct: false, signedAt: new Date() })).toBe("SIGNED");
+    expect(cardSignatureOffer({ ...facts, isDirection: false, canAct: false, signedAt: new Date(), hasSignedCopy: true })).toBe("SIGNED");
+  });
+  it("déclaré « déjà signé » au dépôt : la mention, jamais « Signer » ni une copie à télécharger", () => {
+    expect(cardSignatureOffer({ ...facts, signedAt: new Date(), hasSignedCopy: false })).toBe("SIGNED_BEFORE_DEPOSIT");
   });
   it.each([
     [{ accepted: false }],
@@ -276,6 +281,31 @@ describe("cardSignatureOffer — ce que la carte propose", () => {
     [{ filename: null }],
   ])("rien à proposer : %o", (patch) => {
     expect(cardSignatureOffer({ ...facts, ...patch })).toBeNull();
+  });
+});
+
+describe("signatureState — signé ici, déjà signé au dépôt, ou pas", () => {
+  it.each([
+    [{ signedAt: null, hasSignedCopy: false }, "UNSIGNED"],
+    [{ signedAt: new Date(), hasSignedCopy: true }, "SIGNED_HERE"],
+    [{ signedAt: new Date(), hasSignedCopy: false }, "SIGNED_BEFORE_DEPOSIT"],
+  ] as const)("%o → %s", (facts, expected) => {
+    expect(signatureState(facts)).toBe(expected);
+  });
+});
+
+describe("removeZone — la poubelle d'une case", () => {
+  it("retire la case ET sa marque, sans toucher aux autres", () => {
+    const zones = [{ id: "a" }, { id: "b" }, { id: "c" }];
+    const marks = { a: "SIGNATURE", b: "TAMPON", c: null } as const;
+    const next = removeZone(zones, marks, "b");
+    expect(next.zones.map((z) => z.id)).toEqual(["a", "c"]);
+    expect(next.marks).toEqual({ a: "SIGNATURE", c: null });
+    expect(marks).toHaveProperty("b");
+  });
+  it("une case inconnue : rien ne change", () => {
+    const next = removeZone([{ id: "a" }], { a: "SIGNATURE" }, "z");
+    expect(next).toEqual({ zones: [{ id: "a" }], marks: { a: "SIGNATURE" } });
   });
 });
 

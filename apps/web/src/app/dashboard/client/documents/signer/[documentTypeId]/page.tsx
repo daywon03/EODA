@@ -8,6 +8,7 @@ import { formatDate } from "@/lib/services/date-format-service";
 import { signedCopyPath } from "@/lib/services/document-signature-service";
 import { CLIENT_DOCUMENTS_PATH } from "@/lib/design/client-navigation";
 import { DocumentSigningWorkspace } from "@/components/client/documents/signing/DocumentSigningWorkspace";
+import { DeclareAlreadySignedButton, WithdrawAlreadySignedButton } from "@/components/client/documents/signing/AlreadySignedButtons";
 
 export const metadata = { title: "Signer le document" };
 
@@ -21,6 +22,12 @@ export default async function SignDocumentPage({ params }: Props) {
   const { establishment } = await requireClientEstablishment(NEED.DOCUMENTS_WRITE);
   if (!establishment) notFound();
   const context = await getDocumentSigningContext(establishment.id, documentTypeId);
+  const target = {
+    establishmentId: context.establishmentId,
+    documentTypeId: context.documentTypeId,
+    versionId: context.versionId,
+    label: context.documentLabel,
+  };
 
   return (
     <div className="flex flex-col gap-6">
@@ -33,7 +40,15 @@ export default async function SignDocumentPage({ params }: Props) {
         <p className="text-lg">{context.documentLabel}</p>
       </header>
 
-      {context.signedAt ? (
+      {context.signedAt && !context.hasSignedCopy ? (
+        // « Il est déjà signé » (12/11/2026) : rien à poser, le fichier déposé fait foi.
+        <section className="flex flex-col gap-3 rounded-xl border border-line bg-card p-5">
+          <p className="text-base font-bold">Ce document était déjà signé au dépôt (indiqué le {formatDate(context.signedAt)}).</p>
+          <div>
+            <WithdrawAlreadySignedButton {...target} />
+          </div>
+        </section>
+      ) : context.signedAt ? (
         <section className="flex flex-col gap-3 rounded-xl border border-line bg-card p-5">
           <p className="text-base font-bold">Ce document a été signé le {formatDate(context.signedAt)}.</p>
           <a href={signedCopyPath(context.versionId)} className="font-bold text-accent-text underline underline-offset-4">
@@ -45,7 +60,13 @@ export default async function SignDocumentPage({ params }: Props) {
           {context.refusal}
         </p>
       ) : (
-        <DocumentSigningWorkspace context={context} />
+        <>
+          <p className="flex flex-wrap items-center gap-x-2 text-base">
+            Le fichier porte déjà la signature et le tampon ? Inutile de les poser une seconde fois :
+            <DeclareAlreadySignedButton {...target} />
+          </p>
+          <DocumentSigningWorkspace context={context} />
+        </>
       )}
     </div>
   );
