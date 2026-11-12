@@ -1018,6 +1018,7 @@ export async function cancelDocumentDeposit(documentVersionId: string): Promise<
       id: true,
       documentId: true,
       fileStorageKey: true,
+      signedFileStorageKey: true,
       uploadedByUserId: true,
       uploadedAt: true,
       analysisReviewedAt: true,
@@ -1123,8 +1124,14 @@ type RemovableVersion = {
   id: string;
   documentId: string;
   fileStorageKey: string;
+  // Copie signée et tamponnée par la structure : dérivée de la pièce, elle part avec elle.
+  signedFileStorageKey?: string | null;
   document: { currentVersionId: string | null };
 };
+
+function derivedKeysOf(version: RemovableVersion, imageKeys: string[]): string[] {
+  return version.signedFileStorageKey ? [...imageKeys, version.signedFileStorageKey] : imageKeys;
+}
 
 // Récupérées AVANT la transaction : le cascade Prisma (onDelete: Cascade) va supprimer
 // les lignes DocumentVersionImage, mais jamais les objets qu'elles pointent dans le
@@ -1180,7 +1187,7 @@ async function documentAfterRemoval(
 
 // ORDRE de la suppression : l'objet de stockage D'ABORD (cf. `deleteDocumentVersion`).
 async function removeDocumentVersion(version: RemovableVersion): Promise<{ error: string } | null> {
-  const imageKeys = await collectImageKeys(version.id);
+  const imageKeys = derivedKeysOf(version, await collectImageKeys(version.id));
   try {
     await getFileStoragePort().delete(version.fileStorageKey);
   } catch (error) {
@@ -1209,7 +1216,7 @@ async function withdrawCancelledDeposit(
   version: RemovableVersion,
   reset: ValidationReset | null
 ): Promise<{ error: string } | { validationReset: boolean }> {
-  const imageKeys = await collectImageKeys(version.id);
+  const imageKeys = derivedKeysOf(version, await collectImageKeys(version.id));
   let validationWasReset = false;
   try {
     await prisma.$transaction(async (tx) => {

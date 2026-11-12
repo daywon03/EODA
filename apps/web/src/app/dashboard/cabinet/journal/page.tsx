@@ -124,6 +124,7 @@ const ACTION_LABELS: Record<AuditAction, string> = {
   TEMPLATE_CRITERION_SUGGESTION_CONFIRMED: "Critère HAS supplémentaire confirmé sur un gabarit",
   TEMPLATE_CRITERION_SUGGESTION_REJECTED: "Critère HAS supplémentaire rejeté sur un gabarit",
   DOCUMENT_ACCEPTED_BY_CLIENT: "Document accepté par la structure",
+  DOCUMENT_SIGNED_BY_CLIENT: "Document signé par la structure",
   MISSION_SUPPORT_MODE_CHANGED: "Mode d'accompagnement modifié (autonomie / accompagné)",
   CLIENT_USER_LINKED: "Interlocuteur rattaché à une autre structure",
   CABINET_USER_INVITED: "Membre de l’équipe EODA invité",
